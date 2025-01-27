@@ -8,7 +8,7 @@ A modern, full-stack RSPS built with a microservice architecture, designed for s
 
 This repository is a comprehensive application built using modern development technologies and best practices. It leverages:
 
-- **ASP.NET Core 9** 
+- **ASP.NET Core** 
 - **Docker**
 - **Kubernetes**
 - **Masstransit**
@@ -19,6 +19,8 @@ This repository is a comprehensive application built using modern development te
 - **MySQL**
 - **Swagger/OpenAPI**
 - **Refit**
+- **Redis**
+- **FusionCache**
 - **Scrutor**
 - **YARP**
 
@@ -30,6 +32,7 @@ This repository is a comprehensive application built using modern development te
 - **API Documentation**: Interactive documentation with Swagger/OpenAPI.
 - **Resilience**: Using Polly for transient-fault handling.
 - **Type-safe APIs**: With Refit for clean HTTP client integration.
+- Caching: Optimized with Redis and FusionCache.
 - **Containerization**: Fully containerized for portability using Docker and Kubernetes.
 - **Dynamic Proxying**: Achieved through YARP.
 
