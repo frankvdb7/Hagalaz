@@ -2,7 +2,7 @@
 
 A modern, full-stack RSPS built with a microservice architecture, designed for scalability and maintainability.
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)  
+[![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)  
 
 ## Description
 
@@ -21,6 +21,7 @@ This repository is a comprehensive application built using modern development te
 - **Refit**
 - **Redis**
 - **FusionCache**
+- **Elasticsearch**
 - **Scrutor**
 - **YARP**
 
@@ -32,7 +33,8 @@ This repository is a comprehensive application built using modern development te
 - **API Documentation**: Interactive documentation with Swagger/OpenAPI.
 - **Resilience**: Using Polly for transient-fault handling.
 - **Type-safe APIs**: With Refit for clean HTTP client integration.
-- Caching: Optimized with Redis and FusionCache.
+- **Caching**: Optimized with Redis and FusionCache.
+- **Search & Analytics**: Enhanced with Elasticsearch.
 - **Containerization**: Fully containerized for portability using Docker and Kubernetes.
 - **Dynamic Proxying**: Achieved through YARP.
 
@@ -52,10 +54,10 @@ Contributions are welcome! Please fork the repository and submit a pull request.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
 
 ## Contact
 
-- **Author**: Frank vdb
+- **Author**: Frank
 - **GitHub**: [frankvdb7](https://github.com/frankvdb7)
 
