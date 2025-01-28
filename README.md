@@ -8,7 +8,8 @@ A modern, full-stack RSPS built with a microservice architecture, designed for s
 
 This repository is a comprehensive application built using modern development technologies and best practices. It leverages:
 
-- **ASP.NET Core** 
+- **ASP.NET Core**
+- **.NET Aspire**
 - **Docker**
 - **Kubernetes**
 - **Masstransit**
@@ -40,7 +41,8 @@ This repository is a comprehensive application built using modern development te
 
 ## Prerequisites
 
-- [.NET SDK](https://dotnet.microsoft.com/download) (v9)
+- [.NET SDK](https://dotnet.microsoft.com/download)
+- [.NET Aspire](https://learn.microsoft.com/en-us/dotnet/aspire/)
 - [Docker](https://www.docker.com/)
 - [Kubernetes](https://kubernetes.io/) or a local cluster (e.g., Minikube or Docker Desktop)
 
