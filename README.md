@@ -2,6 +2,8 @@
 
 A modern, full-stack RSPS built with a microservice architecture, designed for scalability and maintainability.
 
+Hagalaz means "hail" in Proto-Germanic and represents natural disruption and transformation. Symbolizing the uncontrollable forces of nature, it signifies unexpected challenges that lead to growth and renewal.
+
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)  
 
 ## Description
