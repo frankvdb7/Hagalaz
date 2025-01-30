@@ -24,7 +24,7 @@ This repository is a comprehensive application built using modern development te
 - **Refit**
 - **Redis**
 - **FusionCache**
-- **Elasticsearch**
+- **OpenTelemetry**
 - **Scrutor**
 - **YARP**
 
@@ -37,7 +37,7 @@ This repository is a comprehensive application built using modern development te
 - **Resilience**: Using Polly for transient-fault handling.
 - **Type-safe APIs**: With Refit for clean HTTP client integration.
 - **Caching**: Optimized with Redis and FusionCache.
-- **Search & Analytics**: Enhanced with Elasticsearch.
+- **Telemetry & Analytics**: Standarized with OpenTelemetry.
 - **Containerization**: Fully containerized for portability using Docker and Kubernetes.
 - **Dynamic Proxying**: Achieved through YARP.
 
