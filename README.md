@@ -15,7 +15,7 @@ This repository is a comprehensive application built using modern development te
 - **Docker**
 - **Kubernetes**
 - **Masstransit**
-- **RabitMQ**
+- **RabbitMQ**
 - **OpenIddict**
 - **Polly**
 - **FluentResults**
