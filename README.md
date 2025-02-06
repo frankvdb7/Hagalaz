@@ -43,12 +43,17 @@ This repository is a comprehensive application built using modern development te
 
 ## Prerequisites
 
+- Valid RSPS Cache (placed in /Cache)
+- Valid RSPS Client
 - [.NET SDK](https://dotnet.microsoft.com/download)
 - [.NET Aspire](https://learn.microsoft.com/en-us/dotnet/aspire/)
 - [Docker](https://www.docker.com/)
 - [Kubernetes](https://kubernetes.io/) or a local cluster (e.g., Minikube or Docker Desktop)
 
 ## Getting Started
+
+- Run / Debug the Hagalaz.AppHost project to let .NET Aspire start and orchestrate the required services in Docker locally.
+- Deploy the Hagalaz.AppHost project with .NET Aspire and Aspirate to a remote Kubernetes cluster or locally (e.g., Minkube or Docker)
 
 ## Contributing
 
