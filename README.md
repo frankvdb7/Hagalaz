@@ -43,8 +43,8 @@ This repository is a comprehensive application built using modern development te
 
 ## Prerequisites
 
-- Valid RSPS Cache (placed in /Cache)
-- Valid RSPS Client
+- RSPS Cache (placed in /Cache)
+- RSPS Client
 - [.NET SDK](https://dotnet.microsoft.com/download)
 - [.NET Aspire](https://learn.microsoft.com/en-us/dotnet/aspire/)
 - [Docker](https://www.docker.com/)
