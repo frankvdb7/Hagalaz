@@ -1,0 +1,86 @@
+@use "../../../styling";
+@use "sass:map";
+@use "sass:color";
+
+.toolbar {
+    // TODO - tweak this
+    &::after {
+        content: "";
+        @apply absolute inset-0 -z-10;
+
+        @include styling.glass-style($backdrop: true, $border-radius: false, $background-color: var(--sys-surface));
+
+        @media (screen(md)) {
+            @apply left-1/4 right-1/4;
+            mask: linear-gradient(to right, transparent, theme("colors.black") 33%, theme("colors.black") 66%, transparent);
+        }
+    }
+}
+
+.logo {
+    &.play {
+        #Text {
+            transform-origin: center;
+            animation: text-shake 500ms ease;
+        }
+
+        #Lightning {
+            animation: lightning-strike 500ms ease;
+        }
+    }
+}
+
+@keyframes lightning-strike {
+    25% {
+        transform: translate3d(0, -250%, 0);
+    }
+    50% {
+        filter: none;
+        transform: scale(1.05) rotate(1deg);
+    }
+    60% {
+        filter: brightness(2) drop-shadow(0 0 5px white);
+        transform: scale(1.25) rotate(0deg);
+    }
+    70% {
+        transform: scale(1.2) rotate(-1deg);
+    }
+    75% {
+        transform: translate3d(0, 12.5%, 0);
+    }
+    80% {
+        transform: scale(1.1) rotate(0deg);
+    }
+    90% {
+        transform: rotate(1deg);
+    }
+    0%,
+    100% {
+        filter: none;
+        transform: none;
+    }
+}
+
+@keyframes text-shake {
+    60% {
+        filter: blur(2px);
+        opacity: 90%;
+        transform: translate(-3px, 1px) rotate(0deg);
+    }
+    70% {
+        transform: translate(3px, 1px) rotate(-1deg);
+    }
+    80% {
+        transform: translate(-1px, -1px) rotate(1deg);
+    }
+    90% {
+        transform: translate(1px, 2px) rotate(0deg);
+        opacity: 100%;
+    }
+    50%,
+    100% {
+        opacity: 100%;
+        filter: none;
+        transform: none;
+    }
+}

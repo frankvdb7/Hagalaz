@@ -1,0 +1,11 @@
+@use "../styling";
+
+@mixin sidenav-theme($theme) {
+    .mat-drawer {
+        @include styling.glass-style();
+    }
+
+    .mat-drawer-container {
+        background: none;
+    }
+}

@@ -1,0 +1,20 @@
+<div class="container mx-auto grid auto-rows-min grid-cols-8 gap-4">
+    <mat-card class="col-span-2 flex flex-col gap-4 p-4">
+        <div class="flex flex-row items-center justify-center">
+            <span class="mat-headline-5 m-0 text-2xl">
+                {{ store.username() }}
+            </span>
+        </div>
+        <mat-divider></mat-divider>
+        <div>
+            @for (link of links; track link.url) {
+                <a mat-button routerLinkActive [routerLink]="link.url" #rla="routerLinkActive" [color]="rla.isActive ? 'primary' : undefined" class="w-full">
+                    {{ link.label }}
+                </a>
+            }
+        </div>
+    </mat-card>
+    <div class="relative col-span-6">
+        <router-outlet #o="outlet"></router-outlet>
+    </div>
+</div>

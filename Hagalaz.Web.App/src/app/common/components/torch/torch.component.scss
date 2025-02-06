@@ -1,0 +1,80 @@
+@use "sass:math";
+
+$fireColor: rgb(255, 80, 0);
+$fireColorT: rgba(255, 80, 0, 0);
+$dur: 1.5s;
+$blur: 0.05rem;
+$fireRad: 3rem;
+$parts: 42;
+$partSize: 6rem;
+
+:host {
+    @apply relative flex;
+}
+
+.torch-container {
+    @apply relative flex flex-auto flex-col;
+    // &::before {
+    //     animation: glowing 2s linear infinite;
+    //     @apply rounded-full opacity-50;
+    //     //box-shadow: 0 0 200px #0a51a0 inset;
+    //     width: 700px;
+    //     height: 700px;
+    //     content: "";
+    //     background: radial-gradient(ellipse at center, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0) 66%);
+    // }
+}
+
+.torch {
+    @apply relative -z-10 flex-auto opacity-75 brightness-75;
+}
+
+.fire {
+    @apply relative z-10 -mb-8 flex-auto self-center;
+    filter: blur($blur);
+}
+
+.particle {
+    animation: rise $dur ease-in infinite;
+    background-image: radial-gradient($fireColor 20%, $fireColorT 70%);
+    border-radius: 50%;
+    mix-blend-mode: screen;
+    opacity: 0;
+    position: absolute;
+    bottom: 0;
+    width: $partSize;
+    height: $partSize;
+    // spread particles out in time and x-position to get desired effect
+    @for $p from 1 through $parts {
+        &:nth-of-type(#{$p}) {
+            animation-delay: $dur * random();
+            left: calc((100% - #{$partSize}) * #{math.div($p - 1, $parts)});
+        }
+    }
+}
+
+@keyframes glowing {
+    from {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 0.9;
+    }
+    to {
+        opacity: 0.5;
+    }
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(0) scale(1);
+    }
+    25% {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-10em) scale(0);
+    }
+}

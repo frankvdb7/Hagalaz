@@ -1,0 +1,16 @@
+.drag-region {
+    -webkit-app-region: drag;
+}
+
+.no-drag-region {
+    -webkit-app-region: no-drag;
+}
+
+.title-bar-button {
+    @extend .no-drag-region;
+    @apply h-8 min-w-min rounded-none px-4 leading-8;
+
+    .mat-icon {
+        @apply m-0 h-4 w-4 text-xs;
+    }
+}

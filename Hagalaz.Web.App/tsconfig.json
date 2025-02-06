@@ -1,0 +1,46 @@
+{
+    "compileOnSave": false,
+    "compilerOptions": {
+        "baseUrl": "./",
+        "forceConsistentCasingInFileNames": true,
+        "noImplicitThis": true,
+        "esModuleInterop": true,
+        "noImplicitReturns": true,
+        "strict": true,
+        "outDir": "./dist/out-tsc",
+        "sourceMap": false,
+        "inlineSourceMap": false,
+        "declaration": false,
+        "moduleResolution": "node",
+        "experimentalDecorators": true,
+        "importHelpers": true,
+        "target": "ES2022",
+        "isolatedModules": true,
+        "paths": {
+            "@app/*": ["./src/app/*"],
+            "@environment/*": ["./src/environments/*"],
+            "@testing/*": ["./src/testing/*"]
+        },
+        "lib": ["es2022", "dom"],
+        "module": "es2022"
+    },
+    "angularCompilerOptions": {
+        "fullTemplateTypeCheck": true,
+        "strictInjectionParameters": true,
+        "strictInputTypes": true,
+        "strictInputAccessModifiers": true,
+        "strictNullInputTypes": true,
+        "strictAttributeTypes": true,
+        "strictSafeNavigationTypes": true,
+        "strictDomLocalRefTypes": true,
+        "strictOutputEventTypes": true,
+        "strictDomEventTypes": true,
+        "strictContextGenerics": true,
+        "strictLiteralTypes": true,
+        "strictTemplates": true,
+        "preserveWhitespaces": true,
+        "extendedDiagnostics": {
+            "defaultCategory": "error"
+        }
+    }
+}

@@ -1,0 +1,127 @@
+﻿using System.Collections.Generic;
+using Hagalaz.Configuration;
+using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
+using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Model;
+using Hagalaz.Game.Model.Combat;
+using Hagalaz.Game.Resources;
+using Hagalaz.Game.Scripts.Model.Items;
+
+namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
+{
+    /// <summary>
+    /// </summary>
+    public class GraniteMaul : EquipmentScript
+    {
+        /// <summary>
+        ///     Perform's special attack to victim.
+        /// </summary>
+        /// <param name="item">Weapon item instance.</param>
+        /// <param name="attacker">Attacker character.</param>
+        /// <param name="victim">Victim creature.</param>
+        public override void PerformSpecialAttack(IItem item, ICharacter attacker, ICreature victim)
+        {
+            RenderAttack(item, attacker, true);
+
+            var combat = (ICharacterCombat)attacker.Combat;
+            var hit = combat.GetMeleeDamage(victim, true);
+            var standartMax = combat.GetMeleeMaxHit(victim, false);
+            combat.PerformSoulSplit(victim, hit);
+            hit = victim.Combat.IncomingAttack(attacker, DamageType.FullMelee, hit, 0);
+            combat.AddMeleeExperience(hit);
+            var soak = -1;
+            hit = victim.Combat.Attack(attacker, DamageType.FullMelee, hit, ref soak);
+
+            var splat = new HitSplat(attacker);
+            splat.SetFirstSplat(hit <= 0 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, hit <= 0 ? 0 : hit, standartMax <= hit);
+            if (soak != -1)
+            {
+                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
+            }
+
+            victim.QueueHitSplat(splat);
+        }
+
+        /// <summary>
+        ///     Happens when specific character clicks special bar ( which was not enabled ) on combat tab.
+        ///     By default this method does return true if weapon is special weapon.
+        /// </summary>
+        /// <param name="item">Weapon item instance.</param>
+        /// <param name="character">The character.</param>
+        /// <returns>
+        ///     If the bar should be enabled.
+        /// </returns>
+        public override bool SpecialBarEnableClicked(IItem item, ICharacter character)
+        {
+            if (character.Combat.Target == null)
+            {
+                return true;
+            }
+
+            var requiredEnergyAmount = GetRequiredSpecialEnergyAmount(item, character);
+            var gameMediator = character.Mediator;
+            if (character.Statistics.SpecialEnergy < requiredEnergyAmount)
+            {
+                character.SendChatMessage(GameStrings.NotEnoughSpecialEnergy);
+                gameMediator.Publish(new ProfileSetBoolAction(ProfileConstants.CombatSettingsSpecialAttack, false));
+                return false;
+            }
+
+            character.Statistics.DrainSpecialEnergy(requiredEnergyAmount);
+            gameMediator.Publish(new ProfileSetBoolAction(ProfileConstants.CombatSettingsSpecialAttack, false));
+            PerformSpecialAttack(item, character, character.Combat.Target);
+            character.Combat.OnAttackPerformed(character.Combat.Target);
+            return false;
+        }
+
+        /// <summary>
+        ///     Render's this weapon attack.
+        /// </summary>
+        public override void RenderAttack(IItem item, ICharacter animator, bool specialAttack)
+        {
+            if (specialAttack)
+            {
+                animator.QueueAnimation(Animation.Create(1667));
+                animator.QueueGraphic(Graphic.Create(340));
+            }
+            else
+            {
+                base.RenderAttack(item, animator, specialAttack);
+            }
+        }
+
+        /// <summary>
+        ///     Get's amount of special energy required by this weapon.
+        ///     By default , this method does throw NotImplementedException
+        /// </summary>
+        /// <param name="item">Weapon item instance.</param>
+        /// <param name="attacker">Attacker character.</param>
+        /// <returns>
+        ///     System.Int16.
+        /// </returns>
+        public override int GetRequiredSpecialEnergyAmount(IItem item, ICharacter attacker) => 500;
+
+        /// <summary>
+        ///     Happens when this item is equiped.
+        /// </summary>
+        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.GraniteMaulEquiped, int.MaxValue));
+
+        /// <summary>
+        ///     Happens when this item is unequiped.
+        /// </summary>
+        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.GraniteMaulEquiped);
+
+        /// <summary>
+        ///     Get's items for which this script is made.
+        /// </summary>
+        /// <returns>
+        ///     Return's array of item ids for which this script is suitable.
+        /// </returns>
+        public override IEnumerable<int>  GetSuitableItems() => [4153];
+    }
+}

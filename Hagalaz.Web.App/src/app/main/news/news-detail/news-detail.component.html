@@ -1,0 +1,28 @@
+<div class="container m-auto flex flex-col gap-4 py-4">
+    @let news = this.item();
+    <app-card-title>
+        <span title>{{ news.title }}</span>
+        <span content
+            >Posted by <a class="text-primary underline" [routerLink]="'/profile/storm'">{{ news.author }}</a> • {{ news.created | dateAgo }}
+        </span>
+    </app-card-title>
+    <mat-card class="relative min-h-96 overflow-hidden">
+        <mat-card-header>
+            <!-- <div mat-card-avatar class="relative bg-black bg-opacity-25">
+                <img class="p-1" ngSrc="/assets/icons/logo.svg" alt="Author avatar" fill priority />
+            </div>
+            <mat-card-title class="drop-shadow-sm">{{ news.title }}</mat-card-title>
+            <mat-card-subtitle class="drop-shadow-sm">Posted by {{ news.author }} • {{ news.created | dateAgo }}</mat-card-subtitle> -->
+        </mat-card-header>
+        <mat-card-content class="flex-grow break-all drop-shadow-sm" [innerHTML]="content()"></mat-card-content>
+        <mat-card-footer class="flex p-4">
+            <button mat-button (click)="sharePage()">SHARE</button>
+            <span class="flex-grow"></span>
+            <mat-chip-set>
+                @for (tag of news.tags; track tag) {
+                    <mat-chip highlighted>{{ tag }}</mat-chip>
+                }
+            </mat-chip-set>
+        </mat-card-footer>
+    </mat-card>
+</div>

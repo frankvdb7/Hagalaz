@@ -1,0 +1,291 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="BankFull" xml:space="preserve">
+    <value>Not enough space in your bank.</value>
+    <comment>Happens when the bank is full.</comment>
+  </data>
+  <data name="CantAddPlayer" xml:space="preserve">
+    <value>This player can't be added yet.</value>
+    <comment>This message is being used when someone tries to add player with #Player1414 or similar username.</comment>
+  </data>
+  <data name="CantTalkMuted" xml:space="preserve">
+    <value>You cannot talk, because you are muted.</value>
+    <comment>This message is being used when character tries to talk but it is muted.</comment>
+  </data>
+  <data name="Combat_SomeoneAttacking" xml:space="preserve">
+    <value>Someone is already attacking you.</value>
+    <comment>This message is being used when character tries to attack someone but the character itself is being attacked by other creatures.</comment>
+  </data>
+  <data name="Combat_SourceNeedPvPZone" xml:space="preserve">
+    <value>You must be in PvP zone to attack this target.</value>
+    <comment>This message is being used when character tries to attack someone but it is not in pvp or target is character and is not in pvp zone.</comment>
+  </data>
+  <data name="Combat_TargetAttacked" xml:space="preserve">
+    <value>Someone else is already fighting your opponent.</value>
+    <comment>This message is being used when character tries to attack some target , but the target is being attacked by other creatures.</comment>
+  </data>
+  <data name="Combat_VictimNeedPvPZone" xml:space="preserve">
+    <value>In order to attack this target, it needs to be in a PvP zone.</value>
+    <comment>This message is being used when character tries to attack target but the target is not in pvp zone.</comment>
+  </data>
+  <data name="FamiliarInventoryFull" xml:space="preserve">
+    <value>Not enough space in your familiars inventory.</value>
+    <comment>Happens when the familiars inventory is full.</comment>
+  </data>
+  <data name="FC_Kicked" xml:space="preserve">
+    <value>You've been kicked from the chat channel.</value>
+    <comment>This message is being used when character get's kicked from friends or clan chat channel.</comment>
+  </data>
+  <data name="Frozen" xml:space="preserve">
+    <value>You have been frozen.</value>
+    <comment>This message is being used when character get's frozen.</comment>
+  </data>
+  <data name="GroundItemGone" xml:space="preserve">
+    <value>Too late, it's already gone.</value>
+    <comment>This message is being used when character tries to take ground item but it's already gone.</comment>
+  </data>
+  <data name="InventoryFull" xml:space="preserve">
+    <value>Not enough space in your inventory.</value>
+    <comment>Happens when the inventory is full.</comment>
+  </data>
+  <data name="MagicalForceMovement" xml:space="preserve">
+    <value>A magical force prevents you from moving.</value>
+    <comment>This message is being used when some 'magical' force prevents character from moving.</comment>
+  </data>
+  <data name="MagicalForceTeleport" xml:space="preserve">
+    <value>A magical force prevents you from teleporting.</value>
+    <comment>This message is being used when some 'magical' force prevents character from teleporting.</comment>
+  </data>
+  <data name="MoneyPouchFull" xml:space="preserve">
+    <value>Not enough space in your money pouch.</value>
+    <comment>Happens when the money pouch is full.</comment>
+  </data>
+  <data name="NotEnoughSpecialEnergy" xml:space="preserve">
+    <value>Not enough special energy to perform this attack.</value>
+    <comment>This message is being used when character tries to perform special attack but doesn't have enough special energy.</comment>
+  </data>
+  <data name="NotEnoughSpecialMovePoints" xml:space="preserve">
+    <value>Not enough special move points to perform this attack.</value>
+    <comment>This message is being used when character tries to perform special attack but doesn't have enough special move points.</comment>
+  </data>
+  <data name="NothingInterestingHappens" xml:space="preserve">
+    <value>Nothing interesting happens.</value>
+    <comment>This message is being used in various places when character does perform nothing.</comment>
+  </data>
+  <data name="Poisoned" xml:space="preserve">
+    <value>You have been poisoned.</value>
+    <comment>This message is being used when character is poisoned.</comment>
+  </data>
+  <data name="PoisonWoreOff" xml:space="preserve">
+    <value>The poison wore off.</value>
+    <comment>This message is being used when character is no longer poisoned.</comment>
+  </data>
+  <data name="SelectAnOption" xml:space="preserve">
+    <value>Select an Option</value>
+    <comment>This message is being used for the options dialogue.</comment>
+  </data>
+  <data name="Stunned" xml:space="preserve">
+    <value>You're stunned.</value>
+    <comment>Happens when character tries to move but it is stunned.</comment>
+  </data>
+  <data name="TeleBlocked" xml:space="preserve">
+    <value>You have been tele blocked.</value>
+    <comment>This message is being used when character get's tele blocked.</comment>
+  </data>
+  <data name="YouCantReachThat" xml:space="preserve">
+    <value>You can't reach that.</value>
+    <comment>This message is being used in various places when character cannot reach specific things.</comment>
+  </data>
+  <data name="Combat_VictorKillMessage" xml:space="preserve">
+    <value>Combat_VictorKillMessage_</value>
+  </data>
+  <data name="Combat_VictorKillMessage_0" xml:space="preserve">
+    <value>With a crushing blow, you defeat {0}.</value>
+  </data>
+  <data name="Combat_VictorKillMessage_1" xml:space="preserve">
+    <value>It's a humiliating defeat for {0}.</value>
+  </data>
+  <data name="Combat_VictorKillMessage_2" xml:space="preserve">
+    <value>{0} didn't stand a chance against you.</value>
+  </data>
+  <data name="Combat_VictorKillMessage_3" xml:space="preserve">
+    <value>You have defeated {0}.</value>
+  </data>
+  <data name="Combat_VictorKillMessage_4" xml:space="preserve">
+    <value>It's all over for {0}.</value>
+  </data>
+  <data name="Combat_VictorKillMessage_5" xml:space="preserve">
+    <value>{0} regrets the day they met you in combat.</value>
+  </data>
+  <data name="Combat_VictorKillMessage_6" xml:space="preserve">
+    <value>{0} falls before your might.</value>
+  </data>
+  <data name="Combat_VictorKillMessage_7" xml:space="preserve">
+    <value>Can anyone defeat you? Certainly not {0}.</value>
+  </data>
+  <data name="Combat_VictorKillMessage_8" xml:space="preserve">
+    <value>You were clearly a better fighter than {0}.</value>
+  </data>
+  <data name="DragonBattleAxeSpecial" xml:space="preserve">
+    <value>Raarrrrrgggggghhhhhhh!</value>
+  </data>
+  <data name="DragonFireBurned" xml:space="preserve">
+    <value>You are horribly burned by the dragonfire!</value>
+    <comment>Happens when character is horribly burned.</comment>
+  </data>
+  <data name="DragonFireFully" xml:space="preserve">
+    <value>Your protection managed to resist all of the dragonfire.</value>
+    <comment>Happens when character is fully protected.</comment>
+  </data>
+  <data name="DragonFirePotionEffect" xml:space="preserve">
+    <value>Your resistance to dragonfire has run out.</value>
+    <comment>Happens when the dragon fire potion effect wears out.</comment>
+  </data>
+  <data name="DragonFirePotionEffectWarning" xml:space="preserve">
+    <value>Your resistance to dragonfire is about to run out.</value>
+    <comment>Happens when the dragon fire potion effect almost wears out.</comment>
+  </data>
+  <data name="DragonFirePrayer" xml:space="preserve">
+    <value>Your prayers manage to resist some of the dragonfire.</value>
+    <comment>Happens when character is protected by prayer.</comment>
+  </data>
+  <data name="DragonFireSome" xml:space="preserve">
+    <value>You manage to resist some of the dragonfire.</value>
+    <comment>Happens when character resists some of the dragon fire.</comment>
+  </data>
+  <data name="Injured" xml:space="preserve">
+    <value>You've been injured and can't use protection prayers!</value>
+    <comment>Happens when character get's injured.</comment>
+  </data>
+  <data name="PickCannonUp" xml:space="preserve">
+    <value>You pick up the cannon base from the ground...</value>
+  </data>
+  <data name="RingOfWealthEffect" xml:space="preserve">
+    <value>&lt;col=FF4000&gt;Your ring of wealth shines more brightly!&lt;/col&gt;</value>
+    <comment>Happens when the ring of wealth effect affects loot.</comment>
+  </data>
+  <data name="PlayerXDoesNotExist" xml:space="preserve">
+    <value>Player {0} does not exist.</value>
+    <comment>Mostly used for contacts</comment>
+  </data>
+  <data name="SomethingWentWrong" xml:space="preserve">
+    <value>Something went wrong.</value>
+  </data>
+</root>

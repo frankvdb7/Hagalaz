@@ -1,0 +1,103 @@
+// Custom Theming for Angular Material
+// For more information: https://material.angular.io/guide/theming
+@use "@angular/material" as mat;
+// Plus imports for other components in your app.
+@use "theming" as storm;
+@use "styling" as styling;
+
+// Tailwind
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// custom
+@include storm.core();
+
+$storm-theme: storm.$dark-theme;
+
+html {
+    @include mat.elevation-classes();
+    @include mat.app-background();
+    @include mat.button-theme($storm-theme);
+    @include mat.fab-theme($storm-theme);
+    @include mat.card-theme($storm-theme);
+    @include mat.toolbar-theme($storm-theme);
+    @include mat.tabs-theme($storm-theme);
+    @include mat.table-theme($storm-theme);
+    @include mat.progress-bar-theme($storm-theme);
+    @include mat.progress-spinner-theme($storm-theme);
+    @include mat.select-theme($storm-theme);
+    @include mat.form-field-theme($storm-theme);
+    @include mat.icon-theme($storm-theme);
+    @include mat.divider-theme($storm-theme);
+    @include mat.input-theme($storm-theme);
+    @include mat.paginator-theme($storm-theme);
+    @include mat.menu-theme($storm-theme);
+    @include mat.checkbox-theme($storm-theme);
+    @include mat.list-theme($storm-theme);
+    @include mat.chips-theme($storm-theme);
+    @include mat.system-level-colors($storm-theme);
+    @include mat.system-level-typography($storm-theme);
+
+    @include storm.core-theme($storm-theme);
+    @include storm.button-theme($storm-theme);
+    @include storm.card-theme($storm-theme);
+    @include storm.toolbar-theme($storm-theme);
+    @include storm.table-theme($storm-theme);
+    @include storm.paginator-theme($storm-theme);
+    @include storm.select-theme($storm-theme);
+    @include storm.overlay-theme($storm-theme);
+    @include storm.input-theme($storm-theme);
+    @include storm.tab-theme($storm-theme);
+    @include storm.progress-theme($storm-theme);
+    @include storm.menu-theme($storm-theme);
+    @include storm.icon-theme($storm-theme);
+
+    // typhography
+    @include storm.material-icons();
+    @include storm.semplicita-pro();
+    // TODO fix the typography
+    @include mat.typography-hierarchy($storm-theme);
+}
+
+@layer base {
+    a,
+    svg,
+    button {
+        &:focus {
+            outline: none;
+        }
+    }
+
+    svg {
+        display: initial;
+        vertical-align: initial;
+    }
+
+    .container {
+        @apply transition-max-width;
+    }
+}
+
+@layer components {
+    .glass {
+        @include styling.glass-style();
+    }
+}
+
+/* Overlayscrollbars */
+
+html {
+    [data-overlayscrollbars-viewport] {
+        display: inherit;
+        flex-direction: inherit;
+    }
+
+    .os-scrollbar {
+        --os-handle-bg: var(--sys-surface-container-high);
+        --os-handle-bg-hover: var(--sys-surface-container-highest);
+        --os-handle-bg-active: var(--sys-surface-container-highest);
+    }
+}
+
+@import "overlayscrollbars/overlayscrollbars.css";

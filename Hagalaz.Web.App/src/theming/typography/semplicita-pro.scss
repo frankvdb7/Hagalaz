@@ -1,0 +1,34 @@
+@mixin semplicita-pro() {
+    @font-face {
+        font-family: "Semplicita Pro";
+        src:
+            local("Semplicita Pro Regular"),
+            local("SemplicitaPro-Regular"),
+            url("/assets/fonts/SemplicitaPro-Regular.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+    }
+
+    @font-face {
+        font-family: "Semplicita Pro";
+        src:
+            local("Semplicita Pro Medium"),
+            local("SemplicitaPro-Medium"),
+            url("/assets/fonts/SemplicitaPro-Medium.woff2") format("woff2");
+        font-weight: 500;
+        font-style: normal;
+        font-display: swap;
+    }
+
+    @font-face {
+        font-family: "Semplicita Pro";
+        src:
+            local("Semplicita Pro Bold"),
+            local("SemplicitaPro-Bold"),
+            url("/assets/fonts/SemplicitaPro-Bold.woff2") format("woff2");
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+    }
+}

@@ -1,0 +1,96 @@
+@use "sass:color";
+@use "sass:map";
+@use "@angular/material" as mat;
+
+@mixin core() {
+    html,
+    body {
+        @apply h-full;
+    }
+
+    .mat-app-background {
+        // this overrides scrollbar
+        // &::before {
+        //     content: "";
+        //     position: absolute;
+        //     inset: 0;
+        //     background-image: radial-gradient(ellipse at top, transparent, rgba(0, 0, 0, 1) 77.5%), url("/assets/images/bg.jpg");
+        //     background-attachment: scroll;
+        //     background-size: cover;
+
+        //     opacity: 0.775;
+        //     // filter: brightness(1) contrast(1); __<<ngM2ThemingMigrationEscapedComment0>>__
+        //     // animation: lightning ease-out 7s infinite; __<<ngM2ThemingMigrationEscapedComment1>>__
+        //     // animation-delay: 2s;
+        // }
+    }
+
+    // @keyframes lightning {
+    //     from {
+    //         filter: brightness(1) contrast(1); /* Start with dimmed and low contrast */
+    //     }
+    //     92% {
+    //         filter: brightness(1) contrast(1); /* Maintain the effect */
+    //     }
+    //     93% {
+    //         filter: brightness(1.5) contrast(1.1); /* Increase brightness and contrast */
+    //     }
+    //     94% {
+    //         filter: brightness(1.1) contrast(1.1); /* Intense brightness and contrast */
+    //     }
+    //     96% {
+    //         filter: brightness(1.5) contrast(1.1); /* Maintain the effect */
+    //     }
+    //     to {
+    //         filter: brightness(1) contrast(1); /* Return to original */
+    //     }
+    // }
+
+    @screen md {
+        ::-webkit-scrollbar {
+            @apply z-10 w-4;
+        }
+
+        ::-webkit-scrollbar-track {
+            @apply rounded;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            @apply bg-surface-container-high rounded border-4 border-solid border-transparent bg-clip-content;
+
+            &:hover {
+                @apply bg-surface-container-highest;
+            }
+        }
+    }
+
+    iframe {
+        color-scheme: auto;
+    }
+
+    ::selection {
+        color: theme("colors.on-secondary");
+        background-color: theme("colors.secondary");
+    }
+
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    textarea:-webkit-autofill,
+    textarea:-webkit-autofill:hover,
+    textarea:-webkit-autofill:focus,
+    select:-webkit-autofill,
+    select:-webkit-autofill:hover,
+    select:-webkit-autofill:focus {
+        -webkit-text-fill-color: currentColor;
+        -webkit-box-shadow: 0 0 0 1em transparent inset;
+        transition: background-color 9999s ease-in-out 0s;
+    }
+}
+
+@mixin core-theme($theme) {
+    & {
+        color-scheme: dark;
+        accent-color: theme("colors.primary");
+    }
+}

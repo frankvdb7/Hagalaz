@@ -1,0 +1,4 @@
+{
+    "extends": "./tsconfig.launcher.json",
+    "files": ["src/launcher/preload.ts"]
+}

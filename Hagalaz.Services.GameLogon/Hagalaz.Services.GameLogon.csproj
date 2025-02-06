@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>357c8d95-f9a9-482d-b4be-c3b3dca0f26e</UserSecretsId>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="MassTransit" Version="8.3.5" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.5" />
+    <PackageReference Include="System.Linq.Async" Version="6.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Collections\Hagalaz.Collections.csproj" />
+    <ProjectReference Include="..\Hagalaz.Data.Extensions\Hagalaz.Data.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Services.Extensions\Hagalaz.Services.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Data\Hagalaz.Data.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Messages\Hagalaz.Game.Messages.csproj" />
+    <ProjectReference Include="..\Hagalaz.Hosting.Extensions\Hagalaz.Hosting.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Services.Common\Hagalaz.Services.Common.csproj" />
+  </ItemGroup>
+</Project>

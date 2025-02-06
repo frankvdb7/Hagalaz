@@ -1,0 +1,20 @@
+@use "@angular/material" as mat;
+
+@mixin glass-style($backdrop: true, $border-radius: true, $background-opacity: 0.75, $background-color: var(--sys-surface)) {
+    @if ($backdrop) {
+        @apply backdrop-blur-lg backdrop-saturate-200;
+    }
+    @if ($border-radius) {
+        @apply rounded;
+    }
+    background-color: color-mix(in srgb, $background-color 75%, transparent 25%);
+}
+
+@mixin glass-hover-style($background-opacity: 0.75) {
+    @apply transition-colors;
+
+    &:hover {
+        @apply bg-zinc-800;
+        --tw-bg-opacity: #{$background-opacity};
+    }
+}

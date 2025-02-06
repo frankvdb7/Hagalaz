@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="MassTransit" Version="8.3.5" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.5" />
+    <PackageReference Include="System.Linq.Async" Version="6.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Authorization.Messages\Hagalaz.Authorization.Messages.csproj" />
+    <ProjectReference Include="..\Hagalaz.Collections\Hagalaz.Collections.csproj" />
+    <ProjectReference Include="..\Hagalaz.Configuration\Hagalaz.Configuration.csproj" />
+    <ProjectReference Include="..\Hagalaz.Contacts.Messages\Hagalaz.Contacts.Messages.csproj" />
+    <ProjectReference Include="..\Hagalaz.Data.Extensions\Hagalaz.Data.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Data\Hagalaz.Data.csproj" />
+    <ProjectReference Include="..\Hagalaz.Exceptions\Hagalaz.Exceptions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Configuration\Hagalaz.Game.Configuration.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Messages\Hagalaz.Game.Messages.csproj" />
+    <ProjectReference Include="..\Hagalaz.ServiceDefaults\Hagalaz.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Hagalaz.Services.Common\Hagalaz.Services.Common.csproj" />
+    <ProjectReference Include="..\Hagalaz.Text.Json\Hagalaz.Text.Json.csproj" />
+  </ItemGroup>
+</Project>

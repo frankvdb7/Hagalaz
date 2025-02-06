@@ -1,0 +1,111 @@
+﻿using System.Collections.Generic;
+using System.Linq;
+using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Model;
+using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Utilities;
+
+namespace Hagalaz.Game.Scripts.Equipment.Void
+{
+    /// <summary>
+    ///     Contains void knight script.
+    /// </summary>
+    public class VoidKnight : EquipmentScript
+    {
+        /// <summary>
+        ///     The VOIDGLOVES
+        /// </summary>
+        public static readonly int Voidgloves = 8842;
+
+        /// <summary>
+        ///     The VOIDMAGEHELM
+        /// </summary>
+        public static readonly int Voidmagehelm = 11663;
+
+        /// <summary>
+        ///     The VOIDRANGERHELM
+        /// </summary>
+        public static readonly int Voidrangerhelm = 11664;
+
+        /// <summary>
+        ///     The VOIDMELEEHELM
+        /// </summary>
+        public static readonly int Voidmeleehelm = 11665;
+
+        /// <summary>
+        ///     The VOIDTOP
+        /// </summary>
+        public static readonly int[] Voidtop = [8839, 19785];
+
+        /// <summary>
+        ///     The VOIDROBE
+        /// </summary>
+        public static readonly int[] Voidrobe = [8840, 19786];
+
+        /// <summary>
+        ///     Called when [equiped].
+        /// </summary>
+        /// <param name="item">The item.</param>
+        /// <param name="character">The character.</param>
+        public override void OnEquiped(IItem item, ICharacter character)
+        {
+            var legs = character.Equipment[EquipmentSlot.Legs];
+            var chest = character.Equipment[EquipmentSlot.Chest];
+            var hands = character.Equipment[EquipmentSlot.Hands];
+            var hat = character.Equipment[EquipmentSlot.Hat];
+            if (legs == null || chest == null || hands == null || hat == null)
+            {
+                return;
+            }
+
+            if (!Voidrobe.Contains(legs.Id) || !Voidtop.Contains(chest.Id) || hands.Id != Voidgloves)
+            {
+                return;
+            }
+
+            if (hat.Id == Voidmagehelm)
+            {
+                character.AddState(new State(StateType.VoidMagicEquiped, int.MaxValue));
+            }
+            else if (hat.Id == Voidrangerhelm)
+            {
+                character.AddState(new State(StateType.VoidRangedEquiped, int.MaxValue));
+            }
+            else if (hat.Id == Voidmeleehelm)
+            {
+                character.AddState(new State(StateType.VoidMeleeEquiped, int.MaxValue));
+            }
+        }
+
+        /// <summary>
+        ///     Called when [unequiped].
+        /// </summary>
+        /// <param name="item">The item.</param>
+        /// <param name="character">The character.</param>
+        public override void OnUnequiped(IItem item, ICharacter character)
+        {
+            if (item.Id == Voidmagehelm)
+            {
+                character.RemoveState(StateType.VoidMagicEquiped);
+            }
+            else if (item.Id == Voidrangerhelm)
+            {
+                character.RemoveState(StateType.VoidRangedEquiped);
+            }
+            else if (item.Id == Voidmeleehelm)
+            {
+                character.RemoveState(StateType.VoidMeleeEquiped);
+            }
+        }
+
+        /// <summary>
+        ///     Gets the suitable items.
+        /// </summary>
+        /// <returns></returns>
+        public override IEnumerable<int> GetSuitableItems() => ArrayUtilities.MakeArray(Voidtop, Voidrobe, [Voidgloves, Voidmagehelm, Voidmeleehelm, Voidrangerhelm
+        ]);
+    }
+}

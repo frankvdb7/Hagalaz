@@ -1,0 +1,16 @@
+@use "../../../../styling";
+
+:host {
+    @apply flex min-h-40 flex-col;
+    .mat-mdc-card {
+        @include styling.glass-hover-style();
+    }
+}
+
+.info-container {
+    text-shadow: black 0 0 1em;
+}
+
+.thumbnail {
+    mask-image: linear-gradient(to top, transparent, black);
+}

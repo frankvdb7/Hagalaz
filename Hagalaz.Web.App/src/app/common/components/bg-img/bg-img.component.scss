@@ -1,0 +1,7 @@
+:host {
+    display: block;
+}
+
+.bg-fade {
+    background: radial-gradient(circle at top, transparent 0%, theme("colors.background") 80%);
+}

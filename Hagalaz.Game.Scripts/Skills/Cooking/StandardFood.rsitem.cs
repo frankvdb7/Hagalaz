@@ -1,0 +1,90 @@
+﻿using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Model.Widgets;
+using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Common.Events.Character;
+using Hagalaz.Game.Model;
+using Hagalaz.Game.Model.Items;
+using Hagalaz.Game.Scripts.Model.Items;
+
+namespace Hagalaz.Game.Scripts.Skills.Cooking
+{
+    /// <summary>
+    ///     Standard food item script.
+    /// </summary>
+    public class StandardFood : ItemScript
+    {
+        private readonly ICookingService _cookingService;
+
+        public StandardFood(ICookingService cookingService)
+        {
+            _cookingService = cookingService;
+        }
+
+        /// <summary>
+        ///     Happens when character clicks specific item in inventory.
+        /// </summary>
+        public override void ItemClickedInInventory(ComponentClickType clickType, IItem item, ICharacter character)
+        {
+            if (clickType != ComponentClickType.LeftClick)
+            {
+                base.ItemClickedInInventory(clickType, item, character);
+                return;
+            }
+
+            if (new EatAllowEvent(character, item).Send())
+            {
+                if (character.HasState(StateType.Stun) || character.HasState(StateType.Eating))
+                {
+                    return;
+                }
+
+                character.Interrupt(this);
+                character.QueueTask(() => EatFood(character, item));
+            }
+        }
+
+        /// <summary>
+        ///     Eats the food.
+        /// </summary>
+        /// <param name="character">The character.</param>
+        /// <param name="item">The item.</param>
+        public async Task EatFood(ICharacter character, IItem item)
+        {
+            var definition = await _cookingService.FindFoodById(item.Id);
+            if (definition == null)
+            {
+                return;
+            }
+
+            var slot = character.Inventory.GetInstanceSlot(item);
+            if (slot == -1)
+            {
+                return;
+            }
+
+            if (definition.LeftItemId != -1)
+            {
+                character.Inventory.Replace(slot, new Item(definition.LeftItemId, 1));
+            }
+            else
+            {
+                character.Inventory.Remove(item, slot);
+            }
+
+            character.AddState(new State(StateType.Eating, definition.EatingTime - 1, () => character.SendChatMessage("It restores some life points.")));
+            character.QueueAnimation(Animation.Create(829));
+            character.SendChatMessage("You eat the " + item.ItemDefinition.Name + ".");
+            var maxAmount = character.Statistics.GetMaximumLifePoints();
+            if (definition.ItemId == 15272)
+            {
+                maxAmount += 100;
+            }
+
+            character.Statistics.HealLifePoints(definition.HealAmount, maxAmount);
+        }
+    }
+}

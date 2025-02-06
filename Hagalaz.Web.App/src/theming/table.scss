@@ -1,0 +1,5 @@
+@mixin table-theme($theme) {
+    .mat-mdc-table {
+        @apply bg-transparent;
+    }
+}

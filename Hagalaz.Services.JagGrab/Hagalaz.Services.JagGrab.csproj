@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <UserSecretsId>5a77f4bd-cdd1-4786-bdbe-6e21e566319f</UserSecretsId>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Hosting.Extensions\Hagalaz.Hosting.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Services.Common\Hagalaz.Services.Common.csproj" />
+  </ItemGroup>
+</Project>

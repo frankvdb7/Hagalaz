@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Hagalaz</title>
+        <base href="/" />
+        <meta name="description" content="The best RSPS." />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'self'; style-src 'self' 'unsafe-inline' hcaptcha.com *.hcaptcha.com; script-src 'self' 'unsafe-inline' hcaptcha.com *.hcaptcha.com; img-src 'self' 'unsafe-inline' data:; frame-src 'self' hcaptcha.com *.hcaptcha.com; connect-src 'self' hcaptcha.com *.hcaptcha.com"
+        />
+        <style>
+            body,
+            html {
+                margin: 0;
+                height: 100%;
+                overflow: hidden;
+                background-color: #303030;
+            }
+
+            .loader {
+                width: 48rem;
+                height: 100%;
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                color: #ffb300;
+            }
+
+            @keyframes lightning-strike {
+                0%,
+                100% {
+                    scale: 1;
+                    filter: brightness(1);
+                }
+                10% {
+                    scale: 1.5;
+                    filter: brightness(3.5);
+                }
+                20% {
+                    scale: 1;
+                    filter: brightness(1);
+                }
+                30% {
+                    scale: 1.5;
+                    filter: brightness(2);
+                }
+                40% {
+                    scale: 1;
+                    filter: brightness(1);
+                }
+                50% {
+                    scale: 1.5;
+                    filter: brightness(2);
+                }
+                60% {
+                    scale: 1;
+                    filter: brightness(1);
+                }
+                70% {
+                    scale: 1.5;
+                    filter: brightness(2);
+                }
+                80% {
+                    scale: 1;
+                    filter: brightness(1);
+                }
+                90% {
+                    scale: 1.5;
+                    filter: brightness(2);
+                }
+            }
+
+            @keyframes fade-in {
+                0% {
+                    opacity: 0;
+                }
+                100% {
+                    opacity: 1;
+                }
+            }
+
+            @keyframes rotate {
+                0% {
+                    rotate: 0deg;
+                }
+                10% {
+                    rotate: 0deg;
+                }
+                100% {
+                    rotate: 360deg;
+                }
+            }
+
+            .loader polyline {
+                transform-origin: 22.66px 36.81px;
+                animation:
+                    lightning-strike 10s infinite ease,
+                    fade-in 1s ease,
+                    rotate 6s infinite cubic-bezier(0.19, 1, 0.22, 1);
+            }
+        </style>
+        <link rel="icon" type="image/svg+xml" href="./assets/icons/logo.svg" />
+        <link rel="manifest" href="manifest.json" />
+        <meta name="theme-color" content="#111928" />
+    </head>
+
+    <body class="mat-typography mat-app-background">
+        <noscript>Please enable JavaScript to continue using this application.</noscript>
+        <app-root>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 257.895 72.51" class="loader" preserveAspectRatio="xMidYMid meet">
+                <g id="LightningLoading" transform="translate(128.9475, 36.255) translate(-22.645, -36.255)">
+                    <polyline points="35.26 0 0 43.15 19.94 43.06 10.16 72.51 45.29 30.86 25.3 31.28" fill="currentColor" />
+                </g>
+            </svg>
+        </app-root>
+    </body>
+</html>

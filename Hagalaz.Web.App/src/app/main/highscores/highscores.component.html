@@ -1,0 +1,90 @@
+<div class="container mx-auto py-4">
+    <mat-card>
+        @if (highscoresStore.loading()) {
+            @defer {
+                <app-loading backdrop></app-loading>
+            }
+        }
+        <mat-card-header>
+            @let statType = highscoresStore.paging.type();
+            <mat-card-title> <img src="{{ getStatIcon(statType) }}" class="skill-icon inline" alt="icon" loading="eager" />{{ statType }}</mat-card-title>
+            <span class="flex-auto"></span>
+            <mat-form-field appearance="outline" color="primary" subscriptSizing="dynamic">
+                <mat-label>Skill</mat-label>
+                <mat-select [value]="statType" (selectionChange)="onStatTypeChanged($event.value)">
+                    <mat-select-trigger>
+                        <img src="{{ getStatIcon(statType) }}" class="skill-icon inline" alt="icon" loading="eager" />
+                        {{ statType }}
+                    </mat-select-trigger>
+                    @for (statName of statNames; track statName) {
+                        <mat-option
+                            [value]="statName"
+                            [routerLink]="[]"
+                            [queryParams]="{ page: 1, skill: statName | lowercase }"
+                            [queryParamsHandling]="'merge'"
+                        >
+                            <span>
+                                <img src="{{ getStatIcon(statName) }}" class="skill-icon inline" alt="icon" loading="lazy" />
+                                {{ statName }}</span
+                            >
+                        </mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+        </mat-card-header>
+        <mat-card-content>
+            <mat-table [dataSource]="highscoresStore.entities()">
+                <ng-container matColumnDef="rank">
+                    <mat-header-cell *matHeaderCellDef>Rank</mat-header-cell>
+                    <mat-cell *matCellDef="let skill">
+                        {{ skill.rank }}
+                    </mat-cell>
+                </ng-container>
+                <ng-container matColumnDef="name">
+                    <mat-header-cell *matHeaderCellDef>Name</mat-header-cell>
+                    <mat-cell *matCellDef="let skill">
+                        {{ skill.name }}
+                    </mat-cell>
+                </ng-container>
+                <ng-container matColumnDef="level">
+                    <mat-header-cell *matHeaderCellDef>Level</mat-header-cell>
+                    <mat-cell *matCellDef="let skill">
+                        {{ skill.level }}
+                    </mat-cell>
+                </ng-container>
+                <ng-container matColumnDef="experience">
+                    <mat-header-cell *matHeaderCellDef>Experience</mat-header-cell>
+                    <mat-cell *matCellDef="let skill">
+                        {{ skill.experience | number }}
+                    </mat-cell>
+                </ng-container>
+
+                <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+                <mat-row *matRowDef="let row; columns: displayedColumns"></mat-row>
+                <tr class="mat-mdc-row flex" *matNoDataRow>
+                    <td class="mat-mdc-cell flex grow items-center" colspan="4">
+                        @if (!highscoresStore.error()) {
+                            <span>No data</span>
+                        } @else {
+                            <mat-error>{{ highscoresStore.error() | error }}</mat-error>
+                        }
+                    </td>
+                </tr>
+            </mat-table>
+        </mat-card-content>
+        <mat-card-actions>
+            @let paging = highscoresStore.paging();
+            <mat-paginator
+                class="w-full"
+                color="primary"
+                (page)="onPageChanged($event)"
+                showFirstLastButtons
+                [pageIndex]="paging.page - 1"
+                [length]="paging.total"
+                [pageSize]="paging.limit"
+                [pageSizeOptions]="[5, 10, 25, 100]"
+            >
+            </mat-paginator>
+        </mat-card-actions>
+    </mat-card>
+</div>

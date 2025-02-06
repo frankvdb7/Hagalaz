@@ -1,0 +1,17 @@
+<div class="container m-auto flex flex-col gap-4 py-4 xl:px-72">
+    <app-card-title>
+        <ng-container title>Create your account</ng-container>
+        <ng-container content>
+            <span>Already registered?</span>
+            <a class="text-primary hover:underline" [routerLink]="['/login']">Login</a>
+        </ng-container>
+    </app-card-title>
+    <mat-card>
+        <mat-card-content>
+            <app-register-form (registerSubmit)="onRegisterSubmit($event)"></app-register-form>
+        </mat-card-content>
+        @if (false) {
+            <app-loading></app-loading>
+        }
+    </mat-card>
+</div>

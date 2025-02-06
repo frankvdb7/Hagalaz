@@ -1,0 +1,7 @@
+@use "../styling";
+
+@mixin select-theme($theme) {
+    div.mat-mdc-select-panel {
+        @include styling.glass-style($background-color: var(--sys-surface-container));
+    }
+}

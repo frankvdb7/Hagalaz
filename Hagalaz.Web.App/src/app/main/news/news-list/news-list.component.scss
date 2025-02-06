@@ -1,0 +1,8 @@
+@use "../../../../styling";
+
+:host {
+    display: block;
+    .mat-mdc-card {
+        @include styling.glass-hover-style();
+    }
+}

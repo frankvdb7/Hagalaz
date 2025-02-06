@@ -1,0 +1,30 @@
+<form role="form" class="grid grid-flow-row" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <mat-form-field appearance="fill" color="primary">
+        <mat-label>Email address</mat-label>
+        <input formControlName="email" type="email" matInput required autocomplete="email" />
+        <mat-icon matSuffix>email</mat-icon>
+        <mat-error>Please fill in a valid email address</mat-error>
+    </mat-form-field>
+    <mat-form-field appearance="fill" color="primary">
+        <mat-label>Password</mat-label>
+        <input formControlName="password" type="password" matInput required autocomplete="new-password" />
+        <mat-icon matSuffix>lock</mat-icon>
+        <mat-error>A password is required</mat-error>
+    </mat-form-field>
+    <mat-form-field appearance="fill" color="primary">
+        <mat-label>Confirm password</mat-label>
+        <input formControlName="passwordConfirm" type="password" matInput required autocomplete="new-password" />
+        <mat-icon matSuffix>lock</mat-icon>
+        <mat-error>A confirmation of your password is required</mat-error>
+    </mat-form-field>
+    <div class="mb-4 text-center align-middle">
+        <mat-checkbox formControlName="accepted" color="primary"></mat-checkbox>
+        <span
+            >I agree to the
+            <a class="text-primary hover:underline" [routerLink]="['/terms']">Terms</a>
+            and
+            <a class="text-primary hover:underline" [routerLink]="['/privacy']">Privacy Policy</a></span
+        >
+    </div>
+    <button mat-flat-button color="primary" type="submit">Sign up</button>
+</form>

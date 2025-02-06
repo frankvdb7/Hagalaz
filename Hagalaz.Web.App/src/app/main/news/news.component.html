@@ -1,0 +1,10 @@
+<div class="container mx-auto grid select-none grid-cols-4 gap-4 py-4">
+    <div class="col-span-4 grid auto-rows-fr grid-cols-2 gap-4 md:grid-cols-2">
+        @for (item of news; track item.id; let first = $first) {
+            <app-news-item class="min-h-56" [newsItem]="item" [class.col-span-2]="first" [class.row-span-2]="first"></app-news-item>
+        }
+    </div>
+    <div class="col-span-4 flex items-center justify-center">
+        <a mat-stroked-button [routerLink]="['/news/all']">More news</a>
+    </div>
+</div>

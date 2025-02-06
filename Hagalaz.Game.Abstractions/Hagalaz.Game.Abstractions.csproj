@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Raido.Common\Raido.Common.csproj" />
+    <ProjectReference Include="..\Hagalaz.Cache.Abstractions\Hagalaz.Cache.Abstractions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Utilities\Hagalaz.Utilities.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Data\Model\" />
+    <Folder Include="Features\Skills\Summoning\" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.1" />
+  </ItemGroup>
+</Project>

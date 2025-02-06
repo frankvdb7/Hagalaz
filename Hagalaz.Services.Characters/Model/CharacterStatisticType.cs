@@ -1,0 +1,32 @@
+﻿namespace Hagalaz.Services.Characters.Model
+{
+    public enum CharacterStatisticType
+    {
+        Attack,
+        Defence,
+        Strength,
+        Constitution,
+        Range,
+        Prayer,
+        Magic,
+        Cooking,
+        Woodcutting,
+        Fletching,
+        Fishing,
+        Firemaking,
+        Crafting,
+        Smithing,
+        Mining,
+        Herblore,
+        Agility,
+        Thieving,
+        Slayer,
+        Farming,
+        Runecrafting,
+        Construction,
+        Hunter,
+        Summoning,
+        Dungeoneering,
+        Overall
+    }
+}

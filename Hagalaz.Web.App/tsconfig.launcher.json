@@ -1,0 +1,13 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "module": "ES2022",
+        "outDir": "./out-tsc/launcher",
+        "types": ["reflect-metadata"],
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true
+    },
+    "files": ["src/launcher/main.ts"],
+    "include": ["src/launcher/**/*.d.ts", "src/typings/launcher-api.d.ts"],
+    "exclude": ["src/launcher/test.ts", "src/launcher/**/*.spec.ts", "src/launcher/**/testing"]
+}

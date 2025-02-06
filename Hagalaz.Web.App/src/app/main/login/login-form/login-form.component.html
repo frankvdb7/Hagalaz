@@ -1,0 +1,40 @@
+<form class="grid grid-flow-row" role="form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <mat-form-field appearance="fill" color="primary">
+        <mat-label>Email address</mat-label>
+        <input formControlName="email" type="email" required autocomplete="email" matInput />
+        <mat-icon matSuffix>email</mat-icon>
+        <ng-container>
+            @if (emailControl?.hasError("email")) {
+                <mat-error>Please fill in a valid email address</mat-error>
+            }
+        </ng-container>
+        <ng-container ngProjectAs="mat-error">
+            @if (emailControl?.hasError("required")) {
+                <mat-error>An email address is mandatory</mat-error>
+            }
+        </ng-container>
+    </mat-form-field>
+    <mat-form-field appearance="fill" color="primary">
+        <mat-label>Password</mat-label>
+        <input formControlName="password" type="password" autocomplete="current-password" required matInput />
+        <mat-icon matSuffix>lock</mat-icon>
+        <ng-container ngProjectAs="mat-error">
+            @if (passwordControl?.hasError("required")) {
+                <mat-error>A password is mandatory</mat-error>
+            }
+        </ng-container>
+    </mat-form-field>
+    <div class="mb-4 justify-self-center">
+        <ng-hcaptcha theme="dark" formControlName="captcha" (error)="markForCheck()" (expired)="markForCheck()" (verify)="markForCheck()"></ng-hcaptcha>
+        @if (submitted && captchaControl?.hasError("required")) {
+            <mat-error>Completing the captcha is mandatory </mat-error>
+        }
+    </div>
+    @if (error()) {
+        <mat-error role="alert" class="mb-4 flex items-center justify-center gap-4">
+            <mat-icon class="shrink-0">error</mat-icon>
+            {{ error() }}</mat-error
+        >
+    }
+    <button color="primary" mat-flat-button type="submit">Login</button>
+</form>

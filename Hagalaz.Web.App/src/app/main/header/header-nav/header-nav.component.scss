@@ -1,0 +1,8 @@
+.nav-bar {
+    ::ng-deep {
+        .mat-mdc-tab-links,
+        .mat-mdc-tab-link {
+            @apply h-full;
+        }
+    }
+}

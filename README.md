@@ -4,7 +4,7 @@ A modern, full-stack RSPS built with a microservice architecture, designed for s
 
 Hagalaz means "hail" in Proto-Germanic and represents natural disruption and transformation. Symbolizing the uncontrollable forces of nature, it signifies unexpected challenges that lead to growth and renewal.
 
-[![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)  
+[![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 
 ## Description
 
@@ -15,7 +15,7 @@ This repository is a comprehensive application built using modern development te
 - **Docker**
 - **Kubernetes**
 - **Masstransit**
-- **RabitMMQ**
+- **RabitMQ**
 - **OpenIddict**
 - **Polly**
 - **FluentResults**
@@ -50,8 +50,6 @@ This repository is a comprehensive application built using modern development te
 
 ## Getting Started
 
-
-
 ## Contributing
 
 Contributions are welcome! Please fork the repository and submit a pull request.
@@ -64,4 +62,3 @@ This project is licensed under the GNU General Public License v3.0. See the [LIC
 
 - **Author**: Frank
 - **GitHub**: [frankvdb7](https://github.com/frankvdb7)
-

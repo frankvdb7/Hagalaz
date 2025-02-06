@@ -1,0 +1,58 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>d5b8bff1-ecfb-4d95-a35d-d779474445e0</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="MassTransit" Version="8.3.5" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.5" />
+    <PackageReference Include="McMaster.NETCore.Plugins" Version="2.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.1" />
+    <PackageReference Include="Polly.RateLimiting" Version="8.5.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="9.0.1" />
+    <PackageReference Include="System.Linq.Async" Version="6.0.1" />
+    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.0.0" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" Version="2.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Game.Features\Hagalaz.Game.Features.csproj" />
+    <ProjectReference Include="..\Raido.Server\Raido.Server.csproj" />
+    <ProjectReference Include="..\Hagalaz.Authorization.Constants\Hagalaz.Authorization.Constants.csproj" />
+    <ProjectReference Include="..\Hagalaz.Authorization.Messages\Hagalaz.Authorization.Messages.csproj" />
+    <ProjectReference Include="..\Hagalaz.Cache\Hagalaz.Cache.csproj" />
+    <ProjectReference Include="..\Hagalaz.Characters.Messages\Hagalaz.Characters.Messages.csproj" />
+    <ProjectReference Include="..\Hagalaz.Collections\Hagalaz.Collections.csproj" />
+    <ProjectReference Include="..\Hagalaz.Configuration\Hagalaz.Configuration.csproj" />
+    <ProjectReference Include="..\Hagalaz.Contacts.Messages\Hagalaz.Contacts.Messages.csproj" />
+    <ProjectReference Include="..\Hagalaz.Data.Extensions\Hagalaz.Data.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Data\Hagalaz.Data.csproj" />
+    <ProjectReference Include="..\Hagalaz.Exceptions\Hagalaz.Exceptions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Extensions\Hagalaz.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Common\Hagalaz.Game.Common.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Configuration\Hagalaz.Game.Configuration.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Extensions\Hagalaz.Game.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Messages\Hagalaz.Game.Messages.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Resources\Hagalaz.Game.Resources.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game\Hagalaz.Game.csproj" />
+    <ProjectReference Include="..\Hagalaz.Hosting.Extensions\Hagalaz.Hosting.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Security.Extensions\Hagalaz.Security.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.ServiceDefaults\Hagalaz.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Hagalaz.Services.Common\Hagalaz.Services.Common.csproj" />
+    <ProjectReference Include="..\Hagalaz.Services.Extensions\Hagalaz.Services.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Tasks.Extensions\Hagalaz.Tasks.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Text.Json\Hagalaz.Text.Json.csproj" />
+    <ProjectReference Include="..\Hagalaz.Workers\Hagalaz.Workers.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Model\Creatures\Combat\Experimental\" />
+  </ItemGroup>
+  <Target Name="PublishPlugins" BeforeTargets="Build">
+    <ItemGroup>
+      <PluginProject Include="..\Hagalaz.Game.Scripts\Hagalaz.Game.Scripts.csproj" />
+    </ItemGroup>
+    <MSBuild Projects="@(PluginProject)" Targets="Publish" Properties="PublishDir=$(TargetDir)plugins\%(FileName)\;Configuration=$(Configuration)" />
+  </Target>
+</Project>

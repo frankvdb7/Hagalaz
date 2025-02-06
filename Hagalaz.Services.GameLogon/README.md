@@ -1,0 +1,1 @@
+﻿This project is deprecated and should be removed as soon as features like friends and clan chat are migrated.

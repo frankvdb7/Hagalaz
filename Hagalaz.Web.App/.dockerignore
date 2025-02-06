@@ -1,0 +1,8 @@
+.git
+.gitignore
+.angular
+.idea
+.vscode
+dist
+dist-launcher
+node_modules

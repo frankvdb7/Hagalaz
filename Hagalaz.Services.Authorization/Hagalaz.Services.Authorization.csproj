@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <UserSecretsId>b9044a0b-5a26-46ff-9a1a-5abb2f1aec7d</UserSecretsId>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Authorization.Constants\Hagalaz.Authorization.Constants.csproj" />
+    <ProjectReference Include="..\Hagalaz.Authorization.Messages\Hagalaz.Authorization.Messages.csproj" />
+    <ProjectReference Include="..\Hagalaz.Data.Extensions\Hagalaz.Data.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Data\Hagalaz.Data.csproj" />
+    <ProjectReference Include="..\Hagalaz.Exceptions\Hagalaz.Exceptions.csproj" />
+    <ProjectReference Include="..\Hagalaz.ServiceDefaults\Hagalaz.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Hagalaz.Services.Common\Hagalaz.Services.Common.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MassTransit" Version="8.3.5" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.5" />
+    <PackageReference Include="OpenIddict.AspNetCore" Version="6.0.0" />
+    <PackageReference Include="OpenIddict.Quartz" Version="6.0.0" />
+    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.13.1" />
+    <PackageReference Include="Quartz.Extensions.Hosting" Version="3.13.1" />
+    <PackageReference Include="Refit" Version="8.0.0" />
+    <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
+    <PackageReference Include="System.Linq.Async" Version="6.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="wwwroot\" />
+  </ItemGroup>
+</Project>

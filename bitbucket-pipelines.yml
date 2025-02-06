@@ -1,0 +1,27 @@
+# This is a sample build configuration for .NET Core.
+
+# Check our guides at https://confluence.atlassian.com/x/5Q4SMw for more examples.
+
+# Only use spaces to indent your .yml configuration.
+
+# -----
+
+# You can specify a custom docker image from Docker Hub as your build environment.
+
+image: mcr.microsoft.com/dotnet/sdk:9.0
+
+pipelines:
+  branches:
+    dotnet:
+      - step:
+          name: Build & Test
+          caches:
+            - dotnetcore
+          script:
+            - dotnet tool install -g trx2junit
+            - dotnet restore
+            - dotnet build --no-restore
+            - dotnet test --no-build --logger:trx
+          after-script:
+            - export PATH="$PATH:/root/.dotnet/tools"
+            - trx2junit ./TestResults/*.trx

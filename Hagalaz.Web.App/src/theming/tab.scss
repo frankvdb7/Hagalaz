@@ -1,0 +1,9 @@
+@mixin tab-theme($theme) {
+    & {
+        --mat-tab-header-divider-height: 0;
+    }
+
+    .mat-mdc-tab-link {
+        @apply uppercase;
+    }
+}

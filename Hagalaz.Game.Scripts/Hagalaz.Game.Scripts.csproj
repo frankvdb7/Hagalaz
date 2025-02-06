@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Cache\Hagalaz.Cache.csproj" />
+    <ProjectReference Include="..\Hagalaz.Collections.Extensions\Hagalaz.Collections.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Configuration\Hagalaz.Configuration.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Common\Hagalaz.Game.Common.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Configuration\Hagalaz.Game.Configuration.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Extensions\Hagalaz.Game.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Features\Hagalaz.Game.Features.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Resources\Hagalaz.Game.Resources.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game\Hagalaz.Game.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Resources\Messages.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Messages.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Resources\Messages.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Messages.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Scrutor" Version="6.0.1" />
+    <PackageReference Include="System.Linq.Async" Version="6.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Quests\" />
+    <Folder Include="Skills\Magic\Enchanting\" />
+  </ItemGroup>
+</Project>

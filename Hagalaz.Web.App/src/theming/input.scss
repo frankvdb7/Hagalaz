@@ -1,0 +1,21 @@
+@mixin input-theme($theme) {
+    .mdc-text-field {
+        &.mdc-text-field--filled {
+            @apply border border-white border-opacity-5;
+            &:not(.mdc-text-field--disabled) {
+                @apply bg-white bg-opacity-5;
+            }
+        }
+        &.mdc-text-field--outlined {
+            .mdc-notched-outline__notch {
+                border-right: none; // fix for tailwindcss + material
+            }
+        }
+    }
+    .mdc-text-field--filled {
+        --mdc-filled-text-field-container-shape: theme("borderRadius.DEFAULT");
+    }
+    .mdc-text-field--outlined {
+        --mdc-outlined-text-field-container-shape: theme("borderRadius.DEFAULT");
+    }
+}

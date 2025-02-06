@@ -1,0 +1,12 @@
+<div class="relative flex flex-grow flex-col" appScrollBar [appScrollBarOptions]="{ overflow: { x: 'hidden' }, scrollbars: { autoHide: 'move' } }">
+    <div class="sticky top-0 z-50">
+        <router-outlet name="header"></router-outlet>
+    </div>
+    <app-bg-img></app-bg-img>
+    <main class="relative flex flex-auto flex-col">
+        <router-outlet #o="outlet"></router-outlet>
+    </main>
+    <div class="sticky bottom-0 z-50">
+        <router-outlet name="footer"></router-outlet>
+    </div>
+</div>
