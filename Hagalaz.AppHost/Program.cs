@@ -1,3 +1,4 @@
+using Hagalaz.AppHost;
 using Microsoft.Extensions.Hosting;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -32,13 +33,16 @@ var authService = builder.AddProject<Projects.Hagalaz_Services_Authorization>("h
     .WaitFor(database)
     .WithReference(database)
     .WithReference(messaging)
+    .WithScalarDocs()
     .WithHttpsHealthCheck("/health");
 
 var contactsService = builder.AddProject<Projects.Hagalaz_Services_Contacts>("hagalaz-services-contacts")
     .WaitFor(messaging)
     .WaitFor(database)
+    .WithReference(authService)
     .WithReference(database)
     .WithReference(messaging)
+    .WithScalarDocs()
     .WithHttpsHealthCheck("/health");
 
 var charactersService = builder.AddProject<Projects.Hagalaz_Services_Characters>("hagalaz-services-characters")
@@ -47,6 +51,7 @@ var charactersService = builder.AddProject<Projects.Hagalaz_Services_Characters>
     .WithReference(authService)
     .WithReference(database)
     .WithReference(messaging)
+    .WithScalarDocs()
     .WithHttpsHealthCheck("/health");
 
 var gameUpdate = builder.AddProject<Projects.Hagalaz_Services_GameUpdate>("hagalaz-services-gameupdate", launchProfileName: "tcp")
