@@ -4,17 +4,18 @@ using System.Text.Json.Serialization;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using NSwag.Generation.Processors.Security;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Polly;
+using Scalar.AspNetCore;
 
 namespace Hagalaz.ServiceDefaults;
 
@@ -60,28 +61,9 @@ public static class Extensions
 
         builder.Services.AddHttpForwarderWithServiceDiscovery();
 
-        builder.Services.AddOpenApiDocument(settings =>
+        builder.Services.AddOpenApi(options =>
         {
-            var authServiceUri = builder.Configuration.GetServiceConfigurationValue("hagalaz-services-authorization", "https", "http");
-            if (string.IsNullOrEmpty(authServiceUri))
-            {
-                Console.Error.WriteLine("The swagger authentication URI is not configured");
-                return;
-            }
-            settings.Title = Assembly.GetExecutingAssembly().GetName().Name;
-            settings.AddSecurity("OAuth2", new NSwag.OpenApiSecurityScheme
-            {
-                Type = NSwag.OpenApiSecuritySchemeType.OpenIdConnect,
-                Flow = NSwag.OpenApiOAuth2Flow.Password,
-                Scheme = "Bearer",
-                AuthorizationUrl = $"{authServiceUri}/connect/authorize",
-                TokenUrl = $"{authServiceUri}/connect/token",
-                OpenIdConnectUrl = $"{authServiceUri}/.well-known/openid-configuration",
-                Name = "Authorization",
-                Description = "Provides OAuth2 api access",
-                In = NSwag.OpenApiSecurityApiKeyLocation.Header
-            });
-            settings.OperationProcessors.Add(new AspNetCoreOperationSecurityScopeProcessor("OAuth2"));
+            options.AddDocumentTransformer<OpenApi.OpenIdConnectSecuritySchemeTransformer>();
         });
 
         // allow a client to call you without specifying an api version
@@ -215,8 +197,8 @@ public static class Extensions
             {
                 builder.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
             });
-            app.UseOpenApi();
-            app.UseSwaggerUi();
+            app.MapOpenApi();
+            app.MapScalarApiReference();
         }
         else
         {

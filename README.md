@@ -25,6 +25,8 @@ This repository is a comprehensive application built using modern development te
 - **Redis**
 - **FusionCache**
 - **OpenTelemetry**
+- **OpenAPI**
+- **Scalar**
 - **Scrutor**
 - **YARP**
 
@@ -33,11 +35,11 @@ This repository is a comprehensive application built using modern development te
 - **Scalable Microservices Architecture**: Designed for scalability and fault tolerance.
 - **Authentication & Authorization**: Implemented with OpenIddict.
 - **Distributed Messaging**: Powered by Masstransit for reliable communication between services.
-- **API Documentation**: Interactive documentation with Swagger/OpenAPI.
+- **API Documentation**: Interactive documentation with Scalar/OpenAPI.
 - **Resilience**: Using Polly for transient-fault handling.
 - **Type-safe APIs**: With Refit for clean HTTP client integration.
 - **Caching**: Optimized with Redis and FusionCache.
-- **Telemetry & Analytics**: Standarized with OpenTelemetry.
+- **Telemetry & Analytics**: Standardized with OpenTelemetry.
 - **Containerization**: Fully containerized for portability using Docker and Kubernetes.
 - **Dynamic Proxying**: Achieved through YARP.
 
