@@ -1,4 +1,5 @@
 using Hagalaz.AppHost;
+using Hagalaz.AppHost.Telemetry;
 using Microsoft.Extensions.Hosting;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -6,14 +7,30 @@ var builder = DistributedApplication.CreateBuilder(args);
 var database = builder.AddMySql("mysql")
     .WithEnvironment("MYSQL_DATABASE", "hagalaz-db")
     .WithBindMount("../Data", "/docker-entrypoint-initdb.d")
-    .WithPhpMyAdmin()
+    .WithLifetime(ContainerLifetime.Persistent)
+    .WithPhpMyAdmin(configure => configure.WithLifetime(ContainerLifetime.Persistent))
     .AddDatabase("hagalaz-db");
 
 var messaging = builder.AddRabbitMQ("messaging")
-    .WithImage("masstransit/rabbitmq");
+    .WithImage("masstransit/rabbitmq")
+    .WithLifetime(ContainerLifetime.Persistent);
 
 var cache = builder.AddRedis("cache")
-    .WithRedisInsight();
+    .WithRedisInsight(configure => configure.WithLifetime(ContainerLifetime.Persistent))
+    .WithLifetime(ContainerLifetime.Persistent);
+
+var prometheus = builder.AddContainer("prometheus", "prom/prometheus")
+    .WithBindMount("Configs/prometheus", "/etc/prometheus", isReadOnly: true)
+    .WithArgs("--web.enable-otlp-receiver", "--config.file=/etc/prometheus/prometheus.yml")
+    .WithHttpEndpoint(targetPort: 9090, name: "http")
+    .WithLifetime(ContainerLifetime.Persistent);
+
+var grafana = builder.AddContainer("grafana", "grafana/grafana")
+    .WithBindMount("Configs/grafana/config", "/etc/grafana", isReadOnly: true)
+    .WithBindMount("Configs/grafana/dashboards", "/var/lib/grafana/dashboards", isReadOnly: true)
+    .WithEnvironment("PROMETHEUS_ENDPOINT", prometheus.GetEndpoint("http"))
+    .WithHttpEndpoint(targetPort: 3000, name: "http")
+    .WithLifetime(ContainerLifetime.Persistent);
 
 var gameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("hagalaz-services-gameworld", launchProfileName: "tcp")
     .WaitFor(messaging)
@@ -84,5 +101,9 @@ if (builder.Environment.IsDevelopment() && builder.Configuration["DOTNET_LAUNCH_
     // Disable TLS certificate validation in development, see https://github.com/dotnet/aspire/issues/3324 for more details.
     webApp.WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0");
 }
+
+builder.AddOpenTelemetryCollector("otelcollector", "Configs/otelcollector/config.yaml")
+    .WithEnvironment("PROMETHEUS_ENDPOINT", $"{prometheus.GetEndpoint("http")}/api/v1/otlp")
+    .WithLifetime(ContainerLifetime.Persistent);
 
 builder.Build().Run();

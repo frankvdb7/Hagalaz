@@ -10,38 +10,49 @@ Hagalaz means "hail" in Proto-Germanic and represents natural disruption and tra
 
 This repository is a comprehensive application built using modern development technologies and best practices. It leverages:
 
-- **ASP.NET Core**
+### Frameworks
+- **ASP .NET**
 - **.NET Aspire**
+- **Angular**
+
+### Infrastructure
 - **Docker**
 - **Kubernetes**
-- **Masstransit**
 - **RabbitMQ**
-- **OpenIddict**
-- **Polly**
-- **FluentResults**
 - **MySQL**
-- **Swagger/OpenAPI**
-- **Refit**
 - **Redis**
-- **FusionCache**
-- **OpenTelemetry**
-- **OpenAPI**
+- **Grafana**
+- **Prometheus**
+- **YARP**
+
+### Libraries
+- **Masstransit**
+- **OpenIddict**
 - **Scalar**
 - **Scrutor**
-- **YARP**
+- **Polly**
+- **Refit**
+- **FusionCache**
+- **FluentResults**
+
+### Standards
+- **OpenTelemetry**
+- **OpenAPI**
+- **OAuth2**
 
 ## Features
 
 - **Scalable Microservices Architecture**: Designed for scalability and fault tolerance.
-- **Authentication & Authorization**: Implemented with OpenIddict.
-- **Distributed Messaging**: Powered by Masstransit for reliable communication between services.
+- **Authentication & Authorization**: Implemented with OpenIddict/OAuth2.
+- **Distributed Messaging**: Powered by RabbitMQ/Masstransit for reliable communication between services.
 - **API Documentation**: Interactive documentation with Scalar/OpenAPI.
 - **Resilience**: Using Polly for transient-fault handling.
 - **Type-safe APIs**: With Refit for clean HTTP client integration.
-- **Caching**: Optimized with Redis and FusionCache.
-- **Telemetry & Analytics**: Standardized with OpenTelemetry.
+- **Caching**: Optimized with Redis/FusionCache.
+- **Telemetry & Analytics**: Standardized with OpenTelemetry. Exported to Prometheus. Visualized in Grafana.
 - **Containerization**: Fully containerized for portability using Docker and Kubernetes.
 - **Dynamic Proxying**: Achieved through YARP.
+- **Frontend**: Angular SPA with Material Design.
 
 ## Prerequisites
 

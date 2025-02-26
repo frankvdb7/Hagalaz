@@ -44,12 +44,16 @@ namespace Raido.Server
         private readonly TimeSpan _keepAliveInterval;
         private readonly TimeSpan _clientTimeoutInterval;
 
+        internal long StartTimestamp { get; set; }
+
         internal RaidoCallerContext RaidoCallerContext { get; }
         internal IRaidoCallerClients RaidoCallerClients { get; set; } = null!;
 
         internal Exception? CloseException { get; private set; }
 
         internal Activity? OriginalActivity { get; set; }
+
+        internal MetricsContext MetricsContext { get; set; }
 
         /// <summary>
         /// Gets a <see cref="CancellationToken"/> that notifies when the connection is aborted.
@@ -127,6 +131,8 @@ namespace Raido.Server
             {
                 Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(state => ((RaidoConnectionContext)state).KeepAliveTick(), this);
             }
+
+            StartTimestamp = _timeProvider.GetTimestamp();
 
             return Task.CompletedTask;
         }
@@ -318,6 +324,7 @@ namespace Raido.Server
                             new OperationCanceledException(
                                 $"Client hasn't sent a message/ping within the configured {nameof(RaidoConnectionContextOptions.ClientTimeoutInterval)}.");
                         Log.ClientTimeout(_logger, _clientTimeoutInterval);
+                        RaidoEventSource.Log.ConnectionTimedOut(ConnectionId);
                         Abort();
                     }
                 }

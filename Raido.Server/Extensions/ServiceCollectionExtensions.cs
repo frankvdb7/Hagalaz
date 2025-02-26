@@ -18,21 +18,22 @@ namespace Raido.Server.Extensions
 
             services.AddSingleton<IConfigureOptions<RaidoOptions>, RaidoOptionsSetup>();
             
-            services.TryAddTransient(typeof(RaidoConnectionHandler));
+            services.TryAddTransient<RaidoConnectionHandler>();
 
-            services.TryAddSingleton(typeof(RaidoConnectionStore));
-            services.TryAddSingleton(typeof(IRaidoProtocolResolver), typeof(DefaultRaidoProtocolResolver));
-            services.TryAddSingleton(typeof(IRaidoLifetimeManager), typeof(DefaultRaidoLifetimeManager));
-            services.TryAddSingleton(typeof(IRaidoContext), typeof(DefaultRaidoContext));
-            services.TryAddSingleton(typeof(IRaidoDispatcher), typeof(DefaultRaidoDispatcher));
-            services.TryAddTransient(typeof(IRaidoConnectionContextBuilder), typeof(DefaultRaidoConnectionContextBuilder));
-            services.TryAddScoped(typeof(IRaidoCallerContextAccessor), typeof(DefaultRaidoCallerContextAccessor));
+            services.TryAddSingleton<RaidoConnectionStore>();
+            services.TryAddSingleton<IRaidoProtocolResolver, DefaultRaidoProtocolResolver>();
+            services.TryAddSingleton<IRaidoLifetimeManager, DefaultRaidoLifetimeManager>();
+            services.TryAddSingleton<IRaidoContext, DefaultRaidoContext>();
+            services.TryAddSingleton<IRaidoDispatcher, DefaultRaidoDispatcher>();
+            services.TryAddTransient<IRaidoConnectionContextBuilder, DefaultRaidoConnectionContextBuilder>();
+            services.TryAddScoped<IRaidoCallerContextAccessor, DefaultRaidoCallerContextAccessor>();
             services.TryAddScoped(typeof(IRaidoHubActivator<>), typeof(DefaultRaidoHubActivator<>));
 
             services.TryAddTransient(typeof(IRaidoCodecFactory<>), typeof(DefaultRaidoCodecFactory<>));
             services.TryAddSingleton(typeof(IRaidoCodec<>), typeof(DefaultRaidoCodec<>));
 
             services.TryAddSingleton(new RaidoServerActivitySource());
+            services.TryAddSingleton<RaidoMetrics>();
 
             services.AddAuthorization();
             return new DefaultRaidoBuilder(services);
