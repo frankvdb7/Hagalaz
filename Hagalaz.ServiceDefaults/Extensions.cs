@@ -1,17 +1,15 @@
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using OpenTelemetry.Logs;
+using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Polly;
@@ -35,18 +33,6 @@ public static class Extensions
             });
         builder.Services.AddAuthorization();
 
-        //builder.Services
-        //    .AddMvcCore()
-        //    .AddCors()
-        //    .AddApiExplorer()
-        //    .AddDataAnnotations()
-        //    .AddAuthorization()
-        //    .AddJsonOptions(jsonOptions =>
-        //    {
-        //        jsonOptions.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-        //        jsonOptions.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-        //    });
-
         builder.ConfigureOpenTelemetry();
 
         builder.AddDefaultHealthChecks();
@@ -61,10 +47,7 @@ public static class Extensions
 
         builder.Services.AddHttpForwarderWithServiceDiscovery();
 
-        builder.Services.AddOpenApi(options =>
-        {
-            options.AddDocumentTransformer<OpenApi.OpenIdConnectSecuritySchemeTransformer>();
-        });
+        builder.Services.AddOpenApi(options => { options.AddDocumentTransformer<OpenApi.OpenIdConnectSecuritySchemeTransformer>(); });
 
         // allow a client to call you without specifying an api version
         // since we haven't configured it otherwise, the assumed api version will be v1
@@ -99,8 +82,9 @@ public static class Extensions
             .WithMetrics(metrics =>
             {
                 metrics.AddRuntimeInstrumentation()
-                       .AddHttpClientInstrumentation()
-                       .AddBuiltInMeters();
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddHagalazMeters();
             })
             .WithTracing(tracing =>
             {
@@ -111,10 +95,11 @@ public static class Extensions
                 }
 
                 tracing.AddAspNetCoreInstrumentation()
-                       .AddGrpcClientInstrumentation()
-                       .AddHttpClientInstrumentation()
-                       .AddSource("MassTransit")
-                       .AddSource("Raido.Server");
+                    .AddGrpcClientInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddSource("MassTransit")
+                    .AddSource("Polly")
+                    .AddSource("Raido.Server");
             });
 
         builder.AddOpenTelemetryExporters();
@@ -128,31 +113,19 @@ public static class Extensions
 
         if (useOtlpExporter)
         {
-            builder.Services.Configure<OpenTelemetryLoggerOptions>(logging => logging.AddOtlpExporter());
-            builder.Services.ConfigureOpenTelemetryMeterProvider(metrics => metrics.AddOtlpExporter());
-            builder.Services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddOtlpExporter());
+            builder.Services.AddOpenTelemetry().UseOtlpExporter();
         }
-
-        // Uncomment the following lines to enable the Prometheus exporter (requires the OpenTelemetry.Exporter.Prometheus.AspNetCore package)
-        // builder.Services.AddOpenTelemetry()
-        //    .WithMetrics(metrics => metrics.AddPrometheusExporter());
-
-        // Uncomment the following lines to enable the Azure Monitor exporter (requires the Azure.Monitor.OpenTelemetry.AspNetCore package)
-        // builder.Services.AddOpenTelemetry()
-        //    .UseAzureMonitor();
 
         return builder;
     }
 
     public static IHostApplicationBuilder AddDefaultHealthChecks(this IHostApplicationBuilder builder)
     {
-        builder.Services.AddRequestTimeouts(
-            configure: static timeouts =>
-                timeouts.AddPolicy("HealthChecks", TimeSpan.FromSeconds(5)));
+        builder.Services.AddRequestTimeouts(configure: static timeouts =>
+            timeouts.AddPolicy("HealthChecks", TimeSpan.FromSeconds(5)));
 
-        builder.Services.AddOutputCache(
-            configureOptions: static caching =>
-                caching.AddPolicy("HealthChecks",
+        builder.Services.AddOutputCache(configureOptions: static caching =>
+            caching.AddPolicy("HealthChecks",
                 build: static policy => policy.Expire(TimeSpan.FromSeconds(10))));
 
         builder.Services.AddHealthChecks()
@@ -164,9 +137,6 @@ public static class Extensions
 
     public static WebApplication MapDefaultEndpoints(this WebApplication app)
     {
-        // Uncomment the following line to enable the Prometheus endpoint (requires the OpenTelemetry.Exporter.Prometheus.AspNetCore package)
-        // app.MapPrometheusScrapingEndpoint();
-
         var healthChecks = app.MapGroup("");
 
         healthChecks
@@ -177,10 +147,11 @@ public static class Extensions
         healthChecks.MapHealthChecks("/health");
 
         // Only health checks tagged with the "live" tag must pass for app to be considered alive
-        healthChecks.MapHealthChecks("/alive", new HealthCheckOptions
-        {
-            Predicate = r => r.Tags.Contains("live")
-        });
+        healthChecks.MapHealthChecks("/alive",
+            new HealthCheckOptions
+            {
+                Predicate = r => r.Tags.Contains("live")
+            });
 
         return app;
     }
@@ -193,10 +164,7 @@ public static class Extensions
         {
             app.UseDeveloperExceptionPage();
             app.UseForwardedHeaders();
-            app.UseCors(builder =>
-            {
-                builder.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
-            });
+            app.UseCors(builder => { builder.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod().AllowCredentials(); });
             app.MapOpenApi();
             app.MapScalarApiReference();
         }
@@ -207,6 +175,7 @@ public static class Extensions
             app.UseHsts();
             app.UseCors();
         }
+
         app.UseAuthentication();
         app.UseAuthorization();
 
@@ -215,18 +184,17 @@ public static class Extensions
         return app;
     }
 
-    public static async Task MigrateDatabase<TContext>(this WebApplication app, Func<CancellationToken, Task>? initializationTask = null) where TContext : DbContext
+    public static async Task MigrateDatabase<TContext>(this WebApplication app, Func<CancellationToken, Task>? initializationTask = null)
+        where TContext : DbContext
     {
         using var scope = app.Services.CreateScope();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TContext>>();
         var context = scope.ServiceProvider.GetRequiredService<TContext>();
         ResiliencePipeline pipeline = new ResiliencePipelineBuilder()
-            .AddRetry(new () 
-            { 
-                BackoffType = DelayBackoffType.Exponential, 
-                Delay = TimeSpan.FromSeconds(5),
-                MaxDelay = TimeSpan.FromMinutes(5)
-            }) 
+            .AddRetry(new()
+            {
+                BackoffType = DelayBackoffType.Exponential, Delay = TimeSpan.FromSeconds(5), MaxDelay = TimeSpan.FromMinutes(5)
+            })
             .Build();
         try
         {
@@ -239,19 +207,17 @@ public static class Extensions
                 }
             });
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             logger.LogCritical(ex, "Failed to perform database migration");
         }
     }
 
-    private static MeterProviderBuilder AddBuiltInMeters(this MeterProviderBuilder meterProviderBuilder) =>
-        meterProviderBuilder.AddMeter(
-            "Microsoft.AspNetCore.Hosting",
-            "Microsoft.AspNetCore.Server.Kestrel",
-            "System.Net.Http",
-            "MassTransit", 
-            "Polly");
+    private static MeterProviderBuilder AddHagalazMeters(this MeterProviderBuilder meterProviderBuilder) =>
+        meterProviderBuilder.AddMeter("System.Net.Http",
+            "MassTransit",
+            "Polly",
+            "Raido.Server");
 
     public static string? GetServiceConfigurationValue(this IConfiguration configuration, string serviceName, string key, string? fallbackKey = null)
     {
