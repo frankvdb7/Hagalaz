@@ -29,13 +29,14 @@ namespace Hagalaz.Services.GameWorld.Store
             using var scope = _serviceProvider.CreateScope();
             var slayerMasterDefinitionRepository = scope.ServiceProvider.GetRequiredService<ISlayerMasterDefinitionRepository>();
             var slayerTaskDefinitionRepository = scope.ServiceProvider.GetRequiredService<ISlayerTaskDefinitionRepository>();
+            var modifiers = new List<IRandomObjectModifier>
+            {
+                new SlayerTaskModifier()
+            };
             _slayerMasterTables = await slayerMasterDefinitionRepository.FindAll()
                 .Select(c => new SlayerMasterTable((int)c.NpcId,
                     c.Name,
-                    new List<IRandomObjectModifier>
-                    {
-                        new SlayerTaskModifier()
-                    })
+                    modifiers)
                 {
                     NpcId = (int)c.NpcId, BaseSlayerRewardPoints = (int)c.BaseSlayerRewardPoints
                 })
