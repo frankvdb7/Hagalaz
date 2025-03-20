@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Collections;
@@ -95,7 +96,7 @@ namespace Hagalaz.Services.GameWorld.Store
         public INpcDefinition GetOrAdd(int npcId) => GetOrAdd(npcId, LoadNpcDefinition);
 
         // TODO - implement Redis for this
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
             _databaseNpcs =

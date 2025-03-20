@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Maps;
@@ -34,7 +35,7 @@ namespace Hagalaz.Services.GameWorld.Providers
             return (IAreaScript)_serviceScope.ServiceProvider.GetRequiredService(_defaultAreaScriptProvider.GetScriptType());
         }
 
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             var factories = _serviceScope.ServiceProvider.GetRequiredService<IEnumerable<IAreaScriptFactory>>();
             foreach (var factory in factories)

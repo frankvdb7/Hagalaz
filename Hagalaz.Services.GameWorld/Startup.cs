@@ -41,7 +41,6 @@ using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
@@ -80,8 +79,11 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Identity;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using Hagalaz.Services.Extensions;
+using Hagalaz.Services.GameWorld.Data.Model;
 using Hagalaz.Services.GameWorld.Logic.Loot;
 using Hagalaz.Services.GameWorld.Logic.Skills;
+using Hagalaz.Services.GameWorld.Services.Cache;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Polly;
 using Polly.CircuitBreaker;
@@ -155,8 +157,13 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<ICharacterLocationService, CharacterLocationService>();
             services.AddScoped<ISlayerTaskDefinitionRepository, SlayerTaskDefinitionRepository>();
             services.AddScoped<ISlayerMasterDefinitionRepository, SlayerMasterDefinitionRepository>();
-            services.AddScoped<ISlayerService, SlayerService>();
-            services.AddSingleton<SlayerStore>();
+            services.AddScoped<SlayerService>();
+            services.AddScoped<ISlayerService>(provider =>
+            {
+                var service = provider.GetRequiredService<SlayerService>();
+                var cache = provider.GetRequiredService<HybridCache>();
+                return new CachedSlayerService(service, cache);
+            });
             services.AddScoped<ICharacterContextProvider, CharacterContextAccessor>();
             services.AddScoped<ICharacterContextAccessor>(provider => provider.GetRequiredService<ICharacterContextProvider>());
             services.AddScoped<IItemPartFactory, ItemPartFactory>();
@@ -233,7 +240,6 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ILootModifierProvider, LootModifierProvider>();
             services.AddScoped<IGameObjectLootItemRepository, GameObjectLootItemRepository>();
             services.AddScoped<IGameObjectLootRepository, GameObjectLootRepository>();
-            services.AddSingleton<GameObjectStore>();
             services.AddSingleton<ILootGenerator, LootGenerator>();
             services.AddScoped<INpcLootItemRepository, NpcLootItemRepository>();
             services.AddScoped<INpcLootRepository, NpcLootRepository>();
@@ -245,7 +251,13 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IItemBuilder, ItemBuilder>();
 
             // gameobject
-            services.AddScoped<IGameObjectService, GameObjectService>();
+            services.AddScoped<GameObjectService>();
+            services.AddScoped<IGameObjectService>(provider =>
+            {
+                var inner = provider.GetRequiredService<GameObjectService>();
+                var cache = provider.GetRequiredService<HybridCache>();
+                return new CachedGameObjectService(inner, cache);
+            });
             services.AddScoped<IGameObjectDefinitionRepository, GameObjectDefinitionRepository>();
             services.AddScoped<IGameObjectSpawnRepository, GameObjectSpawnRepository>();
             services.AddSingleton<GameObjectScriptProvider>();
@@ -335,8 +347,13 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ISummoningDefinitionRepository, SummoningDefinitionRepository>();
             services.AddScoped<ISummoningService, SummoningService>();
             services.AddScoped<IFishingSpotDefinitionRepository, FishingSpotDefinitionRepository>();
-            services.AddScoped<IFishingService, FishingService>();
-            services.AddSingleton<FishingStore>();
+            services.AddScoped<FishingService>();
+            services.AddScoped<IFishingService>(provider =>
+            {
+                var inner = provider.GetRequiredService<FishingService>();
+                var cache = provider.GetRequiredService<HybridCache>();
+                return new CachedFishingService(inner, cache);
+            });
             services.AddScoped<IWoodcuttingHatchetDefinitionRepository, WoodcuttingHatchetDefinitionRepository>();
             services.AddScoped<IWoodcuttingLogDefinitionRepository, WoodcuttingLogDefinitionRepository>();
             services.AddScoped<IWoodcuttingTreeDefinitionRepository, WoodcuttingTreeDefinitionRepository>();
@@ -358,16 +375,16 @@ namespace Hagalaz.Services.GameWorld
             // cache types
             services.AddTransient<ITypeFactory<IItemDefinition>, ItemDefinitionFactory>();
             services.AddTransient<ITypeFactory<INpcDefinition>, NpcDefinitionFactory>();
-            services.AddTransient<ITypeFactory<IGameObjectDefinition>, GameObjectDefinitionFactory>();
+            services.AddTransient<ITypeFactory<GameObjectDefinition>, GameObjectDefinitionFactory>();
             services.AddTransient<ITypeFactory<IAnimationDefinition>, AnimationDefinitionFactory>();
 
             services.AddTransient<ITypeEventHook<INpcDefinition>, NpcDefinitionEventHook>();
             services.AddTransient<ITypeEventHook<IItemDefinition>, ItemTypeEventHook>();
-            services.AddTransient<ITypeEventHook<IGameObjectDefinition>, ObjectTypeEventHook>();
+            services.AddTransient<ITypeEventHook<GameObjectDefinition>, ObjectTypeEventHook>();
 
             services.AddTransient<ITypeDecoder<IItemDefinition>, TypeDecoder<IItemDefinition, ItemTypeData>>();
             services.AddTransient<ITypeDecoder<INpcDefinition>, TypeDecoder<INpcDefinition, NpcTypeData>>();
-            services.AddTransient<ITypeDecoder<IGameObjectDefinition>, TypeDecoder<IGameObjectDefinition, ObjectTypeData>>();
+            services.AddTransient<ITypeDecoder<GameObjectDefinition>, TypeDecoder<GameObjectDefinition, ObjectTypeData>>();
             services.AddTransient<ITypeDecoder<IAnimationDefinition>, TypeDecoder<IAnimationDefinition, AnimationTypeData>>();
 
             // world options
@@ -651,13 +668,10 @@ namespace Hagalaz.Services.GameWorld
             // startup tasks
             services.AddStartupTaskLoader();
 
-            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<SlayerStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AreaStore>());
-            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<FishingStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<EquipmentStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<ItemStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<LootStore>());
-            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<GameObjectStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<NpcDefinitionStore>());
 
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<ItemScriptProvider>());

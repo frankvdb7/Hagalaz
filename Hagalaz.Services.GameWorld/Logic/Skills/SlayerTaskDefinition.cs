@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Logic.Skills;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services.Model;
 
 namespace Hagalaz.Services.GameWorld.Logic.Skills
@@ -7,7 +6,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
     /// <summary>
     /// 
     /// </summary>
-    public class SlayerTaskDefinition : ISlayerObject, ISlayerTaskDefinition
+    public record SlayerTaskDefinition : ISlayerObject, ISlayerTaskDefinition
     {
         /// <summary>
         /// Gets the Id.
@@ -15,7 +14,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
         /// <value>
         /// The Id.
         /// </value>
-        public int Id { get; }
+        public required int Id { get; init;}
 
         /// <summary>
         /// Gets the name.
@@ -23,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
         /// <value>
         /// The name.
         /// </value>
-        public string Name { get; }
+        public required string Name { get; init; }
 
         /// <summary>
         /// Gets the NPC ids.
@@ -31,7 +30,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
         /// <value>
         /// The NPC ids.
         /// </value>
-        public int[] NpcIds { get; }
+        public required int[] NpcIds { get; init; }
 
         /// <summary>
         /// Gets the level requirement.
@@ -39,7 +38,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
         /// <value>
         /// The level requirement.
         /// </value>
-        public int LevelRequirement { get; }
+        public required int LevelRequirement { get; init; }
 
         /// <summary>
         /// Gets the combat level requirement.
@@ -47,29 +46,29 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
         /// <value>
         /// The combat level requirement.
         /// </value>
-        public int CombatLevelRequirement { get; }
+        public required int CombatLevelRequirement { get; init; }
 
         /// <summary>
         /// The mimimum loot.
         /// </summary>
         /// <value>The minimum count.</value>
-        public int MinimumCount { get; }
+        public required int MinimumCount { get; init; }
 
         /// <summary>
         /// The maximum loot.
         /// </summary>
         /// <value>The maximum count.</value>
-        public int MaximumCount { get; }
+        public required int MaximumCount { get; init; }
 
         /// <summary>
         /// Contains the coin count.
         /// </summary>
-        public int CoinCount { get; }
+        public required int CoinCount { get; init; }
 
         /// <summary>
         /// Contains the probability.
         /// </summary>
-        public double Probability { get; }
+        public required double Probability { get; init; }
 
         /// <summary>
         /// Gets the slayer master identifier.
@@ -77,13 +76,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
         /// <value>
         /// The slayer master identifier.
         /// </value>
-        public int SlayerMasterId { get; }
+        public required int SlayerMasterId { get; init; }
 
         /// <summary>
         /// Gets or sets whether this object will always be part of the result set
         /// (Probability is ignored when this flag is set to true)
         /// </summary>
-        public bool Always { get; }
+        public required bool Always { get; init; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this <see cref="SlayerTaskDefinition" /> is enabled.
@@ -92,40 +91,6 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
         /// <value>
         ///   <c>true</c> if enabled; otherwise, <c>false</c>.
         /// </value>
-        public bool Enabled { get; }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SlayerTaskDefinition" /> class.
-        /// </summary>
-        /// <param name="id">The Id.</param>
-        /// <param name="name">The name.</param>
-        /// <param name="slayerMasterID">The slayer master Id.</param>
-        /// <param name="npcIds">The NPC Ids.</param>
-        /// <param name="levelRequirement">The level requirement.</param>
-        /// <param name="combatLevelRequirement">The combat level requirement.</param>
-        /// <param name="minimumCount">The minimum count.</param>
-        /// <param name="maximumCount">The maximum count.</param>
-        /// <param name="coinCount">The coin coint.</param>
-        public SlayerTaskDefinition(int id, string name, int slayerMasterID, int[] npcIds, int levelRequirement, int combatLevelRequirement, int minimumCount, int maximumCount, int coinCount)
-        {
-            Id = id;
-            SlayerMasterId = slayerMasterID;
-            Name = name;
-            NpcIds = npcIds;
-            MinimumCount = minimumCount;
-            MaximumCount = maximumCount;
-            CoinCount = coinCount;
-            LevelRequirement = levelRequirement;
-            CombatLevelRequirement = combatLevelRequirement;
-            Always = false;
-            Enabled = true;
-        }
-
-        public double GetProbability(ICharacter character)
-        {
-            if (character.Statistics.GetSkillLevel(StatisticsConstants.Slayer) >= LevelRequirement && character.Statistics.FullCombatLevel >= CombatLevelRequirement)
-                return 1.0;
-            return 0.0; // no chance of getting this task.
-        }
+        public bool Enabled { get; } = true;
     }
 }

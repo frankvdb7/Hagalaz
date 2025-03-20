@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Services.Abstractions;
@@ -28,55 +29,68 @@ namespace Hagalaz.Services.GameWorld.Store
         public bool TryGetItemLootTable(int id, out LootTable? table) => _itemLootTables.TryGetValue(id, out table);
         public bool TryGetNpcLootTable(int id, out LootTable? table) => _npcLootTables.TryGetValue(id, out table);
 
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
 
             var lootModifierProvider = scope.ServiceProvider.GetRequiredService<ILootModifierProvider>();
             var lootModifiers = lootModifierProvider.FindLootModifiers().ToList();
 
-            var gameObjectLootTables = await scope.ServiceProvider.GetRequiredService<IGameObjectLootRepository>().FindAll().AsNoTracking().ToListAsync();
-            _gameObjectLootTables = gameObjectLootTables.Select(t => new LootTable(t.Id,
-                    t.Name,
-                    t.GameobjectLootItems.Select(i => new LootItem(i.ItemId,
+            var gameObjectLootTables = await scope.ServiceProvider.GetRequiredService<IGameObjectLootRepository>()
+                .FindAll()
+                .AsNoTracking()
+                .ToListAsync(cancellationToken: cancellationToken);
+            _gameObjectLootTables = gameObjectLootTables.Select(t => new LootTable()
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    Entries = t.GameobjectLootItems.Select(i => new LootItem(i.ItemId,
                             (int)i.MinimumCount,
                             (int)i.MaximumCount,
                             (double)i.Probability,
                             i.Always == 1))
                         .ToList<ILootObject>(),
-                    lootModifiers)
-                {
-                    MaxResultCount = (int)t.MaximumLootCount, RandomizeResultCount = t.RandomizeLootCount == 1
+                    Modifiers = lootModifiers,
+                    MaxResultCount = (int)t.MaximumLootCount,
+                    RandomizeResultCount = t.RandomizeLootCount == 1
                 })
                 .ToDictionary(e => e.Id);
 
-            var itemLootTables = await scope.ServiceProvider.GetRequiredService<IItemLootRepository>().FindAll().AsNoTracking().ToListAsync();
-            _itemLootTables = itemLootTables.Select(t => new LootTable(t.Id,
-                    t.Name,
-                    t.ItemLootItems.Select(i => new LootItem(i.ItemId,
+            var itemLootTables = await scope.ServiceProvider.GetRequiredService<IItemLootRepository>()
+                .FindAll()
+                .AsNoTracking()
+                .ToListAsync(cancellationToken: cancellationToken);
+            _itemLootTables = itemLootTables.Select(t => new LootTable()
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    Entries = t.ItemLootItems.Select(i => new LootItem(i.ItemId,
                             (int)i.MinimumCount,
                             (int)i.MaximumCount,
                             (double)i.Probability,
                             i.Always == 1))
                         .ToList<ILootObject>(),
-                    lootModifiers)
-                {
-                    MaxResultCount = (int)t.MaximumLootCount, RandomizeResultCount = t.RandomizeLootCount == 1
+                    Modifiers = lootModifiers,
+                    MaxResultCount = (int)t.MaximumLootCount,
+                    RandomizeResultCount = t.RandomizeLootCount == 1
                 })
                 .ToDictionary(e => e.Id);
 
-            var npcLootTables = await scope.ServiceProvider.GetRequiredService<INpcLootRepository>().FindAll().AsNoTracking().ToListAsync();
-            _npcLootTables = npcLootTables.Select(t => new LootTable(t.Id,
-                    t.Name,
-                    t.NpcLootItems.Select(i => new LootItem(i.ItemId,
+            var npcLootTables = await scope.ServiceProvider.GetRequiredService<INpcLootRepository>()
+                .FindAll()
+                .AsNoTracking()
+                .ToListAsync(cancellationToken: cancellationToken);
+            _npcLootTables = npcLootTables.Select(t => new LootTable()
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    Entries = t.NpcLootItems.Select(i => new LootItem(i.ItemId,
                             (int)i.MinimumCount,
                             (int)i.MaximumCount,
                             (double)i.Probability,
                             i.Always == 1))
                         .ToList<ILootObject>(),
-                    lootModifiers)
-                {
-                    MaxResultCount = (int)t.MaximumLootCount, RandomizeResultCount = t.RandomizeLootCount == 1
+                    Modifiers = lootModifiers
                 })
                 .ToDictionary(e => e.Id);
 

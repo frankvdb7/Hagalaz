@@ -13,19 +13,9 @@
         /// </value>
         int CurrentKillCount { get; }
         /// <summary>
-        /// Gets the slayer master identifier.
+        /// Gets the current task id.
         /// </summary>
-        /// <value>
-        /// The slayer master identifier.
-        /// </value>
-        int SlayerMasterId { get; }
-        /// <summary>
-        /// Gets the name of the task.
-        /// </summary>
-        /// <value>
-        /// The name of the task.
-        /// </value>
-        string CurrentTaskName { get; }
+        int CurrentTaskId { get; }
         /// <summary>
         /// Assigns the new task.
         /// </summary>

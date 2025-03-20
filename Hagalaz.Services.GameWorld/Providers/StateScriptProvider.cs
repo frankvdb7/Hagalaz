@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Features.States;
@@ -28,7 +29,7 @@ namespace Hagalaz.Services.GameWorld.Providers
         public Type FindByType(StateType stateType) =>
             _scripts.TryGetValue(stateType, out var scriptType) ? scriptType : _defaultStateScriptProvider.GetScriptType();
 
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
             var scriptFactories = scope.ServiceProvider.GetServices<IStateScriptFactory>();

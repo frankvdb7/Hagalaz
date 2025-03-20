@@ -12,23 +12,46 @@ namespace Hagalaz.Services.GameWorld.Logic.Loot
     public abstract class RandomTableBase<TEntryType> : IRandomTable<TEntryType>
         where TEntryType : IRandomObject
     {
-        private readonly List<TEntryType> _entries;
-        private readonly List<IRandomObjectModifier> _modifiers;
+        private readonly List<TEntryType> _entries = [];
+        private readonly List<IRandomObjectModifier> _modifiers = [];
 
         /// <summary>
         /// Contains Id of the drop table.
         /// </summary>
-        public int Id { get; }
+        public required int Id { get; init; }
 
         /// <summary>
-        /// Contains name of the drop table, can be null.
+        /// Contains name of the drop table.
         /// </summary>
-        public string Name { get; }
+        public required string Name { get; init; }
+
+        /// <summary>
+        /// Contains the entries
+        /// </summary>
+        public required IReadOnlyList<TEntryType> Entries
+        {
+            get => _entries;
+            init => _entries.AddRange(value);
+        }
+
+        /// <summary>
+        /// Contains the modifiers
+        /// </summary>
+        public IReadOnlyList<IRandomObjectModifier> Modifiers
+        {
+            get => _modifiers;
+            init => _modifiers.AddRange(value);
+        }
 
         /// <summary>
         /// Gets or sets the probability for this object to be (part of) the result
         /// </summary>
-        public double Probability => Entries.Where(e => e.Enabled).Average(e => e.Probability);
+        public double Probability =>
+            Entries
+                .Where(e => e.Enabled)
+                .Select(e => e.Probability)
+                .DefaultIfEmpty()
+                .Average();
 
         /// <summary>
         /// Gets or sets whether this object will always be part of the result set
@@ -60,27 +83,6 @@ namespace Hagalaz.Services.GameWorld.Logic.Loot
         /// <c>true</c> if [randomize real drop count]; otherwise, <c>false</c>.
         /// </value>
         public bool RandomizeResultCount { get; init; }
-
-        public IReadOnlyList<TEntryType> Entries => _entries;
-        public IReadOnlyList<IRandomObjectModifier> Modifiers => _modifiers;
-
-        /// <summary>
-        /// Construct's new empty loot table.
-        /// </summary>
-        /// <param name="id">Id of the loot table.</param>
-        /// <param name="name">Name of the loot table.</param>
-        /// <param name="entries"></param>
-        public RandomTableBase(int id, string name, List<TEntryType> entries)
-        {
-            Id = id;
-            Name = name;
-            _entries = entries;
-            _modifiers = [];
-        }
-
-        public RandomTableBase(int id, string name, List<TEntryType> entries, List<IRandomObjectModifier> modifiers)
-            : this(id, name, entries) =>
-            _modifiers = modifiers;
 
         public void AddEntry(TEntryType entry)
         {

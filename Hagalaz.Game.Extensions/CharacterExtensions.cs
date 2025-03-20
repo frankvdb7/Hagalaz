@@ -53,7 +53,7 @@ namespace Hagalaz.Game.Extensions
         /// <returns>
         ///   <c>true</c> if the specified character has task; otherwise, <c>false</c>.
         /// </returns>
-        public static bool HasSlayerTask(this ICharacter character) => character.Slayer.SlayerMasterId != -1;
+        public static bool HasSlayerTask(this ICharacter character) => character.Slayer.CurrentTaskId != -1;
 
         /// <summary>
         /// Forces the type of the run movement.

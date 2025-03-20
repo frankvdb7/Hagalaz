@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Providers;
@@ -33,13 +34,13 @@ namespace Hagalaz.Services.GameWorld.Providers
             return _scripts.TryGetValue(npcId, out var scriptType) ? scriptType : _defaultNpcScriptProvider.GetScriptType();
         }
 
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
             var scriptFactories = scope.ServiceProvider.GetServices<INpcScriptFactory>();
             foreach (var factory in scriptFactories)
             {
-                await foreach (var (scriptId, scriptType) in factory.GetScripts())
+                await foreach (var (scriptId, scriptType) in factory.GetScripts(cancellationToken))
                 {
                     if (_scripts.TryAdd(scriptId, scriptType))
                     {

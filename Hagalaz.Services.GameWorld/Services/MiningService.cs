@@ -46,7 +46,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async Task<ILootTable?> FindRockLootById(int rockId)
         {
-            var definition = _gameObjectService.FindGameObjectDefinitionById(rockId);
+            var definition = await _gameObjectService.FindGameObjectDefinitionById(rockId);
             return await _lootService.FindGameObjectLootTable(definition.LootTableId);
         }
 

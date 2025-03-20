@@ -1,8 +1,6 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Logic.Loot;
+﻿using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Random;
 using Hagalaz.Game.Abstractions.Logic.Skills;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Services.GameWorld.Logic.Skills
 {
@@ -48,13 +46,5 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
         public int MinimumCount => 1;
 
         public int MaximumCount => 1;
-
-        /// <summary>
-        /// Gets the probability.
-        /// </summary>
-        /// <param name="character">The character.</param>
-        /// <returns></returns>
-        public double GetProbability(ICharacter character) => character.Statistics.GetSkillLevel(10) < RequiredLevel ? 0.0 : Probability;
-        public int GetRandomLootCount(ICharacter character) => Random.Shared.Next(MinimumCount, MaximumCount);
     }
 }

@@ -31,7 +31,7 @@ namespace Hagalaz.Services.Common
                 {
                     try
                     {
-                        await task.LoadAsync().WaitAsync(TimeSpan.FromSeconds(30), stoppingToken);
+                        await task.LoadAsync(stoppingToken).WaitAsync(TimeSpan.FromSeconds(30), stoppingToken);
                         _logger.LogTrace("Startup task '{TaskType}' loaded", task.GetType().Name);
                     }
                     catch (Exception ex)
@@ -47,6 +47,7 @@ namespace Hagalaz.Services.Common
                 {
                     throw new AggregateException(exceptions);
                 }
+
                 _logger.LogDebug("Startup tasks successfully loaded");
             }
             catch (Exception globalEx)

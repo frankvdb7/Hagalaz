@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Providers;
@@ -33,11 +34,11 @@ namespace Hagalaz.Services.GameWorld.Store
 
         public QuadTreeRect<Area> Areas => _areas;
 
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
             var areaRepo = scope.ServiceProvider.GetRequiredService<IAreaRepository>();
-            var areaEntities = await areaRepo.FindAll().AsNoTracking().ToArrayAsync();
+            var areaEntities = await areaRepo.FindAll().AsNoTracking().ToArrayAsync(cancellationToken: cancellationToken);
             var areas = areaEntities.Select(area =>
                 new Area(area.Id,
                     area.Name,

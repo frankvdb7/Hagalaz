@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Threading;
+using System.Threading.Tasks;
 
 namespace Hagalaz.Services.Abstractions
 {
@@ -10,7 +11,8 @@ namespace Hagalaz.Services.Abstractions
         /// <summary>
         /// Starts asynchronous.
         /// </summary>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        Task LoadAsync();
+        Task LoadAsync(CancellationToken cancellationToken = default);
     }
 }

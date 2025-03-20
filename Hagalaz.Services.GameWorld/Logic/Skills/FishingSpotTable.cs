@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Logic.Random;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services.Model;
@@ -12,8 +11,6 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
     /// </summary>
     public class FishingSpotTable : RandomTableBase<IFishingLoot>, IFishingSpotTable
     {
-        public FishingSpotTable(int id, string name, List<IFishingLoot> entries, List<IRandomObjectModifier> modifiers) : base(id, name, entries, modifiers) { }
-
         /// <summary>
         /// The rate at which the fishing spot exhausts.
         /// </summary>
