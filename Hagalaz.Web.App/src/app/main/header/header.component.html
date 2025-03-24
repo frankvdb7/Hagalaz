@@ -1,20 +1,19 @@
 <mat-toolbar class="toolbar relative bg-transparent backdrop-filter-none">
     @let load = loadValue();
-    <mat-progress-bar
-        color="primary"
+    <mat-progress-bar color="primary"
         class="absolute left-0 right-0 top-0 z-10 w-auto p-0"
         style="--mdc-linear-progress-track-height: 0.125rem; --mdc-linear-progress-active-indicator-height: 0.125rem"
         [class.opacity-0]="load === 0"
         mode="determinate"
         [value]="load"
-    ></mat-progress-bar>
+     />
     <mat-toolbar-row class="container relative mx-auto flex">
         <a class="logo z-10 w-48" routerLink="/" [ngClass]="logoAnimationClass || ''" (mouseenter)="playLogoAnimation()" (animationend)="stopLogoAnimation()">
             <svg-icon svgClass="block overflow-visible align-middle" src="./assets/images/logo.svg"></svg-icon>
         </a>
         @if (!smallScreen()) {
             @defer {
-                <app-header-nav class="mx-auto h-full"></app-header-nav>
+                <app-header-nav class="mx-auto h-full" />
             }
             @if (authStore.authenticated()) {
                 <span class="hidden text-xs opacity-75 lg:inline-block">Logged in as &nbsp;</span>
@@ -28,7 +27,7 @@
                             <mat-icon>account_circle</mat-icon>
                             Profile
                         </a>
-                        <mat-divider></mat-divider>
+                        <mat-divider />
                         <button mat-menu-item (click)="logout()">
                             <mat-icon>logout</mat-icon>
                             Logout
