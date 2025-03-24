@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Cache;
 using Hagalaz.Game.Abstractions.Factories;
@@ -36,7 +37,7 @@ namespace Hagalaz.Services.GameWorld.Providers
 
         public int GetInterfacesCount() => _cacheApi.GetFileCount(3);
 
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
             var scriptFactories = scope.ServiceProvider.GetServices<IWidgetScriptFactory>();

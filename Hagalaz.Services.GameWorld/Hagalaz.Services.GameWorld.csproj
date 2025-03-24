@@ -5,7 +5,7 @@
     <UserSecretsId>d5b8bff1-ecfb-4d95-a35d-d779474445e0</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="AutoMapper" Version="14.0.0" />
     <PackageReference Include="MassTransit" Version="8.3.5" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.5" />
     <PackageReference Include="McMaster.NETCore.Plugins" Version="2.0.0" />
@@ -13,8 +13,8 @@
     <PackageReference Include="Polly.RateLimiting" Version="8.5.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="9.0.1" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />
-    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.0.0" />
-    <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" Version="2.0.0" />
+    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.1.0" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" Version="2.1.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Game.Features\Hagalaz.Game.Features.csproj" />

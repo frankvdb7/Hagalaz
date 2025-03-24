@@ -22,8 +22,8 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
         public async Task Consume(ConsumeContext<SendWorldInfoCommand> context)
         {
             var message = context.Message;
-            var cacheTask = _worldInfoService.GetCacheAsync();
-            var characterInfoTask = _worldInfoService.FindAllWorldCharacterInfoAsync();
+            var cacheTask = _worldInfoService.GetCacheAsync(context.CancellationToken);
+            var characterInfoTask = _worldInfoService.FindAllWorldCharacterInfoAsync(context.CancellationToken);
 
             var cache = await cacheTask;
             var characterInfo = await characterInfoTask;

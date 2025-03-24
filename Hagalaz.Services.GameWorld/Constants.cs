@@ -14,5 +14,17 @@ namespace Hagalaz.Services.GameWorld
             public const string AuthSignInPipeline = "auth-signin";
             public const string AuthSignOutPipeline = "auth-signout";
         }
+
+        public static class Cache
+        {
+            public const string WorldInfoCachePrefix = "world-info:";
+            public static readonly string[] FishingTags = ["fishing"];
+            public const string FishingSpotTableCachePrefix = "fishing-spot-definition:";
+            public static readonly string[] SlayerTags = ["slayer"];
+            public const string SlayerMasterTableCachePrefix = "slayer-master-table:";
+            public const string SlayerTaskDefinitionCachePrefix = "slayer-task-definition:";
+            public static readonly string[] GameObjectTags = ["game-object"];
+            public const string GameObjectDefinitionCachePrefix = "game-object-definition:";
+        }
     }
 }

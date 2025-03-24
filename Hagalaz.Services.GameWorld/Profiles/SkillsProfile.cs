@@ -1,10 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
 using AutoMapper;
 using Hagalaz.Data.Entities;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Logic.Random;
+using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services.Model;
+using Hagalaz.Services.GameWorld.Logic.Skills;
 using Hagalaz.Utilities;
 
 namespace Hagalaz.Services.GameWorld.Profiles
@@ -183,6 +188,72 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.MaxCycles, opt => opt.MapFrom(src => (int)src.MaxCycles))
                 .ForMember(dest => dest.CycleTicks, opt => opt.MapFrom(src => (int)src.CycleTicks))
                 .ForMember(dest => dest.Type, opt => opt.MapFrom(src => Enum.Parse<PatchType>(src.Type)));
+
+            CreateMap<SkillsSlayerMasterDefinition, SlayerMasterTable>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => (int)src.NpcId))
+                .ForMember(dest => dest.BaseSlayerRewardPoints, opt => opt.MapFrom(src => (int)src.BaseSlayerRewardPoints))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+                .ForMember(dest => dest.Enabled, opt => opt.Ignore())
+                .ForMember(dest => dest.MaxResultCount, opt => opt.Ignore())
+                .ForMember(dest => dest.RandomizeResultCount, opt => opt.Ignore())
+                .ForMember(dest => dest.Entries, opt => opt.Ignore())
+                .ForMember(dest => dest.Modifiers, opt => opt.Ignore())
+                .AfterMap((src, dest, context) =>
+                {
+                    foreach (var entry in src.SkillsSlayerTaskDefinitions)
+                    {
+                        dest.AddEntry(context.Mapper.Map<SlayerTaskDefinition>(entry));
+                    }
+
+                    dest.AddModifier(new SlayerTaskModifier());
+                });
+            CreateMap<SkillsSlayerTaskDefinition, SlayerTaskDefinition>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => (int)src.Id))
+                .ForMember(dest => dest.Probability, opt => opt.Ignore())
+                .ForMember(dest => dest.Always, opt => opt.Ignore())
+                .ForMember(dest => dest.CombatLevelRequirement, opt => opt.MapFrom(src => (int)src.CombatRequirement))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+                .ForMember(dest => dest.SlayerMasterId, opt => opt.MapFrom(src => (int)src.SlayerMasterId))
+                .ForMember(dest => dest.CoinCount, opt => opt.MapFrom(src => (int)src.CoinCount))
+                .ForMember(dest => dest.NpcIds, opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.NpcIds).ToArray()));
+
+            CreateMap<SkillsFishingSpotDefinition, FishingSpotTable>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => (int)src.Id))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => "Fishing spot"))
+                .ForMember(dest => dest.RequiredTool, opt => opt.MapFrom(src => src.Tool))
+                .ForMember(dest => dest.NpcIds, opt => opt.MapFrom(src => src.SkillsFishingSpotNpcDefinitions.Select(n => (int)n.NpcId).ToHashSet()))
+                .ForMember(dest => dest.Enabled, opt => opt.Ignore())
+                .ForMember(dest => dest.MaxResultCount, opt => opt.Ignore())
+                .ForMember(dest => dest.RandomizeResultCount, opt => opt.Ignore())
+                .ForMember(dest => dest.MinimumLevel, opt => opt.MapFrom(src => (int)src.MinimumLevel))
+                .ForMember(dest => dest.Entries, opt => opt.Ignore())
+                .ForMember(dest => dest.Modifiers, opt => opt.Ignore())
+                .ForMember(dest => dest.ExhaustChance, opt => opt.MapFrom(src => (double)src.ExhaustChance))
+                .ForMember(dest => dest.BaseCatchChance, opt => opt.MapFrom(src => (double)src.BaseCatchChance))
+                .ForMember(dest => dest.ClickType, opt => opt.MapFrom(src => Enum.Parse<NpcClickType>(src.ClickType)))
+                .ForMember(dest => dest.MinimumLevel, opt => opt.MapFrom(src => (int)src.MinimumLevel))
+                .ForMember(dest => dest.RespawnTime, opt => opt.MapFrom(src => (double)src.RespawnTime))
+                .AfterMap((src, dest, context) =>
+                {
+                    foreach (var entry in src.SkillsFishingFishDefinitions)
+                    {
+                        dest.AddEntry(context.Mapper.Map<FishingLoot>(entry));
+                    }
+
+                    dest.AddModifier(context.Mapper.Map<FishingLootModifier>(src));
+                });
+            CreateMap<SkillsFishingSpotDefinition, FishingLootModifier>()
+                .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.MinimumLevel));
+            CreateMap<SkillsFishingFishDefinition, FishingLoot>()
+                .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.RequiredLevel))
+                .ForMember(dest => dest.Probability, opt => opt.MapFrom(src => (double)src.Probability))
+                .ForMember(dest => dest.FishingExperience, opt => opt.MapFrom(src => (double)src.Experience))
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => (int)src.ItemId))
+                .ForMember(dest => dest.Enabled, opt => opt.Ignore());
+            CreateMap<SkillsFishingToolDefinition, FishingToolDto>()
+                .ForMember(dest => dest.ItemId, opt => opt.MapFrom(src => (int)src.ItemId))
+                .ForMember(dest => dest.CastAnimationId, opt => opt.MapFrom(src => src.CastAnimationId.HasValue ? (int)src.CastAnimationId.Value : -1))
+                .ForMember(dest => dest.FishAnimationId, opt => opt.MapFrom(src => (int)src.FishAnimationId));
         }
 
         private static Location ToLocation(int[] coordinates) => Location.Create(coordinates[0], coordinates[1], coordinates[2]);

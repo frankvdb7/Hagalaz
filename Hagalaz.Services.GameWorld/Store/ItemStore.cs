@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Collections;
@@ -45,7 +46,7 @@ namespace Hagalaz.Services.GameWorld.Store
         public IItemDefinition GetOrAdd(int itemId) => GetOrAdd(itemId, LoadItemDefinition);
 
         // TODO - implement Redis for this
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
             _databaseItems = (await scope.ServiceProvider.GetRequiredService<IItemDefinitionRepository>().FindAll().AsNoTracking().ToListAsync()).ToDictionary(l => (int)l.Id);

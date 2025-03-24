@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Services.Model
 {
     public interface ISlayerMasterTable : IRandomTable<ISlayerTaskDefinition>
     {
-        public int NpcId { get; }
+        public int Id { get; }
         public int BaseSlayerRewardPoints { get; }
     }
 }

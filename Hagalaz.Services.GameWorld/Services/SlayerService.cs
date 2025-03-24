@@ -1,44 +1,38 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Services.Model;
-using Hagalaz.Services.GameWorld.Store;
+using AutoMapper;
+using Hagalaz.Services.GameWorld.Data;
+using Hagalaz.Services.GameWorld.Logic.Skills;
+using Microsoft.EntityFrameworkCore;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
-    public class SlayerService : ISlayerService
+    public class SlayerService
     {
-        private readonly SlayerStore _slayerStore;
+        private readonly ISlayerMasterDefinitionRepository _slayerMasterDefinitionRepository;
+        private readonly ISlayerTaskDefinitionRepository _slayerTaskDefinitionRepository;
+        private readonly IMapper _mapper;
 
-        public SlayerService(SlayerStore slayerStore)
+        public SlayerService(
+            ISlayerMasterDefinitionRepository slayerMasterDefinitionRepository,
+            ISlayerTaskDefinitionRepository slayerTaskDefinitionRepository, IMapper mapper)
         {
-            _slayerStore = slayerStore;
+            _slayerMasterDefinitionRepository = slayerMasterDefinitionRepository;
+            _slayerTaskDefinitionRepository = slayerTaskDefinitionRepository;
+            _mapper = mapper;
         }
 
-        public async Task<ISlayerTaskDefinition?> FindSlayerTaskDefinition(int taskID)
-        {
-            await Task.CompletedTask;
+        public async Task<SlayerTaskDefinition?> FindSlayerTaskDefinition(int taskID, CancellationToken cancellationToken = default) =>
+            await _mapper.ProjectTo<SlayerTaskDefinition>(_slayerTaskDefinitionRepository.FindAll().Where(t => t.Id == taskID))
+                .FirstOrDefaultAsync(cancellationToken);
 
-            IEnumerable<ISlayerTaskDefinition?> FindTask()
-            {
-                foreach (var table in _slayerStore.SlayerMasterTables)
-                {
-                    foreach (var entry in table.Entries)
-                    {
-                        if (entry.Id == taskID)
-                        {
-                            yield return entry;
-                        }
-                    }
-                }
-            }
+        public async Task<SlayerMasterTable?> FindSlayerMasterTableByNpcId(int npcId, CancellationToken cancellationToken = default) =>
+            await _mapper.ProjectTo<SlayerMasterTable>(_slayerMasterDefinitionRepository.FindAll().Where(m => m.NpcId == npcId))
+                .FirstOrDefaultAsync(cancellationToken);
 
-            return FindTask().FirstOrDefault();
-        }
-
-        public Task<ISlayerMasterTable?> FindSlayerMasterTableByNpcId(int npcId) => Task.FromResult<ISlayerMasterTable?>(_slayerStore.SlayerMasterTables.FirstOrDefault(e => e.Id == npcId));
-
-        public Task<IReadOnlyList<ISlayerMasterTable>> FindAllSlayerMasterTables() => Task.FromResult<IReadOnlyList<ISlayerMasterTable>>(_slayerStore.SlayerMasterTables);
+        public async Task<IReadOnlyList<SlayerMasterTable>> FindAllSlayerMasterTables(CancellationToken cancellationToken = default) =>
+            await _mapper.ProjectTo<SlayerMasterTable>(_slayerMasterDefinitionRepository.FindAll()).ToListAsync(cancellationToken);
     }
 }

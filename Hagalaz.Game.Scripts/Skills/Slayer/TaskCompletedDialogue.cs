@@ -12,10 +12,12 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
     public class TaskCompletedDialogue : DialogueScript, ISlayerTaskCompletedDialogue
     {
         private readonly INpcService _npcService;
+        private readonly ISlayerService _slayerService;
 
-        public TaskCompletedDialogue(ICharacterContextAccessor contextAccessor, INpcService npcService) : base(contextAccessor)
+        public TaskCompletedDialogue(ICharacterContextAccessor contextAccessor, INpcService npcService, ISlayerService slayerService) : base(contextAccessor)
         {
             _npcService = npcService;
+            _slayerService = slayerService;
         }
 
         /// <summary>
@@ -26,25 +28,33 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
             Owner.SendChatMessage("Well done " + Owner.DisplayName + "! You have completed your slayer task!");
             AttachDialogueContinueClickHandlers();
 
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
-            {
-                var definition = _npcService.FindNpcDefinitionById(Owner.Slayer.SlayerMasterId);
-                StandardNpcDialogue(definition.Id, definition.DisplayName, DialogueAnimations.CalmTalk, "Well done " + Owner.DisplayName + "!", "You have completed your task!", "Speak to me for more assignments.");
-                return true;
-            });
+            AttachDialogueContinueClickHandler(0,
+                (extraData1, extraData2) =>
+                {
+                    Owner.QueueTask(async () =>
+                    {
+                        var task = await _slayerService.FindSlayerTaskDefinition(Owner.Slayer.CurrentTaskId);
+                        if (task == null)
+                        {
+                            return;
+                        }
+                        var definition = _npcService.FindNpcDefinitionById(task.SlayerMasterId);
+                        StandardNpcDialogue(definition.Id,
+                            definition.DisplayName,
+                            DialogueAnimations.CalmTalk,
+                            "Well done " + Owner.DisplayName + "!",
+                            "You have completed your task!",
+                            "Speak to me for more assignments.");
+                    });
+                    return true;
+                });
 
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
-            {
-                Owner.Widgets.CloseChatboxOverlay();
-                return true;
-            });
-        }
-
-        /// <summary>
-        /// Happens when interface is closed for character.
-        /// </summary>
-        public override void OnClose()
-        {
+            AttachDialogueContinueClickHandler(1,
+                (extraData1, extraData2) =>
+                {
+                    Owner.Widgets.CloseChatboxOverlay();
+                    return true;
+                });
         }
 
         /// <summary>

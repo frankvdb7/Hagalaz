@@ -8,7 +8,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
@@ -33,11 +32,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private EventHappened? _creatureKilledHandler;
 
         /// <summary>
-        /// The slayer task.
-        /// </summary>
-        private ISlayerTaskDefinition? _task;
-
-        /// <summary>
         /// Gets the required count.
         /// </summary>
         /// <value>
@@ -45,32 +39,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </value>
         public int CurrentKillCount { get; private set; }
 
-        /// <summary>
-        /// Gets the name of the task.
-        /// </summary>
-        /// <value>
-        /// The name of the task.
-        /// </value>
-        public string CurrentTaskName => _owner.HasSlayerTask() ? _task!.Name : string.Empty;
-
-        /// <summary>
-        /// Gets the slayer master identifier.
-        /// </summary>
-        /// <value>
-        /// The slayer master identifier.
-        /// </value>
-        public int SlayerMasterId
-        {
-            get
-            {
-                if (_task != null)
-                {
-                    return _task.SlayerMasterId;
-                }
-
-                return -1;
-            }
-        }
+        public int CurrentTaskId { get; private set; } = -1;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Slayer"/> class.
@@ -83,30 +52,39 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         private void OnStarted()
         {
-            if (_owner.HasSlayerTask())
+            if (CurrentTaskId == -1)
             {
-                _creatureKilledHandler = _owner.RegisterEventHandler(new EventHappened<CreatureKillEvent>((e) =>
-                {
-                    if (e.Victim is not INpc npc)
-                    {
-                        return false; // allow other events to catch a creature killed event.
-                    }
-
-                    if (_task == null || !_task.NpcIds.Contains(npc.Appearance.CompositeID))
-                    {
-                        return false; // allow other events to catch a creature killed event.
-                    }
-
-                    _owner.Statistics.AddExperience(StatisticsConstants.Slayer, npc.Definition.MaxLifePoints * 0.1);
-                    CurrentKillCount--;
-                    if (CurrentKillCount <= 0)
-                    {
-                        OnCompleted();
-                    }
-
-                    return false; // allow other events to catch a creature killed event.
-                }));
+                return;
             }
+
+            _creatureKilledHandler = _owner.RegisterEventHandler(new EventHappened<CreatureKillEvent>((e) =>
+            {
+                if (e.Victim is not INpc npc)
+                {
+                    return false; // allow other events to catch a creature killed event.
+                }
+
+                if (CurrentTaskId == -1)
+                {
+                    return false; // allow other events to catch a creature killed event.
+                }
+
+                var slayerService = _owner.ServiceProvider.GetRequiredService<ISlayerService>();
+                var task = slayerService.FindSlayerTaskDefinition(CurrentTaskId).Result;
+                if (task == null)
+                {
+                    return false; // allow other events to catch a creature killed event.
+                }
+
+                _owner.Statistics.AddExperience(StatisticsConstants.Slayer, npc.Definition.MaxLifePoints * 0.1);
+                CurrentKillCount--;
+                if (CurrentKillCount <= 0)
+                {
+                    OnCompleted();
+                }
+
+                return false; // allow other events to catch a creature killed event.
+            }));
         }
 
         /// <summary>
@@ -120,22 +98,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _creatureKilledHandler = null;
             }
 
-            if (_task == null)
+            var task = _owner.ServiceProvider.GetRequiredService<ISlayerService>().FindSlayerTaskDefinition(CurrentTaskId).Result;
+            if (task == null)
             {
                 return;
             }
 
-            if (_task.CoinCount > 0)
+            if (task.CoinCount > 0)
             {
                 var ratesService = _owner.ServiceProvider.GetRequiredService<IRatesService>();
                 var coinCountRate = ratesService.GetRate<ItemOptions>(i => i.CoinCountRate);
                 // TODO - Calculate coins earned based on difficulty
-                var coinsEarned = (int)(_task.CoinCount * coinCountRate);
+                var coinsEarned = (int)(task.CoinCount * coinCountRate);
                 _owner.Inventory.TryAddItems(_owner, [(995, coinsEarned)], out _);
             }
 
             var slayerManager = _owner.ServiceProvider.GetRequiredService<ISlayerService>();
-            var masterTable = slayerManager.FindSlayerMasterTableByNpcId(_task.SlayerMasterId).Result;
+            var masterTable = slayerManager.FindSlayerMasterTableByNpcId(task.SlayerMasterId).Result;
             if (masterTable == null)
             {
                 return;
@@ -146,7 +125,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _owner.Mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, pointsEarned));
 
             _owner.Widgets.OpenDialogue(_owner.ServiceProvider.GetRequiredService<ISlayerTaskCompletedDialogue>(), true);
-            _task = null;
+            CurrentTaskId = -1;
         }
 
         /// <summary>
@@ -179,7 +158,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return;
                 }
 
-                _task = result.Definition;
+                CurrentTaskId = result.Definition.Id;
                 CurrentKillCount = result.KillCount;
                 OnStarted();
             });
@@ -192,26 +171,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
-            var slayerManager = _owner.ServiceProvider.GetRequiredService<ISlayerService>();
-            _task = slayerManager.FindSlayerTaskDefinition(hydration.Task.Id).Result;
+            CurrentTaskId = hydration.Task.Id;
             CurrentKillCount = hydration.Task.KillCount;
             OnStarted();
         }
 
-        public HydratedSlayerDto Dehydrate()
-        {
-            if (_task != null)
+        public HydratedSlayerDto Dehydrate() =>
+            new()
             {
-                return new HydratedSlayerDto
+                Task = new HydratedSlayerDto.SlayerTaskDto
                 {
-                    Task = new HydratedSlayerDto.SlayerTaskDto
-                    {
-                        Id = _task.Id, KillCount = CurrentKillCount
-                    }
-                };
-            }
-
-            return new HydratedSlayerDto();
-        }
+                    Id = CurrentTaskId, KillCount = CurrentKillCount
+                }
+            };
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Collections;
@@ -117,7 +118,7 @@ namespace Hagalaz.Services.GameWorld.Store
             return equipment;
         }
 
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
             _databaseEquipment = (await scope.ServiceProvider.GetRequiredService<IEquipmentDefinitionRepository>().FindAll().ToListAsync()).ToDictionary(i => (int)i.Id);

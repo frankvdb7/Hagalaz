@@ -78,7 +78,7 @@ namespace Hagalaz.Services.GameWorld.Builders
                 var scriptType = _scriptType ?? _gameObjectScriptProvider.GetGameObjectScriptTypeById(_id);
                 _script = (IGameObjectScript)_serviceProvider.GetRequiredService(scriptType);
             }
-            var definition = _serviceProvider.GetRequiredService<IGameObjectService>().FindGameObjectDefinitionById(_id);
+            var definition = _serviceProvider.GetRequiredService<IGameObjectService>().FindGameObjectDefinitionById(_id).Result;
             return new GameObject(_id, _location, _rotation, _shapeType, _isStatic, definition, _script);
         }
     }

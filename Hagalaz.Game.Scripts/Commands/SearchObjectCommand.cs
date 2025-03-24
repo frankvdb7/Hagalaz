@@ -26,7 +26,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 await Task.CompletedTask;
                 for (var i = 0; i < _gameObjectService.GetObjectsCount(); i++)
                 {
-                    var def = _gameObjectService.FindGameObjectDefinitionById(i);
+                    var def = await _gameObjectService.FindGameObjectDefinitionById(i);
                     if (def != null && def.Name.Contains(name, System.StringComparison.CurrentCultureIgnoreCase))
                     {
                         args.Character.SendChatMessage(i + " - " + def.Name, ChatMessageType.ConsoleText);

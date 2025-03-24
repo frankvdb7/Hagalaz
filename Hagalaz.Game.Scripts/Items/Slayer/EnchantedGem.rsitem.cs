@@ -1,6 +1,7 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Items.Slayer
@@ -23,15 +24,21 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
             }
             else if (clickType == ComponentClickType.Option2Click)
             {
-                if (character.HasSlayerTask())
+                character.QueueTask(async () =>
                 {
-                    var slayer = character.Slayer;
-                    character.SendChatMessage("You are currently assigned to kill: " + slayer.CurrentTaskName + ". Only " + slayer.CurrentKillCount + " more to go.");
-                }
-                else
-                {
-                    character.SendChatMessage("There is no task assigned to you yet.");
-                }
+                    if (character.HasSlayerTask())
+                    {
+                        var slayerService = character.ServiceProvider.GetRequiredService<ISlayerService>();
+                        var slayerTask = await slayerService.FindSlayerTaskDefinition(character.Slayer.CurrentTaskId);
+                        var slayer = character.Slayer;
+                        character.SendChatMessage("You are currently assigned to kill: " + slayerTask!.Name + ". Only " + slayer.CurrentKillCount +
+                                                  " more to go.");
+                    }
+                    else
+                    {
+                        character.SendChatMessage("There is no task assigned to you yet.");
+                    }
+                });
             }
             else
             {

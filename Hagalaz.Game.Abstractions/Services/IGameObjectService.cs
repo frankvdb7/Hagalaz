@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services.Model;
@@ -20,12 +22,14 @@ namespace Hagalaz.Game.Abstractions.Services
         /// <param name="gameObjectFindAll"></param>
         /// <returns></returns>
         public IEnumerable<IGameObject> FindAll(GameObjectFindAll gameObjectFindAll);
+
         /// <summary>
         /// Gets the object definition.
         /// </summary>
-        /// <param name="objectID">The object identifier.</param>
+        /// <param name="objectId"></param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        IGameObjectDefinition FindGameObjectDefinitionById(int objectID);
+        Task<IGameObjectDefinition> FindGameObjectDefinitionById(int objectId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets the objects count.

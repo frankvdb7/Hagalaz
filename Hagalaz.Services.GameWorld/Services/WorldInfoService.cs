@@ -11,7 +11,6 @@ namespace Hagalaz.Services.GameWorld.Services
 {
     public class WorldInfoService : IWorldInfoService
     {
-        private const string _cacheKey = "world-info";
         private static int _checksum;
         private readonly WorldInfoStore _worldInfoStore;
         private readonly IMapper _mapper;
@@ -24,27 +23,32 @@ namespace Hagalaz.Services.GameWorld.Services
             _cache = cache;
         }
 
-        public async ValueTask<WorldInfoCacheDto> GetCacheAsync() =>
-            await _cache.GetOrCreateAsync(_cacheKey,
-                async _ =>
+        public async ValueTask<WorldInfoCacheDto> GetCacheAsync(CancellationToken cancellationToken = default)
+        {
+            const string cacheKey = $"{Constants.Cache.WorldInfoCachePrefix}all";
+            return await _cache.GetOrCreateAsync(cacheKey,
+                async token =>
                 {
-                    var worldInfos = await FindAllWorldInfoAsync();
-                    var locationInfos = GetLocationInfos(worldInfos);
+                    var worldInfos = await FindAllWorldInfoAsync(token);
+                    var locationInfos = MapLocationInfos(worldInfos);
                     var result = Interlocked.Increment(ref _checksum);
                     return new WorldInfoCacheDto(result,
                         locationInfos,
                         worldInfos);
-                });
+                },
+                cancellationToken: cancellationToken);
+        }
 
-        private IList<WorldLocationInfo> GetLocationInfos(IList<WorldInfo> worldInfos) =>
+        private static List<WorldLocationInfo> MapLocationInfos(IList<WorldInfo> worldInfos) =>
             worldInfos
                 .Select(info => info.Location)
                 .DistinctBy(location => location.Flag)
                 .ToList();
 
-        public ValueTask<IList<WorldInfo>> FindAllWorldInfoAsync() => ValueTask.FromResult(_mapper.Map<IList<WorldInfo>>(_worldInfoStore.ToList()));
+        public ValueTask<IList<WorldInfo>> FindAllWorldInfoAsync(CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(_mapper.Map<IList<WorldInfo>>(_worldInfoStore.ToList()));
 
-        public ValueTask<IList<WorldCharacterInfo>> FindAllWorldCharacterInfoAsync() =>
+        public ValueTask<IList<WorldCharacterInfo>> FindAllWorldCharacterInfoAsync(CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(_mapper.Map<IList<WorldCharacterInfo>>(_worldInfoStore.ToList()));
 
         public Task AddOrUpdateWorldInfoAsync(WorldInfo worldInfo)

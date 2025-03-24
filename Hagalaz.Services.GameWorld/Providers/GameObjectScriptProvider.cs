@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Providers;
@@ -27,7 +28,7 @@ namespace Hagalaz.Services.GameWorld.Providers
         public Type GetGameObjectScriptTypeById(int objectId) =>
             _scripts.TryGetValue(objectId, out var scriptType) ? scriptType : _defaultGameObjectScriptProvider.GetScriptType();
 
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
             var scriptFactories = scope.ServiceProvider.GetRequiredService<IEnumerable<IGameObjectScriptFactory>>();

@@ -1,26 +1,32 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
+using Hagalaz.Services.GameWorld.Data;
+using Hagalaz.Services.GameWorld.Data.Model;
 using Hagalaz.Services.GameWorld.Model.Maps.GameObjects;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions.Updates;
-using Hagalaz.Services.GameWorld.Store;
+using Microsoft.EntityFrameworkCore;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
-    public class GameObjectService : IGameObjectService
+    public class GameObjectService
     {
         private readonly IMapRegionService _regionService;
-        private readonly GameObjectStore _gameObjectStore;
-        private readonly ITypeDecoder<IGameObjectDefinition> _objectDecoder;
+        private readonly IGameObjectDefinitionRepository _gameObjectDefinitionRepository;
+        private readonly ITypeDecoder<GameObjectDefinition> _objectDecoder;
 
-        public GameObjectService(IMapRegionService regionService, GameObjectStore gameObjectStore, ITypeDecoder<IGameObjectDefinition> objectDecoder)
+        public GameObjectService(
+            IMapRegionService regionService, IGameObjectDefinitionRepository gameObjectDefinitionRepository,
+            ITypeDecoder<GameObjectDefinition> objectDecoder)
         {
             _regionService = regionService;
-            _gameObjectStore = gameObjectStore;
+            _gameObjectDefinitionRepository = gameObjectDefinitionRepository;
             _objectDecoder = objectDecoder;
         }
 
@@ -58,14 +64,16 @@ namespace Hagalaz.Services.GameWorld.Services
                 region.QueueUpdate(new AddGameObjectUpdate(gameObject));
             }
 
-            if (go.Rotation != gameObjectUpdate.Rotation)
+            if (go.Rotation == gameObjectUpdate.Rotation)
             {
-                region.UnFlagCollision(go);
-                go.Rotation = gameObjectUpdate.Rotation;
-                go.IsStatic = false;
-                region.FlagCollision(go);
-                region.QueueUpdate(new AddGameObjectUpdate(gameObject));
+                return;
             }
+
+            region.UnFlagCollision(go);
+            go.Rotation = gameObjectUpdate.Rotation;
+            go.IsStatic = false;
+            region.FlagCollision(go);
+            region.QueueUpdate(new AddGameObjectUpdate(gameObject));
         }
 
         public void AnimateGameObject(IGameObject gameObject, IAnimation animation)
@@ -74,7 +82,22 @@ namespace Hagalaz.Services.GameWorld.Services
             region.QueueUpdate(new SetGameObjectAnimationUpdate(gameObject, animation));
         }
 
-        public IGameObjectDefinition FindGameObjectDefinitionById(int objectID) => _gameObjectStore.GetOrAdd(objectID);
+        public async Task<GameObjectDefinition> FindGameObjectDefinitionById(int objectId, CancellationToken cancellationToken = default)
+        {
+            var definition = _objectDecoder.Decode(objectId);
+            var databaseDefinition = await _gameObjectDefinitionRepository.FindAll()
+                .Where(g => g.GameobjectId == objectId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (databaseDefinition == null)
+            {
+                return definition;
+            }
+
+            definition.Examine = databaseDefinition.Examine;
+            definition.LootTableId = databaseDefinition.GameobjectLootId ?? 0;
+            return definition;
+        }
 
         public int GetObjectsCount() => _objectDecoder.ArchiveSize;
     }

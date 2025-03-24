@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -39,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Providers
                 : _defaultScript;
         }
 
-        public async Task LoadAsync()
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             var itemScriptFactories = _serviceScope.ServiceProvider.GetRequiredService<IEnumerable<IItemScriptFactory>>();
             foreach (var factory in itemScriptFactories)

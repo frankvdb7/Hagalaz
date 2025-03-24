@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Microsoft.Extensions.DependencyInjection;
+using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Logic.Characters
 {
@@ -231,9 +232,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         /// </summary>
         public void Refresh()
         {
-            var manager = _owner.ServiceProvider.GetRequiredService<IGameObjectService>();
-            var objDefinition = manager.FindGameObjectDefinitionById(PatchDefinition.ObjectID);
-            _owner.Configurations.SendBitConfiguration(objDefinition.VarpBitFileId, HasCondition(PatchCondition.Planted) ? GetVarpBitValue() : CurrentCycle);
+            _owner.QueueTask(async () =>
+            {
+                var manager = _owner.ServiceProvider.GetRequiredService<IGameObjectService>();
+                var objDefinition = await manager.FindGameObjectDefinitionById(PatchDefinition.ObjectID);
+                _owner.Configurations.SendBitConfiguration(objDefinition.VarpBitFileId,
+                    HasCondition(PatchCondition.Planted) ? GetVarpBitValue() : CurrentCycle);
+            });
         }
 
         /// <summary>
