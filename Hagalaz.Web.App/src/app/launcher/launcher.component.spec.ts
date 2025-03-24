@@ -8,8 +8,8 @@ describe('LauncherComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ LauncherComponent ]
-    })
+    imports: [LauncherComponent]
+})
     .compileComponents();
   });
 

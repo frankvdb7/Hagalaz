@@ -8,8 +8,8 @@ describe("LauncherHeaderComponent", () => {
 
     beforeEach(async () => {
         await TestBed.configureTestingModule({
-            declarations: [LauncherHeaderComponent],
-        }).compileComponents();
+    imports: [LauncherHeaderComponent],
+}).compileComponents();
     });
 
     beforeEach(() => {

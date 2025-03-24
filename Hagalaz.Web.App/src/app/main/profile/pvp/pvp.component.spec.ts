@@ -8,8 +8,8 @@ describe('PvpComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ PvpComponent ]
-    })
+    imports: [PvpComponent]
+})
     .compileComponents();
   }));
 
