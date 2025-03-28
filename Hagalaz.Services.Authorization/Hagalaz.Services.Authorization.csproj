@@ -14,12 +14,12 @@
     <ProjectReference Include="..\Hagalaz.Services.Common\Hagalaz.Services.Common.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="MassTransit" Version="8.3.5" />
-    <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.5" />
-    <PackageReference Include="OpenIddict.AspNetCore" Version="6.0.0" />
-    <PackageReference Include="OpenIddict.Quartz" Version="6.0.0" />
-    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.13.1" />
-    <PackageReference Include="Quartz.Extensions.Hosting" Version="3.13.1" />
+    <PackageReference Include="MassTransit" Version="8.4.0" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.4.0" />
+    <PackageReference Include="OpenIddict.AspNetCore" Version="6.2.0" />
+    <PackageReference Include="OpenIddict.Quartz" Version="6.2.0" />
+    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.14.0" />
+    <PackageReference Include="Quartz.Extensions.Hosting" Version="3.14.0" />
     <PackageReference Include="Refit" Version="8.0.0" />
     <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />

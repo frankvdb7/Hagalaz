@@ -10,9 +10,9 @@
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="14.0.0" />
     <PackageReference Include="FluentResults" Version="3.16.0" />
-    <PackageReference Include="MassTransit" Version="8.3.5" />
-    <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.5" />
-    <PackageReference Include="OpenIddict.AspNetCore" Version="6.0.0" />
+    <PackageReference Include="MassTransit" Version="8.4.0" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.4.0" />
+    <PackageReference Include="OpenIddict.AspNetCore" Version="6.2.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.AutoMapper\Hagalaz.AutoMapper.csproj" />
