@@ -132,7 +132,15 @@ namespace Hagalaz.AppHost
                 Directory.CreateDirectory(tempDir);
             }
 
-            string[] args = ["dev-certs", "https", "--export-path", $"\"{certExportPath}\"", "--format", "Pem", "--no-password"];
+            var baseTempDir = Path.GetTempPath();
+            var fullCertExportPath = Path.GetFullPath(certExportPath, baseTempDir);
+
+            if (!fullCertExportPath.StartsWith(baseTempDir, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("The export path is outside the allowed temporary directory.");
+            }
+
+            string[] args = ["dev-certs", "https", "--export-path", $"\"{fullCertExportPath}\"", "--format", "Pem", "--no-password"];
             var argsString = string.Join(' ', args);
 
             logger.LogTrace("Running command to export dev cert: {ExportCmd}", $"dotnet {argsString}");
