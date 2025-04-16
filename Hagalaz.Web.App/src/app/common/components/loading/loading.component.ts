@@ -7,7 +7,6 @@ import { Component, ChangeDetectionStrategy } from "@angular/core";
     standalone: true,
     host: {
         class: "absolute inset-0 z-50 animate-pulse backdrop-blur-sm",
-        "[@fade]": "true",
     },
     changeDetection: ChangeDetectionStrategy.OnPush,
 })

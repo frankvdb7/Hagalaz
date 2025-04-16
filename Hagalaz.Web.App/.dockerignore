@@ -3,6 +3,7 @@
 .angular
 .idea
 .vscode
+.vs
 dist
 dist-launcher
 node_modules

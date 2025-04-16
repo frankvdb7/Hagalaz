@@ -1,10 +1,7 @@
-@use "../../../../styling";
+@reference "../../../../tailwind.css";
 
 :host {
     @apply flex min-h-40 flex-col;
-    .mat-mdc-card {
-        @include styling.glass-hover-style();
-    }
 }
 
 .info-container {

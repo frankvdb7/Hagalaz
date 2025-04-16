@@ -6,7 +6,7 @@
             <a class="text-primary hover:underline" [routerLink]="['/register']">Register</a>
         </ng-container>
     </app-card-title>
-    <mat-card class="xl:w-2/3 xl:mx-auto">
+    <mat-card class="xl:mx-auto xl:w-2/3">
         <mat-card-content>
             <app-login-form (loginSubmit)="onLoginSubmit($event)" [error]="store.error() | error"></app-login-form>
         </mat-card-content>

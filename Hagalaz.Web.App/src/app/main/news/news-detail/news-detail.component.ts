@@ -43,12 +43,9 @@ export class NewsDetailComponent implements OnDestroy {
     constructor() {
         const bgImgService = this.bgImgService;
 
-        effect(
-            () => {
-                bgImgService.set(this.item().image);
-            },
-            { allowSignalWrites: true }
-        );
+        effect(() => {
+            bgImgService.set(this.item().image);
+        });
 
         effect(() => {
             const content = this.item().content;
@@ -61,15 +58,15 @@ export class NewsDetailComponent implements OnDestroy {
         this.content.set(markedContent);
     }
 
-    sharePage() {
+    async sharePage() {
         const url = window.location.href;
         if (navigator.share) {
-            navigator.share({
+            await navigator.share({
                 title: this.item().title,
                 url: url,
             });
         } else {
-            navigator.clipboard.writeText(url);
+            await navigator.clipboard.writeText(url);
         }
     }
 

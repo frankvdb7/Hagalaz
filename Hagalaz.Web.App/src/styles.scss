@@ -1,102 +1,113 @@
-// Custom Theming for Angular Material
-// For more information: https://material.angular.io/guide/theming
 @use "@angular/material" as mat;
-// Plus imports for other components in your app.
-@use "theming" as storm;
-@use "styling" as styling;
+@use "theming/typography" as typography;
+@use "theming/colors" as colors;
 
 // Tailwind
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-// custom
-@include storm.core();
-
-$storm-theme: storm.$dark-theme;
+@import "./tailwind.css";
 
 html {
-    @include mat.elevation-classes();
-    @include mat.app-background();
-    @include mat.button-theme($storm-theme);
-    @include mat.fab-theme($storm-theme);
-    @include mat.card-theme($storm-theme);
-    @include mat.toolbar-theme($storm-theme);
-    @include mat.tabs-theme($storm-theme);
-    @include mat.table-theme($storm-theme);
-    @include mat.progress-bar-theme($storm-theme);
-    @include mat.progress-spinner-theme($storm-theme);
-    @include mat.select-theme($storm-theme);
-    @include mat.form-field-theme($storm-theme);
-    @include mat.icon-theme($storm-theme);
-    @include mat.divider-theme($storm-theme);
-    @include mat.input-theme($storm-theme);
-    @include mat.paginator-theme($storm-theme);
-    @include mat.menu-theme($storm-theme);
-    @include mat.checkbox-theme($storm-theme);
-    @include mat.list-theme($storm-theme);
-    @include mat.chips-theme($storm-theme);
-    @include mat.system-level-colors($storm-theme);
-    @include mat.system-level-typography($storm-theme);
+    height: 100%;
+    color-scheme: dark;
+    accent-color: var(--color-primary);
 
-    @include storm.core-theme($storm-theme);
-    @include storm.button-theme($storm-theme);
-    @include storm.card-theme($storm-theme);
-    @include storm.toolbar-theme($storm-theme);
-    @include storm.table-theme($storm-theme);
-    @include storm.paginator-theme($storm-theme);
-    @include storm.select-theme($storm-theme);
-    @include storm.overlay-theme($storm-theme);
-    @include storm.input-theme($storm-theme);
-    @include storm.tab-theme($storm-theme);
-    @include storm.progress-theme($storm-theme);
-    @include storm.menu-theme($storm-theme);
-    @include storm.icon-theme($storm-theme);
+    @include mat.theme(
+        (
+            color: (
+                primary: colors.$primary-palette,
+                tertiary: colors.$tertiary-palette,
+            ),
+            typography: (
+                plain-family: "Semplicita Pro",
+                brand-family: "Semplicita Pro",
+            ),
+            density: 0,
+        )
+    );
 
-    // typhography
-    @include storm.material-icons();
-    @include storm.semplicita-pro();
-    // TODO fix the typography
-    @include mat.typography-hierarchy($storm-theme);
-}
+    @include mat.button-overrides(
+        (
+            filled-label-text-transform: uppercase,
+            outlined-label-text-transform: uppercase,
+            protected-label-text-transform: uppercase,
+            text-label-text-transform: uppercase,
+        )
+    );
 
-@layer base {
-    a,
-    svg,
-    button {
-        &:focus {
-            outline: none;
-        }
+    @include mat.card-overrides(
+        (
+            elevated-container-color: --alpha(var(--color-surface-container-low) / 75%),
+        )
+    );
+
+    @include mat.menu-overrides(
+        (
+            container-color: --alpha(var(--color-surface-container) / 75%),
+        )
+    );
+
+    @include mat.select-overrides(
+        (
+            panel-background-color: --alpha(var(--color-surface-container) / 75%),
+        )
+    );
+
+    @include mat.tabs-overrides(
+        (
+            label-text-line-height: "100%",
+            divider-height: 0,
+        )
+    );
+
+    @include mat.table-overrides(
+        (
+            background-color: transparent,
+        )
+    );
+
+    @include mat.toolbar-overrides(
+        (
+            container-background-color: --alpha(var(--color-surface) / 75%),
+        )
+    );
+
+    @include mat.progress-bar-overrides(
+        (
+            track-shape: calc(infinity * 1px),
+        )
+    );
+
+    @include mat.paginator-overrides(
+        (
+            container-background-color: transparent,
+        )
+    );
+
+    // mat form field does not support overrides, so we manually override variables
+    .mat-mdc-form-field {
+        --mdc-filled-text-field-container-color: --alpha(var(--color-surface-variant) / 75%);
     }
 
-    svg {
-        display: initial;
-        vertical-align: initial;
+    /* applies glass effect to material components */
+    .mat-mdc-card,
+    .mat-mdc-select-panel,
+    .mat-mdc-menu-panel,
+    .cdk-overlay-dark-backdrop {
+        backdrop-filter: blur(var(--blur-lg));
     }
 
-    .container {
-        @apply transition-max-width;
-    }
-}
+    @include typography.material-icons();
+    @include typography.semplicita-pro();
 
-@layer components {
-    .glass {
-        @include styling.glass-style();
-    }
-}
-
-/* Overlayscrollbars */
-
-html {
+    /* Overlayscrollbars */
     [data-overlayscrollbars-viewport] {
         display: inherit;
         flex-direction: inherit;
     }
 
     .os-scrollbar {
-        --os-handle-bg: var(--sys-surface-container-high);
-        --os-handle-bg-hover: var(--sys-surface-container-highest);
-        --os-handle-bg-active: var(--sys-surface-container-highest);
+        --os-handle-bg: var(--mat-sys-surface-container-high);
+        --os-handle-bg-hover: var(--mat-sys-surface-container-highest);
+        --os-handle-bg-active: var(--mat-sys-surface-container-highest);
     }
 }
 
