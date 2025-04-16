@@ -1,7 +1,0 @@
-@use "../styling";
-
-@mixin card-theme($theme) {
-    .mat-mdc-card {
-        @include styling.glass-style($background-color: var(--sys-surface));
-    }
-}

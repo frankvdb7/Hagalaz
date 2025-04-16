@@ -1,0 +1,132 @@
+@import "tailwindcss" important;
+
+@theme {
+    /* colors */
+    --color-primary: var(--mat-sys-primary);
+    --color-on-primary: var(--mat-sys-on-primary);
+    --color-primary-container: var(--mat-sys-primary-container);
+    --color-on-primary-container: var(--mat-sys-on-primary-container);
+    --color-secondary: var(--mat-sys-secondary);
+    --color-on-secondary: var(--mat-sys-on-secondary);
+    --color-surface: var(--mat-sys-surface);
+    --color-on-surface: var(--mat-sys-on-surface);
+    --color-background: var(--mat-sys-background);
+    --color-on-background: var(--mat-sys-on-background);
+    --color-error: var(--mat-sys-error);
+    --color-on-error: var(--mat-sys-on-error);
+    --color-outline: var(--mat-sys-outline);
+    --color-outline-variant: var(--mat-sys-outline-variant);
+    --color-surface-dim: var(--mat-sys-surface-dim);
+    --color-surface-bright: var(--mat-sys-surface-bright);
+    --color-surface-variant: var(--mat-sys-surface-variant);
+    --color-surface-container: var(--mat-sys-surface-container);
+    --color-surface-container-high: var(--mat-sys-surface-container-high);
+    --color-surface-container-highest: var(--mat-sys-surface-container-highest);
+    --color-surface-container-low: var(--mat-sys-surface-container-low);
+    --color-surface-container-lowest: var(--mat-sys-surface-container-lowest);
+
+    /* typography */
+    --text-body-small: var(--mat-sys-body-small-size);
+    --text-body-medium: var(--mat-sys-body-medium-size);
+    --text-body-large: var(--mat-sys-body-large-size);
+    --text-display-small: var(--mat-sys-display-small-size);
+    --text-display-medium: var(--mat-sys-display-medium-size);
+    --text-display-large: var(--mat-sys-display-large-size);
+    --text-headline-small: var(--mat-sys-headline-small-size);
+    --text-headline-medium: var(--mat-sys-headline-medium-size);
+    --text-headline-large: var(--mat-sys-headline-large-size);
+    --text-label-small: var(--mat-sys-label-small-size);
+    --text-label-medium: var(--mat-sys-label-medium-size);
+    --text-label-large: var(--mat-sys-label-large-size);
+    --text-title-small: var(--mat-sys-title-small-size);
+    --text-title-medium: var(--mat-sys-title-medium-size);
+    --text-title-large: var(--mat-sys-title-large-size);
+}
+
+@layer base {
+    a,
+    svg,
+    button {
+        &:focus {
+            outline: none;
+        }
+    }
+
+    svg {
+        display: initial;
+        vertical-align: initial;
+    }
+
+    iframe {
+        color-scheme: auto;
+    }
+
+    ::selection {
+        color: var(--color-on-secondary);
+        background-color: var(--color-secondary);
+    }
+
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    textarea:-webkit-autofill,
+    textarea:-webkit-autofill:hover,
+    textarea:-webkit-autofill:focus,
+    select:-webkit-autofill,
+    select:-webkit-autofill:hover,
+    select:-webkit-autofill:focus {
+        -webkit-text-fill-color: currentColor;
+        -webkit-box-shadow: 0 0 0 1em transparent inset;
+        transition: background-color 9999s ease-in-out 0s;
+    }
+
+    .container {
+        @apply transition-[max-width];
+    }
+}
+
+@utility font-body-small {
+    font: var(--mat-sys-body-small);
+}
+@utility font-body-medium {
+    font: var(--mat-sys-body-medium);
+}
+@utility font-body-large {
+    font: var(--mat-sys-body-large);
+}
+@utility font-display-small {
+    font: var(--mat-sys-display-small);
+}
+@utility font-display-medium {
+    font: var(--mat-sys-display-medium);
+}
+@utility font-display-large {
+    font: var(--mat-sys-display-large);
+}
+@utility font-headline-small {
+    font: var(--mat-sys-headline-small);
+}
+@utility font-headline-medium {
+    font: var(--mat-sys-headline-medium);
+}
+@utility font-headline-large {
+    font: var(--mat-sys-headline-large);
+}
+@utility font-label-small {
+    font: var(--mat-sys-label-small);
+}
+@utility font-label-medium {
+    font: var(--mat-sys-label-medium);
+}
+@utility font-label-large {
+    font: var(--mat-sys-label-large);
+}
+@utility font-title-small {
+    font: var(--mat-sys-title-small);
+}
+@utility font-title-medium {
+    font: var(--mat-sys-title-medium);
+}
+@utility font-title-large {
+    font: var(--mat-sys-title-large);
+}

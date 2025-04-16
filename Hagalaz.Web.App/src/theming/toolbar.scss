@@ -1,9 +1,0 @@
-@use "../styling";
-
-@mixin toolbar-theme($theme) {
-    .mat-toolbar {
-        @include styling.glass-style($border-radius: false);
-        border-left-width: 0;
-        border-right-width: 0;
-    }
-}

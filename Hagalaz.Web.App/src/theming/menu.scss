@@ -1,7 +1,0 @@
-@use "../styling";
-
-@mixin menu-theme($theme) {
-    div.mat-mdc-menu-panel {
-        @include styling.glass-style($background-color: var(--sys-surface-container));
-    }
-}
