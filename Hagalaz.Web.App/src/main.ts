@@ -1,5 +1,6 @@
 import { provideHttpClient, withFetch, withInterceptors, withInterceptorsFromDi } from "@angular/common/http";
-import { enableProdMode, importProvidersFrom, provideExperimentalZonelessChangeDetection, provideAppInitializer } from "@angular/core";
+import { DOCUMENT } from "@angular/common";
+import { enableProdMode, importProvidersFrom, provideExperimentalZonelessChangeDetection, provideAppInitializer, inject } from "@angular/core";
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideRouter, TitleStrategy, withComponentInputBinding, withViewTransitions } from "@angular/router";
 import { provideServiceWorker } from "@angular/service-worker";
@@ -12,6 +13,7 @@ import { environment } from "@environment/environment";
 import { provideLoadingBarInterceptor } from "@ngx-loading-bar/http-client";
 import { provideLoadingBarRouter } from "@ngx-loading-bar/router";
 import { NgHcaptchaModule } from "ng-hcaptcha";
+import { MatIconRegistry } from "@angular/material/icon";
 
 if (environment.production) {
     enableProdMode();
@@ -36,6 +38,11 @@ async function bootstrap() {
             enabled: environment.production,
         }),
         { provide: TitleStrategy, useClass: TemplatePageTitleStrategy },
+        provideAppInitializer(() => {
+            // Configure MatIconRegistry to use material-symbols as the default font set
+            const iconRegistry = inject(MatIconRegistry);
+            iconRegistry.setDefaultFontSetClass("material-symbols");
+        }),
         provideAppInitializer(() => {
             const initializerFn = initAuthStore();
             return initializerFn();

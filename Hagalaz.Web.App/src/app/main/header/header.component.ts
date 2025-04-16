@@ -11,7 +11,7 @@ import { HeaderNavComponent } from "./header-nav/header-nav.component";
 import { SvgHttpLoader, SvgLoader, SVG_ICON_REGISTRY_PROVIDER, SvgIconComponent } from "angular-svg-icon";
 import { MatProgressBar } from "@angular/material/progress-bar";
 import { MatAnchor, MatIconButton } from "@angular/material/button";
-import { RouterLink } from "@angular/router";
+import { RouterLink, RouterLinkActive } from "@angular/router";
 import { AuthStore } from "@app/core/auth/auth.store";
 import { UserStore } from "@app/core/user/user.store";
 import { toSignal } from "@angular/core/rxjs-interop";
@@ -37,8 +37,9 @@ import { toSignal } from "@angular/core/rxjs-interop";
         MatProgressBar,
         MatAnchor,
         MatIconButton,
+        RouterLinkActive,
     ],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HeaderComponent {
     private breakpointObserver = inject(BreakpointObserver);

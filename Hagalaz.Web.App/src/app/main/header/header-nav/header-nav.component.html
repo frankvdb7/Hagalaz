@@ -1,4 +1,4 @@
-<nav mat-tab-nav-bar class="nav-bar h-full border-b-0" color="primary" [tabPanel]="tabPanel">
+<nav mat-tab-nav-bar color="primary" class="uppercase" style="--mdc-secondary-navigation-tab-container-height: 64px" [tabPanel]="tabPanel">
     @for (link of links; track link.url) {
         <a mat-tab-link routerLinkActive [routerLink]="link.url" #rla="routerLinkActive" [active]="rla.isActive">
             {{ link.label }}

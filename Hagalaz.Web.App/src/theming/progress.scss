@@ -1,9 +1,0 @@
-@mixin progress-theme($theme) {
-    & {
-        --mdc-linear-progress-track-shape: #{theme("borderRadius.full")};
-    }
-    .mdc-linear-progress__bar {
-        overflow: hidden;
-        border-radius: var(--mdc-linear-progress-track-shape);
-    }
-}

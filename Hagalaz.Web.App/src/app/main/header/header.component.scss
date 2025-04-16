@@ -1,22 +1,3 @@
-@use "../../../styling";
-@use "sass:map";
-@use "sass:color";
-
-.toolbar {
-    // TODO - tweak this
-    &::after {
-        content: "";
-        @apply absolute inset-0 -z-10;
-
-        @include styling.glass-style($backdrop: true, $border-radius: false, $background-color: var(--sys-surface));
-
-        @media (screen(md)) {
-            @apply left-1/4 right-1/4;
-            mask: linear-gradient(to right, transparent, theme("colors.black") 33%, theme("colors.black") 66%, transparent);
-        }
-    }
-}
-
 .logo {
     &.play {
         #Text {

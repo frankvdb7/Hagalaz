@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, inject, input, output } from "@angular/core";
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
 import { MatButton } from "@angular/material/button";
-import { MatError, MatFormField, MatLabel } from "@angular/material/form-field";
+import { MatError, MatFormField, MatLabel, MatSuffix } from "@angular/material/form-field";
 import { MatIcon } from "@angular/material/icon";
 import { MatInput } from "@angular/material/input";
 import { NgHcaptchaModule } from "ng-hcaptcha";
@@ -16,8 +16,8 @@ export interface LoginFormModel {
     selector: "app-login-form",
     templateUrl: "./login-form.component.html",
     styleUrls: ["./login-form.component.scss"],
-    imports: [MatFormField, MatIcon, MatLabel, MatError, NgHcaptchaModule, FormsModule, ReactiveFormsModule, MatInput, MatButton],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    imports: [MatFormField, MatIcon, MatLabel, MatError, NgHcaptchaModule, FormsModule, ReactiveFormsModule, MatInput, MatButton, MatSuffix],
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoginFormComponent {
     private formBuilder = inject(FormBuilder);
