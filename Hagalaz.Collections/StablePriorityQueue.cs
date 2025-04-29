@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using JetBrains.Annotations;
 
 namespace Hagalaz.Collections
 {
     /// <summary>
-    /// 
+    /// Represents a node in a stable priority queue, maintaining an insertion index to
+    /// ensure stability when nodes with the same priority are enqueued. Stability ensures
+    /// that nodes with equal priorities are dequeued in the same order they were added.
+    /// Inherits from <see cref="FixedPriorityQueueNode" /> to provide priority and queue index functionality.
     /// </summary>
-    /// <seealso cref="FixedPriorityQueueNode" />
     public class StablePriorityQueueNode : FixedPriorityQueueNode
     {
         /// <summary>
@@ -22,11 +25,11 @@ namespace Hagalaz.Collections
     /// See https://github.com/BlueRaja/High-Speed-Priority-Queue-for-C-Sharp/wiki/Getting-Started for more information
     /// </summary>
     /// <typeparam name="T">The values in the queue.  Must extend the StablePriorityQueueNode class</typeparam>
+    [PublicAPI]
     public sealed class StablePriorityQueue<T> : IFixedSizePriorityQueue<T, float>
         where T : StablePriorityQueueNode
     {
-        private int _numNodes;
-        private T[] _nodes;
+        private T?[] _nodes;
         private long _numNodesEverEnqueued;
 
         /// <summary>
@@ -42,7 +45,7 @@ namespace Hagalaz.Collections
             }
 #endif
 
-            _numNodes = 0;
+            Count = 0;
             _nodes = new T[maxNodes + 1];
             _numNodesEverEnqueued = 0;
         }
@@ -51,25 +54,13 @@ namespace Hagalaz.Collections
         /// Returns the number of nodes in the queue.
         /// O(1)
         /// </summary>
-        public int Count
-        {
-            get
-            {
-                return _numNodes;
-            }
-        }
+        public int Count { get; private set; }
 
         /// <summary>
         /// Returns the maximum number of items that can be enqueued at once in this queue.  Once you hit this number (ie. once Count == MaxSize),
         /// attempting to enqueue another item will cause undefined behavior.  O(1)
         /// </summary>
-        public int MaxSize
-        {
-            get
-            {
-                return _nodes.Length - 1;
-            }
-        }
+        public int MaxSize => _nodes.Length - 1;
 
         /// <summary>
         /// Removes every node from the queue.
@@ -80,8 +71,8 @@ namespace Hagalaz.Collections
 #endif
         public void Clear()
         {
-            Array.Clear(_nodes, 1, _numNodes);
-            _numNodes = 0;
+            Array.Clear(_nodes, 1, Count);
+            Count = 0;
         }
 
         /// <summary>
@@ -93,10 +84,7 @@ namespace Hagalaz.Collections
         public bool Contains(T node)
         {
 #if DEBUG
-            if (node == null)
-            {
-                throw new ArgumentNullException("node");
-            }
+            ArgumentNullException.ThrowIfNull(node);
             if (node.QueueIndex < 0 || node.QueueIndex >= _nodes.Length)
             {
                 throw new InvalidOperationException("node.QueueIndex has been corrupted. Did you change it manually? Or add this node to another queue?");
@@ -118,14 +106,12 @@ namespace Hagalaz.Collections
         public void Enqueue(T node, float priority)
         {
 #if DEBUG
-            if (node == null)
-            {
-                throw new ArgumentNullException("node");
-            }
-            if (_numNodes >= _nodes.Length - 1)
+            ArgumentNullException.ThrowIfNull(node);
+            if (Count >= _nodes.Length - 1)
             {
                 throw new InvalidOperationException("Queue is full - node cannot be added: " + node);
             }
+
             if (Contains(node))
             {
                 throw new InvalidOperationException("Node is already enqueued: " + node);
@@ -133,11 +119,11 @@ namespace Hagalaz.Collections
 #endif
 
             node.Priority = priority;
-            _numNodes++;
-            _nodes[_numNodes] = node;
-            node.QueueIndex = _numNodes;
+            Count++;
+            _nodes[Count] = node;
+            node.QueueIndex = Count;
             node.InsertionIndex = _numNodesEverEnqueued++;
-            CascadeUp(_nodes[_numNodes]);
+            CascadeUp(node);
         }
 
 #if NET_VERSION_4_5
@@ -150,24 +136,27 @@ namespace Hagalaz.Collections
             _nodes[node2.QueueIndex] = node1;
 
             //Swap their indicies
-            int temp = node1.QueueIndex;
-            node1.QueueIndex = node2.QueueIndex;
-            node2.QueueIndex = temp;
+            (node1.QueueIndex, node2.QueueIndex) = (node2.QueueIndex, node1.QueueIndex);
         }
 
         //Performance appears to be slightly better when this is NOT inlined o_O
         private void CascadeUp(T node)
         {
             //aka Heapify-up
-            int parent = node.QueueIndex / 2;
+            var parent = node.QueueIndex / 2;
             while (parent >= 1)
             {
-                T parentNode = _nodes[parent];
-                if (HasHigherPriority(parentNode, node))
-                    break;
+                var parentNode = _nodes[parent];
+                if (parentNode != null)
+                {
+                    if (HasHigherPriority(parentNode, node))
+                    {
+                        break;
+                    }
 
-                //Node has lower priority value, so move it up the heap
-                Swap(node, parentNode); //For some reason, this is faster with Swap() rather than (less..?) individual operations, like in CascadeDown()
+                    //Node has lower priority value, so move it up the heap
+                    Swap(node, parentNode); //For some reason, this is faster with Swap() rather than (less..?) individual operations, like in CascadeDown()
+                }
 
                 parent = node.QueueIndex / 2;
             }
@@ -179,15 +168,14 @@ namespace Hagalaz.Collections
         private void CascadeDown(T node)
         {
             //aka Heapify-down
-            T newParent;
-            int finalQueueIndex = node.QueueIndex;
+            var finalQueueIndex = node.QueueIndex;
             while (true)
             {
-                newParent = node;
-                int childLeftIndex = 2 * finalQueueIndex;
+                var newParent = node;
+                var childLeftIndex = 2 * finalQueueIndex;
 
                 //Check if the left-child is higher-priority than the current node
-                if (childLeftIndex > _numNodes)
+                if (childLeftIndex > Count)
                 {
                     //This could be placed outside the loop, but then we'd have to check newParent != node twice
                     node.QueueIndex = finalQueueIndex;
@@ -195,18 +183,18 @@ namespace Hagalaz.Collections
                     break;
                 }
 
-                T childLeft = _nodes[childLeftIndex];
-                if (HasHigherPriority(childLeft, newParent))
+                var childLeft = _nodes[childLeftIndex];
+                if (childLeft != null && HasHigherPriority(childLeft, newParent))
                 {
                     newParent = childLeft;
                 }
 
                 //Check if the right-child is higher-priority than either the current node or the left child
-                int childRightIndex = childLeftIndex + 1;
-                if (childRightIndex <= _numNodes)
+                var childRightIndex = childLeftIndex + 1;
+                if (childRightIndex <= Count)
                 {
-                    T childRight = _nodes[childRightIndex];
-                    if (HasHigherPriority(childRight, newParent))
+                    var childRight = _nodes[childRightIndex];
+                    if (childRight != null && HasHigherPriority(childRight, newParent))
                     {
                         newParent = childRight;
                     }
@@ -219,9 +207,7 @@ namespace Hagalaz.Collections
                     //Doing it this way is one less assignment operation than calling Swap()
                     _nodes[finalQueueIndex] = newParent;
 
-                    int temp = newParent.QueueIndex;
-                    newParent.QueueIndex = finalQueueIndex;
-                    finalQueueIndex = temp;
+                    (newParent.QueueIndex, finalQueueIndex) = (finalQueueIndex, newParent.QueueIndex);
                 }
                 else
                 {
@@ -243,7 +229,8 @@ namespace Hagalaz.Collections
         private static bool HasHigherPriority(T higher, T lower)
         {
             return (higher.Priority < lower.Priority ||
-                (higher.Priority == lower.Priority && higher.InsertionIndex < lower.InsertionIndex));
+                    // ReSharper disable once CompareOfFloatsByEqualityOperator
+                    (higher.Priority == lower.Priority && higher.InsertionIndex < lower.InsertionIndex));
         }
 
         /// <summary>
@@ -251,10 +238,10 @@ namespace Hagalaz.Collections
         /// If queue is empty, result is undefined
         /// O(log n)
         /// </summary>
-        public T Dequeue()
+        public T? Dequeue()
         {
 #if DEBUG
-            if (_numNodes <= 0)
+            if (Count <= 0)
             {
                 throw new InvalidOperationException("Cannot call Dequeue() on an empty queue");
             }
@@ -266,8 +253,12 @@ namespace Hagalaz.Collections
             }
 #endif
 
-            T returnMe = _nodes[1];
-            Remove(returnMe);
+            var returnMe = _nodes[1];
+            if (returnMe != null)
+            {
+                Remove(returnMe);
+            }
+
             return returnMe;
         }
 
@@ -284,18 +275,19 @@ namespace Hagalaz.Collections
                 throw new InvalidOperationException("Queue size cannot be smaller than 1");
             }
 
-            if (maxNodes < _numNodes)
+            if (maxNodes < Count)
             {
-                throw new InvalidOperationException("Called Resize(" + maxNodes + "), but current queue contains " + _numNodes + " nodes");
+                throw new InvalidOperationException("Called Resize(" + maxNodes + "), but current queue contains " + Count + " nodes");
             }
 #endif
 
-            T[] newArray = new T[maxNodes + 1];
-            int highestIndexToCopy = Math.Min(maxNodes, _numNodes);
-            for (int i = 1; i <= highestIndexToCopy; i++)
+            var newArray = new T?[maxNodes + 1];
+            var highestIndexToCopy = Math.Min(maxNodes, Count);
+            for (var i = 1; i <= highestIndexToCopy; i++)
             {
                 newArray[i] = _nodes[i];
             }
+
             _nodes = newArray;
         }
 
@@ -304,12 +296,12 @@ namespace Hagalaz.Collections
         /// If the queue is empty, behavior is undefined.
         /// O(1)
         /// </summary>
-        public T First
+        public T? First
         {
             get
             {
 #if DEBUG
-                if (_numNodes <= 0)
+                if (Count <= 0)
                 {
                     throw new InvalidOperationException("Cannot call .First on an empty queue");
                 }
@@ -331,10 +323,7 @@ namespace Hagalaz.Collections
         public void UpdatePriority(T node, float priority)
         {
 #if DEBUG
-            if (node == null)
-            {
-                throw new ArgumentNullException("node");
-            }
+            ArgumentNullException.ThrowIfNull(node);
             if (!Contains(node))
             {
                 throw new InvalidOperationException("Cannot call UpdatePriority() on a node which is not enqueued: " + node);
@@ -348,10 +337,10 @@ namespace Hagalaz.Collections
         private void OnNodeUpdated(T node)
         {
             //Bubble the updated node up or down as appropriate
-            int parentIndex = node.QueueIndex / 2;
-            T parentNode = _nodes[parentIndex];
+            var parentIndex = node.QueueIndex / 2;
+            var parentNode = _nodes[parentIndex];
 
-            if (parentIndex > 0 && HasHigherPriority(node, parentNode))
+            if (parentIndex > 0 && parentNode != null && HasHigherPriority(node, parentNode))
             {
                 CascadeUp(node);
             }
@@ -370,10 +359,7 @@ namespace Hagalaz.Collections
         public void Remove(T node)
         {
 #if DEBUG
-            if (node == null)
-            {
-                throw new ArgumentNullException("node");
-            }
+            ArgumentNullException.ThrowIfNull(node);
             if (!Contains(node))
             {
                 throw new InvalidOperationException("Cannot call Remove() on a node which is not enqueued: " + node);
@@ -381,21 +367,29 @@ namespace Hagalaz.Collections
 #endif
 
             //If the node is already the last node, we can remove it immediately
-            if (node.QueueIndex == _numNodes)
+            if (node.QueueIndex == Count)
             {
-                _nodes[_numNodes] = null;
-                _numNodes--;
+                _nodes[Count] = null;
+                Count--;
                 return;
             }
 
             //Swap the node with the last node
-            T formerLastNode = _nodes[_numNodes];
-            Swap(node, formerLastNode);
-            _nodes[_numNodes] = null;
-            _numNodes--;
+            var formerLastNode = _nodes[Count];
 
-            //Now bubble formerLastNode (which is no longer the last node) up or down as appropriate
-            OnNodeUpdated(formerLastNode);
+            if (formerLastNode != null)
+            {
+                Swap(node, formerLastNode);
+            }
+
+            _nodes[Count] = null;
+            Count--;
+
+            if (formerLastNode != null)
+            {
+                //Now bubble formerLastNode (which is no longer the last node) up or down as appropriate
+                OnNodeUpdated(formerLastNode);
+            }
         }
 
         /// <summary>
@@ -404,10 +398,9 @@ namespace Hagalaz.Collections
         /// <returns>
         /// An enumerator that can be used to iterate through the collection.
         /// </returns>
-        public IEnumerator<T> GetEnumerator()
+        public IEnumerator<T?> GetEnumerator()
         {
-            for (int i = 1; i <= _numNodes; i++)
-                yield return _nodes[i];
+            for (var i = 1; i <= Count; i++) yield return _nodes[i];
         }
 
         /// <summary>
@@ -416,10 +409,7 @@ namespace Hagalaz.Collections
         /// <returns>
         /// An <see cref="T:System.Collections.IEnumerator" /> object that can be used to iterate through the collection.
         /// </returns>
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
         /// <b>Should not be called in production code.</b>
@@ -427,19 +417,28 @@ namespace Hagalaz.Collections
         /// </summary>
         public bool IsValidQueue()
         {
-            for (int i = 1; i < _nodes.Length; i++)
+            for (var i = 1; i < _nodes.Length; i++)
             {
-                if (_nodes[i] != null)
+                if (_nodes[i] == null)
                 {
-                    int childLeftIndex = 2 * i;
-                    if (childLeftIndex < _nodes.Length && _nodes[childLeftIndex] != null && HasHigherPriority(_nodes[childLeftIndex], _nodes[i]))
-                        return false;
+                    continue;
+                }
 
-                    int childRightIndex = childLeftIndex + 1;
-                    if (childRightIndex < _nodes.Length && _nodes[childRightIndex] != null && HasHigherPriority(_nodes[childRightIndex], _nodes[i]))
-                        return false;
+                var childLeftIndex = 2 * i;
+                if (childLeftIndex < _nodes.Length && _nodes[childLeftIndex] != null && _nodes[i] != null &&
+                    HasHigherPriority(_nodes[childLeftIndex]!, _nodes[i]!))
+                {
+                    return false;
+                }
+
+                var childRightIndex = childLeftIndex + 1;
+                if (childRightIndex < _nodes.Length && _nodes[childRightIndex] != null && _nodes[i] != null &&
+                    HasHigherPriority(_nodes[childRightIndex]!, _nodes[i]!))
+                {
+                    return false;
                 }
             }
+
             return true;
         }
     }

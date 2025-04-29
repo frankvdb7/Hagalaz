@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using JetBrains.Annotations;
 
 namespace Hagalaz.Collections
 {
@@ -10,6 +12,7 @@ namespace Hagalaz.Collections
     /// </summary>
     /// <typeparam name="TItem">The type to enqueue</typeparam>
     /// <typeparam name="TPriority">The priority-type to use for nodes.  Must extend IComparable&lt;TPriority&gt;</typeparam>
+    [PublicAPI]
     public class PriorityQueue<TItem, TPriority> : IPriorityQueue<TItem, TPriority>
         where TPriority : IComparable<TPriority>
     {
@@ -17,22 +20,16 @@ namespace Hagalaz.Collections
         {
             public TItem Data { get; private set; }
 
-            public SimpleNode(TItem data)
-            {
-                Data = data;
-            }
+            public SimpleNode(TItem data) => Data = data;
         }
 
-        private const int INITIAL_QUEUE_SIZE = 10;
+        private const int _initialQueueSize = 10;
         private readonly GenericPriorityQueue<SimpleNode, TPriority> _queue;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PriorityQueue{TItem, TPriority}"/> class.
         /// </summary>
-        public PriorityQueue()
-        {
-            _queue = new GenericPriorityQueue<SimpleNode, TPriority>(INITIAL_QUEUE_SIZE);
-        }
+        public PriorityQueue() => _queue = new GenericPriorityQueue<SimpleNode, TPriority>(_initialQueueSize);
 
         /// <summary>
         /// Given an item of type T, returns the exist SimpleNode in the queue
@@ -42,7 +39,7 @@ namespace Hagalaz.Collections
             var comparer = EqualityComparer<TItem>.Default;
             foreach (var node in _queue)
             {
-                if (comparer.Equals(node.Data, item))
+                if (node != null && comparer.Equals(node.Data, item))
                 {
                     return node;
                 }
@@ -71,7 +68,7 @@ namespace Hagalaz.Collections
         /// Throws an exception when the queue is empty.
         /// O(1)
         /// </summary>
-        public TItem First
+        public TItem? First
         {
             get
             {
@@ -82,8 +79,8 @@ namespace Hagalaz.Collections
                         throw new InvalidOperationException("Cannot call .First on an empty queue");
                     }
 
-                    SimpleNode first = _queue.First;
-                    return (first != null ? first.Data : default(TItem));
+                    var first = _queue.First;
+                    return (first != null ? first.Data : default);
                 }
             }
         }
@@ -109,14 +106,7 @@ namespace Hagalaz.Collections
             lock (_queue)
             {
                 var comparer = EqualityComparer<TItem>.Default;
-                foreach (var node in _queue)
-                {
-                    if (comparer.Equals(node.Data, item))
-                    {
-                        return true;
-                    }
-                }
-                return false;
+                return _queue.Where(node => node != null).Any(node => comparer.Equals(node!.Data, item));
             }
         }
 
@@ -125,7 +115,7 @@ namespace Hagalaz.Collections
         /// If queue is empty, throws an exception
         /// O(log n)
         /// </summary>
-        public TItem Dequeue()
+        public TItem? Dequeue()
         {
             lock (_queue)
             {
@@ -134,8 +124,8 @@ namespace Hagalaz.Collections
                     throw new InvalidOperationException("Cannot call Dequeue() on an empty queue");
                 }
 
-                SimpleNode node = _queue.Dequeue();
-                return node.Data;
+                var node = _queue.Dequeue();
+                return node == null ? default : node.Data;
             }
         }
 
@@ -149,7 +139,7 @@ namespace Hagalaz.Collections
         {
             lock (_queue)
             {
-                SimpleNode node = new SimpleNode(item);
+                var node = new SimpleNode(item);
                 if (_queue.Count == _queue.MaxSize)
                 {
                     _queue.Resize(_queue.MaxSize * 2 + 1);
@@ -193,7 +183,7 @@ namespace Hagalaz.Collections
             {
                 try
                 {
-                    SimpleNode updateMe = GetExistingNode(item);
+                    var updateMe = GetExistingNode(item);
                     _queue.UpdatePriority(updateMe, priority);
                 }
                 catch (InvalidOperationException ex)
@@ -211,14 +201,11 @@ namespace Hagalaz.Collections
         /// </returns>
         public IEnumerator<TItem> GetEnumerator()
         {
-            List<TItem> queueData = new List<TItem>();
+            var queueData = new List<TItem>();
             lock (_queue)
             {
                 //Copy to a separate list because we don't want to 'yield return' inside a lock
-                foreach (var node in _queue)
-                {
-                    queueData.Add(node.Data);
-                }
+                queueData.AddRange(_queue.Where(node => node != null).Select(node => node!.Data));
             }
 
             return queueData.GetEnumerator();
@@ -230,10 +217,7 @@ namespace Hagalaz.Collections
         /// <returns>
         /// An <see cref="T:System.Collections.IEnumerator" /> object that can be used to iterate through the collection.
         /// </returns>
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
         /// Determines whether [is valid queue].
@@ -256,5 +240,6 @@ namespace Hagalaz.Collections
     /// This class is kept here for backwards compatibility.  It's recommended you use Simple
     /// </summary>
     /// <typeparam name="TItem">The type to enqueue</typeparam>
+    [PublicAPI]
     public class SimplePriorityQueue<TItem> : PriorityQueue<TItem, float> { }
 }
