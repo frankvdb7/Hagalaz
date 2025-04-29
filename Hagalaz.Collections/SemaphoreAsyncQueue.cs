@@ -2,23 +2,26 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 
 namespace Hagalaz.Collections
 {
     /// <summary>
-    /// 
+    /// Represents an asynchronous queue mechanism using semaphore to manage concurrent access to queued items.
     /// </summary>
+    /// <typeparam name="T">The type of items in the queue.</typeparam>
+    [PublicAPI]
     public class SemaphoreAsyncQueue<T> : IAsyncQueue<T>
     {
         /// <summary>
         /// The work items
         /// </summary>
-        private readonly ConcurrentQueue<T> _workItems = new ConcurrentQueue<T>();
+        private readonly ConcurrentQueue<T> _workItems = new();
 
         /// <summary>
         /// The signal
         /// </summary>
-        private SemaphoreSlim _signal = new SemaphoreSlim(0);
+        private SemaphoreSlim _signal = new(0);
 
         /// <summary>
         /// Queues the background work item.
@@ -36,7 +39,7 @@ namespace Hagalaz.Collections
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns></returns>
-        public async Task<T> DequeueAsync(CancellationToken cancellationToken)
+        public async Task<T?> DequeueAsync(CancellationToken cancellationToken)
         {
             await _signal.WaitAsync(cancellationToken);
             _workItems.TryDequeue(out var workItem);
@@ -52,12 +55,12 @@ namespace Hagalaz.Collections
         /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposing || _signal == null)
+            if (!disposing || _signal == null!)
             {
                 return;
             }
             _signal.Dispose();
-            _signal = null;
+            _signal = null!;
         }
 
         /// <summary>

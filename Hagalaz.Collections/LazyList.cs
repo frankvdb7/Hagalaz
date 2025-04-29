@@ -2,15 +2,34 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using JetBrains.Annotations;
 
 namespace Hagalaz.Collections
 {
+    /// <summary>
+    /// Provides extension methods for working with <see cref="LazyList{T}"/> to enable deferred evaluation and caching when working with enumerable sequences.
+    /// </summary>
+    [PublicAPI]
     public static class LazyListExtensions
     {
-        public static LazyList<T> ToLazyList<T>(this IEnumerable<T> source) => new LazyList<T>(source);
+        /// <summary>
+        /// Converts the given enumerable source to a <see cref="LazyList{T}"/> which allows
+        /// deferred evaluation and caching of its elements.
+        /// </summary>
+        /// <typeparam name="T">The type of elements in the enumerable source.</typeparam>
+        /// <param name="source">The enumerable source to be converted to a lazy list.</param>
+        /// <returns>A <see cref="LazyList{T}"/> wrapping the given enumerable source.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when the provided source is null.</exception>
+        public static LazyList<T> ToLazyList<T>(this IEnumerable<T> source) => new(source);
     }
-    
-    public class LazyList<T> : IEnumerable<T>, IDisposable
+
+    /// <summary>
+    /// Represents a lazily evaluated list that defers the computation or retrieval of its elements until they are accessed.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the list.</typeparam>
+    [PublicAPI]
+    public sealed class LazyList<T> : IEnumerable<T>, IDisposable
     {
         private readonly IList<T> _cache;
         private IEnumerator<T> _sourceEnumerator;
@@ -18,12 +37,10 @@ namespace Hagalaz.Collections
 
         public LazyList(IEnumerable<T> source)
         {
-            if (source == null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
-            _cache = source as IList<T>;
-            if (_cache == null) // Needs caching
+            ArgumentNullException.ThrowIfNull(source);
+
+            _cache = (source as IList<T>)!;
+            if (_cache == null!) // Needs caching
             {
                 _cache = new List<T>();
                 _sourceEnumerator = source.GetEnumerator();
@@ -47,16 +64,20 @@ namespace Hagalaz.Collections
 
         ~LazyList() => Dispose(false);
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
-            if (disposing)
+            if (!disposing)
             {
-                if (_sourceEnumerator != null)
-                {
-                    _sourceEnumerator.Dispose();
-                    _sourceEnumerator = null;
-                }
+                return;
             }
+
+            if (_sourceEnumerator == null!)
+            {
+                return;
+            }
+
+            _sourceEnumerator.Dispose();
+            _sourceEnumerator = null!;
 
             // No native resources to free.
         }
@@ -64,9 +85,9 @@ namespace Hagalaz.Collections
         private class LazyListEnumerator : IEnumerator<T>
         {
             private readonly LazyList<T> _lazyList;
-            private readonly object _lock = new object();
-            private const int StartIndex = -1;
-            private int _index = StartIndex;
+            private readonly Lock _lock = new();
+            private const int _startIndex = -1;
+            private int _index = _startIndex;
 
             public LazyListEnumerator(LazyList<T> lazyList) => _lazyList = lazyList;
 
@@ -110,11 +131,11 @@ namespace Hagalaz.Collections
 
             private void SetCurrentToIndex() => Current = _lazyList._cache[_index];
 
-            public void Reset() => _index = StartIndex;
+            public void Reset() => _index = _startIndex;
 
-            public T Current { get; private set; }
+            public T Current { get; private set; } = default!;
 
-            object IEnumerator.Current => Current;
+            object IEnumerator.Current => Current!;
 
             public void Dispose()
             {

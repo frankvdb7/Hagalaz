@@ -1,13 +1,19 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
+#pragma warning disable CS9216 // A value of type 'System.Threading.Lock' converted to a different type will use likely unintended monitor-based locking in 'lock' statement
 
 namespace Hagalaz.Collections
 {
     /// <summary>
-    /// 
+    /// Represents a thread-safe, synchronized wrapper around a generic list that ensures thread safety for all operations.
     /// </summary>
-    /// <typeparam name="T"></typeparam>
+    /// <typeparam name="T">The type of elements contained in the list.</typeparam>
+    /// <remarks>
+    /// The <c>SynchronizedList</c> provides a collection that can be safely accessed by multiple threads.
+    /// All operations performed on the list, such as adding, removing, or retrieving items, are synchronized using an internal lock object.
+    /// This class is useful for scenarios where shared access to a list across multiple threads is required while maintaining thread safety.
+    /// </remarks>
     public class SynchronizedList<T> : IList<T>
     {
         private readonly List<T> _list;
@@ -15,9 +21,9 @@ namespace Hagalaz.Collections
         /// <summary>
         /// 
         /// </summary>
-        public SynchronizedList() => _list = new List<T>();
+        public SynchronizedList() => _list = [];
 
-        public object SyncRoot { get; } = new object();
+        public Lock SyncRoot { get; } = new();
 
         public int Count
         {
@@ -130,13 +136,22 @@ namespace Hagalaz.Collections
             }
         }
     }
-    
-    public struct SynchronizedEnumerator<T> : IEnumerator<T>
+
+    /// <summary>
+    /// Provides a thread-safe enumerator that ensures synchronized access to the underlying collection during enumeration.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the collection being enumerated.</typeparam>
+    /// <remarks>
+    /// The <c>SynchronizedEnumerator</c> ensures that the collection is locked for the duration of the enumeration.
+    /// This is especially useful to maintain thread safety when iterating over shared collections.
+    /// The underlying lock is acquired when the enumerator is instantiated and released when the enumerator is disposed.
+    /// </remarks>
+    public readonly struct SynchronizedEnumerator<T> : IEnumerator<T>
     {
         private readonly IEnumerator<T> _enumerator;
-        private readonly object _root;
+        private readonly Lock _root;
 
-        public SynchronizedEnumerator(IEnumerator<T> enumerator, object root)
+        public SynchronizedEnumerator(IEnumerator<T> enumerator, Lock root)
         {
             _enumerator = enumerator;
             _root = root;
@@ -159,6 +174,6 @@ namespace Hagalaz.Collections
 
         public T Current => _enumerator.Current;
 
-        object IEnumerator.Current => Current;
+        object IEnumerator.Current => Current!;
     }
 }

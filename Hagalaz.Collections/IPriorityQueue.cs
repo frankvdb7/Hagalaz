@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using JetBrains.Annotations;
 
 namespace Hagalaz.Collections
 {
@@ -8,7 +9,8 @@ namespace Hagalaz.Collections
     /// For speed purposes, it is actually recommended that you *don't* access the priority queue through this interface, since the JIT can
     /// (theoretically?) optimize method calls from concrete-types slightly better.
     /// </summary>
-    public interface IPriorityQueue<TItem, in TPriority> : IEnumerable<TItem>
+    [PublicAPI]
+    public interface IPriorityQueue<TItem, in TPriority> : IEnumerable<TItem?>
         where TPriority : IComparable<TPriority>
     {
         /// <summary>
@@ -20,7 +22,7 @@ namespace Hagalaz.Collections
         /// <summary>
         /// Removes the head of the queue (node with minimum priority; ties are broken by order of insertion), and returns it.
         /// </summary>
-        TItem Dequeue();
+        TItem? Dequeue();
 
         /// <summary>
         /// Removes every node from the queue.
@@ -45,7 +47,7 @@ namespace Hagalaz.Collections
         /// <summary>
         /// Returns the head of the queue, without removing it (use Dequeue() for that).
         /// </summary>
-        TItem First { get; }
+        TItem? First { get; }
 
         /// <summary>
         /// Returns the number of nodes in the queue.
