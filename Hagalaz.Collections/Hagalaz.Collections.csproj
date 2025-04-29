@@ -6,4 +6,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Collections.Extensions\Hagalaz.Collections.Extensions.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="JetBrains.Annotations" Version="2024.3.0" />
+  </ItemGroup>
 </Project>

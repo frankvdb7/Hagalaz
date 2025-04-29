@@ -16,10 +16,9 @@ namespace Hagalaz.AppHost
             where T : IResourceWithEndpoints =>
             builder.WithCommand(name,
                 displayName,
-                iconName: "Document",
-                iconVariant: IconVariant.Regular,
-                executeCommand: async _ =>
+                async _ =>
                 {
+                    await Task.CompletedTask;
                     try
                     {
                         var endpoint = builder.GetEndpoint("https");
@@ -41,8 +40,13 @@ namespace Hagalaz.AppHost
                         };
                     }
                 },
-                updateState: context =>
-                    context.ResourceSnapshot.HealthStatus == HealthStatus.Healthy ? ResourceCommandState.Enabled : ResourceCommandState.Disabled);
+                new CommandOptions
+                {
+                    IconName = "Document",
+                    IconVariant = IconVariant.Regular,
+                    UpdateState = context =>
+                        context.ResourceSnapshot.HealthStatus == HealthStatus.Healthy ? ResourceCommandState.Enabled : ResourceCommandState.Disabled
+                });
 
         public static IResourceBuilder<TResource> RunWithHttpsDevCertificate<TResource>(
             this IResourceBuilder<TResource> builder, string certFileEnv, string certKeyFileEnv, Action<string, string>? onSuccessfulExport = null)
