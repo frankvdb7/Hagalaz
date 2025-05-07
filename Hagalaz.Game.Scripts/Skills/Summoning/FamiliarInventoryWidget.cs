@@ -255,10 +255,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
         ///     Refreshe's inventory.
         /// </summary>
         /// <param name="changedSlots"></param>
-        public void RefreshInventory(HashSet<int>? changedSlots = null)
-        {
-            Owner.Configurations.SendItems(90, false, Owner.Inventory, changedSlots);
-        }
+        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(90, false, Owner.Inventory, changedSlots);
 
         /// <summary>
         ///     Happens when interface is closed for character.

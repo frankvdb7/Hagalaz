@@ -14,10 +14,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.GameObjects
     {
         private readonly IItemBuilder _itemBuilder;
 
-        public EdgevilleWell(IItemBuilder itemBuilder)
-        {
-            _itemBuilder = itemBuilder;
-        }
+        public EdgevilleWell(IItemBuilder itemBuilder) => _itemBuilder = itemBuilder;
 
         /// <summary>
         ///     Called when [use item].

@@ -18,10 +18,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// </summary>
         private OnIntInput? _silverXHandler;
         
-        public SilverCastScreen(ICharacterContextAccessor characterContextAccessor, ICraftingService craftingService) : base(characterContextAccessor)
-        {
-            _craftingService = craftingService;
-        }
+        public SilverCastScreen(ICharacterContextAccessor characterContextAccessor, ICraftingService craftingService) : base(characterContextAccessor) => _craftingService = craftingService;
 
         /// <summary>
         ///     Happens when interface is closed for character.
@@ -107,7 +104,10 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <param name="count">The count.</param>
         private void Start(SilverDto definition, int count)
         {
-            Owner.QueueTask(new SilverTask(Owner, definition, count));
+            var task = Owner.ServiceProvider.GetRequiredService<SilverTask>();
+            task.Definition = definition;
+            task.TotalMakeCount = count;
+            Owner.QueueTask(task);
             Owner.Widgets.CloseWidget(InterfaceInstance);
         }
     }

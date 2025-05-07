@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using Hagalaz.Collections.Extensions;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Tasks;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Model.Widgets;
@@ -19,6 +19,8 @@ namespace Hagalaz.Game.Scripts.Characters
     /// </summary>
     public class TradingCharacterScript : CharacterScriptBase, IDefaultCharacterScript
     {
+        private readonly IItemBuilder _itemBuilder;
+
         /// <summary>
         ///     Contains last requested character.
         /// </summary>
@@ -104,7 +106,10 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public bool TargetModified { get; private set; }
 
-        public TradingCharacterScript(ICharacterContextAccessor contextAccessor) : base(contextAccessor) { }
+        public TradingCharacterScript(ICharacterContextAccessor contextAccessor, IItemBuilder itemBuilder) : base(contextAccessor)
+        {
+            _itemBuilder = itemBuilder;
+        }
 
         /// <summary>
         ///     Happens when character enter's world.
@@ -1018,7 +1023,7 @@ namespace Hagalaz.Game.Scripts.Characters
                             return;
                         }
 
-                        SelfContainer.Add(new Item(995, amt));
+                        SelfContainer.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshTradeOfferScreen();
                         ProcessTradeChange(true, false);
                     };
@@ -1056,7 +1061,7 @@ namespace Hagalaz.Game.Scripts.Characters
                             return;
                         }
 
-                        TargetContainer.Add(new Item(995, amt));
+                        TargetContainer.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshTradeOfferScreen();
                         ProcessTradeChange(false, false);
                     };

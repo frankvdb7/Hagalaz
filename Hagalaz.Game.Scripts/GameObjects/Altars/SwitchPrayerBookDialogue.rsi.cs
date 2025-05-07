@@ -20,10 +20,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
         private IGameObject _obj = default!;
         private readonly IScopedGameMediator _gameMediator;
 
-        public SwitchPrayerBookDialogue(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public SwitchPrayerBookDialogue(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is closed for character.

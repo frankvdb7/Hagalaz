@@ -1,6 +1,6 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Items.Weapons
@@ -10,6 +10,10 @@ namespace Hagalaz.Game.Scripts.Items.Weapons
     [ItemScriptMetaData([4151, 15441, 15442, 15443, 15444])]
     public class AbyssalWhip : ItemScript
     {
+        private readonly IItemBuilder _itemBuilder;
+
+        public AbyssalWhip(IItemBuilder itemBuilder) => _itemBuilder = itemBuilder;
+
         /// <summary>
         ///     Uses the item on an other item.
         /// </summary>
@@ -29,35 +33,20 @@ namespace Hagalaz.Game.Scripts.Items.Weapons
                 colour = ColourMethods.GetColouringItem(usedWith);
             }
 
-            Item colouredItem = null;
-            if (colour == ColouringItems.WhiteFish)
+            IItem colouredItem;
+            switch (colour)
             {
-                colouredItem = new Item(15443, 1);
-            }
-            else if (colour == ColouringItems.BlueDye)
-            {
-                colouredItem = new Item(15442, 1);
-            }
-            else if (colour == ColouringItems.YellowDye)
-            {
-                colouredItem = new Item(15441, 1);
-            }
-            else if (colour == ColouringItems.GreenDye)
-            {
-                colouredItem = new Item(15444, 1);
-            }
-            else if (colour == ColouringItems.CleaningCloth)
-            {
-                colouredItem = new Item(4151, 1);
-            }
-            else
-            {
-                return base.UseItemOnItem(used, usedWith, character);
+                case ColouringItems.WhiteFish: colouredItem = _itemBuilder.Create().WithId(15443).Build(); break;
+                case ColouringItems.BlueDye: colouredItem = _itemBuilder.Create().WithId(15442).Build(); break;
+                case ColouringItems.YellowDye: colouredItem = _itemBuilder.Create().WithId(15441).Build(); break;
+                case ColouringItems.GreenDye: colouredItem = _itemBuilder.Create().WithId(15444).Build(); break;
+                case ColouringItems.CleaningCloth: colouredItem = _itemBuilder.Create().WithId(4151).Build(); break;
+                default: return base.UseItemOnItem(used, usedWith, character);
             }
 
 
-            var whipSlot = -1;
-            var colourSlot = -1;
+            int whipSlot;
+            int colourSlot;
             if (whipIsUsedItem)
             {
                 whipSlot = character.Inventory.GetInstanceSlot(used);

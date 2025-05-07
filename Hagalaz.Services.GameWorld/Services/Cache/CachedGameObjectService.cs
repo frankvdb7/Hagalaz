@@ -22,8 +22,6 @@ namespace Hagalaz.Services.GameWorld.Services.Cache
 
         public IEnumerable<IGameObject> FindByLocation(ILocation location) => _inner.FindByLocation(location);
 
-        public IEnumerable<IGameObject> FindAll(GameObjectFindAll gameObjectFindAll) => _inner.FindAll(gameObjectFindAll);
-
         public async Task<IGameObjectDefinition> FindGameObjectDefinitionById(int objectId, CancellationToken cancellationToken = default)
         {
             var cacheKey = $"{Constants.Cache.GameObjectDefinitionCachePrefix}{objectId}";

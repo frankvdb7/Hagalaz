@@ -12,10 +12,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
     {
         private readonly ISummoningSkillService _skillService;
 
-        public StandardPouch(ISummoningSkillService skillService)
-        {
-            _skillService = skillService;
-        }
+        public StandardPouch(ISummoningSkillService skillService) => _skillService = skillService;
 
         /// <summary>
         ///     Happens when specific item is clicked in specific character's inventory.

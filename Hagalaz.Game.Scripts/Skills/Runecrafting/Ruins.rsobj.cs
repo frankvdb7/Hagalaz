@@ -14,10 +14,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
     {
         private readonly IRunecraftingService _runecraftingService;
 
-        public Ruins(IRunecraftingService runecraftingService)
-        {
-            _runecraftingService = runecraftingService;
-        }
+        public Ruins(IRunecraftingService runecraftingService) => _runecraftingService = runecraftingService;
 
         /// <summary>
         ///     Uses the item on game object.

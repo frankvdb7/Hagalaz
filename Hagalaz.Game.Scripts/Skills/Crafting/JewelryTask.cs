@@ -1,11 +1,12 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Crafting
 {
@@ -18,24 +19,17 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// </summary>
         private readonly EventHappened _interruptEvent;
 
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="JewelryTask" /> class.
-        /// </summary>
-        /// <param name="performer">The performer.</param>
-        /// <param name="definition">The definition.</param>
-        /// <param name="totalMakeCount">The total make count.</param>
-        public JewelryTask(ICharacter performer, JewelryDto definition, int totalMakeCount)
+        public JewelryTask(ICharacterContextAccessor characterContextAccessor, IItemService itemService, IItemBuilder itemBuilder)
         {
-            Performer = performer;
-            Definition = definition;
+            Performer = characterContextAccessor.Context.Character;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _itemService = itemService;
+            _itemBuilder = itemBuilder;
+            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
                 Cancel();
                 return false;
             });
-            TotalMakeCount = totalMakeCount;
-            _itemRepository = performer.ServiceProvider.GetRequiredService<IItemService>();
         }
 
         /// <summary>
@@ -46,7 +40,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The definition.
         /// </summary>
-        private JewelryDto Definition { get; }
+        public JewelryDto Definition { get; set; } = null!;
 
         /// <summary>
         ///     The times performed.
@@ -56,12 +50,14 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The times to perform.
         /// </summary>
-        private int TotalMakeCount { get; }
+        public int TotalMakeCount { get; set; }
 
         /// <summary>
         ///     The item manager
         /// </summary>
-        private readonly IItemService _itemRepository;
+        private readonly IItemService _itemService;
+
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         ///     Contains tick implementation.
@@ -79,14 +75,16 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             {
                 if (!Performer.Inventory.Contains(CraftingSkillService.GoldBar))
                 {
-                    Performer.SendChatMessage("You do not have any more " + _itemRepository.FindItemDefinitionById(CraftingSkillService.GoldBar).Name + " that you can use.");
+                    Performer.SendChatMessage("You do not have any more " + _itemService.FindItemDefinitionById(CraftingSkillService.GoldBar).Name +
+                                              " that you can use.");
                     Cancel();
-                    return; 
+                    return;
                 }
 
                 if (!Performer.Inventory.Contains(Definition.ResourceID))
                 {
-                    Performer.SendChatMessage("You do not have any more " + _itemRepository.FindItemDefinitionById(Definition.ResourceID).Name + " that you can use.");
+                    Performer.SendChatMessage("You do not have any more " + _itemService.FindItemDefinitionById(Definition.ResourceID).Name +
+                                              " that you can use.");
                     Cancel();
                     return;
                 }
@@ -95,35 +93,39 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 return;
             }
 
-            if (TickCount % 3 == 0)
+            if (TickCount % 3 != 0)
             {
-                MakeCount++;
-                var removed = Performer.Inventory.Remove(new Item(Definition.ResourceID));
-                if (CraftingSkillService.GoldBar != Definition.ResourceID)
-                {
-                    removed += Performer.Inventory.Remove(new Item(CraftingSkillService.GoldBar));
-                }
-
-                if (removed <= 0)
-                {
-                    Cancel();
-                    return;
-                }
-
-                Performer.Inventory.Add(new Item(Definition.ProductID));
-
-                if (Definition.ResourceID == CraftingSkillService.GoldBar)
-                {
-                    Performer.SendChatMessage("You shape the gold bar with the mould to make a " + _itemRepository.FindItemDefinitionById(Definition.ProductID).Name.ToLower() + ".");
-                }
-                else
-                {
-                    Performer.SendChatMessage("You bind the Gold bar and the " + _itemRepository.FindItemDefinitionById(Definition.ResourceID).Name.ToLower()
-                                                                           + " together to make a " + _itemRepository.FindItemDefinitionById(Definition.ProductID).Name.ToLower() + ".");
-                }
-
-                Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.Experience);
+                return;
             }
+
+            MakeCount++;
+            var removed = Performer.Inventory.Remove(_itemBuilder.Create().WithId(Definition.ResourceID).Build());
+            if (CraftingSkillService.GoldBar != Definition.ResourceID)
+            {
+                removed += Performer.Inventory.Remove(_itemBuilder.Create().WithId(CraftingSkillService.GoldBar).Build());
+            }
+
+            if (removed <= 0)
+            {
+                Cancel();
+                return;
+            }
+
+            Performer.Inventory.Add(_itemBuilder.Create().WithId(Definition.ProductID).Build());
+
+            if (Definition.ResourceID == CraftingSkillService.GoldBar)
+            {
+                Performer.SendChatMessage("You shape the gold bar with the mould to make a " +
+                                          _itemService.FindItemDefinitionById(Definition.ProductID).Name.ToLower() + ".");
+            }
+            else
+            {
+                Performer.SendChatMessage("You bind the Gold bar and the " + _itemService.FindItemDefinitionById(Definition.ResourceID).Name.ToLower()
+                                                                           + " together to make a " +
+                                                                           _itemService.FindItemDefinitionById(Definition.ProductID).Name.ToLower() + ".");
+            }
+
+            Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.Experience);
         }
 
         /// <summary>

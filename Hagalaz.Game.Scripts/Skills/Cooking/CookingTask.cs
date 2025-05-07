@@ -1,14 +1,15 @@
-﻿using Hagalaz.Game.Abstractions.Collections;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Cooking
 {
@@ -21,26 +22,17 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
         /// </summary>
         private readonly EventHappened _interruptEvent;
 
-        /// <summary>
-        ///     Construct's new cooking task.
-        /// </summary>
-        /// <param name="performer">The performer.</param>
-        /// <param name="obj">The obj.</param>
-        /// <param name="dto">The definition.</param>
-        /// <param name="totalCookCount">The total cook count.</param>
-        public CookingTask(ICharacter performer, IGameObject obj, RawFoodDto dto, int totalCookCount)
+        public CookingTask(ICharacterContextAccessor characterContextAccessor, IItemService itemService, IItemBuilder itemBuilder)
         {
-            Performer = performer;
-            Obj = obj;
-            RawDto = dto;
+            Performer = characterContextAccessor.Context.Character;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
                 Cancel();
                 return false;
             });
-            TotalCookCount = totalCookCount;
-            _itemRepository = performer.ServiceProvider.GetRequiredService<IItemService>();
+            _itemService = itemService;
+            _itemBuilder = itemBuilder;
         }
 
         /// <summary>
@@ -54,12 +46,12 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
         /// <value>
         ///     The obj.
         /// </value>
-        private IGameObject Obj { get; }
+        public IGameObject GameObject { get; set; } = null!;
 
         /// <summary>
         ///     The definition.
         /// </summary>
-        private RawFoodDto RawDto { get; }
+        public RawFoodDto RawDto { get; set; } = null!;
 
         /// <summary>
         ///     The times performed.
@@ -69,12 +61,14 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
         /// <summary>
         ///     The times to perform.
         /// </summary>
-        private int TotalCookCount { get; }
+        public int TotalCookCount { get; set; }
 
         /// <summary>
         ///     The item manager
         /// </summary>
-        private readonly IItemService _itemRepository;
+        private readonly IItemService _itemService;
+
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         ///     Contains tick implementation.
@@ -82,7 +76,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
         /// <returns></returns>
         private void PerformTickImpl()
         {
-            if (Obj.IsDestroyed)
+            if (GameObject.IsDestroyed)
             {
                 Cancel();
                 return;
@@ -97,7 +91,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
             if (TickCount == 1 || TickCount % 6 == 0)
             {
                 Performer.QueueAnimation(Animation.Create(897));
-                Performer.SendChatMessage("You attempt to cook the " + _itemRepository.FindItemDefinitionById(RawDto.ItemId).Name.ToLower() + ".");
+                Performer.SendChatMessage("You attempt to cook the " + _itemService.FindItemDefinitionById(RawDto.ItemId).Name.ToLower() + ".");
                 return;
             }
 
@@ -119,8 +113,10 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 }
 
                 var burned = IsBurned();
-                Performer.SendChatMessage(burned ? "Oops! You accidentally burnt the " + rawItem.Name.ToLower() : "You successfully cook the " + rawItem.Name.ToLower());
-                Performer.Inventory.Replace(slot, new Item(burned ? RawDto.BurntItemId : RawDto.CookedItemId));
+                Performer.SendChatMessage(burned
+                    ? "Oops! You accidentally burnt the " + rawItem.Name.ToLower()
+                    : "You successfully cook the " + rawItem.Name.ToLower());
+                Performer.Inventory.Replace(slot, _itemBuilder.Create().WithId(burned ? RawDto.BurntItemId : RawDto.CookedItemId).Build());
                 if (!burned)
                 {
                     Performer.Statistics.AddExperience(StatisticsConstants.Cooking, RawDto.Experience); // Stop cooking if leveled up.
@@ -143,7 +139,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
             }
 
             var gloves = Performer.Equipment[EquipmentSlot.Hands];
-            if (gloves != null && gloves.Id == 775)
+            if (gloves?.Id == 775)
             {
                 if (level >= RawDto.StopBurningLevel - (RawDto.CookedItemId == 391 ? 0 : 6))
                 {
@@ -159,7 +155,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
 
             return RandomStatic.Generator.Next(45) <= levelsToStopBurn;
         }
-        
+
         /// <summary>
         /// 
         /// </summary>

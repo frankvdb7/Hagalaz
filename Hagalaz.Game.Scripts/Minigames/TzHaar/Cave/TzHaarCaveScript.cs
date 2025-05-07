@@ -172,13 +172,11 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave
             _waveController.StopWaves();
         }
 
-        private void UpdateTzhaarCaveProfile()
-        {
+        private void UpdateTzhaarCaveProfile() =>
             Character.Profile.SetObject(TzHaarConstants.ProfileMinigamesTzhaarCaves,
                 new TzHaarCaveDto
                 {
                     CurrentWaveId = _waveController.CurrentWaveId
                 });
-        }
     }
 }

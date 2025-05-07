@@ -43,14 +43,12 @@ namespace Hagalaz.Game.Scripts.Characters
 
         protected override void Initialize() { }
 
-        public override void OnRegistered()
-        {
+        public override void OnRegistered() =>
             Character.RegisterEventHandler<SkillLevelUpEvent>(@event =>
             {
                 HandleSkillLevelUp(@event.SkillID, @event.CurrentSkillLevel);
                 return false;
             });
-        }
 
         private void HandleSkillLevelUp(int skillID, int currentLevel)
         {

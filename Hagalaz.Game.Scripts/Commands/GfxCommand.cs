@@ -11,10 +11,7 @@ namespace Hagalaz.Game.Scripts.Commands
         public string Name { get; } = "gfx";
         public Permission Permission { get; } = Permission.SystemAdministrator;
 
-        public GfxCommand(IRegionUpdateBuilder regionUpdateBuilder)
-        {
-            _regionUpdateBuilder = regionUpdateBuilder;
-        }
+        public GfxCommand(IRegionUpdateBuilder regionUpdateBuilder) => _regionUpdateBuilder = regionUpdateBuilder;
 
         public Task Execute(GameCommandArgs args)
         {

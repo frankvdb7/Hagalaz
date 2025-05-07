@@ -17,13 +17,6 @@ namespace Hagalaz.Game.Abstractions.Services
         public IEnumerable<IGameObject> FindByLocation(ILocation location);
 
         /// <summary>
-        /// Finds all game objects by criteria.
-        /// </summary>
-        /// <param name="gameObjectFindAll"></param>
-        /// <returns></returns>
-        public IEnumerable<IGameObject> FindAll(GameObjectFindAll gameObjectFindAll);
-
-        /// <summary>
         /// Gets the object definition.
         /// </summary>
         /// <param name="objectId"></param>

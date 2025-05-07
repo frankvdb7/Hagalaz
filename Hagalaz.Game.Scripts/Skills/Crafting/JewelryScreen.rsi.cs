@@ -19,10 +19,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// </summary>
         private OnIntInput? _jewelryXHandler;
 
-        public JewelryScreen(ICharacterContextAccessor characterContextAccessor, ICraftingService craftingService) : base(characterContextAccessor)
-        {
-            _craftingService = craftingService;
-        }
+        public JewelryScreen(ICharacterContextAccessor characterContextAccessor, ICraftingService craftingService) : base(characterContextAccessor) => _craftingService = craftingService;
 
         /// <summary>
         ///     Happens when interface is closed for character.
@@ -171,7 +168,10 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <param name="count">The count.</param>
         private void Start(JewelryDto definition, int count)
         {
-            Owner.QueueTask(new JewelryTask(Owner, definition, count));
+            var task = Owner.ServiceProvider.GetRequiredService<JewelryTask>();
+            task.Definition = definition;
+            task.TotalMakeCount = count;
+            Owner.QueueTask(task);
             Owner.Widgets.CloseWidget(InterfaceInstance);
         }
     }

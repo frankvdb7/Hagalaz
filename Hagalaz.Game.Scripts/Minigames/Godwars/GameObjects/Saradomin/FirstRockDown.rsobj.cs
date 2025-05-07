@@ -1,18 +1,26 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([26444])]
     public class FirstRockDown : GameObjectScript
     {
+        private readonly IItemBuilder _itemBuilder;
+
+        public FirstRockDown(IItemBuilder itemBuilder)
+        {
+            _itemBuilder = itemBuilder;
+        }
+
         /// <summary>
         ///     Happens when character click's this object and then walks to it
         ///     and reaches it.
@@ -38,7 +46,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
 
                         clicker.QueueAnimation(Animation.Create(827));
                         clicker.AddState(new State(StateType.HasSaradominFirstRockRope, int.MaxValue));
-                        clicker.Inventory.Remove(new Item(954, 1));
+                        clicker.Inventory.Remove(_itemBuilder.Create().WithId(954).Build());
                         ShowRope(clicker);
                         return;
                     }
@@ -77,19 +85,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
         ///     Shows the rope.
         /// </summary>
         private void ShowRope(ICharacter character) => character.Configurations.SendBitConfiguration(Owner.Definition.VarpBitFileId, 1);
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        /// <exception cref="System.NotImplementedException"></exception>
-        public override int[] GetSuitableObjects() => [26444];
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

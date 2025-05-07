@@ -14,10 +14,7 @@ namespace Hagalaz.Game.Scripts.Commands
 
         public Permission Permission { get; } = Permission.GameAdministrator;
 
-        public SearchNpcCommand(INpcService service)
-        {
-            _service = service;
-        }
+        public SearchNpcCommand(INpcService service) => _service = service;
 
         public Task Execute(GameCommandArgs args)
         {

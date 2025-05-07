@@ -15,10 +15,7 @@ namespace Hagalaz.Game.Scripts.Characters
     {
         private readonly IWidgetBuilder _widgetBuilder;
 
-        public WidgetsCharacterScript(ICharacterContextAccessor contextAccessor, IWidgetBuilder widgetBuilder) : base(contextAccessor)
-        {
-            _widgetBuilder = widgetBuilder;
-        }
+        public WidgetsCharacterScript(ICharacterContextAccessor contextAccessor, IWidgetBuilder widgetBuilder) : base(contextAccessor) => _widgetBuilder = widgetBuilder;
 
         protected override void Initialize()
         {

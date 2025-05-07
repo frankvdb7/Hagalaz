@@ -12,10 +12,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
     {
         private readonly IWidgetBuilder _widgetBuilder;
 
-        public NoticeBoardTab(ICharacterContextAccessor characterContextAccessor, IWidgetBuilder widgetBuilder) : base(characterContextAccessor)
-        {
-            _widgetBuilder = widgetBuilder;
-        }
+        public NoticeBoardTab(ICharacterContextAccessor characterContextAccessor, IWidgetBuilder widgetBuilder) : base(characterContextAccessor) => _widgetBuilder = widgetBuilder;
 
         /// <summary>
         ///     Called when [close].

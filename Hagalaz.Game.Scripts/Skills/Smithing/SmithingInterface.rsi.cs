@@ -13,10 +13,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
     /// </summary>
     public class SmithingInterface : WidgetScript
     {
-        public SmithingInterface(ICharacterContextAccessor contextAccessor, IItemService itemService) : base(contextAccessor)
-        {
-            _itemRepository = itemService;
-        }
+        public SmithingInterface(ICharacterContextAccessor contextAccessor, IItemService itemService) : base(contextAccessor) => _itemRepository = itemService;
 
         /// <summary>
         ///     The definition.
@@ -68,13 +65,21 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 var clickHandlers = new OnComponentClick[4];
                 clickHandlers[0] = (componentID, type, extraData1, extraData2) => // make 1 handler
                 {
-                    Owner.QueueTask(new ForgeTask(Owner, Definition, _entries[componentID], 1));
+                    var task = Owner.ServiceProvider.GetRequiredService<ForgeTask>();
+                    task.Definition = Definition;
+                    task.ForgeDefinition = _entries[componentID];
+                    task.TotalForgeCount = 1;
+                    Owner.QueueTask(task);
                     Owner.Widgets.CloseWidget(InterfaceInstance);
                     return true;
                 };
                 clickHandlers[1] = (componentID, type, extraData1, extraData2) => // make 5 handler
                 {
-                    Owner.QueueTask(new ForgeTask(Owner, Definition, _entries[componentID], 5));
+                    var task = Owner.ServiceProvider.GetRequiredService<ForgeTask>();
+                    task.Definition = Definition;
+                    task.ForgeDefinition = _entries[componentID];
+                    task.TotalForgeCount = 5;
+                    Owner.QueueTask(task);
                     Owner.Widgets.CloseWidget(InterfaceInstance);
                     return true;
                 };
@@ -89,7 +94,11 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                         }
                         else
                         {
-                            Owner.QueueTask(new ForgeTask(Owner, Definition, _entries[componentID], value));
+                            var task = Owner.ServiceProvider.GetRequiredService<ForgeTask>();
+                            task.Definition = Definition;
+                            task.ForgeDefinition = _entries[componentID];
+                            task.TotalForgeCount = value;
+                            Owner.QueueTask(task);
                             Owner.Widgets.CloseWidget(InterfaceInstance);
                         }
                     };
@@ -99,18 +108,22 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 clickHandlers[3] = (componentID, type, extraData1, extraData2) => // make All handler
                 {
                     // TODO - Calculate how many items can be made
-                    Owner.QueueTask(new ForgeTask(Owner, Definition, _entries[componentID], 28));
+                    var task = Owner.ServiceProvider.GetRequiredService<ForgeTask>();
+                    task.Definition = Definition;
+                    task.ForgeDefinition = _entries[componentID];
+                    task.TotalForgeCount = 28;
+                    Owner.QueueTask(task);
                     Owner.Widgets.CloseWidget(InterfaceInstance);
                     return true;
                 };
 
                 for (var i = 0; i < 4; i++)
                 {
-                    var b = (short)(24 - i);
-                    for (var j = 0; j < Definition.ForgeDefinition.Entries.Length; j++)
+                    var b = 24 - i;
+                    foreach (var entry in Definition.ForgeDefinition.Entries)
                     {
                         InterfaceInstance.AttachClickHandler(b, clickHandlers[i]);
-                        _entries.Add(b, Definition.ForgeDefinition.Entries[j]);
+                        _entries.Add(b, entry);
                         b += 8;
                     }
                 }
@@ -127,9 +140,8 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
         private void SetItems()
         {
             short b = 17;
-            for (var i = 0; i < Definition.ForgeDefinition.Entries.Length; i++)
+            foreach (var entry in Definition.ForgeDefinition.Entries)
             {
-                var entry = Definition.ForgeDefinition.Entries[i];
                 if (entry.Product.Id > 0)
                 {
                     InterfaceInstance.SetVisible(b, true);
@@ -160,7 +172,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             }
 
             barString.Append(entry.RequiredBarCount);
-            barString.Append(" ");
+            barString.Append(' ');
             barString.Append(entry.RequiredBarCount > 1 ? "Bars" : "Bar");
 
             if (Owner.Statistics.GetSkillLevel(StatisticsConstants.Smithing) >= entry.RequiredSmithingLevel)

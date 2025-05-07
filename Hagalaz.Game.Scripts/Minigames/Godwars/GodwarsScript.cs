@@ -15,7 +15,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars
         /// <summary>
         ///     The critters.
         /// </summary>
-        private static readonly Dictionary<int, GodwarsChamber> Critters = new Dictionary<int, GodwarsChamber>();
+        private static readonly Dictionary<int, GodwarsChamber> _critters = new Dictionary<int, GodwarsChamber>();
 
         /// <summary>
         /// </summary>
@@ -98,12 +98,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars
         /// <returns></returns>
         public static IEnumerable<INpc> GetBodyGuards(INpc npc)
         {
-            if (!Critters.ContainsKey(npc.Area.Id))
+            if (!_critters.ContainsKey(npc.Area.Id))
             {
                 yield break;
             }
 
-            foreach (var guard in Critters[npc.Area.Id].BodyGuards)
+            foreach (var guard in _critters[npc.Area.Id].BodyGuards)
             {
                 yield return guard;
             }
@@ -118,21 +118,21 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars
         {
             if (remove)
             {
-                if (Critters.ContainsKey(npc.Area.Id))
+                if (_critters.ContainsKey(npc.Area.Id))
                 {
-                    Critters.Remove(npc.Area.Id);
+                    _critters.Remove(npc.Area.Id);
                 }
 
                 return;
             }
 
-            if (!Critters.ContainsKey(npc.Area.Id))
+            if (!_critters.ContainsKey(npc.Area.Id))
             {
-                Critters.Add(npc.Area.Id, new GodwarsChamber(npc, []));
+                _critters.Add(npc.Area.Id, new GodwarsChamber(npc, []));
             }
             else
             {
-                Critters[npc.Area.Id].SetGeneral(npc);
+                _critters[npc.Area.Id].SetGeneral(npc);
             }
         }
 
@@ -142,13 +142,13 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars
         /// <param name="npc">The NPC.</param>
         public static void AddBodyGuard(INpc npc)
         {
-            if (!Critters.ContainsKey(npc.Area.Id))
+            if (!_critters.ContainsKey(npc.Area.Id))
             {
-                Critters.Add(npc.Area.Id, new GodwarsChamber(null, [npc]));
+                _critters.Add(npc.Area.Id, new GodwarsChamber(null, [npc]));
             }
             else
             {
-                Critters[npc.Area.Id].AddBodyGuard(npc);
+                _critters[npc.Area.Id].AddBodyGuard(npc);
             }
         }
 
@@ -158,12 +158,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars
         /// <param name="npc">The NPC.</param>
         public static void RemoveBodyGuard(INpc npc)
         {
-            if (!Critters.ContainsKey(npc.Area.Id))
+            if (!_critters.ContainsKey(npc.Area.Id))
             {
                 return;
             }
 
-            Critters[npc.Area.Id].RemoveBodyGuard(npc);
+            _critters[npc.Area.Id].RemoveBodyGuard(npc);
         }
 
         /// <summary>
@@ -173,12 +173,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars
         /// <returns></returns>
         public static bool CanBodyGuardRespawn(INpc npc)
         {
-            if (!Critters.ContainsKey(npc.Area.Id))
+            if (!_critters.ContainsKey(npc.Area.Id))
             {
                 return false;
             }
 
-            return Critters[npc.Area.Id].CanBodyGuardRespawn();
+            return _critters[npc.Area.Id].CanBodyGuardRespawn();
         }
     }
 
@@ -277,8 +277,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars
             }));
         }
 
-        private void UpdateGodwarsProfile()
-        {
+        private void UpdateGodwarsProfile() =>
             Character.Profile.SetObject(GodwarsConstants.ProfileMinigamesGodwarsKillCount, new GodwarsDto
             {
                 ArmadylKills = ArmadylKills,
@@ -287,7 +286,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars
                 ZamorakKills = ZamorakKills,
                 ZarosKills = ZarosKills
             });
-        }
 
         /// <summary>
         ///     Resets the armadyl kills.

@@ -1,10 +1,10 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
@@ -12,8 +12,16 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
     /// <summary>
     ///     Contains the godwars hole script.
     /// </summary>
+    [GameObjectScriptMetaData([26341])]
     public class Hole : GameObjectScript
     {
+        private readonly IItemBuilder _itemBuilder;
+
+        public Hole(IItemBuilder itemBuilder)
+        {
+            _itemBuilder = itemBuilder;
+        }
+
         /// <summary>
         ///     Happens when character click's this object and then walks to it
         ///     and reaches it.
@@ -37,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
 
                     clicker.QueueAnimation(Animation.Create(827));
                     clicker.AddState(new State(StateType.HasGodWarsHoleRope, int.MaxValue));
-                    clicker.Inventory.Remove(new Item(954, 1));
+                    clicker.Inventory.Remove(_itemBuilder.Create().WithId(954).Build());
                     ShowRope(clicker);
                 }
                 else
@@ -49,7 +57,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
                         {
                             clicker.Movement.Teleport(Teleport.Create(Location.Create(2882, 5311, 0, 0)));
                             clicker.Movement.Unlock(false);
-                        }, 2));
+                        },
+                        2));
                 }
 
                 return;
@@ -75,18 +84,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
         ///     Shows the rope.
         /// </summary>
         private void ShowRope(ICharacter character) => character.Configurations.SendBitConfiguration(Owner.Definition.VarpBitFileId, 1);
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [26341];
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

@@ -12,10 +12,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
     {
         private readonly IItemBuilder _itemBuilder;
 
-        public StandardAltar(IItemBuilder itemBuilder)
-        {
-            _itemBuilder = itemBuilder;
-        }
+        public StandardAltar(IItemBuilder itemBuilder) => _itemBuilder = itemBuilder;
 
         /// <summary>
         ///     Happens when character click's this object and then walks to it

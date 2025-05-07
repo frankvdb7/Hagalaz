@@ -24,7 +24,6 @@ using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events.Character.Packet;
 using Hagalaz.Game.Model;
 using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Model.Items;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Hagalaz.DependencyInjection.Extensions;
@@ -63,30 +62,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     var icon = short.Parse(cmd[1]);
                     Appearance.SkullIcon = (SkullIcon)icon;
                 }
-                else if (ce.Command.StartsWith("item"))
-                {
-                    var cmd = ce.Command.Split(' ');
-                    var id = short.Parse(cmd[1]);
-                    var amount = int.Parse(cmd[2]);
-
-                    if (id >= 0 && amount > 0)
-                    {
-                        Inventory.Add(new Item(id, amount));
-                    }
-                }
                 else if (ce.Command.StartsWith("proj"))
                 {
                     var cmd = ce.Command.Split(' ');
-                    ICreature? target = null;
                     var creatures = Viewport.VisibleCreatures.ToArray();
-                    foreach (var creature in creatures)
-                    {
-                        if (creature != this)
-                        {
-                            target = creature;
-                            break;
-                        }
-                    }
+                    ICreature? target = creatures.FirstOrDefault(creature => creature != this);
 
                     if (target == null) return false;
 
@@ -262,12 +242,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     var itemAmount = int.Parse(cmd[2]);
                     var amountOfTicks = int.Parse(cmd[3]);
                     var groundItemBuilder = ServiceProvider.GetRequiredService<IGroundItemBuilder>();
-                    var groundItem = groundItemBuilder.Create()
-                        .WithItem(new Item(itemID, itemAmount))
+                    groundItemBuilder.Create()
+                        .WithItem(builder => builder.Create().WithId(itemID).WithCount(itemAmount))
                         .WithLocation(Location)
                         .WithTicks(amountOfTicks)
-                        .Build();
-                    Region.Add(groundItem);
+                        .Spawn();
                 }
                 else if (ce.Command.StartsWith("config"))
                 {

@@ -13,10 +13,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
     {
         private readonly IHerbloreSkillService _herblore;
 
-        public GrimyHerbItemScript(IHerbloreSkillService herblore)
-        {
-            _herblore = herblore;
-        }
+        public GrimyHerbItemScript(IHerbloreSkillService herblore) => _herblore = herblore;
 
         /// <summary>
         ///     Happens when character clicks specific item in inventory.

@@ -20,11 +20,15 @@ using Hagalaz.Game.Scripts.Model.Maps;
 using Hagalaz.Game.Scripts.Model.States;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Providers;
+using Hagalaz.Game.Scripts.Skills.Cooking;
 using Hagalaz.Game.Scripts.Skills.Crafting;
 using Hagalaz.Game.Scripts.Skills.Farming;
 using Hagalaz.Game.Scripts.Skills.Fishing;
+using Hagalaz.Game.Scripts.Skills.Fletching;
 using Hagalaz.Game.Scripts.Skills.Herblore.Herbs;
 using Hagalaz.Game.Scripts.Skills.Herblore.Potions;
+using Hagalaz.Game.Scripts.Skills.Magic.MiscSpells;
+using Hagalaz.Game.Scripts.Skills.Smithing;
 using Hagalaz.Game.Scripts.Skills.Summoning;
 using Hagalaz.Game.Scripts.Skills.Woodcutting;
 
@@ -61,6 +65,7 @@ namespace Hagalaz.Game.Scripts
             services.AddSingleton<IWoodcuttingSkillService, WoodcuttingSkillService>();
             services.AddSingleton<ICraftingSkillService, CraftingSkillService>();
             services.AddSingleton<IFarmingSkillService, FarmingSkillService>();
+            services.AddSingleton<IFletchingSkillService, FletchingSkillService>();
 
             // commands
             services.AddSingleton<IGameCommandPrompt, GameCommandPrompt>();
@@ -73,7 +78,7 @@ namespace Hagalaz.Game.Scripts
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<IItemScript>().Where(type => !type.IsAssignableFrom(typeof(DefaultItemScript))))
                 .AsSelfWithInterfaces()
-                .WithScopedLifetime());
+                .WithTransientLifetime());
 
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<IItemScriptFactory>())
@@ -84,7 +89,7 @@ namespace Hagalaz.Game.Scripts
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<IEquipmentScript>().Where(type => !type.IsAssignableFrom(typeof(DefaultEquipmentScript))))
                 .AsSelfWithInterfaces()
-                .WithScopedLifetime());
+                .WithTransientLifetime());
 
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<IEquipmentScriptFactory>())
@@ -97,7 +102,7 @@ namespace Hagalaz.Game.Scripts
                     classes.AssignableTo<INpcScript>()
                         .Where(type => !type.IsAssignableFrom(typeof(DefaultNpcScript)) && !type.IsAssignableFrom(typeof(DefaultFamiliarScript))))
                 .AsSelfWithInterfaces()
-                .WithScopedLifetime());
+                .WithTransientLifetime());
 
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<INpcScriptFactory>())
@@ -113,7 +118,7 @@ namespace Hagalaz.Game.Scripts
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<IGameObjectScript>().Where(type => !type.IsAssignableFrom(typeof(DefaultGameObjectScript))))
                 .AsSelfWithInterfaces()
-                .WithScopedLifetime());
+                .WithTransientLifetime());
 
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<IGameObjectScriptFactory>())
@@ -124,7 +129,7 @@ namespace Hagalaz.Game.Scripts
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<ICharacterNpcScript>().Where(type => !type.IsAssignableFrom(typeof(DefaultCharacterNpcScript))))
                 .AsSelfWithInterfaces()
-                .WithScopedLifetime());
+                .WithTransientLifetime());
 
             services.Scan(scan => scan.FromAssemblyOf<ICharacterNpcScriptFactory>()
                 .AddClasses(classes => classes.AssignableTo<ICharacterNpcScriptFactory>())
@@ -153,7 +158,7 @@ namespace Hagalaz.Game.Scripts
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<IStateScript>().Where(type => !type.IsAssignableFrom(typeof(DefaultStateScript))))
                 .AsSelfWithInterfaces()
-                .WithScopedLifetime());
+                .WithTransientLifetime());
 
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<IStateScriptFactory>())
@@ -164,12 +169,27 @@ namespace Hagalaz.Game.Scripts
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<IWidgetScript>())
                 .AsSelfWithInterfaces()
-                .WithScopedLifetime());
+                .WithTransientLifetime());
 
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
                 .AddClasses(classes => classes.AssignableTo<IWidgetScriptFactory>())
                 .AsSelfWithInterfaces()
                 .WithScopedLifetime());
+
+            services.AddTransient<IBonesToPeaches, BonesToPeaches>();
+            services.AddTransient<IBonesToBananas, BonesToBananas>();
+            services.AddTransient<IHighLevelAlchemy, HighLevelAlchemy>();
+            services.AddTransient<ILowLevelAlchemy, LowLevelAlchemy>();
+
+            services.AddTransient<JewelryTask>();
+            services.AddTransient<LeatherTask>();
+            services.AddTransient<ForgeTask>();
+            services.AddTransient<CookingTask>();
+            services.AddTransient<SmeltTask>();
+            services.AddTransient<CutGemTask>();
+            services.AddTransient<SilverTask>();
+            services.AddTransient<SpinTask>();
+            services.AddTransient<CleanHerbTask>();
         }
     }
 }

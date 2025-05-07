@@ -13,10 +13,7 @@ namespace Hagalaz.Game.Scripts.Areas.AncientCaverns.GameObjects
     {
         private readonly IMovementBuilder _movementBuilder;
 
-        public EnergyBarrier(IMovementBuilder movementBuilder)
-        {
-            _movementBuilder = movementBuilder;
-        }
+        public EnergyBarrier(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
 
         /// <summary>
         ///     Happens when character click's this object and then walks to it

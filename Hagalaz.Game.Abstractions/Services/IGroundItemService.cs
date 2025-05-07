@@ -7,5 +7,7 @@ namespace Hagalaz.Game.Abstractions.Services
     public interface IGroundItemService
     {
         public IEnumerable<IGroundItem> FindByLocation(ILocation location);
+
+        IEnumerable<IGroundItem> FindAllGroundItems(ILocation location);
     }
 }

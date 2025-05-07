@@ -12,10 +12,7 @@ namespace Hagalaz.Game.Scripts.Commands
         public string Name { get; } = "searchobject";
         public Permission Permission { get; } = Permission.GameAdministrator;
 
-        public SearchObjectCommand(IGameObjectService gameObjectService)
-        {
-            _gameObjectService = gameObjectService;
-        }
+        public SearchObjectCommand(IGameObjectService gameObjectService) => _gameObjectService = gameObjectService;
 
         public Task Execute(GameCommandArgs args)
         {

@@ -107,7 +107,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
         /// </summary>
         public void AttachDialogueContinueClickHandlers()
         {
-            bool continueClicked(int componentID, ComponentClickType clickType, int extraData1, int extraData2)
+            bool ContinueClicked(int componentID, ComponentClickType clickType, int extraData1, int extraData2)
             {
                 if (clickType == ComponentClickType.SpecialClick) return PerformDialogueContinueClick(extraData1, extraData2);
                 return false;
@@ -115,7 +115,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
 
             for (var i = 0; i <= 18; i++)
             {
-                InterfaceInstance.AttachClickHandler(i, continueClicked);
+                InterfaceInstance.AttachClickHandler(i, ContinueClicked);
             }
         }
 

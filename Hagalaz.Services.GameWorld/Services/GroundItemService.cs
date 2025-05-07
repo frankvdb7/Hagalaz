@@ -23,5 +23,15 @@ namespace Hagalaz.Services.GameWorld.Services
                 yield return groundItem;
             }
         }
+
+        public IEnumerable<IGroundItem> FindAllGroundItems(ILocation location)
+        {
+            var region = _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, true);
+            foreach (var groundItem in region.FindAllGroundItems())
+            {
+                yield return groundItem;
+            }
+        }
+
     }
 }

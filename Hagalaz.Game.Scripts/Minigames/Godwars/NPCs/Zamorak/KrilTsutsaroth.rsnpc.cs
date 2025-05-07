@@ -25,28 +25,25 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
         /// </summary>
         static KrilTsutsaroth()
         {
-            SpeakData.Add("Attack them, you dogs!", 3278);
-            SpeakData.Add("Forward!", 3276);
-            SpeakData.Add("Death to Saradomin's dogs!", 3277);
-            SpeakData.Add("Kill them, you cowards!", 3290);
-            SpeakData.Add("The Dark One will have their souls!", 3280);
-            SpeakData.Add("Zamorak curse them!", 3270);
+            _speakData.Add("Attack them, you dogs!", 3278);
+            _speakData.Add("Forward!", 3276);
+            _speakData.Add("Death to Saradomin's dogs!", 3277);
+            _speakData.Add("Kill them, you cowards!", 3290);
+            _speakData.Add("The Dark One will have their souls!", 3280);
+            _speakData.Add("Zamorak curse them!", 3270);
             //SPEAK_DATA.Add("YARRRRRRR!", 3274); // special attack
-            SpeakData.Add("Rend them limb from limb!", 3273);
+            _speakData.Add("Rend them limb from limb!", 3273);
             // SPEAK_DATA.Add("No retreat!", 3258);
-            SpeakData.Add("Slay them all!", 3279);
-            SpeakData.Add("Attack!", 3282);
+            _speakData.Add("Slay them all!", 3279);
+            _speakData.Add("Attack!", 3282);
         }
 
-        public KrilTsutsaroth(IAudioBuilder soundBuilder)
-        {
-            _soundBuilder = soundBuilder;
-        }
+        public KrilTsutsaroth(IAudioBuilder soundBuilder) => _soundBuilder = soundBuilder;
 
         /// <summary>
         ///     Contains speak data.
         /// </summary>
-        private static readonly Dictionary<string, short> SpeakData = new Dictionary<string, short>();
+        private static readonly Dictionary<string, short> _speakData = new Dictionary<string, short>();
 
         /// <summary>
         ///     The attack type
@@ -245,7 +242,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
             }
 
             _speakDelay = 0;
-            foreach (var data in SpeakData.Where(data => RandomStatic.Generator.NextDouble() <= 0.008))
+            foreach (var data in _speakData.Where(data => RandomStatic.Generator.NextDouble() <= 0.008))
             {
                 Owner.Speak(data.Key);
                 _soundBuilder.Create().AsVoice().WithId(data.Value).Build().PlayWithinDistance(Owner, 8);

@@ -10,10 +10,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Oziach
     public class OziachDialogue : NpcDialogueScript
     {
         private readonly IItemBuilder _itemBuilder;
-        public OziachDialogue(ICharacterContextAccessor characterContextAccessor, IItemBuilder itemBuilder) : base(characterContextAccessor)
-        {
-            _itemBuilder = itemBuilder;
-        }
+        public OziachDialogue(ICharacterContextAccessor characterContextAccessor, IItemBuilder itemBuilder) : base(characterContextAccessor) => _itemBuilder = itemBuilder;
 
         /// <summary>
         ///     Initializes the dialogue.

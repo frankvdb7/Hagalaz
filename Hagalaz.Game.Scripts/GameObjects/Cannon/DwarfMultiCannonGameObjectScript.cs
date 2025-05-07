@@ -16,7 +16,6 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Utilities;
@@ -72,7 +71,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
         /// <summary>
         ///     The projectile path finder
         /// </summary>
-        private IProjectilePathFinder _projectilePathFinder;
+        private readonly IProjectilePathFinder _projectilePathFinder;
 
         private readonly IRsTaskService _rsTaskService;
         private readonly IHitSplatBuilder _hitSplatBuilder;
@@ -173,18 +172,13 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
         /// </summary>
         private bool CanFire()
         {
-            if (_cannonBalls.Count == 0)
+            if (_cannonBalls.Count != 0)
             {
-                _cannonOwner.SendChatMessage("You do not have enough cannonballs to fire this cannon.");
-                return false;
+                return Owner.Location.WithinDistance(_cannonOwner.Location, CreatureConstants.VisibilityDistance);
             }
 
-            if (!Owner.Location.WithinDistance(_cannonOwner.Location, CreatureConstants.VisibilityDistance))
-            {
-                return false;
-            }
-
-            return true;
+            _cannonOwner.SendChatMessage("You do not have enough cannonballs to fire this cannon.");
+            return false;
         }
 
         /// <summary>
@@ -219,35 +213,10 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
 
                 var direction = centerLoc.GetDirection(npc.Location);
 
-                if (_currentDirection == 0 && direction == DirectionFlag.NorthEast)
-                {
-                    hit = true;
-                }
-                else if (_currentDirection == 1 && direction == DirectionFlag.East)
-                {
-                    hit = true;
-                }
-                else if (_currentDirection == 2 && direction == DirectionFlag.SouthEast)
-                {
-                    hit = true;
-                }
-                else if (_currentDirection == 3 && direction == DirectionFlag.South)
-                {
-                    hit = true;
-                }
-                else if (_currentDirection == 4 && direction == DirectionFlag.SouthWest)
-                {
-                    hit = true;
-                }
-                else if (_currentDirection == 5 && direction == DirectionFlag.West)
-                {
-                    hit = true;
-                }
-                else if (_currentDirection == 6 && direction == DirectionFlag.NorthWest)
-                {
-                    hit = true;
-                }
-                else if (_currentDirection == 7 && direction == DirectionFlag.North)
+                if (_currentDirection == 0 && direction == DirectionFlag.NorthEast || _currentDirection == 1 && direction == DirectionFlag.East ||
+                    _currentDirection == 2 && direction == DirectionFlag.SouthEast || _currentDirection == 3 && direction == DirectionFlag.South ||
+                    _currentDirection == 4 && direction == DirectionFlag.SouthWest || _currentDirection == 5 && direction == DirectionFlag.West ||
+                    _currentDirection == 6 && direction == DirectionFlag.NorthWest || _currentDirection == 7 && direction == DirectionFlag.North)
                 {
                     hit = true;
                 }
@@ -373,7 +342,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                 if (tick == 6)
                 {
                     character.SendChatMessage(GameStrings.PickCannonUp);
-                    var toAdd = new Item(DwarfMultiCannonItemScript.CannonItemIds[0 + cannonId], 1);
+                    var toAdd = _itemBuilder.Create().WithId(DwarfMultiCannonItemScript.CannonItemIds[0 + cannonId]).Build();
                     if (!character.Inventory.HasSpaceFor(toAdd))
                     {
                         character.SendChatMessage(GameStrings.InventoryFull);
@@ -405,7 +374,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                 {
                     character.SendChatMessage("You pick up the stand...");
 
-                    var toAdd = new Item((short)DwarfMultiCannonItemScript.CannonItemIds[1 + cannonId], 1);
+                    var toAdd = _itemBuilder.Create().WithId(DwarfMultiCannonItemScript.CannonItemIds[1 + cannonId]).Build();
                     if (!character.Inventory.HasSpaceFor(toAdd))
                     {
                         character.SendChatMessage(GameStrings.InventoryFull);
@@ -418,15 +387,14 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
 
                     _gameObjectService.UpdateGameObject(new GameObjectUpdate
                     {
-                        Instance = cannon,
-                        Id = CannonObjectIds[1 + cannonId]
+                        Instance = cannon, Id = CannonObjectIds[1 + cannonId]
                     });
                 }
                 else if (tick == 2)
                 {
                     character.SendChatMessage("You pick up the barrel...");
 
-                    var toAdd = new Item(DwarfMultiCannonItemScript.CannonItemIds[2 + cannonId], 1);
+                    var toAdd = _itemBuilder.Create().WithId(DwarfMultiCannonItemScript.CannonItemIds[2 + cannonId]).Build();
                     if (!character.Inventory.HasSpaceFor(toAdd))
                     {
                         character.SendChatMessage(GameStrings.InventoryFull);
@@ -439,8 +407,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
 
                     _gameObjectService.UpdateGameObject(new GameObjectUpdate
                     {
-                        Instance = cannon,
-                        Id = CannonObjectIds[2 + cannonId]
+                        Instance = cannon, Id = CannonObjectIds[2 + cannonId]
                     });
                 }
                 else if (tick == 0)
@@ -460,8 +427,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
 
                     _gameObjectService.UpdateGameObject(new GameObjectUpdate
                     {
-                        Instance = cannon,
-                        Id = CannonObjectIds[3 + cannonId]
+                        Instance = cannon, Id = CannonObjectIds[3 + cannonId]
                     });
                 }
 
@@ -498,13 +464,13 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
         /// <returns></returns>
         public override bool UseItemOnGameObject(IItem used, ICharacter character)
         {
-            if (used.Id == CannonballItemID)
+            if (used.Id != CannonballItemID)
             {
-                AddCannonBalls();
-                return true;
+                return false;
             }
 
-            return false;
+            AddCannonBalls();
+            return true;
         }
     }
 }

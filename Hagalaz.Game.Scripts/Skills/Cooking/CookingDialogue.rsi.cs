@@ -11,10 +11,8 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
     [Obsolete("Use InteractiveDialogue instead.")]
     public class CookingDialogue : DialogueScript
     {
-        public CookingDialogue(ICharacterContextAccessor characterContextAccessor, IItemService itemService) : base(characterContextAccessor)
-        {
+        public CookingDialogue(ICharacterContextAccessor characterContextAccessor, IItemService itemService) : base(characterContextAccessor) =>
             _itemRepository = itemService;
-        }
 
         /// <summary>
         ///     The obj
@@ -44,9 +42,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
         /// <summary>
         ///     Happens when dialogue is closed for character.
         /// </summary>
-        public override void OnClose()
-        {
-        }
+        public override void OnClose() { }
 
         /// <summary>
         ///     Happens when dialogue is opened for character.
@@ -61,7 +57,10 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
             //this.interfaceInstance.SetVisible(4, false);
             //this.interfaceInstance.SetVisible(9, false);
 
-            var items = new [] {Dto.CookedItemId}; // All items that can be created.
+            var items = new[]
+            {
+                Dto.CookedItemId
+            }; // All items that can be created.
 
             for (var i = 0; i < 10; i++)
             {
@@ -80,58 +79,69 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
             SetCurrentCount(count, true);
 
             // count = 1
-            InterfaceInstance.AttachClickHandler(5, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(1, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(5,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(1, false);
+                    return true;
+                });
 
             // count = 5
-            InterfaceInstance.AttachClickHandler(6, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(5, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(6,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(5, false);
+                    return true;
+                });
 
             // count = 10
-            InterfaceInstance.AttachClickHandler(7, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(10, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(7,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(10, false);
+                    return true;
+                });
 
             // count = all
-            InterfaceInstance.AttachClickHandler(8, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(_maxCount, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(8,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(_maxCount, false);
+                    return true;
+                });
 
             // count += 1
-            InterfaceInstance.AttachClickHandler(19, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(_currentCount + 1, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(19,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(_currentCount + 1, false);
+                    return true;
+                });
 
             // count -= 1
-            InterfaceInstance.AttachClickHandler(20, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(_currentCount - 1, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(20,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(_currentCount - 1, false);
+                    return true;
+                });
 
             var parent = Owner.Widgets.GetOpenWidget(InterfaceInstance.ParentId);
-            parent?.AttachClickHandler(14, (component, type, extraData1, extraData2) =>
-            {
-                if (_currentCount > 0)
+            parent?.AttachClickHandler(14,
+                (component, type, extraData1, extraData2) =>
                 {
-                    Owner.QueueTask(new CookingTask(Owner, Obj, Dto, _currentCount));
-                }
+                    if (_currentCount > 0)
+                    {
+                        var task = Owner.ServiceProvider.GetRequiredService<CookingTask>();
+                        task.RawDto = Dto;
+                        task.GameObject = Obj;
+                        task.TotalCookCount = _currentCount;
+                        Owner.QueueTask(task);
+                    }
 
-                Owner.Widgets.CloseChatboxOverlay();
-                return true;
-            });
+                    Owner.Widgets.CloseChatboxOverlay();
+                    return true;
+                });
         }
 
         /// <summary>
@@ -154,7 +164,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
             _currentCount = count;
             if (refresh)
             {
-                Owner.Configurations.SendBitConfiguration(8095, count); // Curent Quantity.
+                Owner.Configurations.SendBitConfiguration(8095, count); // Current Quantity.
             }
         }
     }

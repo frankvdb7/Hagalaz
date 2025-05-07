@@ -10,10 +10,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
     {
         private readonly ICraftingSkillService _skillService;
 
-        public UncutGem(ICraftingSkillService skillService)
-        {
-            _skillService = skillService;
-        }
+        public UncutGem(ICraftingSkillService skillService) => _skillService = skillService;
 
         /// <summary>
         ///     Uses the item on item.

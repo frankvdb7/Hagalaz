@@ -16,10 +16,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
     {
         private readonly INpcBuilder _npcBuilder;
 
-        public SummoningSkillService(INpcBuilder npcBuilder)
-        {
-            _npcBuilder = npcBuilder;
-        }
+        public SummoningSkillService(INpcBuilder npcBuilder) => _npcBuilder = npcBuilder;
 
         /// <summary>
         ///     Summons the specified FamiliarScript.

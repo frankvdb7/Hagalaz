@@ -11,9 +11,8 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
     [ItemScriptMetaData(itemIds: [113, 115, 117, 119])]
     public class StrengthPotion : Potion
     {
-        public StrengthPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService) : base(potionSkillService, herbloreSkillService)
-        {
-        }
+        public StrengthPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService) : base(potionSkillService,
+            herbloreSkillService) { }
 
         /// <summary>
         ///     Applies the effect.

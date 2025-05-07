@@ -1,11 +1,11 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.Audio;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Tasks;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Npcs.Critters
@@ -14,13 +14,18 @@ namespace Hagalaz.Game.Scripts.Npcs.Critters
     public class Sheep : NpcScriptBase
     {
         private readonly IAudioBuilder _audioBuilder;
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         ///     The speak tick
         /// </summary>
         private int _speakTick;
 
-        public Sheep(IAudioBuilder soundBuilder) => _audioBuilder = soundBuilder;
+        public Sheep(IAudioBuilder soundBuilder, IItemBuilder itemBuilder)
+        {
+            _audioBuilder = soundBuilder;
+            _itemBuilder = itemBuilder;
+        }
 
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
@@ -53,7 +58,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Critters
                     {
                         _audioBuilder.Create().AsSound().WithId(761).Build().PlayFor(clicker);
                         clicker.QueueAnimation(Animation.Create(893));
-                        clicker.Inventory.Add(new Item(1737));
+                        clicker.Inventory.Add(_itemBuilder.Create().WithId(1737).Build());
                         clicker.SendChatMessage("You shear the sheep of its fleece.");
                         Owner.Appearance.Transform(5149);
                         Owner.QueueTask(new RsTask(() =>
@@ -80,15 +85,17 @@ namespace Hagalaz.Game.Scripts.Npcs.Critters
         /// </summary>
         public override void Tick()
         {
-            if (++_speakTick >= 5)
+            if (++_speakTick < 5)
             {
-                if (RandomStatic.Generator.Next(0, 8) == 0)
-                {
-                    Owner.Speak("Baa");
-                }
-
-                _speakTick = 0;
+                return;
             }
+
+            if (RandomStatic.Generator.Next(0, 8) == 0)
+            {
+                Owner.Speak("Baa");
+            }
+
+            _speakTick = 0;
         }
     }
 }

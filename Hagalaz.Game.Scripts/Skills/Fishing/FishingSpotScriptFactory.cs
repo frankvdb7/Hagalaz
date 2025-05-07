@@ -12,10 +12,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
     {
         private readonly IFishingService _fishingService;
 
-        public FishingSpotScriptFactory(IFishingService fishingService)
-        {
-            _fishingService = fishingService;
-        }
+        public FishingSpotScriptFactory(IFishingService fishingService) => _fishingService = fishingService;
 
         public async IAsyncEnumerable<(int npcId, Type scriptType)> GetScripts([EnumeratorCancellation] CancellationToken cancellationToken = default)
         {

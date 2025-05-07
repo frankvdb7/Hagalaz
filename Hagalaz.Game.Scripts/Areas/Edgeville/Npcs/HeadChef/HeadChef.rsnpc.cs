@@ -1,6 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.HeadChef
@@ -17,7 +16,9 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.HeadChef
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                clicker.Widgets.OpenDialogue(new SkillCapeDialogue.SkillCapeDialogue(clicker.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(), StatisticsConstants.Cooking), true, Owner);
+                var skillCapeDialogue = clicker.ServiceProvider.GetRequiredService<SkillCapeDialogue.SkillCapeDialogue>();
+                skillCapeDialogue.SkillID = StatisticsConstants.Cooking;
+                clicker.Widgets.OpenDialogue(skillCapeDialogue, true, Owner);
                 return;
             }
 
@@ -27,8 +28,6 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.HeadChef
         /// <summary>
         ///     Get's called when owner is found.
         /// </summary>
-        protected override void Initialize()
-        {
-        }
+        protected override void Initialize() { }
     }
 }

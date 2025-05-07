@@ -983,7 +983,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <returns></returns>
         public IPath Find(IEntity entity, IGameObject target, bool moveNear)
         {
-            if (!target.IsGroundObject())
+            if (!target.IsStandard())
             {
                 return Find(entity.Location, entity.Size, target.Location, 0, 0, target.Rotation, 1 + (int)target.ShapeType, 0, moveNear);
             }

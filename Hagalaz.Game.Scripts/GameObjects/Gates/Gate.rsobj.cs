@@ -17,10 +17,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Gates
     {
         private readonly IGameObjectService _gameObjectService;
 
-        public Gate(IGameObjectService gameObjectService)
-        {
-            _gameObjectService = gameObjectService;
-        }
+        public Gate(IGameObjectService gameObjectService) => _gameObjectService = gameObjectService;
 
         /// <summary>
         ///     Happens on character click.

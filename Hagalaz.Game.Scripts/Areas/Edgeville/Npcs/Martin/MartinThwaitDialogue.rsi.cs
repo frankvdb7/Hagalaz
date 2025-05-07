@@ -17,59 +17,66 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Martin
         /// </summary>
         public override void OnOpen()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
-            {
-                StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Greetings adventurer!", "What do you want from me?");
-                return true;
-            });
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
-            {
-                DefaultOptionDialogue("I would like to talk about fencing goods.", "I want to talk about your skill cape.", "Nothing, thanks.");
-                return true;
-            });
-            AttachDialogueOptionClickHandler("I would like to talk about fencing goods.", (extraData1, extraData2) =>
-            {
-                DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "I would like to talk about fencing goods.");
-                AttachDialogueContinueClickHandler(3, (e1, e2) =>
+            AttachDialogueContinueClickHandler(0,
+                (extraData1, extraData2) =>
                 {
-                    var dialogue = Owner.ServiceProvider.GetRequiredService<SellStolenGoodsDialogue>();
-                    dialogue.SetStage(1);
-                    Owner.Widgets.OpenDialogue(dialogue, false, TalkingTo);
-                    dialogue.PerformDialogueOptionClick("Yes, please!");
+                    StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Greetings adventurer!", "What do you want from me?");
                     return true;
                 });
-                return true;
-            });
-            AttachDialogueOptionClickHandler("I want to talk about your skill cape.", (extraData1, extraData2) =>
-            {
-                DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "I want to talk about your skill cape.");
-                AttachDialogueContinueClickHandler(3, (e1, e2) =>
+            AttachDialogueContinueClickHandler(1,
+                (extraData1, extraData2) =>
                 {
-                    var dialogue = new SkillCapeDialogue.SkillCapeDialogue(Owner.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(), StatisticsConstants.Thieving);
-                    dialogue.SetStage(2);
-                    Owner.Widgets.OpenDialogue(dialogue, false, TalkingTo);
+                    DefaultOptionDialogue("I would like to talk about fencing goods.", "I want to talk about your skill cape.", "Nothing, thanks.");
                     return true;
                 });
-                return true;
-            });
-            AttachDialogueOptionClickHandler("Nothing, thanks.", (extraData1, extraData2) =>
-            {
-                DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Nothing, thanks.");
-                AttachDialogueContinueClickHandler(3, (e1, e2) =>
+            AttachDialogueOptionClickHandler("I would like to talk about fencing goods.",
+                (extraData1, extraData2) =>
                 {
-                    InterfaceInstance.Close();
+                    DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "I would like to talk about fencing goods.");
+                    AttachDialogueContinueClickHandler(3,
+                        (e1, e2) =>
+                        {
+                            var dialogue = Owner.ServiceProvider.GetRequiredService<SellStolenGoodsDialogue>();
+                            dialogue.SetStage(1);
+                            Owner.Widgets.OpenDialogue(dialogue, false, TalkingTo);
+                            dialogue.PerformDialogueOptionClick("Yes, please!");
+                            return true;
+                        });
                     return true;
                 });
-                return true;
-            });
+            AttachDialogueOptionClickHandler("I want to talk about your skill cape.",
+                (extraData1, extraData2) =>
+                {
+                    DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "I want to talk about your skill cape.");
+                    AttachDialogueContinueClickHandler(3,
+                        (e1, e2) =>
+                        {
+                            var dialogue = Owner.ServiceProvider.GetRequiredService<SkillCapeDialogue.SkillCapeDialogue>();
+                            dialogue.SkillID = StatisticsConstants.Thieving;
+                            dialogue.SetStage(2);
+                            Owner.Widgets.OpenDialogue(dialogue, false, TalkingTo);
+                            return true;
+                        });
+                    return true;
+                });
+            AttachDialogueOptionClickHandler("Nothing, thanks.",
+                (extraData1, extraData2) =>
+                {
+                    DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Nothing, thanks.");
+                    AttachDialogueContinueClickHandler(3,
+                        (e1, e2) =>
+                        {
+                            InterfaceInstance.Close();
+                            return true;
+                        });
+                    return true;
+                });
         }
 
 
         /// <summary>
         ///     Called when [close].
         /// </summary>
-        public override void OnClose()
-        {
-        }
+        public override void OnClose() { }
     }
 }

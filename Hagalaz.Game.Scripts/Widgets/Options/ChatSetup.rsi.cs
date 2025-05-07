@@ -17,17 +17,14 @@ namespace Hagalaz.Game.Scripts.Widgets.Options
         private readonly IScopedGameMediator _gameMediator;
         private IGameConnectHandle _chatSettingsHandle;
 
-        public ChatSetup(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public ChatSetup(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is opened for character.
         /// </summary>
         public override void OnOpen()
         {
-            _chatSettingsHandle = _gameMediator.ConnectHandler<ProfileValueChanged<bool>>(async (context) =>
+            _chatSettingsHandle = _gameMediator.ConnectHandler<ProfileValueChanged<bool>>((context) =>
             {
                 if (context.Message.Key == ProfileConstants.ChatSettingsSplitChat)
                 {
@@ -63,14 +60,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Options
         /// <summary>
         ///     Happens when interface is closed for character.
         /// </summary>
-        public override void OnClose()
-        {
-            _chatSettingsHandle?.Disconnect();
-        }
+        public override void OnClose() => _chatSettingsHandle?.Disconnect();
 
-        private void RefreshChatSettingsSplitChat()
-        {
-            Owner.Configurations.SendStandardConfiguration(287, Owner.Profile.GetValue<bool>(ProfileConstants.ChatSettingsSplitChat) ? 1 : 0);
-        }
+        private void RefreshChatSettingsSplitChat() => Owner.Configurations.SendStandardConfiguration(287, Owner.Profile.GetValue<bool>(ProfileConstants.ChatSettingsSplitChat) ? 1 : 0);
     }
 }

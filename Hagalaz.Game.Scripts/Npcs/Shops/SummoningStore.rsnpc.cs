@@ -1,7 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Widgets;
-using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -11,11 +10,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     [NpcScriptMetaData([6970])]
     public class SummoningStore : NpcScriptBase
     {
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() { }
-
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -33,7 +27,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
 
             if (clickType == NpcClickType.Option1Click)
             {
-                clicker.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.Send2TextChatRight, 0, new SkillCapeDialogue(clicker.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(), StatisticsConstants.Summoning), true, Owner);
+                var dialogue = clicker.ServiceProvider.GetRequiredService<SkillCapeDialogue>();
+                dialogue.SkillID = StatisticsConstants.Summoning;
+                clicker.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.Send2TextChatRight, 0, dialogue, true, Owner);
                 return;
             }
 

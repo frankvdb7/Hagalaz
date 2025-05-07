@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -13,7 +14,6 @@ using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Sage;
 using Hagalaz.Game.Scripts.Characters;
 using Hagalaz.Game.Scripts.Model.Widgets;
@@ -128,14 +128,16 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
 
         private readonly IGameMessageService _gameMessageService;
         private readonly ICharacterCreateInfoRepository _characterCreateInfoRepository;
+        private readonly IItemBuilder _itemBuilder;
 
         public DesignInterface(
             ICharacterContextAccessor characterContextAccessor, IGameMessageService gameMessageService,
-            ICharacterCreateInfoRepository characterCreateInfoRepository)
+            ICharacterCreateInfoRepository characterCreateInfoRepository, IItemBuilder itemBuilder)
             : base(characterContextAccessor)
         {
             _gameMessageService = gameMessageService;
             _characterCreateInfoRepository = characterCreateInfoRepository;
+            _itemBuilder = itemBuilder;
         }
 
         /// <summary>
@@ -1035,7 +1037,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
 
             foreach (var item in _characterCreateInfoRepository.FindAllContainerItems())
             {
-                var it = new Item(item.Id, item.Count);
+                var it = _itemBuilder.Create().WithId(item.Id).WithCount(item.Count).Build();
 
                 switch (item.Type)
                 {

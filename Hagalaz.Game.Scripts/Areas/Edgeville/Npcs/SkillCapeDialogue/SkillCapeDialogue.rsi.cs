@@ -1,8 +1,8 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
@@ -11,21 +11,24 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
     /// </summary>
     public class SkillCapeDialogue : NpcDialogueScript
     {
-        /// <summary>
-        ///     The skill Id.
-        /// </summary>
-        private readonly int _skillID;
+        private readonly IItemBuilder _itemBuilder;
+
+        public int SkillID { get; set; }
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="SkillCapeDialogue" /> class.
         /// </summary>
-        /// <param name="skillID">The skill Id.</param>
-        public SkillCapeDialogue(ICharacterContextAccessor contextAccessor, int skillID = 0) : base(contextAccessor) => _skillID = skillID;
+        /// <param name="contextAccessor"></param>
+        /// <param name="itemBuilder"></param>
+        public SkillCapeDialogue(ICharacterContextAccessor contextAccessor, IItemBuilder itemBuilder) : base(contextAccessor)
+        {
+            _itemBuilder = itemBuilder;
+        }
 
         /// <summary>
         ///     The SKIL l_ CAPES
         /// </summary>
-        public static readonly short[] SkillCapes =
+        private static readonly int[] _skillCapes =
         [
             9747, // Attack
             9753, // Defence
@@ -57,7 +60,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
         /// <summary>
         ///     The t_ skil l_ capes
         /// </summary>
-        public static readonly short[] TSkillCapes =
+        public static readonly int[] TSkillCapes =
         [
             9748, // Attack
             9754, // Defence
@@ -89,9 +92,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
         /// <summary>
         ///     Happens when interface is closed for character.
         /// </summary>
-        public override void OnClose()
-        {
-        }
+        public override void OnClose() { }
 
         /// <summary>
         ///     Called when [open].
@@ -103,97 +104,118 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
         /// </summary>
         public void Setup()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
-            {
-                StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Hello " + Owner.DisplayName + "!", "How can I help you?");
-                return true;
-            });
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
-            {
-                DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "I'd like to talk about skill capes please!");
-                return true;
-            });
-            AttachDialogueContinueClickHandler(2, (extraData1, extraData2) =>
-            {
-                StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "The " + StatisticsConstants.SkillNames[_skillID] + " skill cape costs 99,000 coins and requires level 99 in " + StatisticsConstants.SkillNames[_skillID] + ". A skill cape is something you can show off to other players!", "Would you like to buy this cape from me?");
-                return true;
-            });
-            AttachDialogueContinueClickHandler(3, (extraData1, extraData2) =>
-            {
-                DefaultOptionDialogue("Yes", "No");
-                return true;
-            });
-            AttachDialogueOptionClickHandler("Yes", (extraData1, extraData2) =>
-            {
-                DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Yes please!");
-                SetStage(6);
-                return false;
-            });
-            AttachDialogueOptionClickHandler("No", (extraData1, extraData2) =>
-            {
-                DefaultCharacterDialogue(DialogueAnimations.Sad, "No thanks.");
-                SetStage(4);
-                return false;
-            });
-            AttachDialogueContinueClickHandler(4, (extraData1, extraData2) =>
-            {
-                StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Alright, see you again soon!");
-                return true;
-            });
-            AttachDialogueContinueClickHandler(5, (extraData1, extraData2) =>
-            {
-                Owner.Widgets.CloseChatboxOverlay();
-                return true;
-            });
-
-            AttachDialogueContinueClickHandler(6, (extraData1, extraData2) =>
-            {
-                if (Owner.Statistics.LevelForExperience(_skillID) >= 99)
+            AttachDialogueContinueClickHandler(0,
+                (extraData1, extraData2) =>
                 {
-                    if (Owner.MoneyPouch.Contains(995, 99000))
+                    StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Hello " + Owner.DisplayName + "!", "How can I help you?");
+                    return true;
+                });
+            AttachDialogueContinueClickHandler(1,
+                (extraData1, extraData2) =>
+                {
+                    DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "I'd like to talk about skill capes please!");
+                    return true;
+                });
+            AttachDialogueContinueClickHandler(2,
+                (extraData1, extraData2) =>
+                {
+                    StandardNpcDialogue(TalkingTo,
+                        DialogueAnimations.CalmTalk,
+                        "The " + StatisticsConstants.SkillNames[SkillID] + " skill cape costs 99,000 coins and requires level 99 in " +
+                        StatisticsConstants.SkillNames[SkillID] + ". A skill cape is something you can show off to other players!",
+                        "Would you like to buy this cape from me?");
+                    return true;
+                });
+            AttachDialogueContinueClickHandler(3,
+                (extraData1, extraData2) =>
+                {
+                    DefaultOptionDialogue("Yes", "No");
+                    return true;
+                });
+            AttachDialogueOptionClickHandler("Yes",
+                (extraData1, extraData2) =>
+                {
+                    DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Yes please!");
+                    SetStage(6);
+                    return false;
+                });
+            AttachDialogueOptionClickHandler("No",
+                (extraData1, extraData2) =>
+                {
+                    DefaultCharacterDialogue(DialogueAnimations.Sad, "No thanks.");
+                    SetStage(4);
+                    return false;
+                });
+            AttachDialogueContinueClickHandler(4,
+                (extraData1, extraData2) =>
+                {
+                    StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Alright, see you again soon!");
+                    return true;
+                });
+            AttachDialogueContinueClickHandler(5,
+                (extraData1, extraData2) =>
+                {
+                    Owner.Widgets.CloseChatboxOverlay();
+                    return true;
+                });
+
+            AttachDialogueContinueClickHandler(6,
+                (extraData1, extraData2) =>
+                {
+                    if (Owner.Statistics.LevelForExperience(SkillID) >= 99)
                     {
-                        var removed = Owner.MoneyPouch.Remove(99000);
-                        if (removed > 0 && Owner.Inventory.FreeSlots >= 2)
+                        if (Owner.MoneyPouch.Contains(995, 99000))
                         {
-                            var hasTwo99 = false;
-                            for (var skill = 0; !hasTwo99 && skill < NpcStatisticsConstants.SkillsCount; skill++)
+                            var removed = Owner.MoneyPouch.Remove(99000);
+                            if (removed > 0 && Owner.Inventory.FreeSlots >= 2)
                             {
-                                if (skill != _skillID)
+                                var hasTwo99 = false;
+                                for (var skill = 0; !hasTwo99 && skill < NpcStatisticsConstants.SkillsCount; skill++)
                                 {
+                                    if (skill == SkillID)
+                                    {
+                                        continue;
+                                    }
+
                                     if (Owner.Statistics.LevelForExperience(skill) >= 99)
                                     {
                                         hasTwo99 = true;
                                     }
                                 }
-                            }
 
-                            Owner.Inventory.Add(new Item(hasTwo99 ? TSkillCapes[_skillID] : SkillCapes[_skillID], 1));
-                            Owner.Inventory.Add(new Item((short)(SkillCapes[_skillID] + 2), 1));
-                            StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Congratulations! You have just bought a " + StatisticsConstants.SkillNames[_skillID] + " Skill Cape " + (hasTwo99 ? "(T)" : "") + "!");
+                                Owner.Inventory.Add(_itemBuilder.Create().WithId(hasTwo99 ? TSkillCapes[SkillID] : _skillCapes[SkillID]).Build());
+                                Owner.Inventory.Add(_itemBuilder.Create().WithId(_skillCapes[SkillID] + 2).Build());
+                                StandardNpcDialogue(TalkingTo,
+                                    DialogueAnimations.CalmTalk,
+                                    "Congratulations! You have just bought a " + StatisticsConstants.SkillNames[SkillID] + " Skill Cape " +
+                                    (hasTwo99 ? "(T)" : "") + "!");
+                            }
+                            else
+                            {
+                                StandardNpcDialogue(TalkingTo, DialogueAnimations.Mad, "Make some room in your inventory first, will ya?");
+                            }
                         }
                         else
                         {
-                            StandardNpcDialogue(TalkingTo, DialogueAnimations.Mad, "Make some room in your inventory first, will ya?");
+                            StandardNpcDialogue(TalkingTo, DialogueAnimations.Mad, "You do not have enough coins to buy this skill cape!");
                         }
                     }
                     else
                     {
-                        StandardNpcDialogue(TalkingTo, DialogueAnimations.Mad, "You do not have enough coins to buy this skill cape!");
+                        StandardNpcDialogue(TalkingTo,
+                            DialogueAnimations.Mad,
+                            "You need a(n) " + StatisticsConstants.SkillNames[SkillID] + " of 99 to buy this skill cape!");
                     }
-                }
-                else
+
+                    return true;
+                });
+
+            AttachDialogueContinueClickHandler(7,
+                (extraData1, extraData2) =>
                 {
-                    StandardNpcDialogue(TalkingTo, DialogueAnimations.Mad, "You need a(n) " + StatisticsConstants.SkillNames[_skillID] + " of 99 to buy this skill cape!");
-                }
-
-                return true;
-            });
-
-            AttachDialogueContinueClickHandler(7, (extraData1, extraData2) =>
-            {
-                Owner.Widgets.CloseChatboxOverlay();
-                return true;
-            });
+                    Owner.Widgets.CloseChatboxOverlay();
+                    return true;
+                });
         }
     }
 }

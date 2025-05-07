@@ -16,10 +16,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
     {
         private readonly IMovementBuilder _movementBuilder;
 
-        public WildernessDitch(IMovementBuilder movementBuilder)
-        {
-            _movementBuilder = movementBuilder;
-        }
+        public WildernessDitch(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
 
         /// <summary>
         ///     Initializes this script.

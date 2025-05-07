@@ -11,10 +11,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
     /// </summary>
     public class ItemInfoScript : WidgetScript
     {
-        public ItemInfoScript(ICharacterContextAccessor characterContextAccessor, IItemService itemService) : base(characterContextAccessor)
-        {
-            _itemRepository = itemService;
-        }
+        public ItemInfoScript(ICharacterContextAccessor characterContextAccessor, IItemService itemService) : base(characterContextAccessor) => _itemRepository = itemService;
 
         /// <summary>
         ///     The selected item

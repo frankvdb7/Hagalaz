@@ -11,10 +11,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
     {
         private readonly ICraftingSkillService _skillService;
 
-        public PotteryOven(ICraftingSkillService skillService)
-        {
-            _skillService = skillService;
-        }
+        public PotteryOven(ICraftingSkillService skillService) => _skillService = skillService;
 
         /// <summary>
         ///     Called when [character click perform].

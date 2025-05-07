@@ -22,14 +22,12 @@ namespace Hagalaz.Game.Scripts.Characters
             _widgetBuilder = widgetBuilder;
         }
 
-        protected override void Initialize()
-        {
+        protected override void Initialize() =>
             _event = Character.RegisterEventHandler<OpenShopEvent>(e =>
             {
                 Character.QueueTask(() => OpenShop(e.ShopId));
                 return true;
             });
-        }
 
         private async Task OpenShop(int shopId)
         {
@@ -39,9 +37,6 @@ namespace Hagalaz.Game.Scripts.Characters
             Character.Widgets.OpenWidget(1265, 0, shopScreen, true);
         }
 
-        public override void OnRemove()
-        {
-            Character.UnregisterEventHandler<OpenShopEvent>(_event!);
-        }
+        public override void OnRemove() => Character.UnregisterEventHandler<OpenShopEvent>(_event!);
     }
 }

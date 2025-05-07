@@ -21,10 +21,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
         /// </summary>
         private int _flag;
 
-        public NationalFlag(ICharacterContextAccessor characterContextAccessor, IWidgetOptionBuilder widgetOptionBuilder) : base(characterContextAccessor)
-        {
-            _widgetOptionBuilder = widgetOptionBuilder;
-        }
+        public NationalFlag(ICharacterContextAccessor characterContextAccessor, IWidgetOptionBuilder widgetOptionBuilder) : base(characterContextAccessor) => _widgetOptionBuilder = widgetOptionBuilder;
 
         /// <summary>
         ///     Happens when interface is opened for character.

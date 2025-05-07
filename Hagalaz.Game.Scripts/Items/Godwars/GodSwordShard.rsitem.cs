@@ -1,6 +1,6 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Items.Godwars
@@ -10,6 +10,13 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
     [ItemScriptMetaData([11686, 11688, 11690, 11692, 11710, 11712, 11714])]
     public class GodSwordShard : ItemScript
     {
+        private readonly IItemBuilder _itemBuilder;
+
+        public GodSwordShard(IItemBuilder itemBuilder)
+        {
+            _itemBuilder = itemBuilder;
+        }
+
         /// <summary>
         ///     Uses the item on an other item.
         /// </summary>
@@ -38,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
                 }
 
                 character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, new Item(11690, 1));
+                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11690).Build());
                 return true;
             }
 
@@ -57,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
                 }
 
                 character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, new Item(11692, 1));
+                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11692).Build());
                 return true;
             }
 
@@ -76,7 +83,7 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
                 }
 
                 character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, new Item(11686, 1));
+                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11686).Build());
                 return true;
             }
 
@@ -95,7 +102,7 @@ namespace Hagalaz.Game.Scripts.Items.Godwars
                 }
 
                 character.Inventory.Remove(used, usedSlot);
-                character.Inventory.Replace(usedWithSlot, new Item(11688, 1));
+                character.Inventory.Replace(usedWithSlot, _itemBuilder.Create().WithId(11688).Build());
                 return true;
             }
 

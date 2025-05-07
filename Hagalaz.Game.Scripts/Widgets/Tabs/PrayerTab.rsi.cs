@@ -16,10 +16,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         private IGameConnectHandle _bookChanged = default!;
         private readonly IScopedGameMediator _gameMediator;
 
-        public PrayerTab(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public PrayerTab(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is opened for character.
@@ -135,10 +132,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         /// <summary>
         ///     Happens when interface is closed for character.
         /// </summary>
-        public override void OnClose()
-        {
-            _bookChanged?.Disconnect();
-        }
+        public override void OnClose() => _bookChanged?.Disconnect();
 
         private void Refresh()
         {

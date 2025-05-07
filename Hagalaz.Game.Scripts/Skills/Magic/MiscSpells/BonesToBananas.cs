@@ -1,47 +1,56 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Model.Items;
+using Hagalaz.Game.Abstractions.Providers;
 
 namespace Hagalaz.Game.Scripts.Skills.Magic.MiscSpells
 {
     /// <summary>
     ///     Contains bones to bananas script.
     /// </summary>
-    public static class BonesToBananas
+    public class BonesToBananas : IBonesToBananas
     {
-        /// <summary>
-        /// </summary>
-        private static readonly RuneType[] Runes = [RuneType.Earth, RuneType.Water, RuneType.Nature];
+        private readonly IItemBuilder _itemBuilder;
+        private readonly ICharacter _caster;
 
         /// <summary>
         /// </summary>
-        private static readonly int[] Runeamounts = [2, 2, 1];
+        private static readonly RuneType[] _runes = [RuneType.Earth, RuneType.Water, RuneType.Nature];
+
+        /// <summary>
+        /// </summary>
+        private static readonly int[] _runeAmounts = [2, 2, 1];
+
+        public BonesToBananas(IItemBuilder itemBuilder, ICharacterContextAccessor characterContextAccessor)
+        {
+            _itemBuilder = itemBuilder;
+            _caster = characterContextAccessor.Context.Character;
+        }
 
         /// <summary>
         ///     Casts the spell.
         /// </summary>
-        /// <param name="caster">The caster.</param>
         /// <returns></returns>
-        public static bool Cast(ICharacter caster)
+        public bool Cast()
         {
-            if (!CheckRequirements(caster))
+            if (!CheckRequirements(_caster))
             {
                 return false;
             }
 
-            RemoveRequirements(caster);
-            var removed = caster.Inventory.Remove(new Item(526, caster.Inventory.Capacity));
-            removed += caster.Inventory.Remove(new Item(532, caster.Inventory.Capacity));
+            RemoveRequirements(_caster);
+            var removed = _caster.Inventory.Remove(_itemBuilder.Create().WithId(526).WithCount(_caster.Inventory.Capacity).Build());
+            removed += _caster.Inventory.Remove(_itemBuilder.Create().WithId(532).WithCount(_caster.Inventory.Capacity).Build());
             if (removed > 0)
             {
-                caster.QueueAnimation(Animation.Create(722));
-                caster.QueueGraphic(Graphic.Create(141, 0, 100));
-                caster.Inventory.Add(new Item(1963, removed));
-                caster.Statistics.AddExperience(StatisticsConstants.Magic, 25 * removed);
+                _caster.QueueAnimation(Animation.Create(722));
+                _caster.QueueGraphic(Graphic.Create(141, 0, 100));
+                _caster.Inventory.Add(_itemBuilder.Create().WithId(1963).WithCount(removed).Build());
+                _caster.Statistics.AddExperience(StatisticsConstants.Magic, 25 * removed);
             }
             else
             {
-                caster.SendChatMessage("You don't have any bones to cast this spell on.");
+                _caster.SendChatMessage("You don't have any bones to cast this spell on.");
                 return false;
             }
 
@@ -53,12 +62,12 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.MiscSpells
         /// </summary>
         /// <param name="caster">The caster.</param>
         /// <returns></returns>
-        public static bool CheckRequirements(ICharacter caster) => caster.Magic.CheckMagicLevel(15) && caster.Magic.CheckRunes(Runes, Runeamounts);
+        private static bool CheckRequirements(ICharacter caster) => caster.Magic.CheckMagicLevel(15) && caster.Magic.CheckRunes(_runes, _runeAmounts);
 
         /// <summary>
         ///     Removes the requirements.
         /// </summary>
         /// <param name="caster">The caster.</param>
-        public static void RemoveRequirements(ICharacter caster) => caster.Magic.RemoveRunes(Runes, Runeamounts);
+        private static void RemoveRequirements(ICharacter caster) => caster.Magic.RemoveRunes(_runes, _runeAmounts);
     }
 }

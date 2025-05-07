@@ -26,27 +26,24 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
         /// </summary>
         static GeneralGraardor()
         {
-            SpeakData.Add("Death to our enemies!", 3219);
-            SpeakData.Add("Split their skulls!", 3229);
-            SpeakData.Add("CHAAARGE!", 3220);
-            SpeakData.Add("We feast on the bones of our enemies tonight!", 3206);
-            SpeakData.Add("Crush them underfoot!", 3224);
-            SpeakData.Add("All glory to Bandos!", 3205);
-            SpeakData.Add("Brargh!", 3207);
-            SpeakData.Add("GRAAAAAAAAAR!", 3209);
-            SpeakData.Add("Break their bones!", 3221);
-            SpeakData.Add("FOR THE GLORY OF THE BIG HIGH WAR GOD!", 3228);
+            _speakData.Add("Death to our enemies!", 3219);
+            _speakData.Add("Split their skulls!", 3229);
+            _speakData.Add("CHAAARGE!", 3220);
+            _speakData.Add("We feast on the bones of our enemies tonight!", 3206);
+            _speakData.Add("Crush them underfoot!", 3224);
+            _speakData.Add("All glory to Bandos!", 3205);
+            _speakData.Add("Brargh!", 3207);
+            _speakData.Add("GRAAAAAAAAAR!", 3209);
+            _speakData.Add("Break their bones!", 3221);
+            _speakData.Add("FOR THE GLORY OF THE BIG HIGH WAR GOD!", 3228);
         }
 
-        public GeneralGraardor(IAudioBuilder soundBuilder)
-        {
-            _soundBuilder = soundBuilder;
-        }
+        public GeneralGraardor(IAudioBuilder soundBuilder) => _soundBuilder = soundBuilder;
 
         /// <summary>
         ///     Contains speak data.
         /// </summary>
-        private static readonly Dictionary<string, short> SpeakData = new Dictionary<string, short>();
+        private static readonly Dictionary<string, short> _speakData = new Dictionary<string, short>();
 
         /// <summary>
         ///     The attack type
@@ -223,7 +220,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
             }
 
             _speakDelay = 0;
-            foreach (var data in SpeakData.Where(data => RandomStatic.Generator.NextDouble() <= 0.008))
+            foreach (var data in _speakData.Where(data => RandomStatic.Generator.NextDouble() <= 0.008))
             {
                 Owner.Speak(data.Key);
                 var voice = _soundBuilder.Create().AsVoice().WithId(data.Value).Build();

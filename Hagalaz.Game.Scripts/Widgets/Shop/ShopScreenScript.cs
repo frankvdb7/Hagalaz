@@ -104,7 +104,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         /// </summary>
         public void Setup()
         {
-            var containsSampleItems = Owner.CurrentShop.SampleStockContainer.Any();
+            var containsSampleItems = Owner.CurrentShop!.SampleStockContainer.Any();
             Owner.Configurations.SendStandardConfiguration(118, 3); // cached container id, varies in capacity
             Owner.Configurations.SendStandardConfiguration(1496, containsSampleItems ? 553 : -1); // Sample stock container
             Owner.Configurations.SendStandardConfiguration(532, Owner.CurrentShop.CurrencyId); // currency
@@ -331,6 +331,10 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
             InterfaceInstance.AttachClickHandler(211,
                 (componentID, type, itemID, slot) =>
                 {
+                    if (_selectedItem == null)
+                    {
+                        return false;
+                    }
                     SetCount(_selectedItem.Count);
                     return true;
                 });
@@ -408,15 +412,15 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
 
             if (_currentScreen == 0)
             {
-                Owner.CurrentShop.MainStockContainer.BuyFromShop(Owner, _selectedItem, _count);
+                Owner.CurrentShop!.MainStockContainer.BuyFromShop(Owner, _selectedItem, _count);
             }
             else if (_currentScreen == 1)
             {
-                Owner.CurrentShop.SampleStockContainer.BuyFromShop(Owner, _selectedItem, _count);
+                Owner.CurrentShop!.SampleStockContainer.BuyFromShop(Owner, _selectedItem, _count);
             }
             else if (_currentScreen == 2)
             {
-                Owner.CurrentShop.MainStockContainer.SellFromInventory(Owner, _selectedItem, _count);
+                Owner.CurrentShop!.MainStockContainer.SellFromInventory(Owner, _selectedItem, _count);
             }
         }
 
@@ -442,8 +446,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
             {
                 Owner.SendChatMessage(item.Name + ": currently costs " +
                                       StringUtilities.FormatNumber(Owner.HasState(StateType.ShopSellScreen)
-                                          ? Owner.CurrentShop.GetSellValue(item)
-                                          : Owner.CurrentShop.GetBuyValue(item)) +
+                                          ? Owner.CurrentShop!.GetSellValue(item)
+                                          : Owner.CurrentShop!.GetBuyValue(item)) +
                                       " " + _itemRepository.FindItemDefinitionById(Owner.CurrentShop.CurrencyId).Name.ToLower() + ".");
             }
 
@@ -531,28 +535,19 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         ///     Refreshes the sample stock.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        private void RefreshSampleStock(HashSet<int>? changedSlots = null)
-        {
-            Owner.Configurations.SendItems(553, false, Owner.CurrentShop.SampleStockContainer, changedSlots);
-        }
+        private void RefreshSampleStock(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(553, false, Owner.CurrentShop.SampleStockContainer, changedSlots);
 
         /// <summary>
         ///     Refreshes the main stock.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        private void RefreshMainStock(HashSet<int>? changedSlots = null)
-        {
-            Owner.Configurations.SendItems(3, false, Owner.CurrentShop.MainStockContainer, changedSlots);
-        }
+        private void RefreshMainStock(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(3, false, Owner.CurrentShop.MainStockContainer, changedSlots);
 
         /// <summary>
         ///     Refreshes the inventory.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        private void RefreshInventory(HashSet<int>? changedSlots)
-        {
-            Owner.Configurations.SendItems(93, false, Owner.Inventory, changedSlots);
-        }
+        private void RefreshInventory(HashSet<int>? changedSlots) => Owner.Configurations.SendItems(93, false, Owner.Inventory, changedSlots);
 
         /// <summary>
         ///     Refreshes the money pouch.

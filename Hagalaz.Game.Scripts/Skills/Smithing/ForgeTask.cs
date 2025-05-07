@@ -1,10 +1,11 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Smithing
 {
@@ -12,22 +13,13 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
     /// </summary>
     public class ForgeTask : RsTickTask
     {
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="SmeltTask" /> class.
-        /// </summary>
-        /// <param name="performer">The performer.</param>
-        /// <param name="definition">The definition.</param>
-        /// <param name="forgeDefinition">The forge definition.</param>
-        /// <param name="totalForgeCount">The total smelt count.</param>
-        public ForgeTask(ICharacter performer, SmithingDefinition definition, ForgingBarEntry forgeDefinition, int totalForgeCount)
+        public ForgeTask(ICharacterContextAccessor characterContextAccessor, IItemService itemService, IItemBuilder itemBuilder)
         {
-            Performer = performer;
-            Definition = definition;
-            ForgeDefinition = forgeDefinition;
+            Performer = characterContextAccessor.Context.Character;
             TickActionMethod = PerformTickImpl;
-            TotalForgeCount = totalForgeCount;
-            _itemRepository = performer.ServiceProvider.GetRequiredService<IItemService>();
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _itemService = itemService;
+            _itemBuilder = itemBuilder;
+            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
                 Cancel();
                 return false;
@@ -47,12 +39,12 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
         /// <summary>
         ///     The definition.
         /// </summary>
-        private SmithingDefinition Definition { get; }
+        public SmithingDefinition Definition { get; set; } = null!;
 
         /// <summary>
         ///     The definition.
         /// </summary>
-        private ForgingBarEntry ForgeDefinition { get; }
+        public ForgingBarEntry ForgeDefinition { get; set; } = null!;
 
         /// <summary>
         ///     The times performed.
@@ -62,12 +54,14 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
         /// <summary>
         ///     The times to perform.
         /// </summary>
-        private int TotalForgeCount { get; }
+        public int TotalForgeCount { get; set; }
 
         /// <summary>
         ///     The item manager
         /// </summary>
-        private readonly IItemService _itemRepository;
+        private readonly IItemService _itemService;
+
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         ///     Contains tick implementation.
@@ -85,7 +79,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             {
                 if (!Performer.Inventory.Contains(Definition.BarID, ForgeDefinition.RequiredBarCount))
                 {
-                    Performer.SendChatMessage("You do not have sufficient " + _itemRepository.FindItemDefinitionById(Definition.BarID).Name.ToLower() + "s.");
+                    Performer.SendChatMessage("You do not have sufficient " + _itemService.FindItemDefinitionById(Definition.BarID).Name.ToLower() + "s.");
                     Cancel();
                     return;
                 }
@@ -95,23 +89,25 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 return;
             }
 
-            if (TickCount % 3 == 0)
+            if (TickCount % 3 != 0)
             {
-                ForgeCount++;
-                var removed = Performer.Inventory.Remove(new Item(Definition.BarID, ForgeDefinition.RequiredBarCount));
-                if (removed < ForgeDefinition.RequiredBarCount) // something went wrong
-                {
-                    Cancel();
-                    return;
-                }
-
-                // TODO message
-                //this.Performer.SendMessage("You retrieve a bar of " + World.ItemsManager.GetItemDefinition(this.Definition.BarID).Name.ToLower().Replace(" bar", "") + ".");
-
-
-                Performer.Inventory.Add(new Item(ForgeDefinition.Product.Id, ForgeDefinition.Product.Count));
-                Performer.Statistics.AddExperience(StatisticsConstants.Smithing, Definition.ForgeDefinition.BaseSmithingExperience * ForgeDefinition.RequiredBarCount); // Stop smithing if leveled up.
+                return;
             }
+
+            ForgeCount++;
+            var removed = Performer.Inventory.Remove(_itemBuilder.Create().WithId(Definition.BarID).WithCount(ForgeDefinition.RequiredBarCount).Build());
+            if (removed < ForgeDefinition.RequiredBarCount) // something went wrong
+            {
+                Cancel();
+                return;
+            }
+
+            // TODO message
+            //this.Performer.SendMessage("You retrieve a bar of " + World.ItemsManager.GetItemDefinition(this.Definition.BarID).Name.ToLower().Replace(" bar", "") + ".");
+
+            Performer.Inventory.Add(_itemBuilder.Create().WithId(ForgeDefinition.Product.Id).WithCount(ForgeDefinition.Product.Count).Build());
+            Performer.Statistics.AddExperience(StatisticsConstants.Smithing,
+                Definition.ForgeDefinition.BaseSmithingExperience * ForgeDefinition.RequiredBarCount); // Stop smithing if leveled up.
         }
 
         /// <summary>

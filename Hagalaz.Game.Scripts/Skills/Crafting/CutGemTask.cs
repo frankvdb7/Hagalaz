@@ -1,10 +1,11 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Crafting
 {
@@ -12,28 +13,24 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
     /// </summary>
     public class CutGemTask : RsTickTask
     {
+        private readonly IItemBuilder _itemBuilder;
+
         /// <summary>
         /// 
         /// </summary>
         private readonly EventHappened _interruptEvent;
 
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="CutGemTask" /> class.
-        /// </summary>
-        /// <param name="performer">The performer.</param>
-        /// <param name="definition">The definition.</param>
-        /// <param name="totalCutCount">The total cut count.</param>
-        public CutGemTask(ICharacter performer, GemDto definition, int totalCutCount)
+        public CutGemTask(ICharacterContextAccessor characterContextAccessor, IItemBuilder itemBuilder)
         {
-            Performer = performer;
-            Definition = definition;
+            _itemBuilder = itemBuilder;
+            Performer = characterContextAccessor.Context.Character;
+            ;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
                 Cancel();
                 return false;
             });
-            TotalCutCount = totalCutCount;
         }
 
         /// <summary>
@@ -44,7 +41,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The definition.
         /// </summary>
-        private GemDto Definition { get; }
+        public GemDto Definition { get; set; } = null!;
 
         /// <summary>
         ///     The times performed.
@@ -54,7 +51,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The times to perform.
         /// </summary>
-        private int TotalCutCount { get; }
+        public int TotalCutCount { get; set; }
 
         /// <summary>
         ///     Contains tick implementation.
@@ -91,7 +88,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     return;
                 }
 
-                Performer.Inventory.Replace(slot, new Item(Definition.CutGemID));
+                Performer.Inventory.Replace(slot, _itemBuilder.Create().WithId(Definition.CutGemID).Build());
                 Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.CraftingExperience);
             }
         }

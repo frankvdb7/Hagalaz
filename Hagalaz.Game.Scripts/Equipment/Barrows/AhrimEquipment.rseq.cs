@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <summary>
         ///     The dharok degraded equipment
         /// </summary>
-        private static readonly int[] AhrimIDs =
+        private static readonly int[] _ahrimIDs =
         [
             4708, 4856, 4857, 4858, 4859, // ahrim hood
             4710, 4862, 4863, 4864, 4865, // ahirm staff
@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
             var hasChest = false;
             var hasWeapon = false;
             var hasHat = false;
-            foreach (var itemId in AhrimIDs)
+            foreach (var itemId in _ahrimIDs)
             {
                 if (legs.Id == itemId)
                 {
@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns>
         ///     Return's array of item ids for which this script is suitable.
         /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => AhrimIDs;
+        public override IEnumerable<int> GetSuitableItems() => _ahrimIDs;
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.
@@ -93,8 +93,8 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns></returns>
         public override int GetDegrationTicks(IItem item)
         {
-            if (item.Id == AhrimIDs[0] || item.Id == AhrimIDs[5]
-                                       || item.Id == AhrimIDs[10] || item.Id == AhrimIDs[15])
+            if (item.Id == _ahrimIDs[0] || item.Id == _ahrimIDs[5]
+                                       || item.Id == _ahrimIDs[10] || item.Id == _ahrimIDs[15])
             {
                 return 0; // Degrade to 100 barrow item
             }
@@ -116,22 +116,22 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns></returns>
         public override short GetDegradedItemID(IItem item)
         {
-            if (item.Id == AhrimIDs[0])
+            if (item.Id == _ahrimIDs[0])
             {
                 return (short)(item.Id + 148);
             }
 
-            if (item.Id == AhrimIDs[5])
+            if (item.Id == _ahrimIDs[5])
             {
                 return (short)(item.Id + 152);
             }
 
-            if (item.Id == AhrimIDs[10])
+            if (item.Id == _ahrimIDs[10])
             {
                 return (short)(item.Id + 156);
             }
 
-            if (item.Id == AhrimIDs[15])
+            if (item.Id == _ahrimIDs[15])
             {
                 return (short)(item.Id + 160);
             }

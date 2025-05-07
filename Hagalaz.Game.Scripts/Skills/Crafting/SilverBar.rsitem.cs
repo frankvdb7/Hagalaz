@@ -13,10 +13,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
     {
         private readonly IServiceProvider _serviceProvider;
 
-        public SilverBar(IServiceProvider serviceProvider)
-        {
-            _serviceProvider = serviceProvider;
-        }
+        public SilverBar(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
 
         /// <summary>
         ///     Uses the item on game object.

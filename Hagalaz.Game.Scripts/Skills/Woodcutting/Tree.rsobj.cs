@@ -11,10 +11,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
     {
         private readonly IWoodcuttingSkillService _woodcuttingSkillService;
 
-        public Tree(IWoodcuttingSkillService woodcuttingSkillService)
-        {
-            _woodcuttingSkillService = woodcuttingSkillService;
-        }
+        public Tree(IWoodcuttingSkillService woodcuttingSkillService) => _woodcuttingSkillService = woodcuttingSkillService;
 
         /// <summary>
         ///     Happens on character click.

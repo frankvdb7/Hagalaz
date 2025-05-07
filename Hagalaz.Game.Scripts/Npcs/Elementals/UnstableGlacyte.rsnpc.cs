@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <summary>
         ///     The charge ticks.
         /// </summary>
-        private const int ChargeTicks = 10;
+        private const int _chargeTicks = 10;
 
         /// <summary>
         ///     The charge.
@@ -195,7 +195,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             {
                 Heal();
             }
-            else if (++_charge >= ChargeTicks)
+            else if (++_charge >= _chargeTicks)
             {
                 Explode();
             }

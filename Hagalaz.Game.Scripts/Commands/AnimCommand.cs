@@ -11,11 +11,8 @@ namespace Hagalaz.Game.Scripts.Commands
         public string Name { get; } = "anim";
         public Permission Permission { get; } = Permission.SystemAdministrator;
 
-        public AnimCommand(IAnimationBuilder animationBuilder)
-        {
-            _animationBuilder = animationBuilder;
-        }
-        
+        public AnimCommand(IAnimationBuilder animationBuilder) => _animationBuilder = animationBuilder;
+
         public Task Execute(GameCommandArgs args)
         {
             var cmd = args.Arguments;

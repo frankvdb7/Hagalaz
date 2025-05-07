@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <summary>
         ///     The verac equipment
         /// </summary>
-        private static readonly int[] VeracIDs =
+        private static readonly int[] _veracIDs =
         [
             4753, 4976, 4977, 4978, 4979, // verac helm
             4755, 4982, 4983, 4984, 4985, // verac flial
@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
             var hasChest = false;
             var hasWeapon = false;
             var hasHat = false;
-            foreach (var itemId in VeracIDs)
+            foreach (var itemId in _veracIDs)
             {
                 if (legs.Id == itemId)
                 {
@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns>
         ///     Return's array of item ids for which this script is suitable.
         /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => VeracIDs;
+        public override IEnumerable<int> GetSuitableItems() => _veracIDs;
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.
@@ -93,8 +93,8 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns></returns>
         public override int GetDegrationTicks(IItem item)
         {
-            if (item.Id == VeracIDs[0] || item.Id == VeracIDs[5]
-                                       || item.Id == VeracIDs[10] || item.Id == VeracIDs[15])
+            if (item.Id == _veracIDs[0] || item.Id == _veracIDs[5]
+                                       || item.Id == _veracIDs[10] || item.Id == _veracIDs[15])
             {
                 return 0; // Degrade to 100 barrow item
             }
@@ -116,22 +116,22 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns></returns>
         public override short GetDegradedItemID(IItem item)
         {
-            if (item.Id == VeracIDs[0])
+            if (item.Id == _veracIDs[0])
             {
                 return (short)(item.Id + 223);
             }
 
-            if (item.Id == VeracIDs[5])
+            if (item.Id == _veracIDs[5])
             {
                 return (short)(item.Id + 227);
             }
 
-            if (item.Id == VeracIDs[10])
+            if (item.Id == _veracIDs[10])
             {
                 return (short)(item.Id + 231);
             }
 
-            if (item.Id == VeracIDs[15])
+            if (item.Id == _veracIDs[15])
             {
                 return (short)(item.Id + 235);
             }

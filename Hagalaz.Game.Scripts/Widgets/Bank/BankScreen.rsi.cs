@@ -60,10 +60,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
         /// </summary>
         private OnIntInput? _bankXHandler;
 
-        public BankScreen(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator mediator) : base(characterContextAccessor)
-        {
-            _mediator = mediator;
-        }
+        public BankScreen(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator mediator) : base(characterContextAccessor) => _mediator = mediator;
 
         /// <summary>
         ///     Happens when interface is opened for character.
@@ -92,10 +89,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
         /// <summary>
         ///     Loads tabs data.
         /// </summary>
-        public void LoadTabsData()
-        {
-            _bankTabsItemCount = Owner.Profile.GetArray(ProfileConstants.BankSettingsTab, ProfileConstants.BankSettingsTabDefault).ToArray();
-        }
+        public void LoadTabsData() => _bankTabsItemCount = Owner.Profile.GetArray(ProfileConstants.BankSettingsTab, ProfileConstants.BankSettingsTabDefault).ToArray();
 
         /// <summary>
         ///     Set's configurations.
@@ -436,7 +430,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
 
             int[] tabIDs = [64, 62, 60, 58, 56, 54, 52, 50, 48];
 
-            bool tabClick(int componentID, ComponentClickType type, int extra1, int extra2)
+            bool TabClick(int componentID, ComponentClickType type, int extra1, int extra2)
             {
                 if (type == ComponentClickType.LeftClick)
                 {
@@ -462,7 +456,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
 
             foreach (var t in tabIDs)
             {
-                InterfaceInstance.AttachClickHandler(t, tabClick);
+                InterfaceInstance.AttachClickHandler(t, TabClick);
             }
 
             RefreshBank(null);
@@ -747,16 +741,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
         ///     Refreshe's inventory.
         /// </summary>
         /// <param name="changedSlots"></param>
-        public void RefreshInventory(HashSet<int>? changedSlots = null)
-        {
-            Owner.Configurations.SendItems(31, false, Owner.Inventory, changedSlots);
-        }
+        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(31, false, Owner.Inventory, changedSlots);
 
-        public void RefreshBankX()
-        {
+        public void RefreshBankX() =>
             Owner.Configurations.SendStandardConfiguration(1249,
                 Owner.Profile.GetValue(ProfileConstants.BankSettingsOptionX, ProfileConstants.BankSettingsOptionXDefault));
-        }
 
         /// <summary>
         ///     Happens when interface is closed for character.

@@ -41,10 +41,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Crucible.Characters
         private IHintIcon _targetHintIcon;
 
         public CrucibleScript(ICharacterContextAccessor contextAccessor, IHintIconBuilder hintIconBuilder)
-            : base(contextAccessor)
-        {
+            : base(contextAccessor) =>
             _hintIconBuilder = hintIconBuilder;
-        }
 
         /// <summary>
         ///     Initializes this instance.

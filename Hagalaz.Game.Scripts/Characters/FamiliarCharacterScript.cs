@@ -10,10 +10,8 @@ namespace Hagalaz.Game.Scripts.Characters
         private readonly INpcBuilder _npcBuilder;
 
         public FamiliarCharacterScript(ICharacterContextAccessor contextAccessor, INpcBuilder npcBuilder)
-            : base(contextAccessor)
-        {
+            : base(contextAccessor) =>
             _npcBuilder = npcBuilder;
-        }
 
         protected override void Initialize() { }
 

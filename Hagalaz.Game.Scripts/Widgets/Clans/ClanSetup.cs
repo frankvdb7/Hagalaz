@@ -28,10 +28,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
         /// </summary>
         private ClanRank _memberRank;
 
-        public ClanSetup(ICharacterContextAccessor characterContextAccessor, IWidgetOptionBuilder widgetOptionBuilder) : base(characterContextAccessor)
-        {
-            _widgetOptionBuilder = widgetOptionBuilder;
-        }
+        public ClanSetup(ICharacterContextAccessor characterContextAccessor, IWidgetOptionBuilder widgetOptionBuilder) : base(characterContextAccessor) => _widgetOptionBuilder = widgetOptionBuilder;
 
         /// <summary>
         ///     Called when [open].

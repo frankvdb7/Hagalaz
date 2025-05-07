@@ -39,15 +39,6 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        public IEnumerable<IGameObject> FindAll(GameObjectFindAll gameObjectFindAll)
-        {
-            var region = _regionService.GetOrCreateMapRegion(gameObjectFindAll.Location.RegionId, gameObjectFindAll.Location.Dimension, true);
-            foreach (var gameObject in region.FindAllGameObjects().Where(gameObject => gameObject.Id == gameObjectFindAll.Id))
-            {
-                yield return gameObject;
-            }
-        }
-
         public void UpdateGameObject(GameObjectUpdate gameObjectUpdate)
         {
             var gameObject = gameObjectUpdate.Instance;

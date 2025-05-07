@@ -9,10 +9,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
     {
         private readonly ICraftingService _craftingService;
 
-        public LeatherScriptFactory(ICraftingService craftingService)
-        {
-            _craftingService = craftingService;
-        }
+        public LeatherScriptFactory(ICraftingService craftingService) => _craftingService = craftingService;
 
         public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts()
         {

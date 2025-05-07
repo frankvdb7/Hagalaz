@@ -44,10 +44,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// <summary>
         /// Initializes the familiar.
         /// </summary>
-        protected sealed override void InitializeFamiliar()
-        {
-            InitializeBob();
-        }
+        protected sealed override void InitializeFamiliar() => InitializeBob();
 
         /// <summary>
         /// Initializes the beast of burden.

@@ -10,10 +10,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
     {
         private readonly ICookingService _cookingService;
 
-        public RawFoodScriptFactory(ICookingService cookingService)
-        {
-            _cookingService = cookingService;
-        }
+        public RawFoodScriptFactory(ICookingService cookingService) => _cookingService = cookingService;
 
         public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts()
         {

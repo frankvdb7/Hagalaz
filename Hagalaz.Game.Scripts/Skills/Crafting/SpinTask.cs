@@ -1,11 +1,12 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Crafting
 {
@@ -18,24 +19,18 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// </summary>
         private readonly EventHappened? _interruptEvent;
 
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="SpinTask" /> class.
-        /// </summary>
-        /// <param name="performer">The performer.</param>
-        /// <param name="definition">The definition.</param>
-        /// <param name="totalSpinCount">The total spin count.</param>
-        public SpinTask(ICharacter performer, SpinDto definition, int totalSpinCount)
+        public SpinTask(ICharacterContextAccessor characterContextAccessor, IItemService itemService, IItemBuilder itemBuilder)
         {
-            Performer = performer;
-            Definition = definition;
+            Performer = characterContextAccessor.Context.Character;
+            ;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
                 Cancel();
                 return false;
             });
-            TotalSpinCount = totalSpinCount;
-            _itemRepository = performer.ServiceProvider.GetRequiredService<IItemService>();
+            _itemService = itemService;
+            _itemBuilder = itemBuilder;
         }
 
         /// <summary>
@@ -46,7 +41,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The definition.
         /// </summary>
-        private SpinDto Definition { get; }
+        public SpinDto Definition { get; set; } = null!;
 
         /// <summary>
         ///     The times performed.
@@ -56,12 +51,14 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The times to perform.
         /// </summary>
-        private int TotalSpinCount { get; }
+        public int TotalSpinCount { get; set; }
 
         /// <summary>
         ///     The item manager
         /// </summary>
-        private readonly IItemService _itemRepository;
+        private readonly IItemService _itemService;
+
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         ///     Contains tick implementation.
@@ -80,9 +77,10 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 var resource = Performer.Inventory.GetById(Definition.ResourceID);
                 if (resource == null)
                 {
-                    Performer.SendChatMessage("You need " + _itemRepository.FindItemDefinitionById(Definition.ResourceID).Name.ToLower() + " in order to create a " + _itemRepository.FindItemDefinitionById(Definition.ProductID).Name.ToLower() + ".");
+                    Performer.SendChatMessage("You need " + _itemService.FindItemDefinitionById(Definition.ResourceID).Name.ToLower() +
+                                              " in order to create a " + _itemService.FindItemDefinitionById(Definition.ProductID).Name.ToLower() + ".");
                     Cancel();
-                    return; 
+                    return;
                 }
 
                 Performer.QueueAnimation(Animation.Create(883));
@@ -106,7 +104,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     return;
                 }
 
-                Performer.Inventory.Replace(slot, new Item(Definition.ProductID));
+                Performer.Inventory.Replace(slot, _itemBuilder.Create().WithId(Definition.ProductID).Build());
                 Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.CraftingExperience);
             }
         }

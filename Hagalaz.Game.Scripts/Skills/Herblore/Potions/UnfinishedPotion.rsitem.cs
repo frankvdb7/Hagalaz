@@ -11,10 +11,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
     {
         private readonly IPotionSkillService _potionSkillService;
 
-        public UnfinishedPotion(IPotionSkillService potionSkillService)
-        {
-            _potionSkillService = potionSkillService;
-        }
+        public UnfinishedPotion(IPotionSkillService potionSkillService) => _potionSkillService = potionSkillService;
 
         /// <summary>
         ///     Happens when specific item is clicked in specific character's inventory.

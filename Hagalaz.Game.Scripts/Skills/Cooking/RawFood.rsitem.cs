@@ -14,10 +14,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
     {
         private readonly ICookingService _cookingService;
 
-        public RawFood(ICookingService cookingService)
-        {
-            _cookingService = cookingService;
-        }
+        public RawFood(ICookingService cookingService) => _cookingService = cookingService;
 
         /// <summary>
         ///     Uses the item on game object.

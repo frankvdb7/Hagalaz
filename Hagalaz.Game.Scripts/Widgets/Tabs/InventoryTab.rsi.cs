@@ -289,10 +289,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         ///     Refreshes the inventory.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        public void RefreshInventory(HashSet<int>? changedSlots = null)
-        {
-            Owner.Configurations.SendItems(93, false, Owner.Inventory, changedSlots);
-        }
+        public void RefreshInventory(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(93, false, Owner.Inventory, changedSlots);
 
         /// <summary>
         ///     Happens when interface is closed for character.

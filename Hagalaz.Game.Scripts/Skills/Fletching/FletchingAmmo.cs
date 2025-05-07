@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
     /// </summary>
     public class FletchingAmmo : ItemScript
     {
+        private readonly IFletchingSkillService _fletchingSkillService;
+
+        public FletchingAmmo(IFletchingSkillService fletchingSkillService) => _fletchingSkillService = fletchingSkillService;
+
         /// <summary>
         ///     Uses the item on an other item.
         /// </summary>
@@ -17,6 +21,6 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <returns>
         ///     <c>true</c> if XXXX, <c>false</c> otherwise
         /// </returns>
-        public override bool UseItemOnItem(IItem used, IItem usedWith, ICharacter character) => Fletching.TryFletchAmmo(character, used, usedWith);
+        public override bool UseItemOnItem(IItem used, IItem usedWith, ICharacter character) => _fletchingSkillService.TryFletchAmmo(character, used, usedWith);
     }
 }

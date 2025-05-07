@@ -1,9 +1,9 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
@@ -13,10 +13,12 @@ namespace Hagalaz.Game.Scripts.GameObjects
     public class Cabbage : GameObjectScript
     {
         private readonly IRsTaskService _rsTaskService;
+        private readonly IItemBuilder _itemBuilder;
 
-        public Cabbage(IRsTaskService rsTaskService)
+        public Cabbage(IRsTaskService rsTaskService, IItemBuilder itemBuilder)
         {
             _rsTaskService = rsTaskService;
+            _itemBuilder = itemBuilder;
         }
 
         /// <summary>
@@ -37,7 +39,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
                 clicker.SendChatMessage("You tried pulling the cabbage from the ground...");
                 clicker.QueueTask(new RsTask(() =>
                     {
-                        if (clicker.Inventory.Add(new Item(1965, 1)))
+                        if (clicker.Inventory.Add(_itemBuilder.Create().WithId(1965).Build()))
                         {
                             // delete the cabbage object.
                             Owner.Region.Remove(Owner);

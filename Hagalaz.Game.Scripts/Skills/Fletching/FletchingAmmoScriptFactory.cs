@@ -11,7 +11,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         {
             await Task.CompletedTask;
             var ammoType = typeof(FletchingAmmo);
-            foreach (var ammo in Fletching.Ammo)
+            foreach (var ammo in FletchingSkillService.Ammo)
             {
                 yield return (ammo.ResourceID, ammoType);
             }

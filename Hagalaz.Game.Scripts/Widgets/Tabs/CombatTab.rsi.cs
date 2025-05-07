@@ -20,10 +20,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         private IGameConnectHandle _attackStyleChanged = default!;
         private IGameConnectHandle _autoRetaliateChanged = default!;
 
-        public CombatTab(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public CombatTab(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is opened for character.
@@ -131,20 +128,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             RefreshSpecialAttack();
         }
 
-        public void RefreshAutoRetaliate()
-        {
-            Owner.Configurations.SendStandardConfiguration(172, Owner.Profile.GetValue<bool>(ProfileConstants.CombatSettingsAutoRetaliate) ? 0 : 1);
-        }
+        public void RefreshAutoRetaliate() => Owner.Configurations.SendStandardConfiguration(172, Owner.Profile.GetValue<bool>(ProfileConstants.CombatSettingsAutoRetaliate) ? 0 : 1);
 
-        public void RefreshAttackStyleOptionId()
-        {
-            Owner.Configurations.SendStandardConfiguration(43, Owner.Profile.GetValue<int>(ProfileConstants.CombatSettingsAttackStyleOptionId));
-        }
+        public void RefreshAttackStyleOptionId() => Owner.Configurations.SendStandardConfiguration(43, Owner.Profile.GetValue<int>(ProfileConstants.CombatSettingsAttackStyleOptionId));
 
-        public void RefreshSpecialAttack()
-        {
-            Owner.Configurations.SendStandardConfiguration(301, Owner.Profile.GetValue<bool>(ProfileConstants.CombatSettingsSpecialAttack) ? 1 : 0);
-        }
+        public void RefreshSpecialAttack() => Owner.Configurations.SendStandardConfiguration(301, Owner.Profile.GetValue<bool>(ProfileConstants.CombatSettingsSpecialAttack) ? 1 : 0);
 
         /// <summary>
         ///     Happens when interface is closed for character.

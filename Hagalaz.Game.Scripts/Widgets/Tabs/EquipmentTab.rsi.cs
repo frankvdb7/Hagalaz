@@ -132,10 +132,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         ///     Refreshes the equipment.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        public void RefreshEquipment(HashSet<EquipmentSlot>? changedSlots = null)
-        {
-            Owner.Configurations.SendItems(94, false, Owner.Equipment, changedSlots?.Select(e => (int)e).ToHashSet());
-        }
+        public void RefreshEquipment(HashSet<EquipmentSlot>? changedSlots = null) => Owner.Configurations.SendItems(94, false, Owner.Equipment, changedSlots?.Select(e => (int)e).ToHashSet());
 
 
         /// <summary>

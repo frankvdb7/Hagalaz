@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -10,7 +11,6 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Tasks;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Items;
 using Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces;
@@ -24,6 +24,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     public class DuelArenaScript : CharacterScriptBase
     {
         private readonly IHintIconBuilder _hintIconBuilder;
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         /// </summary>
@@ -148,12 +149,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <summary>
         ///     Contains the encoded favourite rules.
         /// </summary>
-        private DuelRulesDto FavoritedRules { get; set; }
+        private DuelRulesDto FavoriteRules { get; set; }
 
-        public DuelArenaScript(ICharacterContextAccessor contextAccessor, IHintIconBuilder hintIconBuilder)
+        public DuelArenaScript(ICharacterContextAccessor contextAccessor, IHintIconBuilder hintIconBuilder, IItemBuilder itemBuilder)
             : base(contextAccessor)
         {
             _hintIconBuilder = hintIconBuilder;
+            _itemBuilder = itemBuilder;
         }
 
         /// <summary>
@@ -161,7 +163,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         protected override void Initialize()
         {
-            FavoritedRules = Character.Profile.GetObject(DuelArenaConstants.MinigamesDuelArenaFavoriteRules,
+            FavoriteRules = Character.Profile.GetObject(DuelArenaConstants.MinigamesDuelArenaFavoriteRules,
                 new DuelRulesDto
                 {
                     Rules = []
@@ -355,7 +357,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return false;
                     }
 
-                    CurrentRules.Hydrate(FavoritedRules);
+                    CurrentRules.Hydrate(FavoriteRules);
                     CurrentRules.SendRules(Character, Target);
                     return true;
                 });
@@ -369,7 +371,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                     var script = Target.GetOrAddScript<DuelArenaScript>();
 
-                    CurrentRules.Hydrate(script.FavoritedRules);
+                    CurrentRules.Hydrate(script.FavoriteRules);
                     CurrentRules.SendRules(Character, Target);
 
                     return true;
@@ -419,7 +421,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     }
 
                     Character.SendChatMessage("Your favorited dueling rules have been saved.");
-                    FavoritedRules = CurrentRules.Dehydrate();
+                    FavoriteRules = CurrentRules.Dehydrate();
                     return true;
                 });
             TargetInterface.AttachClickHandler(71,
@@ -432,7 +434,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                     Target.SendChatMessage("Your favorited dueling rules have been saved.");
                     var script = Target.GetOrAddScript<DuelArenaScript>();
-                    script.FavoritedRules = CurrentRules.Dehydrate();
+                    script.FavoriteRules = CurrentRules.Dehydrate();
 
                     return true;
                 });
@@ -770,7 +772,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        if (!SelfContainer.HasSpaceFor(new Item(995, amt)))
+                        if (!SelfContainer.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
                         {
                             Character.SendChatMessage("The stake is full.");
                             return;
@@ -782,7 +784,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        SelfContainer.Add(new Item(995, amt));
+                        SelfContainer.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(true, false);
                     };
@@ -814,7 +816,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        if (!TargetContainer.HasSpaceFor(new Item(995, amt)))
+                        if (!TargetContainer.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
                         {
                             Target.SendChatMessage("The stake is full.");
                             return;
@@ -826,7 +828,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        TargetContainer.Add(new Item(995, amt));
+                        TargetContainer.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(false, false);
                     };
@@ -1467,7 +1469,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 script.PreviousRules = previousRules;
             }
 
-            Character.Profile.SetObject(DuelArenaConstants.MinigamesDuelArenaFavoriteRules, FavoritedRules);
+            Character.Profile.SetObject(DuelArenaConstants.MinigamesDuelArenaFavoriteRules, FavoriteRules);
             Character.Profile.SetObject(DuelArenaConstants.MinigamesDuelArenaPreviousRules, PreviousRules);
 
             Character.TryRemoveScript<DuelArenaScript>();

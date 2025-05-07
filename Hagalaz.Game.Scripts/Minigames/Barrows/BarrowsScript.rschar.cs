@@ -327,8 +327,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             }));
         }
 
-        private void UpdateBarrowsProfile()
-        {
+        private void UpdateBarrowsProfile() =>
             Character.Profile.SetObject(BarrowsConstants.MinigamesBarrows,
                 new BarrowsDto
                 {
@@ -344,7 +343,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                     LootedChest = _lootedChest,
                     TunnelIndex = _tunnelIndex
                 });
-        }
 
         /// <summary>
         ///     Determines whether the specified index is killed.

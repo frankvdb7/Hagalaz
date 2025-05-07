@@ -11,7 +11,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         {
             await Task.CompletedTask;
             var bowType = typeof(FletchingBow);
-            foreach (var bow in Fletching.Bows)
+            foreach (var bow in FletchingSkillService.Bows)
             {
                 yield return (bow.ResourceID, bowType);
             }

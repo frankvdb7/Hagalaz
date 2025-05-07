@@ -19,10 +19,7 @@ namespace Hagalaz.Game.Scripts.Widgets.FriendsChat
         private OnStringInput? _prefexInput;
         private readonly IScopedGameMediator _gameMediator;
 
-        public FriendsChatSetup(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public FriendsChatSetup(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is opened for character.

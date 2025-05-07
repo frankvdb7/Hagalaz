@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     The RUN e_ REQUIREMENTS
         /// </summary>
-        private static readonly RuneType[][] RuneRequirements =
+        private static readonly RuneType[][] _runeRequirements =
         [
             [
                 RuneType.Chaos, RuneType.Death, RuneType.Blood
@@ -41,7 +41,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     The RUN e_ AMOUNTS
         /// </summary>
-        private static readonly int[][] RuneAmounts =
+        private static readonly int[][] _runeAmounts =
         [
             [
                 2, 2, 1
@@ -60,7 +60,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     The LEVE l_ REQUIREMENTS
         /// </summary>
-        private static readonly int[] LevelRequirements =
+        private static readonly int[] _levelRequirements =
         [
             56, 68, 80, 92
         ];
@@ -68,7 +68,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     The CONFI g_ IDS
         /// </summary>
-        private static readonly int[] ConfigIds =
+        private static readonly int[] _configIds =
         [
             67, 75, 83, 91
         ];
@@ -76,7 +76,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     The EXP
         /// </summary>
-        private static readonly double[] Exp =
+        private static readonly double[] _exp =
         [
             33.0, 39.0, 45.0, 51.0
         ];
@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     The BAS e_ DAMAGE
         /// </summary>
-        private static readonly int[] BaseDamage =
+        private static readonly int[] _baseDamage =
         [
             150, 210, 250, 290
         ];
@@ -100,7 +100,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
             caster.QueueAnimation(Animation.Create(multiHit ? 1979 : 1978));
             var combat = (ICharacterCombat)caster.Combat;
 
-            caster.Statistics.AddExperience(StatisticsConstants.Magic, Exp[_spellType]);
+            caster.Statistics.AddExperience(StatisticsConstants.Magic, _exp[_spellType]);
 
             var vDeltaX = caster.Location.X - victim.Location.X;
             var vDeltaY = caster.Location.Y - victim.Location.Y;
@@ -148,7 +148,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 }
 
                 var creature = c;
-                var max = combat.GetMagicMaxHit(creature, BaseDamage[_spellType]);
+                var max = combat.GetMagicMaxHit(creature, _baseDamage[_spellType]);
                 var damage = combat.GetMagicDamage(creature, max);
 
                 var deltaX = caster.Location.X - creature.Location.X;
@@ -202,7 +202,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                         }
 
                         var splat = new HitSplat(caster);
-                        splat.SetFirstSplat(HitSplatType.HitMagicDamage, dmg, dmg >= BaseDamage[_spellType]);
+                        splat.SetFirstSplat(HitSplatType.HitMagicDamage, dmg, dmg >= _baseDamage[_spellType]);
                         if (soak != -1)
                         {
                             splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
@@ -225,19 +225,19 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         ///     Check's requirements for this spell.
         /// </summary>
         /// <returns></returns>
-        public bool CheckRequirements(ICharacter caster) => caster.Magic.CheckMagicLevel(LevelRequirements[_spellType]) && caster.Magic.CheckRunes(RuneRequirements[_spellType], RuneAmounts[_spellType]);
+        public bool CheckRequirements(ICharacter caster) => caster.Magic.CheckMagicLevel(_levelRequirements[_spellType]) && caster.Magic.CheckRunes(_runeRequirements[_spellType], _runeAmounts[_spellType]);
 
         /// <summary>
         ///     Removes required items from actor.
         /// </summary>
         /// <param name="caster"></param>
-        public void RemoveRequirements(ICharacter caster) => caster.Magic.RemoveRunes(RuneRequirements[_spellType], RuneAmounts[_spellType]);
+        public void RemoveRequirements(ICharacter caster) => caster.Magic.RemoveRunes(_runeRequirements[_spellType], _runeAmounts[_spellType]);
 
         /// <summary>
         ///     Get's called when autocasting is set to this spell.
         /// </summary>
         /// <param name="activatedOn"></param>
-        public void OnAutoCastingActivation(ICharacter activatedOn) => activatedOn.Configurations.SendStandardConfiguration(108, ConfigIds[_spellType]);
+        public void OnAutoCastingActivation(ICharacter activatedOn) => activatedOn.Configurations.SendStandardConfiguration(108, _configIds[_spellType]);
 
         /// <summary>
         ///     Get's called when autocasting is unset to this spell.
@@ -263,6 +263,6 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         ///     Get's amount of magic experience this spell gives.
         /// </summary>
         /// <returns></returns>
-        public double GetMagicExperience() => Exp[_spellType];
+        public double GetMagicExperience() => _exp[_spellType];
     }
 }
