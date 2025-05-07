@@ -15,7 +15,6 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Npcs.Familiars;
 
@@ -144,7 +143,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// <summary>
         /// Initializes the familiar.
         /// </summary>
-        protected virtual void InitializeFamiliar() {}
+        protected virtual void InitializeFamiliar() { }
 
         /// <summary>
         /// Perform's attack on specific target.
@@ -396,7 +395,8 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// <param name="target">The target.</param>
         public virtual void PerformSpecialMove(IRuneObject target)
         {
-            if (Summoner.Inventory.Remove(new Item(Definition.ScrollId, 1)) >= 1)
+            var itemBuilder = Summoner.ServiceProvider.GetRequiredService<IItemBuilder>();
+            if (Summoner.Inventory.Remove(itemBuilder.Create().WithId(Definition.ScrollId).Build()) >= 1)
             {
                 DrainSpecialMovePoints(GetRequiredSpecialMovePoints());
                 SetUsingSpecialMove(false);

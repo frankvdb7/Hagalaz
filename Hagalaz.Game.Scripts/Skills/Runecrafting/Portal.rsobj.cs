@@ -13,10 +13,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
     {
         private readonly IRunecraftingService _runecraftingService;
 
-        public Portal(IRunecraftingService runecraftingService)
-        {
-            _runecraftingService = runecraftingService;
-        }
+        public Portal(IRunecraftingService runecraftingService) => _runecraftingService = runecraftingService;
 
         /// <summary>
         ///     Happens when character click's this object and then walks to it

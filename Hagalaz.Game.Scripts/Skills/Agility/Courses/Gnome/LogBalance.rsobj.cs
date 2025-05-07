@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
         /// <summary>
         ///     The speak texts
         /// </summary>
-        private static readonly string[] SpeakTexts = ["Okay get over that log, quick quick!"];
+        private static readonly string[] _speakTexts = ["Okay get over that log, quick quick!"];
 
         /// <summary>
         ///     Called when [character click perform].
@@ -52,7 +52,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     }
                 });
                 clicker.QueueTask(task);
-                Agility.CheckGnomeCourseNpCs(clicker, SpeakTexts[RandomStatic.Generator.Next(0, SpeakTexts.Length)]);
+                Agility.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
             }
             else
             {

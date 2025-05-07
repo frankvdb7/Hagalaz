@@ -9,10 +9,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
     {
         private readonly IFiremakingService _firemakingService;
 
-        public LogItemScriptFactory(IFiremakingService firemakingService)
-        {
-            _firemakingService = firemakingService;
-        }
+        public LogItemScriptFactory(IFiremakingService firemakingService) => _firemakingService = firemakingService;
 
         public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts()
         {

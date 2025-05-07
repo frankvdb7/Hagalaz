@@ -139,9 +139,6 @@ namespace Hagalaz.Game.Scripts.Widgets.Rewards
         ///     Refreshes the rewards.
         /// </summary>
         /// <param name="changedSlots">The changed slots.</param>
-        public void RefreshRewards(HashSet<int>? changedSlots = null)
-        {
-            Owner.Configurations.SendItems(90, false, Owner.Rewards, changedSlots);
-        }
+        public void RefreshRewards(HashSet<int>? changedSlots = null) => Owner.Configurations.SendItems(90, false, Owner.Rewards, changedSlots);
     }
 }

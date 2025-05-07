@@ -11,15 +11,17 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
     /// </summary>
     public class FletchingDialogue : DialogueScript
     {
-        public FletchingDialogue(ICharacterContextAccessor contextAccessor, IItemService itemService) : base(contextAccessor)
+        public FletchingDialogue(
+            ICharacterContextAccessor contextAccessor, IItemService itemService, IFletchingSkillService fletchingSkillService) : base(contextAccessor)
         {
             _itemRepository = itemService;
+            _fletchingSkillService = fletchingSkillService;
         }
 
         /// <summary>
         ///     The definition.
         /// </summary>
-        public FletchingDefinition Definition { get; set;  }
+        public FletchingDefinition Definition { get; set; }
 
         /// <summary>
         ///     The current count.
@@ -46,12 +48,12 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// </summary>
         private readonly IItemService _itemRepository;
 
+        private readonly IFletchingSkillService _fletchingSkillService;
+
         /// <summary>
         ///     Happens when dialogue is closed for character.
         /// </summary>
-        public override void OnClose()
-        {
-        }
+        public override void OnClose() { }
 
         /// <summary>
         ///     Happens when interface is opened for character.
@@ -97,46 +99,52 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             SetCurrentCount(count, true);
 
             // count = 1
-            InterfaceInstance.AttachClickHandler(5, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(1, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(5,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(1, false);
+                    return true;
+                });
 
             // count = 5
-            InterfaceInstance.AttachClickHandler(6, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(5, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(6,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(5, false);
+                    return true;
+                });
 
             // count = 10
-            InterfaceInstance.AttachClickHandler(7, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(10, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(7,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(10, false);
+                    return true;
+                });
 
             // count = all
-            InterfaceInstance.AttachClickHandler(8, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(_maxCount, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(8,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(_maxCount, false);
+                    return true;
+                });
 
             // count += 1
-            InterfaceInstance.AttachClickHandler(19, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(_currentCount + 1, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(19,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(_currentCount + 1, false);
+                    return true;
+                });
 
             // count -= 1
-            InterfaceInstance.AttachClickHandler(20, (component, type, extraData1, slot) =>
-            {
-                SetCurrentCount(_currentCount - 1, false);
-                return true;
-            });
+            InterfaceInstance.AttachClickHandler(20,
+                (component, type, extraData1, slot) =>
+                {
+                    SetCurrentCount(_currentCount - 1, false);
+                    return true;
+                });
 
             OnComponentClick productClick = (component, type, extraData1, extraData2) =>
             {
@@ -144,7 +152,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 if (_currentCount > 0)
                 {
                     var productIndex = component - 14;
-                    Fletching.TryStartFletching(Owner, Definition, OnFletchingPerformCallback, productIndex, TickDelay, _currentCount);
+                    _fletchingSkillService.TryStartFletching(Owner, Definition, OnFletchingPerformCallback, productIndex, TickDelay, _currentCount);
                 }
 
                 return true;

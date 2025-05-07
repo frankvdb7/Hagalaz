@@ -243,7 +243,11 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                 return false;
             }
 
-            character.QueueTask(new CleanHerbTask(character, definition, cleanCount, tickDelay));
+            var task = character.ServiceProvider.GetRequiredService<CleanHerbTask>();
+            task.Definition = definition;
+            task.TotalCleanCount = cleanCount;
+            task.TickDelay = tickDelay;
+            character.QueueTask(task);
             return true;
         }
     }

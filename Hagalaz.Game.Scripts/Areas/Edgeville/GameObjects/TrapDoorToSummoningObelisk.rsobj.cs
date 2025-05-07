@@ -13,10 +13,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.GameObjects
     {
         private readonly IGameObjectService _gameObjectService;
 
-        public TrapDoorToSummoningObelisk(IGameObjectService gameObjectService)
-        {
-            _gameObjectService = gameObjectService;
-        }
+        public TrapDoorToSummoningObelisk(IGameObjectService gameObjectService) => _gameObjectService = gameObjectService;
 
         /// <summary>
         ///     Happens on character click.

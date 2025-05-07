@@ -16,10 +16,7 @@ namespace Hagalaz.Game.Scripts.Areas.Taverly.GameObjects
     {
         private readonly IMovementBuilder _movementBuilder;
 
-        public ObstaclePipe(IMovementBuilder movementBuilder)
-        {
-            _movementBuilder = movementBuilder;
-        }
+        public ObstaclePipe(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
 
         /// <summary>
         ///     Happens when character click's this object and then walks to it

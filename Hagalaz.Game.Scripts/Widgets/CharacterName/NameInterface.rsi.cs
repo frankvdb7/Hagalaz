@@ -88,13 +88,10 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterName
         ///     Send's set name packet.
         /// </summary>
         /// <param name="name"></param>
-        private void SendSetName(string name)
-        {
-            _nameSetCallback = Owner.RegisterEventHandler<NameSetFinishedEvent>(NameSetFinished);
-            //var adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
-            //adapter.SendPacketAsync(new SetCharacterDetailsRequestPacketComposer(Owner.Session.Id, new CharacterDetailsDto() { DisplayName = name })).Wait();
-        }
+        private void SendSetName(string name) => _nameSetCallback = Owner.RegisterEventHandler<NameSetFinishedEvent>(NameSetFinished);
 
+        //var adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
+        //adapter.SendPacketAsync(new SetCharacterDetailsRequestPacketComposer(Owner.Session.Id, new CharacterDetailsDto() { DisplayName = name })).Wait();
         /// <summary>
         ///     Get's called when name set is finished and we can get response.
         /// </summary>

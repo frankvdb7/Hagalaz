@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Linq;
 using System.Text;
-using Microsoft.Extensions.DependencyInjection;
-using Hagalaz.DependencyInjection.Extensions;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 
-namespace Hagalaz.Game.Model.Items
+namespace Hagalaz.Services.GameWorld.Model.Items
 {
     /// <summary>
     /// Represents a single item.
@@ -62,36 +58,6 @@ namespace Hagalaz.Game.Model.Items
         /// Contains item extra data.
         /// </summary>
         public long[] ExtraData { get; private set; } = [];
-
-        /// <summary>
-        /// Constructs the item specified by the item id, and the quantity.
-        /// </summary>
-        /// <param name="id">The item id.</param>
-        /// <param name="count">The item quantity.</param>
-        /// <param name="itemScript">The item script.</param>
-        /// <param name="equipmentScript">The equipment script.</param>
-        /// <exception cref="System.InvalidOperationException">Item[id,count] cannot be negative.</exception>
-        [Obsolete("Use the item builder instead")]
-        public Item(int id, int count = 1, IItemScript? itemScript = null, IEquipmentScript? equipmentScript = null)
-        {
-            ArgumentOutOfRangeException.ThrowIfNegative(id, nameof(id));
-            ArgumentOutOfRangeException.ThrowIfNegative(count, nameof(count));
-
-            Id = id;
-            Count = count;
-
-            using var scope = ServiceLocator.Current.CreateScope();
-            var itemManager = scope.ServiceProvider.GetRequiredService<IItemService>();
-            ItemDefinition = itemManager.FindItemDefinitionById(id);
-
-            var equipmentRepository = scope.ServiceProvider.GetRequiredService<IEquipmentService>();
-            EquipmentDefinition = equipmentRepository.FindEquipmentDefinitionById(id);
-            var itemScriptRepository = scope.ServiceProvider.GetRequiredService<IItemScriptProvider>();
-            ItemScript = itemScript ?? itemScriptRepository.FindItemScriptById(id);
-
-            var equipmentScriptRepository = scope.ServiceProvider.GetRequiredService<IEquipmentScriptProvider>();
-            EquipmentScript = equipmentScript ?? equipmentScriptRepository.FindEquipmentScriptById(id);
-        }
 
         public Item(
             int id, int count, IItemDefinition itemDefinition, IEquipmentDefinition equipmentDefinition, IItemScript itemScript,

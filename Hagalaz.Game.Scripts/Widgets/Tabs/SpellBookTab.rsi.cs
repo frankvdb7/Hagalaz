@@ -15,7 +15,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Skills.Combat.Magic;
 using Hagalaz.Game.Scripts.Skills.Magic.MiscSpells;
@@ -23,6 +22,7 @@ using Hagalaz.Game.Scripts.Skills.Magic.SkillSpells;
 using Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells;
 using Hagalaz.Game.Scripts.Widgets.Lodestone;
 using Hagalaz.DependencyInjection.Extensions;
+using Hagalaz.Game.Abstractions.Builders.Item;
 
 namespace Hagalaz.Game.Scripts.Widgets.Tabs
 {
@@ -39,13 +39,10 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         /// <summary>
         ///     Initializes the <see cref="SpellBookTab" /> class.
         /// </summary>
-        static SpellBookTab()
-        {
-            LoadTeleports();
-            // TODO - this is not good
-            //_ =LoadScriptedCombatSpells();
-        }
+        static SpellBookTab() => LoadTeleports();
 
+        // TODO - this is not good
+        //_ =LoadScriptedCombatSpells();
         /// <summary>
         ///     Contains smoke spells.
         /// </summary>
@@ -104,6 +101,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         private readonly IScopedGameMediator _gameMediator;
         private readonly IServiceProvider _serviceProvider;
         private readonly IMagicService _magicService;
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         ///     Loads the teleports.
@@ -371,11 +369,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
         public SpellBookTab(
             ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator, IServiceProvider serviceProvider,
-            IMagicService magicService) : base(characterContextAccessor)
+            IMagicService magicService, IItemBuilder itemBuilder) : base(characterContextAccessor)
         {
             _gameMediator = gameMediator;
             _serviceProvider = serviceProvider;
             _magicService = magicService;
+            _itemBuilder = itemBuilder;
         }
 
         /// <summary>
@@ -502,7 +501,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                     return false;
                                 }
 
-                                return BonesToBananas.Cast(Owner);
+                                var bonesToBananas = _serviceProvider.GetRequiredService<IBonesToBananas>();
+                                return bonesToBananas.Cast();
                             });
 
                         InterfaceInstance.AttachUseOnComponentHandler(38,
@@ -519,7 +519,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                     return false;
                                 }
 
-                                return LowLevelAlchemy.Cast(Owner, item);
+                                var lowLevelAlchemy = _serviceProvider.GetRequiredService<ILowLevelAlchemy>();
+                                return lowLevelAlchemy.Cast(item);
                             });
 
                         InterfaceInstance.AttachUseOnComponentHandler(59,
@@ -536,7 +537,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                     return false;
                                 }
 
-                                return HighLevelAlchemy.Cast(Owner, item);
+                                var highLevelAlchemy = _serviceProvider.GetRequiredService<IHighLevelAlchemy>();
+                                return highLevelAlchemy.Cast(item);
                             });
 
                         InterfaceInstance.AttachClickHandler(65,
@@ -546,8 +548,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 {
                                     return false;
                                 }
-
-                                return BonesToPeaches.Cast(Owner);
+                                var bonesToPeaches = _serviceProvider.GetRequiredService<IBonesToPeaches>();
+                                return bonesToPeaches.Cast();
                             });
 
                         InterfaceInstance.AttachClickHandler(83,
@@ -995,7 +997,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return false;
             }
 
-            character.Inventory.Replace(slot, new Item(product.ProductId));
+            character.Inventory.Replace(slot, _itemBuilder.Create().WithId(product.ProductId).Build());
             // TODO - Animation
             character.QueueGraphic(Graphic.Create(dto.GraphicId));
             character.Statistics.AddExperience(StatisticsConstants.Magic, dto.Experience);
@@ -1024,11 +1026,13 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         {
             var spellBookId = 0;
             var book = Owner.Profile.GetValue<MagicBook>(ProfileConstants.MagicSettingsBook);
-            if (book == MagicBook.AncientBook)
-                spellBookId = 1;
-            else if (book == MagicBook.LunarBook)
-                spellBookId = 2;
-            else if (book == MagicBook.DungeoneeringBook) spellBookId = 3;
+            spellBookId = book switch
+            {
+                MagicBook.AncientBook => 1,
+                MagicBook.LunarBook => 2,
+                MagicBook.DungeoneeringBook => 3,
+                _ => spellBookId
+            };
 
             Owner.Configurations.SendStandardConfiguration(439,
                 spellBookId | (Owner.Profile.GetValue<bool>(ProfileConstants.CombatSettingsMagicDefensiveCasting) ? 1 << 8 : 0));
@@ -1041,23 +1045,23 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         {
             var hash = 0;
             var book = Owner.Profile.GetValue<MagicBook>(ProfileConstants.MagicSettingsBook);
-            if (book == MagicBook.StandardBook)
+            switch (book)
             {
-                hash = 0 | (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideCombatSpells) ? 1 : 0) << 9;
-                hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideSkillSpells) ? 1 : 0) << 10;
-                hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideMiscSpells) ? 1 : 0) << 11;
-                hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideTeleportSpells) ? 1 : 0) << 12;
-            }
-            else if (book == MagicBook.AncientBook)
-            {
-                hash = 1 << 3 | (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideCombatSpells) ? 1 : 0) << 16;
-                hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideTeleportSpells) ? 1 : 0) << 17;
-            }
-            else if (book == MagicBook.LunarBook)
-            {
-                hash = 2 << 6 | (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideCombatSpells) ? 1 : 0) << 13;
-                hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideMiscSpells) ? 1 : 0) << 14;
-                hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideTeleportSpells) ? 1 : 0) << 15;
+                case MagicBook.StandardBook:
+                    hash = 0 | (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideCombatSpells) ? 1 : 0) << 9;
+                    hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideSkillSpells) ? 1 : 0) << 10;
+                    hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideMiscSpells) ? 1 : 0) << 11;
+                    hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideTeleportSpells) ? 1 : 0) << 12;
+                    break;
+                case MagicBook.AncientBook:
+                    hash = 1 << 3 | (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideCombatSpells) ? 1 : 0) << 16;
+                    hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideTeleportSpells) ? 1 : 0) << 17;
+                    break;
+                case MagicBook.LunarBook:
+                    hash = 2 << 6 | (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideCombatSpells) ? 1 : 0) << 13;
+                    hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideMiscSpells) ? 1 : 0) << 14;
+                    hash |= (Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsHideTeleportSpells) ? 1 : 0) << 15;
+                    break;
             }
 
             Owner.Configurations.SendStandardConfiguration(1376, hash);
@@ -1103,7 +1107,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         }
 
         /// <summary>
-        ///     Cast's standart spell.
+        ///     Cast's standard spell.
         /// </summary>
         private void Cast(ICombatSpell spell, ICreature target, bool forceRun)
         {

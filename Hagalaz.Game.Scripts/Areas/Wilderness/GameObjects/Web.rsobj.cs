@@ -15,10 +15,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
     {
         private readonly IGameObjectService _gameObjectService;
 
-        public Web(IGameObjectService gameObjectService)
-        {
-            _gameObjectService = gameObjectService;
-        }
+        public Web(IGameObjectService gameObjectService) => _gameObjectService = gameObjectService;
 
         /// <summary>
         ///     Happens when character click's this object and then walks to it

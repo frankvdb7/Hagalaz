@@ -10,10 +10,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
     {
         private readonly IPrayerService _prayerService;
 
-        public BonesItemScriptFactory(IPrayerService prayerService)
-        {
-            _prayerService = prayerService;
-        }
+        public BonesItemScriptFactory(IPrayerService prayerService) => _prayerService = prayerService;
 
         public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts()
         {

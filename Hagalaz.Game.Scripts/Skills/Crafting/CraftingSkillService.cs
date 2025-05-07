@@ -8,7 +8,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Tasks;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Dialogues.Generic;
 
 namespace Hagalaz.Game.Scripts.Skills.Crafting
@@ -109,10 +108,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// </summary>
         public const int SoftClayId = 1761;
 
-        public CraftingSkillService(IItemBuilder itemBuilder)
-        {
-            _itemBuilder = itemBuilder;
-        }
+        public CraftingSkillService(IItemBuilder itemBuilder) => _itemBuilder = itemBuilder;
 
         /// <summary>
         ///     Tries the bake pottery.
@@ -179,7 +175,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 return false;
             }
 
-            MakeTask task = null;
+            MakeTask task = null!;
             task = new MakeTask(count,
                 () =>
                 {
@@ -401,7 +397,10 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 return false;
             }
 
-            character.QueueTask(new CutGemTask(character, definition, count));
+            var task = character.ServiceProvider.GetRequiredService<CutGemTask>();
+            task.Definition = definition;
+            task.TotalCutCount = count;
+            character.QueueTask(task);
             return true;
         }
 
@@ -469,7 +468,10 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 return false;
             }
 
-            character.QueueTask(new SpinTask(character, definition, count));
+            var task = character.ServiceProvider.GetRequiredService<SpinTask>();
+            task.Definition = definition;
+            task.TotalSpinCount = count;
+            character.QueueTask(task);
             return true;
         }
 
@@ -539,7 +541,10 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 return false;
             }
 
-            character.QueueTask(new LeatherTask(character, definition, count));
+            var task = character.ServiceProvider.GetRequiredService<LeatherTask>();
+            task.Definition = definition;
+            task.TotalMakeCount = count;
+            character.QueueTask(task);
             return true;
         }
 
@@ -599,7 +604,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 return false;
             }
 
-            var resource = new Item(definition.ResourceID);
+            var resource = _itemBuilder.Create().WithId(definition.ResourceID).Build();
             if (count <= 0 || character.Inventory.GetCountById(definition.ResourceID) <= 0)
             {
                 character.SendChatMessage("You need " + resource.Name + " in order to tan this item.");
@@ -615,15 +620,15 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             var coinRemoved = character.MoneyPouch.Remove((int)coinCount);
             var tannedCount = coinRemoved / definition.BasePrice;
             var removedCount = character.Inventory.Remove(_itemBuilder.Create().WithId(definition.ResourceID).WithCount(tannedCount).Build());
-            if (removedCount > 0)
+            if (removedCount <= 0)
             {
-                var product = _itemBuilder.Create().WithId(definition.ProductID).WithCount(removedCount).Build();
-                character.Inventory.Add(product);
-                character.SendChatMessage("The tanner tans " + removedCount + " " + product.Name.ToLower() + "s for you.");
-                return true;
+                return false;
             }
 
-            return false;
+            var product = _itemBuilder.Create().WithId(definition.ProductID).WithCount(removedCount).Build();
+            character.Inventory.Add(product);
+            character.SendChatMessage("The tanner tans " + removedCount + " " + product.Name.ToLower() + "s for you.");
+            return true;
         }
     }
 }

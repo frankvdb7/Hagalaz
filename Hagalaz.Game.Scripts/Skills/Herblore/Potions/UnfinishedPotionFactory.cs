@@ -10,10 +10,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
     {
         private readonly IHerbloreService _herbloreService;
 
-        public UnfinishedPotionFactory(IHerbloreService herbloreService)
-        {
-            _herbloreService = herbloreService;
-        }
+        public UnfinishedPotionFactory(IHerbloreService herbloreService) => _herbloreService = herbloreService;
 
         public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts()
         {

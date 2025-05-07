@@ -9,10 +9,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
 {
     public class OfferDialogue : DialogueScript
     {
-        public OfferDialogue(ICharacterContextAccessor characterContextAccessor, IItemService itemService) : base(characterContextAccessor)
-        {
-            _itemRepository = itemService;
-        }
+        public OfferDialogue(ICharacterContextAccessor characterContextAccessor, IItemService itemService) : base(characterContextAccessor) => _itemRepository = itemService;
 
         /// <summary>
         ///     The definition

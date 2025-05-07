@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <summary>
         ///     The torak equipment
         /// </summary>
-        private static readonly int[] ToragIDs =
+        private static readonly int[] _toragIDs =
         [
             4745, 4952, 4953, 4954, 4955, // torag helm
             4747, 4958, 4959, 4960, 4961, // torag hammer
@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
             var hasChest = false;
             var hasWeapon = false;
             var hasHat = false;
-            foreach (var itemId in ToragIDs)
+            foreach (var itemId in _toragIDs)
             {
                 if (legs.Id == itemId)
                 {
@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns>
         ///     Return's array of item ids for which this script is suitable.
         /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => ToragIDs;
+        public override IEnumerable<int> GetSuitableItems() => _toragIDs;
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.
@@ -93,8 +93,8 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns></returns>
         public override int GetDegrationTicks(IItem item)
         {
-            if (item.Id == ToragIDs[0] || item.Id == ToragIDs[5]
-                                       || item.Id == ToragIDs[10] || item.Id == ToragIDs[15])
+            if (item.Id == _toragIDs[0] || item.Id == _toragIDs[5]
+                                       || item.Id == _toragIDs[10] || item.Id == _toragIDs[15])
             {
                 return 0; // Degrade to 100 barrow item
             }
@@ -116,22 +116,22 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns></returns>
         public override short GetDegradedItemID(IItem item)
         {
-            if (item.Id == ToragIDs[0])
+            if (item.Id == _toragIDs[0])
             {
                 return (short)(item.Id + 207);
             }
 
-            if (item.Id == ToragIDs[5])
+            if (item.Id == _toragIDs[5])
             {
                 return (short)(item.Id + 211);
             }
 
-            if (item.Id == ToragIDs[10])
+            if (item.Id == _toragIDs[10])
             {
                 return (short)(item.Id + 215);
             }
 
-            if (item.Id == ToragIDs[15])
+            if (item.Id == _toragIDs[15])
             {
                 return (short)(item.Id + 219);
             }

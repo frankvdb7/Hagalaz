@@ -11,10 +11,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
     {
         private readonly ICraftingSkillService _craftingSkillService;
 
-        public PottersWheel(ICraftingSkillService craftingSkillService)
-        {
-            _craftingSkillService = craftingSkillService;
-        }
+        public PottersWheel(ICraftingSkillService craftingSkillService) => _craftingSkillService = craftingSkillService;
 
         /// <summary>
         ///     Called when [character click perform].

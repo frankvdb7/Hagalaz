@@ -60,8 +60,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
         /// <param name="jewelry">The glory.</param>
         /// <param name="equipment">if set to <c>true</c> [equipment].</param>
         /// <param name="teleport">The teleport.</param>
-        public static void TeleportAmuletOfGlory(ICharacter character, IItem jewelry, bool equipment, TeleportStruct teleport)
-        {
+        public static void TeleportAmuletOfGlory(ICharacter character, IItem jewelry, bool equipment, TeleportStruct teleport) =>
             new JewelryTeleport(teleport.Location,
                 teleport.TeleportDistance,
                 () =>
@@ -96,7 +95,6 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
 
                     return true;
                 }).PerformTeleport(character);
-        }
 
         /// <summary>
         ///     Teleports the games necklace.
@@ -159,8 +157,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
         /// <param name="jewelry">The jewelry.</param>
         /// <param name="equipment">if set to <c>true</c> [equipment].</param>
         /// <param name="teleport">The teleport.</param>
-        public static void TeleportRingOfDueling(ICharacter character, IItem jewelry, bool equipment, TeleportStruct teleport)
-        {
+        public static void TeleportRingOfDueling(ICharacter character, IItem jewelry, bool equipment, TeleportStruct teleport) =>
             new JewelryTeleport(teleport.Location,
                 teleport.TeleportDistance,
                 () =>
@@ -194,7 +191,6 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
 
                     return true;
                 }).PerformTeleport(character);
-        }
 
         /// <summary>
         ///     Teleports the ring of slaying.
@@ -203,8 +199,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
         /// <param name="jewelry">The jewelry.</param>
         /// <param name="equipment">if set to <c>true</c> [equipment].</param>
         /// <param name="teleport">The teleport.</param>
-        public static void TeleportRingOfSlaying(ICharacter character, IItem jewelry, bool equipment, TeleportStruct teleport)
-        {
+        public static void TeleportRingOfSlaying(ICharacter character, IItem jewelry, bool equipment, TeleportStruct teleport) =>
             new JewelryTeleport(teleport.Location,
                 teleport.TeleportDistance,
                 () =>
@@ -238,6 +233,5 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
 
                     return true;
                 }).PerformTeleport(character);
-        }
     }
 }

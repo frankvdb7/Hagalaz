@@ -5,19 +5,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Authorization;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
-using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model.Items;
-using Hagalaz.Game.Scripts.Items;
-using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Util;
 using Hagalaz.Game.Scripts.Widgets.CharacterName;
 using Microsoft.Extensions.Logging;
@@ -64,7 +59,7 @@ namespace Hagalaz.Game.Scripts.Commands
                     {
                         foreach (var command in _commands.Values.Where(command => character.Permissions.HasAtLeastXPermission(command.Permission)))
                         {
-                           character.SendChatMessage(command.Name, ChatMessageType.ConsoleText);
+                            character.SendChatMessage(command.Name, ChatMessageType.ConsoleText);
                         }
 
                         return true;
@@ -157,10 +152,11 @@ namespace Hagalaz.Game.Scripts.Commands
                         var objectID = int.Parse(arguments[0]);
                         var definitionRepository = character.ServiceProvider.GetRequiredService<IGameObjectService>();
                         var defString = definitionRepository.FindGameObjectDefinitionById(objectID)?.ToString()?.Split(',');
-                        if (defString != null) {
+                        if (defString != null)
+                        {
                             foreach (var info in defString)
                             {
-                               character.SendChatMessage(info, ChatMessageType.ConsoleText);
+                                character.SendChatMessage(info, ChatMessageType.ConsoleText);
                             }
                         }
 
@@ -241,155 +237,6 @@ namespace Hagalaz.Game.Scripts.Commands
                 },
                 new GenericGameCommand
                 {
-                    Name = "spawnbox",
-                    CommandFunc = async (character, arguments) =>
-                    {
-                        await Task.CompletedTask;
-                        if (character.Area.IsPvP)
-                        {
-                            character.SendChatMessage("You can't use this command in PvP zone.");
-                            return false;
-                        }
-
-                        if (arguments.Length <= 0)
-                        {
-                            character.SendChatMessage("No item name entered.");
-                            return false;
-                        }
-
-                        var itemPart = string.Join(" ", arguments).ToLower();
-                        var itemRepository = character.ServiceProvider.GetRequiredService<IItemService>();
-
-                        var count = itemRepository.GetTotalItemCount();
-                        var found = new short[8 * 35];
-                        var foundCount = 0;
-                        var _ = Task.Run(() =>
-                        {
-                            for (short i = 0; i < count; i++)
-                            {
-                                if (itemRepository.FindItemDefinitionById(i).Name.ToLower().Contains(itemPart))
-                                {
-                                    found[foundCount++] = i;
-                                    if (foundCount >= found.Length)
-                                    {
-                                        character.SendChatMessage("Too much results, please enter more accurate name.");
-                                        return;
-                                    }
-                                }
-                            }
-
-                            var defaultScript = character.ServiceProvider.GetRequiredService<DefaultWidgetScript>();
-                            character.Widgets.OpenWidget(645, 0, defaultScript, true);
-                            var spawnBox = character.Widgets.GetOpenWidget(645);
-                            if (spawnBox == null)
-                            {
-                                character.SendChatMessage("Could not open spawn box.");
-                                return;
-                            }
-
-                            // setupInterfaceItemsDisplayFromItemsArrayNonSplit(icomponent,itemsArrayIndex,numRows,numCollumns,dragOptions,dragTarget,option1,option2,option3,option4,option5,option6,option7,option8,option9) : 150
-                            character.Configurations.SendCs2Script(150,
-                            [
-                                (645 << 16) | 16, 90, 8, 35, 0, -1, "Take", "Take-X", "", "", "", "", "", "", ""
-                            ]);
-                            spawnBox.SetOptions(16, 0, 8 * 35 - 1, 0x2 | 0x4); // allow 2 options
-                            spawnBox.DrawString(15, "Spawn Box");
-                            spawnBox.DrawString(17, "Found <col=FFFF>" + foundCount + "</col>" + " items for:<br><col=00FFFF>" + itemPart + "</col>");
-                            //"Item results for:<br><col=FFFFFF>" + itemPart + "</col>");
-                            spawnBox.SetVisible(19, false); // disable the collect sprite
-                            if (foundCount <= 48)
-                            {
-                                spawnBox.SetVisible(18, false); // disable scroll bar
-                            }
-
-
-                            var container = new GenericContainer(StorageType.AlwaysStack, 8 * 35);
-                            for (var i = 0; i < foundCount; i++)
-                            {
-                                container.Add(new Item(found[i]));
-                            }
-
-                            character.Configurations.SendItems(90, false, container);
-
-                            spawnBox.AttachClickHandler(16, (componentID, clickType, itemID, slot) =>
-                            {
-                                if (clickType == ComponentClickType.LeftClick)
-                                {
-                                    if (slot < 0 || slot >= container.Capacity)
-                                    {
-                                        return false;
-                                    }
-
-                                    var item = container[slot];
-                                    if (item == null || item.Id != itemID)
-                                    {
-                                        return false;
-                                    }
-
-                                    if (character.Inventory.HasSpaceFor(item))
-                                    {
-                                        character.Inventory.Add(item.Clone());
-                                    }
-                                    else
-                                    {
-                                        character.SendChatMessage("Not enough space in your inventory.");
-                                    }
-
-                                    return true;
-                                }
-
-                                if (clickType == ComponentClickType.Option2Click)
-                                {
-                                    var inputHandler = character.Widgets.IntInputHandler = value =>
-                                    {
-                                        character.Widgets.IntInputHandler = null;
-                                        if (!spawnBox.IsOpened)
-                                        {
-                                            return;
-                                        }
-
-                                        if (value <= 0)
-                                        {
-                                            character.SendChatMessage("Amount must be greater than 0.");
-                                        }
-
-                                        var item = container[slot];
-                                        if (item == null || item.Id != itemID)
-                                        {
-                                            return;
-                                        }
-
-                                        if (!item.ItemDefinition.Stackable && !item.ItemDefinition.Noted)
-                                        {
-                                            character.SendChatMessage("You can only do this on stackable items only!");
-                                            return;
-                                        }
-
-                                        var addItem = item.Clone();
-                                        addItem.Count = value;
-
-                                        if (character.Inventory.HasSpaceFor(addItem))
-                                        {
-                                            character.Inventory.Add(addItem);
-                                        }
-                                        else
-                                        {
-                                            character.SendChatMessage("Not enough space in your inventory.");
-                                        }
-                                    };
-                                    character.Configurations.SendIntegerInput("Please enter the amount to take:");
-                                    return true;
-                                }
-
-                                return false;
-                            });
-                        });
-                        return true;
-                    },
-                    Permission = Permission.GameAdministrator
-                },
-                new GenericGameCommand
-                {
                     Name = "master",
                     CommandFunc = async (character, arguments) =>
                     {
@@ -413,7 +260,7 @@ namespace Hagalaz.Game.Scripts.Commands
                         await Task.CompletedTask;
                         for (byte i = 0; i < StatisticsConstants.SkillsCount; i++)
                         {
-                            if (i != StatisticsConstants .Summoning || i != StatisticsConstants.Defence)
+                            if (i != StatisticsConstants.Summoning || i != StatisticsConstants.Defence)
                             {
                                 character.Statistics.AddExperience(i, 20000000D);
                             }
@@ -476,45 +323,14 @@ namespace Hagalaz.Game.Scripts.Commands
                 },
                 new GenericGameCommand
                 {
-                    Name = "spawnitem",
-                    CommandFunc = async (character, arguments) =>
-                    {
-                        await Task.CompletedTask;
-                        if (character.Area.IsPvP)
-                        {
-                            character.SendChatMessage("You can't use this command in PvP zone.");
-                            return false;
-                        }
-
-                        short id;
-                        int amount;
-
-                        if (arguments.Length >= 2 && short.TryParse(arguments[1], out id) && int.TryParse(arguments[2], out amount))
-                        {
-                            if (id >= 0 && amount > 0)
-                            {
-                                character.Inventory.Add(new Item(id, amount));
-                                character.SendChatMessage("Successfully added items(s).");
-                                return true;
-                            }
-
-                            character.SendChatMessage("Item id and amount must be positive values.");
-                            return false;
-                        }
-
-                        character.SendChatMessage("Invalid command arguments.");
-                        return false;
-                    },
-                    Permission = Permission.GameAdministrator
-                },
-                new GenericGameCommand
-                {
                     Name = "teletome",
                     CommandFunc = async (character, arguments) =>
                     {
                         var name = string.Join(" ", arguments);
                         var repository = character.ServiceProvider.GetRequiredService<ICharacterStore>();
-                        var c = await repository.FindAllAsync().Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0).SingleOrDefaultAsync();
+                        var c = await repository.FindAllAsync()
+                            .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
+                            .SingleOrDefaultAsync();
                         if (c != null)
                         {
                             c.Movement.Teleport(Teleport.Create(character.Location.Clone()));
@@ -537,7 +353,9 @@ namespace Hagalaz.Game.Scripts.Commands
                         var name = string.Join(" ", arguments);
 
                         var repository = character.ServiceProvider.GetRequiredService<ICharacterStore>();
-                        var c = await repository.FindAllAsync().Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0).FirstOrDefaultAsync();
+                        var c = await repository.FindAllAsync()
+                            .Where(ch => string.Compare(ch.DisplayName, name, StringComparison.OrdinalIgnoreCase) == 0)
+                            .FirstOrDefaultAsync();
                         if (c != null)
                         {
                             character.Movement.Teleport(Teleport.Create(c.Location.Clone()));
@@ -643,7 +461,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "kick",
-                    CommandFunc =  async (character, arguments) =>
+                    CommandFunc = async (character, arguments) =>
                     {
                         var name = string.Join(" ", arguments);
                         // TODO
@@ -668,7 +486,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "displaytitle",
-                    CommandFunc =  async (character, arguments) =>
+                    CommandFunc = async (character, arguments) =>
                     {
                         await Task.CompletedTask;
                         var displayTitle = byte.Parse(arguments[0]);
@@ -699,6 +517,7 @@ namespace Hagalaz.Game.Scripts.Commands
                         {
                             return false;
                         }
+
                         var source = Location.Create(4416, 5120, 0, 0);
                         var destination = Location.Create(640, 640, 0, dimension.Id);
                         regionManager.CreateDynamicRegion(source, destination);
@@ -735,7 +554,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 try
                 {
                     _commands.TryAdd(command.Name, command);
-                } 
+                }
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "Failed loading command {Name}", command.Name);
@@ -758,6 +577,7 @@ namespace Hagalaz.Game.Scripts.Commands
             {
                 return false;
             }
+
             var eventArgs = new GameCommandArgs(character, args);
             await cmd.Execute(eventArgs);
             return eventArgs.Handled;

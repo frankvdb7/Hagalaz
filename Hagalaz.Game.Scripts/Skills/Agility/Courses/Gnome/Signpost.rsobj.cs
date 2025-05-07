@@ -23,10 +23,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
         /// </summary>
         private static readonly string[] _speakTexts = ["Come on! I'd be over there by now"];
 
-        public Signpost(IMovementBuilder movementBuilder)
-        {
-            _movementBuilder = movementBuilder;
-        }
+        public Signpost(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
 
         /// <summary>
         ///     Called when [character click].

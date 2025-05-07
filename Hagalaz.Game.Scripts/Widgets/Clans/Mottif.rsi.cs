@@ -16,10 +16,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
         /// </summary>
         private byte _lastTab = 166;
 
-        public MottifScript(ICharacterContextAccessor characterContextAccessor, IWidgetOptionBuilder widgetOptionBuilder) : base(characterContextAccessor)
-        {
-            _widgetOptionBuilder = widgetOptionBuilder;
-        }
+        public MottifScript(ICharacterContextAccessor characterContextAccessor, IWidgetOptionBuilder widgetOptionBuilder) : base(characterContextAccessor) => _widgetOptionBuilder = widgetOptionBuilder;
 
         /// <summary>
         ///     Happens when interface is opened for character.

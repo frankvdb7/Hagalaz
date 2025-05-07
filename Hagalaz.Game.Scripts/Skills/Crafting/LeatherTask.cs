@@ -1,12 +1,13 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Crafting
 {
@@ -19,24 +20,18 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// </summary>
         private readonly EventHappened _interruptEvent;
 
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="LeatherTask" /> class.
-        /// </summary>
-        /// <param name="performer">The performer.</param>
-        /// <param name="definition">The definition.</param>
-        /// <param name="totalCraftCount">The total craft count.</param>
-        public LeatherTask(ICharacter performer, LeatherDto definition, int totalCraftCount)
+        public LeatherTask(ICharacterContextAccessor characterContextAccessor, IItemService itemService, IItemBuilder itemBuilder)
         {
-            Performer = performer;
-            Definition = definition;
+            _itemService = itemService;
+            _itemBuilder = itemBuilder;
+            Performer = characterContextAccessor.Context.Character;
+            ;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
                 Cancel();
                 return false;
             });
-            TotalMakeCount = totalCraftCount;
-            _itemRepository = performer.ServiceProvider.GetRequiredService<IItemService>();
         }
 
         /// <summary>
@@ -47,7 +42,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The definition.
         /// </summary>
-        private LeatherDto Definition { get; }
+        public LeatherDto Definition { get; set; } = null!;
 
         /// <summary>
         ///     The times performed.
@@ -57,7 +52,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The times to perform.
         /// </summary>
-        private int TotalMakeCount { get; }
+        public int TotalMakeCount { get; set; }
 
         /// <summary>
         ///     Contains the thread count.
@@ -67,7 +62,9 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The item manager
         /// </summary>
-        private readonly IItemService _itemRepository;
+        private readonly IItemService _itemService;
+
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         ///     Contains tick implementation.
@@ -99,9 +96,11 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
                 if (Performer.Inventory.GetCountById(Definition.ResourceID) < Definition.RequiredResourceCount)
                 {
-                    Performer.SendChatMessage("You need " + Definition.RequiredResourceCount + " x " + _itemRepository.FindItemDefinitionById(Definition.ResourceID).Name.ToLower() + " in order to create " + _itemRepository.FindItemDefinitionById(Definition.ProductId).Name.ToLower() + ".");
+                    Performer.SendChatMessage("You need " + Definition.RequiredResourceCount + " x " +
+                                              _itemService.FindItemDefinitionById(Definition.ResourceID).Name.ToLower() + " in order to create " +
+                                              _itemService.FindItemDefinitionById(Definition.ProductId).Name.ToLower() + ".");
                     Cancel();
-                    return; 
+                    return;
                 }
 
                 Performer.QueueAnimation(Animation.Create(1249));
@@ -113,7 +112,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 MakeCount++;
                 if (++ThreadCount == 5)
                 {
-                    var tremoved = Performer.Inventory.Remove(new Item(CraftingSkillService.ThreadId));
+                    var tremoved = Performer.Inventory.Remove(_itemBuilder.Create().WithId(CraftingSkillService.ThreadId).Build());
                     if (tremoved <= 0)
                     {
                         Cancel();
@@ -126,7 +125,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
 
                 if (RandomStatic.Generator.Next(0, 30) <= 3)
                 {
-                    var nremoved = Performer.Inventory.Remove(new Item(CraftingSkillService.NeedleId));
+                    var nremoved = Performer.Inventory.Remove(_itemBuilder.Create().WithId(CraftingSkillService.NeedleId).Build());
                     if (nremoved <= 0)
                     {
                         Cancel();
@@ -136,14 +135,15 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     Performer.SendChatMessage("Your needle has broken.");
                 }
 
-                var removed = Performer.Inventory.Remove(new Item(Definition.ResourceID, Definition.RequiredResourceCount));
+                var removed = Performer.Inventory.Remove(
+                    _itemBuilder.Create().WithId(Definition.ResourceID).WithCount(Definition.RequiredResourceCount).Build());
                 if (removed < Definition.RequiredResourceCount)
                 {
                     Cancel();
                     return;
                 }
 
-                Performer.Inventory.Add(new Item(Definition.ProductId));
+                Performer.Inventory.Add(_itemBuilder.Create().WithId(Definition.ProductId).Build());
                 Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.Experience);
             }
         }

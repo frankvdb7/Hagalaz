@@ -259,7 +259,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
 
             for (var i = 0; i < 4; i++)
             {
-                _npcBuilder.Create().WithId(2746).WithLocation(Owner.Location).Spawn();
+                NpcBuilder.Create().WithId(2746).WithLocation(Owner.Location).Spawn();
             }
 
             _healersSpawned = true;

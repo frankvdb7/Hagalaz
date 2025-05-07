@@ -14,10 +14,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     {
         private readonly IMovementBuilder _movementBuilder;
 
-        public Barrier(IMovementBuilder movementBuilder)
-        {
-            _movementBuilder = movementBuilder;
-        }
+        public Barrier(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
 
         /// <summary>
         ///     Called when [character click perform].

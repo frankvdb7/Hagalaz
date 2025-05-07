@@ -10,10 +10,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
     {
         private readonly ISlayerService _slayerRepository;
 
-        public SlayerMaster(ISlayerService slayerRepository)
-        {
-            _slayerRepository = slayerRepository;
-        }
+        public SlayerMaster(ISlayerService slayerRepository) => _slayerRepository = slayerRepository;
 
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.

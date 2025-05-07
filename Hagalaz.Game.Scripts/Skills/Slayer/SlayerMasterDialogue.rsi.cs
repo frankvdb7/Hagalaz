@@ -14,10 +14,8 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
     {
         private readonly ISlayerService _slayerService;
 
-        public SlayerMasterDialogue(ICharacterContextAccessor characterContextAccessor, ISlayerService slayerService) : base(characterContextAccessor)
-        {
+        public SlayerMasterDialogue(ICharacterContextAccessor characterContextAccessor, ISlayerService slayerService) : base(characterContextAccessor) =>
             _slayerService = slayerService;
-        }
 
         /// <summary>
         ///     Happens when interface is opened for character.
@@ -44,11 +42,9 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
             AttachDialogueOptionClickHandler("Can you tell me about your skill cape?",
                 (extraData1, extraData2) =>
                 {
-                    Owner.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.Send2TextChatRight,
-                        0,
-                        new SkillCapeDialogue(Owner.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(), StatisticsConstants.Slayer),
-                        true,
-                        TalkingTo);
+                    var dialogue = Owner.ServiceProvider.GetRequiredService<SkillCapeDialogue>();
+                    dialogue.SkillID = StatisticsConstants.Slayer;
+                    Owner.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.Send2TextChatRight, 0, dialogue, true, TalkingTo);
                     return true;
                 });
 

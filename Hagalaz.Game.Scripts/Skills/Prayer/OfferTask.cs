@@ -81,8 +81,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
         {
             Performer.QueueAnimation(Animation.Create(713));
             var regionUpdateBuilder = Performer.ServiceProvider.GetRequiredService<IRegionUpdateBuilder>();
-            var update = regionUpdateBuilder.Create().WithLocation(Altar.Location).WithGraphic(Graphic.Create(624)).Build();
-            Altar.Region.QueueUpdate(update);
+            regionUpdateBuilder.Create().WithLocation(Altar.Location).WithGraphic(Graphic.Create(624)).Queue();
         }
 
         /// <summary>

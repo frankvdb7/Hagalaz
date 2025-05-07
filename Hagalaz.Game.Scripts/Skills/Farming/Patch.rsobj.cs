@@ -11,10 +11,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
     {
         private readonly IFarmingSkillService _farmingSkillService;
 
-        public Patch(IFarmingSkillService farmingSkillService)
-        {
-            _farmingSkillService = farmingSkillService;
-        }
+        public Patch(IFarmingSkillService farmingSkillService) => _farmingSkillService = farmingSkillService;
 
         /// <summary>
         ///     Called when [character click perform].

@@ -11,10 +11,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
     {
         private readonly ICraftingSkillService _craftingSkillService;
 
-        public SpinningWheel(ICraftingSkillService craftingSkillService)
-        {
-            _craftingSkillService = craftingSkillService;
-        }
+        public SpinningWheel(ICraftingSkillService craftingSkillService) => _craftingSkillService = craftingSkillService;
 
         /// <summary>
         ///     Happens when character click's this object and then walks to it

@@ -1,10 +1,10 @@
 ﻿using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Scripts.Skills.Runecrafting;
 
@@ -24,11 +24,14 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         ///     Experience received if logs were cut successfully.
         /// </summary>
         private const double _expAmount = 5.0;
-        private readonly IMiningService _miningService;
 
-        public RuneEssence(IMiningService miningService)
+        private readonly IMiningService _miningService;
+        private readonly IItemBuilder _itemBuilder;
+
+        public RuneEssence(IMiningService miningService, IItemBuilder itemBuilder)
         {
             _miningService = miningService;
+            _itemBuilder = itemBuilder;
         }
 
         /// <summary>
@@ -40,8 +43,12 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                var ore = new Item(clicker.Statistics.GetSkillLevel(StatisticsConstants.Mining) >= 30 ? RunecraftingConstants.PureEssence : RunecraftingConstants.RuneEssence, 1);
-                var mineChance = 0.75;
+                var ore = _itemBuilder.Create()
+                    .WithId(clicker.Statistics.GetSkillLevel(StatisticsConstants.Mining) >= 30
+                        ? RunecraftingConstants.PureEssence
+                        : RunecraftingConstants.RuneEssence)
+                    .Build();
+                const double mineChance = 0.75;
                 clicker.QueueTask(() => StartRuneEssenceMining(clicker, Owner, ore, mineChance, _expAmount));
             }
             else if (clickType == GameObjectClickType.Option6Click)
@@ -101,13 +108,6 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             character.QueueTask(new MiningTask(character, Callback, mineChance, pickaxeData, rocks));
             character.QueueAnimation(Animation.Create(pickaxeData.AnimationId));
             character.SendChatMessage(MiningConstants.SwingPickaxe);
-        }
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
         }
     }
 }

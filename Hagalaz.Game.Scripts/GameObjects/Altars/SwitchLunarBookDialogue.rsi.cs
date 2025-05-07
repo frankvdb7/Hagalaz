@@ -20,10 +20,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
         private IGameObject _obj = default!;
         private readonly IScopedGameMediator _gameMediator;
 
-        public SwitchLunarBookDialogue(ICharacterContextAccessor contextAccessor, IScopedGameMediator gameMediator) : base(contextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public SwitchLunarBookDialogue(ICharacterContextAccessor contextAccessor, IScopedGameMediator gameMediator) : base(contextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is closed for character.

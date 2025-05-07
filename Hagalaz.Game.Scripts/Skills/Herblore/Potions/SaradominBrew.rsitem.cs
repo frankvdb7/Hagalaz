@@ -1,11 +1,11 @@
 ﻿using System;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 {
@@ -15,9 +15,12 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
     [ItemScriptMetaData(itemIds: [6685, 6687, 6689, 6691])]
     public class SaradominBrew : Potion
     {
-        public SaradominBrew(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService) : base(potionSkillService, herbloreSkillService)
-        {
-        }
+        private readonly IItemBuilder _itemBuilder;
+
+        public SaradominBrew(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService, IItemBuilder itemBuilder) : base(
+            potionSkillService,
+            herbloreSkillService) =>
+            _itemBuilder = itemBuilder;
 
         /// <summary>
         ///     Happens when character clicks specific item in inventory.
@@ -40,19 +43,19 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 
                     if (item.Id == PotionIds[0])
                     {
-                        PotionSkillService.DrinkPotion(character, item, new Item(PotionIds[1]), ApplyEffect, 1);
+                        PotionSkillService.DrinkPotion(character, item, _itemBuilder.Create().WithId(PotionIds[1]).Build(), ApplyEffect, 1);
                     }
                     else if (item.Id == PotionIds[1])
                     {
-                        PotionSkillService.DrinkPotion(character, item, new Item(PotionIds[2]), ApplyEffect, 1);
+                        PotionSkillService.DrinkPotion(character, item, _itemBuilder.Create().WithId(PotionIds[2]).Build(), ApplyEffect, 1);
                     }
                     else if (item.Id == PotionIds[2])
                     {
-                        PotionSkillService.DrinkPotion(character, item, new Item(PotionIds[3]), ApplyEffect, 1);
+                        PotionSkillService.DrinkPotion(character, item, _itemBuilder.Create().WithId(PotionIds[3]).Build(), ApplyEffect, 1);
                     }
                     else if (item.Id == PotionIds[3])
                     {
-                        PotionSkillService.DrinkPotion(character, item, new Item(PotionConstants.Vial), ApplyEffect, 1);
+                        PotionSkillService.DrinkPotion(character, item, _itemBuilder.Create().WithId(PotionConstants.Vial).Build(), ApplyEffect, 1);
                     }
                 }
             }
@@ -64,7 +67,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
                     return;
                 }
 
-                character.Inventory.Replace(slot, new Item(PotionConstants.Vial));
+                character.Inventory.Replace(slot, _itemBuilder.Create().WithId(PotionConstants.Vial).Build());
             }
             else
             {
@@ -84,8 +87,11 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
                 character.Statistics.DamageSkill(toDrain[i], (int)Math.Floor(0.10 * character.Statistics.LevelForExperience(i)));
             }
 
-            character.Statistics.HealSkill(StatisticsConstants.Defence, (int)Math.Floor(1.25 * character.Statistics.LevelForExperience(StatisticsConstants.Defence)), (int)Math.Floor(0.25 * character.Statistics.LevelForExperience(StatisticsConstants.Defence)));
-            character.Statistics.HealLifePoints((int)Math.Floor(0.3 * (character.Statistics.LevelForExperience(StatisticsConstants.Constitution) * 10.0)) + 20, (int)Math.Floor(1.3 * character.Statistics.GetMaximumLifePoints()));
+            character.Statistics.HealSkill(StatisticsConstants.Defence,
+                (int)Math.Floor(1.25 * character.Statistics.LevelForExperience(StatisticsConstants.Defence)),
+                (int)Math.Floor(0.25 * character.Statistics.LevelForExperience(StatisticsConstants.Defence)));
+            character.Statistics.HealLifePoints((int)Math.Floor(0.3 * (character.Statistics.LevelForExperience(StatisticsConstants.Constitution) * 10.0)) + 20,
+                (int)Math.Floor(1.3 * character.Statistics.GetMaximumLifePoints()));
         }
     }
 }

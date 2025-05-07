@@ -168,8 +168,16 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                 {
                     character.QueueAnimation(Animation.Create(-1));
 
-                    var treeLeaves = tree.Region.FindStandardGameObject(tree.Location.RegionLocalX, tree.Location.RegionLocalY, tree.Location.Z + 1) ??
-                                     tree.Region.FindStandardGameObject((tree.Location.X - 1) & 0x3F, (tree.Location.Y - 1) & 0x3F, tree.Location.Z + 1);
+                    var gameObjectService = _serviceProvider.GetRequiredService<IGameObjectService>();
+
+                    var treeLeaves = gameObjectService
+                                         .FindByLocation(tree.Location.Translate(0, 0, 1))
+                                         .FindByStandardObject()
+                                         .FirstOrDefault()
+                                     ?? gameObjectService
+                                         .FindByLocation(tree.Location.Translate(-1, -1, 1))
+                                         .FindByStandardObject()
+                                         .FirstOrDefault();
 
                     // new trees have leaves, so remove the leaves if possible.
                     if (treeLeaves != null)

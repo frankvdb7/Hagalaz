@@ -19,10 +19,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
     {
         private readonly IPrayerService _prayerService;
 
-        public StandardAsh(IPrayerService prayerService)
-        {
-            _prayerService = prayerService;
-        }
+        public StandardAsh(IPrayerService prayerService) => _prayerService = prayerService;
 
         /// <summary>
         ///     Uses the item on game object.

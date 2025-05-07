@@ -1,18 +1,26 @@
 ﻿using System;
+using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
-using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Skills.Fletching
 {
-    /// <summary>
-    /// </summary>
-    public static class Fletching
+    public class FletchingSkillService : IFletchingSkillService
     {
+        private readonly IItemBuilder _itemBuilder;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FletchingSkillService"/> class.
+        /// </summary>
+        /// <param name="itemBuilder">The item builder to create new items.</param>
+        public FletchingSkillService(IItemBuilder itemBuilder)
+        {
+            _itemBuilder = itemBuilder;
+        }
+
         /// <summary>
         ///     The wood
         /// </summary>
@@ -148,7 +156,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The item.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public static bool TryFletchWood(ICharacter character, IItem used, IItem usedWith)
+        public bool TryFletchWood(ICharacter character, IItem used, IItem usedWith)
         {
             var definitionId = GetWoodDefinitionId(used, usedWith);
             if (definitionId == -1)
@@ -205,7 +213,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 }
 
                 amount = definition.ProductAmounts[productIndex];
-                var product = new Item(definition.ProductIDs[productIndex], amount);
+                var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
                 character.Inventory.Add(product);
                 if (amount > 1)
                 {
@@ -230,7 +238,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The used.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public static bool TryFletchBow(ICharacter character, IItem used, IItem usedWith)
+        public bool TryFletchBow(ICharacter character, IItem used, IItem usedWith)
         {
             var definitionId = GetBowDefinitionId(used, usedWith);
             if (definitionId == -1)
@@ -280,7 +288,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                     return true;
                 }
 
-                var tool = character.Inventory.GetById(definition.ToolID);
+                var tool = character.Inventory.GetById(definition.ToolId);
                 if (tool == null)
                 {
                     return true;
@@ -293,18 +301,18 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 }
 
                 var removed = character.Inventory.Remove(resource, resourceSlot);
-                if (removed <= 0 || removed > int.MaxValue)
+                if (removed <= 0)
                 {
                     return true;
                 }
 
                 removed = character.Inventory.Remove(tool, toolSlot);
-                if (removed <= 0 || removed > int.MaxValue)
+                if (removed <= 0)
                 {
                     return true;
                 }
 
-                var product = new Item(definition.ProductIDs[productIndex]);
+                var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).Build();
                 character.Inventory.Add(resourceSlot, product);
                 character.SendChatMessage("You add a " + tool.Name.ToLower() + " to the " + product.Name.ToLower() + ".");
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex]);
@@ -321,7 +329,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The used.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public static bool TryFletchAmmo(ICharacter character, IItem used, IItem usedWith)
+        public bool TryFletchAmmo(ICharacter character, IItem used, IItem usedWith)
         {
             var definitionId = GetAmmoDefinitionId(used, usedWith);
             if (definitionId == -1)
@@ -371,7 +379,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                     return true;
                 }
 
-                var tool = character.Inventory.GetById(definition.ToolID);
+                var tool = character.Inventory.GetById(definition.ToolId);
                 if (tool == null)
                 {
                     return true;
@@ -397,24 +405,24 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                     amount = itemAmount;
                 }
 
-                var removed = character.Inventory.Remove(new Item(resource.Id, amount), resourceSlot);
+                var removed = character.Inventory.Remove(_itemBuilder.Create().WithId(resource.Id).WithCount(amount).Build(), resourceSlot);
                 if (removed < amount)
                 {
                     amount = removed;
                 }
 
-                removed = character.Inventory.Remove(new Item(tool.Id, amount), toolSlot);
+                removed = character.Inventory.Remove(_itemBuilder.Create().WithId(tool.Id).WithCount(amount).Build(), toolSlot);
                 if (removed < amount)
                 {
                     amount = removed;
                 }
 
-                if (amount < 0 || amount > int.MaxValue)
+                if (amount < 0)
                 {
                     return true;
                 }
 
-                var product = new Item(definition.ProductIDs[productIndex], amount);
+                var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
                 character.Inventory.Add(product);
                 character.SendChatMessage("You attach " + tool.Name.ToLower() + " to the " + product.Name.ToLower() + ".");
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
@@ -432,7 +440,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The used.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public static bool TryFletchTips(ICharacter character, IItem used, IItem usedWith)
+        public bool TryFletchTips(ICharacter character, IItem used, IItem usedWith)
         {
             var definitionId = GetTipsDefinitionId(used, usedWith);
             if (definitionId == -1)
@@ -481,7 +489,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                     return true;
                 }
 
-                var tool = character.Inventory.GetById(definition.ToolID);
+                var tool = character.Inventory.GetById(definition.ToolId);
                 if (tool == null)
                 {
                     return true;
@@ -489,26 +497,19 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
                 var amount = definition.ProductAmounts[productIndex];
 
-                var removed = character.Inventory.Remove(new Item(resource.Id), resourceSlot);
+                var removed = character.Inventory.Remove(_itemBuilder.Create().WithId(resource.Id).Build(), resourceSlot);
                 if (removed <= 0)
                 {
                     return true;
                 }
 
-                if (amount < 0 || amount > int.MaxValue)
-                {
-                    return true;
-                }
-
-                var product = new Item(definition.ProductIDs[productIndex], amount);
+                var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
                 character.Inventory.Add(product);
                 character.SendChatMessage("You cut the " + resource.Name.ToLower() + " to " + amount + " x " + product.Name.ToLower() + ".");
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
                 return false;
             };
 
-            var contextAccessor = character.ServiceProvider.GetRequiredService<ICharacterContextAccessor>();
-            var itemService = character.ServiceProvider.GetRequiredService<IItemService>();
             character.Widgets.OpenWidget((int)DialogueInterfaces.InteractiveSelectAmountBox,
                 parent,
                 4,
@@ -527,7 +528,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="productIndex">Index of the product.</param>
         /// <param name="tickDelay">The tick delay.</param>
         /// <param name="count">The count.</param>
-        public static void TryStartFletching(
+        public void TryStartFletching(
             ICharacter character, FletchingDefinition definition, Func<int, bool> onFletchingPerformCallback, int productIndex, int tickDelay, int count)
         {
             var levelRequired = definition.RequiredLevels[productIndex];
@@ -546,18 +547,16 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The used.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public static int GetBowDefinitionId(IItem used, IItem usedWith)
-        {
-            for (var i = 0; i < Bows.Length; i++)
-            {
-                if (used.Id == Bows[i].ResourceID && usedWith.Id == Bows[i].ToolID || usedWith.Id == Bows[i].ResourceID && used.Id == Bows[i].ToolID)
+        private int GetBowDefinitionId(IItem used, IItem usedWith) =>
+            Bows.Select((bow, index) => new
                 {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
+                    bow, index
+                })
+                .Where(x => (used.Id == x.bow.ResourceID && usedWith.Id == x.bow.ToolId) ||
+                            (usedWith.Id == x.bow.ResourceID && used.Id == x.bow.ToolId))
+                .Select(x => x.index)
+                .DefaultIfEmpty(-1)
+                .First();
 
         /// <summary>
         ///     Gets the wood definition identifier.
@@ -565,18 +564,16 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The used.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public static int GetWoodDefinitionId(IItem used, IItem usedWith)
-        {
-            for (var i = 0; i < Wood.Length; i++)
-            {
-                if (used.Id == Wood[i].ResourceID && usedWith.Id == Wood[i].ToolID || usedWith.Id == Wood[i].ResourceID && used.Id == Wood[i].ToolID)
+        private int GetWoodDefinitionId(IItem used, IItem usedWith) =>
+            Wood.Select((wood, index) => new
                 {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
+                    wood, index
+                })
+                .Where(x => (used.Id == x.wood.ResourceID && usedWith.Id == x.wood.ToolId) ||
+                            (usedWith.Id == x.wood.ResourceID && used.Id == x.wood.ToolId))
+                .Select(x => x.index)
+                .DefaultIfEmpty(-1)
+                .First();
 
         /// <summary>
         ///     Gets the ammo definition identifier.
@@ -584,18 +581,16 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The used.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public static int GetAmmoDefinitionId(IItem used, IItem usedWith)
-        {
-            for (var i = 0; i < Ammo.Length; i++)
-            {
-                if (used.Id == Ammo[i].ResourceID && usedWith.Id == Ammo[i].ToolID || usedWith.Id == Ammo[i].ResourceID && used.Id == Ammo[i].ToolID)
+        private int GetAmmoDefinitionId(IItem used, IItem usedWith) =>
+            Ammo.Select((ammo, index) => new
                 {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
+                    ammo, index
+                })
+                .Where(x => (used.Id == x.ammo.ResourceID && usedWith.Id == x.ammo.ToolId) ||
+                            (usedWith.Id == x.ammo.ResourceID && used.Id == x.ammo.ToolId))
+                .Select(x => x.index)
+                .DefaultIfEmpty(-1)
+                .First();
 
         /// <summary>
         ///     Gets the tips definition identifier.
@@ -603,17 +598,15 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The used.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public static int GetTipsDefinitionId(IItem used, IItem usedWith)
-        {
-            for (var i = 0; i < Tips.Length; i++)
-            {
-                if (used.Id == Tips[i].ResourceID && usedWith.Id == Tips[i].ToolID || usedWith.Id == Tips[i].ResourceID && used.Id == Tips[i].ToolID)
+        private int GetTipsDefinitionId(IItem used, IItem usedWith) =>
+            Tips.Select((tip, index) => new
                 {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
+                    tip, index
+                })
+                .Where(x => (used.Id == x.tip.ResourceID && usedWith.Id == x.tip.ToolId) ||
+                            (usedWith.Id == x.tip.ResourceID && used.Id == x.tip.ToolId))
+                .Select(x => x.index)
+                .DefaultIfEmpty(-1)
+                .First();
     }
 }

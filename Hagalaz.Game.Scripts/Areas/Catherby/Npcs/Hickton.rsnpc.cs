@@ -1,6 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -25,19 +24,14 @@ namespace Hagalaz.Game.Scripts.Areas.Catherby.Npcs
             }
             else if (clickType == NpcClickType.Option1Click)
             {
-                clicker.Widgets.OpenDialogue(new SkillCapeDialogue(clicker.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(), StatisticsConstants.Fletching), true, Owner);
+                var fletchingSkillDialogue = clicker.ServiceProvider.GetRequiredService<SkillCapeDialogue>();
+                fletchingSkillDialogue.SkillID = StatisticsConstants.Fletching;
+                clicker.Widgets.OpenDialogue(fletchingSkillDialogue, true, Owner);
             }
             else
             {
                 base.OnCharacterClickPerform(clicker, clickType);
             }
-        }
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
         }
     }
 }

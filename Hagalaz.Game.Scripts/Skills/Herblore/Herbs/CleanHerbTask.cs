@@ -1,9 +1,10 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
 {
@@ -11,22 +12,15 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
     /// </summary>
     public class CleanHerbTask : RsTickTask
     {
-        /// <summary>
-        ///     Construct's new cooking task.
-        /// </summary>
-        /// <param name="performer">The performer.</param>
-        /// <param name="definition">The definition.</param>
-        /// <param name="totalCleanCount">The total clean count.</param>
-        /// <param name="tickDelay">The tick delay.</param>
-        public CleanHerbTask(ICharacter performer, HerbDto definition, int totalCleanCount, int tickDelay)
-        {
-            Performer = performer;
-            Definition = definition;
-            TickDelay = tickDelay;
-            TotalCleanCount = totalCleanCount;
+        private readonly IItemBuilder _itemBuilder;
 
+        public CleanHerbTask(ICharacterContextAccessor characterContextAccessor, IItemBuilder itemBuilder)
+        {
+            _itemBuilder = itemBuilder;
+            Performer = characterContextAccessor.Context.Character;
+            ;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
                 Cancel();
                 return false;
@@ -46,7 +40,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
         /// <summary>
         ///     The definition.
         /// </summary>
-        private HerbDto Definition { get; }
+        public HerbDto Definition { get; set; } = null!;
 
         /// <summary>
         ///     The times performed.
@@ -56,19 +50,17 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
         /// <summary>
         ///     The times to perform.
         /// </summary>
-        private int TotalCleanCount { get; }
+        public int TotalCleanCount { get; set; }
 
         /// <summary>
         ///     Gets the tick delay.
         /// </summary>
-        private int TickDelay { get; }
+        public int TickDelay { get; set; }
 
         /// <summary>
         ///     Performs the animation.
         /// </summary>
-        private static void PerformAnimation()
-        {
-        }
+        private static void PerformAnimation() { }
 
         /// <summary>
         ///     Contains tick implementation.
@@ -105,7 +97,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                 }
 
                 Performer.SendChatMessage("You clean the drift from the " + item.Name.ToLower());
-                Performer.Inventory.Replace(slot, new Item(Definition.CleanHerbId));
+                Performer.Inventory.Replace(slot, _itemBuilder.Create().WithId(Definition.CleanHerbId).Build());
                 Performer.Statistics.AddExperience(StatisticsConstants.Herblore, Definition.CleanExperience);
             }
         }

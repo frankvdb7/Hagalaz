@@ -15,10 +15,7 @@ namespace Hagalaz.Game.Scripts.Areas.Taverly.GameObjects
     public class StrangeFloor : GameObjectScript
     {
         private readonly IMovementBuilder _movementBuilder;
-        public StrangeFloor(IMovementBuilder movementBuilder)
-        {
-            _movementBuilder = movementBuilder;
-        }
+        public StrangeFloor(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
 
         /// <summary>
         ///     Called when [character click walk].

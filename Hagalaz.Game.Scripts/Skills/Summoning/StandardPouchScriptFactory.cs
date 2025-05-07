@@ -9,10 +9,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
     {
         private readonly ISummoningService _summoningService;
 
-        public StandardPouchScriptFactory(ISummoningService summoningService)
-        {
-            _summoningService = summoningService;
-        }
+        public StandardPouchScriptFactory(ISummoningService summoningService) => _summoningService = summoningService;
 
         public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts()
         {

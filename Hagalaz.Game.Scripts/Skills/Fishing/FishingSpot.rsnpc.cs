@@ -26,8 +26,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// </summary>
         /// <param name="clicker">Character that clicked this npc.</param>
         /// <param name="clickType">Type of the click that was performed.</param>
-        public override void OnCharacterClickPerform(ICharacter clicker, NpcClickType clickType)
-        {
+        public override void OnCharacterClickPerform(ICharacter clicker, NpcClickType clickType) =>
             clicker.QueueTask(async () =>
             {
                 var spot = await _fishingService.FindSpotByNpcIdClickType(Owner.Appearance.CompositeID, clickType);
@@ -38,7 +37,6 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
 
                 base.OnCharacterClickPerform(clicker, clickType);
             });
-        }
 
         /// <summary>
         ///     Get's called when owner is found.

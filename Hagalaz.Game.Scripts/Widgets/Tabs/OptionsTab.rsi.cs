@@ -17,10 +17,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         private readonly IScopedGameMediator _gameMediator;
         private IGameConnectHandle _gameConnectHandle;
 
-        public OptionsTab(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public OptionsTab(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is opened for character.
@@ -180,29 +177,14 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             RefreshAcceptAid();
         }
 
-        public void RefreshChatProfanity()
-        {
-            Owner.Configurations.SendStandardConfiguration(1438, Owner.Profile.GetValue<bool>(ProfileConstants.ChatSettingsProfanity) ? 0 : -1);
-        }
+        public void RefreshChatProfanity() => Owner.Configurations.SendStandardConfiguration(1438, Owner.Profile.GetValue<bool>(ProfileConstants.ChatSettingsProfanity) ? 0 : -1);
 
-        public void RefreshRightClickReporting()
-        {
-            Owner.Configurations.SendStandardConfiguration(1056, Owner.Profile.GetValue<bool>(ProfileConstants.ReportSettingsRightClick) ? 2 : 0);
-        }
+        public void RefreshRightClickReporting() => Owner.Configurations.SendStandardConfiguration(1056, Owner.Profile.GetValue<bool>(ProfileConstants.ReportSettingsRightClick) ? 2 : 0);
 
-        public void RefreshChatEffects()
-        {
-            Owner.Configurations.SendStandardConfiguration(171, Owner.Profile.GetValue<bool>(ProfileConstants.ChatSettingsEffects) ? 1 : 0);
-        }
+        public void RefreshChatEffects() => Owner.Configurations.SendStandardConfiguration(171, Owner.Profile.GetValue<bool>(ProfileConstants.ChatSettingsEffects) ? 1 : 0);
 
-        public void RefreshMouseButtons()
-        {
-            Owner.Configurations.SendStandardConfiguration(170, Owner.Profile.GetValue<bool>(ProfileConstants.MouseSettingsButtons) ? 1 : 0);
-        }
+        public void RefreshMouseButtons() => Owner.Configurations.SendStandardConfiguration(170, Owner.Profile.GetValue<bool>(ProfileConstants.MouseSettingsButtons) ? 1 : 0);
 
-        public void RefreshAcceptAid()
-        {
-            Owner.Configurations.SendStandardConfiguration(427, Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsAcceptAid) ? 1 : 0);
-        }
+        public void RefreshAcceptAid() => Owner.Configurations.SendStandardConfiguration(427, Owner.Profile.GetValue<bool>(ProfileConstants.MagicSettingsAcceptAid) ? 1 : 0);
     }
 }

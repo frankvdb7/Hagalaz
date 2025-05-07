@@ -27,17 +27,14 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
         private readonly IScopedGameMediator _gameMediator;
         private IGameConnectHandle _gameConnectHandle = default!;
 
-        public RunEnergyOrb(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public RunEnergyOrb(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is opened for character.
         /// </summary>
         public override void OnOpen()
         {
-            _gameConnectHandle = _gameMediator.ConnectHandler<ProfileValueChanged<bool>>(async (context) =>
+            _gameConnectHandle = _gameMediator.ConnectHandler<ProfileValueChanged<bool>>((context) =>
             {
                 if (context.Message.Key == ProfileConstants.RunSettingsToggled)
                 {
@@ -97,17 +94,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             RefreshOrbState();
         }
 
-        public void RefreshOrbState()
-        {
-            Owner.Configurations.SendStandardConfiguration(173, Owner.HasState(StateType.ListeningToMusician) ? 4 : Owner.HasState(StateType.Resting) ? 3 : (Owner.Profile.GetValue<bool>(ProfileConstants.RunSettingsToggled) ? 1 : 0));
-        }
+        public void RefreshOrbState() => Owner.Configurations.SendStandardConfiguration(173, Owner.HasState(StateType.ListeningToMusician) ? 4 : Owner.HasState(StateType.Resting) ? 3 : (Owner.Profile.GetValue<bool>(ProfileConstants.RunSettingsToggled) ? 1 : 0));
 
         /// <summary>
         ///     Happens when interface is closed for character.
         /// </summary>
-        public override void OnClose()
-        {
-            _gameConnectHandle?.Disconnect();
-        }
+        public override void OnClose() => _gameConnectHandle?.Disconnect();
     }
 }

@@ -19,10 +19,8 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 
         public OverloadPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService, IItemBuilder itemBuilder) : base(
             potionSkillService,
-            herbloreSkillService)
-        {
+            herbloreSkillService) =>
             _itemBuilder = itemBuilder;
-        }
 
         /// <summary>
         ///     Happens when character clicks specific item in inventory.

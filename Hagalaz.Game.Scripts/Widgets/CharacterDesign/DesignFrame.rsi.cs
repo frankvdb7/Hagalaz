@@ -13,10 +13,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
     {
         private readonly IWidgetBuilder _widgetBuilder;
 
-        public DesignFrame(ICharacterContextAccessor characterContextAccessor, IWidgetBuilder widgetBuilder) : base(characterContextAccessor)
-        {
-            _widgetBuilder = widgetBuilder;
-        }
+        public DesignFrame(ICharacterContextAccessor characterContextAccessor, IWidgetBuilder widgetBuilder) : base(characterContextAccessor) => _widgetBuilder = widgetBuilder;
 
         /// <summary>
         ///     Happens when interface is opened for character.

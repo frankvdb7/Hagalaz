@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <summary>
         ///     The charge ticks.
         /// </summary>
-        private const int ChargeTicks = 10;
+        private const int _chargeTicks = 10;
 
         /// <summary>
         /// </summary>
@@ -655,10 +655,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <summary>
         ///     Get's called when owner is found.
         /// </summary>
-        protected override void Initialize()
-        {
-            GenerateAttackType(null);
-        }
+        protected override void Initialize() => GenerateAttackType(null);
 
         /// <summary>
         ///     Tick's npc.
@@ -685,7 +682,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             {
                 Heal();
             }
-            else if (++_charge >= ChargeTicks)
+            else if (++_charge >= _chargeTicks)
             {
                 Explode();
             }

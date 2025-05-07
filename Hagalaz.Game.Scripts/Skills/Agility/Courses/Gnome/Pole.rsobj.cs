@@ -17,10 +17,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     {
         private readonly IMovementBuilder _movementBuilder;
 
-        public Pole(IMovementBuilder movementBuilder)
-        {
-            _movementBuilder = movementBuilder;
-        }
+        public Pole(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
 
         /// <summary>
         ///     Called when [character click].

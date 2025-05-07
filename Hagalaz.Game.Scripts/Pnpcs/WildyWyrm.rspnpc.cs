@@ -17,10 +17,7 @@ namespace Hagalaz.Game.Scripts.Pnpcs
     [CharacterNpcScriptMetaData([2417, 3334])]
     public class WildyWyrm : CharacterNpcScriptBase
     {
-        public WildyWyrm(ITypeDecoder<IItemDefinition> itemDecoder)
-        {
-            _itemDecoder = itemDecoder;
-        }
+        public WildyWyrm(ITypeDecoder<IItemDefinition> itemDecoder) => _itemDecoder = itemDecoder;
 
         /// <summary>
         /// </summary>

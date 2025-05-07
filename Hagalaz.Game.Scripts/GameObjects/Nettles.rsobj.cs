@@ -10,22 +10,17 @@ namespace Hagalaz.Game.Scripts.GameObjects
     {
         private readonly IGameObjectService _gameObjectService;
 
-        public Nettles(IGameObjectService gameObjectService)
-        {
-            _gameObjectService = gameObjectService;
-        }
+        public Nettles(IGameObjectService gameObjectService) => _gameObjectService = gameObjectService;
 
         /// <summary>
         ///     Called when [spawn].
         /// </summary>
-        public override void OnSpawn()
-        {
+        public override void OnSpawn() =>
             _gameObjectService.UpdateGameObject(new GameObjectUpdate
             {
                 Instance = Owner,
                 Id = 2646
             });
-        }
 
         /// <summary>
         ///     Initializes this instance.

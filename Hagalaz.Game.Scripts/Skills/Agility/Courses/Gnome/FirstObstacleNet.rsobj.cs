@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
         /// <summary>
         ///     The speak texts
         /// </summary>
-        private static readonly string[] SpeakTexts = ["Move it, move it, move it!"];
+        private static readonly string[] _speakTexts = ["Move it, move it, move it!"];
 
         /// <summary>
         ///     Called when [character click perform].
@@ -38,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                         clicker.AddState(new State(StateType.GnomeCourseFirstObstacleNet, int.MaxValue));
                         clicker.Movement.Unlock(false);
                     }, 2));
-                Agility.CheckGnomeCourseNpCs(clicker, SpeakTexts[RandomStatic.Generator.Next(0, SpeakTexts.Length)]);
+                Agility.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
             }
             else
             {

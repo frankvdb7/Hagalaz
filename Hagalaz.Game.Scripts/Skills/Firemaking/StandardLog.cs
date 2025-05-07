@@ -7,8 +7,8 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model.Items;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Scripts.Skills.Fletching;
 
 namespace Hagalaz.Game.Scripts.Skills.Firemaking
 {
@@ -18,16 +18,19 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
     public class StandardLog : ItemScript
     {
         private readonly IFiremakingService _firemakingService;
+        private readonly IFletchingSkillService _fletchingSkillService;
         private readonly IRsTaskService _taskService;
         private readonly IPathFinderProvider _pathFinderProvider;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
 
         public StandardLog(
-            IFiremakingService firemakingService, IRsTaskService taskService, IPathFinderProvider pathFinderProvider, IGroundItemBuilder groundItemBuilder,
+            IFiremakingService firemakingService, IFletchingSkillService fletchingSkillService, IRsTaskService taskService,
+            IPathFinderProvider pathFinderProvider, IGroundItemBuilder groundItemBuilder,
             IGameObjectBuilder gameObjectBuilder)
         {
             _firemakingService = firemakingService;
+            _fletchingSkillService = fletchingSkillService;
             _taskService = taskService;
             _pathFinderProvider = pathFinderProvider;
             _groundItemBuilder = groundItemBuilder;
@@ -55,7 +58,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 return LightInventoryLog(character, used);
             }
 
-            return Fletching.Fletching.TryFletchWood(character, used, usedWith);
+            return _fletchingSkillService.TryFletchWood(character, used, usedWith);
         }
 
         /// <summary>
@@ -89,17 +92,19 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 return false;
             }
 
-            if (logItem.ItemScript.DropItem(logItem, character))
+            if (!logItem.ItemScript.DropItem(logItem, character))
             {
-                var logs = character.Region.FindAllGroundItems().FirstOrDefault(i => i.ItemOnGround == logItem);
-                if (logs == null)
-                {
-                    return false;
-                }
-
-                character.QueueTask(() => LightGroundLog(character, logs));
+                return true;
             }
 
+            var groundItemService = character.ServiceProvider.GetRequiredService<IGroundItemService>();
+            var logs = groundItemService.FindAllGroundItems(character.Location).FirstOrDefault(i => i.ItemOnGround == logItem);
+            if (logs == null)
+            {
+                return false;
+            }
+
+            character.QueueTask(() => LightGroundLog(character, logs));
             return true;
         }
 
@@ -154,7 +159,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                     {
                         region.Remove(gameObj);
                         var groundItem = _groundItemBuilder.Create()
-                            .WithItem(new Item(FiremakingConstants.Ashes))
+                            .WithItem(itemBuilder =>  itemBuilder.Create().WithId(FiremakingConstants.Ashes))
                             .WithLocation(gameObj.Location)
                             .Build();
                         region.Add(groundItem);

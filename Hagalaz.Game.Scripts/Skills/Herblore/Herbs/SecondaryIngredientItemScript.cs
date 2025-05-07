@@ -12,10 +12,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
     {
         private readonly IHerbloreSkillService _herbloreSkillService;
 
-        public SecondaryIngredientItemScript(IHerbloreSkillService herbloreSkillService)
-        {
-            _herbloreSkillService = herbloreSkillService;
-        }
+        public SecondaryIngredientItemScript(IHerbloreSkillService herbloreSkillService) => _herbloreSkillService = herbloreSkillService;
 
         /// <summary>
         ///     Uses the item.

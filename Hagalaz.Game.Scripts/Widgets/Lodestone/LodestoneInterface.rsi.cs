@@ -13,10 +13,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Lodestone
     {
         private readonly ILodestoneService _lodestoneService;
 
-        public LodestoneInterface(ICharacterContextAccessor characterContextAccessor, ILodestoneService lodestoneService) : base(characterContextAccessor)
-        {
-            _lodestoneService = lodestoneService;
-        }
+        public LodestoneInterface(ICharacterContextAccessor characterContextAccessor, ILodestoneService lodestoneService) : base(characterContextAccessor) => _lodestoneService = lodestoneService;
 
         /// <summary>
         ///     Called when [open].

@@ -9,10 +9,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
     {
         private readonly IHerbloreService _herbloreService;
 
-        public GrimyHerbItemScriptFactory(IHerbloreService herbloreService)
-        {
-            _herbloreService = herbloreService;
-        }
+        public GrimyHerbItemScriptFactory(IHerbloreService herbloreService) => _herbloreService = herbloreService;
 
         public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts()
         {

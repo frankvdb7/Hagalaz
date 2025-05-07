@@ -17,10 +17,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         private readonly IScopedGameMediator _gameMediator;
         private IGameConnectHandle _gameConnectHandle = default!;
 
-        public FriendsChatTab(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public FriendsChatTab(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is opened for character.
@@ -65,19 +62,10 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         /// <summary>
         ///     Happens when interface is closed for character.
         /// </summary>
-        public override void OnClose()
-        {
-            _gameConnectHandle?.Disconnect();
-        }
+        public override void OnClose() => _gameConnectHandle?.Disconnect();
 
-        private void Refresh()
-        {
-            RefreshFriendsChatLootShare();
-        }
+        private void Refresh() => RefreshFriendsChatLootShare();
 
-        private void RefreshFriendsChatLootShare()
-        {
-            Owner.Configurations.SendStandardConfiguration(1083, Owner.Profile.GetValue<bool>(ProfileConstants.FriendsChatSettingsLootShareToggled) ? 1 : 0);
-        }
+        private void RefreshFriendsChatLootShare() => Owner.Configurations.SendStandardConfiguration(1083, Owner.Profile.GetValue<bool>(ProfileConstants.FriendsChatSettingsLootShareToggled) ? 1 : 0);
     }
 }

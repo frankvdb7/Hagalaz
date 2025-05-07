@@ -15,10 +15,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         private readonly IScopedGameMediator _gameMediator;
         private IGameConnectHandle _connectHandle = default!;
 
-        public LeftClickOptionTab(ICharacterContextAccessor contextAccessor, IScopedGameMediator gameMediator) : base(contextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public LeftClickOptionTab(ICharacterContextAccessor contextAccessor, IScopedGameMediator gameMediator) : base(contextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is opened for character.

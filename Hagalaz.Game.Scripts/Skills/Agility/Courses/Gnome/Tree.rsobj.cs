@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
         /// <summary>
         ///     The speak texts
         /// </summary>
-        private static readonly string[] SpeakTexts = ["Terrorbirds could climb faster than that!"];
+        private static readonly string[] _speakTexts = ["Terrorbirds could climb faster than that!"];
 
         /// <summary>
         ///     Called when [character click perform].
@@ -45,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                         clicker.AddState(new State(StateType.GnomeCourseTree, int.MaxValue));
                         clicker.Movement.Unlock(false);
                     }, 2));
-                Agility.CheckGnomeCourseNpCs(clicker, SpeakTexts[RandomStatic.Generator.Next(0, SpeakTexts.Length)]);
+                Agility.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
             }
             else
             {

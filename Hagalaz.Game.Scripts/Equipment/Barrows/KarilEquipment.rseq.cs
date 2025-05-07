@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <summary>
         ///     The karil equipment
         /// </summary>
-        private static readonly int[] KarilIDs =
+        private static readonly int[] _karilIDs =
         [
             4732, 4928, 4929, 4930, 4931, // karils coif
             4734, 4934, 4935, 4936, 4937, // karils crossbow
@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
             var hasChest = false;
             var hasWeapon = false;
             var hasHat = false;
-            foreach (var itemId in KarilIDs)
+            foreach (var itemId in _karilIDs)
             {
                 if (legs.Id == itemId)
                 {
@@ -86,9 +86,9 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// </returns>
         public override IEnumerable<int> GetSuitableItems()
         {
-            var ids = new int[KarilIDs.Length - 5];
+            var ids = new int[_karilIDs.Length - 5];
             var offset = 0;
-            for (var i = 0; i < KarilIDs.Length; i++)
+            for (var i = 0; i < _karilIDs.Length; i++)
             {
                 if (i >= 5 && i <= 9)
                 {
@@ -96,7 +96,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
                     continue;
                 }
 
-                ids[i - offset] = KarilIDs[i];
+                ids[i - offset] = _karilIDs[i];
             }
 
             return ids;
@@ -109,8 +109,8 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns></returns>
         public override int GetDegrationTicks(IItem item)
         {
-            if (item.Id == KarilIDs[0] || item.Id == KarilIDs[5]
-                                       || item.Id == KarilIDs[10] || item.Id == KarilIDs[15])
+            if (item.Id == _karilIDs[0] || item.Id == _karilIDs[5]
+                                       || item.Id == _karilIDs[10] || item.Id == _karilIDs[15])
             {
                 return 0; // Degrade to 100 barrow item
             }
@@ -132,22 +132,22 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns></returns>
         public override short GetDegradedItemID(IItem item)
         {
-            if (item.Id == KarilIDs[0])
+            if (item.Id == _karilIDs[0])
             {
                 return (short)(item.Id + 196);
             }
 
-            if (item.Id == KarilIDs[5])
+            if (item.Id == _karilIDs[5])
             {
                 return (short)(item.Id + 200);
             }
 
-            if (item.Id == KarilIDs[10])
+            if (item.Id == _karilIDs[10])
             {
                 return (short)(item.Id + 204);
             }
 
-            if (item.Id == KarilIDs[15])
+            if (item.Id == _karilIDs[15])
             {
                 return (short)(item.Id + 208);
             }

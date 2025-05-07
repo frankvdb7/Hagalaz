@@ -12,10 +12,7 @@ namespace Hagalaz.Game.Scripts.Commands
         public string Name { get; } = "openinterface";
         public Permission Permission { get; } = Permission.SystemAdministrator;
 
-        public OpenInterfaceCommand(IWidgetBuilder widgetBuilder)
-        {
-            _widgetBuilder = widgetBuilder;
-        }
+        public OpenInterfaceCommand(IWidgetBuilder widgetBuilder) => _widgetBuilder = widgetBuilder;
 
         public async Task Execute(GameCommandArgs args)
         {

@@ -26,10 +26,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
     {
         protected readonly IProjectileBuilder ProjectileBuilder;
 
-        public StandardBow(IProjectileBuilder projectileBuilder)
-        {
-            ProjectileBuilder = projectileBuilder;
-        }
+        public StandardBow(IProjectileBuilder projectileBuilder) => ProjectileBuilder = projectileBuilder;
 
         /// <summary>
         ///     Performs the standard attack.

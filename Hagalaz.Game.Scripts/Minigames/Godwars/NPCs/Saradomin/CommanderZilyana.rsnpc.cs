@@ -22,27 +22,24 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
         /// </summary>
         static CommanderZilyana()
         {
-            SpeakData.Add("Death to the enemies of the light!", 3247);
-            SpeakData.Add("Slay the evil ones!", 3242);
-            SpeakData.Add("Saradomin lend me strength!", 3263);
-            SpeakData.Add("May Saradomin be my sword.", 3251);
-            SpeakData.Add("Good will always triumph!", 3260);
-            SpeakData.Add("Forward! Our allies are with us!", 3245);
-            SpeakData.Add("Saradomin is with us!", 3266);
-            SpeakData.Add("In the name of Saradomin!", 3250);
-            SpeakData.Add("Attack! Find the Godsword!", 3258);
-            SpeakData.Add("All praise Saradomin!", 3262);
+            _speakData.Add("Death to the enemies of the light!", 3247);
+            _speakData.Add("Slay the evil ones!", 3242);
+            _speakData.Add("Saradomin lend me strength!", 3263);
+            _speakData.Add("May Saradomin be my sword.", 3251);
+            _speakData.Add("Good will always triumph!", 3260);
+            _speakData.Add("Forward! Our allies are with us!", 3245);
+            _speakData.Add("Saradomin is with us!", 3266);
+            _speakData.Add("In the name of Saradomin!", 3250);
+            _speakData.Add("Attack! Find the Godsword!", 3258);
+            _speakData.Add("All praise Saradomin!", 3262);
         }
 
-        public CommanderZilyana(IAudioBuilder soundBuilder)
-        {
-            _soundBuilder = soundBuilder;
-        }
+        public CommanderZilyana(IAudioBuilder soundBuilder) => _soundBuilder = soundBuilder;
 
         /// <summary>
         ///     Contains speak data.
         /// </summary>
-        private static readonly Dictionary<string, short> SpeakData = new Dictionary<string, short>();
+        private static readonly Dictionary<string, short> _speakData = new Dictionary<string, short>();
 
         /// <summary>
         ///     The attack type
@@ -157,7 +154,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
             }
 
             _speakDelay = 0;
-            foreach (var data in SpeakData.Where(data => RandomStatic.Generator.NextDouble() <= 0.008))
+            foreach (var data in _speakData.Where(data => RandomStatic.Generator.NextDouble() <= 0.008))
             {
                 Owner.Speak(data.Key);
                 _soundBuilder.Create().AsVoice().WithId(data.Value).Build().PlayWithinDistance(Owner, 8);

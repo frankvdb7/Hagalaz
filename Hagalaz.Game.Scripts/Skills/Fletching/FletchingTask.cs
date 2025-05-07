@@ -92,9 +92,9 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// </summary>
         private void PerformAnimation()
         {
-            if (Definition.AnimationID != -1)
+            if (Definition.AnimationId != -1)
             {
-                Performer.QueueAnimation(Animation.Create(Definition.AnimationID));
+                Performer.QueueAnimation(Animation.Create(Definition.AnimationId));
             }
         }
 

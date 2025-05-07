@@ -1,11 +1,12 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Crafting
 {
@@ -13,29 +14,24 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
     /// </summary>
     public class SilverTask : RsTickTask
     {
+        private readonly IItemBuilder _itemBuilder;
+
         /// <summary>
         /// 
         /// </summary>
         private readonly EventHappened _interruptEvent;
 
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="SilverTask" /> class.
-        /// </summary>
-        /// <param name="performer">The performer.</param>
-        /// <param name="definition">The definition.</param>
-        /// <param name="totalMakeCount">The total make count.</param>
-        public SilverTask(ICharacter performer, SilverDto definition, int totalMakeCount)
+        public SilverTask(ICharacterContextAccessor characterContextAccessor, IItemBuilder itemBuilder, IItemService itemService)
         {
-            Performer = performer;
-            Definition = definition;
+            _itemBuilder = itemBuilder;
+            Performer = characterContextAccessor.Context.Character;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
             {
                 Cancel();
                 return false;
             });
-            TotalMakeCount = totalMakeCount;
-            _itemRepository = performer.ServiceProvider.GetRequiredService<IItemService>();
+            _itemService = itemService;
         }
 
         /// <summary>
@@ -46,7 +42,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The definition.
         /// </summary>
-        private SilverDto Definition { get; }
+        public SilverDto Definition { get; set; } = null!;
 
         /// <summary>
         ///     The times performed.
@@ -56,12 +52,12 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         /// <summary>
         ///     The times to perform.
         /// </summary>
-        private int TotalMakeCount { get; }
+        public int TotalMakeCount { get; set; }
 
         /// <summary>
         ///     The item manager
         /// </summary>
-        private readonly IItemService _itemRepository;
+        private readonly IItemService _itemService;
 
         /// <summary>
         ///     Contains tick implementation.
@@ -79,7 +75,8 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             {
                 if (!Performer.Inventory.Contains(CraftingSkillService.SilverBar))
                 {
-                    Performer.SendChatMessage("You do not have any more " + _itemRepository.FindItemDefinitionById(CraftingSkillService.SilverBar).Name + " that you can use.");
+                    Performer.SendChatMessage("You do not have any more " + _itemService.FindItemDefinitionById(CraftingSkillService.SilverBar).Name +
+                                              " that you can use.");
                     Cancel();
                     return;
                 }
@@ -88,21 +85,24 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 return;
             }
 
-            if (TickCount % 3 == 0)
+            if (TickCount % 3 != 0)
             {
-                MakeCount++;
-                var removed = Performer.Inventory.Remove(new Item(CraftingSkillService.SilverBar));
-                if (removed <= 0)
-                {
-                    Cancel();
-                    return;
-                }
-
-                Performer.Inventory.Add(new Item(Definition.ProductID));
-                Performer.SendChatMessage("You shape the silver bar with the mould to make a " + _itemRepository.FindItemDefinitionById(Definition.ProductID).Name.ToLower() + ".");
-
-                Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.Experience);
+                return;
             }
+
+            MakeCount++;
+            var removed = Performer.Inventory.Remove(_itemBuilder.Create().WithId(CraftingSkillService.SilverBar).Build());
+            if (removed <= 0)
+            {
+                Cancel();
+                return;
+            }
+
+            Performer.Inventory.Add(_itemBuilder.Create().WithId(Definition.ProductID).Build());
+            Performer.SendChatMessage("You shape the silver bar with the mould to make a " +
+                                      _itemService.FindItemDefinitionById(Definition.ProductID).Name.ToLower() + ".");
+
+            Performer.Statistics.AddExperience(StatisticsConstants.Crafting, Definition.Experience);
         }
 
         /// <summary>

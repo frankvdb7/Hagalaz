@@ -16,7 +16,8 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
         /// </summary>
         public static readonly SmithingDefinition[] Bars =
         [
-            new(2349, new SmeltingBarDefinition([new ItemDto(436), new ItemDto(438)], 1, 6.2),
+            new(2349,
+                new SmeltingBarDefinition([new ItemDto(436), new ItemDto(438)], 1, 6.2),
                 new ForgingBarDefinition(12.5,
                 [
                     new ForgingBarEntry(new ItemDto(1205), 1, 1), // dagger
@@ -49,9 +50,11 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                     new ForgingBarEntry(new ItemDto(1075), 16, 3), // legs
                     new ForgingBarEntry(new ItemDto(1117), 18, 5) // platebody
                 ])), // bronze bar
-            new(9467, new SmeltingBarDefinition([new ItemDto(668)], 8, 8.0),
+            new(9467,
+                new SmeltingBarDefinition([new ItemDto(668)], 8, 8.0),
                 new ForgingBarDefinition(17.0, [])), // blurite bar
-            new(2351, new SmeltingBarDefinition([new ItemDto(440)], 15, 12.5),
+            new(2351,
+                new SmeltingBarDefinition([new ItemDto(440)], 15, 12.5),
                 new ForgingBarDefinition(25.0,
                 [
                     new ForgingBarEntry(new ItemDto(1203), 15, 1), // dagger
@@ -85,7 +88,8 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                     new ForgingBarEntry(new ItemDto(1115), 33, 5) // platebody
                 ])), // iron bar
             new(2355, new SmeltingBarDefinition([new ItemDto(442)], 20, 13.7), new ForgingBarDefinition()), // silver bar
-            new(2353, new SmeltingBarDefinition([new ItemDto(440), new ItemDto(453, 2)], 30, 17.5),
+            new(2353,
+                new SmeltingBarDefinition([new ItemDto(440), new ItemDto(453, 2)], 30, 17.5),
                 new ForgingBarDefinition(37.0,
                 [
                     new ForgingBarEntry(new ItemDto(1207), 30, 1), // dagger
@@ -119,7 +123,8 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                     new ForgingBarEntry(new ItemDto(1119), 48, 5) // platebody
                 ])), // steel bar
             new(2357, new SmeltingBarDefinition([new ItemDto(444)], 40, 22.5), new ForgingBarDefinition()), // gold bar
-            new(2359, new SmeltingBarDefinition([new ItemDto(447), new ItemDto(453, 4)], 50, 30.0),
+            new(2359,
+                new SmeltingBarDefinition([new ItemDto(447), new ItemDto(453, 4)], 50, 30.0),
                 new ForgingBarDefinition(50.0,
                 [
                     new ForgingBarEntry(new ItemDto(1209), 50, 1), // dagger
@@ -152,9 +157,11 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                     new ForgingBarEntry(new ItemDto(1071), 66, 3), // platelegs
                     new ForgingBarEntry(new ItemDto(1121), 68, 5) // platebody
                 ])), // mithril bar
-            new(2361, new SmeltingBarDefinition([new ItemDto(449), new ItemDto(453, 6)], 70, 37.5),
+            new(2361,
+                new SmeltingBarDefinition([new ItemDto(449), new ItemDto(453, 6)], 70, 37.5),
                 new ForgingBarDefinition(62.0, [])), // adamantite bar
-            new(2363, new SmeltingBarDefinition([new ItemDto(451), new ItemDto(453, 8)], 85, 50.0),
+            new(2363,
+                new SmeltingBarDefinition([new ItemDto(451), new ItemDto(453, 8)], 85, 50.0),
                 new ForgingBarDefinition(75.0, [])), // rune bar
             new(21783, new SmeltingBarDefinition([new ItemDto(21779)], 80, 50.0), new ForgingBarDefinition()), // dragonbane bar
             new(21784, new SmeltingBarDefinition([new ItemDto(21780)], 80, 50.0), new ForgingBarDefinition()), // wallasalkibane bar
@@ -198,6 +205,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             {
                 return false;
             }
+
             if (!character.Inventory.Contains(2347))
             {
                 character.SendChatMessage("You need a hammer in order to work with a " + item.Name.ToLower() + ".");
@@ -260,7 +268,8 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 var definition = Bars[barId];
                 if (character.Statistics.GetSkillLevel(StatisticsConstants.Smithing) < definition.SmeltDefinition.RequiredSmithingLevel)
                 {
-                    character.SendChatMessage("You need a Smithing level of at least " + definition.SmeltDefinition.RequiredSmithingLevel + " to smelt " + itemService.FindItemDefinitionById(definition.BarID).Name.ToLower() + ".");
+                    character.SendChatMessage("You need a Smithing level of at least " + definition.SmeltDefinition.RequiredSmithingLevel + " to smelt " +
+                                              itemService.FindItemDefinitionById(definition.BarID).Name.ToLower() + ".");
                     return false;
                 }
 
@@ -269,7 +278,10 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                     count = 1;
                 }
 
-                character.QueueTask(new SmeltTask(character, definition, count));
+                var task = character.ServiceProvider.GetRequiredService<SmeltTask>();
+                task.Definition = definition;
+                task.TotalSmeltCount = count;
+                character.QueueTask(task);
                 return true;
             };
             dialogue.Info = "How many bars you would like to smelt?<br>Choose a number, then click the bar to begin.";
@@ -289,6 +301,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             {
                 return -1;
             }
+
             for (var i = 0; i < Bars.Length; i++)
             {
                 if (Bars[i].BarID == barID)

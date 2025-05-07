@@ -94,7 +94,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
                     {
                         if (this[i] != null)
                         {
-                            _owner.Configurations.SendGlobalCs2Int((short)(700 + i), this[i].ItemDefinition.TradeValue);
+                            _owner.Configurations.SendGlobalCs2Int((short)(700 + i), this[i]!.ItemDefinition.TradeValue);
                         }
                         else
                         {

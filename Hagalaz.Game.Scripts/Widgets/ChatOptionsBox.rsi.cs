@@ -17,10 +17,7 @@ namespace Hagalaz.Game.Scripts.Widgets
         private readonly IScopedGameMediator _gameMediator;
         private IGameConnectHandle _gameConnectHandle;
 
-        public ChatOptionsBox(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor)
-        {
-            _gameMediator = gameMediator;
-        }
+        public ChatOptionsBox(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 
         /// <summary>
         ///     Happens when interface is opened for character.
@@ -160,10 +157,7 @@ namespace Hagalaz.Game.Scripts.Widgets
         /// <summary>
         ///     Happens when interface is closed for character.
         /// </summary>
-        public override void OnClose()
-        {
-            _gameConnectHandle.Disconnect();
-        }
+        public override void OnClose() => _gameConnectHandle.Disconnect();
 
         public void Refresh()
         {
@@ -173,24 +167,12 @@ namespace Hagalaz.Game.Scripts.Widgets
             RefreshGameFilter();
         }
 
-        private void RefreshAssistFilter()
-        {
-            Owner.Configurations.SendStandardConfiguration(1055, (int)Owner.Profile.GetValue<Availability>(ProfileConstants.ChatSettingsAssistFilter));
-        }
+        private void RefreshAssistFilter() => Owner.Configurations.SendStandardConfiguration(1055, (int)Owner.Profile.GetValue<Availability>(ProfileConstants.ChatSettingsAssistFilter));
 
-        private void RefreshClanFilter()
-        {
-            Owner.Configurations.SendStandardConfiguration(1054, (int)Owner.Profile.GetValue<Availability>(ProfileConstants.ChatSettingsClanFilter));
-        }
+        private void RefreshClanFilter() => Owner.Configurations.SendStandardConfiguration(1054, (int)Owner.Profile.GetValue<Availability>(ProfileConstants.ChatSettingsClanFilter));
 
-        private void RefreshFriendsFilter()
-        {
-            Owner.Configurations.SendStandardConfiguration(2159, (int)Owner.Profile.GetValue<Availability>(ProfileConstants.ChatSettingsFriendsFilter));
-        }
+        private void RefreshFriendsFilter() => Owner.Configurations.SendStandardConfiguration(2159, (int)Owner.Profile.GetValue<Availability>(ProfileConstants.ChatSettingsFriendsFilter));
 
-        private void RefreshGameFilter()
-        {
-            Owner.Configurations.SendStandardConfiguration(1056, (int)Owner.Profile.GetValue<Availability>(ProfileConstants.ChatSettingsGameFilter));
-        }
+        private void RefreshGameFilter() => Owner.Configurations.SendStandardConfiguration(1056, (int)Owner.Profile.GetValue<Availability>(ProfileConstants.ChatSettingsGameFilter));
     }
 }

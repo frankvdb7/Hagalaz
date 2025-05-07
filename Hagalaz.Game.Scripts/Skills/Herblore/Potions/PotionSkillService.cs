@@ -16,10 +16,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
         /// </summary>
         public delegate void OnFinish(ICharacter character);
 
-        public PotionSkillService(IItemBuilder itemBuilder)
-        {
-            _itemBuilder = itemBuilder;
-        }
+        public PotionSkillService(IItemBuilder itemBuilder) => _itemBuilder = itemBuilder;
 
         /// <summary>
         ///     Drinks the potion.

@@ -10,10 +10,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
     {
         private readonly ICraftingSkillService _craftingSkillService;
 
-        public Leather(ICraftingSkillService craftingSkillService)
-        {
-            _craftingSkillService = craftingSkillService;
-        }
+        public Leather(ICraftingSkillService craftingSkillService) => _craftingSkillService = craftingSkillService;
 
         /// <summary>
         ///     Uses the item on an other item.

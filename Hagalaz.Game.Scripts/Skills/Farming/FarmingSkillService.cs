@@ -29,10 +29,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
         /// </summary>
         private const int _spadeID = 952;
 
-        public FarmingSkillService(IItemBuilder itemBuilder)
-        {
-            _itemBuilder = itemBuilder;
-        }
+        public FarmingSkillService(IItemBuilder itemBuilder) => _itemBuilder = itemBuilder;
 
         /// <summary>
         ///     Handles the patch click perform.

@@ -11,10 +11,7 @@ namespace Hagalaz.Game.Scripts.Commands
         public string Name { get; } = "openframe";
         public Permission Permission { get; } = Permission.SystemAdministrator;
 
-        public OpenFrameCommand(IWidgetBuilder widgetBuilder)
-        {
-            _widgetBuilder = widgetBuilder;
-        }
+        public OpenFrameCommand(IWidgetBuilder widgetBuilder) => _widgetBuilder = widgetBuilder;
 
         public async Task Execute(GameCommandArgs args)
         {

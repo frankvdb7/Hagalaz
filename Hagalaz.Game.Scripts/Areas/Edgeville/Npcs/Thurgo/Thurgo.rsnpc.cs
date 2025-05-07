@@ -1,6 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Thurgo
@@ -20,11 +19,9 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Thurgo
         {
             if (clickType == NpcClickType.Option1Click)
             {
-
-                clicker.Widgets.OpenDialogue(new SkillCapeDialogue.SkillCapeDialogue(clicker.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
-                        StatisticsConstants.Smithing),
-                    true,
-                    Owner);
+                var skillCapeDialogue = clicker.ServiceProvider.GetRequiredService<SkillCapeDialogue.SkillCapeDialogue>();
+                skillCapeDialogue.SkillID = StatisticsConstants.Smithing;
+                clicker.Widgets.OpenDialogue(skillCapeDialogue, true, Owner);
                 return;
             }
 

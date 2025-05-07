@@ -14,10 +14,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness
     {
         private readonly IItemBuilder _itemBuilder;
 
-        public WildernessScript(ICharacterContextAccessor contextAccessor, IItemBuilder itemBuilder) : base(contextAccessor)
-        {
-            _itemBuilder = itemBuilder;
-        }
+        public WildernessScript(ICharacterContextAccessor contextAccessor, IItemBuilder itemBuilder) : base(contextAccessor) => _itemBuilder = itemBuilder;
 
         /// <summary>
         ///     Called when the character is killed by a creature.

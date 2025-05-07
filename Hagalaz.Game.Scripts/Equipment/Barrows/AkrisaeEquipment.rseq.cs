@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <summary>
         ///     The dharok degraded equipment
         /// </summary>
-        private static readonly int[] AkrisaeIDs =
+        private static readonly int[] _akrisaeIDs =
         [
             21736, 21738, 21739, 21740, 21741, // akrisae hood
             21744, 21746, 21747, 21748, 21749, // akrisae mace
@@ -43,21 +43,21 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
             var hasChest = false;
             var hasWeapon = false;
             var hasHat = false;
-            for (var i = 0; i < AkrisaeIDs.Length; i++)
+            for (var i = 0; i < _akrisaeIDs.Length; i++)
             {
-                if (legs.Id == AkrisaeIDs[i])
+                if (legs.Id == _akrisaeIDs[i])
                 {
                     hasLegs = true;
                 }
-                else if (chest.Id == AkrisaeIDs[i])
+                else if (chest.Id == _akrisaeIDs[i])
                 {
                     hasChest = true;
                 }
-                else if (weapon.Id == AkrisaeIDs[i])
+                else if (weapon.Id == _akrisaeIDs[i])
                 {
                     hasWeapon = true;
                 }
-                else if (hat.Id == AkrisaeIDs[i])
+                else if (hat.Id == _akrisaeIDs[i])
                 {
                     hasHat = true;
                 }
@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns>
         ///     Return's array of item ids for which this script is suitable.
         /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => AkrisaeIDs;
+        public override IEnumerable<int> GetSuitableItems() => _akrisaeIDs;
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.
@@ -93,8 +93,8 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns></returns>
         public override int GetDegrationTicks(IItem item)
         {
-            if (item.Id == AkrisaeIDs[0] || item.Id == AkrisaeIDs[5]
-                                         || item.Id == AkrisaeIDs[10] || item.Id == AkrisaeIDs[15])
+            if (item.Id == _akrisaeIDs[0] || item.Id == _akrisaeIDs[5]
+                                         || item.Id == _akrisaeIDs[10] || item.Id == _akrisaeIDs[15])
             {
                 return 0; // Degrade to 100 barrow item
             }
@@ -116,8 +116,8 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <returns></returns>
         public override short GetDegradedItemID(IItem item)
         {
-            if (item.Id == AkrisaeIDs[0] || item.Id == AkrisaeIDs[5]
-                                         || item.Id == AkrisaeIDs[10] || item.Id == AkrisaeIDs[15])
+            if (item.Id == _akrisaeIDs[0] || item.Id == _akrisaeIDs[5]
+                                         || item.Id == _akrisaeIDs[10] || item.Id == _akrisaeIDs[15])
             {
                 return (short)(item.Id + 2); // Degrade to 100 barrow item
             }

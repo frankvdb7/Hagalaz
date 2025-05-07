@@ -23,10 +23,8 @@ namespace Hagalaz.Game.Scripts.Characters
         private readonly IPathFinder _pathFinder;
 
         public FollowingCharacterScript(ICharacterContextAccessor contextAccessor, ISmartPathFinder pathFinder)
-            : base(contextAccessor)
-        {
+            : base(contextAccessor) =>
             _pathFinder = pathFinder;
-        }
 
         /// <summary>
         ///     Happens when script instance is initialized.

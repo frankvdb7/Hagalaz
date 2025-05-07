@@ -4,8 +4,8 @@ namespace Hagalaz.Services.Authorization.Config
     {
         public const string Captcha = "Captcha";
         
-        public string ApiBaseUrl { get; init; }
-        public string SiteKey { get; init; }
-        public string Secret { get; init;  }
+        public required string ApiBaseUrl { get; init; }
+        public required string SiteKey { get; init; }
+        public required string Secret { get; init;  }
     }
 }
