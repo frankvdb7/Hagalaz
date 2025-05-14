@@ -7,16 +7,19 @@ var builder = DistributedApplication.CreateBuilder(args);
 var database = builder.AddMySql("mysql")
     .WithEnvironment("MYSQL_DATABASE", "hagalaz-db")
     .WithBindMount("../Data", "/docker-entrypoint-initdb.d")
+    .WithDataVolume()
     .WithLifetime(ContainerLifetime.Persistent)
     .WithPhpMyAdmin(configure => configure.WithLifetime(ContainerLifetime.Persistent))
     .AddDatabase("hagalaz-db");
 
 var messaging = builder.AddRabbitMQ("messaging")
     .WithImage("masstransit/rabbitmq")
+    .WithDataVolume()
     .WithLifetime(ContainerLifetime.Persistent);
 
 var cache = builder.AddRedis("cache")
     .WithRedisInsight(configure => configure.WithLifetime(ContainerLifetime.Persistent))
+    .WithDataVolume()
     .WithLifetime(ContainerLifetime.Persistent);
 
 var prometheus = builder.AddContainer("prometheus", "prom/prometheus")
