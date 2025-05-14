@@ -97,6 +97,7 @@ public static class Extensions
                 tracing.AddAspNetCoreInstrumentation()
                     .AddGrpcClientInstrumentation()
                     .AddHttpClientInstrumentation()
+                    .AddEntityFrameworkCoreInstrumentation()
                     .AddSource("MassTransit")
                     .AddSource("Polly")
                     .AddSource("Raido.Server");

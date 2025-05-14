@@ -10,8 +10,8 @@
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="14.0.0" />
     <PackageReference Include="FluentResults" Version="3.16.0" />
-    <PackageReference Include="MassTransit" Version="8.4.0" />
-    <PackageReference Include="MassTransit.RabbitMQ" Version="8.4.0" />
+    <PackageReference Include="MassTransit" Version="8.4.1" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.4.1" />
     <PackageReference Include="OpenIddict.AspNetCore" Version="6.2.1" />
   </ItemGroup>
   <ItemGroup>
