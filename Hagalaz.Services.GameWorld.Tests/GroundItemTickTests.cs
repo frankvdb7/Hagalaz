@@ -11,13 +11,15 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Services.GameWorld.Model.Items;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Microsoft.Extensions.Options;
+using Hagalaz.Game.Configuration;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {
     [TestClass]
     public class GroundItemTickTests
     {
-        private static MapRegion CreateRegion()
+        private static MapRegion CreateRegion(int publicTicks = 100)
         {
             var npcService = new Mock<INpcService>();
             var regionService = new Mock<IMapRegionService>();
@@ -25,7 +27,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var groundItemBuilder = new SimpleGroundItemBuilder();
             var mapper = new MapperConfiguration(cfg => { }).CreateMapper();
             var location = Location.Create(0, 0);
-            return new MapRegion(location, new int[4], npcService.Object, regionService.Object, gameObjectBuilder.Object, groundItemBuilder, mapper);
+            var options = Options.Create(new GroundItemOptions { PublicTickTime = publicTicks });
+            return new MapRegion(location, new int[4], npcService.Object, regionService.Object, gameObjectBuilder.Object, groundItemBuilder, mapper, options);
         }
 
         private static IGroundItem CreateItem(int respawnTicks, int ticksLeft)
@@ -124,7 +127,8 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public async Task Tick_Makes_Private_Item_Public_When_Timer_Expires()
         {
-            var region = CreateRegion();
+            const int publicTicks = 42;
+            var region = CreateRegion(publicTicks);
             var item = CreatePrivateItem(true, 1);
             region.Add(item);
 
@@ -134,6 +138,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.AreEqual(1, items.Count);
             Assert.AreNotSame(item, items[0]);
             Assert.IsNull(items[0].Owner);
+            Assert.AreEqual(publicTicks, items[0].TicksLeft);
         }
     }
 
