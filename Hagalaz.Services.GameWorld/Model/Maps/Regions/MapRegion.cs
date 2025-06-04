@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -29,6 +30,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly INpcService _npcService;
         private readonly IMapRegionService _regionService;
         private readonly IGameObjectBuilder _gameObjectBuilder;
+        private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IMapper _mapper;
 
         public int Id => BaseLocation.RegionId;
@@ -40,7 +42,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public int[] XteaKeys { get; }
 
         public MapRegion(
-            ILocation baseLocation, int[] xtea, INpcService npcService, IMapRegionService regionService, IGameObjectBuilder gameObjectBuilder, IMapper mapper)
+            ILocation baseLocation,
+            int[] xtea,
+            INpcService npcService,
+            IMapRegionService regionService,
+            IGameObjectBuilder gameObjectBuilder,
+            IGroundItemBuilder groundItemBuilder,
+            IMapper mapper)
         {
             BaseLocation = baseLocation;
             Size = Location.Create(64, 64, 4);
@@ -50,6 +58,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _npcService = npcService;
             _regionService = regionService;
             _gameObjectBuilder = gameObjectBuilder;
+            _groundItemBuilder = groundItemBuilder;
             _mapper = mapper;
         }
 
