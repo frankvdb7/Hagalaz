@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Services.GameWorld.Model.Items;
+using Hagalaz.Game.Configuration;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 {
@@ -30,24 +33,48 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             foreach (var groundItem in FindAllGroundItems().ToArray())
             {
+                groundItem.TicksLeft--;
+
+                if (groundItem.TicksLeft > 0)
+                    continue;
+
+                if (groundItem.IsRespawning)
+                {
+                    Remove(groundItem);
+
+                    if (groundItem is GroundItem gi)
+                    {
+                        var respawnedItem = _groundItemBuilder
+                            .Create()
+                            .WithItem(groundItem.ItemOnGround.Clone())
+                            .WithLocation(groundItem.Location.Clone())
+                            .WithRespawnTicks(gi.RespawnTicks)
+                            .WithTicks(gi.RespawnTicks)
+                            .Build();
+
+                        Add(respawnedItem);
+                    }
+
+                    continue;
+                }
+
                 if (groundItem.CanRespawn())
                 {
-                    if (!groundItem.IsRespawning || --groundItem.TicksLeft > 0)
-                    {
-                        continue;
-                    }
-                    Remove(groundItem);
-                    Add(groundItem.Clone());
+                    groundItem.SetRespawning();
+                    continue;
                 }
-                else if (--groundItem.TicksLeft <= 0)
+
+                Remove(groundItem);
+                if (!groundItem.IsPublic && groundItem.ItemOnGround.ItemScript.CanTradeItem(groundItem.ItemOnGround, groundItem.Owner))
                 {
-                    Remove(groundItem);
-                    if (!groundItem.IsPublic && groundItem.ItemOnGround.ItemScript.CanTradeItem(groundItem.ItemOnGround, groundItem.Owner))
-                    {
-                        var publicGroundItem = groundItem.Clone();
-                        publicGroundItem.Owner = null;
-                        Add(publicGroundItem);
-                    }
+                    var publicGroundItem = _groundItemBuilder
+                        .Create()
+                        .WithItem(groundItem.ItemOnGround.Clone())
+                        .WithLocation(groundItem.Location.Clone())
+                        .WithRespawnTicks(0)
+                        .WithTicks(_groundItemOptions.Value.PublicTickTime)
+                        .Build();
+                    Add(publicGroundItem);
                 }
             }
         }
