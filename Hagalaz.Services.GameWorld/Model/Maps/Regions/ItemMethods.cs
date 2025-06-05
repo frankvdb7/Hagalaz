@@ -72,6 +72,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                         .WithItem(groundItem.ItemOnGround.Clone())
                         .WithLocation(groundItem.Location.Clone())
                         .WithRespawnTicks(0)
+                        .WithTicks(_groundItemOptions.Value.PublicTickTime)
                         .Build();
                     Add(publicGroundItem);
                 }

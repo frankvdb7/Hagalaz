@@ -11,6 +11,8 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Services.GameWorld.Model.Items;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Game.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {
@@ -25,7 +27,16 @@ namespace Hagalaz.Services.GameWorld.Tests
             var groundItemBuilder = new SimpleGroundItemBuilder();
             var mapper = new MapperConfiguration(cfg => { }).CreateMapper();
             var location = Location.Create(0, 0);
-            return new MapRegion(location, new int[4], npcService.Object, regionService.Object, gameObjectBuilder.Object, groundItemBuilder, mapper);
+            var options = Options.Create(new GroundItemOptions { PublicTickTime = publicTicks });
+            return new MapRegion(
+                location,
+                new int[4],
+                npcService.Object,
+                regionService.Object,
+                gameObjectBuilder.Object,
+                groundItemBuilder,
+                options,
+                mapper);
         }
 
         private static IGroundItem CreateItem(int respawnTicks, int ticksLeft)

@@ -15,6 +15,8 @@ using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Hagalaz.Workers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Hagalaz.Game.Configuration;
 using Regions_MapRegion = Hagalaz.Services.GameWorld.Model.Maps.Regions.MapRegion;
 
 namespace Hagalaz.Services.GameWorld.Services
@@ -37,6 +39,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
+        private readonly IOptions<GroundItemOptions> _groundItemOptions;
         private readonly IMapper _mapper;
         private readonly ILogger<MapRegionService> _logger;
 
@@ -46,6 +49,7 @@ namespace Hagalaz.Services.GameWorld.Services
             ILocationBuilder locationBuilder,
             IGameObjectBuilder gameObjectBuilder,
             IGroundItemBuilder groundItemBuilder,
+            IOptions<GroundItemOptions> groundItemOptions,
             IMapper mapper,
             ILogger<MapRegionService> logger)
         {
@@ -55,6 +59,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _locationBuilder = locationBuilder;
             _gameObjectBuilder = gameObjectBuilder;
             _groundItemBuilder = groundItemBuilder;
+            _groundItemOptions = groundItemOptions;
             _mapper = mapper;
             _logger = logger;
         }
@@ -157,6 +162,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 this,
                 _gameObjectBuilder,
                 _groundItemBuilder,
+                _groundItemOptions,
                 _mapper);
             dim.Regions.Add(id, region);
             return region;
