@@ -14,8 +14,6 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Extensions;
-using Hagalaz.Game.Configuration;
-using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 {
@@ -33,7 +31,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly IMapRegionService _regionService;
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
-        private readonly IOptions<GroundItemOptions> _groundItemOptions;
         private readonly IMapper _mapper;
 
         public int Id => BaseLocation.RegionId;
@@ -51,8 +48,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             IMapRegionService regionService,
             IGameObjectBuilder gameObjectBuilder,
             IGroundItemBuilder groundItemBuilder,
-            IMapper mapper,
-            IOptions<GroundItemOptions> groundItemOptions)
+            IMapper mapper)
         {
             BaseLocation = baseLocation;
             Size = Location.Create(64, 64, 4);
@@ -64,7 +60,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _gameObjectBuilder = gameObjectBuilder;
             _groundItemBuilder = groundItemBuilder;
             _mapper = mapper;
-            _groundItemOptions = groundItemOptions;
         }
 
         public void Add(INpc npc)
