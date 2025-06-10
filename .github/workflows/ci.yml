@@ -9,35 +9,28 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dotnet-version: [ '9.0.x' ]
     steps:
       - uses: actions/checkout@v4
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: ${{ matrix.dotnet-version }}
           cache: true
-          cache-dependency-path: '**/*.csproj'
       - name: Restore
         run: dotnet restore --configfile NuGet.config
       - name: Build
         run: dotnet build --no-restore --verbosity minimal
       - name: Test
-        run: dotnet test --no-build --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+        run: dotnet test --no-build --no-restore --logger trx --results-directory TestResults
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-test-results
-          path: |
-            TestResults/**/*.trx
-            TestResults/**/*.log
-      - name: Publish Test Results
-        if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: |
-            TestResults/**/*.trx
-            TestResults/**/*.log
+          path: TestResults
 
   webapp:
     if: ${{ false }}
