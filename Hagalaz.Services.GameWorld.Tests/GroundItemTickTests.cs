@@ -126,15 +126,20 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             // Second tick: respawning item timer decrements
             await region.MajorClientPrepareUpdateTick();
-            Assert.AreEqual(1, respawning.TicksLeft, "Respawning item ticks should decrement");
-            Assert.IsTrue(respawning.IsRespawning, "Item should still be respawning");
+            var afterSecondTick = region.FindAllGroundItems().Single();
+            // Log state for debug
+            Console.WriteLine($"After 2nd tick: IsRespawning={afterSecondTick.IsRespawning}, TicksLeft={afterSecondTick.TicksLeft}");
+            Assert.AreEqual(1, afterSecondTick.TicksLeft, "Respawning item ticks should decrement");
+            Assert.IsTrue(afterSecondTick.IsRespawning, "Item should still be respawning");
 
             // Third tick: respawning item should become a normal item again
             await region.MajorClientPrepareUpdateTick();
             var items = region.FindAllGroundItems().ToList();
+            foreach (var i in items)
+                Console.WriteLine($"After 3rd tick: IsRespawning={i.IsRespawning}, TicksLeft={i.TicksLeft}");
             Assert.AreEqual(1, items.Count, "There should be one item after respawn");
             var respawned = items[0];
-            Assert.IsFalse(respawned.IsRespawning, "Item should no longer be respawning after respawn");
+            Assert.IsFalse(respawned.IsRespawning, $"Item should no longer be respawning after respawn, but was: {respawned.IsRespawning}, TicksLeft={respawned.TicksLeft}");
             Assert.AreEqual(respawned.RespawnTicks, respawned.TicksLeft, "Respawned item should have its ticks reset");
         }
 
@@ -185,7 +190,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             }
 
             // IGroundItemBuilder
-            public IGroundItemOnGround Create() => this;
+            public IGroundItemOnGround Create() => new SimpleGroundItemBuilder(_publicTicks);
 
             // IGroundItemOnGround
             public IGroundItemLocation WithItem(IItem item) { _item = item; return this; }
@@ -219,7 +224,9 @@ namespace Hagalaz.Services.GameWorld.Tests
                     ticks = respawnTicks;
                 }
 
-                return new GroundItem(_item, _location, _owner, respawnTicks, ticks, _isRespawning);
+                var result = new GroundItem(_item, _location, _owner, respawnTicks, ticks, _isRespawning);
+
+                return result;
             }
             public IGroundItem Spawn() => Build();
         }

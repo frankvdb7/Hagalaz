@@ -236,61 +236,50 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return;
             }
 
-            if (!item.IsRespawning)
-            {
-                QueueUpdate(new RemoveGroundItemUpdate(item));
-            }
-
+            // Always remove the expired item first
             itemsOnLocation.Remove(item);
+
+            if (!item.IsRespawning && item.CanRespawn())
+            {
+                // Replace with a respawning item
+                var respawnItem = _groundItemBuilder
+                    .Create()
+                    .WithItem(item.ItemOnGround.Clone())
+                    .WithLocation(item.Location.Clone())
+                    .WithRespawnTicks(item.RespawnTicks)
+                    .WithTicks(item.RespawnTicks)
+                    .AsRespawning()
+                    .Build();
+                itemsOnLocation.Add(respawnItem);
+                return;
+            }
 
             if (item.IsRespawning)
             {
-                item.Destroy();
-
-                var respawnedItem = _groundItemBuilder
+                // Replace with a normal (non-respawning) item
+                var normalItem = _groundItemBuilder
                     .Create()
                     .WithItem(item.ItemOnGround.Clone())
                     .WithLocation(item.Location.Clone())
                     .WithRespawnTicks(item.RespawnTicks)
                     .WithTicks(item.RespawnTicks)
+                    // Do NOT call AsRespawning here!
                     .Build();
-
-                itemsOnLocation.Add(respawnedItem);
+                itemsOnLocation.Add(normalItem);
+                return;
             }
-            else if (item.CanRespawn())
-            {
-                item.Destroy();
 
-                var respawnBuilder = _groundItemBuilder
+            item.Destroy();
+
+            if (!item.IsPublic && item.ItemOnGround.ItemScript.CanTradeItem(item.ItemOnGround, item.Owner))
+            {
+                var publicGroundItem = _groundItemBuilder
                     .Create()
                     .WithItem(item.ItemOnGround.Clone())
                     .WithLocation(item.Location.Clone())
-                    .WithRespawnTicks(item.RespawnTicks)
-                    .WithTicks(item.RespawnTicks)
-                    .AsRespawning();
-
-                if (item.Owner != null)
-                {
-                    respawnBuilder = respawnBuilder.WithOwner(item.Owner);
-                }
-
-                var respawnItem = respawnBuilder.Build();
-                itemsOnLocation.Add(respawnItem);
-            }
-            else
-            {
-                item.Destroy();
-
-                if (!item.IsPublic && item.ItemOnGround.ItemScript.CanTradeItem(item.ItemOnGround, item.Owner))
-                {
-                    var publicGroundItem = _groundItemBuilder
-                        .Create()
-                        .WithItem(item.ItemOnGround.Clone())
-                        .WithLocation(item.Location.Clone())
-                        .WithRespawnTicks(0)
-                        .Build();
-                    itemsOnLocation.Add(publicGroundItem);
-                }
+                    .WithRespawnTicks(0)
+                    .Build();
+                itemsOnLocation.Add(publicGroundItem);
             }
 
             if (itemsOnLocation.Count <= 0)
