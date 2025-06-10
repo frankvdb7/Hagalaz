@@ -26,6 +26,7 @@ namespace Raido.Common.Protocol
 
         private readonly IByteBufferWriter _buffer;
         private int _bitPosition;
+        private int _initializedBytes;
 
         public int Opcode { get; private set; }
         public RaidoMessageSize Size { get; private set; }
@@ -51,6 +52,7 @@ namespace Raido.Common.Protocol
         public IRaidoMessageBitWriter BeginBitAccess()
         {
             _bitPosition = (int)(Length * 8);
+            _initializedBytes = (int)Length;
             return this;
         }
         public IRaidoMessageBitWriter WriteBits(int bitCount, int value)
@@ -59,12 +61,20 @@ namespace Raido.Common.Protocol
             {
                 throw new ArgumentOutOfRangeException(nameof(bitCount), "Number of bits must be between 1 and 32 inclusive");
             }
+            var startByte = _bitPosition >> 3;
             var bitOffset = 8 - (_bitPosition & 7);
             _bitPosition += bitCount;
 
-            var byteSize = (bitCount + 7) / 8;
+            var endByte = (_bitPosition + 7) >> 3;
+            var byteSize = endByte - startByte;
             var bytePosition = 0;
             var writtenSpan = GetSpan(byteSize);
+
+            for (var i = Math.Max(_initializedBytes, startByte); i < endByte; i++)
+            {
+                writtenSpan[i - startByte] = 0;
+            }
+            _initializedBytes = Math.Max(_initializedBytes, endByte);
             for (; bitCount > bitOffset; bitOffset = 8)
             {
                 writtenSpan[bytePosition] &= (byte)~_bitMasks[bitOffset];
@@ -89,6 +99,7 @@ namespace Raido.Common.Protocol
         {
             var calcBytePosition = (_bitPosition + 7) / 8;
             Advance((int)(calcBytePosition - Length));
+            _initializedBytes = (int)Length;
             return this;
         }
     }
