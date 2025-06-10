@@ -34,7 +34,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IMapper _mapper;
-        private readonly IOptions<GroundItemOptions> _groundItemOptions;
 
         public int Id => BaseLocation.RegionId;
         public ILocation BaseLocation { get; }
@@ -51,7 +50,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             IMapRegionService regionService,
             IGameObjectBuilder gameObjectBuilder,
             IGroundItemBuilder groundItemBuilder,
-            IOptions<GroundItemOptions> groundItemOptions,
             IMapper mapper)
         {
             BaseLocation = baseLocation;
@@ -63,7 +61,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _regionService = regionService;
             _gameObjectBuilder = gameObjectBuilder;
             _groundItemBuilder = groundItemBuilder;
-            _groundItemOptions = groundItemOptions;
             _mapper = mapper;
         }
 
