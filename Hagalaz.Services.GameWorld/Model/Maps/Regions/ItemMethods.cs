@@ -41,6 +41,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 if (_parts.TryGetValue(partHash, out var part))
                 {
                     part.ProcessExpiredItem(groundItem);
+                }
             }
         }
     }

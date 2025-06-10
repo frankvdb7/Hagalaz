@@ -47,6 +47,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             IMapRegionService regionService,
             IGameObjectBuilder gameObjectBuilder,
             IGroundItemBuilder groundItemBuilder,
+            IMapper mapper)
         {
             BaseLocation = baseLocation;
             Size = Location.Create(64, 64, 4);
@@ -57,6 +58,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _regionService = regionService;
             _gameObjectBuilder = gameObjectBuilder;
             _groundItemBuilder = groundItemBuilder;
+            _mapper = mapper;
         }
 
         public void Add(INpc npc)
