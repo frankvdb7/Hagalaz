@@ -37,39 +37,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 if (groundItem.TicksLeft > 0)
                     continue;
 
-                if (groundItem.IsRespawning)
+                var partHash = groundItem.Location.GetRegionPartHash();
+                if (_parts.TryGetValue(partHash, out var part))
                 {
-                    Remove(groundItem);
-
-                    var respawnedItem = _groundItemBuilder
-                        .Create()
-                        .WithItem(groundItem.ItemOnGround.Clone())
-                        .WithLocation(groundItem.Location.Clone())
-                        .WithRespawnTicks(groundItem.RespawnTicks)
-                        .WithTicks(groundItem.RespawnTicks)
-                        .Build();
-
-                    Add(respawnedItem);
-
-                    continue;
-                }
-
-                if (groundItem.CanRespawn())
-                {
-                    Remove(groundItem);
-                    continue;
-                }
-
-                Remove(groundItem);
-                if (!groundItem.IsPublic && groundItem.ItemOnGround.ItemScript.CanTradeItem(groundItem.ItemOnGround, groundItem.Owner))
-                {
-                    var publicGroundItem = _groundItemBuilder
-                        .Create()
-                        .WithItem(groundItem.ItemOnGround.Clone())
-                        .WithLocation(groundItem.Location.Clone())
-                        .WithRespawnTicks(0)
-                    Add(publicGroundItem);
-                }
+                    part.ProcessExpiredItem(groundItem);
             }
         }
     }

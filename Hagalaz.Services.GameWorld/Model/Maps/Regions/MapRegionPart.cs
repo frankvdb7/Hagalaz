@@ -223,6 +223,77 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
+        public void ProcessExpiredItem(IGroundItem item)
+        {
+            var localHash = item.Location.GetRegionLocalHash();
+            if (!_groundItems.TryGetValue(localHash, out var itemsOnLocation))
+            {
+                return;
+            }
+
+            if (!item.IsRespawning)
+            {
+                QueueUpdate(new RemoveGroundItemUpdate(item));
+            }
+
+            itemsOnLocation.Remove(item);
+
+            if (item.IsRespawning)
+            {
+                item.Destroy();
+
+                var respawnedItem = _groundItemBuilder
+                    .Create()
+                    .WithItem(item.ItemOnGround.Clone())
+                    .WithLocation(item.Location.Clone())
+                    .WithRespawnTicks(item.RespawnTicks)
+                    .WithTicks(item.RespawnTicks)
+                    .Build();
+
+                itemsOnLocation.Add(respawnedItem);
+            }
+            else if (item.CanRespawn())
+            {
+                item.Destroy();
+
+                var respawnBuilder = _groundItemBuilder
+                    .Create()
+                    .WithItem(item.ItemOnGround.Clone())
+                    .WithLocation(item.Location.Clone())
+                    .WithRespawnTicks(item.RespawnTicks)
+                    .WithTicks(item.RespawnTicks)
+                    .AsRespawning();
+
+                if (item.Owner != null)
+                {
+                    respawnBuilder = respawnBuilder.WithOwner(item.Owner);
+                }
+
+                var respawnItem = respawnBuilder.Build();
+                itemsOnLocation.Add(respawnItem);
+            }
+            else
+            {
+                item.Destroy();
+
+                if (!item.IsPublic && item.ItemOnGround.ItemScript.CanTradeItem(item.ItemOnGround, item.Owner))
+                {
+                    var publicGroundItem = _groundItemBuilder
+                        .Create()
+                        .WithItem(item.ItemOnGround.Clone())
+                        .WithLocation(item.Location.Clone())
+                        .WithRespawnTicks(0)
+                        .Build();
+                    itemsOnLocation.Add(publicGroundItem);
+                }
+            }
+
+            if (itemsOnLocation.Count <= 0)
+            {
+                _groundItems.Remove(localHash);
+            }
+        }
+
         public void SendFullUpdate(ICharacter character)
         {
             var updates = new List<IRegionPartUpdate>();
