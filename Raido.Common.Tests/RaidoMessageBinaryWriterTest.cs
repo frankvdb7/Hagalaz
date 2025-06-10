@@ -138,6 +138,24 @@ namespace Raido.Common.Tests
         }
 
         [TestMethod]
+        public void WriteBits_CrossByte()
+        {
+            _output.BeginBitAccess();
+            _output.WriteBits(4, 0b1111);
+            _output.WriteBits(8, 0b10101010);
+            _output.WriteBits(4, 0);
+            _output.EndBitAccess();
+
+            Assert.AreEqual(2, _output.Length);
+
+            var expected = new byte[2];
+            expected[0] = 250;
+            expected[1] = 160;
+            var actual = _buffer.ToArray();
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
         public void EndBitAccess()
         {
             _output.BeginBitAccess();
