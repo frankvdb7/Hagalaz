@@ -51,7 +51,7 @@ namespace Hagalaz.Services.GameWorld.Model.Items
             IsRespawning = isRespawning;
         }
 
-        public bool CanRespawn() => RespawnTicks > 0;
+        public bool CanRespawn() => RespawnTicks > 0 && !IsRespawning;
 
 
         /// <summary>
