@@ -27,7 +27,6 @@ namespace Hagalaz.Services.GameWorld.Tests
             var groundItemBuilder = new SimpleGroundItemBuilder();
             var mapper = new MapperConfiguration(cfg => { }).CreateMapper();
             var location = Location.Create(0, 0);
-            var options = Options.Create(new GroundItemOptions { PublicTickTime = publicTicks });
             return new MapRegion(
                 location,
                 new int[4],
@@ -35,7 +34,6 @@ namespace Hagalaz.Services.GameWorld.Tests
                 regionService.Object,
                 gameObjectBuilder.Object,
                 groundItemBuilder,
-                options,
                 mapper);
         }
 
