@@ -25,5 +25,11 @@ namespace Hagalaz.Game.Abstractions.Builders.GroundItem
         /// <param name="ticks"></param>
         /// <returns></returns>
         IGroundItemOptional WithTicks(int ticks);
+
+        /// <summary>
+        /// Marks the ground item as respawning.
+        /// </summary>
+        /// <returns></returns>
+        IGroundItemOptional AsRespawning();
     }
 }

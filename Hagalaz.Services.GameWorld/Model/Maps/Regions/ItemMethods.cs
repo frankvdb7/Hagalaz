@@ -57,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
                 if (groundItem.CanRespawn())
                 {
-                    groundItem.SetRespawning();
+                    Remove(groundItem);
                     continue;
                 }
 

@@ -50,10 +50,6 @@ namespace Hagalaz.Game.Abstractions.Model.Items
         /// </returns>
         bool CanStack(IGroundItem item);
         /// <summary>
-        /// Sets the respawning.
-        /// </summary>
-        void SetRespawning();
-        /// <summary>
         /// Determines whether this instance can respawn.
         /// </summary>
         /// <returns>

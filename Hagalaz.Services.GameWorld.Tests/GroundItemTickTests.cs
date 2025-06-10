@@ -102,8 +102,12 @@ namespace Hagalaz.Services.GameWorld.Tests
             await region.MajorClientPrepareUpdateTick();
             await region.MajorClientPrepareUpdateTick();
 
-            Assert.IsTrue(item.IsRespawning);
-            Assert.AreEqual(item.RespawnTicks, item.TicksLeft);
+            var items = region.FindAllGroundItems().ToList();
+            Assert.AreEqual(1, items.Count);
+            Assert.AreNotSame(item, items[0]);
+            var respawnItem = items[0];
+            Assert.IsTrue(respawnItem.IsRespawning);
+            Assert.AreEqual(respawnItem.RespawnTicks, respawnItem.TicksLeft);
         }
 
         [TestMethod]
@@ -115,15 +119,16 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             await region.MajorClientPrepareUpdateTick();
 
-            Assert.IsTrue(item.IsRespawning);
-            Assert.AreEqual(2, item.TicksLeft);
+            var respawning = region.FindAllGroundItems().Single();
+            Assert.AreNotSame(item, respawning);
+            Assert.IsTrue(respawning.IsRespawning);
+            Assert.AreEqual(2, respawning.TicksLeft);
 
             await region.MajorClientPrepareUpdateTick();
             await region.MajorClientPrepareUpdateTick();
 
             var items = region.FindAllGroundItems().ToList();
             Assert.AreEqual(1, items.Count);
-            Assert.AreNotSame(item, items[0]);
             var respawned = items[0];
             Assert.IsFalse(respawned.IsRespawning);
             Assert.AreEqual(respawned.RespawnTicks, respawned.TicksLeft);
@@ -132,7 +137,14 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public async Task Tick_Makes_Private_Item_Public_When_Timer_Expires()
         {
-            var region = CreateRegion();
+        private bool _isRespawning;
+        public IGroundItemOptional AsRespawning()
+        {
+            _isRespawning = true;
+            return this;
+        }
+
+        public IGroundItem Build() => new GroundItem(_item, _location, _owner, _respawnTicks, _ticks, _isRespawning);
             var item = CreatePrivateItem(true, 1);
             region.Add(item);
 

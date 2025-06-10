@@ -275,7 +275,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         public IMapRegionPart CreateRegionPart(int partHash) =>
-            new MapRegionPart(_mapper)
+            new MapRegionPart(_mapper, _groundItemBuilder)
             {
                 DrawRegionPartX = partHash & 0x3ff, DrawRegionPartY = (partHash >> 10) & 0x7ff, DrawRegionZ = (partHash >> 21) & 0x3,
             };

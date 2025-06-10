@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AutoMapper;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -23,14 +24,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     public class MapRegionPart : IMapRegionPart
     {
         private readonly IMapper _mapper;
+        private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly Dictionary<int, List<IGroundItem>> _groundItems = new();
         private readonly Dictionary<int, IGameObject> _gameObjects = new();
         private readonly Dictionary<int, IGameObject> _disabledStaticGameObjects = new();
         private readonly List<IRegionPartUpdate> _updates = [];
 
-        public MapRegionPart(IMapper mapper)
+        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder)
         {
             _mapper = mapper;
+            _groundItemBuilder = groundItemBuilder;
         }
 
         /// <summary>
@@ -187,14 +190,31 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 QueueUpdate(new RemoveGroundItemUpdate(item));
             }
 
+            itemsOnLocation.Remove(item);
+
             if (item.CanRespawn() && !item.IsRespawning)
             {
-                item.SetRespawning();
+                item.Destroy();
+
+                var respawnBuilder = _groundItemBuilder
+                    .Create()
+                    .WithItem(item.ItemOnGround.Clone())
+                    .WithLocation(item.Location.Clone())
+                    .WithRespawnTicks(item.RespawnTicks)
+                    .WithTicks(item.RespawnTicks)
+                    .AsRespawning();
+
+                if (item.Owner != null)
+                {
+                    respawnBuilder = respawnBuilder.WithOwner(item.Owner);
+                }
+
+                var respawnItem = respawnBuilder.Build();
+                itemsOnLocation.Add(respawnItem);
             }
             else
             {
                 item.Destroy();
-                itemsOnLocation.Remove(item);
             }
 
             if (itemsOnLocation.Count <= 0)
