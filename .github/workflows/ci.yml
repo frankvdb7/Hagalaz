@@ -19,6 +19,7 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
           cache: true
+          cache-dependency-path: '**/*.csproj'
       - name: Restore
         run: dotnet restore --configfile NuGet.config
       - name: Build
