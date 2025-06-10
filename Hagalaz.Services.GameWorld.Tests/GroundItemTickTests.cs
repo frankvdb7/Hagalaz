@@ -166,7 +166,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsTrue(item.CanDestroy());
         }
 
-        public class SimpleGroundItemBuilder {
+        public class SimpleGroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional, IGroundItemBuild {
             private int? _respawnTicks;
             private int? _ticks;
             private readonly int _publicTicks;
@@ -180,8 +180,23 @@ namespace Hagalaz.Services.GameWorld.Tests
                 _publicTicks = publicTicks;
             }
 
-            public IGroundItemOnGround Create() => new SimpleGroundItemBuilder(_publicTicks);
+            // IGroundItemBuilder
+            public IGroundItemOnGround Create() => this;
 
+            // IGroundItemOnGround
+            public IGroundItemLocation WithItem(IItem item) { _item = item; return this; }
+            public IGroundItemLocation WithItem(Func<IItemBuilder, IItemBuild> itemBuilder) { return this; }
+
+            // IGroundItemLocation
+            public IGroundItemOptional WithLocation(ILocation location) { _location = location; return this; }
+
+            // IGroundItemOptional
+            public IGroundItemOptional WithOwner(ICharacter owner) { _owner = owner; return this; }
+            public IGroundItemOptional WithRespawnTicks(int respawnTicks) { _respawnTicks = respawnTicks; return this; }
+            public IGroundItemOptional WithTicks(int ticks) { _ticks = ticks; return this; }
+            public IGroundItemOptional AsRespawning() { _isRespawning = true; return this; }
+
+            // IGroundItemBuild
             public IGroundItem Build()
             {
                 var defaultTicks = _publicTicks;
@@ -202,6 +217,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
                 return new GroundItem(_item, _location, _owner, respawnTicks, ticks, _isRespawning);
             }
+            public IGroundItem Spawn() => Build();
         }
     }
 }
