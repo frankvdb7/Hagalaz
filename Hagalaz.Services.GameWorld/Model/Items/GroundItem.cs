@@ -77,7 +77,7 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         /// <returns><c>true</c> if this instance can destroy; otherwise, <c>false</c>.</returns>
         public bool CanDestroy()
         {
-            if (CanRespawn() && IsRespawning || TicksLeft > 0)
+            if ((RespawnTicks > 0 && IsRespawning) || TicksLeft > 0)
                 return false;
             return true;
         }
@@ -88,7 +88,7 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         /// <returns><c>true</c> if this instance can suspend; otherwise, <c>false</c>.</returns>
         public bool CanSuspend()
         {
-            if (CanRespawn() && IsRespawning || TicksLeft > 0)
+            if ((RespawnTicks > 0 && IsRespawning) || TicksLeft > 0)
                 return false;
             return true;
         }

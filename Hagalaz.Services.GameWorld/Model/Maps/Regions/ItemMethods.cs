@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Services.GameWorld.Model.Items;
-using Hagalaz.Game.Configuration;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 {
@@ -69,7 +68,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                         .WithItem(groundItem.ItemOnGround.Clone())
                         .WithLocation(groundItem.Location.Clone())
                         .WithRespawnTicks(0)
-                        .Build();
                     Add(publicGroundItem);
                 }
             }

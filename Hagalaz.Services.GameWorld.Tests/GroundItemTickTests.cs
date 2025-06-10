@@ -19,9 +19,7 @@ namespace Hagalaz.Services.GameWorld.Tests
     [TestClass]
     public class GroundItemTickTests
     {
-        private static MapRegion CreateRegion()
-        {
-            var npcService = new Mock<INpcService>();
+            var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks);
             var regionService = new Mock<IMapRegionService>();
             var gameObjectBuilder = new Mock<IGameObjectBuilder>();
             var groundItemBuilder = new SimpleGroundItemBuilder();
@@ -137,14 +135,56 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public async Task Tick_Makes_Private_Item_Public_When_Timer_Expires()
         {
-        private bool _isRespawning;
-        public IGroundItemOptional AsRespawning()
+
+        [TestMethod]
+        public void CanDestroy_Returns_False_When_Respawning()
         {
+            var item = CreateItem(5, 0);
+            var respawning = new GroundItem(item.ItemOnGround, item.Location, null, item.RespawnTicks, 0, true);
+
+            Assert.IsFalse(respawning.CanDestroy());
+        }
+
+        [TestMethod]
+        public void CanDestroy_Returns_True_When_Ticks_Expired()
+        {
+            var item = CreateItem(0, 0);
+
+            Assert.IsTrue(item.CanDestroy());
+        }
+        private int? _respawnTicks;
+        private int? _ticks;
+        private readonly int _publicTicks;
+        public SimpleGroundItemBuilder(int publicTicks = 100)
+        {
+            _publicTicks = publicTicks;
+        }
+
+        public IGroundItemOnGround Create() => new SimpleGroundItemBuilder(_publicTicks);
             _isRespawning = true;
             return this;
         }
 
-        public IGroundItem Build() => new GroundItem(_item, _location, _owner, _respawnTicks, _ticks, _isRespawning);
+        public IGroundItem Build()
+        {
+            var defaultTicks = _publicTicks;
+            var respawnTicks = _respawnTicks ?? defaultTicks;
+            int ticks;
+            if (_ticks.HasValue)
+            {
+                ticks = _ticks.Value;
+            }
+            else if (_respawnTicks.HasValue)
+            {
+                ticks = _respawnTicks.Value == 0 ? defaultTicks : _respawnTicks.Value;
+            }
+            else
+            {
+                ticks = respawnTicks;
+            }
+
+            return new GroundItem(_item, _location, _owner, respawnTicks, ticks, _isRespawning);
+        }
             var item = CreatePrivateItem(true, 1);
             region.Add(item);
 
