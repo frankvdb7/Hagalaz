@@ -340,4 +340,3 @@ node_modules
 /.tye
 /Data
 /Cache
-!Hagalaz.Web.App/src/typings/

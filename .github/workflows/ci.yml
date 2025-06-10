@@ -25,7 +25,7 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --verbosity minimal
       - name: Test
-        run: dotnet test --no-build --no-restore --logger trx --results-directory TestResults
+        run: dotnet test --no-build --no-restore --logger trx --results-directory TestResults -p:TestingPlatformCommandLineArguments="--report-trx --coverage --coverage-output-format cobertura"
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4
