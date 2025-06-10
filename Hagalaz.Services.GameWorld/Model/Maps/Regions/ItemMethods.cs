@@ -42,18 +42,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     Remove(groundItem);
 
-                    if (groundItem is GroundItem gi)
-                    {
-                        var respawnedItem = _groundItemBuilder
-                            .Create()
-                            .WithItem(groundItem.ItemOnGround.Clone())
-                            .WithLocation(groundItem.Location.Clone())
-                            .WithRespawnTicks(gi.RespawnTicks)
-                            .WithTicks(gi.RespawnTicks)
-                            .Build();
+                    var respawnedItem = _groundItemBuilder
+                        .Create()
+                        .WithItem(groundItem.ItemOnGround.Clone())
+                        .WithLocation(groundItem.Location.Clone())
+                        .WithRespawnTicks(groundItem.RespawnTicks)
+                        .WithTicks(groundItem.RespawnTicks)
+                        .Build();
 
-                        Add(respawnedItem);
-                    }
+                    Add(respawnedItem);
 
                     continue;
                 }

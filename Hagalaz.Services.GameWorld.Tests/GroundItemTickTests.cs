@@ -104,9 +104,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             await region.MajorClientPrepareUpdateTick();
             await region.MajorClientPrepareUpdateTick();
 
-            var gi = (GroundItem)item;
-            Assert.IsTrue(gi.IsRespawning);
-            Assert.AreEqual(gi.RespawnTicks, gi.TicksLeft);
+            Assert.IsTrue(item.IsRespawning);
+            Assert.AreEqual(item.RespawnTicks, item.TicksLeft);
         }
 
         [TestMethod]
@@ -127,7 +126,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var items = region.FindAllGroundItems().ToList();
             Assert.AreEqual(1, items.Count);
             Assert.AreNotSame(item, items[0]);
-            var respawned = (GroundItem)items[0];
+            var respawned = items[0];
             Assert.IsFalse(respawned.IsRespawning);
             Assert.AreEqual(respawned.RespawnTicks, respawned.TicksLeft);
         }
