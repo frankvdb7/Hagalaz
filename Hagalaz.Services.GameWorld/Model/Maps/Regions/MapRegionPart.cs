@@ -223,6 +223,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
+        /// <summary>
+        /// Handles a ground item whose timer has run out by either respawning
+        /// it, converting it to a public item, or removing it entirely.
+        /// </summary>
+        /// <param name="item">The ground item whose timer expired.</param>
         public void ProcessExpiredItem(IGroundItem item)
         {
             var localHash = item.Location.GetRegionLocalHash();
