@@ -32,6 +32,10 @@ namespace Hagalaz.Game.Abstractions.Model.Items
         /// <value>Should respawn.</value>
         bool IsRespawning { get; }
         /// <summary>
+        /// Gets the amount of ticks before this item respawns.
+        /// </summary>
+        int RespawnTicks { get; }
+        /// <summary>
         /// Contains amount of owner ticks are left before the item
         /// is either made public or destroyed.
         /// </summary>
@@ -45,10 +49,6 @@ namespace Hagalaz.Game.Abstractions.Model.Items
         ///   <c>true</c> if this instance can stack the specified item; otherwise, <c>false</c>.
         /// </returns>
         bool CanStack(IGroundItem item);
-        /// <summary>
-        /// Sets the respawning.
-        /// </summary>
-        void SetRespawning();
         /// <summary>
         /// Determines whether this instance can respawn.
         /// </summary>

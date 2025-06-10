@@ -75,6 +75,12 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         void Remove(IGroundItem item);
 
         /// <summary>
+        /// Handles an expired ground item and performs any state transitions.
+        /// </summary>
+        /// <param name="item"></param>
+        void ProcessExpiredItem(IGroundItem item);
+
+        /// <summary>
         /// Sends all updates that happened inside this part to the character.
         /// </summary>
         /// <param name="character"></param>

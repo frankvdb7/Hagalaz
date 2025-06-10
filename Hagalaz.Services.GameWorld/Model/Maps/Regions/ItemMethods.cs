@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Services.GameWorld.Model.Items;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 {
@@ -30,24 +32,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             foreach (var groundItem in FindAllGroundItems().ToArray())
             {
-                if (groundItem.CanRespawn())
+                groundItem.TicksLeft--;
+
+                if (groundItem.TicksLeft > 0)
+                    continue;
+
+                var partHash = groundItem.Location.GetRegionPartHash();
+                if (_parts.TryGetValue(partHash, out var part))
                 {
-                    if (!groundItem.IsRespawning || --groundItem.TicksLeft > 0)
-                    {
-                        continue;
-                    }
-                    Remove(groundItem);
-                    Add(groundItem.Clone());
-                }
-                else if (--groundItem.TicksLeft <= 0)
-                {
-                    Remove(groundItem);
-                    if (!groundItem.IsPublic && groundItem.ItemOnGround.ItemScript.CanTradeItem(groundItem.ItemOnGround, groundItem.Owner))
-                    {
-                        var publicGroundItem = groundItem.Clone();
-                        publicGroundItem.Owner = null;
-                        Add(publicGroundItem);
-                    }
+                    part.ProcessExpiredItem(groundItem);
                 }
             }
         }
