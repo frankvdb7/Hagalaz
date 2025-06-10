@@ -19,10 +19,12 @@ namespace Hagalaz.Services.GameWorld.Tests
     [TestClass]
     public class GroundItemTickTests
     {
-            var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks);
+        private static MapRegion CreateRegion(int publicTicks = 100)
+        {
+            var npcService = new Mock<INpcService>();
             var regionService = new Mock<IMapRegionService>();
             var gameObjectBuilder = new Mock<IGameObjectBuilder>();
-            var groundItemBuilder = new SimpleGroundItemBuilder();
+            var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks);
             var mapper = new MapperConfiguration(cfg => { }).CreateMapper();
             var location = Location.Create(0, 0);
             return new MapRegion(
@@ -135,6 +137,17 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public async Task Tick_Makes_Private_Item_Public_When_Timer_Expires()
         {
+            var region = CreateRegion();
+            var item = CreatePrivateItem(true, 1);
+            region.Add(item);
+
+            await region.MajorClientPrepareUpdateTick();
+
+            var items = region.FindAllGroundItems().ToList();
+            Assert.AreEqual(1, items.Count);
+            Assert.AreNotSame(item, items[0]);
+            Assert.IsNull(items[0].Owner);
+        }
 
         [TestMethod]
         public void CanDestroy_Returns_False_When_Respawning()
@@ -152,95 +165,43 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             Assert.IsTrue(item.CanDestroy());
         }
-        private int? _respawnTicks;
-        private int? _ticks;
-        private readonly int _publicTicks;
-        public SimpleGroundItemBuilder(int publicTicks = 100)
-        {
-            _publicTicks = publicTicks;
-        }
 
-        public IGroundItemOnGround Create() => new SimpleGroundItemBuilder(_publicTicks);
-            _isRespawning = true;
-            return this;
-        }
+        public class SimpleGroundItemBuilder {
+            private int? _respawnTicks;
+            private int? _ticks;
+            private readonly int _publicTicks;
+            private IItem _item = default!;
+            private ILocation _location = default!;
+            private ICharacter? _owner;
+            private bool _isRespawning;
 
-        public IGroundItem Build()
-        {
-            var defaultTicks = _publicTicks;
-            var respawnTicks = _respawnTicks ?? defaultTicks;
-            int ticks;
-            if (_ticks.HasValue)
+            public SimpleGroundItemBuilder(int publicTicks = 100)
             {
-                ticks = _ticks.Value;
-            }
-            else if (_respawnTicks.HasValue)
-            {
-                ticks = _respawnTicks.Value == 0 ? defaultTicks : _respawnTicks.Value;
-            }
-            else
-            {
-                ticks = respawnTicks;
+                _publicTicks = publicTicks;
             }
 
-            return new GroundItem(_item, _location, _owner, respawnTicks, ticks, _isRespawning);
+            public IGroundItemOnGround Create() => new SimpleGroundItemBuilder(_publicTicks);
+
+            public IGroundItem Build()
+            {
+                var defaultTicks = _publicTicks;
+                var respawnTicks = _respawnTicks ?? defaultTicks;
+                int ticks;
+                if (_ticks.HasValue)
+                {
+                    ticks = _ticks.Value;
+                }
+                else if (_respawnTicks.HasValue)
+                {
+                    ticks = _respawnTicks.Value == 0 ? defaultTicks : _respawnTicks.Value;
+                }
+                else
+                {
+                    ticks = respawnTicks;
+                }
+
+                return new GroundItem(_item, _location, _owner, respawnTicks, ticks, _isRespawning);
+            }
         }
-            var item = CreatePrivateItem(true, 1);
-            region.Add(item);
-
-            await region.MajorClientPrepareUpdateTick();
-
-            var items = region.FindAllGroundItems().ToList();
-            Assert.AreEqual(1, items.Count);
-            Assert.AreNotSame(item, items[0]);
-            Assert.IsNull(items[0].Owner);
-        }
-    }
-
-    class SimpleGroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional, IGroundItemBuild
-    {
-        private IItem _item = default!;
-        private ILocation _location = default!;
-        private ICharacter? _owner;
-        private int _respawnTicks;
-        private int _ticks;
-
-        public IGroundItemOnGround Create() => new SimpleGroundItemBuilder();
-
-        public IGroundItemLocation WithItem(IItem item)
-        {
-            _item = item;
-            return this;
-        }
-
-        public IGroundItemLocation WithItem(Func<IItemBuilder, IItemBuild> itemBuilder) => throw new NotImplementedException();
-
-        public IGroundItemOptional WithLocation(ILocation location)
-        {
-            _location = location;
-            return this;
-        }
-
-        public IGroundItemOptional WithOwner(ICharacter owner)
-        {
-            _owner = owner;
-            return this;
-        }
-
-        public IGroundItemOptional WithRespawnTicks(int respawnTicks)
-        {
-            _respawnTicks = respawnTicks;
-            return this;
-        }
-
-        public IGroundItemOptional WithTicks(int ticks)
-        {
-            _ticks = ticks;
-            return this;
-        }
-
-        public IGroundItem Build() => new GroundItem(_item, _location, _owner, _respawnTicks, _ticks);
-
-        public IGroundItem Spawn() => Build();
     }
 }
