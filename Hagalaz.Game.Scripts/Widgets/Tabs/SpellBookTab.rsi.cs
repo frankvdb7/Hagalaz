@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Configuration;
+using Hagalaz.DependencyInjection.Extensions;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
@@ -21,7 +22,6 @@ using Hagalaz.Game.Scripts.Skills.Magic.MiscSpells;
 using Hagalaz.Game.Scripts.Skills.Magic.SkillSpells;
 using Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells;
 using Hagalaz.Game.Scripts.Widgets.Lodestone;
-using Hagalaz.DependencyInjection.Extensions;
 using Hagalaz.Game.Abstractions.Builders.Item;
 
 namespace Hagalaz.Game.Scripts.Widgets.Tabs
