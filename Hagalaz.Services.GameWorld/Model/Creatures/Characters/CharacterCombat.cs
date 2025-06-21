@@ -383,22 +383,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     })
                     .Build());
 
-                var damage1 = damage;
-                Owner.QueueTask(new RsTask(() =>
-                    {
-                        var soaked = -1;
-                        var reflect = attacker.Combat.Attack(Owner, DamageType.Reflected, (int)(damage1 * 0.1), ref soaked);
-                        if (reflect <= 0)
-                        {
-                            return;
-                        }
-
-                        var splat = new HitSplat(Owner);
-                        splat.SetFirstSplat(HitSplatType.HitDeflectDamage, reflect, false);
-                        if (soaked != -1) splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                        attacker.QueueHitSplat(splat);
-                    },
-                    CreatureHelper.CalculateTicksForClientTicks(delay)));
+                attacker.Combat.PerformAttack(new AttackParams()
+                {
+                    Target = attacker, DamageType = DamageType.Reflected, Damage = damage, Delay = delay
+                });
             }
 
             if (protectFully)
@@ -612,6 +600,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                                 _character.Mediator.Publish(new ProfileSetBoolAction(ProfileConstants.CombatSettingsSpecialAttack, false));
                                 return;
                             }
+
                             _character.Statistics.DrainSpecialEnergy(requiredEnergyAmount);
                             _character.Mediator.Publish(new ProfileSetBoolAction(ProfileConstants.CombatSettingsSpecialAttack, false));
                             try

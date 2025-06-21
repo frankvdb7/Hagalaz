@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Tasks;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
 {
@@ -35,5 +36,11 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
         void OnSpawn();
         void OnTargetKilled(ICreature target);
         bool SetTarget(ICreature target);
+        /// <summary>
+        /// Executes an attack using the provided parameters.
+        /// </summary>
+        /// <param name="attackParams">The parameters that define the attack, including target, damage, and damage type.</param>
+        /// <returns>An asynchronous task handle containing the result of the attack.</returns>
+        IRsTaskHandle<AttackResult> PerformAttack(AttackParams attackParams);
     }
 }

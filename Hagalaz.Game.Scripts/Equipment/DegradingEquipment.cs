@@ -105,6 +105,6 @@ namespace Hagalaz.Game.Scripts.Equipment
         /// </summary>
         /// <param name="item">The current.</param>
         /// <returns></returns>
-        public abstract short GetDegradedItemID(IItem item);
+        public abstract int GetDegradedItemID(IItem item);
     }
 }

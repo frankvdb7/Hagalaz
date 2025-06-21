@@ -14,6 +14,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
     /// <summary>
     ///     Contains dragon mace script.
     /// </summary>
+    [EquipmentScriptMetaData([1434])]
     public class DragonMace : EquipmentScript
     {
         /// <summary>
@@ -27,22 +28,16 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             RenderAttack(item, attacker, true);
 
             var combat = (ICharacterCombat)attacker.Combat;
-            var hit = combat.GetMeleeDamage(victim, true);
-            var standartMax = combat.GetMeleeMaxHit(victim, false);
-            combat.PerformSoulSplit(victim, hit);
-            hit = victim.Combat.IncomingAttack(attacker, DamageType.FullMelee, hit, 0);
-            combat.AddMeleeExperience(hit);
-            var soak = -1;
-            hit = victim.Combat.Attack(attacker, DamageType.FullMelee, hit, ref soak);
+            var damage = combat.GetMeleeDamage(victim, true);
+            var maxDamage = combat.GetMeleeMaxHit(victim, false);
 
-            var splat = new HitSplat(attacker);
-            splat.SetFirstSplat(hit <= 0 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, hit <= 0 ? 0 : hit, standartMax <= hit);
-            if (soak != -1)
+            attacker.Combat.PerformAttack(new AttackParams()
             {
-                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-            }
-
-            victim.QueueHitSplat(splat);
+                Damage = damage,
+                MaxDamage = maxDamage,
+                DamageType = DamageType.FullMelee,
+                Target = victim
+            });
         }
 
         /// <summary>
@@ -84,13 +79,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.DragonMaceEquiped);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int>  GetSuitableItems() => [1434];
     }
 }

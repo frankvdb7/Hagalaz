@@ -94,7 +94,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         public override int GetDegrationTicks(IItem item)
         {
             if (item.Id == _veracIDs[0] || item.Id == _veracIDs[5]
-                                       || item.Id == _veracIDs[10] || item.Id == _veracIDs[15])
+                                        || item.Id == _veracIDs[10] || item.Id == _veracIDs[15])
             {
                 return 0; // Degrade to 100 barrow item
             }
@@ -114,29 +114,29 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// </summary>
         /// <param name="item">The current.</param>
         /// <returns></returns>
-        public override short GetDegradedItemID(IItem item)
+        public override int GetDegradedItemID(IItem item)
         {
             if (item.Id == _veracIDs[0])
             {
-                return (short)(item.Id + 223);
+                return item.Id + 223;
             }
 
             if (item.Id == _veracIDs[5])
             {
-                return (short)(item.Id + 227);
+                return item.Id + 227;
             }
 
             if (item.Id == _veracIDs[10])
             {
-                return (short)(item.Id + 231);
+                return item.Id + 231;
             }
 
             if (item.Id == _veracIDs[15])
             {
-                return (short)(item.Id + 235);
+                return item.Id + 235;
             }
 
-            return (short)(item.Id + 1);
+            return item.Id + 1;
         }
     }
 }

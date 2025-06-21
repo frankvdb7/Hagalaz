@@ -99,7 +99,7 @@ namespace Hagalaz.Services.GameWorld.Builders
             return this;
         }
 
-        public IHitSplatSprite AddSprite(Action<IHitSplatSpriteBuilder> builder)
+        public IHitSplatOptional AddSprite(Action<IHitSplatSpriteBuilder> builder)
         {
             var spriteBuilder = new HitSplatSpriteBuilder();
             builder(spriteBuilder);

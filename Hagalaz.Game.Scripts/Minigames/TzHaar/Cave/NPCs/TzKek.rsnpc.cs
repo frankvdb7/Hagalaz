@@ -2,7 +2,6 @@
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Model.Combat;
 
 namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
 {
@@ -23,11 +22,10 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         /// </returns>
         public override int OnAttack(ICreature attacker, DamageType damageType, int damage)
         {
-            var soaked = -1;
-            var dmg = attacker.Combat.Attack(Owner, DamageType.Reflected, 10, ref soaked);
-            var splat = new HitSplat(Owner);
-            splat.SetFirstSplat(HitSplatType.HitDeflectDamage, dmg == -1 ? 0 : dmg, false);
-            attacker.QueueHitSplat(splat);
+            attacker.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = 10, DamageType = DamageType.Reflected, Target = Owner
+            });
             return base.OnAttack(attacker, damageType, damage);
         }
     }

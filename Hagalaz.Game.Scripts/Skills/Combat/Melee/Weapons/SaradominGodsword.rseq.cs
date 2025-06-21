@@ -1,12 +1,10 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
@@ -14,6 +12,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
     /// <summary>
     ///     Contains sgs equipment script.
     /// </summary>
+    [EquipmentScriptMetaData([11698, 13452])]
     public class SaradominGodsword : EquipmentScript
     {
         /// <summary>
@@ -27,25 +26,18 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             RenderAttack(item, attacker, true);
             var combat = (ICharacterCombat)attacker.Combat;
 
-            var hit = combat.GetMeleeDamage(victim, true);
-            var standartMax = combat.GetMeleeMaxHit(victim, false);
-            combat.PerformSoulSplit(victim, hit);
-            hit = victim.Combat.IncomingAttack(attacker, DamageType.FullMelee, hit, 0);
-            combat.AddMeleeExperience(hit);
-            var soak = -1;
-            hit = victim.Combat.Attack(attacker, DamageType.FullMelee, hit, ref soak);
-
-            var splat = new HitSplat(attacker);
-            splat.SetFirstSplat(hit <= 0 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, hit <= 0 ? 0 : hit, standartMax <= hit);
-            if (soak != -1)
+            var damage = combat.GetMeleeDamage(victim, true);
+            var maxDamage = combat.GetMeleeMaxHit(victim, false);
+            attacker.Combat.PerformAttack(new AttackParams()
             {
-                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-            }
+                Damage = damage,
+                MaxDamage = maxDamage,
+                DamageType = DamageType.FullMelee,
+                Target = victim
+            });
 
-            victim.QueueHitSplat(splat);
-
-            var pHealAmount = (int)(hit * 0.25);
-            var hpHealAmount = (int)(hit * 0.5);
+            var pHealAmount = (int)(damage * 0.25);
+            var hpHealAmount = (int)(damage * 0.5);
             if (pHealAmount < 50)
             {
                 pHealAmount = 50;
@@ -91,11 +83,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         ///     Happens when this item is unequiped.
         /// </summary>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.SaradominGodswordEquipped);
-
-        /// <summary>
-        ///     Get's items suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override IEnumerable<int>  GetSuitableItems() => [11698, 13452];
     }
 }

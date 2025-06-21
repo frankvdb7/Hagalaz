@@ -8,7 +8,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         public required DamageType DamageType { get; init; }
         public HitSplatType? HitType { get; init; }
         public required int Damage { get; init; }
-        public required int MaxDamage { get; init; }
+        public int? MaxDamage { get; init; }
         public int Delay { get; init; }
     }
 }

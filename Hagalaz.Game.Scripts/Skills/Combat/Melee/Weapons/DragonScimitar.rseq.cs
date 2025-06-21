@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -9,7 +8,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
@@ -17,6 +15,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
     /// <summary>
     ///     Contains the dragon scimitar script.
     /// </summary>
+    [EquipmentScriptMetaData([4587])]
     public class DragonScimitar : EquipmentScript
     {
         /// <summary>
@@ -30,24 +29,17 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             RenderAttack(item, attacker, true);
 
             var combat = (ICharacterCombat)attacker.Combat;
-            var hit = combat.GetMeleeDamage(victim, true);
-            var standardMax = combat.GetMeleeMaxHit(victim, false);
-            combat.PerformSoulSplit(victim, hit);
-            hit = victim.Combat.IncomingAttack(attacker, DamageType.FullMelee, hit, 0);
-            combat.AddMeleeExperience(hit);
-            var soak = -1;
-            hit = victim.Combat.Attack(attacker, DamageType.FullMelee, hit, ref soak);
-
-            var splat = new HitSplat(attacker);
-            splat.SetFirstSplat(hit <= 0 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, hit <= 0 ? 0 : hit, standardMax <= hit);
-            if (soak != -1)
+            var damage = combat.GetMeleeDamage(victim, true);
+            var damageMax = combat.GetMeleeMaxHit(victim, false);
+            attacker.Combat.PerformAttack(new AttackParams()
             {
-                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-            }
+                Damage = damage,
+                MaxDamage = damageMax,
+                DamageType = DamageType.FullMelee,
+                Target = victim
+            });
 
-            victim.QueueHitSplat(splat);
-
-            if (!(victim is ICharacter vic))
+            if (victim is not ICharacter vic)
             {
                 return;
             }
@@ -57,7 +49,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             vic.Prayers.DeactivatePrayer(NormalPrayer.ProtectFromRanged);
             vic.Prayers.DeactivatePrayer(NormalPrayer.ProtectFromSummoning);
 
-            EventHappened pAllowHandler = null;
+            EventHappened pAllowHandler = null!;
             pAllowHandler = vic.RegisterEventHandler(new EventHappened<PrayerAllowEvent>(e =>
             {
                 if (e.Prayer != NormalPrayer.ProtectFromMagic && e.Prayer != NormalPrayer.ProtectFromMelee && e.Prayer != NormalPrayer.ProtectFromRanged && e.Prayer != NormalPrayer.ProtectFromSummoning)
@@ -112,13 +104,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.DragonScimitarEquiped);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => [4587];
     }
 }

@@ -2,8 +2,8 @@ using System;
 
 namespace Hagalaz.Game.Abstractions.Builders.HitSplat
 {
-    public interface IHitSplatSprite : IHitSplatOptional
+    public interface IHitSplatSprite
     {
-        IHitSplatSprite AddSprite(Action<IHitSplatSpriteBuilder> builder);
+        IHitSplatOptional AddSprite(Action<IHitSplatSpriteBuilder> builder);
     }
 }

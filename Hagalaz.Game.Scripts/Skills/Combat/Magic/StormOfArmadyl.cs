@@ -1,11 +1,11 @@
-﻿using Hagalaz.Game.Abstractions.Collections;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Utilities;
 
@@ -120,13 +120,20 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <param name="caster">The caster.</param>
         /// <param name="victim">The victim.</param>
         /// <param name="delay">The delay.</param>
-        public override void RenderProjectile(ICharacter caster, ICreature victim, byte delay)
+        public override void RenderProjectile(ICharacter caster, ICreature victim, int delay)
         {
-            var projectile = new Projectile(Dto.ProjectileId);
-            projectile.SetSenderData(caster, 0, false);
-            projectile.SetReceiverData(victim, 0);
-            projectile.SetFlyingProperties(51, (short)(delay - 51), 16, 0, false);
-            projectile.Display();
+            var projectileBuilder = caster.ServiceProvider.GetRequiredService<IProjectileBuilder>();
+            projectileBuilder.Create()
+                .WithGraphicId(Dto.ProjectileId)
+                .FromCreature(caster)
+                .ToCreature(victim)
+                .WithDuration(delay - 51)
+                .WithFromHeight(43)
+                .WithToHeight(25)
+                .WithDelay(51)
+                .WithSlope(16)
+                .WithAngle(20)
+                .Send();
         }
     }
 }

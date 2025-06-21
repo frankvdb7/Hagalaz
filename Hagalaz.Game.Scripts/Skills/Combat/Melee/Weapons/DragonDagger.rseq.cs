@@ -15,6 +15,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
     /// <summary>
     ///     Contains dragon dagger equipment script.
     /// </summary>
+    [EquipmentScriptMetaData([1215, 1231, 5680, 5698, 13465, 13467])]
     public class DragonDagger : EquipmentScript
     {
         /// <summary>
@@ -28,35 +29,21 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             RenderAttack(item, attacker, true);
 
             var combat = (ICharacterCombat)attacker.Combat;
-            var hit1 = combat.GetMeleeDamage(victim, true);
-            var hit2 = combat.GetMeleeDamage(victim, true);
-            var standartMax = combat.GetMeleeMaxHit(victim, false);
-            combat.PerformSoulSplit(victim, CreatureHelper.CalculatePredictedDamage([hit1, hit2]));
-            hit1 = victim.Combat.IncomingAttack(attacker, DamageType.FullMelee, hit1, 0);
-            hit2 = victim.Combat.IncomingAttack(attacker, DamageType.FullMelee, hit2, 0);
-            combat.AddMeleeExperience(hit1);
-            combat.AddMeleeExperience(hit2);
-            var soak1 = -1;
-            var damage1 = victim.Combat.Attack(attacker, DamageType.FullMelee, hit1, ref soak1);
-            var soak2 = -1;
-            var damage2 = victim.Combat.Attack(attacker, DamageType.FullMelee, hit2, ref soak2);
-            var splat1 = new HitSplat(attacker);
-            splat1.SetFirstSplat(damage1 <= 0 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage1 <= 0 ? 0 : damage1, standartMax <= damage1);
-            if (soak1 != -1)
+            var maxDamage = combat.GetMeleeMaxHit(victim, false);
+            attacker.Combat.PerformAttack(new AttackParams()
             {
-                splat1.SetSecondSplat(HitSplatType.HitDefendedDamage, soak1, false);
-            }
-
-            victim.QueueHitSplat(splat1);
-
-            var splat2 = new HitSplat(attacker);
-            splat2.SetFirstSplat(damage2 <= 0 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage2 <= 0 ? 0 : damage2, standartMax <= damage2);
-            if (soak2 != -1)
+                Damage = combat.GetMeleeDamage(victim, true),
+                DamageType = DamageType.FullMelee,
+                Target = victim,
+                MaxDamage = maxDamage
+            });
+            attacker.Combat.PerformAttack(new AttackParams()
             {
-                splat2.SetSecondSplat(HitSplatType.HitDefendedDamage, soak2, false);
-            }
-
-            victim.QueueHitSplat(splat2);
+                Damage = combat.GetMeleeDamage(victim, true),
+                DamageType = DamageType.FullMelee,
+                Target = victim,
+                MaxDamage = maxDamage
+            });
         }
 
         /// <summary>
@@ -90,11 +77,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         ///     Happens when this item is unequiped.
         /// </summary>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.DragonDaggerEquipped);
-
-        /// <summary>
-        ///     Get's items suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override IEnumerable<int>  GetSuitableItems() => [1215, 1231, 5680, 5698, 13465, 13467];
     }
 }
