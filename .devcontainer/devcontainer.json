@@ -1,0 +1,35 @@
+{
+  "name": "Hagalaz DevContainer",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:9.0",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
+    },
+    "ghcr.io/dotnet/aspire-devcontainer-feature/dotnetaspire:1": {}
+  },
+  "postCreateCommand": "dotnet restore && (command -v pnpm >/dev/null 2>&1 || corepack enable && corepack prepare pnpm@latest --activate) && pnpm install --dir Hagalaz.Web.App || true",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "dotnet.defaultSolution": "Hagalaz.sln",
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "editor.formatOnSave": true
+      },
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-azuretools.vscode-docker",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "esbenp.prettier-vscode",
+        "angular.ng-template",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  },
+  "mounts": [
+    "source=${localWorkspaceFolder}/.env,target=/workspace/.env,type=bind"
+  ],
+  "remoteUser": "vscode"
+}

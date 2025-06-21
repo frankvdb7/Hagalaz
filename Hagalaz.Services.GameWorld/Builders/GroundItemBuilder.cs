@@ -19,6 +19,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         private ICharacter? _owner = default!;
         private int? _respawnTicks = default!;
         private int? _ticks = default!;
+        private bool _isRespawning;
         private readonly IOptions<GroundItemOptions> _groundItemOptions;
         private readonly IServiceProvider _serviceProvider;
 
@@ -67,11 +68,41 @@ namespace Hagalaz.Services.GameWorld.Builders
             return this;
         }
 
+        public IGroundItemOptional AsRespawning()
+        {
+            _isRespawning = true;
+            return this;
+        }
+
         public IGroundItem Build()
         {
-            var respawnTicks = _respawnTicks ??
-                               (_item.ItemDefinition.Tradeable ? _groundItemOptions.Value.PublicTickTime : _groundItemOptions.Value.NonTradableTickTime);
-            return new GroundItem(_item, _location, _owner, respawnTicks, _ticks ?? respawnTicks);
+            var defaultTicks = _item.ItemDefinition.Tradeable
+                ? _groundItemOptions.Value.PublicTickTime
+                : _groundItemOptions.Value.NonTradableTickTime;
+
+            var respawnTicks = _respawnTicks ?? defaultTicks;
+
+            int ticks;
+            if (_ticks.HasValue)
+            {
+                ticks = _ticks.Value;
+            }
+            else if (_respawnTicks.HasValue)
+            {
+                ticks = _respawnTicks.Value == 0 ? defaultTicks : _respawnTicks.Value;
+            }
+            else
+            {
+                ticks = respawnTicks;
+            }
+
+            return new GroundItem(
+                _item,
+                _location,
+                _owner,
+                respawnTicks,
+                ticks,
+                _isRespawning);
         }
 
         public IGroundItem Spawn()

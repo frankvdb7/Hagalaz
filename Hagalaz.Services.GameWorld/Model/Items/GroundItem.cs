@@ -35,22 +35,24 @@ namespace Hagalaz.Services.GameWorld.Model.Items
             Location = location;
         }
 
-        public GroundItem(IItem itemOnGround, ILocation location, ICharacter? owner, int respawnTicks, int ticksLeft)
+        public GroundItem(
+            IItem itemOnGround,
+            ILocation location,
+            ICharacter? owner,
+            int respawnTicks,
+            int ticksLeft,
+            bool isRespawning = false)
         {
             ItemOnGround = itemOnGround;
             Location = location;
             Owner = owner;
             RespawnTicks = respawnTicks;
             TicksLeft = ticksLeft;
+            IsRespawning = isRespawning;
         }
 
-        public bool CanRespawn() => RespawnTicks > 0;
+        public bool CanRespawn() => RespawnTicks > 0 && !IsRespawning;
 
-        public void SetRespawning()
-        {
-            TicksLeft = RespawnTicks;
-            IsRespawning = true;
-        }
 
         /// <summary>
         /// Happens when this ground item is spawned.
@@ -75,7 +77,7 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         /// <returns><c>true</c> if this instance can destroy; otherwise, <c>false</c>.</returns>
         public bool CanDestroy()
         {
-            if (CanRespawn() && IsRespawning || TicksLeft > 0)
+            if ((RespawnTicks > 0 && IsRespawning) || TicksLeft > 0)
                 return false;
             return true;
         }
@@ -86,7 +88,7 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         /// <returns><c>true</c> if this instance can suspend; otherwise, <c>false</c>.</returns>
         public bool CanSuspend()
         {
-            if (CanRespawn() && IsRespawning || TicksLeft > 0)
+            if ((RespawnTicks > 0 && IsRespawning) || TicksLeft > 0)
                 return false;
             return true;
         }
@@ -121,13 +123,13 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         /// Clones this instance.
         /// </summary>
         /// <returns></returns>
-        public IGroundItem Clone() => new GroundItem(ItemOnGround.Clone(), Location.Clone())
-        {
-            Owner = Owner,
-            TicksLeft = TicksLeft,
-            IsRespawning = IsRespawning,
-            RespawnTicks = RespawnTicks
-        };
+        public IGroundItem Clone() => new GroundItem(
+            ItemOnGround.Clone(),
+            Location.Clone(),
+            Owner,
+            RespawnTicks,
+            TicksLeft,
+            IsRespawning);
 
         /// <summary>
         /// Returns a <see cref="System.String" /> that represents this instance.

@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using AutoMapper;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -23,14 +24,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     public class MapRegionPart : IMapRegionPart
     {
         private readonly IMapper _mapper;
+        private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly Dictionary<int, List<IGroundItem>> _groundItems = new();
         private readonly Dictionary<int, IGameObject> _gameObjects = new();
         private readonly Dictionary<int, IGameObject> _disabledStaticGameObjects = new();
         private readonly List<IRegionPartUpdate> _updates = [];
 
-        public MapRegionPart(IMapper mapper)
+        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder)
         {
             _mapper = mapper;
+            _groundItemBuilder = groundItemBuilder;
         }
 
         /// <summary>
@@ -187,14 +190,96 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 QueueUpdate(new RemoveGroundItemUpdate(item));
             }
 
+            itemsOnLocation.Remove(item);
+
             if (item.CanRespawn() && !item.IsRespawning)
             {
-                item.SetRespawning();
+                item.Destroy();
+
+                var respawnBuilder = _groundItemBuilder
+                    .Create()
+                    .WithItem(item.ItemOnGround.Clone())
+                    .WithLocation(item.Location.Clone())
+                    .WithRespawnTicks(item.RespawnTicks)
+                    .WithTicks(item.RespawnTicks)
+                    .AsRespawning();
+
+                if (item.Owner != null)
+                {
+                    respawnBuilder = respawnBuilder.WithOwner(item.Owner);
+                }
+
+                var respawnItem = respawnBuilder.Build();
+                itemsOnLocation.Add(respawnItem);
             }
             else
             {
                 item.Destroy();
-                itemsOnLocation.Remove(item);
+            }
+
+            if (itemsOnLocation.Count <= 0)
+            {
+                _groundItems.Remove(localHash);
+            }
+        }
+
+        /// <summary>
+        /// Handles a ground item whose timer has run out by either respawning
+        /// it, converting it to a public item, or removing it entirely.
+        /// </summary>
+        /// <param name="item">The ground item whose timer expired.</param>
+        public void ProcessExpiredItem(IGroundItem item)
+        {
+            var localHash = item.Location.GetRegionLocalHash();
+            if (!_groundItems.TryGetValue(localHash, out var itemsOnLocation))
+            {
+                return;
+            }
+
+            // Always remove the expired item first
+            itemsOnLocation.Remove(item);
+
+            if (!item.IsRespawning && item.CanRespawn())
+            {
+                // Replace with a respawning item
+                var respawnItem = _groundItemBuilder
+                    .Create()
+                    .WithItem(item.ItemOnGround.Clone())
+                    .WithLocation(item.Location.Clone())
+                    .WithRespawnTicks(item.RespawnTicks)
+                    .WithTicks(item.RespawnTicks)
+                    .AsRespawning()
+                    .Build();
+                itemsOnLocation.Add(respawnItem);
+                return;
+            }
+
+            if (item.IsRespawning)
+            {
+                // Replace with a normal (non-respawning) item
+                var normalItem = _groundItemBuilder
+                    .Create()
+                    .WithItem(item.ItemOnGround.Clone())
+                    .WithLocation(item.Location.Clone())
+                    .WithRespawnTicks(item.RespawnTicks)
+                    .WithTicks(item.RespawnTicks)
+                    // Do NOT call AsRespawning here!
+                    .Build();
+                itemsOnLocation.Add(normalItem);
+                return;
+            }
+
+            item.Destroy();
+
+            if (!item.IsPublic && item.ItemOnGround.ItemScript.CanTradeItem(item.ItemOnGround, item.Owner))
+            {
+                var publicGroundItem = _groundItemBuilder
+                    .Create()
+                    .WithItem(item.ItemOnGround.Clone())
+                    .WithLocation(item.Location.Clone())
+                    .WithRespawnTicks(0)
+                    .Build();
+                itemsOnLocation.Add(publicGroundItem);
             }
 
             if (itemsOnLocation.Count <= 0)

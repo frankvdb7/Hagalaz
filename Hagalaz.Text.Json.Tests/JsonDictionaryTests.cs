@@ -319,6 +319,16 @@ namespace Hagalaz.Text.Json.Tests
         }
 
         [TestMethod]
+        public void Dictionary_Try_Get_Object_NonExisting()
+        {
+            var dictionary = new JsonDictionary(_jsonOptions);
+
+            var result = dictionary.TryGetObject<ADto>("non.existing.key", out var value);
+            Assert.IsFalse(result);
+            Assert.IsNull(value);
+        }
+
+        [TestMethod]
         public void Dictionary_Set_Array()
         {
             var dictionary = new JsonDictionary(_jsonOptions);

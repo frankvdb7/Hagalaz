@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.Location;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
@@ -35,21 +36,27 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IServiceScope _serviceScope;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
-        private readonly IMapper _mapper;
+        private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly ILogger<MapRegionService> _logger;
+        private readonly IMapper _mapper;
 
         public MapRegionService(
-            IBackgroundTaskQueue taskQueue, IServiceProvider serviceProvider, ILocationBuilder locationBuilder, IGameObjectBuilder gameObjectBuilder,
-            IMapper mapper,
-            ILogger<MapRegionService> logger)
+            IBackgroundTaskQueue taskQueue,
+            IServiceProvider serviceProvider,
+            ILocationBuilder locationBuilder,
+            IGameObjectBuilder gameObjectBuilder,
+            IGroundItemBuilder groundItemBuilder,
+            ILogger<MapRegionService> logger,
+            IMapper mapper)
         {
             CreateDimension(0); // create global world dimension.
             _taskQueue = taskQueue;
             _serviceScope = serviceProvider.CreateScope();
             _locationBuilder = locationBuilder;
             _gameObjectBuilder = gameObjectBuilder;
-            _mapper = mapper;
+            _groundItemBuilder = groundItemBuilder;
             _logger = logger;
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -143,11 +150,13 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             var baseLocation = _locationBuilder.Create().FromRegionId(id).Build();
-            var region = new Regions_MapRegion(baseLocation,
+            var region = new Regions_MapRegion(
+                baseLocation,
                 GetXtea(id),
                 _serviceScope.ServiceProvider.GetRequiredService<INpcService>(),
                 this,
                 _gameObjectBuilder,
+                _groundItemBuilder,
                 _mapper);
             dim.Regions.Add(id, region);
             return region;
