@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using Hagalaz.DependencyInjection.Extensions;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -10,7 +11,6 @@ using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Resources;
 using Microsoft.Extensions.Options;
-using Hagalaz.DependencyInjection.Extensions;
 
 namespace Hagalaz.Game.Scripts.Model.Maps
 {

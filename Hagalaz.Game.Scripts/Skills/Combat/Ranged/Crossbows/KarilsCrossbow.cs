@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -10,15 +9,24 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([4734, 4934, 4935, 4936, 4937])]
     public class KarilsCrossbow : KarilEquipment
     {
+        private readonly ICrossbowLogicService _crossbowLogicService;
+
+        public KarilsCrossbow(ICrossbowLogicService crossbowLogicService)
+        {
+            _crossbowLogicService = crossbowLogicService;
+        }
+
         /// <summary>
-        ///     Perform's standart attack to victim.
+        ///     Perform's standard attack to victim.
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="attacker">The attacker.</param>
         /// <param name="victim">The victim.</param>
-        public override void PerformStandardAttack(IItem item, ICharacter attacker, ICreature victim) => Crossbows.PerformCrossbowAttack(item, attacker, victim);
+        public override void PerformStandardAttack(IItem item, ICharacter attacker, ICreature victim) =>
+            _crossbowLogicService.PerformCrossbowAttack(item, attacker, victim);
 
         /// <summary>
         ///     Happens when crossbow is equiped for this character.
@@ -41,13 +49,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
             base.OnUnequiped(item, character);
             character.RemoveState(StateType.CrossbowEquiped);
         }
-
-        /// <summary>
-        ///     Get's items suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int>  GetSuitableItems() => [4734, 4934, 4935, 4936, 4937];
     }
 }

@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Npcs.Dragons
 {
@@ -47,12 +47,22 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
     /// <summary>
     ///     Contains the King Black Dragon script.
     /// </summary>
+    [NpcScriptMetaData([50])]
     public class KingBlackDragon : NpcScriptBase
     {
+        private readonly IHitSplatBuilder _hitSplatBuilder;
+        private readonly IProjectileBuilder _projectileBuilder;
+
         /// <summary>
         ///     The attack type.
         /// </summary>
         private Attacks _attackType = Attacks.Normal;
+
+        public KingBlackDragon(IHitSplatBuilder hitSplatBuilder, IProjectileBuilder projectileBuilder)
+        {
+            _hitSplatBuilder = hitSplatBuilder;
+            _projectileBuilder = projectileBuilder;
+        }
 
         /// <summary>
         ///     Initializes this script.
@@ -69,202 +79,215 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
             switch (_attackType)
             {
                 case Attacks.Normal:
-                {
-                    Owner.QueueAnimation(Animation.Create(Owner.Definition.AttackAnimation));
-                    var preDmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMelee, ((INpcCombat)Owner.Combat).GetMeleeDamage(target), 0);
-                    var soaked = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardMelee, preDmg, ref soaked);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target) <= damage);
-                    if (soaked != -1)
                     {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
+                        Owner.QueueAnimation(Animation.Create(Owner.Definition.AttackAnimation));
+                        var mDamage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target);
+                        Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = mDamage,
+                            MaxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target),
+                            DamageType = DamageType.StandardMelee,
+                            Target = target,
+                        });
+                        break;
                     }
-
-                    target.QueueHitSplat(splat);
-                    break;
-                }
                 case Attacks.NormalDragonFire:
-                {
-                    var maxHit = 650;
-                    Owner.QueueAnimation(Animation.Create(17786));
-                    Owner.QueueGraphic(Graphic.Create(3441));
-
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
                     {
-                        deltaX = -deltaX;
-                    }
+                        const int maxHit = 650;
+                        Owner.QueueAnimation(Animation.Create(17786));
+                        Owner.QueueGraphic(Graphic.Create(3441));
 
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
-
-                    var duration = (byte)(50 + deltaX * 2 + deltaY * 2);
-
-                    var projectile = new Projectile(3442);
-                    projectile.SetSenderData(Owner, 60, false);
-                    projectile.SetReceiverData(target, 41);
-                    projectile.SetFlyingProperties(50, duration, 0, 0, false);
-                    projectile.Display();
-
-                    var preDmg = target.Combat.IncomingAttack(Owner, DamageType.DragonFire, ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit), 0);
-                    Owner.QueueTask(new RsTask(() =>
+                        var deltaX = Owner.Location.X - target.Location.X;
+                        var deltaY = Owner.Location.Y - target.Location.Y;
+                        if (deltaX < 0)
                         {
-                            target.QueueGraphic(Graphic.Create(3443));
-                            var soaked = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.DragonFire, preDmg, ref soaked);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, maxHit <= damage);
-                            if (soaked != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                            }
+                            deltaX = -deltaX;
+                        }
 
-                            target.QueueHitSplat(splat);
-                        }, CreatureHelper.CalculateTicksForClientTicks(duration)));
-                    break;
-                }
+                        if (deltaY < 0)
+                        {
+                            deltaY = -deltaY;
+                        }
+
+                        var duration = 50 + deltaX * 2 + deltaY * 2;
+
+                        _projectileBuilder
+                            .Create()
+                            .WithGraphicId(3442)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(duration)
+                            .WithDelay(50)
+                            .WithToHeight(41)
+                            .WithFromHeight(60)
+                            .Send();
+
+                        var result = Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit),
+                            MaxDamage = maxHit,
+                            DamageType = DamageType.DragonFire,
+                            Target = target,
+                            Delay = duration
+                        });
+                        result.RegisterResultHandler(attackResult =>
+                        {
+                            if (attackResult.DamageLifePoints.Succeeded)
+                            {
+                                target.QueueGraphic(Graphic.Create(3443));
+                            }
+                        });
+                        break;
+                    }
                 case Attacks.PoisonousBreath:
-                {
-                    const int maxHit = 650;
-                    Owner.QueueAnimation(Animation.Create(17785));
-                    Owner.QueueGraphic(Graphic.Create(3435));
-
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
                     {
-                        deltaX = -deltaX;
-                    }
+                        const int maxHit = 650;
+                        Owner.QueueAnimation(Animation.Create(17785));
+                        Owner.QueueGraphic(Graphic.Create(3435));
 
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
-
-                    var duration = (byte)(50 + deltaX * 2 + deltaY * 2);
-
-                    var projectile = new Projectile(3436);
-                    projectile.SetSenderData(Owner, 60, false);
-                    projectile.SetReceiverData(target, 41);
-                    projectile.SetFlyingProperties(25, duration, 0, 0, false);
-                    projectile.Display();
-
-                    var preDmg = target.Combat.IncomingAttack(Owner, DamageType.DragonFire, ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit), 0);
-                    Owner.QueueTask(new RsTask(() =>
+                        var deltaX = Owner.Location.X - target.Location.X;
+                        var deltaY = Owner.Location.Y - target.Location.Y;
+                        if (deltaX < 0)
                         {
-                            target.QueueGraphic(Graphic.Create(3437));
-                            var soaked = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.DragonFire, preDmg, ref soaked);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, maxHit <= damage);
-                            if (soaked != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                            }
+                            deltaX = -deltaX;
+                        }
 
-                            target.QueueHitSplat(splat);
+                        if (deltaY < 0)
+                        {
+                            deltaY = -deltaY;
+                        }
 
-                            if (damage != -1)
+                        var duration = 50 + deltaX * 2 + deltaY * 2;
+
+                        _projectileBuilder
+                            .Create()
+                            .WithGraphicId(3436)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(duration)
+                            .WithToHeight(41)
+                            .WithFromHeight(60)
+                            .WithDelay(25)
+                            .Send();
+
+
+                        var result = Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit),
+                            MaxDamage = maxHit,
+                            DamageType = DamageType.DragonFire,
+                            Target = target,
+                            Delay = duration
+                        });
+
+                        result.RegisterResultHandler(attackResult =>
+                        {
+                            if (attackResult.DamageLifePoints.Succeeded)
                             {
+                                target.QueueGraphic(Graphic.Create(3437));
                                 target.Poison(80);
                             }
-                        }, CreatureHelper.CalculateTicksForClientTicks(duration)));
-                    break;
-                }
+                        });
+                        break;
+                    }
                 case Attacks.ShockingBreath:
-                {
-                    const int maxHit = 650;
-                    Owner.QueueAnimation(Animation.Create(17784));
-                    Owner.QueueGraphic(Graphic.Create(3432));
-
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
                     {
-                        deltaX = -deltaX;
-                    }
+                        const int maxHit = 650;
+                        Owner.QueueAnimation(Animation.Create(17784));
+                        Owner.QueueGraphic(Graphic.Create(3432));
 
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
-
-                    var duration = (byte)(50 + deltaX * 2 + deltaY * 2);
-
-                    var projectile = new Projectile(3433);
-                    projectile.SetSenderData(Owner, 60, false);
-                    projectile.SetReceiverData(target, 41);
-                    projectile.SetFlyingProperties(30, duration, 0, 0, false);
-                    projectile.Display();
-
-                    var preDmg = target.Combat.IncomingAttack(Owner, DamageType.DragonFire, ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit), 0);
-                    Owner.QueueTask(new RsTask(() =>
+                        var deltaX = Owner.Location.X - target.Location.X;
+                        var deltaY = Owner.Location.Y - target.Location.Y;
+                        if (deltaX < 0)
                         {
-                            target.QueueGraphic(Graphic.Create(3434));
-                            var soaked = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.DragonFire, preDmg, ref soaked);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, maxHit <= damage);
-                            if (soaked != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                            }
+                            deltaX = -deltaX;
+                        }
 
-                            target.QueueHitSplat(splat);
+                        if (deltaY < 0)
+                        {
+                            deltaY = -deltaY;
+                        }
 
-                            if (damage != -1)
+                        var duration = 50 + deltaX * 2 + deltaY * 2;
+
+                        _projectileBuilder
+                            .Create()
+                            .WithGraphicId(3433)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(duration)
+                            .WithDelay(30)
+                            .WithToHeight(41)
+                            .WithFromHeight(60)
+                            .Send();
+
+                        var result = Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit),
+                            MaxDamage = maxHit,
+                            DamageType = DamageType.DragonFire,
+                            Target = target,
+                            Delay = duration
+                        });
+
+                        result.RegisterResultHandler(attackResult =>
+                        {
+                            if (attackResult.DamageLifePoints.Succeeded && target is ICharacter character)
                             {
-                                // TODO - Reduce stats
+                                target.QueueGraphic(Graphic.Create(3434));
+                                for (var i = 0; i < StatisticsConstants.SkillsCount; i++)
+                                {
+                                    character.Statistics.DamageSkill(i, 2);
+                                }
                             }
-                        }, CreatureHelper.CalculateTicksForClientTicks(duration)));
-                    break;
-                }
+                        });
+                        break;
+                    }
                 case Attacks.FreezingBreath:
-                {
-                    const int maxHit = 650;
-                    Owner.QueueAnimation(Animation.Create(17783));
-                    Owner.QueueGraphic(Graphic.Create(3438));
-
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
                     {
-                        deltaX = -deltaX;
-                    }
+                        const int maxHit = 650;
+                        Owner.QueueAnimation(Animation.Create(17783));
+                        Owner.QueueGraphic(Graphic.Create(3438));
 
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
+                        var deltaX = Owner.Location.X - target.Location.X;
+                        var deltaY = Owner.Location.Y - target.Location.Y;
+                        if (deltaX < 0)
+                        {
+                            deltaX = -deltaX;
+                        }
 
-                    var duration = (byte)(50 + deltaX * 2 + deltaY * 2);
+                        if (deltaY < 0)
+                        {
+                            deltaY = -deltaY;
+                        }
 
-                    var projectile = new Projectile(3439);
-                    projectile.SetSenderData(Owner, 60, false);
-                    projectile.SetReceiverData(target, 41);
-                    projectile.SetFlyingProperties(25, duration, 0, 0, false);
-                    projectile.Display();
+                        var duration = 50 + deltaX * 2 + deltaY * 2;
 
-                    var preDmg = target.Combat.IncomingAttack(Owner, DamageType.DragonFire, ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit), 0);
-                    Owner.QueueTask(new RsTask(() =>
+                        _projectileBuilder
+                            .Create()
+                            .WithGraphicId(3439)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(duration)
+                            .WithDelay(25)
+                            .WithToHeight(41)
+                            .WithFromHeight(60)
+                            .Send();
+
+                        var result = Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit),
+                            MaxDamage = maxHit,
+                            DamageType = DamageType.DragonFire,
+                            Target = target,
+                            Delay = duration
+                        });
+
+                        result.RegisterResultHandler(attackResult =>
                         {
                             target.QueueGraphic(Graphic.Create(3440));
-                            var soaked = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.DragonFire, preDmg, ref soaked);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, maxHit <= damage);
-                            if (soaked != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                            }
 
-                            target.QueueHitSplat(splat);
-
-                            if (damage != -1)
+                            if (attackResult.DamageLifePoints.Succeeded)
                             {
                                 if (0.50 >= RandomStatic.Generator.NextDouble())
                                 {
@@ -275,9 +298,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                                     target.Combat.ResetCombatDelay();
                                 }
                             }
-                        }, CreatureHelper.CalculateTicksForClientTicks(duration)));
-                    break;
-                }
+                        });
+                        break;
+                    }
             }
         }
 
@@ -393,11 +416,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
 
             return AttackBonus.Magic;
         }
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [50];
     }
 }

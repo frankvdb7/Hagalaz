@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows;
-using Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
 {
@@ -90,42 +89,6 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
         }
 
         /// <summary>
-        ///     Check's if character has suitable crossbow ammo.
-        ///     In some cases of false it sends messages such as "There's no ammo left in your quiver."
-        /// </summary>
-        /// <returns></returns>
-        public static bool HasSuitableCrossbowAmmo(ICharacter character, int amount = 1)
-        {
-            var ammo = character.Equipment[EquipmentSlot.Arrow];
-            if (ammo == null || ammo.Count <= 0)
-            {
-                character.SendChatMessage("There's no ammo left in your quiver.");
-                return false;
-            }
-
-            if (ammo.Count < amount)
-            {
-                character.SendChatMessage("There's not enough ammo left in your quiver.");
-                return false;
-            }
-
-            var type = Crossbows.Crossbows.GetCrossbowType(character);
-            if (type == CrossbowType.None)
-            {
-                return false;
-            }
-
-            var bolt = Bolts.GetBoltType(character);
-            if (bolt == BoltType.None || !Lookup(bolt, Crossbows.Crossbows.GetSuitableBoltTypes(type)))
-            {
-                character.SendChatMessage("This ammo is not suitable with your weapon.");
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
         ///     Determines whether [has suitable bow ammo] [the specified character].
         /// </summary>
         /// <param name="character">The character.</param>
@@ -162,23 +125,6 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
             }
 
             return true;
-        }
-
-
-        /// <summary>
-        ///     Checks if array contains given value.
-        /// </summary>
-        private static bool Lookup(BoltType v, BoltType[] array)
-        {
-            for (var i = 0; i < array.Length; i++)
-            {
-                if (array[i] == v)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         /// <summary>

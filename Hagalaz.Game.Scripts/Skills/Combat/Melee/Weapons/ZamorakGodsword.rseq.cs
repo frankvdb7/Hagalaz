@@ -1,12 +1,10 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
@@ -14,6 +12,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
     /// <summary>
     ///     Contains zgs equipment script.
     /// </summary>
+    [EquipmentScriptMetaData([11700, 13453])]
     public class ZamorakGodsword : EquipmentScript
     {
         /// <summary>
@@ -27,22 +26,15 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             RenderAttack(item, attacker, true);
             var combat = (ICharacterCombat)attacker.Combat;
 
-            var hit = combat.GetMeleeDamage(victim, true);
-            var standartMax = combat.GetMeleeMaxHit(victim, false);
-            combat.PerformSoulSplit(victim, hit);
-            hit = victim.Combat.IncomingAttack(attacker, DamageType.FullMelee, hit, 0);
-            combat.AddMeleeExperience(hit);
-            var soak = -1;
-            hit = victim.Combat.Attack(attacker, DamageType.FullMelee, hit, ref soak);
-
-            var splat = new HitSplat(attacker);
-            splat.SetFirstSplat(hit <= 0 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, hit <= 0 ? 0 : hit, standartMax <= hit);
-            if (soak != -1)
+            var damage = combat.GetMeleeDamage(victim, true);
+            var maxDamage = combat.GetMeleeMaxHit(victim, false);
+            attacker.Combat.PerformAttack(new AttackParams()
             {
-                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-            }
-
-            victim.QueueHitSplat(splat);
+                Damage = damage,
+                MaxDamage = maxDamage,
+                DamageType = DamageType.FullMelee,
+                Target = victim,
+            });
             victim.QueueGraphic(Graphic.Create(victim.Freeze(34, 40) ? 2104 : 2105));
         }
 
@@ -77,11 +69,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         ///     Happens when this item is unequiped.
         /// </summary>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.ZamorakGodswordEquipped);
-
-        /// <summary>
-        ///     Get's items suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override IEnumerable<int> GetSuitableItems() => [11700, 13453];
     }
 }

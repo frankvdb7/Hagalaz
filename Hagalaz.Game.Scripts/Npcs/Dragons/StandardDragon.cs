@@ -3,10 +3,8 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Npcs.Dragons
@@ -51,22 +49,20 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                 Owner.QueueAnimation(Animation.Create(14245));
                 Owner.QueueGraphic(Graphic.Create(2465));
 
-                var preDmg = target.Combat.IncomingAttack(Owner, DamageType.DragonFire, ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit), 0);
-                Owner.QueueTask(new RsTask(() =>
-                    {
-                        target.QueueGraphic(Graphic.Create(439));
-                        var soaked = -1;
-                        var damage = target.Combat.Attack(Owner, DamageType.DragonFire, preDmg, ref soaked);
-                        var splat = new HitSplat(Owner);
-                        splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, maxHit <= damage);
-                        if (soaked != -1)
-                        {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                        }
+                var damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit);
+                var handle = target.Combat.PerformAttack(new AttackParams()
+                {
+                    Damage = damage,
+                    MaxDamage = maxHit,
+                    DamageType = DamageType.DragonFire,
+                    Target = target,
+                    Delay = 2
+                });
 
-                        target.QueueHitSplat(splat);
-                    },
-                    2));
+                handle.RegisterResultHandler(_ =>
+                {
+                    target.QueueGraphic(Graphic.Create(439));
+                });
             }
             else
             {

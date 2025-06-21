@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+﻿using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -6,7 +6,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Items;
 using Hagalaz.Game.Utilities;
 
@@ -15,8 +14,17 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
     /// <summary>
     ///     Contains dragon claws equipment script.
     /// </summary>
+    [EquipmentScriptMetaData([14484, 14486])]
     public class DragonClaws : EquipmentScript
     {
+        private readonly IHitSplatBuilder _hitSplatBuilder;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DragonClaws"/> class.
+        /// </summary>
+        /// <param name="hitSplatBuilder">The hit splat builder.</param>
+        public DragonClaws(IHitSplatBuilder hitSplatBuilder) => _hitSplatBuilder = hitSplatBuilder;
+
         /// <summary>
         ///     Perform's special attack to victim.
         /// </summary>
@@ -72,9 +80,10 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
                 damage4 = RandomStatic.Generator.Next(0, 8);
             }
 
-            combat.PerformSoulSplit(victim, CreatureHelper.CalculatePredictedDamage([
-                damage1, damage2, damage3, damage4
-            ]));
+            combat.PerformSoulSplit(victim,
+                CreatureHelper.CalculatePredictedDamage([
+                    damage1, damage2, damage3, damage4
+                ]));
 
             combat.AddMeleeExperience(damage1);
             combat.AddMeleeExperience(damage2);
@@ -87,29 +96,45 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
                 damage4 = victim.Combat.IncomingAttack(attacker, DamageType.FullMelee, damage4, 20);
 
                 var soak1 = -1;
-                damage1 = victim.Combat.Attack(attacker, DamageType.FullMelee, -1, ref soak1);
-                var splat1 = new HitSplat(attacker);
-                splat1.SetFirstSplat(HitSplatType.HitMiss, 0, false);
+                damage1 = victim.Combat.Attack(attacker, DamageType.FullMelee, damage1, ref soak1);
+
+                var splat1Builder = _hitSplatBuilder.Create()
+                    .AddSprite(sprite => sprite
+                        .WithDamage(damage1)
+                        .WithSplatType(HitSplatType.HitMiss))
+                    .FromSender(attacker);
+
                 if (soak1 != -1)
                 {
-                    splat1.SetSecondSplat(HitSplatType.HitDefendedDamage, soak1, false);
+                    splat1Builder.AddSprite(sprite => sprite
+                        .WithSplatType(HitSplatType.HitDefendedDamage)
+                        .WithDamage(soak1));
                 }
 
-                victim.QueueHitSplat(splat1);
+                victim.QueueHitSplat(splat1Builder.Build());
                 victim.QueueTask(new RsTask(() =>
-                {
-                    var soak4 = -1;
-                    damage4 = victim.Combat.Attack(attacker, DamageType.FullMelee, damage4, ref soak4);
-                    combat.AddMeleeExperience(damage4);
-                    var splat2 = new HitSplat(attacker);
-                    splat2.SetFirstSplat(damage4 > 0 ? HitSplatType.HitMeleeDamage : HitSplatType.HitMiss, damage4 > 0 ? damage4 : 0, damage4 >= standardMax);
-                    if (soak4 != -1)
                     {
-                        splat2.SetSecondSplat(HitSplatType.HitDefendedDamage, soak4, false);
-                    }
+                        var soak4 = -1;
+                        damage4 = victim.Combat.Attack(attacker, DamageType.FullMelee, damage4, ref soak4);
 
-                    victim.QueueHitSplat(splat2);
-                }, 1));
+                        var splat2Builder = _hitSplatBuilder.Create()
+                            .AddSprite(sprite => sprite
+                                .WithSplatType(HitSplatType.HitMeleeDamage)
+                                .WithDamage(damage4)
+                                .WithMaxDamage(standardMax))
+                            .FromSender(attacker);
+                        ;
+
+                        if (soak4 != -1)
+                        {
+                            splat2Builder.AddSprite(sprite => sprite
+                                .WithSplatType(HitSplatType.HitDefendedDamage)
+                                .WithDamage(soak4));
+                        }
+
+                        victim.QueueHitSplat(splat2Builder.Build());
+                    },
+                    1));
             }
             else
             {
@@ -122,45 +147,76 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
                 var soak2 = -1;
                 damage1 = victim.Combat.Attack(attacker, DamageType.FullMelee, damage1, ref soak1);
                 damage2 = victim.Combat.Attack(attacker, DamageType.FullMelee, damage2, ref soak2);
-                var splat1 = new HitSplat(attacker);
-                var splat2 = new HitSplat(attacker);
-                splat1.SetFirstSplat(damage1 > 0 ? HitSplatType.HitMeleeDamage : HitSplatType.HitMiss, damage1 > 0 ? damage1 : 0, damage1 >= standardMax);
-                splat2.SetFirstSplat(damage2 > 0 ? HitSplatType.HitMeleeDamage : HitSplatType.HitMiss, damage2 > 0 ? damage2 : 0, damage2 >= standardMax);
+
+                var splat1Builder = _hitSplatBuilder.Create()
+                    .AddSprite(sprite => sprite
+                        .WithSplatType(HitSplatType.HitMeleeDamage)
+                        .WithDamage(damage1)
+                        .WithMaxDamage(standardMax))
+                    .FromSender(attacker);
+
+                var splat2Builder = _hitSplatBuilder.Create()
+                    .AddSprite(sprite => sprite
+                        .WithSplatType(HitSplatType.HitMeleeDamage)
+                        .WithDamage(damage2)
+                        .WithMaxDamage(standardMax))
+                    .FromSender(attacker);
+
                 if (soak1 != -1)
                 {
-                    splat1.SetSecondSplat(HitSplatType.HitDefendedDamage, soak1, false);
+                    splat1Builder.AddSprite(sprite => sprite
+                        .WithSplatType(HitSplatType.HitDefendedDamage)
+                        .WithDamage(soak1));
                 }
 
                 if (soak2 != -1)
                 {
-                    splat2.SetSecondSplat(HitSplatType.HitDefendedDamage, soak2, false);
+                    splat2Builder.AddSprite(sprite => sprite
+                        .WithSplatType(HitSplatType.HitDefendedDamage)
+                        .WithDamage(soak2));
                 }
 
-                victim.QueueHitSplat(splat1);
-                victim.QueueHitSplat(splat2);
+                victim.QueueHitSplat(splat1Builder.Build());
+                victim.QueueHitSplat(splat2Builder.Build());
                 victim.QueueTask(new RsTask(() =>
-                {
-                    var soak3 = -1;
-                    var soak4 = -1;
-                    damage3 = victim.Combat.Attack(attacker, DamageType.FullMelee, damage3, ref soak3);
-                    damage4 = victim.Combat.Attack(attacker, DamageType.FullMelee, damage4, ref soak4);
-                    var splat3 = new HitSplat(attacker);
-                    var splat4 = new HitSplat(attacker);
-                    splat3.SetFirstSplat(damage3 > 0 ? HitSplatType.HitMeleeDamage : HitSplatType.HitMiss, damage3 > 0 ? damage3 : 0, damage3 >= standardMax);
-                    splat4.SetFirstSplat(damage4 > 0 ? HitSplatType.HitMeleeDamage : HitSplatType.HitMiss, damage4 > 0 ? damage4 : 0, damage4 >= standardMax);
-                    if (soak3 != -1)
                     {
-                        splat3.SetSecondSplat(HitSplatType.HitDefendedDamage, soak3, false);
-                    }
+                        var soak3 = -1;
+                        var soak4 = -1;
+                        damage3 = victim.Combat.Attack(attacker, DamageType.FullMelee, damage3, ref soak3);
+                        damage4 = victim.Combat.Attack(attacker, DamageType.FullMelee, damage4, ref soak4);
 
-                    if (soak4 != -1)
-                    {
-                        splat4.SetSecondSplat(HitSplatType.HitDefendedDamage, soak4, false);
-                    }
+                        var splat3Builder = _hitSplatBuilder.Create()
+                            .AddSprite(sprite => sprite
+                                .WithSplatType(HitSplatType.HitMeleeDamage)
+                                .WithDamage(damage3)
+                                .WithMaxDamage(standardMax))
+                            .FromSender(attacker);
 
-                    victim.QueueHitSplat(splat3);
-                    victim.QueueHitSplat(splat4);
-                }, 1));
+                        var splat4Builder = _hitSplatBuilder.Create()
+                            .AddSprite(sprite => sprite
+                                .WithSplatType(HitSplatType.HitMeleeDamage)
+                                .WithDamage(damage4)
+                                .WithMaxDamage(standardMax))
+                            .FromSender(attacker);
+
+                        if (soak3 != -1)
+                        {
+                            splat3Builder.AddSprite(sprite => sprite
+                                .WithSplatType(HitSplatType.HitDefendedDamage)
+                                .WithDamage(soak3));
+                        }
+
+                        if (soak4 != -1)
+                        {
+                            splat4Builder.AddSprite(sprite => sprite
+                                .WithSplatType(HitSplatType.HitDefendedDamage)
+                                .WithDamage(soak4));
+                        }
+
+                        victim.QueueHitSplat(splat3Builder.Build());
+                        victim.QueueHitSplat(splat4Builder.Build());
+                    },
+                    1));
             }
         }
 
@@ -173,14 +229,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         ///     System.Int16.
         /// </returns>
         public override int GetRequiredSpecialEnergyAmount(IItem item, ICharacter attacker) => 500;
-
-        /// <summary>
-        ///     Get's items suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override IEnumerable<int> GetSuitableItems() =>
-        [
-            14484, 14486
-        ];
     }
 }

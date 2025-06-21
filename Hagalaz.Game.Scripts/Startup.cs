@@ -20,6 +20,8 @@ using Hagalaz.Game.Scripts.Model.Maps;
 using Hagalaz.Game.Scripts.Model.States;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Providers;
+using Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows;
+using Hagalaz.Game.Scripts.Skills.Combat.Ranged.Throwing;
 using Hagalaz.Game.Scripts.Skills.Cooking;
 using Hagalaz.Game.Scripts.Skills.Crafting;
 using Hagalaz.Game.Scripts.Skills.Farming;
@@ -66,6 +68,24 @@ namespace Hagalaz.Game.Scripts
             services.AddSingleton<ICraftingSkillService, CraftingSkillService>();
             services.AddSingleton<IFarmingSkillService, FarmingSkillService>();
             services.AddSingleton<IFletchingSkillService, FletchingSkillService>();
+
+            services.AddSingleton<IThrowingLogicService, ThrowingLogicService>();
+            services.AddSingleton<ICrossbowLogicService, CrossbowLogicService>();
+
+            services.AddTransient<IBonesToPeaches, BonesToPeaches>();
+            services.AddTransient<IBonesToBananas, BonesToBananas>();
+            services.AddTransient<IHighLevelAlchemy, HighLevelAlchemy>();
+            services.AddTransient<ILowLevelAlchemy, LowLevelAlchemy>();
+
+            services.AddTransient<JewelryTask>();
+            services.AddTransient<LeatherTask>();
+            services.AddTransient<ForgeTask>();
+            services.AddTransient<CookingTask>();
+            services.AddTransient<SmeltTask>();
+            services.AddTransient<CutGemTask>();
+            services.AddTransient<SilverTask>();
+            services.AddTransient<SpinTask>();
+            services.AddTransient<CleanHerbTask>();
 
             // commands
             services.AddSingleton<IGameCommandPrompt, GameCommandPrompt>();
@@ -175,21 +195,6 @@ namespace Hagalaz.Game.Scripts
                 .AddClasses(classes => classes.AssignableTo<IWidgetScriptFactory>())
                 .AsSelfWithInterfaces()
                 .WithScopedLifetime());
-
-            services.AddTransient<IBonesToPeaches, BonesToPeaches>();
-            services.AddTransient<IBonesToBananas, BonesToBananas>();
-            services.AddTransient<IHighLevelAlchemy, HighLevelAlchemy>();
-            services.AddTransient<ILowLevelAlchemy, LowLevelAlchemy>();
-
-            services.AddTransient<JewelryTask>();
-            services.AddTransient<LeatherTask>();
-            services.AddTransient<ForgeTask>();
-            services.AddTransient<CookingTask>();
-            services.AddTransient<SmeltTask>();
-            services.AddTransient<CutGemTask>();
-            services.AddTransient<SilverTask>();
-            services.AddTransient<SpinTask>();
-            services.AddTransient<CleanHerbTask>();
         }
     }
 }

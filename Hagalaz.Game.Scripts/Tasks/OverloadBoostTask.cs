@@ -1,11 +1,11 @@
 ﻿using System;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model.Combat;
 
 namespace Hagalaz.Game.Scripts.Tasks
 {
@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Tasks
         ///     The drinker.
         /// </summary>
         private readonly ICharacter _drinker;
-        
+
         /// <summary>
         /// 
         /// </summary>
@@ -94,35 +94,33 @@ namespace Hagalaz.Game.Scripts.Tasks
         /// <returns></returns>
         private void PerformTickImpl()
         {
-            if (TickCount >= 1 && TickCount <= 5)
+            if (TickCount < 1 || TickCount > 5)
             {
-                var damage = 100;
-                damage = _drinker.Statistics.DamageLifePoints(damage);
-                var splat = new HitSplat(_drinker);
-                splat.SetFirstSplat(HitSplatType.HitSimpleDamage, damage == -1 ? 0 : damage, true);
-                _drinker.QueueHitSplat(splat);
-                _drinker.QueueAnimation(Animation.Create(3170));
-                if (TickCount == 1)
-                {
-                    BoostAttack();
-                }
-                else if (TickCount == 2)
-                {
-                    BoostStrength();
-                }
-                else if (TickCount == 3)
-                {
-                    BoostDefence();
-                }
-                else if (TickCount == 4)
-                {
-                    BoostRanged();
-                }
-                else if (TickCount == 5)
-                {
+                return;
+            }
+
+            var damage = 100;
+            damage = _drinker.Statistics.DamageLifePoints(damage);
+            var hitSplatBuilder = _drinker.ServiceProvider.GetRequiredService<IHitSplatBuilder>();
+            var hitSplat = hitSplatBuilder.Create()
+                .AddSprite(s => s
+                    .WithDamage(damage)
+                    .WithSplatType(HitSplatType.HitSimpleDamage)
+                    .AsCriticalDamage())
+                .FromSender(_drinker)
+                .Build();
+            _drinker.QueueHitSplat(hitSplat);
+            _drinker.QueueAnimation(Animation.Create(3170));
+            switch (TickCount)
+            {
+                case 1: BoostAttack(); break;
+                case 2: BoostStrength(); break;
+                case 3: BoostDefence(); break;
+                case 4: BoostRanged(); break;
+                case 5:
                     BoostMagic();
                     Cancel();
-                }
+                    break;
             }
         }
 

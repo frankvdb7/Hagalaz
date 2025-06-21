@@ -1,7 +1,7 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services.Model;
-using Hagalaz.Game.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 {
@@ -14,9 +14,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// </summary>
         /// <param name="dto">The definition.</param>
         public FireSurge(CombatSpellDto dto)
-            : base(dto)
-        {
-        }
+            : base(dto) { }
 
         /// <summary>
         ///     Renders the projectile.
@@ -24,25 +22,45 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <param name="caster"></param>
         /// <param name="victim"></param>
         /// <param name="delay">The delay.</param>
-        public override void RenderProjectile(ICharacter caster, ICreature victim, byte delay)
+        public override void RenderProjectile(ICharacter caster, ICreature victim, int delay)
         {
-            var projectile = new Projectile(2735);
-            projectile.SetSenderData(caster, 43, false);
-            projectile.SetReceiverData(victim, 50);
-            projectile.SetFlyingProperties(51, (byte)(delay - 51), 3, 64, false);
-            projectile.Display();
+            var projectileBuilder = caster.ServiceProvider.GetRequiredService<IProjectileBuilder>();
 
-            var projectile2 = new Projectile(2736);
-            projectile2.SetSenderData(caster, 43, false);
-            projectile2.SetReceiverData(victim, 50);
-            projectile2.SetFlyingProperties(51, (byte)(delay - 51), 20, 64, false);
-            projectile2.Display();
+            projectileBuilder.Create()
+                .WithGraphicId(2735)
+                .FromCreature(caster)
+                .ToCreature(victim)
+                .WithDuration(delay - 51)
+                .WithFromHeight(43)
+                .WithToHeight(50)
+                .WithDelay(51)
+                .WithSlope(3)
+                .WithAngle(64)
+                .Send();
 
-            var projectile3 = new Projectile(2736);
-            projectile3.SetSenderData(caster, 43, false);
-            projectile3.SetReceiverData(victim, 50);
-            projectile3.SetFlyingProperties(51, (byte)(delay - 51), 110, 64, false);
-            projectile3.Display();
+            projectileBuilder.Create()
+                .WithGraphicId(2736)
+                .FromCreature(caster)
+                .ToCreature(victim)
+                .WithDuration(delay - 51)
+                .WithFromHeight(43)
+                .WithToHeight(50)
+                .WithDelay(51)
+                .WithSlope(20)
+                .WithAngle(64)
+                .Send();
+
+            projectileBuilder.Create()
+                .WithGraphicId(2736)
+                .FromCreature(caster)
+                .ToCreature(victim)
+                .WithDuration(delay - 51)
+                .WithFromHeight(43)
+                .WithToHeight(50)
+                .WithDelay(51)
+                .WithSlope(110)
+                .WithAngle(64)
+                .Send();
         }
     }
 }
