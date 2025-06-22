@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.Npc;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -14,12 +15,17 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
     [NpcScriptMetaData([2743, 2744])]
     public class KetZek : StandardCaveNpc
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
         /// <summary>
         ///     The ranging.
         /// </summary>
         private bool _maging = true;
 
-        public KetZek(INpcBuilder npcBuilder) : base(npcBuilder) { }
+        public KetZek(INpcBuilder npcBuilder, IProjectileBuilder projectileBuilder) : base(npcBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+        }
 
         /// <summary>
         ///     Get's attack distance of this npc.
@@ -79,27 +85,26 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
             }
 
             var delay = deltaX * 5 + deltaY * 5;
-            var projectile = new Projectile(2984);
-            projectile.SetSenderData(Owner, 75, false);
-            projectile.SetReceiverData(target, 35);
-            projectile.SetFlyingProperties(25, delay, 10, 0, false);
-            projectile.Display();
+            _projectileBuilder.Create().WithGraphicId(2984)
+                .FromCreature(Owner)
+                .ToCreature(target)
+                .WithDuration(delay)
+                .WithFromHeight(75)
+                .WithToHeight(35)
+                .WithDelay(25)
+                .WithSlope(10)
+                .Send();
 
             target.QueueGraphic(Graphic.Create(2983, delay));
-            var preDmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, ((INpcCombat)Owner.Combat).GetMagicDamage(target, 490), 0);
-            Owner.QueueTask(new RsTask(() =>
-                {
-                    var soaked = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardMagic, preDmg, ref soaked);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 490) <= damage);
-                    if (soaked != -1)
-                    {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                    }
-
-                    target.QueueHitSplat(splat);
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+            
+            Owner.Combat.PerformAttack(new AttackParams()
+            {
+                Target = target,
+                DamageType = DamageType.StandardMagic,
+                Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 490),
+                MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 490),
+                Delay = delay
+            });
         }
     }
 }

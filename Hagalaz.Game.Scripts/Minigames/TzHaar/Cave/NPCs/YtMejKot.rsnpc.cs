@@ -21,30 +21,32 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         public override void PerformAttack(ICreature target)
         {
             RenderAttack();
-            var preDmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMelee, ((INpcCombat)Owner.Combat).GetMeleeDamage(target), 0);
-            var soaked = -1;
-            var damage = target.Combat.Attack(Owner, DamageType.StandardMelee, preDmg, ref soaked);
-            var splat = new HitSplat(Owner);
-            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target) <= damage);
-            if (soaked != -1)
+            var combat = (INpcCombat)Owner.Combat;
+            var handle = Owner.Combat.PerformAttack(new AttackParams()
             {
-                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-            }
-
-            target.QueueHitSplat(splat);
-
-            if (damage <= 0)
-            {
-                return;
-            }
+                Damage = combat.GetMeleeDamage(target),
+                DamageType = DamageType.StandardMelee,
+                Target = target,
+                MaxDamage = combat.GetMeleeMaxHit(target)
+            });
 
             if (target is not ICharacter character)
             {
                 return;
             }
 
-            if (character.Statistics.GetMaximumLifePoints() / 2 >= character.Statistics.LifePoints)
+            handle.RegisterResultHandler(result =>
             {
+                if (!result.DamageLifePoints.Succeeded)
+                {
+                    return;
+                }
+
+                if (character.Statistics.GetMaximumLifePoints() / 2 < character.Statistics.LifePoints)
+                {
+                    return;
+                }
+
                 var npcs = Owner.Viewport.VisibleCreatures.OfType<INpc>().Where(n => Owner.WithinRange(n, 1));
                 foreach (var npc in npcs)
                 {
@@ -52,7 +54,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
                 }
 
                 HealNpc(Owner);
-            }
+            });
         }
 
         /// <summary>

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Builders.Region;
@@ -97,12 +98,14 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         private readonly INpcBuilder _npcBuilder;
         private readonly IRegionUpdateBuilder _regionUpdateBuilder;
         private readonly IProjectileBuilder _projectileBuilder;
+        private readonly IHitSplatBuilder _hitSplatBuilder;
 
-        public Glacor(INpcBuilder npcBuilder, IRegionUpdateBuilder regionUpdateBuilder, IProjectileBuilder projectileBuilder)
+        public Glacor(INpcBuilder npcBuilder, IRegionUpdateBuilder regionUpdateBuilder, IProjectileBuilder projectileBuilder, IHitSplatBuilder hitSplatBuilder)
         {
             _npcBuilder = npcBuilder;
             _regionUpdateBuilder = regionUpdateBuilder;
             _projectileBuilder = projectileBuilder;
+            _hitSplatBuilder = hitSplatBuilder;
         }
 
         /// <summary>
@@ -142,24 +145,21 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
             var npcDamage = (int)(Owner.Statistics.LifePoints * 0.9);
             Owner.Statistics.DamageLifePoints(npcDamage);
-            var npcSplat = new HitSplat(Owner);
-            npcSplat.SetFirstSplat(npcDamage == -1 ? HitSplatType.HitMiss : HitSplatType.HitSimpleDamage, npcDamage == -1 ? 0 : npcDamage, true);
+            var npcSplat = _hitSplatBuilder.Create()
+                .AddSprite(builder => builder.WithDamage(npcDamage).AsCriticalDamage())
+                .Build();
             Owner.QueueHitSplat(npcSplat);
 
             var characters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => c.WithinRange(Owner, 2));
             foreach (var character in characters)
             {
-                var dmg = character.Combat.IncomingAttack(Owner, DamageType.Reflected, character.Statistics.LifePoints / 3, 0);
-                var soak = -1;
-                var damage = character.Combat.Attack(Owner, DamageType.Reflected, dmg, ref soak);
-                var splat = new HitSplat(Owner);
-                splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitSimpleDamage, damage == -1 ? 0 : damage, dmg <= damage);
-                if (soak != -1)
+                Owner.Combat.PerformAttack(new AttackParams()
                 {
-                    splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                }
-
-                character.QueueHitSplat(splat);
+                    Damage = character.Statistics.LifePoints / 3,
+                    MaxDamage = character.Statistics.LifePoints / 3,
+                    DamageType = DamageType.Standard,
+                    Target = character
+                });
             }
 
             _healing = true;
@@ -232,23 +232,32 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             var left = center.Translate(1, 0, 0);
             var right = center.Translate(-1, 0, 0);
 
-            var projectile = new Projectile(2875); //963
-            projectile.SetSenderData(from, 25);
-            projectile.SetReceiverData(center, 15);
-            projectile.SetFlyingProperties(0, delay, 0, 0, false);
-            projectile.Display();
+            _projectileBuilder.Create()
+                .WithGraphicId(2875)
+                .FromLocation(from)
+                .ToLocation(center)
+                .WithDuration(delay)
+                .WithFromHeight(25)
+                .WithToHeight(15)
+                .Send();
 
-            var projectile2 = new Projectile(2875); //963
-            projectile2.SetSenderData(from, 25);
-            projectile2.SetReceiverData(left, 15);
-            projectile2.SetFlyingProperties(0, delay, 0, 0, false);
-            projectile2.Display();
+            _projectileBuilder.Create()
+                .WithGraphicId(2875)
+                .FromLocation(from)
+                .ToLocation(left)
+                .WithDuration(delay)
+                .WithFromHeight(25)
+                .WithToHeight(15)
+                .Send();
 
-            var projectile3 = new Projectile(2875); //963
-            projectile3.SetSenderData(from, 25);
-            projectile3.SetReceiverData(right, 15);
-            projectile3.SetFlyingProperties(0, delay, 0, 0, false);
-            projectile3.Display();
+            _projectileBuilder.Create()
+                .WithGraphicId(2875)
+                .FromLocation(from)
+                .ToLocation(right)
+                .WithDuration(delay)
+                .WithFromHeight(25)
+                .WithToHeight(15)
+                .Send();
 
             Owner.QueueTask(new RsTask(() =>
                 {
@@ -299,11 +308,14 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
                     var delay = 20 + deltaX * 5 + deltaY * 5;
 
-                    var projectile = new Projectile(2875); //963
-                    projectile.SetSenderData(glacyte, 15, false);
-                    projectile.SetReceiverData(Owner, 25);
-                    projectile.SetFlyingProperties(0, delay, 0, 0, false);
-                    projectile.Display();
+                    _projectileBuilder.Create()
+                        .WithGraphicId(2875)
+                        .FromCreature(glacyte)
+                        .ToCreature(Owner)
+                        .WithDuration(delay)
+                        .WithFromHeight(15)
+                        .WithToHeight(25)
+                        .Send();
                 }
 
                 _glacytes.Remove(handle);
@@ -446,24 +458,14 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                             .WithSlope(1)
                             .Send();
 
-                        Owner.QueueTask(new RsTask(() =>
-                            {
-                                var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(target);
-                                dmg = target.Combat.IncomingAttack(Owner, DamageType.FullRange, dmg, 0);
-                                var soak = -1;
-                                var damage = target.Combat.Attack(Owner, DamageType.FullRange, dmg, ref soak);
-                                var splat = new HitSplat(Owner);
-                                splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage,
-                                    damage == -1 ? 0 : damage,
-                                    ((INpcCombat)Owner.Combat).GetRangeMaxHit(target) <= damage);
-                                if (soak != -1)
-                                {
-                                    splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                                }
-
-                                target.QueueHitSplat(splat);
-                            },
-                            CreatureHelper.CalculateTicksForClientTicks(duration)));
+                        Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = combat.GetRangeDamage(target),
+                            MaxDamage = combat.GetRangeMaxHit(target),
+                            DamageType = DamageType.FullRange,
+                            Delay = duration,
+                            Target = target
+                        });
                         break;
                     }
                 case AttackType.Magic:
@@ -498,34 +500,28 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                             .WithSlope(0)
                             .Send();
 
-                        Owner.QueueTask(new RsTask(() =>
+                        var handle = Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = combat.GetMagicDamage(target, 300),
+                            MaxDamage = combat.GetMagicMaxHit(target, 300),
+                            DamageType = DamageType.FullMagic,
+                            Delay = duration,
+                            Target = target
+                        });
+
+                        handle.RegisterResultHandler(result =>
+                        {
+                            if (RandomStatic.Generator.Next(0, 15) == 10)
                             {
-                                var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 300);
-                                dmg = target.Combat.IncomingAttack(Owner, DamageType.FullMagic, dmg, 0);
-                                var soak = -1;
-                                var damage = target.Combat.Attack(Owner, DamageType.FullMagic, dmg, ref soak);
-                                var splat = new HitSplat(Owner);
-                                splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage,
-                                    damage == -1 ? 0 : damage,
-                                    ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 300) <= damage);
-                                if (soak != -1)
+                                if (((ICharacter)target).Prayers.IsPraying(NormalPrayer.ProtectFromMagic) ||
+                                    ((ICharacter)target).Prayers.IsPraying(AncientCurses.DeflectMagic))
                                 {
-                                    splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
+                                    return;
                                 }
 
-                                target.QueueHitSplat(splat);
-                                if (RandomStatic.Generator.Next(0, 15) == 10)
-                                {
-                                    if (((ICharacter)target).Prayers.IsPraying(NormalPrayer.ProtectFromMagic) ||
-                                        ((ICharacter)target).Prayers.IsPraying(AncientCurses.DeflectMagic))
-                                    {
-                                        return;
-                                    }
-
-                                    target.Freeze(5, 15);
-                                }
-                            },
-                            CreatureHelper.CalculateTicksForClientTicks(duration)));
+                                target.Freeze(5, 15);
+                            }
+                        });
                         break;
                     }
                 case AttackType.Icicle:
@@ -558,26 +554,24 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                             .WithSlope(1)
                             .Send();
 
-                        _regionUpdateBuilder.Create().WithLocation(targetLocation).WithGraphic(Graphic.Create(899, duration)).Queue();
+                        _regionUpdateBuilder.Create()
+                            .WithLocation(targetLocation)
+                            .WithGraphic(Graphic.Create(899, duration))
+                            .Queue();
+
 
                         Owner.QueueTask(new RsTask(() =>
                             {
                                 var characters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => c.Location.Equals(targetLocation));
                                 foreach (var character in characters)
                                 {
-                                    var dmg = character.Combat.IncomingAttack(Owner, DamageType.Reflected, character.Statistics.LifePoints / 2, 0);
-                                    var soak = -1;
-                                    var damage = character.Combat.Attack(Owner, DamageType.Reflected, dmg, ref soak);
-                                    var splat = new HitSplat(Owner);
-                                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitSimpleDamage,
-                                        damage == -1 ? 0 : damage,
-                                        dmg <= damage);
-                                    if (soak != -1)
+                                    Owner.Combat.PerformAttack(new AttackParams()
                                     {
-                                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                                    }
-
-                                    character.QueueHitSplat(splat);
+                                        Damage = character.Statistics.LifePoints / 2,
+                                        MaxDamage = character.Statistics.LifePoints / 2,
+                                        DamageType = DamageType.Standard,
+                                        Target = character
+                                    });
                                 }
                             },
                             CreatureHelper.CalculateTicksForClientTicks(duration)));
