@@ -23,6 +23,7 @@ using Hagalaz.Game.Scripts.Skills.Magic.SkillSpells;
 using Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells;
 using Hagalaz.Game.Scripts.Widgets.Lodestone;
 using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 
 namespace Hagalaz.Game.Scripts.Widgets.Tabs
 {
@@ -59,13 +60,18 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             new AncientShadowCombatSpell(0), new AncientShadowCombatSpell(1), new AncientShadowCombatSpell(2), new AncientShadowCombatSpell(3)
         ];
 
-        /// <summary>
-        ///     Contains blood spells.
-        /// </summary>
-        private static readonly ICombatSpell[] _bloodSpells =
-        [
-            new AncientBloodCombatSpell(0), new AncientBloodCombatSpell(1), new AncientBloodCombatSpell(2), new AncientBloodCombatSpell(3)
-        ];
+        private ICombatSpell[] GetBloodSpells()
+        {
+            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
+            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
+            return new[]
+            {
+                new AncientBloodCombatSpell(0, projectileBuilder),
+                new AncientBloodCombatSpell(1, projectileBuilder),
+                new AncientBloodCombatSpell(2, projectileBuilder),
+                new AncientBloodCombatSpell(3, projectileBuilder)
+            };
+        }
 
         /// <summary>
         ///     Contains ice spells.
@@ -548,6 +554,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 {
                                     return false;
                                 }
+
                                 var bonesToPeaches = _serviceProvider.GetRequiredService<IBonesToPeaches>();
                                 return bonesToPeaches.Cast();
                             });
@@ -817,6 +824,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 });
                         }
 
+                        var bloodSpells = GetBloodSpells();
+
                         OnComponentClick autoCastClickHandler = (componentID, clickType, extra1, extra2) =>
                         {
                             if (clickType != ComponentClickType.Option6Click)
@@ -830,10 +839,10 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 case 21: AutoCast(_iceSpells[2]); break;
                                 case 22: AutoCast(_iceSpells[1]); break;
                                 case 23: AutoCast(_iceSpells[3]); break;
-                                case 24: AutoCast(_bloodSpells[0]); break;
-                                case 25: AutoCast(_bloodSpells[2]); break;
-                                case 26: AutoCast(_bloodSpells[1]); break;
-                                case 27: AutoCast(_bloodSpells[3]); break;
+                                case 24: AutoCast(bloodSpells[0]); break;
+                                case 25: AutoCast(bloodSpells[2]); break;
+                                case 26: AutoCast(bloodSpells[1]); break;
+                                case 27: AutoCast(bloodSpells[3]); break;
                                 case 28: AutoCast(_smokeSpells[0]); break;
                                 case 29: AutoCast(_smokeSpells[2]); break;
                                 case 30: AutoCast(_smokeSpells[1]); break;
@@ -877,22 +886,22 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
                             if (componentID == 24)
                             {
-                                Cast(_bloodSpells[0], usedOn, shouldRun);
+                                Cast(bloodSpells[0], usedOn, shouldRun);
                             }
 
                             if (componentID == 25)
                             {
-                                Cast(_bloodSpells[2], usedOn, shouldRun);
+                                Cast(bloodSpells[2], usedOn, shouldRun);
                             }
 
                             if (componentID == 26)
                             {
-                                Cast(_bloodSpells[1], usedOn, shouldRun);
+                                Cast(bloodSpells[1], usedOn, shouldRun);
                             }
 
                             if (componentID == 27)
                             {
-                                Cast(_bloodSpells[3], usedOn, shouldRun);
+                                Cast(bloodSpells[3], usedOn, shouldRun);
                             }
 
                             if (componentID == 28)

@@ -1,21 +1,27 @@
 ﻿using System;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([2028])]
     public class KarilTheTainted : BarrowBrother
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
+        public KarilTheTainted(IProjectileBuilder projectileBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+        }
+
         /// <summary>
         ///     Perform's attack on specific target.
         /// </summary>
@@ -26,11 +32,18 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 
             var delay = Math.Max(10, (int)Location.GetDistance(Owner.Location.X, Owner.Location.Y, target.Location.X, target.Location.Y) * 5);
 
-            var projectile = new Projectile(27);
-            projectile.SetSenderData(Owner, 38, false);
-            projectile.SetReceiverData(target, 36);
-            projectile.SetFlyingProperties(41, delay, 5, 11, false);
-            projectile.Display();
+            _projectileBuilder
+                .Create()
+                .WithGraphicId(27)
+                .FromCreature(Owner)
+                .ToCreature(target)
+                .WithDuration(delay)
+                .WithFromHeight(38)
+                .WithToHeight(36)
+                .WithDelay(41)
+                .WithSlope(5)
+                .WithAngle(11)
+                .Send();
 
             var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(target);
             dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
@@ -41,28 +54,35 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
                 target.QueueGraphic(Graphic.Create(401, CreatureHelper.CalculateTicksForClientTicks(delay)));
             }
 
-            Owner.QueueTask(new RsTask(() =>
+            var handle = Owner.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = dmg,
+                DamageType = DamageType.StandardRange,
+                Target = target,
+                MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
+                Delay = delay,
+            });
+
+            handle.RegisterResultHandler(result =>
+            {
+                if (!result.DamageLifePoints.Succeeded)
                 {
-                    if (special)
-                    {
-                        if (target is ICharacter character)
-                        {
-                            character.Statistics.DamageSkill(StatisticsConstants.Agility, (byte)(character.Statistics.GetSkillLevel(StatisticsConstants.Agility) * 0.20));
-                            character.SendChatMessage("You feel less agile.");
-                        }
-                    }
+                    return;
+                }
 
-                    var soak = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardRange, dmg, ref soak);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetRangeMaxHit(target) <= damage);
-                    if (soak != -1)
-                    {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                    }
+                if (!special)
+                {
+                    return;
+                }
 
-                    target.QueueHitSplat(splat);
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                if (target is not ICharacter character)
+                {
+                    return;
+                }
+
+                character.Statistics.DamageSkill(StatisticsConstants.Agility, (int)(character.Statistics.GetSkillLevel(StatisticsConstants.Strength) * 0.20));
+                character.SendChatMessage("You feel less agile.");
+            });
         }
 
         /// <summary>
@@ -100,13 +120,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
         ///     System.Int32.
         /// </returns>
         public override int GetAttackSpeed() => 6;
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [2028];
     }
 }

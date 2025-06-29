@@ -16,7 +16,6 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Utilities;
 
