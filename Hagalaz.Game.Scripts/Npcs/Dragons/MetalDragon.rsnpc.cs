@@ -1,20 +1,23 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Npcs.Dragons
 {
     /// <summary>
     ///     Contains a metal dragon script.
     /// </summary>
+    [EquipmentScriptMetaData([1591, 1592, 3590, 10776, 10777, 10778, 10779, 10780, 10781])]
     public class MetalDragon : StandardDragon
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
+        public MetalDragon(IProjectileBuilder projectileBuilder) => _projectileBuilder = projectileBuilder;
+
         /// <summary>
         ///     Initializes this script.
         /// </summary>
@@ -50,7 +53,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                 Bonus = AttackBonus.Magic;
                 Style = AttackStyle.MagicNormal;
 
-                const int maxHit = 550;
+                const int maxDamage = 550;
                 // Dragon fire
                 Owner.QueueAnimation(Animation.Create(13160));
 
@@ -66,28 +69,27 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                     deltaY = -deltaY;
                 }
 
-                var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
-                var projectile = new Projectile(2148);
-                projectile.SetSenderData(Owner, 50, false);
-                projectile.SetReceiverData(target, 35);
-                projectile.SetFlyingProperties(10, delay, 10, 0, false);
-                projectile.Display();
+                var delay = 20 + deltaX * 5 + deltaY * 5;
+                _projectileBuilder.Create()
+                    .WithGraphicId(2148)
+                    .FromCreature(Owner)
+                    .ToCreature(target)
+                    .WithDuration(delay)
+                    .WithSlope(10)
+                    .WithDelay(10)
+                    .Send();
 
-                var preDmg = target.Combat.IncomingAttack(Owner, DamageType.DragonFire, ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit), 0);
-                Owner.QueueTask(new RsTask(() =>
-                    {
-                        target.QueueGraphic(Graphic.Create(439));
-                        var soaked = -1;
-                        var damage = target.Combat.Attack(Owner, DamageType.DragonFire, preDmg, ref soaked);
-                        var splat = new HitSplat(Owner);
-                        splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, maxHit <= damage);
-                        if (soaked != -1)
-                        {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                        }
+                var damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxDamage);
+                var handle = Owner.Combat.PerformAttack(new AttackParams()
+                {
+                    Damage = damage,
+                    MaxDamage = maxDamage,
+                    DamageType = DamageType.DragonFire,
+                    Target = target,
+                    Delay = delay
+                });
 
-                        target.QueueHitSplat(splat);
-                    }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                handle.RegisterResultHandler(_ => { target.QueueGraphic(Graphic.Create(439)); });
             }
             else
             {
@@ -96,51 +98,37 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                     Bonus = AttackBonus.Magic;
                     Style = AttackStyle.MagicNormal;
 
-                    const int maxHit = 550;
+                    const int maxDamage = 550;
                     // Dragon fire
                     Owner.QueueAnimation(Animation.Create(13164));
                     Owner.QueueGraphic(Graphic.Create(2465));
 
-                    var preDmg = target.Combat.IncomingAttack(Owner, DamageType.DragonFire, ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxHit), 0);
-                    Owner.QueueTask(new RsTask(() =>
-                        {
-                            target.QueueGraphic(Graphic.Create(439));
-                            var soaked = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.DragonFire, preDmg, ref soaked);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, maxHit <= damage);
-                            if (soaked != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                            }
+                    var damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, maxDamage);
+                    var handle = Owner.Combat.PerformAttack(new AttackParams()
+                    {
+                        Damage = damage,
+                        MaxDamage = maxDamage,
+                        DamageType = DamageType.DragonFire,
+                        Target = target,
+                        Delay = 2
+                    });
 
-                            target.QueueHitSplat(splat);
-                        }, 2));
+                    handle.RegisterResultHandler(_ => { target.QueueGraphic(Graphic.Create(439)); });
                 }
                 else
                 {
                     Style = AttackStyle.MeleeAggressive;
                     Bonus = AttackBonus.Slash;
                     RenderAttack();
-                    var preDmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMelee, ((INpcCombat)Owner.Combat).GetMeleeDamage(target), 0);
-                    var soaked = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardMelee, preDmg, ref soaked);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target) <= damage);
-                    if (soaked != -1)
+                    Owner.Combat.PerformAttack(new AttackParams()
                     {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                    }
-
-                    target.QueueHitSplat(splat);
+                        Damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target),
+                        MaxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target),
+                        Target = target,
+                        DamageType = DamageType.StandardMelee
+                    });
                 }
             }
         }
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [1591, 1592, 3590, 10776, 10777, 10778, 10779, 10780, 10781];
     }
 }

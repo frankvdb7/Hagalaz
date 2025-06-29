@@ -1,12 +1,9 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services.Model;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 {
@@ -52,15 +49,19 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 deltaY = -deltaY;
             }
 
-            var max = combat.GetMagicMaxHit(victim, GetBaseDamage(caster));
-            var damage = combat.GetMagicDamage(victim, max);
-
-            combat.PerformSoulSplit(victim, damage);
-
-            damage = victim.Combat.IncomingAttack(caster, DamageType.FullMagic, damage, (byte)(51 + deltaX * 5 + deltaY * 5));
-            combat.AddMagicExperience(damage);
-
             var delay = (byte)(51 + deltaX * 5 + deltaY * 5);
+            var maxDamage = combat.GetMagicMaxHit(victim, GetBaseDamage(caster));
+            var damage = combat.GetMagicDamage(victim, maxDamage);
+
+            var attackHandle = caster.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = damage,
+                DamageType = DamageType.FullMagic,
+                MaxDamage = maxDamage,
+                Delay = delay,
+                Target = victim
+            });
+
             if (Dto.ProjectileId != -1)
             {
                 RenderProjectile(caster, victim, delay);
@@ -75,27 +76,17 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 victim.QueueGraphic(Graphic.Create(Dto.EndGraphicId, delay, 100));
             }
 
-            caster.QueueTask(new RsTask(() =>
+            attackHandle.RegisterResultHandler(result =>
+            {
+                if (result.DamageLifePoints.Succeeded)
                 {
-                    var soak = -1;
-                    var dmg = victim.Combat.Attack(caster, DamageType.FullMagic, damage, ref soak);
-                    if (dmg != -1)
-                    {
-                        var splat = new HitSplat(caster);
-                        splat.SetFirstSplat(HitSplatType.HitMagicDamage, dmg, dmg >= GetBaseDamage(caster));
-                        if (soak != -1)
-                        {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                        }
-
-                        victim.QueueHitSplat(splat);
-                        OnSuccessfulHit(caster, victim);
-                    }
-                    else
-                    {
-                        victim.QueueGraphic(Graphic.Create(85, 0, 150));
-                    }
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                    OnSuccessfulHit(caster, victim);
+                }
+                else
+                {
+                    victim.QueueGraphic(Graphic.Create(85, 0, 150));
+                }
+            });
         }
 
         /// <summary>
@@ -111,9 +102,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// </summary>
         /// <param name="caster">The caster.</param>
         /// <param name="victim">The victim.</param>
-        public virtual void OnSuccessfulHit(ICharacter caster, ICreature victim)
-        {
-        }
+        public virtual void OnSuccessfulHit(ICharacter caster, ICreature victim) { }
 
         /// <summary>
         ///     Renders the projectile.
@@ -121,13 +110,20 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <param name="caster">The caster.</param>
         /// <param name="victim">The victim.</param>
         /// <param name="delay">The delay.</param>
-        public virtual void RenderProjectile(ICharacter caster, ICreature victim, byte delay)
+        public virtual void RenderProjectile(ICharacter caster, ICreature victim, int delay)
         {
-            var projectile = new Projectile(Dto.ProjectileId);
-            projectile.SetSenderData(caster, 43);
-            projectile.SetReceiverData(victim, 25);
-            projectile.SetFlyingProperties(51, (byte)(delay - 51), 16, 20, false);
-            projectile.Display();
+            var projectileBuilder = caster.ServiceProvider.GetRequiredService<IProjectileBuilder>();
+            projectileBuilder.Create()
+                .WithGraphicId(Dto.ProjectileId)
+                .FromCreature(caster)
+                .ToCreature(victim)
+                .WithDuration(delay - 51)
+                .WithFromHeight(43)
+                .WithToHeight(25)
+                .WithDelay(51)
+                .WithSlope(16)
+                .WithAngle(20)
+                .Send();
         }
 
         /// <summary>
@@ -135,7 +131,8 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// </summary>
         /// <param name="caster"></param>
         /// <returns></returns>
-        public virtual bool CheckRequirements(ICharacter caster) => caster.Magic.CheckMagicLevel(Dto.RequiredLevel) && caster.Magic.CheckRunes(Dto.RequiredRunes, Dto.RequiredRunesCounts);
+        public virtual bool CheckRequirements(ICharacter caster) =>
+            caster.Magic.CheckMagicLevel(Dto.RequiredLevel) && caster.Magic.CheckRunes(Dto.RequiredRunes, Dto.RequiredRunesCounts);
 
         /// <summary>
         ///     Removes required items from actor.

@@ -1,25 +1,24 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Audio;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
 {
     /// <summary>
     ///     Contains the general graardor script.
     /// </summary>
+    [NpcScriptMetaData([6260])]
     public class GeneralGraardor : General
     {
         private readonly IAudioBuilder _soundBuilder;
+        private readonly IProjectileBuilder _projectileBuilder;
 
         /// <summary>
         ///     Initializes the static <see cref="GeneralGraardor" /> class.
@@ -38,12 +37,16 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
             _speakData.Add("FOR THE GLORY OF THE BIG HIGH WAR GOD!", 3228);
         }
 
-        public GeneralGraardor(IAudioBuilder soundBuilder) => _soundBuilder = soundBuilder;
+        public GeneralGraardor(IAudioBuilder soundBuilder, IProjectileBuilder projectileBuilder)
+        {
+            _soundBuilder = soundBuilder;
+            _projectileBuilder = projectileBuilder;
+        }
 
         /// <summary>
         ///     Contains speak data.
         /// </summary>
-        private static readonly Dictionary<string, short> _speakData = new Dictionary<string, short>();
+        private static readonly Dictionary<string, int> _speakData = new();
 
         /// <summary>
         ///     The attack type
@@ -69,17 +72,13 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
                     {
                         // Melee attack
                         RenderAttack();
-                        var preDmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMelee, ((INpcCombat)Owner.Combat).GetMeleeDamage(target), 0);
-                        var soaked = -1;
-                        var damage = target.Combat.Attack(Owner, DamageType.StandardMelee, preDmg, ref soaked);
-                        var splat = new HitSplat(Owner);
-                        splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target) <= damage);
-                        if (soaked != -1)
+                        var combat = (INpcCombat)Owner.Combat;
+                        var damage = combat.GetMeleeDamage(target);
+                        var maxDamage = combat.GetMeleeMaxHit(target);
+                        Owner.Combat.PerformAttack(new AttackParams()
                         {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                        }
-
-                        target.QueueHitSplat(splat);
+                            Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.StandardMelee, Target = target
+                        });
                         break;
                     }
                 case 1:
@@ -90,7 +89,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
 
                         var combat = (INpcCombat)Owner.Combat;
 
-                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
+                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                            .Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
                         foreach (var c in visibleCharacters)
                         {
                             var deltaX = Owner.Location.X - c.Location.X;
@@ -105,31 +105,28 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
                                 deltaY = -deltaY;
                             }
 
-                            var delay = (byte)(25 + deltaX * 2 + deltaY * 2);
+                            var delay = 25 + deltaX * 2 + deltaY * 2;
 
-                            var projectile = new Projectile(1200);
-                            projectile.SetSenderData(Owner, 0);
-                            projectile.SetReceiverData(c, 0);
-                            projectile.SetFlyingProperties(40, delay, 0, 180, false);
-                            projectile.Display();
+                            _projectileBuilder.Create()
+                                .WithGraphicId(1200)
+                                .FromCreature(Owner)
+                                .ToCreature(c)
+                                .WithDuration(delay)
+                                .WithAngle(180)
+                                .WithDelay(40)
+                                .Send();
 
-                            var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(c);
-                            dmg = c.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
+                            var damage = combat.GetRangeDamage(c);
+                            var maxDamage = combat.GetRangeMaxHit(c);
 
-                            var toAttack = c;
-                            c.QueueTask(new RsTask(() =>
+                            combat.PerformAttack(new AttackParams()
                             {
-                                var soak = -1;
-                                var damage = toAttack.Combat.Attack(Owner, DamageType.StandardRange, dmg, ref soak);
-                                var splat = new HitSplat(Owner);
-                                splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetRangeMaxHit(toAttack) <= damage);
-                                if (soak != -1)
-                                {
-                                    splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                                }
-
-                                toAttack.QueueHitSplat(splat);
-                            }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                                Damage = damage,
+                                MaxDamage = maxDamage,
+                                DamageType = DamageType.StandardRange,
+                                Target = c,
+                                Delay = delay
+                            });
                         }
 
                         break;
@@ -167,12 +164,9 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
         {
             switch (_attackType)
             {
-                case 0:
-                    return 1;
-                case 1:
-                    return 7;
-                default:
-                    return base.GetAttackDistance();
+                case 0: return 1;
+                case 1: return 7;
+                default: return base.GetAttackDistance();
             }
         }
 
@@ -201,7 +195,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
         /// <returns>
         ///     <c>true</c> if this instance [can retaliate to] the specified creature; otherwise, <c>false</c>.
         /// </returns>
-        public override bool CanRetaliateTo(ICreature creature) => Owner.Combat.IsInCombat() && Owner.Combat.RecentAttackers.All(attacker => Owner.Combat.Target == null || attacker.Attacker != Owner.Combat.Target);
+        public override bool CanRetaliateTo(ICreature creature) =>
+            Owner.Combat.IsInCombat() && Owner.Combat.RecentAttackers.All(attacker => Owner.Combat.Target == null || attacker.Attacker != Owner.Combat.Target);
 
         /// <summary>
         ///     Tick's npc.
@@ -228,16 +223,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
                 return;
             }
         }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() =>
-        [
-            6260
-        ];
     }
 }

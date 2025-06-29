@@ -213,12 +213,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     Viewport.VisibleCreatures.OfType<INpc>()
                         .ForEach(npc =>
                         {
-                            var soaked = -1;
-                            var dmg = npc.Combat.Attack(this, DamageType.StandardMagic, 1337, ref soaked);
-                            var splat = new HitSplat(this);
-                            splat.SetFirstSplat(HitSplatType.HitMagicDamage, dmg == -1 ? 0 : dmg, true);
-                            if (soaked != -1) splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                            npc.QueueHitSplat(splat);
+                            Combat.PerformAttack(new AttackParams()
+                            {
+                                Damage = 1337, MaxDamage = 1337, DamageType = DamageType.StandardMagic, Target = npc
+                            });
                         });
                 }
                 else if (ce.Command.StartsWith("forcemovement"))

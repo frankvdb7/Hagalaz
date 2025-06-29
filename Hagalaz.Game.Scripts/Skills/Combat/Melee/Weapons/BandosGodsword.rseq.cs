@@ -1,12 +1,10 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
@@ -14,6 +12,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
     /// <summary>
     ///     Contains bgs equipment script.
     /// </summary>
+    [EquipmentScriptMetaData([11696, 13451])]
     public class BandosGodsword : EquipmentScript
     {
         /// <summary>
@@ -27,55 +26,52 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             RenderAttack(item, attacker, true);
             var combat = (ICharacterCombat)attacker.Combat;
 
-            var hit = combat.GetMeleeDamage(victim, true);
-            var standartMax = combat.GetMeleeMaxHit(victim, false);
-            combat.PerformSoulSplit(victim, hit);
-            hit = victim.Combat.IncomingAttack(attacker, DamageType.FullMelee, hit, 0);
-            combat.AddMeleeExperience(hit);
-            var soak = -1;
-            hit = victim.Combat.Attack(attacker, DamageType.FullMelee, hit, ref soak);
+            var damage = combat.GetMeleeDamage(victim, true);
+            var maxDamage = combat.GetMeleeMaxHit(victim, false);
 
-            var splat = new HitSplat(attacker);
-            splat.SetFirstSplat(hit <= 0 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, hit <= 0 ? 0 : hit, standartMax <= hit);
-            if (soak != -1)
+            var handle = attacker.Combat.PerformAttack(new AttackParams()
             {
-                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-            }
+                Damage = damage,
+                MaxDamage = maxDamage,
+                DamageType = DamageType.FullMelee,
+                Target = victim
+            });
 
-            victim.QueueHitSplat(splat);
-
-            if (hit > 0 && victim is ICharacter vic)
+            if (victim is ICharacter vic)
             {
-                var toDamage = (int)(hit * 0.10);
-                if (toDamage > 0)
+                handle.RegisterResultHandler(result =>
                 {
-                    toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Defence, (byte)toDamage);
-                }
+                    var toDamage = (int)(result.DamageLifePoints.Count * 0.10);
+                    if (toDamage > 0)
+                    {
+                        toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Defence, toDamage);
+                    }
 
-                if (toDamage > 0)
-                {
-                    toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Strength, (byte)toDamage);
-                }
+                    if (toDamage > 0)
+                    {
+                        toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Strength, toDamage);
+                    }
 
-                if (toDamage > 0)
-                {
-                    toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Attack, (byte)toDamage);
-                }
+                    if (toDamage > 0)
+                    {
+                        toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Attack, toDamage);
+                    }
 
-                if (toDamage > 0)
-                {
-                    toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Prayer, (byte)toDamage);
-                }
+                    if (toDamage > 0)
+                    {
+                        toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Prayer, toDamage);
+                    }
 
-                if (toDamage > 0)
-                {
-                    toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Magic, (byte)toDamage);
-                }
+                    if (toDamage > 0)
+                    {
+                        toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Magic, toDamage);
+                    }
 
-                if (toDamage > 0)
-                {
-                    toDamage -= vic.Statistics.DamageSkill(StatisticsConstants.Ranged, (byte)toDamage);
-                }
+                    if (toDamage > 0)
+                    {
+                        vic.Statistics.DamageSkill(StatisticsConstants.Ranged, toDamage);
+                    }
+                });
             }
         }
 
@@ -110,11 +106,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         ///     Happens when this item is unequiped.
         /// </summary>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.BandosGodswordEquipped);
-
-        /// <summary>
-        ///     Get's items suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override IEnumerable<int> GetSuitableItems() => [11696, 13451];
     }
 }

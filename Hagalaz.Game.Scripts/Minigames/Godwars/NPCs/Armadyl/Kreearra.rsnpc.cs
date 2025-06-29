@@ -3,6 +3,7 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Animation;
 using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Builders.Movement;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -11,8 +12,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
@@ -23,6 +22,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         private readonly ILocationBuilder _locationBuilder;
         private readonly IAnimationBuilder _animationBuilder;
         private readonly IMovementBuilder _movementBuilder;
+        private readonly IProjectileBuilder _projectileBuilder;
+        private readonly IMapRegionService _mapRegionService;
 
         /// <summary>
         /// </summary>
@@ -38,17 +39,15 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         /// </summary>
         private Attack _attack;
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="locationBuilder"></param>
-        /// <param name="animationBuilder"></param>
-        /// <param name="movementBuilder"></param>
-        public Kreearra(ILocationBuilder locationBuilder, IAnimationBuilder animationBuilder, IMovementBuilder movementBuilder)
+        public Kreearra(
+            ILocationBuilder locationBuilder, IAnimationBuilder animationBuilder, IMovementBuilder movementBuilder, IProjectileBuilder projectileBuilder,
+            IMapRegionService mapRegionService)
         {
             _locationBuilder = locationBuilder;
             _animationBuilder = animationBuilder;
             _movementBuilder = movementBuilder;
+            _projectileBuilder = projectileBuilder;
+            _mapRegionService = mapRegionService;
         }
 
         /// <summary>
@@ -90,16 +89,14 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         /// <returns>
         ///     AttackBonus.
         /// </returns>
-        public override AttackBonus GetAttackBonusType()
-        {
-            switch (_attack)
+        public override AttackBonus GetAttackBonusType() =>
+            _attack switch
             {
-                case Attack.Melee: return AttackBonus.Slash;
-                case Attack.Magic: return AttackBonus.Magic;
-                case Attack.Ranged: return AttackBonus.Ranged;
-                default: return base.GetAttackBonusType();
-            }
-        }
+                Attack.Melee => AttackBonus.Slash,
+                Attack.Magic => AttackBonus.Magic,
+                Attack.Ranged => AttackBonus.Ranged,
+                _ => base.GetAttackBonusType()
+            };
 
         /// <summary>
         ///     Get's attack distance of this npc.
@@ -123,35 +120,16 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                     {
                         RenderAttack();
 
-                        var hit1 = target.Combat.IncomingAttack(Owner, DamageType.StandardMelee, combat.GetMeleeDamage(target), 0);
-                        var hit2 = target.Combat.IncomingAttack(Owner, DamageType.StandardMelee, combat.GetMeleeDamage(target), 0);
-                        var standardMax = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
-                        var soaked1 = -1;
-                        var damage1 = target.Combat.Attack(Owner, DamageType.StandardMelee, hit1, ref soaked1);
-                        var soaked2 = -1;
-                        var damage2 = target.Combat.Attack(Owner, DamageType.StandardMelee, hit2, ref soaked2);
-
-                        var splat1 = new HitSplat(Owner);
-                        splat1.SetFirstSplat(damage1 == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage,
-                            damage1 == -1 ? 0 : damage1,
-                            standardMax <= damage1);
-                        if (soaked1 != -1)
+                        var maxDamage = combat.GetMeleeMaxHit(target);
+                        Owner.Combat.PerformAttack(new AttackParams
                         {
-                            splat1.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked1, false);
-                        }
+                            Target = target, DamageType = DamageType.StandardMelee, Damage = combat.GetMeleeDamage(target, maxDamage), MaxDamage = maxDamage
+                        });
 
-                        target.QueueHitSplat(splat1);
-
-                        var splat2 = new HitSplat(Owner);
-                        splat2.SetFirstSplat(damage2 == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage,
-                            damage2 == -1 ? 0 : damage2,
-                            standardMax <= damage2);
-                        if (soaked2 != -1)
+                        Owner.Combat.PerformAttack(new AttackParams
                         {
-                            splat2.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked2, false);
-                        }
-
-                        target.QueueHitSplat(splat2);
+                            Target = target, DamageType = DamageType.StandardMelee, Damage = combat.GetMeleeDamage(target, maxDamage), MaxDamage = maxDamage
+                        });
                         break;
                     }
                 case Attack.Magic:
@@ -174,38 +152,32 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                                 deltaY = -deltaY;
                             }
 
-                            var delay = (byte)(25 + deltaX * 2 + deltaY * 2);
+                            var delay = 25 + deltaX * 2 + deltaY * 2;
 
-                            var projectile = new Projectile(1198);
-                            projectile.SetSenderData(Owner, 0);
-                            projectile.SetReceiverData(c, 0);
-                            projectile.SetFlyingProperties(40, delay, 0, 180, false);
-                            projectile.Display();
+                            _projectileBuilder
+                                .Create()
+                                .WithGraphicId(1198)
+                                .FromCreature(Owner)
+                                .ToCreature(c)
+                                .WithDuration(delay)
+                                .WithAngle(180)
+                                .Send();
 
                             var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(c, 210);
-                            dmg = c.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
 
-                            var toAttack = c;
-                            c.QueueTask(new RsTask(() =>
-                                {
-                                    var soak = -1;
-                                    var damage = toAttack.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                                    var splat = new HitSplat(Owner);
-                                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage,
-                                        damage == -1 ? 0 : damage,
-                                        combat.GetMagicMaxHit(toAttack, 210) <= damage);
-                                    if (soak != -1)
-                                    {
-                                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                                    }
-
-                                    toAttack.QueueHitSplat(splat);
-                                },
-                                CreatureHelper.CalculateTicksForClientTicks(delay)));
+                            Owner.Combat.PerformAttack(new AttackParams
+                            {
+                                Target = c,
+                                DamageType = DamageType.StandardMagic,
+                                Damage = dmg,
+                                MaxDamage = combat.GetMagicMaxHit(c, 210),
+                                Delay = delay
+                            });
                         }
 
                         break;
                     }
+
                 case Attack.Ranged:
                     {
                         Owner.QueueAnimation(_animationBuilder.Create().WithId(6976).Build());
@@ -226,25 +198,35 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                                 deltaY = -deltaY;
                             }
 
-                            var regionService = Owner.ServiceProvider.GetRequiredService<IMapRegionService>();
-
                             var delay = 25 + deltaX * 2 + deltaY * 2;
 
-                            var projectile = new Projectile(1197);
-                            projectile.SetSenderData(Owner, 0);
-                            projectile.SetReceiverData(c, 0);
-                            projectile.SetFlyingProperties(40, delay, 0, 180, false);
-                            projectile.Display();
+                            _projectileBuilder
+                                .Create()
+                                .WithGraphicId(1197)
+                                .FromCreature(Owner)
+                                .ToCreature(c)
+                                .WithDuration(delay)
+                                .WithDelay(40)
+                                .WithAngle(180)
+                                .Send();
 
                             var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(c);
                             dmg = c.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
 
-                            var toAttack = c;
+                            c.Combat.PerformAttack(new AttackParams()
+                            {
+                                Damage = dmg,
+                                Delay = delay,
+                                MaxDamage = combat.GetRangeMaxHit(c),
+                                Target = c,
+                                DamageType = DamageType.StandardRange,
+                            });
+
                             Owner.QueueTask(new RsTask(() =>
                                 {
-                                    var direction = Owner.Location.GetDirection(toAttack.Location);
-                                    short diffX = 0;
-                                    short diffY = 0;
+                                    var direction = Owner.Location.GetDirection(c.Location);
+                                    var diffX = 0;
+                                    var diffY = 0;
                                     var moveDirection = FaceDirection.None;
                                     switch (direction)
                                     {
@@ -295,41 +277,32 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                                     }
 
                                     var destination = _locationBuilder.Create()
-                                        .WithX(toAttack.Location.X + diffX)
-                                        .WithY(toAttack.Location.Y + diffY)
-                                        .WithZ(toAttack.Location.Z)
-                                        .WithDimension(toAttack.Location.Dimension)
+                                        .WithX(c.Location.X + diffX)
+                                        .WithY(c.Location.Y + diffY)
+                                        .WithZ(c.Location.Z)
+                                        .WithDimension(c.Location.Dimension)
                                         .Build();
-                                    if (regionService.IsAccessible(destination))
+                                    if (!_mapRegionService.IsAccessible(destination))
                                     {
-                                        if (destination.X != 2839 && destination.Y != 5295)
-                                        {
-                                            toAttack.Movement.ClearQueue();
-                                            toAttack.Movement.Teleport(Teleport.Create(destination, MovementType.Walk));
-                                            var mov = _movementBuilder
-                                                .Create()
-                                                .WithStart(toAttack.Location)
-                                                .WithEnd(destination)
-                                                .WithStartSpeed(15)
-                                                .WithEndSpeed(15)
-                                                .WithFaceDirection(moveDirection)
-                                                .Build();
-                                            toAttack.QueueForceMovement(mov);
-                                        }
+                                        return;
                                     }
 
-                                    var soak = -1;
-                                    var damage = toAttack.Combat.Attack(Owner, DamageType.StandardRange, dmg, ref soak);
-                                    var splat = new HitSplat(Owner);
-                                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage,
-                                        damage == -1 ? 0 : damage,
-                                        combat.GetRangeMaxHit(c) <= damage);
-                                    if (soak != -1)
+                                    if (destination.X == 2839 || destination.Y == 5295)
                                     {
-                                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
+                                        return;
                                     }
 
-                                    toAttack.QueueHitSplat(splat);
+                                    c.Movement.ClearQueue();
+                                    c.Movement.Teleport(Teleport.Create(destination, MovementType.Walk));
+                                    var mov = _movementBuilder
+                                        .Create()
+                                        .WithStart(c.Location)
+                                        .WithEnd(destination)
+                                        .WithStartSpeed(15)
+                                        .WithEndSpeed(15)
+                                        .WithFaceDirection(moveDirection)
+                                        .Build();
+                                    c.QueueForceMovement(mov);
                                 },
                                 CreatureHelper.CalculateTicksForClientTicks(delay)));
                         }
@@ -370,25 +343,19 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                 runningValue += chances[i];
                 if (hitValue < runningValue)
                 {
-                    if (i == 0)
+                    switch (i)
                     {
-                        _attack = Attack.Ranged;
-                        return;
+                        case 0:
+                            _attack = Attack.Ranged;
+                            return;
+                        case 1:
+                            _attack = Attack.Magic;
+                            return;
+                        case 2:
+                            _attack = Attack.Melee;
+                            return;
+                        default: return;
                     }
-
-                    if (i == 1)
-                    {
-                        _attack = Attack.Magic;
-                        return;
-                    }
-
-                    if (i == 2)
-                    {
-                        _attack = Attack.Melee;
-                        return;
-                    }
-
-                    return;
                 }
             }
         }
@@ -400,15 +367,13 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         /// <returns>
         ///     AttackStyle.
         /// </returns>
-        public override AttackStyle GetAttackStyle()
-        {
-            switch (_attack)
+        public override AttackStyle GetAttackStyle() =>
+            _attack switch
             {
-                case Attack.Melee: return AttackStyle.MeleeAccurate;
-                case Attack.Magic: return AttackStyle.MagicNormal;
-                case Attack.Ranged: return AttackStyle.RangedLongRange;
-                default: return base.GetAttackStyle();
-            }
-        }
+                Attack.Melee => AttackStyle.MeleeAccurate,
+                Attack.Magic => AttackStyle.MagicNormal,
+                Attack.Ranged => AttackStyle.RangedLongRange,
+                _ => base.GetAttackStyle()
+            };
     }
 }

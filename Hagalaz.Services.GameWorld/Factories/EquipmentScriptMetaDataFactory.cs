@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -17,7 +19,7 @@ namespace Hagalaz.Services.GameWorld.Factories
             _serviceProvider = serviceProvider;
         }
 
-        public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts()
+        public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts([EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             await Task.CompletedTask;
             var equipmentScripts = _serviceProvider.GetServices<IEquipmentScript>();

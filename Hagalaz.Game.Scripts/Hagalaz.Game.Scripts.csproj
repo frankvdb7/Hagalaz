@@ -15,6 +15,7 @@
     <ProjectReference Include="..\Hagalaz.Game.Extensions\Hagalaz.Game.Extensions.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Features\Hagalaz.Game.Features.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Resources\Hagalaz.Game.Resources.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Utilities\Hagalaz.Game.Utilities.csproj" />
     <ProjectReference Include="..\Hagalaz.Game\Hagalaz.Game.csproj" />
   </ItemGroup>
   <ItemGroup>

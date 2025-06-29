@@ -11,6 +11,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([6250])]
     public class Growler : BodyGuard
     {
         /// <summary>
@@ -86,14 +87,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
         ///     AttackStyle.
         /// </returns>
         public override AttackStyle GetAttackStyle() => AttackStyle.MagicNormal;
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [6250];
 
         /// <summary>
         ///     Get's called when owner is found.

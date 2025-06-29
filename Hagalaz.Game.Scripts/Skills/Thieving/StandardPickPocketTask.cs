@@ -1,4 +1,5 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Builders.HitSplat;
+using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -7,7 +8,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model.Combat;
 
 namespace Hagalaz.Game.Scripts.Skills.Thieving
 {
@@ -144,9 +144,13 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
                 _performer.QueueGraphic(Graphic.Create(80, 0, 60));
                 _performer.Stun(6); // 4 sec
 
-                var splat = new HitSplat(null!);
-                splat.SetFirstSplat(HitSplatType.HitSimpleDamage, _definition.FailDamage, false);
-                _performer.QueueHitSplat(splat);
+                var hitSplatBuilder = _performer.ServiceProvider.GetRequiredService<IHitSplatBuilder>();
+                var hitSplat = hitSplatBuilder.Create()
+                    .AddSprite(builder => builder.
+                        WithSplatType(HitSplatType.HitSimpleDamage).
+                        WithDamage(_definition.FailDamage))
+                    .Build();
+                _performer.QueueHitSplat(hitSplat);
                 _performer.Statistics.DamageLifePoints(_definition.FailDamage);
             }
             else
