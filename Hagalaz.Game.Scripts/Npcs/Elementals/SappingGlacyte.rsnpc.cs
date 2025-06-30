@@ -8,17 +8,13 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([14303])]
     public class SappingGlacyte : NpcScriptBase
     {
         /// <summary>
         ///     The glacor.
         /// </summary>
         private readonly INpc _glacor;
-
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="SappingGlacyte" /> class.
-        /// </summary>
-        public SappingGlacyte() { }
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="SappingGlacyte" /> class.
@@ -33,7 +29,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <param name="target">The target.</param>
         public override void OnSetTarget(ICreature target)
         {
-            if (_glacor != null && _glacor.Combat.Target == null)
+            if (_glacor.Combat.Target == null)
             {
                 _glacor.QueueTask(new RsTask(() => _glacor.Combat.SetTarget(target), 1));
             }
@@ -83,21 +79,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             {
                 character.Statistics.DrainPrayerPoints(20);
             }
-        }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [14303];
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Audio;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -19,6 +20,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
     public class KrilTsutsaroth : General
     {
         private readonly IAudioBuilder _soundBuilder;
+        private readonly IProjectileBuilder _projectileBuilder;
 
         /// <summary>
         ///     Initializes the <see cref="KrilTsutsaroth" /> class.
@@ -38,12 +40,16 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
             _speakData.Add("Attack!", 3282);
         }
 
-        public KrilTsutsaroth(IAudioBuilder soundBuilder) => _soundBuilder = soundBuilder;
+        public KrilTsutsaroth(IAudioBuilder soundBuilder, IProjectileBuilder projectileBuilder)
+        {
+            _soundBuilder = soundBuilder;
+            _projectileBuilder = projectileBuilder;
+        }
 
         /// <summary>
         ///     Contains speak data.
         /// </summary>
-        private static readonly Dictionary<string, short> _speakData = new Dictionary<string, short>();
+        private static readonly Dictionary<string, short> _speakData = new();
 
         /// <summary>
         ///     The attack type
@@ -67,9 +73,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
             switch (_attackType)
             {
                 // melee
-                case 0:
-                    base.PerformAttack(target);
-                    break;
+                case 0: base.PerformAttack(target); break;
                 // magic
                 case 1:
                     {
@@ -80,7 +84,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
 
                         var combat = (INpcCombat)Owner.Combat;
 
-                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => IsAggressiveTowards(c) && CanBeAttackedBy(Owner));
+                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                            .Where(c => IsAggressiveTowards(c) && CanBeAttackedBy(Owner));
                         foreach (var c in visibleCharacters)
                         {
                             var deltaX = Owner.Location.X - c.Location.X;
@@ -95,33 +100,26 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
                                 deltaY = -deltaY;
                             }
 
-                            var delay = (byte)(25 + deltaX * 2 + deltaY * 2);
+                            var delay = 25 + deltaX * 2 + deltaY * 2;
 
-                            var projectile = new Projectile(1211);
-                            projectile.SetSenderData(Owner, 0);
-                            projectile.SetReceiverData(c, 0);
-                            projectile.SetFlyingProperties(40, delay, 0, 180, false);
-                            projectile.Display();
+                            _projectileBuilder.Create()
+                                .WithGraphicId(1211)
+                                .FromCreature(Owner)
+                                .ToCreature(c)
+                                .WithDuration(delay)
+                                .WithDelay(40)
+                                .WithAngle(180)
+                                .Send();
 
-                            var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(c, maxHit);
-                            dmg = c.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
-
-                            var toAttack = c;
-                            Owner.QueueTask(new RsTask(() =>
+                            Owner.Combat.PerformAttack(new AttackParams()
                             {
-                                var soak = -1;
-                                var damage = toAttack.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                                var splat = new HitSplat(Owner);
-                                splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicMaxHit(toAttack, maxHit) <= damage);
-                                if (soak != -1)
-                                {
-                                    splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                                }
-
-                                toAttack.QueueHitSplat(splat);
-                            }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                                Damage = combat.GetMagicDamage(c, maxHit),
+                                MaxDamage = combat.GetMagicMaxHit(c, maxHit),
+                                Delay = delay,
+                                DamageType = DamageType.StandardMagic,
+                                Target = c
+                            });
                         }
-
                         break;
                     }
                 // special
@@ -132,17 +130,16 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
                         _soundBuilder.Create().AsVoice().WithId(3274).Build().PlayWithinDistance(Owner, 8);
 
                         RenderAttack();
-                        var preDmg = target.Combat.IncomingAttack(Owner, DamageType.Reflected, ((INpcCombat)Owner.Combat).GetMeleeDamage(target, maxDamage), 0);
-                        var soaked = -1;
-                        var damage = target.Combat.Attack(Owner, DamageType.StandardMelee, preDmg, ref soaked);
-                        var splat = new HitSplat(Owner);
-                        splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage == -1 ? 0 : damage, maxDamage <= damage);
-                        if (soaked != -1)
-                        {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                        }
 
-                        target.QueueHitSplat(splat);
+                        Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target, maxDamage),
+                            MaxDamage = maxDamage,
+                            Delay = 10,
+                            DamageType = DamageType.Standard,
+                            Target = target
+                        });
+
                         if (target is ICharacter character)
                         {
                             character.SendChatMessage("K'ril Tsutsaroth slams through your protection prayer, leaving you feeling drained.");
@@ -170,14 +167,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
         {
             switch (_attackType)
             {
-                case 0:
-                    return AttackStyle.MeleeAggressive;
-                case 1:
-                    return AttackStyle.MagicNormal;
-                case 2:
-                    return AttackStyle.MeleeAggressive;
-                default:
-                    return base.GetAttackStyle();
+                case 0: return AttackStyle.MeleeAggressive;
+                case 1: return AttackStyle.MagicNormal;
+                case 2: return AttackStyle.MeleeAggressive;
+                default: return base.GetAttackStyle();
             }
         }
 
@@ -192,14 +185,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
         {
             switch (_attackType)
             {
-                case 0:
-                    return AttackBonus.Slash;
-                case 1:
-                    return AttackBonus.Magic;
-                case 2:
-                    return AttackBonus.Crush;
-                default:
-                    return base.GetAttackBonusType();
+                case 0: return AttackBonus.Slash;
+                case 1: return AttackBonus.Magic;
+                case 2: return AttackBonus.Crush;
+                default: return base.GetAttackBonusType();
             }
         }
 
@@ -214,14 +203,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
         {
             switch (_attackType)
             {
-                case 0:
-                    return 1;
-                case 1:
-                    return 8;
-                case 2:
-                    return 1;
-                default:
-                    return base.GetAttackDistance();
+                case 0: return 1;
+                case 1: return 8;
+                case 2: return 1;
+                default: return base.GetAttackDistance();
             }
         }
 

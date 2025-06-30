@@ -262,7 +262,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                 {
                     RegisterGlacyte(14304, center, new EnduringGlacyte(Owner));
                     RegisterGlacyte(14303, left, new SappingGlacyte(Owner));
-                    RegisterGlacyte(14302, right, new UnstableGlacyte(Owner));
+                    RegisterGlacyte(14302, right, new UnstableGlacyte(Owner, _hitSplatBuilder));
                 },
                 CreatureHelper.CalculateTicksForClientTicks(delay)));
 
