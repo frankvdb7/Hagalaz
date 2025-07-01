@@ -11,13 +11,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.2.1" />
-    <PackageReference Include="Aspire.Hosting.MySql" Version="9.2.1" />
-    <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.2.1" />
-    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="9.2.1" />
-    <PackageReference Include="Aspire.Hosting.Redis" Version="9.2.1" />
-    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="9.2.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.5" />
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.3.1" />
+    <PackageReference Include="Aspire.Hosting.MySql" Version="9.3.1" />
+    <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.3.1" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="9.3.1" />
+    <PackageReference Include="Aspire.Hosting.Redis" Version="9.3.1" />
+    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="9.3.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.6" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0-preview.4.efcore.9.0.0.ci.20250318031649" />
   </ItemGroup>
