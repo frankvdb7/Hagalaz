@@ -14,12 +14,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <summary>
         ///     The glacor
         /// </summary>
-        private readonly INpc? _glacor;
-
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="EnduringGlacyte" /> class.
-        /// </summary>
-        public EnduringGlacyte() { }
+        private readonly INpc _glacor;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="EnduringGlacyte" /> class.
@@ -34,7 +29,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <param name="target">The target.</param>
         public override void OnSetTarget(ICreature target)
         {
-            if (_glacor != null && _glacor.Combat.Target == null)
+            if (_glacor.Combat.Target == null)
             {
                 _glacor.QueueTask(() => _glacor.Combat.SetTarget(target), 1);
             }
@@ -76,11 +71,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// </returns>
         public override int OnIncomingAttack(ICreature attacker, DamageType damageType, int damage, int delay)
         {
-            if (_glacor == null)
-            {
-                return base.OnIncomingAttack(attacker, damageType, damage, delay);
-            }
-
             var distance = Owner.Location.GetDistance(_glacor.Location);
             const double maxDistance = 14.0;
             return (int)(distance / maxDistance * damage);

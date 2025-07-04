@@ -1,4 +1,5 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.HitSplat;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -7,7 +8,6 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model.Combat;
 
 namespace Hagalaz.Game.Scripts.Skills.Thieving
 {
@@ -86,9 +86,11 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             {
                 _owner.SendChatMessage("You accidentally activated one of the safes security mechanisms.");
                 var damage = RandomStatic.Generator.Next(1, 61);
-                var splat = new HitSplat(null!);
-                splat.SetFirstSplat(HitSplatType.HitSimpleDamage, damage, false);
-                _owner.QueueHitSplat(splat);
+                var hitSplatBuilder = _owner.ServiceProvider.GetRequiredService<IHitSplatBuilder>();
+                var hitSplat = hitSplatBuilder.Create()
+                    .AddSprite(builder => builder.WithSplatType(HitSplatType.HitSimpleDamage).WithDamage(damage))
+                    .Build();
+                _owner.QueueHitSplat(hitSplat);
                 _owner.Statistics.DamageLifePoints(damage);
                 _owner.QueueAnimation(Animation.Create(2249));
                 Cancel();

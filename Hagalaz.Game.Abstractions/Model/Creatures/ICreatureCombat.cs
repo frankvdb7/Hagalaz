@@ -137,8 +137,10 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// </returns>
         int IncomingAttack(ICreature attacker, DamageType damageType, int damage, int delay);
         /// <summary>
-        ///     Performs the attack.
+        /// Executes an attack using the provided parameters.
         /// </summary>
+        /// <param name="attackParams">The parameters that define the attack, including target, damage, and damage type.</param>
+        /// <returns>An asynchronous task handle containing the result of the attack.</returns>
         IRsTaskHandle<AttackResult> PerformAttack(AttackParams attackParams);
         /// <summary>
         /// Get's attack level of this creature.

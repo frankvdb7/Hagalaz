@@ -3,14 +3,16 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
     public record AttackResult
     {
         /// <summary>
-        /// This damage calculated after the incoming attack.
-        /// This checks for protection prayers and other calculations before subtracting life points.
-        /// If not succeeded, it means that attack wasn't performed.
+        /// Represents the result of an attack in terms of whether it inflicted damage and the amount of damage caused.
+        /// The `Succeeded` property indicates if the attack successfully dealt damage.
+        /// The `Count` property represents the damage amount inflicted by the attack.
         /// </summary>
         public required (bool Succeeded, int Count) Damage { get; init; }
+
         /// <summary>
-        /// This damage subtracted from the life points of the target.
-        /// If not succeeded, it means that attack wasn't performed.
+        /// Indicates the result of an attack in terms of life points impact.
+        /// The `Succeeded` property shows if the attack successfully affected life points.
+        /// The `Count` property represents the number of life points affected by the attack.
         /// </summary>
         public required (bool Succeeded, int Count) DamageLifePoints { get; init; }
     }

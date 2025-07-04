@@ -1,11 +1,8 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 {
@@ -17,7 +14,11 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     Construct's new ancient blood combat spell.
         /// </summary>
-        public AncientBloodCombatSpell(int spellType) => _spellType = spellType;
+        public AncientBloodCombatSpell(int spellType, IProjectileBuilder projectileBuilder)
+        {
+            _spellType = spellType;
+            _projectileBuilder = projectileBuilder;
+        }
 
         /// <summary>
         ///     The RUN e_ REQUIREMENTS
@@ -90,13 +91,14 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         ];
 
         private readonly int _spellType;
+        private readonly IProjectileBuilder _projectileBuilder;
 
         /// <summary>
         ///     Perform's attack to target.
         /// </summary>
         public void PerformAttack(ICharacter caster, ICreature victim)
         {
-            var multiHit = _spellType == 1 || _spellType == 3;
+            var multiHit = _spellType is 1 or 3;
             caster.QueueAnimation(Animation.Create(multiHit ? 1979 : 1978));
             var combat = (ICharacterCombat)caster.Combat;
 
@@ -117,11 +119,16 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 
             if (_spellType == 2)
             {
-                var projectile = new Projectile(374);
-                projectile.SetSenderData(caster, 43, false);
-                projectile.SetReceiverData(victim, 0);
-                projectile.SetFlyingProperties(51, (short)(vDeltaX * 5 + vDeltaY * 5), 16, 64, false);
-                projectile.Display();
+                _projectileBuilder.Create()
+                    .WithGraphicId(374)
+                    .FromCreature(caster)
+                    .ToCreature(victim)
+                    .WithDuration(vDeltaX * 5 + vDeltaY * 5)
+                    .WithFromHeight(43)
+                    .WithDelay(51)
+                    .WithSlope(16)
+                    .WithAngle(64)
+                    .Send();
             }
 
 
@@ -147,12 +154,11 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                     continue;
                 }
 
-                var creature = c;
-                var max = combat.GetMagicMaxHit(creature, _baseDamage[_spellType]);
-                var damage = combat.GetMagicDamage(creature, max);
+                var maxDamage = combat.GetMagicMaxHit(c, _baseDamage[_spellType]);
+                var damage = combat.GetMagicDamage(c, maxDamage);
 
-                var deltaX = caster.Location.X - creature.Location.X;
-                var deltaY = caster.Location.Y - creature.Location.Y;
+                var deltaX = caster.Location.X - c.Location.X;
+                var deltaY = caster.Location.Y - c.Location.Y;
                 if (deltaX < 0)
                 {
                     deltaX = -deltaX;
@@ -163,53 +169,36 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                     deltaY = -deltaY;
                 }
 
-                combat.PerformSoulSplit(creature, damage);
+                combat.PerformSoulSplit(c, damage);
 
-                damage = creature.Combat.IncomingAttack(caster, DamageType.FullMagic, damage, (byte)(51 + deltaX * 5 + deltaY * 5));
+                damage = c.Combat.IncomingAttack(caster, DamageType.FullMagic, damage, 51 + deltaX * 5 + deltaY * 5);
                 combat.AddMagicExperience(damage);
 
-                var delay = (byte)(51 + vDeltaX * 5 + vDeltaY * 5);
+                var delay = 51 + vDeltaX * 5 + vDeltaY * 5;
 
                 caster.Statistics.HealLifePoints((int)(damage * 0.25));
 
                 if (damage == -1)
                 {
-                    creature.QueueGraphic(Graphic.Create(85, delay, 150));
+                    c.QueueGraphic(Graphic.Create(85, delay, 150));
                 }
-                else switch (_spellType)
-                {
-                    case 0:
-                        creature.QueueGraphic(Graphic.Create(373, delay));
-                        break;
-                    case 1:
-                        creature.QueueGraphic(Graphic.Create(376, delay));
-                        break;
-                    case 2:
-                        creature.QueueGraphic(Graphic.Create(375, delay));
-                        break;
-                    case 3:
-                        creature.QueueGraphic(Graphic.Create(377, delay));
-                        break;
-                }
-
-                caster.QueueTask(new RsTask(() =>
+                else
+                    switch (_spellType)
                     {
-                        var soak = -1;
-                        var dmg = creature.Combat.Attack(caster, DamageType.FullMagic, damage, ref soak);
-                        if (dmg == -1)
-                        {
-                            return;
-                        }
+                        case 0: c.QueueGraphic(Graphic.Create(373, delay)); break;
+                        case 1: c.QueueGraphic(Graphic.Create(376, delay)); break;
+                        case 2: c.QueueGraphic(Graphic.Create(375, delay)); break;
+                        case 3: c.QueueGraphic(Graphic.Create(377, delay)); break;
+                    }
 
-                        var splat = new HitSplat(caster);
-                        splat.SetFirstSplat(HitSplatType.HitMagicDamage, dmg, dmg >= _baseDamage[_spellType]);
-                        if (soak != -1)
-                        {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                        }
-
-                        creature.QueueHitSplat(splat);
-                    }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                caster.Combat.PerformAttack(new AttackParams()
+                {
+                    Damage = damage,
+                    MaxDamage = maxDamage,
+                    Target = c,
+                    Delay = delay,
+                    DamageType = DamageType.FullMagic
+                });
             }
         }
 
@@ -225,7 +214,8 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         ///     Check's requirements for this spell.
         /// </summary>
         /// <returns></returns>
-        public bool CheckRequirements(ICharacter caster) => caster.Magic.CheckMagicLevel(_levelRequirements[_spellType]) && caster.Magic.CheckRunes(_runeRequirements[_spellType], _runeAmounts[_spellType]);
+        public bool CheckRequirements(ICharacter caster) =>
+            caster.Magic.CheckMagicLevel(_levelRequirements[_spellType]) && caster.Magic.CheckRunes(_runeRequirements[_spellType], _runeAmounts[_spellType]);
 
         /// <summary>
         ///     Removes required items from actor.

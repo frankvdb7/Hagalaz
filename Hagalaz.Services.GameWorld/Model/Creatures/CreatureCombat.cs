@@ -310,10 +310,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 var soak = -1;
                 var damage = attackParams.Target.Combat.Attack(Owner, attackParams.DamageType, incomingDamage, ref soak);
                 var splat = hitSplatBuilder.Create()
-                    .AddSprite(builder => builder
-                        .WithDamage(damage)
-                        .WithMaxDamage(attackParams.MaxDamage)
-                        .WithDamageType(attackParams.DamageType))
+                    .AddSprite(builder =>
+                    {
+                        builder
+                            .WithDamage(damage)
+                            .WithDamageType(attackParams.DamageType);
+                        if (attackParams.MaxDamage is not null)
+                        {
+                            builder.WithMaxDamage(attackParams.MaxDamage.Value);
+                        }
+                    })
                     .AddSprite(builder => builder
                         .WithDamage(soak)
                         .WithSplatType(HitSplatType.HitDefendedDamage))

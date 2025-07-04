@@ -130,29 +130,29 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// </summary>
         /// <param name="item">The current.</param>
         /// <returns></returns>
-        public override short GetDegradedItemID(IItem item)
+        public override int GetDegradedItemID(IItem item)
         {
             if (item.Id == _karilIDs[0])
             {
-                return (short)(item.Id + 196);
+                return item.Id + 196;
             }
 
             if (item.Id == _karilIDs[5])
             {
-                return (short)(item.Id + 200);
+                return item.Id + 200;
             }
 
             if (item.Id == _karilIDs[10])
             {
-                return (short)(item.Id + 204);
+                return item.Id + 204;
             }
 
             if (item.Id == _karilIDs[15])
             {
-                return (short)(item.Id + 208);
+                return item.Id + 208;
             }
 
-            return (short)(item.Id + 1);
+            return item.Id + 1;
         }
     }
 }
