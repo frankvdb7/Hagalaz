@@ -17,7 +17,6 @@ using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
 using Microsoft.Extensions.DependencyInjection;

@@ -23,7 +23,6 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events.Character.Packet;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Hagalaz.DependencyInjection.Extensions;

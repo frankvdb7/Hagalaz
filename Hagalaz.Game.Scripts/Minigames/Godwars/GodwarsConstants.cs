@@ -5,13 +5,6 @@
     public static class GodwarsConstants
     {
         public const string ProfileMinigamesGodwarsKillCount = "minigames.godwars.kill_counts";
-
-        /// <summary>
-        ///     The armadyl faction NPCs.
-        /// </summary>
-        public static readonly int[] ArmadylFactionNpCs = [6229, 6230, /*6231,*/ 6232, 6233, 6234, 6235, 6236, 6237, 6238, 6239, 6240, 6241, 6242, 6243, 6244, 6245, 6246
-        ];
-
         /// <summary>
         ///     The armadyl npcs
         /// </summary>
@@ -21,12 +14,6 @@
             6223, // wingman skree
             6225, // flockleader geerin
             6227 // flight kilisa
-        ];
-
-        /// <summary>
-        ///     The bandos faction NPCs.
-        /// </summary>
-        public static readonly int[] BandosFactionNpCs = [6268, 6269, 6270, 6271, 6272, 6273, 6274, 6275, /*6276,*/ 6277, /*6278,*/ 6279, 6280, 6281, 6282, 6283, 9185, 374
         ];
 
         /// <summary>
@@ -41,11 +28,6 @@
         ];
 
         /// <summary>
-        ///     The saradomin faction NPCs.
-        /// </summary>
-        public static readonly int[] SaradominFactionNpCs = [6254, 6255, /*6256,*/ /*6257,*/ 6258, 6259];
-
-        /// <summary>
         ///     The saradomin npcs
         /// </summary>
         public static readonly int[] SaradominNpCs =
@@ -55,11 +37,6 @@
             6250, // growler
             6252 // bree
         ];
-
-        /// <summary>
-        ///     The zamorak faction NPCs.
-        /// </summary>
-        public static readonly int[] ZamorakFactionNpCs = [6210, 6211, 6212, 6213, 6214, 6215, 6216, 6217, 6218, 6219, 6220, 6221];
 
         /// <summary>
         ///     The zamorak npcs

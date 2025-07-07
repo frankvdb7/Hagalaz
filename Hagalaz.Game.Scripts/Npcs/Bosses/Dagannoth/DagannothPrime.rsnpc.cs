@@ -1,18 +1,23 @@
-﻿using Hagalaz.Game.Abstractions.Model.Combat;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Npcs.Bosses.Dagannoth
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([2882])]
     public class DagannothPrime : NpcScriptBase
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
+        public DagannothPrime(IProjectileBuilder projectileBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+        }
+
         /// <summary>
         ///     Get's attack distance of this npc.
         ///     By default , this method does return Definition.AttackDistance
@@ -64,52 +69,27 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses.Dagannoth
                 deltaY = -deltaY;
             }
 
-            var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
+            var delay = 20 + deltaX * 5 + deltaY * 5;
 
-            var projectile = new Projectile(1203);
-            projectile.SetSenderData(Owner, 35, false);
-            projectile.SetReceiverData(target, 35);
-            projectile.SetFlyingProperties(50, delay, 0, 180, false);
-            projectile.Display();
+            _projectileBuilder.Create()
+                .WithGraphicId(1203)
+                .FromCreature(Owner)
+                .ToCreature(target)
+                .WithDuration(delay)
+                .WithAngle(180)
+                .WithDelay(50)
+                .WithFromHeight(35)
+                .WithToHeight(35)
+                .Send();
 
-            var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 610);
-            dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
-
-            Owner.QueueTask(new RsTask(() =>
-                {
-                    var soak = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 610) <= damage);
-                    if (soak != -1)
-                    {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                    }
-
-                    target.QueueHitSplat(splat);
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
-        }
-
-        /// <summary>
-        ///     Render's standart attack.
-        ///     This method is not guaranteed to render correct attack.
-        ///     By default, it is called by default implementation of PerformAttack method.
-        /// </summary>
-        public override void RenderAttack() => base.RenderAttack();
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [2882];
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
+            Owner.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 610),
+                MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 610),
+                Delay = delay,
+                DamageType = DamageType.StandardMagic,
+                Target = target
+            });
         }
     }
 }

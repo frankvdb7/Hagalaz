@@ -1,22 +1,25 @@
 ﻿using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
 {
     /// <summary>
     ///     Contains the armadyl faction npc script.
     /// </summary>
+    [NpcScriptMetaData([6229, 6230, /*6231,*/ 6232, 6233, 6234, 6235, 6236, 6237, 6238, 6239, 6240, 6241, 6242, 6243, 6244, 6245, 6246])]
     public class ArmadylFaction : NpcScriptBase
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
+        public ArmadylFaction(IProjectileBuilder projectileBuilder) => _projectileBuilder = projectileBuilder;
+
         /// <summary>
         ///     Get's attack style of this npc.
         ///     By default , this method does return AttackStyle.Accurate.
@@ -64,30 +67,27 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                 deltaY = -deltaY;
             }
 
-            var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
+            var delay = 20 + deltaX * 5 + deltaY * 5;
 
-            var projectile = new Projectile(1190);
-            projectile.SetSenderData(Owner, 50, false);
-            projectile.SetReceiverData(target, 35);
-            projectile.SetFlyingProperties(30, delay, 0, 180, false);
-            projectile.Display();
+            _projectileBuilder.Create()
+                .WithGraphicId(1190)
+                .FromCreature(Owner)
+                .ToCreature(target)
+                .WithDuration(delay)
+                .WithAngle(180)
+                .WithDelay(30)
+                .WithFromHeight(50)
+                .WithToHeight(35)
+                .Send();
 
-            var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(target);
-            dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
-
-            Owner.QueueTask(new RsTask(() =>
-                {
-                    var soak = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardRange, dmg, ref soak);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetRangeMaxHit(target) <= damage);
-                    if (soak != -1)
-                    {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                    }
-
-                    target.QueueHitSplat(splat);
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+            Owner.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
+                MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
+                Delay = delay,
+                DamageType = DamageType.StandardRange,
+                Target = target
+            });
         }
 
         /// <summary>
@@ -103,7 +103,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         public override bool CanBeAttackedBy(ICreature attacker)
         {
             var style = attacker.Combat.GetAttackStyle();
-            if (style != AttackStyle.MeleeAccurate && style != AttackStyle.MeleeAggressive && style != AttackStyle.MeleeControlled && style != AttackStyle.MeleeDefensive)
+            if (style != AttackStyle.MeleeAccurate && style != AttackStyle.MeleeAggressive && style != AttackStyle.MeleeControlled &&
+                style != AttackStyle.MeleeDefensive)
             {
                 return base.CanBeAttackedBy(attacker);
             }
@@ -119,7 +120,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
             }
 
             return false;
-
         }
 
         /// <summary>
@@ -138,13 +138,13 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                 return false;
             }
 
-            if (!(creature is INpc npc))
+            if (creature is not INpc npc)
             {
                 return creature.Combat.RecentAttackers.Count() <= 2;
             }
 
             var script = npc.Script;
-            if (script is ArmadylFaction || script is FamiliarScriptBase)
+            if (script is ArmadylFaction or FamiliarScriptBase)
             {
                 return false;
             }
@@ -168,7 +168,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                 return;
             }
 
-            for (var i = 0; i < creatures.Count; i++)
+            foreach (var t in creatures)
             {
                 var creature = creatures[RandomStatic.Generator.Next(creatures.Count)];
                 if (!IsAggressiveTowards(creature))
@@ -181,21 +181,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                     return;
                 }
             }
-        }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => GodwarsConstants.ArmadylFactionNpCs;
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
         }
     }
 }

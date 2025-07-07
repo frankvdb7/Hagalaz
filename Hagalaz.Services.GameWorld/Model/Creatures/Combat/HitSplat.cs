@@ -2,7 +2,7 @@
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 
-namespace Hagalaz.Game.Model.Combat
+namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat
 {
     /// <summary>
     /// Represents single hit splat.
