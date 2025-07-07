@@ -26,6 +26,7 @@ using Hagalaz.Game.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Hagalaz.DependencyInjection.Extensions;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -74,11 +75,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         return false;
                     }
 
-                    var projectile = new Projectile(gfxID);
-                    projectile.SetSenderData(this, 11, false);
-                    projectile.SetReceiverData(target, 30);
-                    projectile.SetFlyingProperties(30, 30, 20, 0, false);
-                    projectile.Display();
+                    var projectileBuilder = ServiceProvider.GetRequiredService<IProjectileBuilder>();
+                    projectileBuilder.Create().WithGraphicId(gfxID)
+                        .FromCreature(this)
+                        .ToCreature(target)
+                        .WithDuration(30)
+                        .WithFromHeight(11)
+                        .WithToHeight(11)
+                        .WithSlope(20)
+                        .WithDelay(30)
+                        .Send();
                 }
                 else if (ce.Command.StartsWith("addexp"))
                 {

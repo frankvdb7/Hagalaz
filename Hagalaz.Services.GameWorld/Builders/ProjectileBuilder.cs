@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Model;
+using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions.Updates;
 
 namespace Hagalaz.Services.GameWorld.Builders
