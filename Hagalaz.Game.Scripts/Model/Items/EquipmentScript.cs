@@ -87,11 +87,10 @@ namespace Hagalaz.Game.Scripts.Model.Items
                 case AttackStyle.RangedAccurate:
                 case AttackStyle.RangedRapid:
                 case AttackStyle.RangedLongRange:
-                    throw new NotImplementedException();
                 case AttackStyle.MagicNormal:
                 case AttackStyle.MagicDefensive:
+                default:
                     throw new NotImplementedException();
-                default: throw new NotImplementedException();
             }
         }
 

@@ -46,8 +46,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
                 .Send();
 
             var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(target);
-            dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
-
             var special = RandomStatic.Generator.NextDouble() >= 0.90;
             if (special)
             {
@@ -80,7 +78,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
                     return;
                 }
 
-                character.Statistics.DamageSkill(StatisticsConstants.Agility, (int)(character.Statistics.GetSkillLevel(StatisticsConstants.Strength) * 0.20));
+                character.Statistics.DamageSkill(StatisticsConstants.Agility, (int)(character.Statistics.GetSkillLevel(StatisticsConstants.Agility) * 0.20));
                 character.SendChatMessage("You feel less agile.");
             });
         }

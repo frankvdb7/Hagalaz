@@ -54,7 +54,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 
             RenderProjectile(target, delay);
 
-            target.Combat.PerformAttack(new AttackParams()
+            Owner.Combat.PerformAttack(new AttackParams()
             {
                 Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
                 MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),

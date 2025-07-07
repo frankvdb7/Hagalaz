@@ -22,9 +22,9 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         /// </returns>
         public override int OnAttack(ICreature attacker, DamageType damageType, int damage)
         {
-            attacker.Combat.PerformAttack(new AttackParams()
+            Owner.Combat.PerformAttack(new AttackParams()
             {
-                Damage = 10, DamageType = DamageType.Reflected, Target = Owner
+                Damage = 10, DamageType = DamageType.Reflected, Target = attacker
             });
             return base.OnAttack(attacker, damageType, damage);
         }

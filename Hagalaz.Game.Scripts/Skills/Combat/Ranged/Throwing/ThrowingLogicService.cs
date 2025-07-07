@@ -63,13 +63,10 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Throwing
                 .WithAngle(11)
                 .Send();
 
+            Ammo.RemoveAmmo(attacker, ammo, victim.Location.Clone(), CreatureHelper.CalculateTicksForClientTicks(delay + 41));
+
             var maxDamage = combat.GetRangedMaxHit(victim, false);
             var damage = combat.GetRangedDamage(victim, false);
-            combat.PerformSoulSplit(victim, damage);
-            damage = victim.Combat.IncomingAttack(attacker, DamageType.FullRange, damage, delay + 41);
-            combat.AddRangedExperience(damage);
-
-            Ammo.RemoveAmmo(attacker, ammo, victim.Location.Clone(), CreatureHelper.CalculateTicksForClientTicks(delay + 41));
 
             attacker.Combat.PerformAttack(new AttackParams()
             {

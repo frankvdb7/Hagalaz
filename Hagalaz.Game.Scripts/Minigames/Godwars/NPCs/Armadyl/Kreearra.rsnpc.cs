@@ -211,9 +211,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                                 .Send();
 
                             var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(c);
-                            dmg = c.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
 
-                            c.Combat.PerformAttack(new AttackParams()
+                            Owner.Combat.PerformAttack(new AttackParams()
                             {
                                 Damage = dmg,
                                 Delay = delay,

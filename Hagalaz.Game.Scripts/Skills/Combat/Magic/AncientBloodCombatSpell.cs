@@ -169,14 +169,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                     deltaY = -deltaY;
                 }
 
-                combat.PerformSoulSplit(c, damage);
-
-                damage = c.Combat.IncomingAttack(caster, DamageType.FullMagic, damage, 51 + deltaX * 5 + deltaY * 5);
-                combat.AddMagicExperience(damage);
-
-                var delay = 51 + vDeltaX * 5 + vDeltaY * 5;
-
-                caster.Statistics.HealLifePoints((int)(damage * 0.25));
+                var delay = 51 + deltaX * 5 + deltaY * 5;
 
                 if (damage == -1)
                 {
@@ -191,13 +184,26 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                         case 3: c.QueueGraphic(Graphic.Create(377, delay)); break;
                     }
 
-                caster.Combat.PerformAttack(new AttackParams()
+                var handle = caster.Combat.PerformAttack(new AttackParams()
                 {
                     Damage = damage,
                     MaxDamage = maxDamage,
                     Target = c,
                     Delay = delay,
                     DamageType = DamageType.FullMagic
+                });
+
+                handle.RegisterResultHandler(result =>
+                {
+                    if (result.Damage.Succeeded)
+                    {
+                        var frozen = c.Freeze((_spellType + 1) * 9, (_spellType + 1) * 9 + 7);
+                        switch (_spellType)
+                        {
+                            case 3 when frozen: c.QueueGraphic(Graphic.Create(378, delay)); break;
+                        }
+                        caster.Statistics.HealLifePoints((int)(result.Damage.Count * 0.25));
+                    }
                 });
             }
         }

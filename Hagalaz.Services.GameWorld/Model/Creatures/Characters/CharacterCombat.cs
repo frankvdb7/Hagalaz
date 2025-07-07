@@ -382,7 +382,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     })
                     .Build());
 
-                attacker.Combat.PerformAttack(new AttackParams()
+                Owner.Combat.PerformAttack(new AttackParams()
                 {
                     Target = attacker, DamageType = DamageType.Reflected, Damage = damage, Delay = delay
                 });
@@ -402,12 +402,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 case DamageType.DragonFire:
                     {
                         string message;
-                        if (Owner.HasState(StateType.SuperAntiDragonfirePotion))
-                        {
-                            damage = -1;
-                            message = GameStrings.DragonFireFully;
-                        }
-                        else if (Owner.HasState(StateType.AntiDragonfirePotion) && Owner.HasState(StateType.AntiDragonfireShield))
+                        if (Owner.HasState(StateType.SuperAntiDragonfirePotion) || Owner.HasState(StateType.AntiDragonfirePotion) && Owner.HasState(StateType.AntiDragonfireShield))
                         {
                             damage = -1;
                             message = GameStrings.DragonFireFully;
@@ -417,12 +412,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                             damage /= 5;
                             message = GameStrings.DragonFirePrayer;
                         }
-                        else if (Owner.HasState(StateType.AntiDragonfirePotion))
-                        {
-                            damage /= 2;
-                            message = GameStrings.DragonFireSome;
-                        }
-                        else if (Owner.HasState(StateType.AntiDragonfireShield))
+                        else if (Owner.HasState(StateType.AntiDragonfirePotion) || Owner.HasState(StateType.AntiDragonfireShield))
                         {
                             damage /= 2;
                             message = GameStrings.DragonFireSome;
