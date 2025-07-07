@@ -1,14 +1,12 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([6256])]
     public class SpiritualRanger : SaradominFaction
     {
         /// <summary>
@@ -58,32 +56,16 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
                 deltaY = -deltaY;
             }
 
-            var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
+            var delay = 20 + deltaX * 5 + deltaY * 5;
 
-            var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(target);
-            dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
-
-            Owner.QueueTask(new RsTask(() =>
-                {
-                    var soak = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardRange, dmg, ref soak);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetRangeDamage(target) <= damage);
-                    if (soak != -1)
-                    {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                    }
-
-                    target.QueueHitSplat(splat);
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+            Owner.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
+                MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
+                Delay = delay,
+                DamageType = DamageType.StandardRange,
+                Target = target
+            });
         }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [6256];
     }
 }

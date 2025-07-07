@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
     /// <summary>
     ///     Contains the saradomin faction npc script.
     /// </summary>
+    [NpcScriptMetaData([6254, 6255, /*6256,*/ /*6257,*/ 6258, 6259])]
     public class SaradominFaction : NpcScriptBase
     {
         /// <summary>
@@ -27,21 +28,15 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
                 return false;
             }
 
-            if (creature is INpc)
-            {
-                var script = ((INpc)creature).Script;
-                if (script is SaradominFaction || script is FamiliarScriptBase)
+            if (creature is INpc
                 {
-                    return false;
-                }
-            }
-
-            if (creature.Combat.RecentAttackers.Count() > 2)
+                    Script: SaradominFaction or FamiliarScriptBase
+                })
             {
                 return false;
             }
 
-            return true;
+            return creature.Combat.RecentAttackers.Count() <= 2;
         }
 
         /// <summary>
@@ -60,26 +55,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
                 return;
             }
 
-            var c = creatures.Where(c => IsAggressiveTowards(c) && Owner.Combat.CanSetTarget(c)).FirstOrDefault();
+            var c = creatures.FirstOrDefault(c => IsAggressiveTowards(c) && Owner.Combat.CanSetTarget(c));
             if (c != null)
             {
                 Owner.Combat.SetTarget(c);
             }
         }
 
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => GodwarsConstants.SaradominFactionNpCs;
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

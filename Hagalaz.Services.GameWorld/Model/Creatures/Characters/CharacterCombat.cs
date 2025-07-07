@@ -17,7 +17,6 @@ using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
 using Microsoft.Extensions.DependencyInjection;
@@ -383,22 +382,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     })
                     .Build());
 
-                var damage1 = damage;
-                Owner.QueueTask(new RsTask(() =>
-                    {
-                        var soaked = -1;
-                        var reflect = attacker.Combat.Attack(Owner, DamageType.Reflected, (int)(damage1 * 0.1), ref soaked);
-                        if (reflect <= 0)
-                        {
-                            return;
-                        }
-
-                        var splat = new HitSplat(Owner);
-                        splat.SetFirstSplat(HitSplatType.HitDeflectDamage, reflect, false);
-                        if (soaked != -1) splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                        attacker.QueueHitSplat(splat);
-                    },
-                    CreatureHelper.CalculateTicksForClientTicks(delay)));
+                Owner.Combat.PerformAttack(new AttackParams()
+                {
+                    Target = attacker, DamageType = DamageType.Reflected, Damage = damage, Delay = delay
+                });
             }
 
             if (protectFully)
@@ -415,12 +402,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 case DamageType.DragonFire:
                     {
                         string message;
-                        if (Owner.HasState(StateType.SuperAntiDragonfirePotion))
-                        {
-                            damage = -1;
-                            message = GameStrings.DragonFireFully;
-                        }
-                        else if (Owner.HasState(StateType.AntiDragonfirePotion) && Owner.HasState(StateType.AntiDragonfireShield))
+                        if (Owner.HasState(StateType.SuperAntiDragonfirePotion) || Owner.HasState(StateType.AntiDragonfirePotion) && Owner.HasState(StateType.AntiDragonfireShield))
                         {
                             damage = -1;
                             message = GameStrings.DragonFireFully;
@@ -430,12 +412,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                             damage /= 5;
                             message = GameStrings.DragonFirePrayer;
                         }
-                        else if (Owner.HasState(StateType.AntiDragonfirePotion))
-                        {
-                            damage /= 2;
-                            message = GameStrings.DragonFireSome;
-                        }
-                        else if (Owner.HasState(StateType.AntiDragonfireShield))
+                        else if (Owner.HasState(StateType.AntiDragonfirePotion) || Owner.HasState(StateType.AntiDragonfireShield))
                         {
                             damage /= 2;
                             message = GameStrings.DragonFireSome;
@@ -612,6 +589,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                                 _character.Mediator.Publish(new ProfileSetBoolAction(ProfileConstants.CombatSettingsSpecialAttack, false));
                                 return;
                             }
+
                             _character.Statistics.DrainSpecialEnergy(requiredEnergyAmount);
                             _character.Mediator.Publish(new ProfileSetBoolAction(ProfileConstants.CombatSettingsSpecialAttack, false));
                             try

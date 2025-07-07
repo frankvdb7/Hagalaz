@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Configuration;
+using Hagalaz.DependencyInjection.Extensions;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
@@ -21,8 +22,8 @@ using Hagalaz.Game.Scripts.Skills.Magic.MiscSpells;
 using Hagalaz.Game.Scripts.Skills.Magic.SkillSpells;
 using Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells;
 using Hagalaz.Game.Scripts.Widgets.Lodestone;
-using Hagalaz.DependencyInjection.Extensions;
 using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 
 namespace Hagalaz.Game.Scripts.Widgets.Tabs
 {
@@ -41,47 +42,70 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         /// </summary>
         static SpellBookTab() => LoadTeleports();
 
-        // TODO - this is not good
-        //_ =LoadScriptedCombatSpells();
-        /// <summary>
-        ///     Contains smoke spells.
-        /// </summary>
-        private static readonly ICombatSpell[] _smokeSpells =
-        [
-            new AncientSmokeCombatSpell(0), new AncientSmokeCombatSpell(1), new AncientSmokeCombatSpell(2), new AncientSmokeCombatSpell(3)
-        ];
+        private static ICombatSpell[] GetSmokeSpells()
+        {
+            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
+            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
+            return
+            [
+                new AncientSmokeCombatSpell(0, projectileBuilder),
+                new AncientSmokeCombatSpell(1, projectileBuilder),
+                new AncientSmokeCombatSpell(2, projectileBuilder),
+                new AncientSmokeCombatSpell(3, projectileBuilder)
+            ];
+        }
 
-        /// <summary>
-        ///     Contains shadow spells.
-        /// </summary>
-        private static readonly ICombatSpell[] _shadowSpells =
-        [
-            new AncientShadowCombatSpell(0), new AncientShadowCombatSpell(1), new AncientShadowCombatSpell(2), new AncientShadowCombatSpell(3)
-        ];
+        private static ICombatSpell[] GetShadowSpells()
+        {
+            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
+            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
+            return
+            [
+                new AncientShadowCombatSpell(0, projectileBuilder),
+                new AncientShadowCombatSpell(1, projectileBuilder),
+                new AncientShadowCombatSpell(2, projectileBuilder),
+                new AncientShadowCombatSpell(3, projectileBuilder)
+            ];
+        }
 
-        /// <summary>
-        ///     Contains blood spells.
-        /// </summary>
-        private static readonly ICombatSpell[] _bloodSpells =
-        [
-            new AncientBloodCombatSpell(0), new AncientBloodCombatSpell(1), new AncientBloodCombatSpell(2), new AncientBloodCombatSpell(3)
-        ];
+        private static ICombatSpell[] GetBloodSpells()
+        {
+            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
+            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
+            return
+            [
+                new AncientBloodCombatSpell(0, projectileBuilder),
+                new AncientBloodCombatSpell(1, projectileBuilder),
+                new AncientBloodCombatSpell(2, projectileBuilder),
+                new AncientBloodCombatSpell(3, projectileBuilder)
+            ];
+        }
 
-        /// <summary>
-        ///     Contains ice spells.
-        /// </summary>
-        private static readonly ICombatSpell[] _iceSpells =
-        [
-            new AncientIceCombatSpell(0), new AncientIceCombatSpell(1), new AncientIceCombatSpell(2), new AncientIceCombatSpell(3)
-        ];
+        private static ICombatSpell[] GetIceSpells()
+        {
+            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
+            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
+            return
+            [
+                new AncientIceCombatSpell(0, projectileBuilder),
+                new AncientIceCombatSpell(1, projectileBuilder),
+                new AncientIceCombatSpell(2, projectileBuilder),
+                new AncientIceCombatSpell(3, projectileBuilder)
+            ];
+        }
 
-        /// <summary>
-        ///     Contains miasmic spells.
-        /// </summary>
-        private static readonly ICombatSpell[] _miasmicSpells =
-        [
-            new AncientMiasmicCombatSpell(0), new AncientMiasmicCombatSpell(1), new AncientMiasmicCombatSpell(2), new AncientMiasmicCombatSpell(3)
-        ];
+        private static ICombatSpell[] GetMiasmicSpells()
+        {
+            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
+            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
+            return
+            [
+                new AncientMiasmicCombatSpell(0, projectileBuilder),
+                new AncientMiasmicCombatSpell(1, projectileBuilder),
+                new AncientMiasmicCombatSpell(2, projectileBuilder),
+                new AncientMiasmicCombatSpell(3, projectileBuilder)
+            ];
+        }
 
         /// <summary>
         ///     Contains normal teleports.
@@ -331,35 +355,22 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         {
             using var scope = ServiceLocator.Current.CreateScope();
             var magicManager = scope.ServiceProvider.GetRequiredService<IMagicService>();
+            var projectileBuilder = scope.ServiceProvider.GetRequiredService<IProjectileBuilder>();
             foreach (var definition in await magicManager.FindAllCombatSpells())
             {
-                if (definition.ButtonId == 36 || definition.ButtonId == 55 || definition.ButtonId == 81)
+                switch (definition.ButtonId)
                 {
-                    _normalCombatSpells.Add(definition.ButtonId, new HoldSpell(definition));
-                }
-                else if (definition.ButtonId == 66)
-                {
-                    _normalCombatSpells.Add(66, new SaradominStrike(definition));
-                }
-                else if (definition.ButtonId == 67)
-                {
-                    _normalCombatSpells.Add(67, new ClawsOfGuthix(definition));
-                }
-                else if (definition.ButtonId == 68)
-                {
-                    _normalCombatSpells.Add(68, new FlamesOfZamorak(definition));
-                }
-                else if (definition.ButtonId == 86)
-                {
-                    _normalCombatSpells.Add(86, new TeleBlock(definition));
-                }
-                else if (definition.ButtonId == 91)
-                {
-                    _normalCombatSpells.Add(91, new FireSurge(definition));
-                }
-                else if (definition.ButtonId == 99)
-                {
-                    _normalCombatSpells.Add(99, new StormOfArmadyl(definition));
+                    case 36:
+                    case 55:
+                    case 81:
+                        _normalCombatSpells.Add(definition.ButtonId, new HoldSpell(definition));
+                        break;
+                    case 66: _normalCombatSpells.Add(66, new SaradominStrike(definition)); break;
+                    case 67: _normalCombatSpells.Add(67, new ClawsOfGuthix(definition)); break;
+                    case 68: _normalCombatSpells.Add(68, new FlamesOfZamorak(definition)); break;
+                    case 86: _normalCombatSpells.Add(86, new TeleBlock(definition)); break;
+                    case 91: _normalCombatSpells.Add(91, new FireSurge(definition)); break;
+                    case 99: _normalCombatSpells.Add(99, new StormOfArmadyl(definition, projectileBuilder)); break;
                 }
             }
         }
@@ -548,6 +559,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 {
                                     return false;
                                 }
+
                                 var bonesToPeaches = _serviceProvider.GetRequiredService<IBonesToPeaches>();
                                 return bonesToPeaches.Cast();
                             });
@@ -802,7 +814,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 return true;
                             });
 
-                        foreach (short childID in _ancientTeleports.Keys)
+                        foreach (var childID in _ancientTeleports.Keys)
                         {
                             InterfaceInstance.AttachClickHandler(childID,
                                 (componentID, clickType, extra1, extra2) =>
@@ -817,6 +829,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 });
                         }
 
+                        var bloodSpells = GetBloodSpells();
+                        var smokeSpells = GetSmokeSpells();
+                        var shadowSpells = GetShadowSpells();
+                        var iceSpells = GetIceSpells();
+                        var miasmicSpells = GetMiasmicSpells();
+
                         OnComponentClick autoCastClickHandler = (componentID, clickType, extra1, extra2) =>
                         {
                             if (clickType != ComponentClickType.Option6Click)
@@ -826,26 +844,26 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
                             switch (componentID)
                             {
-                                case 20: AutoCast(_iceSpells[0]); break;
-                                case 21: AutoCast(_iceSpells[2]); break;
-                                case 22: AutoCast(_iceSpells[1]); break;
-                                case 23: AutoCast(_iceSpells[3]); break;
-                                case 24: AutoCast(_bloodSpells[0]); break;
-                                case 25: AutoCast(_bloodSpells[2]); break;
-                                case 26: AutoCast(_bloodSpells[1]); break;
-                                case 27: AutoCast(_bloodSpells[3]); break;
-                                case 28: AutoCast(_smokeSpells[0]); break;
-                                case 29: AutoCast(_smokeSpells[2]); break;
-                                case 30: AutoCast(_smokeSpells[1]); break;
-                                case 31: AutoCast(_smokeSpells[3]); break;
-                                case 32: AutoCast(_shadowSpells[0]); break;
-                                case 33: AutoCast(_shadowSpells[2]); break;
-                                case 34: AutoCast(_shadowSpells[1]); break;
-                                case 35: AutoCast(_shadowSpells[3]); break;
-                                case 36: AutoCast(_miasmicSpells[0]); break;
-                                case 37: AutoCast(_miasmicSpells[2]); break;
-                                case 38: AutoCast(_miasmicSpells[1]); break;
-                                case 39: AutoCast(_miasmicSpells[3]); break;
+                                case 20: AutoCast(iceSpells[0]); break;
+                                case 21: AutoCast(iceSpells[2]); break;
+                                case 22: AutoCast(iceSpells[1]); break;
+                                case 23: AutoCast(iceSpells[3]); break;
+                                case 24: AutoCast(bloodSpells[0]); break;
+                                case 25: AutoCast(bloodSpells[2]); break;
+                                case 26: AutoCast(bloodSpells[1]); break;
+                                case 27: AutoCast(bloodSpells[3]); break;
+                                case 28: AutoCast(smokeSpells[0]); break;
+                                case 29: AutoCast(smokeSpells[2]); break;
+                                case 30: AutoCast(smokeSpells[1]); break;
+                                case 31: AutoCast(smokeSpells[3]); break;
+                                case 32: AutoCast(shadowSpells[0]); break;
+                                case 33: AutoCast(shadowSpells[2]); break;
+                                case 34: AutoCast(shadowSpells[1]); break;
+                                case 35: AutoCast(shadowSpells[3]); break;
+                                case 36: AutoCast(miasmicSpells[0]); break;
+                                case 37: AutoCast(miasmicSpells[2]); break;
+                                case 38: AutoCast(miasmicSpells[1]); break;
+                                case 39: AutoCast(miasmicSpells[3]); break;
                             }
 
                             return true;
@@ -857,102 +875,102 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             Owner.Interrupt(this);
                             if (componentID == 20)
                             {
-                                Cast(_iceSpells[0], usedOn, shouldRun);
+                                Cast(iceSpells[0], usedOn, shouldRun);
                             }
 
                             if (componentID == 21)
                             {
-                                Cast(_iceSpells[2], usedOn, shouldRun);
+                                Cast(iceSpells[2], usedOn, shouldRun);
                             }
 
                             if (componentID == 22)
                             {
-                                Cast(_iceSpells[1], usedOn, shouldRun);
+                                Cast(iceSpells[1], usedOn, shouldRun);
                             }
 
                             if (componentID == 23)
                             {
-                                Cast(_iceSpells[3], usedOn, shouldRun);
+                                Cast(iceSpells[3], usedOn, shouldRun);
                             }
 
                             if (componentID == 24)
                             {
-                                Cast(_bloodSpells[0], usedOn, shouldRun);
+                                Cast(bloodSpells[0], usedOn, shouldRun);
                             }
 
                             if (componentID == 25)
                             {
-                                Cast(_bloodSpells[2], usedOn, shouldRun);
+                                Cast(bloodSpells[2], usedOn, shouldRun);
                             }
 
                             if (componentID == 26)
                             {
-                                Cast(_bloodSpells[1], usedOn, shouldRun);
+                                Cast(bloodSpells[1], usedOn, shouldRun);
                             }
 
                             if (componentID == 27)
                             {
-                                Cast(_bloodSpells[3], usedOn, shouldRun);
+                                Cast(bloodSpells[3], usedOn, shouldRun);
                             }
 
                             if (componentID == 28)
                             {
-                                Cast(_smokeSpells[0], usedOn, shouldRun);
+                                Cast(smokeSpells[0], usedOn, shouldRun);
                             }
 
                             if (componentID == 29)
                             {
-                                Cast(_smokeSpells[2], usedOn, shouldRun);
+                                Cast(smokeSpells[2], usedOn, shouldRun);
                             }
 
                             if (componentID == 30)
                             {
-                                Cast(_smokeSpells[1], usedOn, shouldRun);
+                                Cast(smokeSpells[1], usedOn, shouldRun);
                             }
 
                             if (componentID == 21)
                             {
-                                Cast(_smokeSpells[3], usedOn, shouldRun);
+                                Cast(smokeSpells[3], usedOn, shouldRun);
                             }
 
                             if (componentID == 32)
                             {
-                                Cast(_shadowSpells[0], usedOn, shouldRun);
+                                Cast(shadowSpells[0], usedOn, shouldRun);
                             }
 
                             if (componentID == 33)
                             {
-                                Cast(_shadowSpells[2], usedOn, shouldRun);
+                                Cast(shadowSpells[2], usedOn, shouldRun);
                             }
 
                             if (componentID == 34)
                             {
-                                Cast(_shadowSpells[1], usedOn, shouldRun);
+                                Cast(shadowSpells[1], usedOn, shouldRun);
                             }
 
                             if (componentID == 35)
                             {
-                                Cast(_shadowSpells[3], usedOn, shouldRun);
+                                Cast(shadowSpells[3], usedOn, shouldRun);
                             }
 
                             if (componentID == 36)
                             {
-                                Cast(_miasmicSpells[0], usedOn, shouldRun);
+                                Cast(miasmicSpells[0], usedOn, shouldRun);
                             }
 
                             if (componentID == 37)
                             {
-                                Cast(_miasmicSpells[2], usedOn, shouldRun);
+                                Cast(miasmicSpells[2], usedOn, shouldRun);
                             }
 
                             if (componentID == 38)
                             {
-                                Cast(_miasmicSpells[1], usedOn, shouldRun);
+                                Cast(miasmicSpells[1], usedOn, shouldRun);
                             }
 
                             if (componentID == 39)
                             {
-                                Cast(_miasmicSpells[3], usedOn, shouldRun);
+                                Cast(miasmicSpells[3], usedOn, shouldRun);
                             }
 
                             return true;

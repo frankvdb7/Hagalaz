@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -10,8 +11,6 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Utilities;
 
@@ -63,7 +62,17 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
         /// <summary>
         ///     The path finder
         /// </summary>
-        private IPathFinder _pathFinder;
+        private readonly IPathFinder _pathFinder;
+
+        private readonly IProjectileBuilder _projectileBuilder;
+        private readonly IMapRegionService _mapRegionService;
+
+        public CorporealBeast(IPathFinder pathFinder, IProjectileBuilder projectileBuilder, IMapRegionService mapRegionService)
+        {
+            _pathFinder = pathFinder;
+            _projectileBuilder = projectileBuilder;
+            _mapRegionService = mapRegionService;
+        }
 
         /// <summary>
         ///     Perform's attack on specific target.
@@ -76,33 +85,24 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                 case Attacks.Claw1:
                     {
                         Owner.QueueAnimation(Animation.Create(10057));
-                        var preDmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMelee, ((INpcCombat)Owner.Combat).GetMeleeDamage(target), 0);
-                        var soaked = -1;
-                        var damage = target.Combat.Attack(Owner, DamageType.StandardMelee, preDmg, ref soaked);
-                        var splat = new HitSplat(Owner);
-                        splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target) <= damage);
-                        if (soaked != -1)
-                        {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                        }
 
-                        target.QueueHitSplat(splat);
+                        var damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target);
+                        var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
+                        Owner.Combat.PerformAttack(new AttackParams
+                        {
+                            Target = target, Damage = damage, DamageType = DamageType.StandardMelee, MaxDamage = maxDamage
+                        });
                         break;
                     }
                 case Attacks.Claw2:
                     {
                         Owner.QueueAnimation(Animation.Create(10058));
-                        var preDmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMelee, ((INpcCombat)Owner.Combat).GetMeleeDamage(target), 0);
-                        var soaked = -1;
-                        var damage = target.Combat.Attack(Owner, DamageType.StandardMelee, preDmg, ref soaked);
-                        var splat = new HitSplat(Owner);
-                        splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target) <= damage);
-                        if (soaked != -1)
+                        var damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target);
+                        var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
+                        Owner.Combat.PerformAttack(new AttackParams
                         {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                        }
-
-                        target.QueueHitSplat(splat);
+                            Target = target, Damage = damage, DamageType = DamageType.StandardMelee, MaxDamage = maxDamage
+                        });
                         break;
                     }
                 case Attacks.Trample:
@@ -110,10 +110,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                         Owner.QueueAnimation(Animation.Create(10066));
                         Owner.QueueGraphic(Graphic.Create(1834));
 
-                        var combat = (INpcCombat)Owner.Combat;
-
                         var visibleCharacters = Owner.Viewport.VisibleCreatures
-                            .OfType<ICharacter>().Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner) && Owner.WithinRange(c, GetAttackDistance()));
+                            .OfType<ICharacter>()
+                            .Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner) && Owner.WithinRange(c, GetAttackDistance()));
                         foreach (var c in visibleCharacters)
                         {
                             var deltaX = Owner.Location.X - c.Location.X;
@@ -128,25 +127,18 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                                 deltaY = -deltaY;
                             }
 
-                            var delay = (byte)(15 + deltaX * 2 + deltaY * 2);
+                            var delay = 15 + deltaX * 2 + deltaY * 2;
 
-                            var dmg = ((INpcCombat)Owner.Combat).GetMeleeDamage(c);
-                            dmg = c.Combat.IncomingAttack(Owner, DamageType.StandardMelee, dmg, delay);
-
-                            var toAttack = c;
-                            Owner.QueueTask(new RsTask(() =>
-                                {
-                                    var soak = -1;
-                                    var damage = toAttack.Combat.Attack(Owner, DamageType.StandardMelee, dmg, ref soak);
-                                    var splat = new HitSplat(Owner);
-                                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMeleeMaxHit(toAttack) <= damage);
-                                    if (soak != -1)
-                                    {
-                                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                                    }
-
-                                    toAttack.QueueHitSplat(splat);
-                                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                            var damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(c);
+                            var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(c);
+                            Owner.Combat.PerformAttack(new AttackParams
+                            {
+                                Target = c,
+                                Damage = damage,
+                                DamageType = DamageType.StandardMelee,
+                                MaxDamage = maxDamage,
+                                Delay = delay
+                            });
                         }
 
                         break;
@@ -155,9 +147,8 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                     {
                         Owner.QueueAnimation(Animation.Create(10059));
 
-                        var combat = (INpcCombat)Owner.Combat;
-
-                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
+                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                            .Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
                         foreach (var c in visibleCharacters)
                         {
                             var deltaX = Owner.Location.X - c.Location.X;
@@ -174,29 +165,29 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
 
                             var delay = 75 + deltaX * 2 + deltaY * 2;
 
-                            var projectile = new Projectile(1825);
-                            projectile.SetSenderData(Owner, 50, false);
-                            projectile.SetReceiverData(c, 35);
-                            projectile.SetFlyingProperties(delay, 40, 0, 192, false);
-                            projectile.Display();
+                            _projectileBuilder
+                                .Create()
+                                .WithGraphicId(1825)
+                                .FromCreature(Owner)
+                                .ToCreature(c)
+                                .WithDuration(40)
+                                .WithFromHeight(50)
+                                .WithToHeight(35)
+                                .WithDelay(delay)
+                                .WithSlope(0)
+                                .WithAngle(192)
+                                .Send();
 
-                            var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(c, 650);
-                            dmg = c.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
-
-                            var toAttack = c;
-                            Owner.QueueTask(new RsTask(() =>
-                                {
-                                    var soak = -1;
-                                    var damage = toAttack.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                                    var splat = new HitSplat(Owner);
-                                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicMaxHit(toAttack, 650) <= damage);
-                                    if (soak != -1)
-                                    {
-                                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                                    }
-
-                                    toAttack.QueueHitSplat(splat);
-                                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                            var damage = ((INpcCombat)Owner.Combat).GetMagicDamage(c, 650);
+                            var maxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(c, 650);
+                            Owner.Combat.PerformAttack(new AttackParams
+                            {
+                                Target = c,
+                                Damage = damage,
+                                DamageType = DamageType.StandardMagic,
+                                MaxDamage = maxDamage,
+                                Delay = delay
+                            });
                         }
 
                         break;
@@ -207,9 +198,8 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
 
                         Owner.QueueAnimation(Animation.Create(10059));
 
-                        var combat = (INpcCombat)Owner.Combat;
-
-                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
+                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                            .Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
                         foreach (var c in visibleCharacters)
                         {
                             var deltaX = Owner.Location.X - c.Location.X;
@@ -226,29 +216,29 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
 
                             var delay = 75 + deltaX * 2 + deltaY * 2;
 
-                            var projectile = new Projectile(1823);
-                            projectile.SetSenderData(Owner, 50, false);
-                            projectile.SetReceiverData(c, 35);
-                            projectile.SetFlyingProperties(delay, 40, 0, 192, false);
-                            projectile.Display();
+                            _projectileBuilder
+                                .Create()
+                                .WithGraphicId(1823)
+                                .FromCreature(Owner)
+                                .ToCreature(c)
+                                .WithDuration(40)
+                                .WithFromHeight(50)
+                                .WithToHeight(35)
+                                .WithDelay(delay)
+                                .WithSlope(0)
+                                .WithAngle(192)
+                                .Send();
 
-                            var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(c, 600);
-                            dmg = c.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
-
-                            var toAttack = c;
-                            Owner.QueueTask(new RsTask(() =>
-                                {
-                                    var soak = -1;
-                                    var damage = toAttack.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                                    var splat = new HitSplat(Owner);
-                                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicMaxHit(toAttack, 600) <= damage);
-                                    if (soak != -1)
-                                    {
-                                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                                    }
-
-                                    toAttack.QueueHitSplat(splat);
-                                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                            var damage = ((INpcCombat)Owner.Combat).GetMagicDamage(c, 600);
+                            var maxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(c, 600);
+                            Owner.Combat.PerformAttack(new AttackParams
+                            {
+                                Target = c,
+                                Damage = damage,
+                                DamageType = DamageType.StandardMagic,
+                                MaxDamage = maxDamage,
+                                Delay = delay
+                            });
                         }
 
                         break;
@@ -256,8 +246,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                 case Attacks.Splash:
                     {
                         Owner.QueueAnimation(Animation.Create(10059));
-
-                        var combat = (INpcCombat)Owner.Combat;
 
                         var deltaX = Owner.Location.X - target.Location.X;
                         var deltaY = Owner.Location.Y - target.Location.Y;
@@ -274,31 +262,29 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                         var delay = 75 + deltaX * 2 + deltaY * 2;
 
 
-                        var projectile = new Projectile(1824);
-                        projectile.SetSenderData(Owner, 50, false);
-                        projectile.SetReceiverData(target, 35);
-                        projectile.SetFlyingProperties(delay, 40, 0, 192, false);
-                        projectile.Display();
+                        _projectileBuilder
+                            .Create()
+                            .WithGraphicId(1824)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(40)
+                            .WithFromHeight(50)
+                            .WithToHeight(35)
+                            .WithDelay(delay)
+                            .WithSlope(0)
+                            .WithAngle(192)
+                            .Send();
 
-                        var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 550);
-                        dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
-
-                        var regionService = Owner.ServiceProvider.GetRequiredService<IMapRegionService>();
+                        var damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 550);
+                        var maxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 550);
+                        // the normal hit
+                        Owner.Combat.PerformAttack(new AttackParams
+                        {
+                            Target = target, Damage = damage, DamageType = DamageType.StandardMagic, MaxDamage = maxDamage
+                        });
 
                         Owner.QueueTask(new RsTask(() =>
                             {
-                                // the normal hit
-                                var soak = -1;
-                                var damage = target.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                                var splat = new HitSplat(Owner);
-                                splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 550) <= damage);
-                                if (soak != -1)
-                                {
-                                    splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                                }
-
-                                target.QueueHitSplat(splat);
-
                                 // the splashes
                                 var locations = new List<ILocation>();
                                 var locAmount = RandomStatic.Generator.Next(2, 5);
@@ -329,7 +315,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                                     }
 
                                     var current = Location.Create(curX, curY, target.Location.Z, target.Location.Dimension);
-                                    if (!regionService.IsAccessible(current))
+                                    if (!_mapRegionService.IsAccessible(current))
                                     {
                                         continue;
                                     }
@@ -365,36 +351,37 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                                         dY = -dY;
                                     }
 
-                                    var d = (byte)(40 + dX * 2 + dY * 2);
-                                    var proj = new Projectile(1824);
-                                    proj.SetSenderData(target, 35, false);
-                                    proj.SetReceiverData(location, 0);
-                                    proj.SetFlyingProperties(1, 50, 0, 192, false);
-                                    proj.Display();
+                                    var delay2 = 40 + dX * 2 + dY * 2;
+                                    _projectileBuilder
+                                        .Create()
+                                        .WithGraphicId(1824)
+                                        .FromCreature(target)
+                                        .ToLocation(location)
+                                        .WithDuration(1)
+                                        .WithFromHeight(35)
+                                        .WithToHeight(0)
+                                        .WithSlope(0)
+                                        .WithAngle(192)
+                                        .Send();
 
-                                    var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => IsAggressiveTowards(c) && c.Location.Equals(location));
+                                    var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                                        .Where(c => IsAggressiveTowards(c) && c.Location.Equals(location));
                                     foreach (var character in visibleCharacters)
                                     {
-                                        var dmg2 = ((INpcCombat)Owner.Combat).GetMagicDamage(character, 550);
-                                        dmg2 = character.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg2, delay);
-
-                                        Owner.QueueTask(new RsTask(() =>
-                                            {
-                                                // the normal hit
-                                                var soa = -1;
-                                                var damage2 = character.Combat.Attack(Owner, DamageType.StandardMagic, dmg2, ref soa);
-                                                var s = new HitSplat(Owner);
-                                                s.SetFirstSplat(damage2 == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage2 == -1 ? 0 : damage2, ((INpcCombat)Owner.Combat).GetMagicMaxHit(character, 550) <= damage2);
-                                                if (soa != -1)
-                                                {
-                                                    s.SetSecondSplat(HitSplatType.HitDefendedDamage, soa, false);
-                                                }
-
-                                                character.QueueHitSplat(s);
-                                            }, CreatureHelper.CalculateTicksForClientTicks(d)));
+                                        var damage2 = ((INpcCombat)Owner.Combat).GetMagicDamage(character, 550);
+                                        var maxDamage2 = ((INpcCombat)Owner.Combat).GetMagicMaxHit(character, 550);
+                                        Owner.Combat.PerformAttack(new AttackParams
+                                        {
+                                            Target = character,
+                                            Damage = damage2,
+                                            DamageType = DamageType.StandardMagic,
+                                            MaxDamage = maxDamage2,
+                                            Delay = delay2
+                                        });
                                     }
                                 }
-                            }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                            },
+                            CreatureHelper.CalculateTicksForClientTicks(delay)));
                         break;
                     }
             }
@@ -412,7 +399,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
         ///     Generates the type of the attack.
         /// </summary>
         /// <param name="target">The target.</param>
-        private void GenerateAttackType(ICreature target)
+        private void GenerateAttackType(ICreature? target)
         {
             // check wether the beast should use trample if the character is too close.
             if (target != null && Owner.WithinRange(target, 0))
@@ -439,38 +426,28 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
             for (var i = 0; i < chances.Length; i++)
             {
                 runningValue += chances[i];
-                if (hitValue < runningValue)
+                if (!(hitValue < runningValue))
                 {
-                    if (i == 0)
-                    {
+                    continue;
+                }
+
+                switch (i)
+                {
+                    case 0:
                         _attackType = Attacks.Killer;
                         return;
-                    }
-
-                    if (i == 1)
-                    {
+                    case 1:
                         _attackType = Attacks.StatReduce;
                         return;
-                    }
-
-                    if (i == 2)
-                    {
+                    case 2:
                         _attackType = Attacks.Splash;
                         return;
-                    }
-
-                    break;
                 }
+
+                break;
             }
 
-            if (RandomStatic.Generator.NextDouble() <= 0.50)
-            {
-                _attackType = Attacks.Claw2;
-            }
-            else
-            {
-                _attackType = Attacks.Claw1;
-            }
+            _attackType = RandomStatic.Generator.NextDouble() <= 0.50 ? Attacks.Claw2 : Attacks.Claw1;
         }
 
         /// <summary>
@@ -480,11 +457,13 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
         {
             AggressivenessTick();
             // no possible targets found, resetting.
-            if (Owner.Combat.Target == null)
+            if (Owner.Combat.Target != null)
             {
-                base.OnCancelTarget();
-                Owner.Statistics.Normalise();
+                return;
             }
+
+            base.OnCancelTarget();
+            Owner.Statistics.Normalise();
         }
 
         /// <summary>
@@ -604,10 +583,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
         /// <summary>
         ///     Get's called when owner is found.
         /// </summary>
-        protected override void Initialize()
-        {
-            _pathFinder = Owner.ServiceProvider.GetRequiredService<ISmartPathFinder>();
-            GenerateAttackType(null);
-        }
+        protected override void Initialize() => GenerateAttackType(null);
     }
 }

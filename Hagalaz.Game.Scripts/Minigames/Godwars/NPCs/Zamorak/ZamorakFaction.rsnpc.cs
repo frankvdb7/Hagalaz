@@ -9,12 +9,13 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
     /// <summary>
     ///     Contains the zamorak faction npc script.
     /// </summary>
+    [NpcScriptMetaData([6210, 6211, 6212, 6213, 6214, 6215, 6216, 6217, 6218, 6219, 6220, 6221])]
     public class ZamorakFaction : NpcScriptBase
     {
         /// <summary>
         ///     Get's if this npc can aggro attack specific character.
         ///     By default this method does check if character is character.
-        ///     This method does not get called by ticks if npc reaction is not aggresive.
+        ///     This method does not get called by ticks if npc reaction is not aggressive.
         /// </summary>
         /// <param name="creature">The creature.</param>
         /// <returns>
@@ -27,21 +28,18 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
                 return false;
             }
 
-            if (creature is INpc)
+            if (creature is not INpc npc)
             {
-                var script = ((INpc)creature).Script;
-                if (script is ZamorakFaction || script is FamiliarScriptBase)
-                {
-                    return false;
-                }
+                return creature.Combat.RecentAttackers.Count() <= 2;
             }
 
-            if (creature.Combat.RecentAttackers.Count() > 2)
+            var script = npc.Script;
+            if (script is ZamorakFaction or FamiliarScriptBase)
             {
                 return false;
             }
 
-            return true;
+            return creature.Combat.RecentAttackers.Count() <= 2;
         }
 
         /// <summary>
@@ -60,26 +58,11 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
                 return;
             }
 
-            var c = creatures.Where(c => IsAggressiveTowards(c) && Owner.Combat.CanSetTarget(c)).FirstOrDefault();
+            var c = creatures.FirstOrDefault(c => IsAggressiveTowards(c) && Owner.Combat.CanSetTarget(c));
             if (c != null)
             {
                 Owner.Combat.SetTarget(c);
             }
-        }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => GodwarsConstants.ZamorakFactionNpCs;
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
         }
     }
 }

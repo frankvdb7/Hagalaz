@@ -7,12 +7,12 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model.Combat;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([6247])]
     public class CommanderZilyana : General
     {
         private readonly IAudioBuilder _soundBuilder;
@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
         /// <summary>
         ///     Contains speak data.
         /// </summary>
-        private static readonly Dictionary<string, short> _speakData = new Dictionary<string, short>();
+        private static readonly Dictionary<string, short> _speakData = new();
 
         /// <summary>
         ///     The attack type
@@ -71,33 +71,23 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
                     {
                         target.QueueGraphic(Graphic.Create(1207));
                         var combat = (INpcCombat)Owner.Combat;
-                        var hit1 = combat.GetMagicDamage(target, 310);
-                        var hit2 = combat.GetMagicDamage(target, 310);
-                        var standartMax = combat.GetMagicMaxHit(target, 310);
-                        hit1 = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, hit1, 0);
-                        hit2 = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, hit2, 0);
-                        var soak1 = -1;
-                        var damage1 = target.Combat.Attack(Owner, DamageType.StandardMagic, hit1, ref soak1);
-                        var soak2 = -1;
-                        var damage2 = target.Combat.Attack(Owner, DamageType.StandardMagic, hit2, ref soak2);
-                        var splat1 = new HitSplat(Owner);
-                        splat1.SetFirstSplat(damage1 <= 0 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage1 <= 0 ? 0 : damage1, standartMax <= damage1);
-                        if (soak1 != -1)
+                        var maxDamage = combat.GetMagicMaxHit(target, 310);
+                        Owner.Combat.PerformAttack(new AttackParams()
                         {
-                            splat1.SetSecondSplat(HitSplatType.HitDefendedDamage, soak1, false);
-                        }
-
-                        target.QueueHitSplat(splat1);
-
-                        var splat2 = new HitSplat(Owner);
-                        splat2.SetFirstSplat(damage2 <= 0 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage2 <= 0 ? 0 : damage2, standartMax <= damage2);
-                        if (soak2 != -1)
+                            Damage = combat.GetMagicDamage(target, 310),
+                            MaxDamage = maxDamage,
+                            DamageType = DamageType.StandardMagic,
+                            Target = target
+                        });
+                        Owner.Combat.PerformAttack(new AttackParams()
                         {
-                            splat2.SetSecondSplat(HitSplatType.HitDefendedDamage, soak2, false);
-                        }
-
-                        target.QueueHitSplat(splat2);
-                    }, 3));
+                            Damage = combat.GetMagicDamage(target, 310),
+                            MaxDamage = maxDamage,
+                            DamageType = DamageType.StandardMagic,
+                            Target = target
+                        });
+                    },
+                    3));
             }
         }
 
@@ -161,13 +151,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
                 return;
             }
         }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [6247];
     }
 }

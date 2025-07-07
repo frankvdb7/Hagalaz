@@ -1,18 +1,22 @@
-﻿using Hagalaz.Game.Abstractions.Model.Combat;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
 {
     /// <summary>
     ///     Contains sergeant steel will script.
     /// </summary>
+    [NpcScriptMetaData([6263])]
     public class SergeantSteelWill : BodyGuard
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+        public SergeantSteelWill(IProjectileBuilder projectileBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+        }
+
         /// <summary>
         ///     Perform's attack on specific target.
         /// </summary>
@@ -37,30 +41,27 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
                 deltaY = -deltaY;
             }
 
-            var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
+            var delay = 20 + deltaX * 5 + deltaY * 5;
 
-            var projectile = new Projectile(1203);
-            projectile.SetSenderData(Owner, 35, false);
-            projectile.SetReceiverData(target, 35);
-            projectile.SetFlyingProperties(50, delay, 0, 180, false);
-            projectile.Display();
+            _projectileBuilder.Create()
+                .WithGraphicId(1203)
+                .FromCreature(Owner)
+                .ToCreature(target)
+                .WithDuration(delay)
+                .WithAngle(180)
+                .WithDelay(50)
+                .WithFromHeight(35)
+                .WithToHeight(35)
+                .Send();
 
-            var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 164);
-            dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
-
-            Owner.QueueTask(new RsTask(() =>
-                {
-                    var soak = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 164) <= damage);
-                    if (soak != -1)
-                    {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                    }
-
-                    target.QueueHitSplat(splat);
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+            Owner.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 164),
+                MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 164),
+                Delay = delay,
+                DamageType = DamageType.StandardMagic,
+                Target = target,
+            });
         }
 
         /// <summary>
@@ -80,20 +81,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
         ///     System.Int32.
         /// </returns>
         public override int GetAttackDistance() => 7;
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [6263];
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

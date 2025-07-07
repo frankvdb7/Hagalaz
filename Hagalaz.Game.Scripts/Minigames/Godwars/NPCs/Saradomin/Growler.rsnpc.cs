@@ -1,18 +1,23 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([6250])]
     public class Growler : BodyGuard
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
+        public Growler(IProjectileBuilder projectileBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+        }
+
         /// <summary>
         ///     Perform's attack on specific target.
         /// </summary>
@@ -34,30 +39,31 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
                 deltaY = -deltaY;
             }
 
-            var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
+            var delay = 20 + deltaX * 5 + deltaY * 5;
 
-            var projectile = new Projectile(1185);
-            projectile.SetSenderData(Owner, 0, false);
-            projectile.SetReceiverData(target, 35);
-            projectile.SetFlyingProperties(50, delay, 0, 180);
-            projectile.Display();
+            _projectileBuilder.Create()
+                .WithGraphicId(1185)
+                .FromCreature(Owner)
+                .ToCreature(target)
+                .WithDuration(delay)
+                .WithAngle(180)
+                .WithDelay(50)
+                .WithToHeight(35)
+                .Send();
 
-            var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 160);
-            dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
-            Owner.QueueTask(new RsTask(() =>
-                {
-                    var soak = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 160) <= damage);
-                    if (soak != -1)
-                    {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                    }
-
-                    target.QueueHitSplat(splat);
-                    target.QueueGraphic(Graphic.Create(1186));
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+            var handle = Owner.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 160),
+                MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 160),
+                DamageType = DamageType.StandardMagic,
+                Delay = delay,
+                Target = target
+            });
+            
+            handle.RegisterResultHandler(_ =>
+            {
+                target.QueueGraphic(Graphic.Create(1186));
+            });
         }
 
         /// <summary>
@@ -86,20 +92,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
         ///     AttackStyle.
         /// </returns>
         public override AttackStyle GetAttackStyle() => AttackStyle.MagicNormal;
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [6250];
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

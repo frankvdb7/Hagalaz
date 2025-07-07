@@ -1,25 +1,27 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.Npc;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
 {
     [NpcScriptMetaData([2739, 2740])]
     public class TokXil : StandardCaveNpc
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
         /// <summary>
         ///     The ranging.
         /// </summary>
         private bool _ranging = true;
 
-        public TokXil(INpcBuilder npcBuilder) : base(npcBuilder) { }
+        public TokXil(INpcBuilder npcBuilder, IProjectileBuilder projectileBuilder) : base(npcBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+        }
 
         /// <summary>
         ///     Get's attack distance of this npc.
@@ -78,27 +80,26 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
                 deltaY = -deltaY;
             }
 
-            var delay = (byte)(deltaX * 5 + deltaY * 5);
-            var projectile = new Projectile(2993);
-            projectile.SetSenderData(Owner, 50, false);
-            projectile.SetReceiverData(target, 35);
-            projectile.SetFlyingProperties(10, delay, 10, 0, false);
-            projectile.Display();
+            var delay = deltaX * 5 + deltaY * 5;
+            _projectileBuilder.Create()
+                .WithGraphicId(2993)
+                .FromCreature(Owner)
+                .ToCreature(target)
+                .WithDuration(delay)
+                .WithFromHeight(50)
+                .WithToHeight(35)
+                .WithDelay(10)
+                .WithSlope(10)
+                .Send();
 
-            var preDmg = target.Combat.IncomingAttack(Owner, DamageType.StandardRange, ((INpcCombat)Owner.Combat).GetRangeDamage(target), 0);
-            Owner.QueueTask(new RsTask(() =>
-                {
-                    var soaked = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardRange, preDmg, ref soaked);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetRangeMaxHit(target) <= damage);
-                    if (soaked != -1)
-                    {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                    }
-
-                    target.QueueHitSplat(splat);
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+            Owner.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
+                DamageType = DamageType.StandardRange, 
+                Target = target,
+                MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
+                Delay = delay
+            });
         }
     }
 }

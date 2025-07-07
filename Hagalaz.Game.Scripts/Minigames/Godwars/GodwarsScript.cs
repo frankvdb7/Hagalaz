@@ -4,6 +4,10 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events;
+using Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl;
+using Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos;
+using Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin;
+using Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars
@@ -237,40 +241,42 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars
 
             _killHandler = Character.RegisterEventHandler(new EventHappened<CreatureKillEvent>(e =>
             {
-                if (e.Victim is INpc npc)
+                if (e.Victim is not INpc npc)
                 {
-                    var compositeID = npc.Appearance.CompositeID;
-                    if (GodwarsConstants.ArmadylNpCs.Contains(compositeID) || GodwarsConstants.ArmadylFactionNpCs.Contains(compositeID))
-                    {
-                        ArmadylKills++;
-                        UpdateGodwarsProfile();
-                        DrawArmadylKills();
-                        return true; // The event is handled.
-                    }
+                    return false; // The event is not handled.
+                }
 
-                    if (GodwarsConstants.BandosNpCs.Contains(compositeID) || GodwarsConstants.BandosFactionNpCs.Contains(compositeID))
-                    {
-                        BandosKills++;
-                        UpdateGodwarsProfile();
-                        DrawBandosKills();
-                        return true; // The event is handled.
-                    }
+                var compositeID = npc.Appearance.CompositeID;
+                if (GodwarsConstants.ArmadylNpCs.Contains(compositeID) || npc.HasScript<ArmadylFaction>())
+                {
+                    ArmadylKills++;
+                    UpdateGodwarsProfile();
+                    DrawArmadylKills();
+                    return true; // The event is handled.
+                }
 
-                    if (GodwarsConstants.SaradominNpCs.Contains(compositeID) || GodwarsConstants.SaradominFactionNpCs.Contains(compositeID))
-                    {
-                        SaradominKills++;
-                        UpdateGodwarsProfile();
-                        DrawSaradominKills();
-                        return true; // The event is handled.
-                    }
+                if (GodwarsConstants.BandosNpCs.Contains(compositeID) || npc.HasScript<BandosFaction>())
+                {
+                    BandosKills++;
+                    UpdateGodwarsProfile();
+                    DrawBandosKills();
+                    return true; // The event is handled.
+                }
 
-                    if (GodwarsConstants.ZamorakNpCs.Contains(compositeID) || GodwarsConstants.ZamorakFactionNpCs.Contains(compositeID))
-                    {
-                        ZamorakKills++;
-                        UpdateGodwarsProfile();
-                        DrawZamorakKills();
-                        return true; // The event is handled.
-                    }
+                if (GodwarsConstants.SaradominNpCs.Contains(compositeID) || npc.HasScript<SaradominFaction>())
+                {
+                    SaradominKills++;
+                    UpdateGodwarsProfile();
+                    DrawSaradominKills();
+                    return true; // The event is handled.
+                }
+
+                if (GodwarsConstants.ZamorakNpCs.Contains(compositeID) || npc.HasScript<ZamorakFaction>())
+                {
+                    ZamorakKills++;
+                    UpdateGodwarsProfile();
+                    DrawZamorakKills();
+                    return true; // The event is handled.
                 }
 
                 return false; // The event is not handled.

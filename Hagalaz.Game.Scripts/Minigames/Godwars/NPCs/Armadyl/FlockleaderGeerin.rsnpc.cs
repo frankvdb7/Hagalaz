@@ -1,18 +1,24 @@
-﻿using Hagalaz.Game.Abstractions.Model.Combat;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([6225])]
     public class FlockleaderGeerin : BodyGuard
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
+        public FlockleaderGeerin(IProjectileBuilder projectileBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+        }
+
         /// <summary>
         ///     Get's attack bonus type of this npc.
         ///     By default , this method does return AttackBonus.Crush
@@ -61,30 +67,26 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                 deltaY = -deltaY;
             }
 
-            var delay = (byte)(15 + deltaX * 5 + deltaY * 5);
+            var delay = 15 + deltaX * 5 + deltaY * 5;
+            _projectileBuilder.Create()
+                .WithGraphicId(1190)
+                .FromCreature(Owner)
+                .ToCreature(target)
+                .WithDuration(delay)
+                .WithAngle(180)
+                .WithDelay(25)
+                .WithFromHeight(50)
+                .WithToHeight(35)
+                .Send();
 
-            var projectile = new Projectile(1190);
-            projectile.SetSenderData(Owner, 50, false);
-            projectile.SetReceiverData(target, 35);
-            projectile.SetFlyingProperties(25, delay, 0, 180, false);
-            projectile.Display();
-
-            var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(target);
-            dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
-
-            Owner.QueueTask(new RsTask(() =>
-                {
-                    var soak = -1;
-                    var damage = target.Combat.Attack(Owner, DamageType.StandardRange, dmg, ref soak);
-                    var splat = new HitSplat(Owner);
-                    splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetRangeMaxHit(target) <= damage);
-                    if (soak != -1)
-                    {
-                        splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                    }
-
-                    target.QueueHitSplat(splat);
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+            Owner.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = combat.GetRangeDamage(target),
+                MaxDamage = combat.GetRangeMaxHit(target),
+                Delay = delay,
+                DamageType = DamageType.StandardRange,
+                Target = target
+            });
         }
 
         /// <summary>
@@ -100,7 +102,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         public override bool CanBeAttackedBy(ICreature attacker)
         {
             var style = attacker.Combat.GetAttackStyle();
-            if (style != AttackStyle.MeleeAccurate && style != AttackStyle.MeleeAggressive && style != AttackStyle.MeleeControlled && style != AttackStyle.MeleeDefensive)
+            if (style != AttackStyle.MeleeAccurate && style != AttackStyle.MeleeAggressive && style != AttackStyle.MeleeControlled &&
+                style != AttackStyle.MeleeDefensive)
             {
                 return base.CanBeAttackedBy(attacker);
             }
@@ -116,22 +119,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
             }
 
             return false;
-
-        }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [6225];
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
         }
     }
 }

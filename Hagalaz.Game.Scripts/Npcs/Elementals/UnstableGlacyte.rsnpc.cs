@@ -1,17 +1,18 @@
 ﻿using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Npcs.Elementals
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([14302])]
     public class UnstableGlacyte : NpcScriptBase
     {
         /// <summary>
@@ -34,16 +35,18 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// </summary>
         private readonly INpc _glacor;
 
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="UnstableGlacyte" /> class.
-        /// </summary>
-        public UnstableGlacyte() { }
+        private readonly IHitSplatBuilder _hitSplatBuilder;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="UnstableGlacyte" /> class.
         /// </summary>
         /// <param name="glacor">The glacor.</param>
-        public UnstableGlacyte(INpc glacor) => _glacor = glacor;
+        /// <param name="hitSplatBuilder"></param>
+        public UnstableGlacyte(INpc glacor, IHitSplatBuilder hitSplatBuilder)
+        {
+            _glacor = glacor;
+            _hitSplatBuilder = hitSplatBuilder;
+        }
 
         /// <summary>
         ///     Called when [set target].
@@ -52,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <param name="target">The target.</param>
         public override void OnSetTarget(ICreature target)
         {
-            if (_glacor != null && _glacor.Combat.Target == null)
+            if (_glacor.Combat.Target == null)
             {
                 _glacor.QueueTask(new RsTask(() => _glacor.Combat.SetTarget(target), 1));
             }
@@ -96,24 +99,24 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
             var npcDamage = (int)(Owner.Statistics.LifePoints * 0.9);
             Owner.Statistics.DamageLifePoints(npcDamage);
-            var npcSplat = new HitSplat(Owner);
-            npcSplat.SetFirstSplat(npcDamage == -1 ? HitSplatType.HitMiss : HitSplatType.HitSimpleDamage, npcDamage == -1 ? 0 : npcDamage, true);
+
+            var npcSplat = _hitSplatBuilder.Create()
+                .AddSprite(sprite => sprite
+                    .WithDamage(npcDamage)
+                    .AsCriticalDamage())
+                .Build();
             Owner.QueueHitSplat(npcSplat);
 
             var characters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => c.WithinRange(Owner, 1));
             foreach (var character in characters)
             {
-                var dmg = character.Combat.IncomingAttack(Owner, DamageType.Reflected, character.Statistics.LifePoints / 3, 0);
-                var soak = -1;
-                var damage = character.Combat.Attack(Owner, DamageType.Reflected, dmg, ref soak);
-                var splat = new HitSplat(Owner);
-                splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitSimpleDamage, damage == -1 ? 0 : damage, dmg <= damage);
-                if (soak != -1)
+                Owner.Combat.PerformAttack(new AttackParams()
                 {
-                    splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                }
-
-                character.QueueHitSplat(splat);
+                    Damage = character.Statistics.LifePoints / 3,
+                    MaxDamage = character.Statistics.LifePoints / 3,
+                    DamageType = DamageType.Standard,
+                    Target = character
+                });
             }
 
             _healing = true;
@@ -152,7 +155,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             (attacker as ICharacter)?.SendChatMessage("Someone else is already fighting that glacyte.");
 
             return false;
-
         }
 
         /// <summary>
@@ -164,21 +166,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         ///     <c>true</c> if this instance [can retaliate to] the specified creature; otherwise, <c>false</c>.
         /// </returns>
         public override bool CanRetaliateTo(ICreature creature) => Owner.Combat.Target == null;
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [14302];
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
 
         /// <summary>
         ///     Tick's npc.

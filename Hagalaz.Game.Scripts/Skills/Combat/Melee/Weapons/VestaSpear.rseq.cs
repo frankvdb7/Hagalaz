@@ -1,18 +1,17 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Equipment.Ancient;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([13905, 13907])]
     public class VestaSpear : AncientEquipment
     {
         /// <summary>
@@ -28,20 +27,14 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             attacker.AddState(new State(StateType.MeleeImmunity, 8));
             //if (!attacker.Area.MultiCombat)
             //{
-            var preDmg = ((ICharacterCombat)attacker.Combat).GetMeleeDamage(victim, false);
-            ((ICharacterCombat)attacker.Combat).PerformSoulSplit(victim, preDmg);
-            preDmg = victim.Combat.IncomingAttack(attacker, DamageType.FullMelee, preDmg, 15);
-            ((ICharacterCombat)attacker.Combat).AddMeleeExperience(preDmg);
-            var soaked = -1;
-            var damage = victim.Combat.Attack(attacker, DamageType.FullMelee, preDmg, ref soaked);
-            var splat = new HitSplat(attacker);
-            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMeleeDamage, damage == -1 ? 0 : damage, ((ICharacterCombat)attacker.Combat).GetMeleeMaxHit(victim, false) <= damage);
-            if (soaked != -1)
-            {
-                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-            }
 
-            victim.QueueHitSplat(splat);
+
+            var damage = ((ICharacterCombat)attacker.Combat).GetMeleeDamage(victim, false);
+            var maxDamage = ((ICharacterCombat)attacker.Combat).GetMeleeMaxHit(victim, false);
+            attacker.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = damage, DamageType = DamageType.FullMelee, MaxDamage = maxDamage, Target = victim
+            });
             //}
             //else
             //{
@@ -98,7 +91,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         /// </summary>
         /// <param name="item">The current.</param>
         /// <returns></returns>
-        public override short GetDegradedItemID(IItem item)
+        public override int GetDegradedItemID(IItem item)
         {
             if (item.Id == 13905)
             {
@@ -107,13 +100,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 
             return -1;
         }
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int>  GetSuitableItems() => [13905, 13907];
     }
 }

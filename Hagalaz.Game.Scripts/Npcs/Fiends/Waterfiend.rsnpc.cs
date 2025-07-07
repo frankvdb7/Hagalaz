@@ -1,20 +1,20 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Npcs.Fiends
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([5361])]
     public class Waterfiend : NpcScriptBase
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
         /// <summary>
         ///     The style
         /// </summary>
@@ -35,6 +35,11 @@ namespace Hagalaz.Game.Scripts.Npcs.Fiends
             Ranged
         }
 
+        public Waterfiend(IProjectileBuilder projectileBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+        }
+
         /// <summary>
         ///     Called when [set target].
         ///     By default, this method does nothing.
@@ -53,12 +58,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Fiends
         {
             switch (_type)
             {
-                case AttackType.Magic:
-                    return AttackBonus.Magic;
-                case AttackType.Ranged:
-                    return AttackBonus.Ranged;
-                default:
-                    return base.GetAttackBonusType();
+                case AttackType.Magic: return AttackBonus.Magic;
+                case AttackType.Ranged: return AttackBonus.Ranged;
+                default: return base.GetAttackBonusType();
             }
         }
 
@@ -82,12 +84,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Fiends
         {
             switch (_type)
             {
-                case AttackType.Magic:
-                    return AttackStyle.MagicNormal;
-                case AttackType.Ranged:
-                    return AttackStyle.RangedAccurate;
-                default:
-                    return base.GetAttackStyle();
+                case AttackType.Magic: return AttackStyle.MagicNormal;
+                case AttackType.Ranged: return AttackStyle.RangedAccurate;
+                default: return base.GetAttackStyle();
             }
         }
 
@@ -101,100 +100,88 @@ namespace Hagalaz.Game.Scripts.Npcs.Fiends
             switch (_type)
             {
                 case AttackType.Magic:
-                {
-                    var magicMax = 250;
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
                     {
-                        deltaX = -deltaX;
-                    }
-
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
-
-                    var delay = (byte)(30 + deltaX * 5 + deltaY * 5);
-                    var projectile = new Projectile(2705);
-                    projectile.SetSenderData(Owner, 35, false);
-                    projectile.SetReceiverData(target, 35);
-                    projectile.SetFlyingProperties(10, delay, 5, 0, false);
-                    projectile.Display();
-
-                    var preDmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, ((INpcCombat)Owner.Combat).GetMagicDamage(target, magicMax), 0);
-                    Owner.QueueTask(new RsTask(() =>
+                        const int magicMax = 250;
+                        var deltaX = Owner.Location.X - target.Location.X;
+                        var deltaY = Owner.Location.Y - target.Location.Y;
+                        if (deltaX < 0)
                         {
-                            target.QueueGraphic(Graphic.Create(2710, 0, 100));
-                            var soaked = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.StandardMagic, preDmg, ref soaked);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicDamage(target, magicMax) <= damage);
-                            if (soaked != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                            }
+                            deltaX = -deltaX;
+                        }
 
-                            target.QueueHitSplat(splat);
-                        }, CreatureHelper.CalculateTicksForClientTicks(delay)));
-                    break;
-                }
+                        if (deltaY < 0)
+                        {
+                            deltaY = -deltaY;
+                        }
+
+                        var delay = 30 + deltaX * 5 + deltaY * 5;
+
+                        _projectileBuilder.Create()
+                            .WithGraphicId(2705)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(delay)
+                            .WithFromHeight(35)
+                            .WithToHeight(35)
+                            .WithDelay(10)
+                            .WithSlope(5)
+                            .Send();
+
+                        Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, magicMax),
+                            MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, magicMax),
+                            Delay = delay,
+                            DamageType = DamageType.StandardMagic,
+                            Target = target
+                        });
+                        break;
+                    }
                 case AttackType.Ranged:
-                {
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
                     {
-                        deltaX = -deltaX;
-                    }
+                        var deltaX = Owner.Location.X - target.Location.X;
+                        var deltaY = Owner.Location.Y - target.Location.Y;
+                        if (deltaX < 0)
+                        {
+                            deltaX = -deltaX;
+                        }
 
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
+                        if (deltaY < 0)
+                        {
+                            deltaY = -deltaY;
+                        }
 
-                    var delay = (byte)(30 + deltaX * 5 + deltaY * 5);
-                    var projectile = new Projectile(2705);
-                    projectile.SetSenderData(Owner, 35, false);
-                    projectile.SetReceiverData(target, 35);
-                    projectile.SetFlyingProperties(10, delay, 5, 0, false);
-                    projectile.Display();
+                        var delay = 30 + deltaX * 5 + deltaY * 5;
 
-                    var preDmg = target.Combat.IncomingAttack(Owner, DamageType.StandardRange, ((INpcCombat)Owner.Combat).GetRangeDamage(target), 0);
-                    Owner.QueueTask(new RsTask(() =>
+                        _projectileBuilder.Create()
+                            .WithGraphicId(2705)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(delay)
+                            .WithFromHeight(35)
+                            .WithToHeight(35)
+                            .WithDelay(10)
+                            .WithSlope(5)
+                            .Send();
+
+                        var handle = Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
+                            MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
+                            Delay = delay,
+                            DamageType = DamageType.StandardRange,
+                            Target = target
+                        });
+
+                        handle.RegisterResultHandler(_ =>
                         {
                             target.QueueGraphic(Graphic.Create(2710, 0, 100));
-                            var soaked = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.StandardRange, preDmg, ref soaked);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetRangeMaxHit(target) <= damage);
-                            if (soaked != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soaked, false);
-                            }
-
-                            target.QueueHitSplat(splat);
-                        }, CreatureHelper.CalculateTicksForClientTicks(delay)));
-                    break;
-                }
+                        });
+                        break;
+                    }
             }
 
             _type = RandomStatic.Generator.Next(0, 2) == 1 ? AttackType.Ranged : AttackType.Magic;
-        }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [5361];
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
         }
     }
 }

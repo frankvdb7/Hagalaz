@@ -1,17 +1,18 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 {
     [NpcScriptMetaData([2025])]
     public class AhrimTheBlighted : BarrowBrother
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
+        public AhrimTheBlighted(IProjectileBuilder projectileBuilder) => _projectileBuilder = projectileBuilder;
+
         /// <summary>
         ///     Perform's attack on specific target.
         /// </summary>
@@ -35,47 +36,30 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
                 deltaY = -deltaY;
             }
 
-            var projectile = new Projectile(156);
-            projectile.SetSenderData(Owner, 0, false);
-            projectile.SetReceiverData(target, 0);
-            projectile.SetFlyingProperties(51, (short)(deltaX * 5 + deltaY * 5), 16, 0);
-            projectile.Display();
+            var delay = 51 + deltaX * 5 + deltaY * 5;
+
+            _projectileBuilder.Create()
+                .WithGraphicId(156)
+                .FromCreature(Owner)
+                .ToCreature(target)
+                .WithDuration(delay)
+                .WithDelay(51)
+                .WithSlope(16)
+                .Send();
+
 
             var damage = combat.GetMagicDamage(target, 160);
 
-            damage = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, damage, (byte)(51 + deltaX * 5 + deltaY * 5));
-
-            var delay = (byte)(51 + deltaX * 5 + deltaY * 5);
-
-            if (damage == -1)
+            var handler = combat.PerformAttack(new AttackParams()
             {
-                target.QueueGraphic(Graphic.Create(85, delay, 150));
-            }
-            else
+                Target = target, DamageType = DamageType.StandardMagic, Damage = damage, MaxDamage = damage, Delay = delay
+            });
+
+
+            handler.RegisterResultHandler(result =>
             {
-                target.QueueGraphic(Graphic.Create(1019, delay));
-            }
-
-            Owner.QueueTask(new RsTask(() =>
-                {
-                    var soak = -1;
-                    var dmg = target.Combat.Attack(Owner, DamageType.StandardMagic, damage, ref soak);
-                    if (dmg != -1)
-                    {
-                        var splat = new HitSplat(Owner);
-                        splat.SetFirstSplat(HitSplatType.HitMagicDamage, dmg, dmg >= 160);
-                        if (soak != -1)
-                        {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                        }
-
-                        target.QueueHitSplat(splat);
-                    }
-                    else
-                    {
-                        target.QueueGraphic(Graphic.Create(85, 0, 150));
-                    }
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                target.QueueGraphic(result.DamageLifePoints.Succeeded ? Graphic.Create(1019) : Graphic.Create(85, 0, 150));
+            });
         }
 
         /// <summary>

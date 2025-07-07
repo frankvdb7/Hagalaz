@@ -1,9 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 {
@@ -57,19 +54,14 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 
             RenderProjectile(target, delay);
 
-            var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(target);
-            dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
-
-            Owner.QueueTask(new RsTask(() =>
+            Owner.Combat.PerformAttack(new AttackParams()
             {
-                var soak = -1;
-                var damage = target.Combat.Attack(Owner, DamageType.StandardRange, dmg, ref soak);
-                var splat = new HitSplat(Owner);
-                splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetRangeMaxHit(target) <= damage);
-                if (soak != -1)
-                    splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                target.QueueHitSplat(splat);
-            }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
+                MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
+                Target = target,
+                DamageType = DamageType.StandardRange,
+                Delay = delay,
+            });
         }
 
         /// <summary>

@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
     /// <summary>
     ///     Contains the bandos faction npc script.
     /// </summary>
+    [NpcScriptMetaData([6268, 6269, 6270, 6271, 6272, 6273, 6274, 6275, /*6276,*/ 6277, /*6278,*/ 6279, 6280, 6281, 6282, 6283, 9185, 374])]
     public class BandosFaction : NpcScriptBase
     {
         /// <summary>
@@ -27,10 +28,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
                 return false;
             }
 
-            if (creature is INpc)
+            if (creature is INpc npc)
             {
-                var script = ((INpc)creature).Script;
-                if (script is BandosFaction || script is FamiliarScriptBase)
+                var script = npc.Script;
+                if (script is BandosFaction or FamiliarScriptBase)
                 {
                     return false;
                 }
@@ -60,26 +61,11 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
                 return;
             }
 
-            var c = creatures.Where(c => IsAggressiveTowards(c) && Owner.Combat.CanSetTarget(c)).FirstOrDefault();
+            var c = creatures.FirstOrDefault(c => IsAggressiveTowards(c) && Owner.Combat.CanSetTarget(c));
             if (c != null)
             {
                 Owner.Combat.SetTarget(c);
             }
-        }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => GodwarsConstants.BandosFactionNpCs;
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
         }
     }
 }

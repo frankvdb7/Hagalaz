@@ -1,13 +1,10 @@
-﻿using Hagalaz.Game.Abstractions.Collections;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services.Model;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 {
@@ -16,14 +13,11 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
     /// </summary>
     public class StormOfArmadyl : StandardCombatSpell
     {
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="StormOfArmadyl" /> class.
-        /// </summary>
-        /// <param name="dto">The definition.</param>
-        public StormOfArmadyl(CombatSpellDto dto)
-            : base(dto)
-        {
-        }
+        private readonly IProjectileBuilder _projectileBuilder;
+
+        public StormOfArmadyl(CombatSpellDto dto, IProjectileBuilder projectileBuilder)
+            : base(dto) =>
+            _projectileBuilder = projectileBuilder;
 
         /// <summary>
         ///     Get's speed of this spell.
@@ -33,12 +27,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         public override int GetCastingSpeed(ICharacter caster)
         {
             var weapon = caster.Equipment[EquipmentSlot.Weapon];
-            if (weapon != null && weapon.Id == (short)StaffType.ArmadylBattleStaff)
-            {
-                return 4;
-            }
-
-            return 5;
+            return weapon?.Id == (int)StaffType.ArmadylBattleStaff ? 4 : 5;
         }
 
         /// <summary>
@@ -75,12 +64,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 damage += boost;
             }
 
-            combat.PerformSoulSplit(victim, damage);
-
-            damage = victim.Combat.IncomingAttack(caster, DamageType.FullMagic, damage, (byte)(51 + deltaX * 5 + deltaY * 5));
-            combat.AddMagicExperience(damage);
-
-            var delay = (byte)(51 + deltaX * 5 + deltaY * 5);
+            var delay = 51 + deltaX * 5 + deltaY * 5;
             RenderProjectile(caster, victim, delay);
 
             if (damage == -1)
@@ -92,26 +76,16 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 victim.QueueGraphic(Graphic.Create(Dto.EndGraphicId, delay));
             }
 
-            caster.QueueTask(new RsTask(() =>
-                {
-                    var soak = -1;
-                    var dmg = victim.Combat.Attack(caster, DamageType.FullMagic, damage, ref soak);
-                    if (dmg != -1)
-                    {
-                        var splat = new HitSplat(caster);
-                        splat.SetFirstSplat(HitSplatType.HitMagicDamage, dmg, dmg >= 160 + boost);
-                        if (soak != -1)
-                        {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                        }
+            var handle = caster.Combat.PerformAttack(new AttackParams()
+            {
+                Damage = damage,
+                DamageType = DamageType.FullMagic,
+                MaxDamage = max,
+                Delay = delay,
+                Target = victim
+            });
 
-                        victim.QueueHitSplat(splat);
-                    }
-                    else
-                    {
-                        victim.QueueGraphic(Graphic.Create(85, 0, 150));
-                    }
-                }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+            handle.RegisterResultHandler(_ => { victim.QueueGraphic(Graphic.Create(85, 0, 150)); });
         }
 
         /// <summary>
@@ -120,13 +94,17 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <param name="caster">The caster.</param>
         /// <param name="victim">The victim.</param>
         /// <param name="delay">The delay.</param>
-        public override void RenderProjectile(ICharacter caster, ICreature victim, byte delay)
-        {
-            var projectile = new Projectile(Dto.ProjectileId);
-            projectile.SetSenderData(caster, 0, false);
-            projectile.SetReceiverData(victim, 0);
-            projectile.SetFlyingProperties(51, (short)(delay - 51), 16, 0, false);
-            projectile.Display();
-        }
+        public override void RenderProjectile(ICharacter caster, ICreature victim, int delay) =>
+            _projectileBuilder.Create()
+                .WithGraphicId(Dto.ProjectileId)
+                .FromCreature(caster)
+                .ToCreature(victim)
+                .WithDuration(delay - 51)
+                .WithFromHeight(43)
+                .WithToHeight(25)
+                .WithDelay(51)
+                .WithSlope(16)
+                .WithAngle(20)
+                .Send();
     }
 }

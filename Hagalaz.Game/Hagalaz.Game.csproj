@@ -12,4 +12,7 @@
     <ProjectReference Include="..\Hagalaz.DependencyInjection.Extensions\Hagalaz.DependencyInjection.Extensions.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Model\Combat\" />
+  </ItemGroup>
 </Project>

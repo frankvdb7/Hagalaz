@@ -152,24 +152,24 @@
         /// Names of the skills
         /// </summary>
         public static readonly string[] SkillNames =
-        {
+        [
             "Attack", "Defence", "Strength", "Constitution", "Range", "Prayer", "Magic", "Cooking", "Woodcutting", "Fletching", "Fishing", "Firemaking", "Crafting", "Smithing", "Mining", "Herblore", "Agility", "Thieving", "Slayer", "Farming", "Runecrafting", "Construction", "Hunter", "Summoning", "Dungeoneering"
-        };
+        ];
 
         /// <summary>
         /// Skill flash config IDS.
         /// </summary>
         public static readonly int[] SkillFlashFlags =
-        {
-            1, 4, 2, 64, 8, 16, 32, 32768, 131072, 2048, 16384, 65536, 1024, 8192, 4096, 256, 128, 512, 524288, 1048576, 262144, 2097152, 4194304, 8388608, 16777216,
-        };
+        [
+            1, 4, 2, 64, 8, 16, 32, 32768, 131072, 2048, 16384, 65536, 1024, 8192, 4096, 256, 128, 512, 524288, 1048576, 262144, 2097152, 4194304, 8388608, 16777216
+        ];
 
         /// <summary>
         /// The tracked skill ids.
         /// </summary>
-        public static readonly int[] ClientSkillIDs = new int[]
-        {
+        public static readonly int[] ClientSkillIDs =
+        [
             0, 4, 1, 5, 2, 6, 3, 15, 17, 18, 14, 16, 10, 13, 12, 8, 7, 9, 19, 20, 11, 21, 22, 23, 24
-        };
+        ];
     }
 }

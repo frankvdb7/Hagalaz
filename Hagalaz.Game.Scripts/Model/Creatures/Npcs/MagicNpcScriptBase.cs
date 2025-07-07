@@ -1,8 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 {
@@ -53,23 +50,20 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 deltaX = -deltaX;
             if (deltaY < 0)
                 deltaY = -deltaY;
-            var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
+            var delay = 20 + deltaX * 5 + deltaY * 5;
 
             RenderProjectile(target, delay);
 
-            var dmg = GetMagicDamage(target);
-            dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
-
-            Owner.QueueTask(new RsTask(() =>
+            var damage = GetMagicDamage(target);
+            var maxDamage = GetMagicMaxHit(target);
+            target.Combat.PerformAttack(new AttackParams()
             {
-                var soak = -1;
-                var damage = target.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                var splat = new HitSplat(Owner);
-                splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, GetMagicMaxHit(target) <= damage);
-                if (soak != -1)
-                    splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                target.QueueHitSplat(splat);
-            }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                Damage = damage,
+                MaxDamage = maxDamage,
+                Target = target,
+                DamageType = DamageType.StandardMagic,
+                Delay = delay,
+            });
         }
 
         /// <summary>
@@ -92,7 +86,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// </summary>
         /// <param name="target">The target.</param>
         /// <param name="delay">The delay.</param>
-        public virtual void RenderProjectile(ICreature target, byte delay) { }
+        public virtual void RenderProjectile(ICreature target, int delay) { }
 
         /// <summary>
         /// Renders the target attack.

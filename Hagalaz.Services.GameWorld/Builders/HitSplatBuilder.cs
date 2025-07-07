@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Services.GameWorld.Model.Creatures.Combat;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
@@ -99,7 +99,7 @@ namespace Hagalaz.Services.GameWorld.Builders
             return this;
         }
 
-        public IHitSplatSprite AddSprite(Action<IHitSplatSpriteBuilder> builder)
+        public IHitSplatOptional AddSprite(Action<IHitSplatSpriteBuilder> builder)
         {
             var spriteBuilder = new HitSplatSpriteBuilder();
             builder(spriteBuilder);

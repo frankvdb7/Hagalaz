@@ -1,16 +1,13 @@
 ﻿using System.Collections.Generic;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Npcs.Demons
 {
@@ -36,12 +33,15 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
 
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([8349, 8352, 8355, 8358, 8361, 8364])]
     public class TormentedDemon : NpcScriptBase
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
         /// <summary>
         ///     The received hits.
         /// </summary>
-        private readonly Dictionary<DamageType, int> _receivedHits = new Dictionary<DamageType, int>();
+        private readonly Dictionary<DamageType, int> _receivedHits = new();
 
         /// <summary>
         ///     The defence type.
@@ -72,6 +72,11 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         ///     The weakener.
         /// </summary>
         private ICharacter? _weakener;
+
+        public TormentedDemon(IProjectileBuilder projectileBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+        }
 
         /// <summary>
         ///     Called when [cancel target].
@@ -147,35 +152,35 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
             switch (_defenceType)
             {
                 case CombatType.Melee:
-                {
-                    if (damageType == DamageType.FullMelee
-                        || damageType == DamageType.StandardMelee)
                     {
-                        protect = true;
-                    }
+                        if (damageType == DamageType.FullMelee
+                            || damageType == DamageType.StandardMelee)
+                        {
+                            protect = true;
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case CombatType.Ranged:
-                {
-                    if (damageType == DamageType.FullRange
-                        || damageType == DamageType.StandardRange)
                     {
-                        protect = true;
-                    }
+                        if (damageType == DamageType.FullRange
+                            || damageType == DamageType.StandardRange)
+                        {
+                            protect = true;
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case CombatType.Magic:
-                {
-                    if (damageType == DamageType.FullMagic
-                        || damageType == DamageType.StandardMagic)
                     {
-                        protect = true;
-                    }
+                        if (damageType == DamageType.FullMagic
+                            || damageType == DamageType.StandardMagic)
+                        {
+                            protect = true;
+                        }
 
-                    break;
-                }
+                        break;
+                    }
             }
 
             if (protect)
@@ -213,96 +218,86 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
             switch (_attackType)
             {
                 case CombatType.Ranged:
-                {
-                    Owner.QueueAnimation(Animation.Create(10919));
-
-                    var combat = (INpcCombat)Owner.Combat;
-
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
                     {
-                        deltaX = -deltaX;
-                    }
+                        Owner.QueueAnimation(Animation.Create(10919));
 
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
+                        var combat = (INpcCombat)Owner.Combat;
 
-                    var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
-
-                    var projectile = new Projectile(1887);
-                    projectile.SetSenderData(Owner, 50, false);
-                    projectile.SetReceiverData(target, 35);
-                    projectile.SetFlyingProperties(10, delay, 10, 0, false);
-                    projectile.Display();
-
-                    var dmg = ((INpcCombat)Owner.Combat).GetRangeDamage(target);
-                    dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
-
-                    Owner.QueueTask(new RsTask(() =>
+                        var deltaX = Owner.Location.X - target.Location.X;
+                        var deltaY = Owner.Location.Y - target.Location.Y;
+                        if (deltaX < 0)
                         {
-                            var soak = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.StandardRange, dmg, ref soak);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetRangeMaxHit(target) <= damage);
-                            if (soak != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                            }
+                            deltaX = -deltaX;
+                        }
 
-                            target.QueueHitSplat(splat);
-                        }, CreatureHelper.CalculateTicksForClientTicks(delay)));
-                    break;
-                }
+                        if (deltaY < 0)
+                        {
+                            deltaY = -deltaY;
+                        }
+
+                        var delay = 20 + deltaX * 5 + deltaY * 5;
+
+                        _projectileBuilder.Create()
+                            .WithGraphicId(1887)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(delay)
+                            .WithFromHeight(50)
+                            .WithToHeight(35)
+                            .WithDelay(10)
+                            .WithSlope(10)
+                            .Send();
+
+                        Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = combat.GetRangeDamage(target),
+                            MaxDamage = combat.GetRangeMaxHit(target),
+                            Delay = delay,
+                            DamageType = DamageType.StandardRange,
+                            Target = target
+                        });
+                        break;
+                    }
                 case CombatType.Magic:
-                {
-                    Owner.QueueAnimation(Animation.Create(10918));
-
-                    var combat = (INpcCombat)Owner.Combat;
-
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
                     {
-                        deltaX = -deltaX;
-                    }
+                        Owner.QueueAnimation(Animation.Create(10918));
 
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
-
-                    var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
-
-                    var projectile = new Projectile(1884);
-                    projectile.SetSenderData(Owner, 50, false);
-                    projectile.SetReceiverData(target, 35);
-                    projectile.SetFlyingProperties(10, delay, 10, 0, false);
-                    projectile.Display();
-
-                    var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 300);
-                    dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
-
-                    Owner.QueueTask(new RsTask(() =>
+                        var deltaX = Owner.Location.X - target.Location.X;
+                        var deltaY = Owner.Location.Y - target.Location.Y;
+                        if (deltaX < 0)
                         {
-                            var soak = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 300) <= damage);
-                            if (soak != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                            }
+                            deltaX = -deltaX;
+                        }
 
-                            target.QueueHitSplat(splat);
-                        }, CreatureHelper.CalculateTicksForClientTicks(delay)));
-                    break;
-                }
-                default:
-                    base.PerformAttack(target);
-                    break;
+                        if (deltaY < 0)
+                        {
+                            deltaY = -deltaY;
+                        }
+
+                        var delay = 20 + deltaX * 5 + deltaY * 5;
+
+                        _projectileBuilder.Create()
+                            .WithGraphicId(1884)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(delay)
+                            .WithFromHeight(50)
+                            .WithToHeight(35)
+                            .WithDelay(10)
+                            .WithSlope(10)
+                            .Send();
+
+                        Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 300),
+                            MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 300),
+                            Delay = delay,
+                            DamageType = DamageType.StandardMagic,
+                            Target = target
+                        });
+                        break;
+                    }
+                default: base.PerformAttack(target); break;
             }
         }
 
@@ -317,14 +312,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         {
             switch (_attackType)
             {
-                case CombatType.Melee:
-                    return AttackStyle.MeleeAccurate;
-                case CombatType.Ranged:
-                    return AttackStyle.RangedAccurate;
-                case CombatType.Magic:
-                    return AttackStyle.MagicNormal;
-                default:
-                    return base.GetAttackStyle();
+                case CombatType.Melee: return AttackStyle.MeleeAccurate;
+                case CombatType.Ranged: return AttackStyle.RangedAccurate;
+                case CombatType.Magic: return AttackStyle.MagicNormal;
+                default: return base.GetAttackStyle();
             }
         }
 
@@ -339,13 +330,11 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         {
             switch (_attackType)
             {
-                case CombatType.Melee:
-                    return 1;
+                case CombatType.Melee: return 1;
                 case CombatType.Ranged:
                 case CombatType.Magic:
                     return 7;
-                default:
-                    return base.GetAttackDistance();
+                default: return base.GetAttackDistance();
             }
         }
 
@@ -360,31 +349,17 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         {
             switch (_attackType)
             {
-                case CombatType.Melee:
-                    return AttackBonus.Slash;
-                case CombatType.Ranged:
-                    return AttackBonus.Ranged;
-                case CombatType.Magic:
-                    return AttackBonus.Magic;
-                default:
-                    return base.GetAttackBonusType();
+                case CombatType.Melee: return AttackBonus.Slash;
+                case CombatType.Ranged: return AttackBonus.Ranged;
+                case CombatType.Magic: return AttackBonus.Magic;
+                default: return base.GetAttackBonusType();
             }
         }
 
         /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [8349, 8352, 8355, 8358, 8361, 8364];
-
-        /// <summary>
         ///     Get's called when owner is found.
         /// </summary>
-        protected override void Initialize()
-        {
-        }
+        protected override void Initialize() { }
 
         /// <summary>
         ///     Get's if this npc can be poisoned.
@@ -437,13 +412,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
                 accumulator = 25;
             }
 
-            if (_receivedHits.ContainsKey(damageType))
+            if (!_receivedHits.TryAdd(damageType, damage))
             {
-                _receivedHits[damageType] = _receivedHits[damageType] + accumulator;
-            }
-            else
-            {
-                _receivedHits.Add(damageType, damage);
+                _receivedHits[damageType] += accumulator;
             }
 
             if (_receivedHits[damageType] < 500)
@@ -478,15 +449,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         {
             switch (type)
             {
-                case CombatType.Melee:
-                    Owner.Appearance.Transform(Owner.Definition.Id);
-                    break;
-                case CombatType.Ranged:
-                    Owner.Appearance.Transform((short)(Owner.Definition.Id + 2));
-                    break;
-                case CombatType.Magic:
-                    Owner.Appearance.Transform((short)(Owner.Definition.Id + 1));
-                    break;
+                case CombatType.Melee: Owner.Appearance.Transform(Owner.Definition.Id); break;
+                case CombatType.Ranged: Owner.Appearance.Transform((short)(Owner.Definition.Id + 2)); break;
+                case CombatType.Magic: Owner.Appearance.Transform((short)(Owner.Definition.Id + 1)); break;
             }
 
             _defenceType = type;
@@ -504,23 +469,23 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
             switch (_attackType)
             {
                 case CombatType.Melee:
-                {
-                    var rnd = RandomStatic.Generator.Next(0, 2);
-                    _attackType = rnd == 1 ? CombatType.Ranged : CombatType.Magic;
-                    break;
-                }
+                    {
+                        var rnd = RandomStatic.Generator.Next(0, 2);
+                        _attackType = rnd == 1 ? CombatType.Ranged : CombatType.Magic;
+                        break;
+                    }
                 case CombatType.Ranged:
-                {
-                    var rnd = RandomStatic.Generator.Next(0, 2);
-                    _attackType = rnd == 1 ? CombatType.Melee : CombatType.Magic;
-                    break;
-                }
+                    {
+                        var rnd = RandomStatic.Generator.Next(0, 2);
+                        _attackType = rnd == 1 ? CombatType.Melee : CombatType.Magic;
+                        break;
+                    }
                 case CombatType.Magic:
-                {
-                    var rnd = RandomStatic.Generator.Next(0, 2);
-                    _attackType = rnd == 1 ? CombatType.Melee : CombatType.Ranged;
-                    break;
-                }
+                    {
+                        var rnd = RandomStatic.Generator.Next(0, 2);
+                        _attackType = rnd == 1 ? CombatType.Melee : CombatType.Ranged;
+                        break;
+                    }
             }
 
             _combatStyleTick = 0;

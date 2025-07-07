@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Npcs
 {
@@ -35,19 +33,27 @@ namespace Hagalaz.Game.Scripts.Npcs
 
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([
+        13465, 13466, 13467, 13468, 13469, 13470, 13471, 13472, 13473, 13474, 13475, 13476, 13477, 13478, 13479, 13480, 13481
+    ])]
     public class Revenant : NpcScriptBase
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
         /// <summary>
         ///     The attack.
         /// </summary>
         private Attack _attack;
 
+        public Revenant(IProjectileBuilder projectileBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+        }
+
         /// <summary>
         ///     Performs the aggressiveness check.
         /// </summary>
-        public override void AggressivenessTick()
-        {
-        }
+        public override void AggressivenessTick() { }
 
         /// <summary>
         ///     Get's if this npc can aggro attack specific character.
@@ -69,108 +75,104 @@ namespace Hagalaz.Game.Scripts.Npcs
             switch (_attack)
             {
                 case Attack.Melee:
-                {
-                    RenderAttack();
-                    var damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target);
-                    var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
-                    Owner.Combat.PerformAttack(new AttackParams()
                     {
-                        Target = target, Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.StandardMelee,
-                    });
+                        RenderAttack();
+                        var damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target);
+                        var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
+                        Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Target = target, Damage = damage, MaxDamage = maxDamage, DamageType = DamageType.StandardMelee,
+                        });
 
-                    if (RandomStatic.Generator.NextDouble() >= 0.90)
-                    {
-                        target.Poison(58);
+                        if (RandomStatic.Generator.NextDouble() >= 0.90)
+                        {
+                            target.Poison(58);
+                        }
+
+                        break;
                     }
-
-                    break;
-                }
                 case Attack.Ranged:
-                {
-                    RenderAttack();
-                    var combat = (INpcCombat)Owner.Combat;
-
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
                     {
-                        deltaX = -deltaX;
-                    }
+                        RenderAttack();
+                        var combat = (INpcCombat)Owner.Combat;
 
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
-
-                    var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
-
-                    var projectile = new Projectile(1278); // 1203
-                    projectile.SetSenderData(Owner, 35, false);
-                    projectile.SetReceiverData(target, 35);
-                    projectile.SetFlyingProperties(50, delay, 0, 180, false);
-                    projectile.Display();
-
-                    var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 164);
-                    dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardRange, dmg, delay);
-
-                    Owner.QueueTask(new RsTask(() =>
+                        var deltaX = Owner.Location.X - target.Location.X;
+                        var deltaY = Owner.Location.Y - target.Location.Y;
+                        if (deltaX < 0)
                         {
-                            var soak = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.StandardRange, dmg, ref soak);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitRangeDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetRangeMaxHit(target) <= damage);
-                            if (soak != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                            }
+                            deltaX = -deltaX;
+                        }
 
-                            target.QueueHitSplat(splat);
-                        }, CreatureHelper.CalculateTicksForClientTicks(delay)));
-                    break;
-                }
+                        if (deltaY < 0)
+                        {
+                            deltaY = -deltaY;
+                        }
+
+                        var delay = 20 + deltaX * 5 + deltaY * 5;
+
+                        // 1203
+                        _projectileBuilder.Create()
+                            .WithGraphicId(1278)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(delay)
+                            .WithDelay(50)
+                            .WithAngle(180)
+                            .WithFromHeight(35)
+                            .WithToHeight(35)
+                            .Send();
+
+                        Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = combat.GetRangeDamage(target),
+                            MaxDamage = combat.GetRangeMaxHit(target),
+                            Delay = delay,
+                            DamageType = DamageType.StandardRange,
+                            Target = target,
+                        });
+                        break;
+                    }
                 case Attack.Magic:
-                {
-                    RenderAttack();
-                    var combat = (INpcCombat)Owner.Combat;
-
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
                     {
-                        deltaX = -deltaX;
-                    }
+                        RenderAttack();
+                        var combat = (INpcCombat)Owner.Combat;
 
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
-
-                    var delay = (byte)(20 + deltaX * 5 + deltaY * 5);
-
-                    var projectile = new Projectile(1278); // 1203
-                    projectile.SetSenderData(Owner, 35, false);
-                    projectile.SetReceiverData(target, 35);
-                    projectile.SetFlyingProperties(50, delay, 0, 180, false);
-                    projectile.Display();
-
-                    var dmg = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 164);
-                    dmg = target.Combat.IncomingAttack(Owner, DamageType.StandardMagic, dmg, delay);
-
-                    Owner.QueueTask(new RsTask(() =>
+                        var deltaX = Owner.Location.X - target.Location.X;
+                        var deltaY = Owner.Location.Y - target.Location.Y;
+                        if (deltaX < 0)
                         {
-                            var soak = -1;
-                            var damage = target.Combat.Attack(Owner, DamageType.StandardMagic, dmg, ref soak);
-                            var splat = new HitSplat(Owner);
-                            splat.SetFirstSplat(damage == -1 ? HitSplatType.HitMiss : HitSplatType.HitMagicDamage, damage == -1 ? 0 : damage, ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 164) <= damage);
-                            if (soak != -1)
-                            {
-                                splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
-                            }
+                            deltaX = -deltaX;
+                        }
 
-                            target.QueueHitSplat(splat);
-                        }, CreatureHelper.CalculateTicksForClientTicks(delay)));
-                    break;
-                }
+                        if (deltaY < 0)
+                        {
+                            deltaY = -deltaY;
+                        }
+
+                        var delay = 20 + deltaX * 5 + deltaY * 5;
+
+                        // 1203
+                        _projectileBuilder.Create()
+                            .WithGraphicId(1278)
+                            .FromCreature(Owner)
+                            .ToCreature(target)
+                            .WithDuration(delay)
+                            .WithDelay(50)
+                            .WithAngle(180)
+                            .WithFromHeight(35)
+                            .WithToHeight(35)
+                            .Send();
+
+                        Owner.Combat.PerformAttack(new AttackParams()
+                        {
+                            Damage = combat.GetMagicDamage(target, 164),
+                            MaxDamage = combat.GetMagicMaxHit(target, 164),
+                            Delay = delay,
+                            DamageType = DamageType.StandardMagic,
+                            Target = target,
+                        });
+                        break;
+                    }
             }
 
             GenerateAttack();
@@ -197,15 +199,9 @@ namespace Hagalaz.Game.Scripts.Npcs
 
                 switch (i)
                 {
-                    case 0:
-                        _attack = Attack.Melee;
-                        break;
-                    case 1:
-                        _attack = Attack.Ranged;
-                        break;
-                    case 2:
-                        _attack = Attack.Magic;
-                        break;
+                    case 0: _attack = Attack.Melee; break;
+                    case 1: _attack = Attack.Ranged; break;
+                    case 2: _attack = Attack.Magic; break;
                 }
 
                 return;
@@ -223,13 +219,11 @@ namespace Hagalaz.Game.Scripts.Npcs
         {
             switch (_attack)
             {
-                case Attack.Melee:
-                    return 1;
+                case Attack.Melee: return 1;
                 case Attack.Ranged:
                 case Attack.Magic:
                     return 7;
-                default:
-                    return base.GetAttackDistance();
+                default: return base.GetAttackDistance();
             }
         }
 
@@ -244,14 +238,10 @@ namespace Hagalaz.Game.Scripts.Npcs
         {
             switch (_attack)
             {
-                case Attack.Melee:
-                    return AttackStyle.MeleeAggressive;
-                case Attack.Ranged:
-                    return AttackStyle.RangedAccurate;
-                case Attack.Magic:
-                    return AttackStyle.MagicNormal;
-                default:
-                    return base.GetAttackStyle();
+                case Attack.Melee: return AttackStyle.MeleeAggressive;
+                case Attack.Ranged: return AttackStyle.RangedAccurate;
+                case Attack.Magic: return AttackStyle.MagicNormal;
+                default: return base.GetAttackStyle();
             }
         }
 
@@ -266,25 +256,12 @@ namespace Hagalaz.Game.Scripts.Npcs
         {
             switch (_attack)
             {
-                case Attack.Melee:
-                    return AttackBonus.Slash;
-                case Attack.Ranged:
-                    return AttackBonus.Ranged;
-                case Attack.Magic:
-                    return AttackBonus.Magic;
-                default:
-                    return base.GetAttackBonusType();
+                case Attack.Melee: return AttackBonus.Slash;
+                case Attack.Ranged: return AttackBonus.Ranged;
+                case Attack.Magic: return AttackBonus.Magic;
+                default: return base.GetAttackBonusType();
             }
         }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [13465, 13466, 13467, 13468, 13469, 13470, 13471, 13472, 13473, 13474, 13475, 13476, 13477, 13478, 13479, 13480, 13481
-        ];
 
         /// <summary>
         ///     Get's called when npc is spawned.

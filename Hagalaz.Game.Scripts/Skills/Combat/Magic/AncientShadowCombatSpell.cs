@@ -1,11 +1,8 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
-using Hagalaz.Game.Model.Combat;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 {
@@ -14,21 +11,26 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
     /// </summary>
     public class AncientShadowCombatSpell : ICombatSpell
     {
+        private readonly IProjectileBuilder _projectileBuilder;
+
         /// <summary>
         ///     Contains type of the spell.
         /// </summary>
         public int SpellType { get; }
 
-        /// <summary>
-        ///     Construct's new ancient shadow combat spell.
-        /// </summary>
-        public AncientShadowCombatSpell(int spellType) => SpellType = spellType;
+        public AncientShadowCombatSpell(int spellType, IProjectileBuilder projectileBuilder)
+        {
+            _projectileBuilder = projectileBuilder;
+            SpellType = spellType;
+        }
 
         /// <summary>
         ///     The RUN e_ REQUIREMENTS
         /// </summary>
-        public static RuneType[][] RuneRequirements = [
-            [RuneType.Chaos, RuneType.Death, RuneType.Air, RuneType.Soul], [RuneType.Chaos, RuneType.Death, RuneType.Air, RuneType.Soul], [RuneType.Death, RuneType.Blood, RuneType.Air, RuneType.Soul
+        private static readonly RuneType[][] _runeRequirements =
+        [
+            [RuneType.Chaos, RuneType.Death, RuneType.Air, RuneType.Soul], [RuneType.Chaos, RuneType.Death, RuneType.Air, RuneType.Soul], [
+                RuneType.Death, RuneType.Blood, RuneType.Air, RuneType.Soul
             ],
             [RuneType.Death, RuneType.Blood, RuneType.Air, RuneType.Soul]
         ];
@@ -36,38 +38,38 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     The RUN e_ AMOUNTS
         /// </summary>
-        public static int[][] RuneAmounts = [[2, 2, 1, 1], [4, 2, 1, 2], [2, 2, 2, 2], [4, 2, 4, 3]];
+        private static readonly int[][] _runeAmounts = [[2, 2, 1, 1], [4, 2, 1, 2], [2, 2, 2, 2], [4, 2, 4, 3]];
 
         /// <summary>
         ///     The LEVE l_ REQUIREMENTS
         /// </summary>
-        public static int[] LevelRequirements = [52, 64, 76, 88];
+        private static readonly int[] _levelRequirements = [52, 64, 76, 88];
 
         /// <summary>
         ///     The CONFI g_ IDS
         /// </summary>
-        public static int[] ConfigIds = [65, 73, 81, 89];
+        private static readonly int[] _configIds = [65, 73, 81, 89];
 
         /// <summary>
         ///     The EXP
         /// </summary>
-        public static double[] Exp = [31.0, 37.0, 43.0, 49.0];
+        private static readonly double[] _exp = [31.0, 37.0, 43.0, 49.0];
 
         /// <summary>
         ///     The BAS e_ DAMAGE
         /// </summary>
-        public static int[] BaseDamage = [140, 180, 240, 280];
+        private static readonly int[] _baseDamage = [140, 180, 240, 280];
 
         /// <summary>
         ///     Perform's attack to target.
         /// </summary>
         public void PerformAttack(ICharacter caster, ICreature victim)
         {
-            var multiHit = SpellType == 1 || SpellType == 3;
+            var multiHit = SpellType is 1 or 3;
             caster.QueueAnimation(Animation.Create(multiHit ? 1979 : 1978));
             var combat = (ICharacterCombat)caster.Combat;
 
-            caster.Statistics.AddExperience(StatisticsConstants.Magic, Exp[SpellType]);
+            caster.Statistics.AddExperience(StatisticsConstants.Magic, _exp[SpellType]);
 
             var vDeltaX = caster.Location.X - victim.Location.X;
             var vDeltaY = caster.Location.Y - victim.Location.Y;
@@ -81,27 +83,38 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 vDeltaY = -vDeltaY;
             }
 
+            var duration = vDeltaX * 5 + vDeltaY * 5;
 
             switch (SpellType)
             {
                 case 0:
-                {
-                    var projectile = new Projectile(378);
-                    projectile.SetSenderData(caster, 43, false);
-                    projectile.SetReceiverData(victim, 0);
-                    projectile.SetFlyingProperties(51, (short)(vDeltaX * 5 + vDeltaY * 5), 16, 64, false);
-                    projectile.Display();
-                    break;
-                }
+                    {
+                        _projectileBuilder.Create()
+                            .WithGraphicId(378)
+                            .FromCreature(caster)
+                            .ToCreature(victim)
+                            .WithDuration(duration)
+                            .WithFromHeight(43)
+                            .WithAngle(64)
+                            .WithSlope(16)
+                            .WithDelay(51)
+                            .Send();
+                        break;
+                    }
                 case 2:
-                {
-                    var projectile = new Projectile(380);
-                    projectile.SetSenderData(caster, 43, false);
-                    projectile.SetReceiverData(victim, 0);
-                    projectile.SetFlyingProperties(51, (short)(vDeltaX * 5 + vDeltaY * 5), 16, 64, false);
-                    projectile.Display();
-                    break;
-                }
+                    {
+                        _projectileBuilder.Create()
+                            .WithGraphicId(380)
+                            .FromCreature(caster)
+                            .ToCreature(victim)
+                            .WithDuration(duration)
+                            .WithFromHeight(43)
+                            .WithAngle(64)
+                            .WithSlope(16)
+                            .WithDelay(51)
+                            .Send();
+                        break;
+                    }
             }
 
             var visibleCreatures = caster.Viewport.VisibleCreatures;
@@ -132,12 +145,11 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                     combat.CheckSkullConditions(c);
                 }
 
-                var creature = c;
-                var max = combat.GetMagicMaxHit(creature, BaseDamage[SpellType]);
-                var damage = combat.GetMagicDamage(creature, max);
+                var maxDamage = combat.GetMagicMaxHit(c, _baseDamage[SpellType]);
+                var damage = combat.GetMagicDamage(c, maxDamage);
 
-                var deltaX = caster.Location.X - creature.Location.X;
-                var deltaY = caster.Location.Y - creature.Location.Y;
+                var deltaX = caster.Location.X - c.Location.X;
+                var deltaY = caster.Location.Y - c.Location.Y;
                 if (deltaX < 0)
                 {
                     deltaX = -deltaX;
@@ -148,62 +160,47 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                     deltaY = -deltaY;
                 }
 
-                combat.PerformSoulSplit(creature, damage);
+                var delay = 51 + deltaX * 5 + deltaY * 5;
 
-                damage = creature.Combat.IncomingAttack(caster, DamageType.FullMagic, damage, (byte)(51 + deltaX * 5 + deltaY * 5));
-                combat.AddMagicExperience(damage);
-
-                var delay = (byte)(51 + vDeltaX * 5 + vDeltaY * 5);
-
-                if (c is ICharacter target)
+                var handle = caster.Combat.PerformAttack(new AttackParams()
                 {
-                    var percent = SpellType == 3 ? 0.85D : 0.90D;
-                    var lowest = (int)(target.Statistics.LevelForExperience(StatisticsConstants.Attack) * percent);
-                    var level = target.Statistics.GetSkillLevel(StatisticsConstants.Attack);
-                    if (level > lowest)
+                    Damage = damage,
+                    MaxDamage = maxDamage,
+                    Target = c,
+                    Delay = delay,
+                    DamageType = DamageType.FullMagic
+                });
+
+                handle.RegisterResultHandler(result =>
+                {
+                    if (result.Damage.Succeeded)
                     {
-                        target.Statistics.DamageSkill(StatisticsConstants.Attack, (byte)(level - lowest));
-                    }
-                }
+                        switch (SpellType)
+                        {
+                            case 0: c.QueueGraphic(Graphic.Create(379)); break;
+                            case 1: c.QueueGraphic(Graphic.Create(382)); break;
+                            case 2: c.QueueGraphic(Graphic.Create(381)); break;
+                            case 3: c.QueueGraphic(Graphic.Create(383)); break;
+                        }
 
-                if (damage == -1)
-                {
-                    creature.QueueGraphic(Graphic.Create(85, delay, 150));
-                }
-                else switch (SpellType)
-                {
-                    case 0:
-                        creature.QueueGraphic(Graphic.Create(379, delay));
-                        break;
-                    case 1:
-                        creature.QueueGraphic(Graphic.Create(382, delay));
-                        break;
-                    case 2:
-                        creature.QueueGraphic(Graphic.Create(381, delay));
-                        break;
-                    case 3:
-                        creature.QueueGraphic(Graphic.Create(383, delay));
-                        break;
-                }
-
-                caster.QueueTask(new RsTask(() =>
-                    {
-                        var soak = -1;
-                        var dmg = creature.Combat.Attack(caster, DamageType.FullMagic, damage, ref soak);
-                        if (dmg == -1)
+                        if (c is not ICharacter charTarget)
                         {
                             return;
                         }
 
-                        var splat = new HitSplat(caster);
-                        splat.SetFirstSplat(HitSplatType.HitMagicDamage, dmg, dmg >= BaseDamage[SpellType]);
-                        if (soak != -1)
+                        var percent = SpellType == 3 ? 0.85D : 0.90D;
+                        var lowest = (int)(charTarget.Statistics.LevelForExperience(StatisticsConstants.Attack) * percent);
+                        var level = charTarget.Statistics.GetSkillLevel(StatisticsConstants.Attack);
+                        if (level > lowest)
                         {
-                            splat.SetSecondSplat(HitSplatType.HitDefendedDamage, soak, false);
+                            charTarget.Statistics.DamageSkill(StatisticsConstants.Attack, level - lowest);
                         }
-
-                        creature.QueueHitSplat(splat);
-                    }, CreatureHelper.CalculateTicksForClientTicks(delay)));
+                    }
+                    else
+                    {
+                        c.QueueGraphic(Graphic.Create(85, height: 150));
+                    }
+                });
             }
         }
 
@@ -220,19 +217,20 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// </summary>
         /// <param name="caster"></param>
         /// <returns></returns>
-        public bool CheckRequirements(ICharacter caster) => caster.Magic.CheckMagicLevel(LevelRequirements[SpellType]) && caster.Magic.CheckRunes(RuneRequirements[SpellType], RuneAmounts[SpellType]);
+        public bool CheckRequirements(ICharacter caster) =>
+            caster.Magic.CheckMagicLevel(_levelRequirements[SpellType]) && caster.Magic.CheckRunes(_runeRequirements[SpellType], _runeAmounts[SpellType]);
 
         /// <summary>
         ///     Removes required items from actor.
         /// </summary>
         /// <param name="caster"></param>
-        public void RemoveRequirements(ICharacter caster) => caster.Magic.RemoveRunes(RuneRequirements[SpellType], RuneAmounts[SpellType]);
+        public void RemoveRequirements(ICharacter caster) => caster.Magic.RemoveRunes(_runeRequirements[SpellType], _runeAmounts[SpellType]);
 
         /// <summary>
         ///     Get's called when autocasting is set to this spell.
         /// </summary>
         /// <param name="activatedOn"></param>
-        public void OnAutoCastingActivation(ICharacter activatedOn) => activatedOn.Configurations.SendStandardConfiguration(108, ConfigIds[SpellType]);
+        public void OnAutoCastingActivation(ICharacter activatedOn) => activatedOn.Configurations.SendStandardConfiguration(108, _configIds[SpellType]);
 
         /// <summary>
         ///     Get's called when autocasting is unset to this spell.
@@ -258,6 +256,6 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         ///     Get's amount of magic experience this spell gives.
         /// </summary>
         /// <returns></returns>
-        public double GetMagicExperience() => Exp[SpellType];
+        public double GetMagicExperience() => _exp[SpellType];
     }
 }
