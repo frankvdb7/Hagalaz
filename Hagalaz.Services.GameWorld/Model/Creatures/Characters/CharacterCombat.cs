@@ -810,7 +810,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                             .WithDuration(30)
                             .WithDelay(30)
                             .WithFromHeight(30)
-                            .WithFromHeight(30)
+                            .WithToHeight(30)
                             .Send();
 
                         if (drainTypes != null)
