@@ -314,8 +314,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     target.QueueGraphic(_graphicBuilder.Create().WithId(2264).Build());
                     _projectileBuilder.Create()
                         .WithGraphicId(2263)
-                        .FromCreature(Owner)
-                        .ToCreature(target)
+                        .FromCreature(target)
+                        .ToCreature(Owner)
                         .WithDuration(duration)
                         .WithSlope(20)
                         .WithFromHeight(11)
