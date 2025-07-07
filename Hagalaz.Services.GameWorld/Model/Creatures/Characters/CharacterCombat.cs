@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Builders.Animation;
 using Hagalaz.Game.Abstractions.Builders.Graphic;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -36,6 +37,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private readonly IAnimationBuilder _animationBuilder;
         private readonly IGraphicBuilder _graphicBuilder;
+        private readonly IProjectileBuilder _projectileBuilder;
 
         /// <summary>
         /// Construct's new combat class for specified
@@ -48,6 +50,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _character = owner;
             _animationBuilder = _character.ServiceProvider.GetRequiredService<IAnimationBuilder>();
             _graphicBuilder = _character.ServiceProvider.GetRequiredService<IGraphicBuilder>();
+            _projectileBuilder = _character.ServiceProvider.GetRequiredService<IProjectileBuilder>();
         }
 
 
@@ -180,10 +183,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
-            var renderSkull = false;
-            if (target is ICharacter)
-                renderSkull = true;
-            else if (target is INpc npc) renderSkull = npc.HasScript<IFamiliarScript>();
+            var renderSkull = target switch
+            {
+                ICharacter => true,
+                INpc npc => npc.HasScript<IFamiliarScript>(),
+                _ => false
+            };
             if (renderSkull) _character.RenderSkull(SkullIcon.DefaultSkull, 2000);
         }
 
@@ -281,11 +286,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var duration = Math.Max(30, deltaX * 15 + deltaY * 15);
 
-            var toTarget = new Projectile(2263);
-            toTarget.SetSenderData(Owner, 11, false);
-            toTarget.SetReceiverData(target, 11);
-            toTarget.SetFlyingProperties(30, duration, 20, 0, false);
-            toTarget.Display();
+            _projectileBuilder.Create()
+                .WithGraphicId(2263)
+                .FromCreature(Owner)
+                .ToCreature(target)
+                .WithDuration(duration)
+                .WithDelay(30)
+                .WithSlope(20)
+                .WithFromHeight(11)
+                .WithToHeight(11)
+                .Send();
 
             _character.Statistics.HealLifePoints(hpHeal);
             if (target is ICharacter character)
@@ -302,11 +312,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     duration = Math.Max(30, deltaX * 15 + deltaY * 15);
 
                     target.QueueGraphic(_graphicBuilder.Create().WithId(2264).Build());
-                    var toOwner = new Projectile(2263);
-                    toOwner.SetSenderData(target, 11, false);
-                    toOwner.SetReceiverData(Owner, 11);
-                    toOwner.SetFlyingProperties(0, duration, 20, 0, false);
-                    toOwner.Display();
+                    _projectileBuilder.Create()
+                        .WithGraphicId(2263)
+                        .FromCreature(Owner)
+                        .ToCreature(target)
+                        .WithDuration(duration)
+                        .WithSlope(20)
+                        .WithFromHeight(11)
+                        .WithToHeight(11)
+                        .Send();
                 },
                 CreatureHelper.CalculateTicksForClientTicks(duration + 30)));
         }
@@ -402,7 +416,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 case DamageType.DragonFire:
                     {
                         string message;
-                        if (Owner.HasState(StateType.SuperAntiDragonfirePotion) || Owner.HasState(StateType.AntiDragonfirePotion) && Owner.HasState(StateType.AntiDragonfireShield))
+                        if (Owner.HasState(StateType.SuperAntiDragonfirePotion) ||
+                            Owner.HasState(StateType.AntiDragonfirePotion) && Owner.HasState(StateType.AntiDragonfireShield))
                         {
                             damage = -1;
                             message = GameStrings.DragonFireFully;
@@ -788,11 +803,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         Owner.QueueAnimation(_animationBuilder.Create().WithId(12569).Build());
                         Owner.QueueGraphic(_graphicBuilder.Create().WithId(shootGraphicID).Build());
                         LastAttacked.QueueGraphic(_graphicBuilder.Create().WithId(destinationGraphicID).WithDelay(60).Build());
-                        var prj = new Projectile((short)projectileGraphicID);
-                        prj.SetSenderData(Owner, 30, false);
-                        prj.SetReceiverData(LastAttacked, 30);
-                        prj.SetFlyingProperties(30, 30, 0, 0, false);
-                        prj.Display();
+                        _projectileBuilder.Create()
+                            .WithGraphicId(projectileGraphicID)
+                            .FromCreature(Owner)
+                            .ToCreature(LastAttacked)
+                            .WithDuration(30)
+                            .WithDelay(30)
+                            .WithFromHeight(30)
+                            .WithFromHeight(30)
+                            .Send();
 
                         if (drainTypes != null)
                         {
@@ -822,56 +841,56 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         int projectileGraphicID;
                         int destinationGraphicID;
 
-                        if (type == 4)
+                        switch (type)
                         {
-                            drainType = (int)BonusPrayerType.CurseAttack;
-                            projectileGraphicID = 2231;
-                            destinationGraphicID = 2232;
-                        }
-                        else if (type == 5)
-                        {
-                            drainType = (int)BonusPrayerType.CurseStrength;
-                            projectileGraphicID = 2248;
-                            destinationGraphicID = 2250;
-                        }
-                        else if (type == 6)
-                        {
-                            drainType = (int)BonusPrayerType.CurseDefence;
-                            projectileGraphicID = 2244;
-                            destinationGraphicID = 2246;
-                        }
-                        else if (type == 7)
-                        {
-                            drainType = (int)BonusPrayerType.CurseRanged;
-                            projectileGraphicID = 2236;
-                            destinationGraphicID = 2238;
-                        }
-                        else if (type == 8)
-                        {
-                            drainType = (int)BonusPrayerType.CurseMagic;
-                            projectileGraphicID = 2240;
-                            destinationGraphicID = 2242;
-                        }
-                        else if (type == 9)
-                        {
-                            drainType = -1;
-                            projectileGraphicID = 2252;
-                            destinationGraphicID = 2254;
-                        }
-                        else
-                        {
-                            drainType = -1;
-                            projectileGraphicID = 2256;
-                            destinationGraphicID = 2258;
+                            case 4:
+                                drainType = (int)BonusPrayerType.CurseAttack;
+                                projectileGraphicID = 2231;
+                                destinationGraphicID = 2232;
+                                break;
+                            case 5:
+                                drainType = (int)BonusPrayerType.CurseStrength;
+                                projectileGraphicID = 2248;
+                                destinationGraphicID = 2250;
+                                break;
+                            case 6:
+                                drainType = (int)BonusPrayerType.CurseDefence;
+                                projectileGraphicID = 2244;
+                                destinationGraphicID = 2246;
+                                break;
+                            case 7:
+                                drainType = (int)BonusPrayerType.CurseRanged;
+                                projectileGraphicID = 2236;
+                                destinationGraphicID = 2238;
+                                break;
+                            case 8:
+                                drainType = (int)BonusPrayerType.CurseMagic;
+                                projectileGraphicID = 2240;
+                                destinationGraphicID = 2242;
+                                break;
+                            case 9:
+                                drainType = -1;
+                                projectileGraphicID = 2252;
+                                destinationGraphicID = 2254;
+                                break;
+                            default:
+                                drainType = -1;
+                                projectileGraphicID = 2256;
+                                destinationGraphicID = 2258;
+                                break;
                         }
 
                         Owner.QueueAnimation(_animationBuilder.Create().WithId(12575).Build());
                         LastAttacked.QueueGraphic(_graphicBuilder.Create().WithId(destinationGraphicID).WithDelay(60).Build());
-                        var prj = new Projectile((short)projectileGraphicID);
-                        prj.SetSenderData(Owner, 30, false);
-                        prj.SetReceiverData(LastAttacked, 30);
-                        prj.SetFlyingProperties(30, 30, 0, 0, false);
-                        prj.Display();
+                        _projectileBuilder.Create()
+                            .WithGraphicId(projectileGraphicID)
+                            .FromCreature(Owner)
+                            .ToCreature(LastAttacked)
+                            .WithDuration(30)
+                            .WithDelay(30)
+                            .WithFromHeight(30)
+                            .WithToHeight(30)
+                            .Send();
 
                         if (drainType != -1)
                         {
