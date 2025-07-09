@@ -16,19 +16,24 @@ jobs:
       matrix:
         dotnet-version: [ '9.0.x' ]
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up .NET
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK ${{ matrix.dotnet-version }}
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
           cache: true
-          cache-dependency-path: '**/*.csproj'
+
       - name: Restore
-        run: dotnet restore --configfile NuGet.config
+        run: dotnet restore --configfile NuGet.config --locked-mode
+
       - name: Build
         run: dotnet build --no-restore --verbosity minimal
+
       - name: Test
         run: dotnet test --no-build --no-restore -p:TestingPlatformCommandLineArguments="--report-trx --coverage --coverage-output-format cobertura"
+
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4

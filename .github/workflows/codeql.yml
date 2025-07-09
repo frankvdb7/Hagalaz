@@ -42,6 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        dotnet-version: [ '9.0.x' ]
         include:
         - language: actions
           build-mode: none
@@ -62,35 +63,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # Cache NuGet packages for .NET
-    - name: Cache NuGet packages
-      uses: actions/cache@v4
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
-
-
-    # Cache pnpm store for JavaScript/TypeScript
-    - name: Cache pnpm store
-      uses: actions/cache@v4
-      with:
-        path: ~/.pnpm-store
-        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-
-
-    # Setup pnpm
-    - name: Install pnpm
-      uses: pnpm/action-setup@v3
-      with:
-        version: 9
-
-    - name: Install .NET SDK 9.0.x
+    - name: Install .NET SDK ${{ matrix.dotnet-version }}
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.x'
+        dotnet-version: ${{ matrix.dotnet-version }}
+        cache: true
 
     # Add any setup steps before running the `github/codeql-action/init` action.
     # This includes steps like installing compilers or runtimes (`actions/setup-node`
