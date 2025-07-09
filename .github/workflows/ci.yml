@@ -24,6 +24,7 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
           cache: true
+          cache-dependency-path: '**/packages.lock.json'
 
       - name: Restore
         run: dotnet restore --configfile NuGet.config --locked-mode

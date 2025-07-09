@@ -68,6 +68,7 @@ jobs:
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
         cache: true
+        cache-dependency-path: '**/packages.lock.json'
 
     # Add any setup steps before running the `github/codeql-action/init` action.
     # This includes steps like installing compilers or runtimes (`actions/setup-node`
