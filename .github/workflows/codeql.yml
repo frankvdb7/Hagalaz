@@ -39,6 +39,9 @@ jobs:
       actions: read
       contents: read
 
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
     strategy:
       fail-fast: false
       matrix:
