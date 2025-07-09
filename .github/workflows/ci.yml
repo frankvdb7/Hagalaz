@@ -51,14 +51,14 @@ jobs:
         working-directory: Hagalaz.Web.App
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+          run_install: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'pnpm'
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 10
-          run_install: true
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build webapp
