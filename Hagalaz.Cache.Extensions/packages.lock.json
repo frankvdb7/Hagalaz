@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net9.0": {
+      "hagalaz.cache.abstractions": {
+        "type": "Project"
+      }
+    }
+  }
+}
