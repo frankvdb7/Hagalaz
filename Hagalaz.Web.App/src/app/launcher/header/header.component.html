@@ -1,14 +1,14 @@
 <mat-toolbar class="h-8 border-none p-0.5">
     <div class="drag-region h-full w-full">
-        <div class="-m-0.5 flex select-none justify-end">
-            <button class="title-bar-button rounded-bl-md rounded-tl-md" mat-button (click)="onMinimizeClick()">
-                <mat-icon svgIcon="window-minimize">minimize</mat-icon>
+        <div class="-m-0.5 flex justify-end select-none">
+            <button class="title-bar-button rounded-tl-md rounded-bl-md" mat-button (click)="onMinimizeClick()">
+                <mat-icon>minimize</mat-icon>
             </button>
             <button class="title-bar-button" mat-button (click)="onMaximizeClick()">
-                <mat-icon [svgIcon]="isWindowMaximized ? 'window-restore' : 'window-maximize'">crop_5_4 </mat-icon>
+                <mat-icon>{{ isWindowMaximized() ? "select_window_2" : "rectangle" }}</mat-icon>
             </button>
-            <button class="title-bar-button rounded-br-md rounded-tr-md transition-colors hover:bg-red-700" mat-button (click)="onCloseClick()">
-                <mat-icon svgIcon="window-close">close</mat-icon>
+            <button class="title-bar-button rounded-tr-md rounded-br-md transition-colors hover:bg-red-700" mat-button (click)="onCloseClick()">
+                <mat-icon>close</mat-icon>
             </button>
         </div>
     </div>

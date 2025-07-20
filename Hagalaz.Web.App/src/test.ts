@@ -1,10 +1,5 @@
-// This file is required by karma.conf.js and loads recursively all the .spec and framework files
+import { provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from "@angular/core";
+import { provideHttpClient, withFetch } from "@angular/common/http";
+import { provideRouter } from "@angular/router";
 
-import "zone.js/testing";
-import { getTestBed } from "@angular/core/testing";
-import { BrowserDynamicTestingModule, platformBrowserDynamicTesting } from "@angular/platform-browser-dynamic/testing";
-
-// First, initialize the Angular testing environment.
-getTestBed().initTestEnvironment(BrowserDynamicTestingModule, platformBrowserDynamicTesting(), {
-    teardown: { destroyAfterEach: true },
-});
+export default [provideZonelessChangeDetection(), provideBrowserGlobalErrorListeners(), provideHttpClient(withFetch()), provideRouter([])];

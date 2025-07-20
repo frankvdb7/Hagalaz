@@ -1,12 +1,11 @@
 import { TestBed } from "@angular/core/testing";
-
-import { AuthStorageService } from "./auth.storage.service";
+import { it, describe, beforeEach, expect } from "vitest";
+import { AuthStorageService } from "@app/services/auth/auth.storage.service";
 
 describe("AuthStorageService", () => {
     let service: AuthStorageService;
 
     beforeEach(() => {
-        TestBed.configureTestingModule({});
         service = TestBed.inject(AuthStorageService);
     });
 

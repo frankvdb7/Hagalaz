@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, Signal } from "@angular/core";
+import { Component, ChangeDetectionStrategy, inject } from "@angular/core";
 import { LoadingBarService } from "@ngx-loading-bar/core";
 import { BreakpointObserver, Breakpoints } from "@angular/cdk/layout";
 import { map } from "rxjs/operators";
@@ -10,7 +10,7 @@ import { NgClass } from "@angular/common";
 import { HeaderNavComponent } from "./header-nav/header-nav.component";
 import { SvgHttpLoader, SvgLoader, SVG_ICON_REGISTRY_PROVIDER, SvgIconComponent } from "angular-svg-icon";
 import { MatProgressBar } from "@angular/material/progress-bar";
-import { MatAnchor, MatIconButton } from "@angular/material/button";
+import { MatButton, MatIconButton } from "@angular/material/button";
 import { RouterLink, RouterLinkActive } from "@angular/router";
 import { AuthStore } from "@app/core/auth/auth.store";
 import { UserStore } from "@app/core/user/user.store";
@@ -35,9 +35,9 @@ import { toSignal } from "@angular/core/rxjs-interop";
         HeaderNavComponent,
         SvgIconComponent,
         MatProgressBar,
-        MatAnchor,
         MatIconButton,
         RouterLinkActive,
+        MatButton,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
