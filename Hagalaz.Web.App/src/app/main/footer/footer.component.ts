@@ -6,14 +6,10 @@ import { MatToolbar } from "@angular/material/toolbar";
     templateUrl: "./footer.component.html",
     styleUrls: ["./footer.component.scss"],
     imports: [MatToolbar],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FooterComponent implements OnInit {
+export class FooterComponent {
     get currentYear(): number {
         return new Date().getFullYear();
     }
-
-    constructor() {}
-
-    ngOnInit() {}
 }

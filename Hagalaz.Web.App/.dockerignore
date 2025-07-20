@@ -4,6 +4,9 @@
 .idea
 .vscode
 .vs
+.dist
+README.md
 dist
 dist-launcher
+Dockerfile*
 node_modules

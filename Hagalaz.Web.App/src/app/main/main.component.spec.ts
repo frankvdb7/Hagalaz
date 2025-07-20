@@ -1,25 +1,18 @@
-import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { it, describe, beforeEach, expect } from "vitest";
+import { MainComponent } from "./main.component";
 
-import { MainComponent } from './main.component';
+describe("MainComponent", () => {
+    let component: MainComponent;
+    let fixture: ComponentFixture<MainComponent>;
 
-describe('MainComponent', () => {
-  let component: MainComponent;
-  let fixture: ComponentFixture<MainComponent>;
+    beforeEach(() => {
+        fixture = TestBed.createComponent(MainComponent);
+        component = fixture.componentInstance;
+        fixture.detectChanges();
+    });
 
-  beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
-    imports: [MainComponent]
-})
-    .compileComponents();
-  }));
-
-  beforeEach(() => {
-    fixture = TestBed.createComponent(MainComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
+    it("should create", () => {
+        expect(component).toBeTruthy();
+    });
 });

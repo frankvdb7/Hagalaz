@@ -51,5 +51,7 @@
         <div class="particle"></div>
         <div class="particle"></div>
     </div>
-    <img class="torch" width="107" height="242" [ngSrc]="torchSrc()" priority="high" />
+    @if (torchSrc()) {
+        <img [ngSrc]="torchSrc()" class="torch" height="242" priority="high" width="107" alt="Torch" />
+    }
 </div>

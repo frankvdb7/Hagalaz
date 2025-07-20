@@ -1,6 +1,6 @@
 import { provideHttpClient, withFetch, withInterceptors, withInterceptorsFromDi } from "@angular/common/http";
-import { DOCUMENT } from "@angular/common";
-import { enableProdMode, importProvidersFrom, provideExperimentalZonelessChangeDetection, provideAppInitializer, inject } from "@angular/core";
+
+import { enableProdMode, importProvidersFrom, provideAppInitializer, inject, provideZonelessChangeDetection } from "@angular/core";
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideRouter, TitleStrategy, withComponentInputBinding, withViewTransitions } from "@angular/router";
 import { provideServiceWorker } from "@angular/service-worker";
@@ -22,7 +22,7 @@ if (environment.production) {
 async function bootstrap() {
     const providers = [
         provideRouter(getAppRoutes(), withViewTransitions(), withComponentInputBinding()),
-        provideExperimentalZonelessChangeDetection(),
+        provideZonelessChangeDetection(),
         provideHttpClient(withFetch(), withInterceptors([authInterceptor]), withInterceptorsFromDi()),
         provideLoadingBarRouter(),
         provideLoadingBarInterceptor(),

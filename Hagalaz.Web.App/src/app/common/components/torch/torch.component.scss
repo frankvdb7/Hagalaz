@@ -30,7 +30,8 @@ $partSize: 6rem;
 }
 
 .fire {
-    @apply relative z-10 -mb-8 flex-auto self-center;
+    @apply relative z-10 flex-auto self-center;
+    margin-bottom: -2rem; /* Replaced -mb-8 with standard CSS */
     filter: blur($blur);
 }
 
@@ -47,7 +48,7 @@ $partSize: 6rem;
     // spread particles out in time and x-position to get desired effect
     @for $p from 1 through $parts {
         &:nth-of-type(#{$p}) {
-            animation-delay: $dur * random();
+            animation-delay: $dur * math.random();
             left: calc((100% - #{$partSize}) * #{math.div($p - 1, $parts)});
         }
     }

@@ -30,6 +30,7 @@ html {
             outlined-label-text-transform: uppercase,
             protected-label-text-transform: uppercase,
             text-label-text-transform: uppercase,
+            tonal-label-text-transform: uppercase,
         )
     );
 
@@ -84,7 +85,7 @@ html {
 
     // mat form field does not support overrides, so we manually override variables
     .mat-mdc-form-field {
-        --mdc-filled-text-field-container-color: --alpha(var(--color-surface-variant) / 75%);
+        --mat-form-field-filled-container-color: --alpha(var(--color-surface-variant) / 75%);
     }
 
     /* applies glass effect to material components */

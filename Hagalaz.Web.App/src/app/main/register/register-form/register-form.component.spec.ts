@@ -1,25 +1,24 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { it, describe, beforeEach, expect } from "vitest";
+import { RegisterFormComponent } from "./register-form.component";
 
-import { RegisterFormComponent } from './register-form.component';
+describe("RegisterFormComponent", () => {
+    let component: RegisterFormComponent;
+    let fixture: ComponentFixture<RegisterFormComponent>;
 
-describe('RegisterFormComponent', () => {
-  let component: RegisterFormComponent;
-  let fixture: ComponentFixture<RegisterFormComponent>;
+    beforeEach(async () => {
+        await TestBed.configureTestingModule({
+            imports: [RegisterFormComponent],
+        }).compileComponents();
+    });
 
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-    imports: [RegisterFormComponent]
-})
-    .compileComponents();
-  });
+    beforeEach(() => {
+        fixture = TestBed.createComponent(RegisterFormComponent);
+        component = fixture.componentInstance;
+        fixture.detectChanges();
+    });
 
-  beforeEach(() => {
-    fixture = TestBed.createComponent(RegisterFormComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
+    it("should create", () => {
+        expect(component).toBeTruthy();
+    });
 });
