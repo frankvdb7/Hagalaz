@@ -4,16 +4,16 @@
     "net9.0": {
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Transitive",
-        "resolved": "9.0.6",
-        "contentHash": "vS65HMo5RS10DD543fknsyVDxihMcVxVn3/hNaILgBxWYnOLxWIeCIO9X0QFuCvPRNjClvXe9Aj8KaQNx7vFkQ==",
+        "resolved": "9.0.7",
+        "contentHash": "i05AYA91vgq0as84ROVCyltD2gnxaba/f1Qw2rG7mUsS0gv8cPTr1Gm7jPQHq7JTr4MJoQUcanLVs16tIOUJaQ==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.6"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.7"
         }
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
-        "resolved": "9.0.6",
-        "contentHash": "0Zn6nR/6g+90MxskZyOOMPQvnPnrrGu6bytPwkV+azDcTtCSuQ1+GJUrg8Klmnrjk1i6zMpw2lXijl+tw7Q3kA=="
+        "resolved": "9.0.7",
+        "contentHash": "iPK1FxbGFr2Xb+4Y+dTYI8Gupu9pOi8I3JPuPsrogUmEhe2hzZ9LpCmolMEBhVDo2ikcSr7G5zYiwaapHSQTew=="
       },
       "hagalaz.cache.abstractions": {
         "type": "Project"
@@ -23,7 +23,7 @@
         "dependencies": {
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Utilities": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection": "[9.0.6, )",
+          "Microsoft.Extensions.DependencyInjection": "[9.0.7, )",
           "Raido.Common": "[1.0.0, )"
         }
       },

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <Sdk Name="Aspire.AppHost.Sdk" Version="9.0.0" />
+  <Sdk Name="Aspire.AppHost.Sdk" Version="9.3.1" />
   
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -8,9 +8,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsAspireHost>true</IsAspireHost>
+    <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
+    <SkipAddAspireDefaultReferences>true</SkipAddAspireDefaultReferences>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
+    <PackageReference Include="Aspire.Dashboard.Sdk.linux-x64" Version="9.3.1" />
+    <PackageReference Include="Aspire.Hosting.Orchestration.linux-x64" Version="9.3.1" />
+    <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
+    
     <PackageReference Include="Aspire.Hosting.AppHost" Version="9.3.1" />
     <PackageReference Include="Aspire.Hosting.MySql" Version="9.3.1" />
     <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.3.1" />
