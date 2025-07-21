@@ -1,41 +1,36 @@
-import { Component, OnInit, ChangeDetectionStrategy, inject } from "@angular/core";
+import { Component, ChangeDetectionStrategy, inject, resource, computed } from "@angular/core";
 import { LauncherService } from "@app/launcher/launcher.service";
 import { MatToolbar } from "@angular/material/toolbar";
 import { MatButton } from "@angular/material/button";
 import { MatIcon } from "@angular/material/icon";
 import { HeaderComponent } from "@app/main/header/header.component";
-import { LauncherHeaderIconModule } from "./header-icon.module";
 
 @Component({
     selector: "app-launcher-header",
     templateUrl: "./header.component.html",
     styleUrls: ["./header.component.scss"],
-    imports: [MatToolbar, MatButton, MatIcon, HeaderComponent, LauncherHeaderIconModule],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    imports: [MatToolbar, MatButton, MatIcon, HeaderComponent],
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LauncherHeaderComponent implements OnInit {
+export class LauncherHeaderComponent {
     private launcherService = inject(LauncherService);
+    private maximizedResource = resource({
+        defaultValue: false,
+        loader: () => this.launcherService.api.window.isMaximized(),
+    });
 
-    isWindowMaximized: boolean | undefined;
-
-    async ngOnInit() {
-        await this.refreshMaximizeRestore();
-    }
+    isWindowMaximized = computed(() => this.maximizedResource.value());
 
     onCloseClick() {
         this.launcherService.api.window.close();
     }
 
-    async onMaximizeClick() {
+    onMaximizeClick() {
         this.launcherService.api.window.maximize();
-        await this.refreshMaximizeRestore();
+        this.maximizedResource.reload();
     }
 
     onMinimizeClick() {
         this.launcherService.api.window.minimize();
-    }
-
-    async refreshMaximizeRestore() {
-        this.isWindowMaximized = await this.launcherService.api.window.isMaximized();
     }
 }

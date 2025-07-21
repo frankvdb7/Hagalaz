@@ -5,7 +5,7 @@ import { Router, RouterLink } from "@angular/router";
 import { MatError, MatFormField, MatLabel } from "@angular/material/form-field";
 import { MatCard, MatCardActions, MatCardContent, MatCardHeader, MatCardTitle } from "@angular/material/card";
 import { ErrorPipe } from "@app/common/pipes/error/error.pipe";
-import { DecimalPipe, LowerCasePipe } from "@angular/common";
+import { DecimalPipe, LowerCasePipe, NgOptimizedImage } from "@angular/common";
 import { MatTableModule } from "@angular/material/table";
 import { MatOption, MatSelect, MatSelectTrigger } from "@angular/material/select";
 import { LoadingComponent } from "@app/common/components/loading/loading.component";
@@ -36,7 +36,7 @@ import { HighscoresStore } from "./highscores.store";
         MatLabel,
     ],
     providers: [HighscoresStore],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HighscoresComponent {
     private router = inject(Router);

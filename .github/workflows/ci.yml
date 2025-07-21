@@ -62,5 +62,7 @@ jobs:
           cache-dependency-path: Hagalaz.Web.App/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Test webapp
+        run: pnpm run test
       - name: Build webapp
         run: pnpm run build
