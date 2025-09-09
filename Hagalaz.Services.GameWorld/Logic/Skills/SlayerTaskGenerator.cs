@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Logic.Random;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Extensions;
 
@@ -8,6 +9,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
 {
     public class SlayerTaskGenerator : ISlayerTaskGenerator
     {
+        private readonly IRandomProvider _randomProvider;
+
+        public SlayerTaskGenerator(IRandomProvider randomProvider)
+        {
+            _randomProvider = randomProvider;
+        }
+
         public IReadOnlyList<SlayerTaskResult> GenerateTask(SlayerTaskParams taskParams)
         {
             var taskEntries = taskParams.Table.Entries
@@ -33,7 +41,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
                 .ToList();
 
             var totalProbability = taskEntries.Sum(entry => entry.Probability);
-            var randomValue = Random.Shared.Next(totalProbability);
+            var randomValue = _randomProvider.Next(totalProbability);
 
             List<SlayerTaskResult> results = [];
             var cumulativeProbability = 0.0;
@@ -45,7 +53,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
                     continue;
                 }
 
-                results.Add(new SlayerTaskResult(task.Entry, Random.Shared.Next(task.Entry.MinimumCount, task.Entry.MaximumCount + 1)));
+                results.Add(new SlayerTaskResult(task.Entry, _randomProvider.Next(task.Entry.MinimumCount, task.Entry.MaximumCount + 1)));
                 break;
             }
 

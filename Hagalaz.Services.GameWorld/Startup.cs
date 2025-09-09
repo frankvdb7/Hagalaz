@@ -79,8 +79,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Identity;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using Hagalaz.Services.Extensions;
+using Hagalaz.Game.Abstractions.Logic;
 using Hagalaz.Services.GameWorld.Data.Model;
 using Hagalaz.Services.GameWorld.Logic.Loot;
+using Hagalaz.Services.GameWorld.Logic.Random;
 using Hagalaz.Services.GameWorld.Logic.Skills;
 using Hagalaz.Services.GameWorld.Services.Cache;
 using Microsoft.Extensions.Caching.Hybrid;
@@ -119,6 +121,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddResiliencePipelineRegistry<string>();
 
             // services
+            services.AddSingleton<Hagalaz.Game.Abstractions.Logic.Random.IRandomProvider, Hagalaz.Services.GameWorld.Logic.Random.DefaultRandomProvider>();
             services.AddScoped<IAuthenticationService, AuthenticationService>();
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();
