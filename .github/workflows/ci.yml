@@ -14,17 +14,14 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
-    strategy:
-      matrix:
-        dotnet-version: [ '9.0.x' ]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Set up .NET SDK ${{ matrix.dotnet-version }}
-        uses: actions/setup-dotnet@v4
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: ${{ matrix.dotnet-version }}
+          global-json-file: global.json
           cache: true
           cache-dependency-path: '**/packages.lock.json'
 
@@ -50,12 +47,12 @@ jobs:
       run:
         working-directory: Hagalaz.Web.App
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
         with:
           version: 10
           run_install: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: 'pnpm'

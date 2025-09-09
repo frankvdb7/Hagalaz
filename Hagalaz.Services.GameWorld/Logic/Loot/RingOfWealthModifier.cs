@@ -8,6 +8,13 @@ namespace Hagalaz.Services.GameWorld.Logic.Loot
 {
     public class RingOfWealthModifier : IRandomObjectModifier
     {
+        private readonly IRandomProvider _randomProvider;
+
+        public RingOfWealthModifier(IRandomProvider randomProvider)
+        {
+            _randomProvider = randomProvider;
+        }
+
         public void Apply(RandomObjectContext context)
         {
             if (context is not CharacterLootContext lootContext)
@@ -20,7 +27,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Loot
                 return;
             }
 
-            if (!(Random.Shared.NextDouble() <= 0.025))
+            if (!(_randomProvider.NextDouble() <= 0.025))
             {
                 return;
             }

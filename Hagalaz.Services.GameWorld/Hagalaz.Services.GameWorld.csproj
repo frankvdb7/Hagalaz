@@ -6,14 +6,14 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="[14.0.0, 15.0.0)" />
-    <PackageReference Include="MassTransit" Version="8.5.1" />
-    <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.1" />
+    <PackageReference Include="MassTransit" Version="8.5.2" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.2" />
     <PackageReference Include="McMaster.NETCore.Plugins" Version="2.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.7" />
-    <PackageReference Include="Polly.RateLimiting" Version="8.6.2" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.8" />
+    <PackageReference Include="Polly.RateLimiting" Version="8.6.3" />
     <PackageReference Include="System.Linq.Async" Version="6.0.3" />
-    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.3.0" />
-    <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" Version="2.3.0" />
+    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.4.0" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" Version="2.4.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Game.Features\Hagalaz.Game.Features.csproj" />

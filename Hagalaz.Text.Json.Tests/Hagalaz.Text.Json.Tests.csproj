@@ -12,10 +12,11 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Update="Microsoft.Testing.Extensions.TrxReport" Version="1.5.3" />
-      <PackageReference Update="MSTest.TestAdapter" Version="3.7.3" />
+      <PackageReference Update="Microsoft.Testing.Extensions.TrxReport" Version="1.8.4" />
+      <PackageReference Update="MSTest.TestAdapter" Version="3.10.4" />
       <PackageReference Update="Microsoft.Testing.Extensions.CodeCoverage" Version="17.14.2" />
       <PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+      <PackageReference Update="MSTest.TestFramework" Version="3.10.4" />
     </ItemGroup>
 
 </Project>
