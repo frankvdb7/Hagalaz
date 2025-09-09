@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <Sdk Name="Aspire.AppHost.Sdk" Version="9.3.1" />
+  <Sdk Name="Aspire.AppHost.Sdk" Version="9.4.2" />
   
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -14,19 +14,19 @@
 
   <ItemGroup>
     <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
-    <PackageReference Include="Aspire.Dashboard.Sdk.linux-x64" Version="9.3.1" />
-    <PackageReference Include="Aspire.Hosting.Orchestration.linux-x64" Version="9.3.1" />
+    <PackageReference Include="Aspire.Dashboard.Sdk.linux-x64" Version="9.4.2" />
+    <PackageReference Include="Aspire.Hosting.Orchestration.linux-x64" Version="9.4.2" />
     <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
     
-    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.3.1" />
-    <PackageReference Include="Aspire.Hosting.MySql" Version="9.3.1" />
-    <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.3.1" />
-    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="9.3.1" />
-    <PackageReference Include="Aspire.Hosting.Redis" Version="9.3.1" />
-    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="9.3.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.6" />
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.4.2" />
+    <PackageReference Include="Aspire.Hosting.MySql" Version="9.4.2" />
+    <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.4.2" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="9.4.2" />
+    <PackageReference Include="Aspire.Hosting.Redis" Version="9.4.2" />
+    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="9.4.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.8" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
-    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0-preview.4.efcore.9.0.0.ci.20250318031649" />
+    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
