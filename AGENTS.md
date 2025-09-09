@@ -8,7 +8,7 @@ Hagalaz is a modern, open-source recreation of a classic MMORPG. It features a m
 
 - **Backend**: .NET 9 with ASP.NET Core and .NET Aspire for orchestration. The backend is composed of multiple microservices, as can be seen in the `Hagalaz.sln` solution file.
 - **Frontend**: Angular with Angular Material and Tailwind CSS. The frontend is located in the `Hagalaz.Web.App` directory and is also an Electron application.
-- **Database**: The `README.md` mentions both PostgreSQL and MySQL. It is safe to assume a SQL database is used with Entity Framework.
+- **Database**: The `README.md` mentions MySQL. It is safe to assume a SQL database is used with Entity Framework.
 - **Infrastructure**: The project uses Docker for containerization, RabbitMQ for messaging, and Redis for caching.
 
 ## Getting Started
