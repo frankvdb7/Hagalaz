@@ -68,7 +68,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Loot
             for (var i = 0; i < remainingCount; i++)
             {
                 // This is the magic random number that will decide, which object is hit now
-                var hitValue = _randomProvider.Next((int)totalProbability);
+                var hitValue = _randomProvider.Next(totalProbability);
 
                 // Find out in a loop which object's probability hits the random value...
                 var runningValue = 0.0;

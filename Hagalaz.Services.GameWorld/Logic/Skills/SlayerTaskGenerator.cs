@@ -41,7 +41,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
                 .ToList();
 
             var totalProbability = taskEntries.Sum(entry => entry.Probability);
-            var randomValue = _randomProvider.Next((int)totalProbability);
+            var randomValue = _randomProvider.Next(totalProbability);
 
             List<SlayerTaskResult> results = [];
             var cumulativeProbability = 0.0;

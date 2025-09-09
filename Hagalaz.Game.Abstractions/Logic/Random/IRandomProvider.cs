@@ -5,5 +5,6 @@ namespace Hagalaz.Game.Abstractions.Logic.Random
         int Next(int maxValue);
         int Next(int minValue, int maxValue);
         double NextDouble();
+        double Next(double maxValue);
     }
 }
