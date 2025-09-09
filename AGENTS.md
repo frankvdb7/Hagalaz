@@ -46,10 +46,10 @@ The frontend is an Angular application. To run the frontend:
     ```
     This will run the web application, which can be accessed in a browser.
 
-To run the Electron application:
-```bash
-pnpm run launcher:start
-```
+4.  To run the Electron application:
+    ```bash
+    pnpm run launcher:start
+    ```
 
 ## Building the Project
 
