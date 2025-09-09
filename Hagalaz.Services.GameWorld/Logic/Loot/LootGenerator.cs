@@ -4,11 +4,23 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Random;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Services.GameWorld.Logic.Random;
 
 namespace Hagalaz.Services.GameWorld.Logic.Loot
 {
     public class LootGenerator : ILootGenerator
     {
+        private readonly IRandomProvider _randomProvider;
+
+        public LootGenerator() : this(new DefaultRandomProvider())
+        {
+        }
+
+        public LootGenerator(IRandomProvider randomProvider)
+        {
+            _randomProvider = randomProvider;
+        }
+
         public IReadOnlyList<LootResult<T>> GenerateLoot<T>(LootParams lootParams) where T : ILootItem
         {
             if (!lootParams.Table.Enabled)
@@ -32,7 +44,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Loot
             var remainingCount = lootParams.MaxCount - results.Count;
             if (lootParams.Table.RandomizeResultCount && remainingCount > 0)
             {
-                remainingCount = Random.Shared.Next(0, remainingCount + 1); // randomize the total drop count, to allow for no drops, or fewer drops.
+                remainingCount = _randomProvider.Next(0, remainingCount + 1); // randomize the total drop count, to allow for no drops, or fewer drops.
             }
 
             // Continue only, if there is a real drop count left to be processed
@@ -56,7 +68,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Loot
             for (var i = 0; i < remainingCount; i++)
             {
                 // This is the magic random number that will decide, which object is hit now
-                var hitValue = Random.Shared.Next(totalProbability);
+                var hitValue = _randomProvider.Next((int)totalProbability);
 
                 // Find out in a loop which object's probability hits the random value...
                 var runningValue = 0.0;
@@ -99,16 +111,15 @@ namespace Hagalaz.Services.GameWorld.Logic.Loot
             {
                 case IRandomTable<ILootObject> table:
                     {
-                        var nestedParams = originalParams with
-                        {
-                            Table = table
-                        };
+                        var nestedParams = originalParams is CharacterLootParams clp
+                            ? new CharacterLootParams(table, clp.Character) { MaxCount = table.MaxResultCount }
+                            : new LootParams(table) { MaxCount = table.MaxResultCount };
                         results.AddRange(GenerateLoot<T>(nestedParams));
                         break;
                     }
                 case T item:
                     {
-                        var count = Random.Shared.Next(drop.MinimumCount, drop.MaximumCount + 1);
+                        var count = _randomProvider.Next(drop.MinimumCount, drop.MaximumCount + 1);
                         results.Add(new LootResult<T>(item, count));
                         break;
                     }

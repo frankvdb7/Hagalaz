@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Logic.Loot;
+using Hagalaz.Game.Abstractions.Logic.Random;
 using Hagalaz.Services.Abstractions;
 using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Logic.Loot;
@@ -163,12 +164,13 @@ namespace Hagalaz.Services.GameWorld.Store
                 }
             }
 
+            var randomProvider = scope.ServiceProvider.GetRequiredService<IRandomProvider>();
             var allLootTables = _npcLootTables.Values.Union(_itemLootTables.Values).Union(_gameObjectLootTables.Values);
             foreach (var lootTable in allLootTables)
             {
                 if (lootTable.Name.Contains("rare", StringComparison.OrdinalIgnoreCase))
                 {
-                    lootTable.AddModifier(new RingOfWealthModifier());
+                    lootTable.AddModifier(new RingOfWealthModifier(randomProvider));
                 }
             }
         }
