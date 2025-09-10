@@ -12,6 +12,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Spiders
     /// <summary>
     ///     Contains poison spider script.
     /// </summary>
+    [NpcScriptMetaData([134, 1009])]
     public class PoisonSpider : NpcScriptBase
     {
         /// <summary>
@@ -135,11 +136,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Spiders
         /// </summary>
         /// <returns></returns>
         public override AttackBonus GetAttackBonusType() => AttackBonus.Stab;
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [134, 1009];
     }
 }

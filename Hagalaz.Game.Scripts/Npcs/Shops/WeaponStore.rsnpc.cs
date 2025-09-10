@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     /// <summary>
     ///     Contains weapon store script.
     /// </summary>
+    [NpcScriptMetaData([551])]
     public class WeaponStore : NpcScriptBase
     {
         /// <summary>
@@ -32,11 +33,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [551];
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -34,10 +35,12 @@ namespace Hagalaz.Services.GameWorld.Factories
                 }
                 else
                 {
+#pragma warning disable CS0618 // Type or member is obsolete
                     foreach (var npcId in script.GetSuitableNpcs())
                     {
                         yield return (npcId, scriptType);
                     }
+#pragma warning restore CS0618 // Type or member is obsolete
                 }
             }
         }

@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     /// <summary>
     ///     Contains rune store script.
     /// </summary>
+    [NpcScriptMetaData([5913])]
     public class RunesStore : NpcScriptBase
     {
         /// <summary>
@@ -40,11 +41,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [5913];
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Npcs.Goblins
@@ -7,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Goblins
     /// <summary>
     ///     Contains standart goblin script.
     /// </summary>
+    [NpcScriptMetaData([2274, 2275, 2276, 2277, 2278, 2279, 2280, 2281])]
     public class StandartGoblin : NpcScriptBase
     {
         /// <summary>
@@ -57,11 +59,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Goblins
         /// </summary>
         /// <returns></returns>
         public override AttackBonus GetAttackBonusType() => AttackBonus.Crush;
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [2274, 2275, 2276, 2277, 2278, 2279, 2280, 2281];
     }
 }

@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     /// <summary>
     ///     Contains general store keepers npc script.
     /// </summary>
+    [NpcScriptMetaData([528, 529])]
     public class GeneralStore : NpcScriptBase
     {
         /// <summary>
@@ -32,11 +33,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [528, 529];
     }
 }

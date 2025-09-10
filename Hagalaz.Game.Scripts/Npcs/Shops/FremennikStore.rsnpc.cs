@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([1303])]
     public class FremennikStore : NpcScriptBase
     {
         /// <summary>
@@ -33,11 +34,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [1303];
     }
 }

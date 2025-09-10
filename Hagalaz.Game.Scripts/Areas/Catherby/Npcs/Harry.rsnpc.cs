@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Areas.Catherby.Npcs
     /// <summary>
     ///     Contains armour store script.
     /// </summary>
+    [NpcScriptMetaData([576])]
     public class Harry : NpcScriptBase
     {
         /// <summary>
@@ -32,11 +33,5 @@ namespace Hagalaz.Game.Scripts.Areas.Catherby.Npcs
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [576];
     }
 }
