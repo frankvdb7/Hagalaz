@@ -13,6 +13,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([6203])]
     public class KrilTsutsaroth : General
     {
         private readonly IAudioBuilder _soundBuilder;
@@ -230,16 +231,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
                 return;
             }
         }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() =>
-        [
-            6203
-        ];
     }
 }

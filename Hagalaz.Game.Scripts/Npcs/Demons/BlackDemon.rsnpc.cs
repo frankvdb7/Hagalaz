@@ -1,5 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Npcs.Demons
@@ -7,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
     /// <summary>
     ///     Contains black demon script.
     /// </summary>
+    [NpcScriptMetaData([4702, 4703, 4704, 4705])]
     public class BlackDemon : NpcScriptBase
     {
         /// <summary>
@@ -57,11 +59,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         /// </summary>
         /// <returns></returns>
         public override AttackBonus GetAttackBonusType() => AttackBonus.Slash;
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [4702, 4703, 4704, 4705];
     }
 }

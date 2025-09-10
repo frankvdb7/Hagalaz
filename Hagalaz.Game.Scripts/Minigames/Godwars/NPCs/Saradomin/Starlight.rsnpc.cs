@@ -1,9 +1,11 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([6248])]
     public class Starlight : BodyGuard
     {
         /// <summary>
@@ -23,14 +25,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
         ///     AttackBonus.
         /// </returns>
         public override AttackBonus GetAttackBonusType() => AttackBonus.Stab;
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [6248];
 
         /// <summary>
         ///     Get's called when owner is found.

@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     /// <summary>
     ///     Contains cloth store script.
     /// </summary>
+    [NpcScriptMetaData([548])]
     public class ClothesStore : NpcScriptBase
     {
         /// <summary>
@@ -32,11 +33,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [548];
     }
 }

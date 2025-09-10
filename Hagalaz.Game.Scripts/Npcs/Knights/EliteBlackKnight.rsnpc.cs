@@ -1,5 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Npcs.Knights
@@ -7,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Knights
     /// <summary>
     ///     Contains elite black knight script.
     /// </summary>
+    [NpcScriptMetaData([8324])]
     public class EliteBlackKnight : NpcScriptBase
     {
         /// <summary>
@@ -47,11 +49,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Knights
         /// </summary>
         /// <returns></returns>
         public override AttackBonus GetAttackBonusType() => AttackBonus.Slash;
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [8324];
     }
 }

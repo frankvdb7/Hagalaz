@@ -30,10 +30,11 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         protected INpc Owner;
 
         /// <summary>
+        /// <summary>
         /// Get's npcIDS which are suitable for this script.
         /// </summary>
         /// <returns>System.Int32[][].</returns>
-        [Obsolete("Please use metadata instead")]
+        [Obsolete("Use an NpcScriptFactory or NpcScriptMetaData instead")]
         public virtual int[] GetSuitableNpcs() => [];
 
         /// <summary>

@@ -2,6 +2,7 @@
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Npcs.Giants
@@ -9,6 +10,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Giants
     /// <summary>
     ///     Contains fire giant script.
     /// </summary>
+    [NpcScriptMetaData([1582, 1583, 1584, 1585, 1586])]
     public class FireGiant : NpcScriptBase
     {
         /// <summary>
@@ -77,11 +79,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Giants
         /// </summary>
         /// <returns></returns>
         public override AttackBonus GetAttackBonusType() => AttackBonus.Crush;
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [1582, 1583, 1584, 1585, 1586];
     }
 }

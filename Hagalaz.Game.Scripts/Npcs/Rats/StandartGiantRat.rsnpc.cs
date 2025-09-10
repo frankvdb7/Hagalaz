@@ -1,5 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Npcs.Rats
@@ -7,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Rats
     /// <summary>
     ///     Contains standart giant rat script.
     /// </summary>
+    [NpcScriptMetaData([86, 87, 446, 4395, 8828, 8829])]
     public class StandartGiantRat : NpcScriptBase
     {
         /// <summary>
@@ -57,11 +59,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Rats
         /// </summary>
         /// <returns></returns>
         public override AttackBonus GetAttackBonusType() => AttackBonus.Slash;
-
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [86, 87, 446, 4395, 8828, 8829];
     }
 }

@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([541])]
     public class PureStore : NpcScriptBase
     {
         /// <summary>
@@ -26,14 +27,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [541];
 
         /// <summary>
         ///     Get's called when owner is found.

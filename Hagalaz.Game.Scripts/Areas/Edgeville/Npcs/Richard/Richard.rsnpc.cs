@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Richard
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([1783])]
     public class Richard : NpcScriptBase
     {
         /// <summary>
@@ -24,12 +25,6 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Richard
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Gets the suitable NPCS.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [1783];
 
         /// <summary>
         ///     Initializes this instance.
