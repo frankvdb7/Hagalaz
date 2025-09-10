@@ -1,9 +1,11 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([6261])]
     public class SergeantStrongstack : BodyGuard
     {
         /// <summary>
@@ -14,14 +16,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
         ///     AttackBonus.
         /// </returns>
         public override AttackBonus GetAttackBonusType() => AttackBonus.Crush;
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [6261];
 
         /// <summary>
         ///     Get's if this npc can be poisoned.

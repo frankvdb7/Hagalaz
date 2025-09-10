@@ -1,13 +1,11 @@
-﻿namespace Hagalaz.Game.Scripts.Npcs.Dragons
+﻿using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+
+namespace Hagalaz.Game.Scripts.Npcs.Dragons
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([5362])]
     public class BrutalDragon : StandardDragon
     {
-        /// <summary>
-        ///     Get's npcs suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableNpcs() => [];
     }
 }

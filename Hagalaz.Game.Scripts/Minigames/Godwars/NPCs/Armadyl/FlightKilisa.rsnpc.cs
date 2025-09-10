@@ -1,12 +1,14 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
 {
     /// <summary>
     /// </summary>
+    [NpcScriptMetaData([6227])]
     public class FlightKilisa : BodyGuard
     {
         /// <summary>
@@ -40,14 +42,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
             return false;
 
         }
-
-        /// <summary>
-        ///     Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>
-        ///     System.Int32[][].
-        /// </returns>
-        public override int[] GetSuitableNpcs() => [6227];
 
         /// <summary>
         ///     Get's called when owner is found.
