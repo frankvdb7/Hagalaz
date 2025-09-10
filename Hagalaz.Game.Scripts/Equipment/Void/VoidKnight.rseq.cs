@@ -13,6 +13,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Void
     /// <summary>
     ///     Contains void knight script.
     /// </summary>
+    [EquipmentScriptMetaData([8839, 19785, 8840, 19786, 8842, 11663, 11664, 11665])]
     public class VoidKnight : EquipmentScript
     {
         /// <summary>
@@ -100,12 +101,5 @@ namespace Hagalaz.Game.Scripts.Equipment.Void
                 character.RemoveState(StateType.VoidMeleeEquiped);
             }
         }
-
-        /// <summary>
-        ///     Gets the suitable items.
-        /// </summary>
-        /// <returns></returns>
-        public override IEnumerable<int> GetSuitableItems() => ArrayUtilities.MakeArray(Voidtop, Voidrobe, [Voidgloves, Voidmagehelm, Voidmeleehelm, Voidrangerhelm
-        ]);
     }
 }

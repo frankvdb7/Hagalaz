@@ -12,12 +12,6 @@ namespace Hagalaz.Game.Abstractions.Model.Items
     public interface IEquipmentScript
     {
         /// <summary>
-        /// Get's items for which this script is made.
-        /// </summary>
-        /// <returns>Return's array of item ids for which this script is suitable.</returns>
-        [Obsolete("Use an EquipmentScriptFactory or EquipmentScriptMetaData instead")]
-        IEnumerable<int> GetSuitableItems();
-        /// <summary>
         /// Get's attack speed of specific item.
         /// By default , this method does return AttackSpeed field in EquipmentDefinition.
         /// </summary>

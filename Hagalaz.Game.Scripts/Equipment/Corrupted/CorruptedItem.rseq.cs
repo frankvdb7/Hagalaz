@@ -7,6 +7,7 @@ using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Equipment.Corrupted
 {
+    [EquipmentScriptMetaData([13908, 13911, 13914, 13917, 13920, 13923, 13926, 13929, 13932, 13935, 13938, 13941, 13944, 13947, 13950, 13958, 13961, 13964, 13967, 13970, 13973, 13976, 13979, 13982, 13985, 13988])]
     public class CorruptedItem : EquipmentScript
     {
         /// <summary>
@@ -23,17 +24,5 @@ namespace Hagalaz.Game.Scripts.Equipment.Corrupted
             character.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.DestroyItemBox, 0, degradeScript, true, item);
             return false;
         }
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() =>
-        [
-            13908, 13911, 13914, 13917, 13920, 13923, 13926, 13929, 13932, 13935, 13938, 13941, 13944, 13947, 13950, // corrupted ancient equipment 
-            13958, 13961, 13964, 13967, 13970, 13973, 13976, 13979, 13982, 13985, 13988 // corrupted dragon equipment
-        ];
     }
 }

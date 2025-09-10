@@ -10,6 +10,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Shields
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([13742])]
     public class ElysianSpiritShield : EquipmentScript
     {
         /// <summary>
@@ -34,13 +35,5 @@ namespace Hagalaz.Game.Scripts.Equipment.Shields
 
             return damage;
         }
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => [13742];
     }
 }

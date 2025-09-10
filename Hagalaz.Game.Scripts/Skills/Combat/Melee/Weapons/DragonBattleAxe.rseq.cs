@@ -13,6 +13,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
     /// <summary>
     ///     Contains dragon battle axe script.
     /// </summary>
+    [EquipmentScriptMetaData([1377])]
     public class DragonBattleAxe : EquipmentScript
     {
         /// <summary>
@@ -70,13 +71,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         ///     System.Int16.
         /// </returns>
         public override int GetRequiredSpecialEnergyAmount(IItem item, ICharacter attacker) => 1000;
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => [1377];
     }
 }

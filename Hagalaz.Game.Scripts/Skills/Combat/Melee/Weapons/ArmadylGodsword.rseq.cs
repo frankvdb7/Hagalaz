@@ -70,10 +70,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         /// </summary>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.ArmadylGodswordEquipped);
 
-        /// <summary>
-        ///     Get's items suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override IEnumerable<int> GetSuitableItems() => [11694, 13450];
     }
 }

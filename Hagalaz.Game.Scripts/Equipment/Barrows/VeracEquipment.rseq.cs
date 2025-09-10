@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([4753, 4976, 4977, 4978, 4979, 4755, 4982, 4983, 4984, 4985, 4757, 4988, 4989, 4990, 4991, 4759, 4994, 4995, 4996, 4997])]
     public class VeracEquipment : DegradingEquipment
     {
         /// <summary>
@@ -77,14 +78,6 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.VeracDefile);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => _veracIDs;
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.

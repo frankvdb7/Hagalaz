@@ -15,6 +15,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([4153])]
     public class GraniteMaul : EquipmentScript
     {
         /// <summary>
@@ -107,13 +108,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         ///     Happens when this item is unequiped.
         /// </summary>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.GraniteMaulEquiped);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int>  GetSuitableItems() => [4153];
     }
 }

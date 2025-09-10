@@ -12,6 +12,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
     /// <summary>
     ///     Class for misc methods related to arrows and arrows equipment script.
     /// </summary>
+    [EquipmentScriptMetaData([882, 883, 5616, 5622, 884, 885, 5617, 5623, 886, 887, 5618, 5624, 888, 889, 5619, 5625, 890, 891, 5620, 5626, 892, 893, 5621, 5627, 11212, 11227, 11228, 11229, 598, 942, 2532, 2533, 2534, 2535, 2536, 2537, 2538, 2539, 2540, 2541, 11217, 2865, 2866, 4773, 4778, 4783, 4788, 4793, 4798, 4803, 19152, 19157, 19162, 78, 9706, 4160])]
     public class Arrows : EquipmentScript
     {
         /// <summary>
@@ -476,24 +477,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         ///     Get's items suitable for this equipment script.
         /// </summary>
         /// <returns></returns>
-        public override IEnumerable<int> GetSuitableItems() =>
-            MakeArray(Bronze,
-                Iron,
-                Steel,
-                Mithril,
-                Adamant,
-                Rune,
-                Dragon,
-                BronzeFire,
-                IronFire,
-                SteelFire,
-                MithrilFire,
-                AdamantFire,
-                RuneFire,
-                DragonFire,
-                Ogre,
-                [
-                    BronzeBrutal, IronBrutal, SteelBrutal, MithrilBrutal, AdamantBrutal, RuneBrutal, Saradomin, Guthix, Zamorak, Ice, Training, Broad
-                ]);
     }
 }
