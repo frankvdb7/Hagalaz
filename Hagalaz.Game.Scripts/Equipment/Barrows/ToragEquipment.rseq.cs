@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([4745, 4952, 4953, 4954, 4955, 4747, 4958, 4959, 4960, 4961, 4749, 4964, 4965, 4966, 4967, 4751, 4970, 4971, 4972, 4973])]
     public class ToragEquipment : DegradingEquipment
     {
         /// <summary>
@@ -77,14 +78,6 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.ToragCorrupt);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => _toragIDs;
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.

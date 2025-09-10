@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([4716, 4880, 4881, 4882, 4883, 4718, 4886, 4887, 4888, 4889, 4720, 4892, 4893, 4894, 4895, 4722, 4898, 4899, 4900, 4901])]
     public class DharokEquipment : DegradingEquipment
     {
         /// <summary>
@@ -77,14 +78,6 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.DharokWretchedStrength);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => _dharokIDs;
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.

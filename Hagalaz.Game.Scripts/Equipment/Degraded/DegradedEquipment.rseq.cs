@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Degraded
     /// <summary>
     ///     Contains degraded item equipment script.
     /// </summary>
+    [EquipmentScriptMetaData([13910, 13913, 13916, 13919, 13922, 13925, 13928, 13931, 13934, 13937, 13940, 13943, 13946, 13949, 13952, 13960, 13963, 13966, 13969, 13972, 13975, 13978, 13981, 13984, 13987, 13990])]
     public class DegradedEquipment : EquipmentScript
     {
         /// <summary>
@@ -49,17 +50,5 @@ namespace Hagalaz.Game.Scripts.Equipment.Degraded
 
             return -1;
         }
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() =>
-        [
-            13910, 13913, 13916, 13919, 13922, 13925, 13928, 13931, 13934, 13937, 13940, 13943, 13946, 13949, 13952, // corrupted ancient equipment (deg)
-            13960, 13963, 13966, 13969, 13972, 13975, 13978, 13981, 13984, 13987, 13990 // corrupted dragon equipment (deg)
-        ];
     }
 }

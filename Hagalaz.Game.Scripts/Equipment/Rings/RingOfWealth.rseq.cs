@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Rings
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([2572, 20653, 20655, 20657, 20659])]
     public class RingOfWealth : EquipmentScript
     {
         /// <summary>
@@ -26,13 +27,5 @@ namespace Hagalaz.Game.Scripts.Equipment.Rings
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.RingOfWealthEquiped);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => [2572, 20653, 20655, 20657, 20659];
     }
 }

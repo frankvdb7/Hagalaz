@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Shields
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([11283, 11284])]
     public class DragonFireShield : EquipmentScript
     {
         /// <summary>
@@ -26,13 +27,5 @@ namespace Hagalaz.Game.Scripts.Equipment.Shields
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.AntiDragonfireShield);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => [11283, 11284];
     }
 }

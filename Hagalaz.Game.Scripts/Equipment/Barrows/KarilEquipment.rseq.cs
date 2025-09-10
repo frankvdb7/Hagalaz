@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([4732, 4928, 4929, 4930, 4931, 4736, 4940, 4941, 4942, 4943, 4738, 4946, 4947, 4948, 4949])]
     public class KarilEquipment : DegradingEquipment
     {
         /// <summary>
@@ -77,30 +78,6 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.KarilTaint);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems()
-        {
-            var ids = new int[_karilIDs.Length - 5];
-            var offset = 0;
-            for (var i = 0; i < _karilIDs.Length; i++)
-            {
-                if (i >= 5 && i <= 9)
-                {
-                    offset = 5;
-                    continue;
-                }
-
-                ids[i - offset] = _karilIDs[i];
-            }
-
-            return ids;
-        }
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.

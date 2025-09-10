@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([4708, 4856, 4857, 4858, 4859, 4710, 4862, 4863, 4864, 4865, 4712, 4868, 4869, 4870, 4871, 4714, 4874, 4875, 4876, 4877])]
     public class AhrimEquipment : DegradingEquipment
     {
         /// <summary>
@@ -77,14 +78,6 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.AhrimBlight);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems() => _ahrimIDs;
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.

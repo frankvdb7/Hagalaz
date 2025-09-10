@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([10498])]
     public class AvasAttractor : EquipmentScript
     {
         /// <summary>
@@ -43,13 +44,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.AvasAttractorEquiped);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int>  GetSuitableItems() => [10498];
     }
 }

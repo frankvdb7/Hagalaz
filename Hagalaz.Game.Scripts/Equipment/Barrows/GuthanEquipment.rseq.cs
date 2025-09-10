@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
 {
     /// <summary>
     /// </summary>
+    [EquipmentScriptMetaData([4724, 4904, 4905, 4906, 4907, 4728, 4916, 4917, 4918, 4919, 4730, 4922, 4923, 4924, 4925])]
     public class GuthanEquipment : DegradingEquipment
     {
         /// <summary>
@@ -77,30 +78,6 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
         public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.GuthanInfestation);
-
-        /// <summary>
-        ///     Get's items for which this script is made.
-        /// </summary>
-        /// <returns>
-        ///     Return's array of item ids for which this script is suitable.
-        /// </returns>
-        public override IEnumerable<int> GetSuitableItems()
-        {
-            var ids = new int[_guthanIDs.Length - 5];
-            var offset = 0;
-            for (var i = 0; i < _guthanIDs.Length; i++)
-            {
-                if (i >= 5 && i <= 9)
-                {
-                    offset = 5;
-                    continue;
-                }
-
-                ids[i - offset] = _guthanIDs[i];
-            }
-
-            return ids;
-        }
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.
