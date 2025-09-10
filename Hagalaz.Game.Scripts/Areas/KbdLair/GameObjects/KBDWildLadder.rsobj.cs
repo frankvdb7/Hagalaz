@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Areas.KbdLair.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([1765])]
     public class KbdWildLadder : GameObjectScript
     {
         /// <summary>
@@ -35,12 +36,6 @@ namespace Hagalaz.Game.Scripts.Areas.KbdLair.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [1765];
 
         /// <summary>
         ///     Get's called when owner is found.

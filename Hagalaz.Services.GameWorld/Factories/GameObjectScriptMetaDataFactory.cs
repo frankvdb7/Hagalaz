@@ -14,7 +14,6 @@ namespace Hagalaz.Services.GameWorld.Factories
 
         public GameObjectScriptMetaDataFactory(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
 
-        // TODO - Once GetSuitableObjects is removed from IGameObjectScript, we can just retrieve the types instead of creating instances
         public async IAsyncEnumerable<(int objectId, Type scriptType)> GetScripts()
         {
             await Task.CompletedTask;
@@ -26,13 +25,6 @@ namespace Hagalaz.Services.GameWorld.Factories
                 if (metaData != null)
                 {
                     foreach (var objectId in metaData.ObjectIds)
-                    {
-                        yield return (objectId, scriptType);
-                    }
-                }
-                else
-                {
-                    foreach (var objectId in script.GetSuitableObjects())
                     {
                         yield return (objectId, scriptType);
                     }

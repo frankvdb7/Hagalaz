@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Areas.AncientCaverns.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([47231, 47232])]
     public class CaveKuradalDungeon : GameObjectScript
     {
         /// <summary>
@@ -44,12 +45,6 @@ namespace Hagalaz.Game.Scripts.Areas.AncientCaverns.GameObjects
                 base.OnCharacterClickPerform(clicker, clickType);
             }
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [47231, 47232];
 
         /// <summary>
         ///     Get's called when owner is found.

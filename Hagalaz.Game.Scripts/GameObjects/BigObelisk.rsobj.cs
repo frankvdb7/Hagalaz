@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([28716])]
     public class BigObelisk : GameObjectScript
     {
         /// <summary>
@@ -35,13 +36,6 @@ namespace Hagalaz.Game.Scripts.GameObjects
                 base.OnCharacterClickPerform(clicker, clickType);
             }
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        /// <exception cref="System.NotImplementedException"></exception>
-        public override int[] GetSuitableObjects() => [28716];
 
         /// <summary>
         ///     Get's called when owner is found.

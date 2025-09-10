@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.GameObjects
     /// <summary>
     ///     Contains ladder script.
     /// </summary>
+    [GameObjectScriptMetaData([12389])]
     public class LadderToTrainingEnd : GameObjectScript
     {
         /// <summary>
@@ -38,12 +39,5 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-
-        /// <summary>
-        ///     Get's suitable object ids.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [12389];
     }
 }

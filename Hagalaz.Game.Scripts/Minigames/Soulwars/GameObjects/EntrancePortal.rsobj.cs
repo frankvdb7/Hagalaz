@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Soulwars.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([42219])]
     public class EntrancePortal : GameObjectScript
     {
         /// <summary>
@@ -35,12 +36,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Soulwars.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [42219];
 
         /// <summary>
         ///     Get's called when owner is found.

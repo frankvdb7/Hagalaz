@@ -12,6 +12,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     /// <summary>
     ///     TODO: Add enter / exit animations - check render id
     /// </summary>
+    [GameObjectScriptMetaData([69377, 69378])]
     public class ObstaclePipe : GameObjectScript
     {
         /// <summary>
@@ -78,11 +79,5 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
         protected override void Initialize()
         {
         }
-
-        /// <summary>
-        ///     Gets the suitable objects.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [69377, 69378];
     }
 }

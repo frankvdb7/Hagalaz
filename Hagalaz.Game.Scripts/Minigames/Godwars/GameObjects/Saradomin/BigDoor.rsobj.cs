@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([26427])]
     public class BigDoor : GameObjectScript
     {
         /// <summary>
@@ -50,12 +51,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [26427];
 
         /// <summary>
         ///     Get's called when owner is found.

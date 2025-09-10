@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Areas.SlayerTower.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([4493, 4494])]
     public class StaircaseFirstFloor : GameObjectScript
     {
         /// <summary>
@@ -48,12 +49,6 @@ namespace Hagalaz.Game.Scripts.Areas.SlayerTower.GameObjects
                 base.OnCharacterClickPerform(clicker, clickType);
             }
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [4493, 4494];
 
         /// <summary>
         ///     Get's called when owner is found.

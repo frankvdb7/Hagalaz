@@ -12,6 +12,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([2312, 4059])]
     public class BalancingRope : GameObjectScript
     {
         /// <summary>
@@ -75,11 +76,5 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
         protected override void Initialize()
         {
         }
-
-        /// <summary>
-        ///     Gets the suitable objects.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [2312, 4059];
     }
 }

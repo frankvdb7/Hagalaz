@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Areas.Guilds.Mining.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([52856, 52866])]
     public class MysteriousDoor : GameObjectScript
     {
         /// <summary>
@@ -23,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Areas.Guilds.Mining.GameObjects
             if (clickType == GameObjectClickType.Option1Click)
             {
                 ILocation loc = null;
-                if (Owner.Id == GetSuitableObjects()[0])
+                if (Owner.Id == 52856)
                 {
                     loc = Location.Create(1052, 4521, 0, 0);
                 }
@@ -45,12 +46,6 @@ namespace Hagalaz.Game.Scripts.Areas.Guilds.Mining.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [52856, 52866];
 
         /// <summary>
         ///     Get's called when owner is found.

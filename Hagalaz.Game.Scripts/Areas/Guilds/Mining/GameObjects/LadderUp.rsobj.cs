@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Areas.Guilds.Mining.GameObjects
     /// <summary>
     ///     Contains ladder script.
     /// </summary>
+    [GameObjectScriptMetaData([6226])]
     public class LadderUp : GameObjectScript
     {
         /// <summary>
@@ -38,12 +39,5 @@ namespace Hagalaz.Game.Scripts.Areas.Guilds.Mining.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-
-        /// <summary>
-        ///     Get's suitable object ids.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [6226];
     }
 }

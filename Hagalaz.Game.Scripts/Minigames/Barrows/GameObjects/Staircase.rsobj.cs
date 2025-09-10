@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([6702, 6703, 6704, 6705, 6706, 6707])]
     public class Staircase : GameObjectScript
     {
         /// <summary>
@@ -65,12 +66,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [6702, 6703, 6704, 6705, 6706, 6707];
 
         /// <summary>
         ///     Get's called when owner is found.

@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Crucible.GameObjects
     /// <summary>
     /// </summary>
     /// <seealso cref="GameObjectScript" />
+    [GameObjectScriptMetaData([72921, 72922])]
     public class ExitFissure : GameObjectScript
     {
         /// <summary>
@@ -28,12 +29,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Crucible.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [72921, 72922];
 
         /// <summary>
         ///     Get's called when owner is found.

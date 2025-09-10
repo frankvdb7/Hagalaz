@@ -5,6 +5,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Ladders
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([2641, 30863])]
     public class MonasteryLadder : LadderObjectScript
     {
         /// <summary>
@@ -25,14 +26,5 @@ namespace Hagalaz.Game.Scripts.GameObjects.Ladders
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's suitable object ids.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() =>
-        [
-            2641, 30863 //monastery
-        ];
     }
 }

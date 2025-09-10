@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.MageBank.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([5959])]
     public class MageBankLeverOutside : GameObjectScript
     {
         /// <summary>
@@ -27,12 +28,6 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.MageBank.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [5959];
 
         /// <summary>
         ///     Get's called when owner is found.

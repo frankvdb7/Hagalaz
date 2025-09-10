@@ -10,6 +10,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Bandos
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([26289])]
     public class BandosAltar : GameObjectScript
     {
         /// <summary>
@@ -61,12 +62,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Bandos
                     break;
             }
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [26289];
 
         /// <summary>
         ///     Get's called when owner is found.

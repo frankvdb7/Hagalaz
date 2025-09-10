@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.Areas.Guilds.Fishing.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([49014, 49016])]
     public class MainDoor : GameObjectScript
     {
         /// <summary>
@@ -42,12 +43,6 @@ namespace Hagalaz.Game.Scripts.Areas.Guilds.Fishing.GameObjects
                 base.OnCharacterClickPerform(clicker, clickType);
             }
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [49014, 49016];
 
         /// <summary>
         ///     Get's called when owner is found.

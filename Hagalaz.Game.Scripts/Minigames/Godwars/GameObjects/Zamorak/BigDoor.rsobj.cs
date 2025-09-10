@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Zamorak
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([26428])]
     public class BigDoor : GameObjectScript
     {
         /// <summary>
@@ -50,12 +51,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Zamorak
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [26428];
 
         /// <summary>
         ///     Get's called when owner is found.

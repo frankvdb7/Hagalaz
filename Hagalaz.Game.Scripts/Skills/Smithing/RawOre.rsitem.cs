@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
         /// <returns></returns>
         public override bool UseItemOnGameObject(IItem used, IGameObject usedOn, ICharacter character)
         {
-            if (Furnace.SuitableObjects.Contains(usedOn.Id))
+            if (usedOn.Script is Furnace)
             {
                 Smithing.Smelt(character);
                 return true;

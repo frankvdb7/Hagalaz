@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Crucible.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([72936])]
     public class Bank : GameObjectScript
     {
         /// <summary>
@@ -28,12 +29,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Crucible.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [72936];
 
         /// <summary>
         ///     Initializes this instance.
