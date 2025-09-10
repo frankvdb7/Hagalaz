@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([2640])]
     public class MonasteryAltar : GameObjectScript
     {
         /// <summary>
@@ -36,15 +37,6 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() =>
-        [
-            2640 //monastery
-        ];
 
         /// <summary>
         ///     Get's called when owner is found.

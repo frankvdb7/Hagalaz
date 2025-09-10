@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([66115, 66116])]
     public class Spades : GameObjectScript
     {
         /// <summary>
@@ -74,12 +75,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
             return true;
 
         }
-
-        /// <summary>
-        ///     Gets the suitable objects.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [66115, 66116];
 
         /// <summary>
         ///     Initializes this instance.

@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Ladders
     /// <summary>
     ///     Contains standart ladder script.
     /// </summary>
+    [GameObjectScriptMetaData([26982, 26983, 69499, 69502, 69504, 69505])]
     public class LadderObjectScript : GameObjectScript
     {
         /// <summary>
@@ -51,16 +52,5 @@ namespace Hagalaz.Game.Scripts.GameObjects.Ladders
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-
-        /// <summary>
-        ///     Get's suitable object ids.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() =>
-        [
-            26982, 26983, //edgeville
-            69499, 69502, 69504, 69505 // gnome stronghold
-        ];
     }
 }

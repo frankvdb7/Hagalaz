@@ -6,16 +6,9 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([9390, 26814, 11666, 45310, 65513, 67995])]
     public class Furnace : GameObjectScript
     {
-        /// <summary>
-        ///     Gets the furnaces.
-        /// </summary>
-        /// <value>
-        ///     The furnaces.
-        /// </value>
-        public static int[] SuitableObjects => [9390, 26814, 11666, 45310, 65513, 67995];
-
         /// <summary>
         ///     Happens when character click's this object and then walks to it
         ///     and reaches it.
@@ -35,12 +28,6 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 base.OnCharacterClickPerform(clicker, clickType);
             }
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => SuitableObjects;
 
         /// <summary>
         ///     Get's called when owner is found.

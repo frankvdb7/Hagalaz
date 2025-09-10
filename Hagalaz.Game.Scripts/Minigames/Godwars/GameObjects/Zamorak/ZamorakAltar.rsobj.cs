@@ -10,6 +10,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Zamorak
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([26286])]
     public class ZamorakAltar : GameObjectScript
     {
         /// <summary>
@@ -61,12 +62,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Zamorak
                     break;
             }
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [26286];
 
         /// <summary>
         ///     Get's called when owner is found.

@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([9357])]
     public class CaveExit : GameObjectScript
     {
         /// <summary>
@@ -35,12 +36,6 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [9357];
 
         /// <summary>
         ///     Get's called when owner is found.

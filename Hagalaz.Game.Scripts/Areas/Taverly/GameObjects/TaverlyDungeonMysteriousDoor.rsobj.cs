@@ -1,3 +1,4 @@
+using System.Reflection;
 ﻿using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -8,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Areas.Taverly.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([52851, 52870])]
     public class TaverlyDungeonMysteriousDoor : GameObjectScript
     {
         /// <summary>
@@ -23,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Areas.Taverly.GameObjects
             if (clickType == GameObjectClickType.Option1Click)
             {
                 ILocation loc = null;
-                if (Owner.Id == GetSuitableObjects()[0])
+                if (Owner.Id == GetType().GetCustomAttribute<GameObjectScriptMetaDataAttribute>()!.ObjectIds[0])
                 {
                     loc = Location.Create(1394, 4587, 0, 0);
                 }
@@ -45,12 +47,6 @@ namespace Hagalaz.Game.Scripts.Areas.Taverly.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [52851, 52870];
 
         /// <summary>
         ///     Get's called when owner is found.

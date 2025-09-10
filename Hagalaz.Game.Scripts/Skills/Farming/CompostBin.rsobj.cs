@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([7836, 7837])]
     public class CompostBin : GameObjectScript
     {
         /// <summary>
@@ -39,11 +40,5 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
         protected override void Initialize()
         {
         }
-
-        /// <summary>
-        ///     Gets the suitable objects.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [7836, 7837];
     }
 }

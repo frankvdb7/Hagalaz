@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([6552])]
     public class AncientAltar : GameObjectScript
     {
         /// <summary>
@@ -26,12 +27,6 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
                 base.OnCharacterClickPerform(clicker, clickType);
             }
         }
-
-        /// <summary>
-        ///     Gets the suitable objects.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [6552];
 
         /// <summary>
         ///     Initializes this instance.

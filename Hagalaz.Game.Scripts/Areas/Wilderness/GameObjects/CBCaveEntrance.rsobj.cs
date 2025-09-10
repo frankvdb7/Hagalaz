@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([38815])]
     public class CbCaveEntrance : GameObjectScript
     {
         /// <summary>
@@ -35,12 +36,6 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [38815];
 
         /// <summary>
         ///     Get's called when owner is found.

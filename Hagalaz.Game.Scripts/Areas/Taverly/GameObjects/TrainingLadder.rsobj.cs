@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Areas.Taverly.GameObjects
     /// <summary>
     ///     Contains ladder script.
     /// </summary>
+    [GameObjectScriptMetaData([74864])]
     public class TrainingLadder : GameObjectScript
     {
         /// <summary>
@@ -52,12 +53,5 @@ namespace Hagalaz.Game.Scripts.Areas.Taverly.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-
-        /// <summary>
-        ///     Get's suitable object ids.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [74864];
     }
 }

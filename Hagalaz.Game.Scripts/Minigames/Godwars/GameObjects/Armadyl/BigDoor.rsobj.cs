@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([26426])]
     public class BigDoor : GameObjectScript
     {
         /// <summary>
@@ -50,12 +51,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [26426];
 
         /// <summary>
         ///     Get's called when owner is found.

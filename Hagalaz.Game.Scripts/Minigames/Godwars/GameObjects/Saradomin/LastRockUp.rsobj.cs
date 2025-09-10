@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([26298])]
     public class LastRockUp : GameObjectScript
     {
         /// <summary>
@@ -57,13 +58,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
         ///     Shows the rope.
         /// </summary>
         private void ShowRope(ICharacter character) => character.Configurations.SendBitConfiguration(Owner.Definition.VarpBitFileId, 1);
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        /// <exception cref="System.NotImplementedException"></exception>
-        public override int[] GetSuitableObjects() => [26298];
 
         /// <summary>
         ///     Get's called when owner is found.

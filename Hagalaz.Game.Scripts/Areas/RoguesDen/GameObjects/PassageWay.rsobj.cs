@@ -6,6 +6,7 @@ namespace Hagalaz.Game.Scripts.Areas.RoguesDen.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([7258])]
     public class PassageWay : GameObjectScript
     {
         /// <summary>
@@ -17,12 +18,6 @@ namespace Hagalaz.Game.Scripts.Areas.RoguesDen.GameObjects
         /// <param name="clicker">Character which clicked on the object.</param>
         /// <param name="clickType">Type of the click that was performed.</param>
         public override void OnCharacterClickPerform(ICharacter clicker, GameObjectClickType clickType) => base.OnCharacterClickPerform(clicker, clickType);
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [7258];
 
         /// <summary>
         ///     Get's called when owner is found.

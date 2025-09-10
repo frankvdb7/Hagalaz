@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
     /// <summary>
     ///     Contains altar of zaros script.
     /// </summary>
+    [GameObjectScriptMetaData([47120])]
     public class AltarOfZaros : GameObjectScript
     {
         /// <summary>
@@ -46,12 +47,5 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
                 base.OnCharacterClickPerform(clicker, clickType);
             }
         }
-
-
-        /// <summary>
-        ///     Get's suitable object ids.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [47120];
     }
 }

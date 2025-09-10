@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Areas.GrandExchange.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([9311, 9312])]
     public class UnderwallTunnel : GameObjectScript
     {
         /// <summary>
@@ -74,12 +75,6 @@ namespace Hagalaz.Game.Scripts.Areas.GrandExchange.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Gets the suitable objects.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [9311, 9312];
 
         /// <summary>
         ///     Initializes this instance.

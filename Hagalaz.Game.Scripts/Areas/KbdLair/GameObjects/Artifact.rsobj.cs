@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Areas.KbdLair.GameObjects
     /// <summary>
     /// </summary>
     /// <seealso cref="GameObjectScript" />
+    [GameObjectScriptMetaData([1817])]
     public class Artifact : GameObjectScript
     {
         /// <summary>
@@ -29,12 +30,6 @@ namespace Hagalaz.Game.Scripts.Areas.KbdLair.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [1817];
 
         /// <summary>
         ///     Get's called when owner is found.

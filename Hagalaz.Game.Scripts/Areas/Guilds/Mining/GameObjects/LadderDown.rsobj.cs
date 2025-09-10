@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Areas.Guilds.Mining.GameObjects
     /// <summary>
     ///     Contains ladder script.
     /// </summary>
+    [GameObjectScriptMetaData([2113])]
     public class LadderDown : GameObjectScript
     {
         /// <summary>
@@ -44,12 +45,5 @@ namespace Hagalaz.Game.Scripts.Areas.Guilds.Mining.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-
-        /// <summary>
-        ///     Get's suitable object ids.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [2113];
     }
 }

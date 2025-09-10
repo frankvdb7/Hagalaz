@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Areas.AncientCaverns.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([25336, 25338])]
     public class Steps : GameObjectScript
     {
         /// <summary>
@@ -48,12 +49,6 @@ namespace Hagalaz.Game.Scripts.Areas.AncientCaverns.GameObjects
                 base.OnCharacterClickPerform(clicker, clickType);
             }
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [25336, 25338];
 
         /// <summary>
         ///     Get's called when owner is found.

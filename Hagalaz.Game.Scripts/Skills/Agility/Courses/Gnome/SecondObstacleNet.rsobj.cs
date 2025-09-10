@@ -11,6 +11,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([69384])]
     public class SecondObstacleNet : GameObjectScript
     {
         /// <summary>
@@ -62,11 +63,5 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
         protected override void Initialize()
         {
         }
-
-        /// <summary>
-        ///     Gets the suitable objects.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [69384];
     }
 }

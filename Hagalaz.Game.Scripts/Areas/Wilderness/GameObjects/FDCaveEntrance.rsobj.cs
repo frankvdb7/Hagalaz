@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
     /// <summary>
     ///     Forinthry dungeon entrances.
     /// </summary>
+    [GameObjectScriptMetaData([20599, 20600])]
     public class FdCaveEntrance : GameObjectScript
     {
         /// <summary>
@@ -36,12 +37,6 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [20599, 20600];
 
         /// <summary>
         ///     Get's called when owner is found.

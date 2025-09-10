@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
     /// <summary>
     ///     coords 2883 4370 2
     /// </summary>
+    [GameObjectScriptMetaData([37928])]
     public class CbCaveExit : GameObjectScript
     {
         /// <summary>
@@ -36,12 +37,6 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [37928];
 
         /// <summary>
         ///     Get's called when owner is found.

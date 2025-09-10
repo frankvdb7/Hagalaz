@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Ladders
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([28714])]
     public class LadderFromSummoningObelisk : GameObjectScript
     {
         /// <summary>
@@ -37,12 +38,5 @@ namespace Hagalaz.Game.Scripts.GameObjects.Ladders
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-
-        /// <summary>
-        ///     Get's suitable object ids.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [28714];
     }
 }

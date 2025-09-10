@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([26293])]
     public class Rope : GameObjectScript
     {
         /// <summary>
@@ -35,12 +36,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [26293];
 
         /// <summary>
         ///     Get's called when owner is found.

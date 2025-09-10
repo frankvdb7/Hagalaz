@@ -10,6 +10,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([26288])]
     public class ArmadylAltar : GameObjectScript
     {
         /// <summary>
@@ -61,12 +62,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
                     break;
             }
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [26288];
 
         /// <summary>
         ///     Get's called when owner is found.

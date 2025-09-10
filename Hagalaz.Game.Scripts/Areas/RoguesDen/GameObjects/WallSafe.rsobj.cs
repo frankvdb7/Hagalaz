@@ -7,6 +7,7 @@ namespace Hagalaz.Game.Scripts.Areas.RoguesDen.GameObjects
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([7235])]
     public class WallSafe : GameObjectScript
     {
         /// <summary>
@@ -27,12 +28,6 @@ namespace Hagalaz.Game.Scripts.Areas.RoguesDen.GameObjects
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Gets the suitable objects.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [7235];
 
         /// <summary>
         ///     Get's called when owner is found.

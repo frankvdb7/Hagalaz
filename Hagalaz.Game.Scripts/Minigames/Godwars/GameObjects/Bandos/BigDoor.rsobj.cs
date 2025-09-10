@@ -9,6 +9,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Bandos
     /// <summary>
     ///     Contains bandos big door script.
     /// </summary>
+    [GameObjectScriptMetaData([26384, 26425])]
     public class BigDoor : GameObjectScript
     {
         /// <summary>
@@ -73,12 +74,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Bandos
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects() => [26384, 26425];
 
         /// <summary>
         ///     Get's called when owner is found.
