@@ -8,15 +8,15 @@ namespace Hagalaz.Cache.Tests
     {
         private readonly Mock<IFileStore> _fileStoreMock;
         private readonly Mock<IReferenceTableProvider> _referenceTableProviderMock;
-        private readonly Mock<IContainerDecoder> _containerFactoryMock;
+        private readonly Mock<IContainerDecoder> _containerDecoderMock;
         private readonly CacheWriter _cacheWriter;
 
         public CacheWriterTests()
         {
             _fileStoreMock = new Mock<IFileStore>();
             _referenceTableProviderMock = new Mock<IReferenceTableProvider>();
-            _containerFactoryMock = new Mock<IContainerDecoder>();
-            _cacheWriter = new CacheWriter(_fileStoreMock.Object, _referenceTableProviderMock.Object, _containerFactoryMock.Object);
+            _containerDecoderMock = new Mock<IContainerDecoder>();
+            _cacheWriter = new CacheWriter(_fileStoreMock.Object, _referenceTableProviderMock.Object, _containerDecoderMock.Object);
         }
 
         [Fact]
@@ -32,7 +32,7 @@ namespace Hagalaz.Cache.Tests
             var oldContainerMock = new Mock<IContainer>();
             oldContainerMock.Setup(c => c.CompressionType).Returns(CompressionType.None);
             _fileStoreMock.Setup(fs => fs.Read(255, 1)).Returns(new MemoryStream());
-            _containerFactoryMock.Setup(cf => cf.Decode(It.IsAny<MemoryStream>())).Returns(oldContainerMock.Object);
+            _containerDecoderMock.Setup(cf => cf.Decode(It.IsAny<MemoryStream>())).Returns(oldContainerMock.Object);
 
             // Act
             _cacheWriter.Write(1, 1, containerMock.Object);

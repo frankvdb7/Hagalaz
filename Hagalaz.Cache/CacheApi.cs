@@ -81,7 +81,11 @@ namespace Hagalaz.Cache
         /// <exception cref="FileNotFoundException"></exception>
         /// <exception cref="IOException">Checksum tables can only be read with the low level FileStore API!</exception>
         /// <exception cref="System.IO.IOException">Checksum tables can only be read with the low level FileStore API!</exception>
-        public IContainer ReadContainer(int indexId, int fileId) => _containerFactory.Decode(Read(indexId, fileId));
+        public IContainer ReadContainer(int indexId, int fileId)
+        {
+            using var stream = Read(indexId, fileId);
+            return _containerFactory.Decode(stream);
+        }
 
         /// <summary>
         /// Reads a container stream (not decoded) from the cache.
