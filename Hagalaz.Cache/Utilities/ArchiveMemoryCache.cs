@@ -18,7 +18,7 @@ namespace Hagalaz.Cache.Utilities
         /// <summary>
         /// The table
         /// </summary>
-        private readonly ReferenceTable _table;
+        private readonly IReferenceTable _table;
         /// <summary>
         /// The index identifier
         /// </summary>
