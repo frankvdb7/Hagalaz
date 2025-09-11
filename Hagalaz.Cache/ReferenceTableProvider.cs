@@ -30,7 +30,7 @@ namespace Hagalaz.Cache
         private IReferenceTable DecodeReferenceTable(int indexId)
         {
             using var fileBuffer = _store.Read(255, indexId);
-            var container = _containerFactory.Decode(fileBuffer);
+            using var container = _containerFactory.Decode(fileBuffer);
             return _referenceTableFactory.Decode(container.Data, true);
         }
     }

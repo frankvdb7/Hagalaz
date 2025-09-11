@@ -7,11 +7,13 @@ namespace Hagalaz.Cache
     {
         private readonly IFileStore _store;
         private readonly IReferenceTableProvider _referenceTableProvider;
+        private readonly IContainerFactory _containerFactory;
 
-        public CacheWriter(IFileStore store, IReferenceTableProvider referenceTableProvider)
+        public CacheWriter(IFileStore store, IReferenceTableProvider referenceTableProvider, IContainerFactory containerFactory)
         {
             _store = store;
             _referenceTableProvider = referenceTableProvider;
+            _containerFactory = containerFactory;
         }
 
         public void Write(int indexId, int fileId, IContainer container)
@@ -34,7 +36,6 @@ namespace Hagalaz.Cache
                 entry = new ReferenceTableEntry(fileId);
                 table.AddEntry(fileId, entry);
             }
-
             entry.Version = container.Version;
 
             /* grab the bytes we need for the checksum */
@@ -44,24 +45,29 @@ namespace Hagalaz.Cache
             entry.Crc32 = BufferUtilities.GetCrcChecksum(bytes, 0, bytes.Length);
 
             /* calculate and update the whirlpool digest if we need to */
-            var whirlpool = new byte[64];
             if (table.Flags.HasFlag(ReferenceTableFlags.Digests))
-                whirlpool = Whirlpool.GenerateDigest(bytes, 0, bytes.Length);
-            entry.WhirlpoolDigest = whirlpool;
+            {
+                entry.WhirlpoolDigest = Whirlpool.GenerateDigest(bytes, 0, bytes.Length);
+            }
+
+            /* save the file itself */
+            using (var fileStream = new MemoryStream(bytes))
+            {
+                _store.Write(indexId, fileId, fileStream);
+            }
 
             /* update the reference table version */
             table.Version++;
 
             /* save the reference table */
-            using (var referenceTableContainer = new Container(CompressionType.None, table.Encode()))
+            using var oldReferenceTableContainerStream = _store.Read(255, indexId);
+            using var oldReferenceTableContainer = _containerFactory.Decode(oldReferenceTableContainerStream);
+
+            using (var referenceTableContainer = new Container(oldReferenceTableContainer.CompressionType, table.Encode()))
             {
                 using (MemoryStream refStream = new MemoryStream(referenceTableContainer.Encode()))
                     _store.Write(255, indexId, refStream);
             }
-
-            /* save the file itself */
-            using (MemoryStream fileStream = new MemoryStream(bytes))
-                _store.Write(indexId, fileId, fileStream);
         }
     }
 }

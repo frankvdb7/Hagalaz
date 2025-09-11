@@ -48,34 +48,45 @@ namespace Hagalaz.Cache
             if (table.Flags.HasFlag(ReferenceTableFlags.Identifiers))
             {
                 foreach (var id in ids)
-                    table.GetEntry(id).Id = stream.ReadInt();
+                {
+                    var entry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while reading identifiers.");
+                    entry.Id = stream.ReadInt();
+                }
             }
 
             /* read the CRC32 checksums */
             foreach (var id in ids)
-                table.GetEntry(id).Crc32 = stream.ReadInt();
+            {
+                var entry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while reading checksums.");
+                entry.Crc32 = stream.ReadInt();
+            }
 
             /* read the whirlpool digests if present */
             if (table.Flags.HasFlag(ReferenceTableFlags.Digests))
             {
                 foreach (var id in ids)
                 {
+                    var entry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while reading digests.");
                     byte[] data = new byte[64];
                     stream.Read(data, 0, 64);
-                    table.GetEntry(id).WhirlpoolDigest = data;
+                    entry.WhirlpoolDigest = data;
                 }
             }
 
             /* read the version numbers */
             foreach (var id in ids)
-                table.GetEntry(id).Version = stream.ReadInt();
+            {
+                var entry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while reading versions.");
+                entry.Version = stream.ReadInt();
+            }
 
             /* read the subfile sizes */
             int[][] members = new int[size][];
             foreach (var id in ids)
             {
                 members[id] = new int[table.Protocol >= 7 ? stream.ReadBigSmart() : (stream.ReadShort() & 0xFFFF)];
-                table.GetEntry(id).InitializeEntries(members[id].Length);
+                var entry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while reading subfile sizes.");
+                entry.InitializeEntries(members[id].Length);
             }
 
             /* read the child ids */
@@ -113,11 +124,8 @@ namespace Hagalaz.Cache
                 {
                     foreach (var child in members[id])
                     {
-                        var entry = table.GetEntry(id).GetEntry(child);
-                        if (entry == null)
-                        {
-                            throw new InvalidOperationException($"{nameof(ReferenceTableChildEntry)} does not exist in {nameof(ReferenceTableEntry)}");
-                        }
+                        var parentEntry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while reading child identifiers.");
+                        var entry = parentEntry.GetEntry(child) ?? throw new InvalidOperationException($"{nameof(ReferenceTableChildEntry)} with id {child} does not exist in {nameof(ReferenceTableEntry)} with id {id}");
                         entry.Id = stream.ReadInt();
                     }
                 }
