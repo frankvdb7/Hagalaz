@@ -8,6 +8,8 @@ using Hagalaz.Cache.Types.Factories;
 using Hagalaz.Cache.Types.Hooks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Cache.Extensions
 {
@@ -32,6 +34,17 @@ namespace Hagalaz.Cache.Extensions
         public static IServiceCollection AddGameCache(this IServiceCollection services, Action<CacheOptions> options)
         {
             services.Configure(options);
+            services.TryAddSingleton<IFileStoreFactory, FileStoreFactory>();
+            services.TryAddSingleton<IFileStore>(provider =>
+            {
+                var cacheOptions = provider.GetRequiredService<IOptions<CacheOptions>>();
+                var factory = provider.GetRequiredService<IFileStoreFactory>();
+                return factory.Open(cacheOptions.Value.Path);
+            });
+            services.TryAddSingleton<IReferenceTableProvider, ReferenceTableProvider>();
+            services.TryAddSingleton<ICacheWriter, CacheWriter>();
+            services.TryAddSingleton<IContainerFactory, ContainerFactory>();
+            services.TryAddSingleton<IReferenceTableFactory, ReferenceTableFactory>();
             services.TryAddSingleton<ICacheAPI, CacheApi>();
             services.TryAddSingleton<IHuffmanCodeProvider, HuffmanCodeProvider>();
             services.TryAddTransient<IMapDecoder, MapDecoder>();

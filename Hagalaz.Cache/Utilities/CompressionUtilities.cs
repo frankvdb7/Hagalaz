@@ -83,15 +83,14 @@ namespace Hagalaz.Cache.Utilities
         public static byte[] BzipDecompress(byte[] data)
         {
             byte[] output;
-            byte[] newData = new byte[data.Length + 4];
-            System.Array.Copy(data, 0, newData, 4, data.Length);
-            newData[0] = (byte)'B';
-            newData[1] = (byte)'Z';
-            newData[2] = (byte)'h';
-            newData[3] = (byte)'1';
-
             using (var io = new MemoryStream())
             {
+                var newData = new byte[data.Length + 4];
+                newData[0] = (byte)'B';
+                newData[1] = (byte)'Z';
+                newData[2] = (byte)'h';
+                newData[3] = (byte)'1';
+                System.Array.Copy(data, 0, newData, 4, data.Length);
                 using (var bzip = new BZip2InputStream(new MemoryStream(newData)))
                 {
                     while (true)

@@ -27,7 +27,7 @@ namespace Hagalaz.Cache
         /// <param name="container">The container containing the archive.</param>
         /// <param name="size">The size.</param>
         /// <returns></returns>
-        public static Archive Decode(Container container, int size)
+        public static Archive Decode(IContainer container, int size)
         {
             var stream = container.Data;
 
