@@ -21,7 +21,6 @@ namespace Hagalaz.Cache.Tests
 
             fileStoreMock.SetupGet(fs => fs.IndexFileCount).Returns(255);
             fileStoreMock.Setup(fs => fs.Read(It.IsAny<int>(), It.IsAny<int>()))
-                .Callback<int, int>((index, file) => System.Console.WriteLine($"Called Read with index: {index}, file: {file}"))
                 .Returns(new MemoryStream(new byte[] { 1, 2, 3 }));
             containerFactoryMock.Setup(cf => cf.Decode(It.IsAny<MemoryStream>())).Returns(containerMock.Object);
             referenceTableFactoryMock.Setup(rtf => rtf.Decode(It.IsAny<MemoryStream>(), It.IsAny<bool>())).Returns(referenceTableMock.Object);

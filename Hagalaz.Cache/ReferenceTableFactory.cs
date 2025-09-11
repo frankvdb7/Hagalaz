@@ -111,9 +111,10 @@ namespace Hagalaz.Cache
 
                 /* and allocate specific entries within the array */
                 index = 0;
-                foreach (int childId in members[id])
+                var parentEntry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while allocating child entries.");
+                foreach (var childId in members[id])
                 {
-                    table.GetEntry(id).AddEntry(childId, new ReferenceTableChildEntry(index++));
+                    parentEntry.AddEntry(childId, new ReferenceTableChildEntry(index++));
                 }
             }
 
