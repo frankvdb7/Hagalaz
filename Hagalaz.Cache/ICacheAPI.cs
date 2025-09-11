@@ -32,7 +32,7 @@ namespace Hagalaz.Cache
         /// </summary>
         /// <param name="indexId">The index identifier.</param>
         /// <returns></returns>
-        ReferenceTable ReadReferenceTable(int indexId);
+        IReferenceTable ReadReferenceTable(int indexId);
         /// <summary>
         /// Reads a container from the cache.
         /// </summary>
@@ -42,7 +42,7 @@ namespace Hagalaz.Cache
         /// <exception cref="FileNotFoundException"></exception>
         /// <exception cref="IOException">Checksum tables can only be read with the low level FileStore API!</exception>
         /// <exception cref="System.IO.IOException">Checksum tables can only be read with the low level FileStore API!</exception>
-        Container ReadContainer(int indexId, int fileId);
+        IContainer ReadContainer(int indexId, int fileId);
         /// <summary>
         /// Reads the archive.
         /// </summary>
@@ -69,7 +69,7 @@ namespace Hagalaz.Cache
         /// <param name="xteaKeys">The xtea keys.</param>
         /// <returns></returns>
         /// <exception cref="System.IO.IOException">Checksum tables can only be read with the low level FileStore API!</exception>
-        Container ReadContainer(int indexId, int fileId, int[] xteaKeys);
+        IContainer ReadContainer(int indexId, int fileId, int[] xteaKeys);
         /// <summary>
         /// Reads a raw container stream (not decoded) from the cache.
         /// </summary>
@@ -87,7 +87,7 @@ namespace Hagalaz.Cache
         /// <param name="fileId">The file identifier.</param>
         /// <param name="container">The container.</param>
         /// <exception cref="System.IO.IOException">Checksum tables can only be read with the low level FileStore API!</exception>
-        void Write(int indexId, int fileId, Container container);
+        void Write(int indexId, int fileId, IContainer container);
         /// <summary>
         /// Computes the <see cref="ChecksumTable"/> for this cache. The checksum table
         /// forms part of the so-called "update keys".

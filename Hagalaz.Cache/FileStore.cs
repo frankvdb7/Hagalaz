@@ -10,7 +10,7 @@ namespace Hagalaz.Cache
     /// A file store holds multiple files inside a "virtual" file system made up of
     /// several index files and a single data file.
     /// </summary>
-    public class FileStore : IDisposable
+    public class FileStore : IFileStore
     {
         /// <summary>
         /// The lock object
@@ -44,45 +44,11 @@ namespace Hagalaz.Cache
         /// <param name="dataFile">The data file.</param>
         /// <param name="indexFiles">The index files.</param>
         /// <param name="mainIndexFile">The 'meta' index file.</param>
-        private FileStore(FileStream dataFile, FileStream[] indexFiles, FileStream mainIndexFile)
+        public FileStore(FileStream dataFile, FileStream[] indexFiles, FileStream mainIndexFile)
         {
             _dataFile = dataFile;
             _indexFiles = indexFiles;
             _mainIndexFile = mainIndexFile;
-        }
-
-        /// <summary>
-        /// Opens the file store stored in the specified directory.
-        /// </summary>
-        /// <param name="rootPath">The directory containing the index and data files.</param>
-        /// <returns></returns>
-        public static FileStore Open(string rootPath, ILogger<FileStore> logger)
-        {
-            logger.LogInformation("Cache file store path: {0}", Path.GetFullPath(rootPath));
-
-            /* open the main data file stream */
-            var dataFile = File.Open(rootPath + @"/main_file_cache.dat2", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-
-            /* open all the index file streams */
-            var indexFiles = new List<FileStream>();
-            for (int i = 0; ; i++)
-            {
-                var path = rootPath + @"/main_file_cache.idx" + i;
-                if (File.Exists(path))
-                    indexFiles.Add(File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite));
-                else
-                    break;
-            }
-
-            if (indexFiles.Count == 0) throw new FileNotFoundException("No cache found in directory: " + rootPath);
-
-            /* open the main index file stream */
-            var mainIndexFile = File.Open(rootPath + @"/main_file_cache.idx255", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-
-            /* initialize the store */
-            var store = new FileStore(dataFile, indexFiles.ToArray(), mainIndexFile);
-
-            return store;
         }
 
         /// <summary>

@@ -13,40 +13,20 @@ namespace Hagalaz.Cache
     /// <seealso cref="System.IDisposable" />
     public class CacheApi : IDisposable, ICacheAPI
     {
-        private FileStore? _fileStore;
+        private readonly IFileStore _store;
+        private readonly IReferenceTableProvider _referenceTableProvider;
+        private readonly ICacheWriter _cacheWriter;
+        private readonly IContainerFactory _containerFactory;
 
-        /// <summary>
-        /// The reference tables
-        /// </summary>
-        private ReferenceTable[]? _referenceTables;
-        private readonly IOptions<CacheOptions> _options;
-        private readonly ILoggerFactory _loggerFactory;
+        private readonly IReferenceTableFactory _referenceTableFactory;
 
-        /// <summary>
-        /// The lower level API file store.
-        /// </summary>
-        public FileStore Store
+        public CacheApi(IFileStore store, IReferenceTableProvider referenceTableProvider, ICacheWriter cacheWriter, IContainerFactory containerFactory, IReferenceTableFactory referenceTableFactory)
         {
-            get
-            {
-                if (_fileStore == null)
-                {
-                    _fileStore = FileStore.Open(_options.Value.Path, _loggerFactory.CreateLogger<FileStore>());
-                    _referenceTables = new ReferenceTable[Store.IndexFileCount];
-                }
-                return _fileStore;
-            }
-        }
-
-        /// <summary>
-        /// Constructs the cache.
-        /// </summary>
-        /// <param name="options">The options.</param>
-        /// <param name="loggerFactory"></param>
-        public CacheApi(IOptions<CacheOptions> options, ILoggerFactory loggerFactory)
-        {
-            _options = options;
-            _loggerFactory = loggerFactory;
+            _store = store;
+            _referenceTableProvider = referenceTableProvider;
+            _cacheWriter = cacheWriter;
+            _containerFactory = containerFactory;
+            _referenceTableFactory = referenceTableFactory;
         }
 
         /// <summary>
@@ -55,14 +35,14 @@ namespace Hagalaz.Cache
         /// <param name="indexId">Store(Cache) id from where to search.</param>
         /// <param name="fileName">Name of the file to search for.</param>
         /// <returns>Return's file ID or -1 if no files found with given name.</returns>
-        public int GetFileId(int indexId, string fileName) => ReadReferenceTable(indexId).GetFileId(fileName);
+        public int GetFileId(int indexId, string fileName) => _referenceTableProvider.ReadReferenceTable(indexId).GetFileId(fileName);
 
         /// <summary>
         /// Get's file count in cache.
         /// </summary>
         /// <param name="indexId">Cache for which to look for.</param>
         /// <returns></returns>
-        public int GetFileCount(int indexId) => Store.GetFileCount(indexId);
+        public int GetFileCount(int indexId) => _store.GetFileCount(indexId);
 
         /// <summary>
         /// Gets the sub file count.
@@ -72,7 +52,7 @@ namespace Hagalaz.Cache
         /// <returns></returns>
         public int GetFileCount(int indexId, int fileId)
         {
-            var table = ReadReferenceTable(indexId);
+            var table = _referenceTableProvider.ReadReferenceTable(indexId);
             if (fileId < 0 || fileId >= table.Capacity)
             {
                 return 0;
@@ -87,37 +67,9 @@ namespace Hagalaz.Cache
         /// </summary>
         /// <param name="indexId">The index identifier.</param>
         /// <returns></returns>
-        public ReferenceTable ReadReferenceTable(int indexId)
+        public IReferenceTable ReadReferenceTable(int indexId)
         {
-            if (indexId >= Store.IndexFileCount)
-                throw new FileNotFoundException();
-            if (indexId == 255)
-                throw new IOException("Checksum tables can not be read by this method!");
-            
-            if (_referenceTables == null)
-            {
-                var referenceTable = DecodeReferenceTable(indexId);
-                _referenceTables![indexId] = referenceTable;
-                return referenceTable;
-            }
-
-            return _referenceTables[indexId] ?? (_referenceTables[indexId] = DecodeReferenceTable(indexId));
-        }
-
-        /// <summary>
-        /// Decodes the reference table.
-        /// </summary>
-        /// <param name="indexId">The index identifier.</param>
-        /// <returns></returns>
-        private ReferenceTable DecodeReferenceTable(int indexId)
-        {
-            using (var fileBuffer = Read(255, indexId))
-            {
-                using (var dataBuffer = Container.Decode(fileBuffer).Data)
-                {
-                    return ReferenceTable.Decode(dataBuffer, true);
-                }
-            }
+            return _referenceTableProvider.ReadReferenceTable(indexId);
         }
 
         /// <summary>
@@ -129,7 +81,7 @@ namespace Hagalaz.Cache
         /// <exception cref="FileNotFoundException"></exception>
         /// <exception cref="IOException">Checksum tables can only be read with the low level FileStore API!</exception>
         /// <exception cref="System.IO.IOException">Checksum tables can only be read with the low level FileStore API!</exception>
-        public Container ReadContainer(int indexId, int fileId) => Container.Decode(Read(indexId, fileId));
+        public IContainer ReadContainer(int indexId, int fileId) => _containerFactory.Decode(Read(indexId, fileId));
 
         /// <summary>
         /// Reads a container stream (not decoded) from the cache.
@@ -143,14 +95,14 @@ namespace Hagalaz.Cache
         public MemoryStream Read(int indexId, int fileId)
         {
             /* check if the index is valid */
-            if (indexId != 255 && indexId >= Store.IndexFileCount)
+            if (indexId != 255 && indexId >= _store.IndexFileCount)
                 throw new FileNotFoundException();
             /* we don't want people reading/manipulating these manually */
             if (indexId == 255 && fileId == 255)
                 throw new IOException("Checksum tables can only be read with the low level FileStore API!");
 
             /* delegate the call to the file store */
-            return Store.Read(indexId, fileId);
+            return _store.Read(indexId, fileId);
         }
 
         /// <summary>
@@ -164,9 +116,9 @@ namespace Hagalaz.Cache
         public Archive ReadArchive(int indexId, int fileId)
         {
             /* check if the index is valid */
-            if (indexId >= Store.IndexFileCount)
+            if (indexId >= _store.IndexFileCount)
                 throw new FileNotFoundException();
-            var table = ReadReferenceTable(indexId);
+            var table = _referenceTableProvider.ReadReferenceTable(indexId);
             if (fileId < 0 || fileId >= table.Capacity)
                 throw new FileNotFoundException();
             var entry = table.GetEntry(fileId);
@@ -192,9 +144,9 @@ namespace Hagalaz.Cache
         public MemoryStream Read(int indexId, int fileId, int subFileId)
         {
             /* check if the file/subfile are valid */
-            if (indexId >= Store.IndexFileCount)
+            if (indexId >= _store.IndexFileCount)
                 throw new FileNotFoundException();
-            var table = ReadReferenceTable(indexId);
+            var table = _referenceTableProvider.ReadReferenceTable(indexId);
             if (fileId < 0 || fileId >= table.Capacity)
                 throw new FileNotFoundException();
             var entry = table.GetEntry(fileId);
@@ -218,18 +170,18 @@ namespace Hagalaz.Cache
         /// <param name="xteaKeys">The xtea keys.</param>
         /// <returns></returns>
         /// <exception cref="System.IO.IOException">Checksum tables can only be read with the low level FileStore API!</exception>
-        public Container ReadContainer(int indexId, int fileId, int[] xteaKeys)
+        public IContainer ReadContainer(int indexId, int fileId, int[] xteaKeys)
         {
             /* we don't want people reading/manipulating these manually */
             if (indexId == 255 && fileId == 255)
                 throw new IOException("Checksum tables can only be read with the low level FileStore API!");
 
             /* read the full compressed file */
-            using (var compressedFile = Store.Read(indexId, fileId))
+            using (var compressedFile = _store.Read(indexId, fileId))
             {
                 /* if the xtea keys are not defined, return decoded container data as is */
                 if (xteaKeys[0] == 0 && xteaKeys[1] == 0 && xteaKeys[2] == 0 && xteaKeys[3] == 0)
-                    return Container.Decode(compressedFile);
+                    return _containerFactory.Decode(compressedFile);
 
                 /* decrypt the compressed stream, starting at offset 5 to skip the header */
                 var buffer = compressedFile.ToArray();
@@ -239,7 +191,7 @@ namespace Hagalaz.Cache
                 using (var stream = new MemoryStream(decrypted))
                 {
                     /* decode and return the decrypted data */
-                    return Container.Decode(stream);
+                    return _containerFactory.Decode(stream);
                 }
             }
         }
@@ -251,55 +203,9 @@ namespace Hagalaz.Cache
         /// <param name="fileId">The file identifier.</param>
         /// <param name="container">The container.</param>
         /// <exception cref="System.IO.IOException">Checksum tables can only be read with the low level FileStore API!</exception>
-        public void Write(int indexId, int fileId, Container container)
+        public void Write(int indexId, int fileId, IContainer container)
         {
-            /* we don't want people reading/manipulating these manually */
-            if (indexId == 255 && fileId == 255)
-                throw new IOException("Checksum tables can only be read with the low level FileStore API!");
-
-            /* increment the container's version */
-            container.Version++;
-
-            /* decode the reference table for this index */
-            var tableContainer = Container.Decode(Store.Read(255, indexId));
-            var table = ReferenceTable.Decode(tableContainer.Data, true);
-
-            /* update the version and checksum for this file */
-            var entry = table.GetEntry(fileId);
-            if (entry == null)
-            {
-                /* create a new entry for the file */
-                entry = new ReferenceTableEntry(fileId);
-                table.AddEntry(fileId, entry);
-            }
-
-            entry.Version = container.Version;
-
-            /* grab the bytes we need for the checksum */
-            var bytes = container.Encode(false);
-
-            /* calculate the new CRC checksum */
-            entry.Crc32 = BufferUtilities.GetCrcChecksum(bytes, 0, bytes.Length);
-
-            /* calculate and update the whirlpool digest if we need to */
-            var whirlpool = new byte[64];
-            if (table.Flags.HasFlag(ReferenceTableFlags.Digests))
-                whirlpool = Whirlpool.GenerateDigest(bytes, 0, bytes.Length);
-            entry.WhirlpoolDigest = whirlpool;
-
-            /* update the reference table version */
-            table.Version++;
-
-            /* save the reference table */
-            using (var referenceTableContainer = new Container(tableContainer.CompressionType, table.Encode()))
-            {
-                using (MemoryStream refStream = new MemoryStream(referenceTableContainer.Encode()))
-                    Store.Write(255, indexId, refStream);
-            }
-
-            /* save the file itself */
-            using (MemoryStream fileStream = new MemoryStream(bytes))
-                Store.Write(indexId, fileId, fileStream);
+            _cacheWriter.Write(indexId, fileId, container);
         }
 
         /// <summary>
@@ -310,7 +216,7 @@ namespace Hagalaz.Cache
         public ChecksumTable CreateChecksumTable()
         {
             /* create the checksum table */
-            int size = Store.IndexFileCount;
+            int size = _store.IndexFileCount;
             var table = new ChecksumTable(size);
 
             /* loop through all the reference tables and get their CRC and versions */
@@ -320,15 +226,15 @@ namespace Hagalaz.Cache
                 int version = 0;
                 var whirlpool = new byte[64];
 
-                using (var buffer = Store.Read(255, cacheId))
+                using (var buffer = _store.Read(255, cacheId))
                 {
                     // if there is actually a reference table, calculate the CRC,
                     // version and whirlpool hash
                     if (buffer.Length > 0)
                     {
-                        using (var dataStream = Container.Decode(buffer).Data)
+                        using (var dataStream = _containerFactory.Decode(buffer).Data)
                         {
-                            var referenceTable = ReferenceTable.Decode(dataStream, false);
+                            var referenceTable = _referenceTableFactory.Decode(dataStream, false);
 
                             var data = buffer.ToArray();
                             version = referenceTable.Version;
@@ -348,22 +254,9 @@ namespace Hagalaz.Cache
         /// <summary>
         /// Attempts to dispose the cache.
         /// </summary>
-        public void Dispose() => Dispose(true);
-
-        /// <summary>
-        /// Disposes the object.
-        /// </summary>
-        /// <param name="disposing">Whether to dispose managed code.</param>
-        private void Dispose(bool disposing)
+        public void Dispose()
         {
-            if (!disposing)
-            {
-                return;
-            }
-
-            _fileStore?.Dispose();
-            _fileStore = null;
-            _referenceTables = null;
+            _store.Dispose();
         }
     }
 }
