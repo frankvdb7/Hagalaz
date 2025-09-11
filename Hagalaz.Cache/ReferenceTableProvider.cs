@@ -5,11 +5,11 @@ namespace Hagalaz.Cache
     public class ReferenceTableProvider : IReferenceTableProvider
     {
         private readonly IFileStore _store;
-        private readonly IContainerFactory _containerFactory;
-        private readonly IReferenceTableFactory _referenceTableFactory;
+        private readonly IContainerDecoder _containerFactory;
+        private readonly IReferenceTableDecoder _referenceTableFactory;
         private readonly IReferenceTable[] _referenceTables;
 
-        public ReferenceTableProvider(IFileStore store, IContainerFactory containerFactory, IReferenceTableFactory referenceTableFactory)
+        public ReferenceTableProvider(IFileStore store, IContainerDecoder containerFactory, IReferenceTableDecoder referenceTableFactory)
         {
             _store = store;
             _containerFactory = containerFactory;

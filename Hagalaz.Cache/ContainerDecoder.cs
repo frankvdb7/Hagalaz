@@ -4,7 +4,7 @@ using Hagalaz.Cache.Utilities;
 
 namespace Hagalaz.Cache
 {
-    public class ContainerFactory : IContainerFactory
+    public class ContainerDecoder : IContainerDecoder
     {
         public IContainer Decode(MemoryStream stream)
         {

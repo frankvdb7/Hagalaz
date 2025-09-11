@@ -5,14 +5,14 @@ using Hagalaz.Cache.Extensions;
 
 namespace Hagalaz.Cache
 {
-    public class ReferenceTableFactory : IReferenceTableFactory
+    public class ReferenceTableDecoder : IReferenceTableDecoder
     {
         public IReferenceTable Decode(MemoryStream stream, bool readEntries)
         {
             /* read header */
             byte protocol = (byte)(stream.ReadSignedByte() & 0xFF);
             if (protocol < 5 || protocol > 7)
-                throw new Exception("Invalid reference table protocol!");
+                throw new InvalidDataException("Invalid reference table protocol!");
             int version = protocol >= 6 ? stream.ReadInt() : 0;
             var flags = (ReferenceTableFlags)stream.ReadUnsignedByte();
             int fileCount = protocol >= 7 ? stream.ReadBigSmart() : (stream.ReadShort() & 0xFFFF);

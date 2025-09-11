@@ -34,17 +34,17 @@ namespace Hagalaz.Cache.Extensions
         public static IServiceCollection AddGameCache(this IServiceCollection services, Action<CacheOptions> options)
         {
             services.Configure(options);
-            services.TryAddSingleton<IFileStoreFactory, FileStoreFactory>();
+            services.TryAddSingleton<IFileStoreLoader, FileStoreLoader>();
             services.TryAddSingleton<IFileStore>(provider =>
             {
                 var cacheOptions = provider.GetRequiredService<IOptions<CacheOptions>>();
-                var factory = provider.GetRequiredService<IFileStoreFactory>();
+                var factory = provider.GetRequiredService<IFileStoreLoader>();
                 return factory.Open(cacheOptions.Value.Path);
             });
             services.TryAddSingleton<IReferenceTableProvider, ReferenceTableProvider>();
             services.TryAddSingleton<ICacheWriter, CacheWriter>();
-            services.TryAddSingleton<IContainerFactory, ContainerFactory>();
-            services.TryAddSingleton<IReferenceTableFactory, ReferenceTableFactory>();
+            services.TryAddSingleton<IContainerDecoder, ContainerDecoder>();
+            services.TryAddSingleton<IReferenceTableDecoder, ReferenceTableDecoder>();
             services.TryAddSingleton<ICacheAPI, CacheApi>();
             services.TryAddSingleton<IHuffmanCodeProvider, HuffmanCodeProvider>();
             services.TryAddTransient<IMapDecoder, MapDecoder>();

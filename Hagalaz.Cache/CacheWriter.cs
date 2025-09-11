@@ -7,9 +7,9 @@ namespace Hagalaz.Cache
     {
         private readonly IFileStore _store;
         private readonly IReferenceTableProvider _referenceTableProvider;
-        private readonly IContainerFactory _containerFactory;
+        private readonly IContainerDecoder _containerFactory;
 
-        public CacheWriter(IFileStore store, IReferenceTableProvider referenceTableProvider, IContainerFactory containerFactory)
+        public CacheWriter(IFileStore store, IReferenceTableProvider referenceTableProvider, IContainerDecoder containerFactory)
         {
             _store = store;
             _referenceTableProvider = referenceTableProvider;

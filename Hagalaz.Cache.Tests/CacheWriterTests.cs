@@ -8,14 +8,14 @@ namespace Hagalaz.Cache.Tests
     {
         private readonly Mock<IFileStore> _fileStoreMock;
         private readonly Mock<IReferenceTableProvider> _referenceTableProviderMock;
-        private readonly Mock<IContainerFactory> _containerFactoryMock;
+        private readonly Mock<IContainerDecoder> _containerFactoryMock;
         private readonly CacheWriter _cacheWriter;
 
         public CacheWriterTests()
         {
             _fileStoreMock = new Mock<IFileStore>();
             _referenceTableProviderMock = new Mock<IReferenceTableProvider>();
-            _containerFactoryMock = new Mock<IContainerFactory>();
+            _containerFactoryMock = new Mock<IContainerDecoder>();
             _cacheWriter = new CacheWriter(_fileStoreMock.Object, _referenceTableProviderMock.Object, _containerFactoryMock.Object);
         }
 

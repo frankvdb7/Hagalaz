@@ -1,6 +1,6 @@
 namespace Hagalaz.Cache
 {
-    public interface IFileStoreFactory
+    public interface IFileStoreLoader
     {
         IFileStore Open(string rootPath);
     }

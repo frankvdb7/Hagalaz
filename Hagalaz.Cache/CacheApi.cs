@@ -16,11 +16,11 @@ namespace Hagalaz.Cache
         private readonly IFileStore _store;
         private readonly IReferenceTableProvider _referenceTableProvider;
         private readonly ICacheWriter _cacheWriter;
-        private readonly IContainerFactory _containerFactory;
+        private readonly IContainerDecoder _containerFactory;
 
-        private readonly IReferenceTableFactory _referenceTableFactory;
+        private readonly IReferenceTableDecoder _referenceTableFactory;
 
-        public CacheApi(IFileStore store, IReferenceTableProvider referenceTableProvider, ICacheWriter cacheWriter, IContainerFactory containerFactory, IReferenceTableFactory referenceTableFactory)
+        public CacheApi(IFileStore store, IReferenceTableProvider referenceTableProvider, ICacheWriter cacheWriter, IContainerDecoder containerFactory, IReferenceTableDecoder referenceTableFactory)
         {
             _store = store;
             _referenceTableProvider = referenceTableProvider;

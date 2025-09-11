@@ -2,7 +2,7 @@ using System.IO;
 
 namespace Hagalaz.Cache
 {
-    public interface IContainerFactory
+    public interface IContainerDecoder
     {
         IContainer Decode(MemoryStream stream);
     }

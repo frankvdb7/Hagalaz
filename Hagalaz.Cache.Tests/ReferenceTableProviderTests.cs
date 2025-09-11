@@ -11,8 +11,8 @@ namespace Hagalaz.Cache.Tests
         {
             // Arrange
             var fileStoreMock = new Mock<IFileStore>();
-            var containerFactoryMock = new Mock<IContainerFactory>();
-            var referenceTableFactoryMock = new Mock<IReferenceTableFactory>();
+            var containerFactoryMock = new Mock<IContainerDecoder>();
+            var referenceTableFactoryMock = new Mock<IReferenceTableDecoder>();
 
             var containerMock = new Mock<IContainer>();
             containerMock.Setup(c => c.Data).Returns(new MemoryStream());

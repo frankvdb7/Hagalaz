@@ -4,11 +4,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Cache
 {
-    public class FileStoreFactory : IFileStoreFactory
+    public class FileStoreLoader : IFileStoreLoader
     {
         private readonly ILogger<FileStore> _logger;
 
-        public FileStoreFactory(ILogger<FileStore> logger)
+        public FileStoreLoader(ILogger<FileStore> logger)
         {
             _logger = logger;
         }
