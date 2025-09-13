@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Linq;
 using System.Text;
 
 namespace Hagalaz.Security.Tests
@@ -16,7 +17,7 @@ namespace Hagalaz.Security.Tests
             // Act
             var data = Encoding.UTF8.GetBytes(input);
             var result = Whirlpool.GenerateDigest(data, 0, data.Length);
-            var actualHash = BitConverter.ToString(result).Replace("-", "");
+            var actualHash = Convert.ToHexString(result);
 
             // Assert
             Assert.AreEqual(expectedHash, actualHash, true);
@@ -32,7 +33,7 @@ namespace Hagalaz.Security.Tests
             // Act
             var data = Encoding.UTF8.GetBytes(input);
             var result = Whirlpool.GenerateDigest(data, 0, data.Length);
-            var actualHash = BitConverter.ToString(result).Replace("-", "");
+            var actualHash = Convert.ToHexString(result);
 
             // Assert
             Assert.AreEqual(expectedHash, actualHash, true);
@@ -42,16 +43,12 @@ namespace Hagalaz.Security.Tests
         public void Whirlpool_AllByteValues_ShouldReturnCorrectHash()
         {
             // Arrange
-            var input = new byte[256];
-            for (int i = 0; i < 256; i++)
-            {
-                input[i] = (byte)i;
-            }
+            var input = Enumerable.Range(0, 256).Select(i => (byte)i).ToArray();
             var expectedHash = "05A308887B2392BFB3C71A438AA03153CA102B62CA9F5CBB4AC2D7F161C9D7F8BC6EB895CB2BE5F595C656C24C50F1E293F37C7B5B07F32BAF251DFE11B4B2A3";
 
             // Act
             var result = Whirlpool.GenerateDigest(input, 0, input.Length);
-            var actualHash = BitConverter.ToString(result).Replace("-", "");
+            var actualHash = Convert.ToHexString(result);
 
             // Assert
             Assert.AreEqual(expectedHash, actualHash, true);
@@ -67,7 +64,7 @@ namespace Hagalaz.Security.Tests
             // Act
             var data = Encoding.UTF8.GetBytes(input);
             var result = Whirlpool.GenerateDigest(data, 0, data.Length);
-            var actualHash = BitConverter.ToString(result).Replace("-", "");
+            var actualHash = Convert.ToHexString(result);
 
             // Assert
             Assert.AreEqual(expectedHash, actualHash, true);
