@@ -33,10 +33,17 @@ namespace Hagalaz.Cache
                 }
             }
 
-            var fileData = new MemoryStream[size];
-            for(int i = 0; i < size; i++)
+            var fileSizes = new int[size];
+            for (var id = 0; id < size; id++)
             {
-                fileData[i] = new MemoryStream();
+                var totalSize = 0;
+                for (var chunk = 0; chunk < chunks; chunk++)
+                {
+                    var chunkSize = chunkSizes[chunk, id] - (id > 0 ? chunkSizes[chunk, id - 1] : 0);
+                    totalSize += chunkSize;
+                }
+                fileSizes[id] = totalSize;
+                archive.Entries![id] = new MemoryStream(fileSizes[id]);
             }
 
             stream.Position = 0;
@@ -51,14 +58,13 @@ namespace Hagalaz.Cache
 
                     var temp = new byte[delta];
                     stream.Read(temp, 0, delta);
-                    fileData[id].Write(temp, 0, delta);
+                    archive.Entries![id].Write(temp, 0, delta);
                 }
             }
 
-            archive.Entries = new MemoryStream[size];
-            for(int i = 0; i < size; i++)
+            for (var id = 0; id < size; id++)
             {
-                archive.Entries[i] = new MemoryStream(fileData[i].ToArray());
+                archive.Entries![id].Position = 0;
             }
 
             return archive;
