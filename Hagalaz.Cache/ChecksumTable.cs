@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using Hagalaz.Cache.Extensions;
-using Hagalaz.Cache.Utilities;
+using Hagalaz.Security;
 
 namespace Hagalaz.Cache
 {

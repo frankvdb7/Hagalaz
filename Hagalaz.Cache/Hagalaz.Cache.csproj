@@ -13,5 +13,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Cache.Abstractions\Hagalaz.Cache.Abstractions.csproj" />
     <ProjectReference Include="..\Hagalaz.Cache.Extensions\Hagalaz.Cache.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Security\Hagalaz.Security.csproj" />
   </ItemGroup>
 </Project>

@@ -1,4 +1,5 @@
 using Hagalaz.Cache.Utilities;
+using Hagalaz.Security;
 using System.IO;
 
 namespace Hagalaz.Cache

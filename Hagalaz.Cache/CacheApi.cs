@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using Hagalaz.Cache.Utilities;
+using Hagalaz.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 

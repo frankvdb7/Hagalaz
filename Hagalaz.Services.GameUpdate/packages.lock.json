@@ -596,6 +596,7 @@
         "dependencies": {
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Cache.Extensions": "[1.0.0, )",
+          "Hagalaz.Security": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.8, )",
           "Microsoft.Extensions.Logging.Abstractions": "[9.0.8, )",
           "Microsoft.Extensions.Options": "[9.0.8, )",
@@ -617,6 +618,9 @@
         "dependencies": {
           "Microsoft.Extensions.Hosting.Abstractions": "[9.0.8, )"
         }
+      },
+      "hagalaz.security": {
+        "type": "Project"
       },
       "hagalaz.servicedefaults": {
         "type": "Project",
