@@ -52,6 +52,9 @@
         "dependencies": {
           "Hagalaz.Cache.Abstractions": "[1.0.0, )"
         }
+      },
+      "hagalaz.security": {
+        "type": "Project"
       }
     }
   }
