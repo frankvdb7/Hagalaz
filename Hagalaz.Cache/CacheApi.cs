@@ -18,16 +18,18 @@ namespace Hagalaz.Cache
         private readonly IReferenceTableProvider _referenceTableProvider;
         private readonly ICacheWriter _cacheWriter;
         private readonly IContainerDecoder _containerFactory;
+        private readonly IArchiveDecoder _archiveDecoder;
 
         private readonly IReferenceTableDecoder _referenceTableFactory;
 
-        public CacheApi(IFileStore store, IReferenceTableProvider referenceTableProvider, ICacheWriter cacheWriter, IContainerDecoder containerFactory, IReferenceTableDecoder referenceTableFactory)
+        public CacheApi(IFileStore store, IReferenceTableProvider referenceTableProvider, ICacheWriter cacheWriter, IContainerDecoder containerFactory, IReferenceTableDecoder referenceTableFactory, IArchiveDecoder archiveDecoder)
         {
             _store = store;
             _referenceTableProvider = referenceTableProvider;
             _cacheWriter = cacheWriter;
             _containerFactory = containerFactory;
             _referenceTableFactory = referenceTableFactory;
+            _archiveDecoder = archiveDecoder;
         }
 
         /// <summary>
@@ -134,7 +136,7 @@ namespace Hagalaz.Cache
             using (var container = ReadContainer(indexId, fileId))
             {
                 /* decode the archive from the container */
-                return Archive.Decode(container, entry.Capacity);
+                return _archiveDecoder.Decode(container, entry.Capacity);
             }
         }
 
@@ -162,7 +164,7 @@ namespace Hagalaz.Cache
             using (var container = ReadContainer(indexId, fileId))
             {
                 /* extract the entry from the archive */
-                var archive = Archive.Decode(container, entry.Capacity);
+                var archive = _archiveDecoder.Decode(container, entry.Capacity);
                 return archive.GetEntry(subFileId);
             }
         }
