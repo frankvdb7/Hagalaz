@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -96,7 +97,8 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
 
             if (!logItem.ItemScript.DropItem(logItem, character))
             {
-                return true;
+                character.SendChatMessage("You can't drop the logs here to make a fire.");
+                return false;
             }
 
             var groundItemService = character.ServiceProvider.GetRequiredService<IGroundItemService>();
@@ -140,6 +142,12 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
 
             void Callback()
             {
+                if (region.FindStandardGameObject(logItem.Location.RegionLocalX, logItem.Location.RegionLocalY, logItem.Location.Z) != null)
+                {
+                    character.SendChatMessage("Someone else has already lit a fire here.");
+                    return;
+                }
+
                 region.Remove(logItem);
                 var gameObj = _gameObjectBuilder.Create()
                     .WithId(log.FireObjectId)
@@ -169,6 +177,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                     log.Ticks));
             }
 
+            character.FaceLocation(logItem.Location);
             character.QueueTask(new FiremakingTask(character, log, Callback));
             character.SendChatMessage("You attempt to light the logs.");
         }

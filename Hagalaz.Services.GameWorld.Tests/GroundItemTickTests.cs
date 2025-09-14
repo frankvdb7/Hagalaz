@@ -13,6 +13,7 @@ using Hagalaz.Services.GameWorld.Model.Items;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Hagalaz.Game.Configuration;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {
@@ -21,51 +22,51 @@ namespace Hagalaz.Services.GameWorld.Tests
     {
         private static MapRegion CreateRegion(int publicTicks = 100)
         {
-            var npcService = new Mock<INpcService>();
-            var regionService = new Mock<IMapRegionService>();
-            var gameObjectBuilder = new Mock<IGameObjectBuilder>();
+            var npcService = Substitute.For<INpcService>();
+            var regionService = Substitute.For<IMapRegionService>();
+            var gameObjectBuilder = Substitute.For<IGameObjectBuilder>();
             var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks);
             var mapper = new MapperConfiguration(cfg => { }).CreateMapper();
             var location = Location.Create(0, 0);
             return new MapRegion(
                 location,
                 new int[4],
-                npcService.Object,
-                regionService.Object,
-                gameObjectBuilder.Object,
+                npcService,
+                regionService,
+                gameObjectBuilder,
                 groundItemBuilder,
                 mapper);
         }
 
         private static IGroundItem CreateItem(int respawnTicks, int ticksLeft)
         {
-            var itemScript = new Mock<IItemScript>();
-            itemScript.Setup(s => s.CanTradeItem(It.IsAny<IItem>(), It.IsAny<ICharacter>())).Returns(true);
-            var item = new Mock<IItem>();
-            item.SetupGet(i => i.ItemScript).Returns(itemScript.Object);
-            item.Setup(i => i.Clone()).Returns(item.Object);
-            item.Setup(i => i.Clone(It.IsAny<int>())).Returns(item.Object);
-            item.SetupGet(i => i.Name).Returns("Item");
-            item.SetupGet(i => i.Count).Returns(1);
-            item.SetupGet(i => i.Id).Returns(0);
+            var itemScript = Substitute.For<IItemScript>();
+            itemScript.CanTradeItem(Arg.Any<IItem>(), Arg.Any<ICharacter>()).Returns(true);
+            var item = Substitute.For<IItem>();
+            item.ItemScript.Returns(itemScript);
+            item.Clone().Returns(item);
+            item.Clone(Arg.Any<int>()).Returns(item);
+            item.Name.Returns("Item");
+            item.Count.Returns(1);
+            item.Id.Returns(0);
             var location = Location.Create(10, 10);
-            return new GroundItem(item.Object, location, null, respawnTicks, ticksLeft);
+            return new GroundItem(item, location, null, respawnTicks, ticksLeft);
         }
 
         private static IGroundItem CreatePrivateItem(bool tradable, int ticksLeft)
         {
-            var itemScript = new Mock<IItemScript>();
-            itemScript.Setup(s => s.CanTradeItem(It.IsAny<IItem>(), It.IsAny<ICharacter>())).Returns(tradable);
-            var item = new Mock<IItem>();
-            item.SetupGet(i => i.ItemScript).Returns(itemScript.Object);
-            item.Setup(i => i.Clone()).Returns(item.Object);
-            item.Setup(i => i.Clone(It.IsAny<int>())).Returns(item.Object);
-            item.SetupGet(i => i.Name).Returns("Item");
-            item.SetupGet(i => i.Count).Returns(1);
-            item.SetupGet(i => i.Id).Returns(0);
+            var itemScript = Substitute.For<IItemScript>();
+            itemScript.CanTradeItem(Arg.Any<IItem>(), Arg.Any<ICharacter>()).Returns(tradable);
+            var item = Substitute.For<IItem>();
+            item.ItemScript.Returns(itemScript);
+            item.Clone().Returns(item);
+            item.Clone(Arg.Any<int>()).Returns(item);
+            item.Name.Returns("Item");
+            item.Count.Returns(1);
+            item.Id.Returns(0);
             var location = Location.Create(10, 10);
-            var owner = new Mock<ICharacter>().Object;
-            return new GroundItem(item.Object, location, owner, 0, ticksLeft);
+            var owner = Substitute.For<ICharacter>();
+            return new GroundItem(item, location, owner, 0, ticksLeft);
         }
 
         [TestMethod]
