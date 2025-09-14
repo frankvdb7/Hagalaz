@@ -67,10 +67,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         public DuelRules Rules { get; }
 
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
         protected override void Initialize()
+        {
+        }
+
+        public override void OnRegistered()
         {
             DuelSession = true;
             MyHintIcon = _hintIconBuilder.Create().AtEntity(Target!).Build();
@@ -256,7 +257,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     StartVictoryStage(character, Character);
                 }
 
-                Target?.SendChatMessage(string.Format(GameStrings.ResourceManager.GetString(GameStrings.Combat_VictorKillMessage + RandomStatic.Generator.Next(9)), Character.DisplayName));
+                var message = GameStrings.ResourceManager.GetString(GameStrings.Combat_VictorKillMessage + RandomStatic.Generator.Next(9));
+                if (message != null)
+                {
+                    Target?.SendChatMessage(string.Format(message, Character.DisplayName));
+                }
 
                 // TODO
                 //var database = ServiceLocator.Current.GetInstance<ISqlDatabaseManager>();
