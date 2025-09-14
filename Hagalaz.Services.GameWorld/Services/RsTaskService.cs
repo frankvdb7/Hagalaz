@@ -36,7 +36,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 if (_tasks[i].IsCancelled || _tasks[i].IsCompleted || _tasks[i].IsFaulted)
                 {
                     _tasks.RemoveAt(i);
-                    return;
+                    continue;
                 }
 
                 try
