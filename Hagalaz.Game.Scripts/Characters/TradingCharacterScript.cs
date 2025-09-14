@@ -1466,32 +1466,32 @@ namespace Hagalaz.Game.Scripts.Characters
                     Character.Widgets.IntInputHandler = null;
                 }
 
-                if (Target.Widgets.IntInputHandler == TargetIntInputHandler)
+        if (Target != null && Target.Widgets.IntInputHandler == TargetIntInputHandler)
                 {
                     Target.Widgets.IntInputHandler = null;
                 }
 
-                if (SelfInterface.IsOpened)
+        if (SelfInterface != null && SelfInterface.IsOpened)
                 {
                     Character.Widgets.CloseWidget(SelfInterface);
                 }
 
-                if (TargetInterface.IsOpened)
+        if (TargetInterface != null && TargetInterface.IsOpened)
                 {
                     Target.Widgets.CloseWidget(TargetInterface);
                 }
 
-                if (SelfOverlay.IsOpened)
+        if (SelfOverlay != null && SelfOverlay.IsOpened)
                 {
                     Character.Widgets.CloseWidget(SelfOverlay);
                 }
 
-                if (TargetOverlay.IsOpened)
+        if (TargetOverlay != null && TargetOverlay.IsOpened)
                 {
                     Target.Widgets.CloseWidget(TargetOverlay);
                 }
 
-                if (SelfContainer.TakenSlots > 0)
+        if (SelfContainer != null && SelfContainer.TakenSlots > 0)
                 {
                     for (var i = 0; i < SelfContainer.Capacity; i++)
                     {
@@ -1509,7 +1509,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     }
                 }
 
-                if (TargetContainer.TakenSlots > 0)
+        if (TargetContainer != null && TargetContainer.TakenSlots > 0)
                 {
                     for (var i = 0; i < TargetContainer.Capacity; i++)
                     {
@@ -1517,11 +1517,11 @@ namespace Hagalaz.Game.Scripts.Characters
                         {
                             if (TargetContainer[(short)i].Id == 995)
                             {
-                                Target.MoneyPouch.Add(TargetContainer[(short)i].Count);
+                        Target?.MoneyPouch.Add(TargetContainer[(short)i].Count);
                             }
                             else
                             {
-                                Target.Inventory.Add(TargetContainer[(short)i]);
+                        Target?.Inventory.Add(TargetContainer[(short)i]);
                             }
                         }
                     }

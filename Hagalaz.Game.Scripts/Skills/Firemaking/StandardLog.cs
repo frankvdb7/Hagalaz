@@ -23,11 +23,12 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
         private readonly IPathFinderProvider _pathFinderProvider;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
+        private readonly IMapRegionService _mapRegionService;
 
         public StandardLog(
             IFiremakingService firemakingService, IFletchingSkillService fletchingSkillService, IRsTaskService taskService,
             IPathFinderProvider pathFinderProvider, IGroundItemBuilder groundItemBuilder,
-            IGameObjectBuilder gameObjectBuilder)
+            IGameObjectBuilder gameObjectBuilder, IMapRegionService mapRegionService)
         {
             _firemakingService = firemakingService;
             _fletchingSkillService = fletchingSkillService;
@@ -35,6 +36,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
             _pathFinderProvider = pathFinderProvider;
             _groundItemBuilder = groundItemBuilder;
             _gameObjectBuilder = gameObjectBuilder;
+            _mapRegionService = mapRegionService;
         }
 
         /// <summary>
@@ -123,8 +125,8 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 return;
             }
 
-            var region = logItem.Region;
-            if (region.FindStandardGameObject(logItem.Location.RegionLocalX, logItem.Location.RegionLocalY, logItem.Location.Z) != null)
+            var region = _mapRegionService.GetMapRegion(logItem.Location.RegionId, logItem.Location.Dimension, false, true);
+            if (region == null || region.FindStandardGameObject(logItem.Location.RegionLocalX, logItem.Location.RegionLocalY, logItem.Location.Z) != null)
             {
                 character.SendChatMessage("You can't light a fire here.");
                 return;
