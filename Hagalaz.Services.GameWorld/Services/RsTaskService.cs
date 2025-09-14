@@ -18,6 +18,8 @@ namespace Hagalaz.Services.GameWorld.Services
         /// </summary>
         private readonly List<ITaskItem> _tasks = [];
 
+        internal IReadOnlyList<ITaskItem> Tasks => _tasks;
+
         public RsTaskService(ILogger<RsTaskService> logger) => _logger = logger;
 
         /// <summary>

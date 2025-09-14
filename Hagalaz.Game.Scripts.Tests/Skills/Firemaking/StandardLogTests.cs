@@ -114,30 +114,33 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             region.FindStandardGameObject(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns((IGameObject)null);
             character.Inventory.GetById(FiremakingConstants.Tinderbox).Returns(Substitute.For<IItem>());
 
-            var firemakingTasks = new List<FiremakingTask>();
+            ITaskItem capturedTask = null;
             character.When(x => x.QueueTask(Arg.Any<ITaskItem>()))
                 .Do(callInfo =>
                 {
-                    var task = callInfo.Arg<ITaskItem>();
-                    if (task is RsAsyncTask asyncTask)
-                    {
-                        var taskExecField = typeof(RsAsyncTask).GetField("_taskExec", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        var taskExec = (Func<Task>)taskExecField.GetValue(asyncTask);
-                        taskExec.Invoke();
-                    }
-                    else if (task is FiremakingTask firemakingTask)
-                    {
-                        firemakingTasks.Add(firemakingTask);
-                    }
+                    capturedTask = callInfo.Arg<ITaskItem>();
+                });
+
+            _taskService.When(x => x.Schedule(Arg.Any<FiremakingTask>()))
+                .Do(callInfo =>
+                {
+                    var firemakingTask = callInfo.Arg<FiremakingTask>();
+                    firemakingTask.Tick();
                 });
 
             // Act
             _standardLog.ItemClickedOnGroundPerform(logItem, GroundItemClickType.Option4Click, character);
 
-            // Assert
-            Assert.IsTrue(firemakingTasks.Count > 0);
-            firemakingTasks[0].Tick();
+            if (capturedTask is RsAsyncTask rsAsyncTask)
+            {
+                rsAsyncTask.Tick();
+            }
+            else if (capturedTask is RsTask rsTask)
+            {
+                rsTask.Tick();
+            }
 
+            // Assert
             character.Received().FaceLocation(location);
         }
     }

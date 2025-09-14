@@ -33,11 +33,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var task3 = Substitute.For<ITaskItem>();
             taskService.Schedule(task3);
 
-            var internalTasksField = typeof(RsTaskService).GetField("_tasks", BindingFlags.NonPublic | BindingFlags.Instance);
-            var internalTasks = (List<ITaskItem>)internalTasksField.GetValue(taskService);
-
-            Assert.AreEqual(1, internalTasks.Count);
-            Assert.AreSame(task3, internalTasks[0]);
+            Assert.AreEqual(1, taskService.Tasks.Count);
+            Assert.AreSame(task3, taskService.Tasks[0]);
         }
     }
 }
