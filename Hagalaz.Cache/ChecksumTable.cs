@@ -18,7 +18,7 @@ namespace Hagalaz.Cache
         /// <summary>
         /// The files.
         /// </summary>
-        private ChecksumTableEntry[] _entries;
+        internal ChecksumTableEntry[] _entries;
 
         public ChecksumTableEntry[] Entries => _entries;
 

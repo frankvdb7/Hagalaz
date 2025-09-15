@@ -1,10 +1,10 @@
-using Hagalaz.Services.GameWorld.Logic.Loot;
-using Moq;
 using AwesomeAssertions;
+using Hagalaz.Services.GameWorld.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Random;
 using System.Collections.Generic;
 using System.Linq;
+using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {
@@ -12,13 +12,13 @@ namespace Hagalaz.Services.GameWorld.Tests
     public class LootGeneratorTests
     {
         private LootGenerator _generator;
-        private Mock<IRandomProvider> _randomProviderMock;
+        private IRandomProvider _randomProviderMock;
 
         [TestInitialize]
         public void Setup()
         {
-            _randomProviderMock = new Mock<IRandomProvider>();
-            _generator = new LootGenerator(_randomProviderMock.Object);
+            _randomProviderMock = Substitute.For<IRandomProvider>();
+            _generator = new LootGenerator(_randomProviderMock);
         }
 
         [TestMethod]
@@ -56,7 +56,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item = new TestLootItem { Id = 1, Always = true };
             var table = new TestLootTable { Entries = new List<ILootObject> { item } };
             var lootParams = new LootParams(table) { MaxCount = 1 };
-            _randomProviderMock.Setup(r => r.Next(It.IsAny<int>(), It.IsAny<int>())).Returns(1);
+            _randomProviderMock.Next(Arg.Any<int>(), Arg.Any<int>()).Returns(1);
 
             // Act
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
@@ -75,7 +75,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item3 = new TestLootItem { Id = 3, Probability = 1 };
             var table = new TestLootTable { Entries = new List<ILootObject> { item1, item2, item3 } };
             var lootParams = new LootParams(table) { MaxCount = 2 };
-            _randomProviderMock.Setup(r => r.Next(It.IsAny<int>())).Returns(0);
+            _randomProviderMock.Next(Arg.Any<int>()).Returns(0);
 
             // Act
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
@@ -93,7 +93,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var mainItem = new TestLootItem { Id = 2, Always = true };
             var mainTable = new TestLootTable { Entries = new List<ILootObject> { mainItem, nestedTable }, MaxResultCount = 2 };
             var lootParams = new LootParams(mainTable) { MaxCount = 2 };
-            _randomProviderMock.Setup(r => r.Next(It.IsAny<int>(), It.IsAny<int>())).Returns(1);
+            _randomProviderMock.Next(Arg.Any<int>(), Arg.Any<int>()).Returns(1);
 
             // Act
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
@@ -113,8 +113,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item3 = new TestLootItem { Id = 3, Probability = 1 };
             var table = new TestLootTable { Entries = new List<ILootObject> { item1, item2, item3 }, RandomizeResultCount = true };
             var lootParams = new LootParams(table) { MaxCount = 3 };
-            _randomProviderMock.Setup(r => r.Next(0, 4)).Returns(2);
-            _randomProviderMock.Setup(r => r.Next(It.IsAny<int>())).Returns(0);
+            _randomProviderMock.Next(0, 4).Returns(2);
+            _randomProviderMock.Next(Arg.Any<int>()).Returns(0);
 
             // Act
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
@@ -128,18 +128,17 @@ namespace Hagalaz.Services.GameWorld.Tests
         {
             // Arrange
             var item1 = new TestLootItem { Id = 1, Probability = 1 };
-            var modifier = new Mock<IRandomObjectModifier>();
-            modifier.Setup(m => m.Apply(It.IsAny<RandomObjectContext>()))
-                .Callback<RandomObjectContext>(c => c.ModifiedProbability *= 2);
-            var table = new TestLootTable { Entries = new List<ILootObject> { item1 }, Modifiers = new List<IRandomObjectModifier> { modifier.Object } };
+            var modifier = Substitute.For<IRandomObjectModifier>();
+            modifier.Apply(Arg.Do<RandomObjectContext>(c => c.ModifiedProbability *= 2));
+            var table = new TestLootTable { Entries = new List<ILootObject> { item1 }, Modifiers = new List<IRandomObjectModifier> { modifier } };
             var lootParams = new LootParams(table) { MaxCount = 1 };
-            _randomProviderMock.Setup(r => r.Next(It.IsAny<int>())).Returns(0);
+            _randomProviderMock.Next(Arg.Any<int>()).Returns(0);
 
             // Act
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
 
             // Assert
-            modifier.Verify(m => m.Apply(It.IsAny<RandomObjectContext>()), Times.Once);
+            modifier.Received().Apply(Arg.Any<RandomObjectContext>());
         }
 
         [TestMethod]
@@ -147,19 +146,18 @@ namespace Hagalaz.Services.GameWorld.Tests
         {
             // Arrange
             var item1 = new TestLootItem { Id = 1, Always = true };
-            var modifier = new Mock<IRandomObjectModifier>();
-            modifier.Setup(m => m.Apply(It.IsAny<RandomObjectContext>()))
-                .Callback<RandomObjectContext>(c =>
+            var modifier = Substitute.For<IRandomObjectModifier>();
+            modifier.Apply(Arg.Do<RandomObjectContext>(c =>
+            {
+                if (c is LootContext lootContext)
                 {
-                    if (c is LootContext lootContext)
-                    {
-                        lootContext.ModifiedMinimumCount = 5;
-                        lootContext.ModifiedMaximumCount = 5;
-                    }
-                });
-            var table = new TestLootTable { Entries = new List<ILootObject> { item1 }, Modifiers = new List<IRandomObjectModifier> { modifier.Object } };
+                    lootContext.ModifiedMinimumCount = 5;
+                    lootContext.ModifiedMaximumCount = 5;
+                }
+            }));
+            var table = new TestLootTable { Entries = new List<ILootObject> { item1 }, Modifiers = new List<IRandomObjectModifier> { modifier } };
             var lootParams = new LootParams(table) { MaxCount = 1 };
-            _randomProviderMock.Setup(r => r.Next(5, 6)).Returns(5);
+            _randomProviderMock.Next(5, 6).Returns(5);
 
             // Act
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
@@ -190,5 +188,6 @@ namespace Hagalaz.Services.GameWorld.Tests
             public bool Always { get; set; }
             public double Probability { get; set; }
         }
+
     }
 }

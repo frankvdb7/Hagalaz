@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -23,11 +24,12 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
         private readonly IPathFinderProvider _pathFinderProvider;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
+        private readonly IMapRegionService _mapRegionService;
 
         public StandardLog(
             IFiremakingService firemakingService, IFletchingSkillService fletchingSkillService, IRsTaskService taskService,
             IPathFinderProvider pathFinderProvider, IGroundItemBuilder groundItemBuilder,
-            IGameObjectBuilder gameObjectBuilder)
+            IGameObjectBuilder gameObjectBuilder, IMapRegionService mapRegionService)
         {
             _firemakingService = firemakingService;
             _fletchingSkillService = fletchingSkillService;
@@ -35,6 +37,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
             _pathFinderProvider = pathFinderProvider;
             _groundItemBuilder = groundItemBuilder;
             _gameObjectBuilder = gameObjectBuilder;
+            _mapRegionService = mapRegionService;
         }
 
         /// <summary>
@@ -94,7 +97,8 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
 
             if (!logItem.ItemScript.DropItem(logItem, character))
             {
-                return true;
+                character.SendChatMessage("You can't drop the logs here to make a fire.");
+                return false;
             }
 
             var groundItemService = character.ServiceProvider.GetRequiredService<IGroundItemService>();
@@ -123,8 +127,8 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                 return;
             }
 
-            var region = logItem.Region;
-            if (region.FindStandardGameObject(logItem.Location.RegionLocalX, logItem.Location.RegionLocalY, logItem.Location.Z) != null)
+            var region = _mapRegionService.GetMapRegion(logItem.Location.RegionId, logItem.Location.Dimension, false, true);
+            if (region == null || region.FindStandardGameObject(logItem.Location.RegionLocalX, logItem.Location.RegionLocalY, logItem.Location.Z) != null)
             {
                 character.SendChatMessage("You can't light a fire here.");
                 return;
@@ -138,6 +142,12 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
 
             void Callback()
             {
+                if (region.FindStandardGameObject(logItem.Location.RegionLocalX, logItem.Location.RegionLocalY, logItem.Location.Z) != null)
+                {
+                    character.SendChatMessage("Someone else has already lit a fire here.");
+                    return;
+                }
+
                 region.Remove(logItem);
                 var gameObj = _gameObjectBuilder.Create()
                     .WithId(log.FireObjectId)
@@ -167,6 +177,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
                     log.Ticks));
             }
 
+            character.FaceLocation(logItem.Location);
             character.QueueTask(new FiremakingTask(character, log, Callback));
             character.SendChatMessage("You attempt to light the logs.");
         }

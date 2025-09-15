@@ -32,6 +32,8 @@ namespace Hagalaz.Cache
         /// </summary>
         private FileStream _mainIndexFile;
 
+        private readonly IIndexCodec _indexCodec;
+
         /// <summary>
         /// Contains the cache file count.
         /// </summary>
@@ -44,11 +46,13 @@ namespace Hagalaz.Cache
         /// <param name="dataFile">The data file.</param>
         /// <param name="indexFiles">The index files.</param>
         /// <param name="mainIndexFile">The 'meta' index file.</param>
-        public FileStore(FileStream dataFile, FileStream[] indexFiles, FileStream mainIndexFile)
+        /// <param name="indexCodec">The index codec.</param>
+        public FileStore(FileStream dataFile, FileStream[] indexFiles, FileStream mainIndexFile, IIndexCodec indexCodec)
         {
             _dataFile = dataFile;
             _indexFiles = indexFiles;
             _mainIndexFile = mainIndexFile;
+            _indexCodec = indexCodec;
         }
 
         /// <summary>
@@ -103,7 +107,7 @@ namespace Hagalaz.Cache
                     indexStream.Seek(Index.IndexSize * fileId, SeekOrigin.Begin);
                     indexStream.Read(indexData);
 
-                    var index = Index.Decode(indexData);
+                    var index = _indexCodec.Decode(indexData);
                     if (index.Size < 0 || index.Size > Sector.MaxFileSize) throw new InvalidDataException("Index size is invalid.");
                     if (index.SectorID <= 0 || (_dataFile.Length / Sector.DataSize) < index.SectorID)
                         throw new InvalidDataException("Index sector id is invalid.");
@@ -192,7 +196,7 @@ namespace Hagalaz.Cache
                     indexStream.Seek(Index.IndexSize * fileId, SeekOrigin.Begin);
                     indexStream.Read(indexData, 0, Index.IndexSize);
 
-                    nextSectorId = Index.Decode(indexData).SectorID;
+                    nextSectorId = _indexCodec.Decode(indexData).SectorID;
                     if (nextSectorId <= 0 || nextSectorId > (_dataFile.Length / (long)Sector.DataSize)) return false;
                 }
                 else
@@ -202,7 +206,7 @@ namespace Hagalaz.Cache
                 }
 
                 var index = new Index((int)(data.Length - data.Position), nextSectorId);
-                var newIndexData = index.Encode();
+                var newIndexData = _indexCodec.Encode(index);
                 indexStream.Seek(ptr, SeekOrigin.Begin);
                 indexStream.Write(newIndexData, 0, newIndexData.Length);
                 indexStream.Flush(true);
