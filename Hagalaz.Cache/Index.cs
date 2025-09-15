@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using Hagalaz.Cache.Extensions;
 
 namespace Hagalaz.Cache
 {
@@ -32,5 +34,36 @@ namespace Hagalaz.Cache
             SectorID = sectorID;
         }
 
+        /// <summary>
+        /// Decodes the specified buffer.
+        /// </summary>
+        /// <param name="data">The data.</param>
+        /// <returns></returns>
+        /// <exception cref="System.ArgumentException"></exception>
+        public static Index Decode(ReadOnlySpan<byte> data)
+        {
+            if (data.Length < IndexSize)
+                throw new ArgumentException("Invalid input data", nameof(data));
+
+            var position = 0;
+            var size = ((data[position++] & 0xFF) << 16) + ((data[position++] & 0xFF) << 8) + (data[position++] & 0xFF);
+            var sectorID = ((data[position++] & 0xFF) << 16) + ((data[position++] & 0xFF) << 8) + (data[position++] & 0xFF);
+
+            return new Index(size, sectorID);
+        }
+
+        /// <summary>
+        /// Encodes this instance.
+        /// </summary>
+        /// <returns></returns>
+        public byte[] Encode()
+        {
+            using (var writer = new MemoryStream(IndexSize))
+            {
+                writer.WriteMedInt(Size);
+                writer.WriteMedInt(SectorID);
+                return writer.ToArray();
+            }
+        }
     }
 }

@@ -18,7 +18,7 @@ namespace Hagalaz.Cache
         /// <summary>
         /// Contains whirlpool digest of this file.
         /// </summary>
-        public byte[] Digest { get; }
+        public byte[]? Digest { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChecksumTableEntry" /> class.
@@ -27,9 +27,9 @@ namespace Hagalaz.Cache
         /// <param name="version">The version.</param>
         /// <param name="digest">The digest.</param>
         /// <exception cref="System.ArgumentException">Whirlpool digest should be 64 bytes long.</exception>
-        public ChecksumTableEntry(int crc32, int version, byte[] digest)
+        public ChecksumTableEntry(int crc32, int version, byte[]? digest)
         {
-            if (digest.Length != 64)
+            if (digest != null && digest.Length != 64)
                 throw new ArgumentException("Whirlpool digest should be 64 bytes long.");
             Crc32 = crc32;
             Version = version;
