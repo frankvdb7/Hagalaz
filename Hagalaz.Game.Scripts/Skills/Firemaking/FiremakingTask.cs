@@ -46,7 +46,7 @@ namespace Hagalaz.Game.Scripts.Skills.Firemaking
         /// <summary>
         ///     Contains finish callback.
         /// </summary>
-        internal Action FinishCallback { get; }
+        private Action FinishCallback { get; }
 
         /// <summary>
         ///     Contains performer.

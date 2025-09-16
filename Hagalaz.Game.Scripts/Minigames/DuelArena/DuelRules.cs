@@ -283,7 +283,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         {
             if (this[Rule.NoMovement])
             {
-                EventHappened? happ = null;
+                EventHappened happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() == script)
@@ -292,14 +292,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return true;
                     }
 
-                    character.UnregisterEventHandler<WalkAllowEvent>(happ!);
+                    character.UnregisterEventHandler<WalkAllowEvent>(happ);
                     return false;
                 }));
             }
 
             if (!this[Rule.EnableSummoning])
             {
-                EventHappened? happ = null;
+                EventHappened happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<SummoningAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() == script)
@@ -308,14 +308,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return true;
                     }
 
-                    character.UnregisterEventHandler<SummoningAllowEvent>(happ!);
+                    character.UnregisterEventHandler<SummoningAllowEvent>(happ);
                     return false;
                 }));
             }
 
             if (this[Rule.NoDrinks])
             {
-                EventHappened? happ = null;
+                EventHappened happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<DrinkAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() == script)
@@ -324,14 +324,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return true;
                     }
 
-                    character.UnregisterEventHandler<DrinkAllowEvent>(happ!);
+                    character.UnregisterEventHandler<DrinkAllowEvent>(happ);
                     return false;
                 }));
             }
 
             if (this[Rule.NoFood])
             {
-                EventHappened? happ = null;
+                EventHappened happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<EatAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() == script)
@@ -340,14 +340,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return true;
                     }
 
-                    character.UnregisterEventHandler<EatAllowEvent>(happ!);
+                    character.UnregisterEventHandler<EatAllowEvent>(happ);
                     return false;
                 }));
             }
 
             if (this[Rule.NoSpecialAttacks])
             {
-                EventHappened? happ = null;
+                EventHappened happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<SpecialAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() == script)
@@ -356,14 +356,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return true;
                     }
 
-                    character.UnregisterEventHandler<SpecialAllowEvent>(happ!);
+                    character.UnregisterEventHandler<SpecialAllowEvent>(happ);
                     return false;
                 }));
             }
 
             if (this[Rule.NoPrayer])
             {
-                EventHappened? happ = null;
+                EventHappened happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<PrayerAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() == script)
@@ -372,14 +372,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return true;
                     }
 
-                    character.UnregisterEventHandler<PrayerAllowEvent>(happ!);
+                    character.UnregisterEventHandler<PrayerAllowEvent>(happ);
                     return false;
                 }));
             }
 
             if (this[Rule.NoMelee])
             {
-                EventHappened? happ = null;
+                EventHappened happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() == script)
@@ -394,14 +394,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         }
                     }
 
-                    character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                    character.UnregisterEventHandler<AttackAllowEvent>(happ);
                     return false;
                 }));
             }
 
             if (this[Rule.NoRanged])
             {
-                EventHappened? happ = null;
+                EventHappened happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() == script)
@@ -416,14 +416,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         }
                     }
 
-                    character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                    character.UnregisterEventHandler<AttackAllowEvent>(happ);
                     return false;
                 }));
             }
 
             if (this[Rule.NoMagic])
             {
-                EventHappened? happ = null;
+                EventHappened happ = null;
                 happ = character.RegisterEventHandler(new EventHappened<AttackAllowEvent>(e =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() == script)
@@ -437,7 +437,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         }
                     }
 
-                    character.UnregisterEventHandler<AttackAllowEvent>(happ!);
+                    character.UnregisterEventHandler<AttackAllowEvent>(happ);
                     return false;
                 }));
             }
@@ -447,7 +447,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 if (this[(Rule)ruleId])
                 {
                     var slot = ruleId - 10;
-                    EventHappened? happ = null;
+                    EventHappened happ = null;
                     happ = character.RegisterEventHandler(new EventHappened<EquipAllowEvent>(e =>
                     {
                         if (character.GetScript<DuelArenaCombatScript>() == script)
@@ -459,7 +459,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             }
                         }
 
-                        character.UnregisterEventHandler<EquipAllowEvent>(happ!);
+                        character.UnregisterEventHandler<EquipAllowEvent>(happ);
                         return false;
                     }));
                 }

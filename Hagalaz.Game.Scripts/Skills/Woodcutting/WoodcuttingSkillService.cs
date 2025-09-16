@@ -152,13 +152,6 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
 
             async ValueTask<bool> Callback()
             {
-                if (character.Inventory.FreeSlots < 1)
-                {
-                    character.QueueAnimation(Animation.Create(-1));
-                    character.SendChatMessage(NoInventorySpace);
-                    return true; // stop cutting
-                }
-
                 var service = _serviceProvider.GetRequiredService<ILootService>();
                 var table = await service.FindGameObjectLootTable(tree.Definition.LootTableId);
                 if (table == null)
@@ -224,7 +217,15 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                     return true;
                 }
 
-                return false; // keep cutting
+                // No more space left to keep cutting.
+                if (character.Inventory.FreeSlots >= 1)
+                {
+                    return false; // keep cutting
+                }
+
+                character.QueueAnimation(Animation.Create(-1));
+                character.SendChatMessage(NoInventorySpace);
+                return true; // stop cutting
             }
 
             // queue the woodcutting task.

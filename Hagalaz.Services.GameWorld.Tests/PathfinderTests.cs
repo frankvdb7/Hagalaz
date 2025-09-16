@@ -2,22 +2,21 @@
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
-using NSubstitute;
 using Path = Hagalaz.Services.GameWorld.Logic.Pathfinding.Path;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {
     [TestClass]
-    public class PathfinderTests
+    public class DumbPathfinderTests
     {
         private DumbPathFinder _pathfinder;
-        private IMapRegionService _mapRegionService;
+        private Mock<IMapRegionService> _mapRegionService;
 
         [TestInitialize]
         public void Initialize()
         {
-            _mapRegionService = Substitute.For<IMapRegionService>();
-            _pathfinder = new DumbPathFinder(_mapRegionService);
+            _mapRegionService = new Mock<IMapRegionService>();
+            _pathfinder = new DumbPathFinder(_mapRegionService.Object);
         }
 
         [TestMethod]
@@ -59,7 +58,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var to = Location.Create(3, 1, 0);
 
             // Mock getClippingFlag
-            _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+            _mapRegionService.Setup(s => s.GetClippingFlag(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>()))
                 .Returns(CollisionFlag.TraversableEastBlocked);
 
             // Act

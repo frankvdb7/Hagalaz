@@ -48,9 +48,6 @@
   <ItemGroup>
     <Folder Include="Model\Creatures\Combat\Experimental\" />
   </ItemGroup>
-  <ItemGroup>
-    <InternalsVisibleTo Include="Hagalaz.Services.GameWorld.Tests" />
-  </ItemGroup>
   <Target Name="PublishPlugins" BeforeTargets="Build">
     <ItemGroup>
       <PluginProject Include="..\Hagalaz.Game.Scripts\Hagalaz.Game.Scripts.csproj" />

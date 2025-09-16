@@ -18,8 +18,6 @@ namespace Hagalaz.Services.GameWorld.Services
         /// </summary>
         private readonly List<ITaskItem> _tasks = [];
 
-        internal IReadOnlyList<ITaskItem> Tasks => _tasks;
-
         public RsTaskService(ILogger<RsTaskService> logger) => _logger = logger;
 
         /// <summary>
@@ -38,7 +36,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 if (_tasks[i].IsCancelled || _tasks[i].IsCompleted || _tasks[i].IsFaulted)
                 {
                     _tasks.RemoveAt(i);
-                    continue;
+                    return;
                 }
 
                 try

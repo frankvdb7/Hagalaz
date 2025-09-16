@@ -7,12 +7,10 @@ namespace Hagalaz.Cache
     public class FileStoreLoader : IFileStoreLoader
     {
         private readonly ILogger<FileStore> _logger;
-        private readonly IIndexCodec _indexCodec;
 
-        public FileStoreLoader(ILogger<FileStore> logger, IIndexCodec indexCodec)
+        public FileStoreLoader(ILogger<FileStore> logger)
         {
             _logger = logger;
-            _indexCodec = indexCodec;
         }
 
         public IFileStore Open(string rootPath)
@@ -39,7 +37,7 @@ namespace Hagalaz.Cache
             var mainIndexFile = File.Open(rootPath + @"/main_file_cache.idx255", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
 
             /* initialize the store */
-            var store = new FileStore(dataFile, indexFiles.ToArray(), mainIndexFile, _indexCodec);
+            var store = new FileStore(dataFile, indexFiles.ToArray(), mainIndexFile);
 
             return store;
         }
