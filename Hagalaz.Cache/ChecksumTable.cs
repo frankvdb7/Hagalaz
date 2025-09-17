@@ -1,9 +1,6 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Numerics;
-using Hagalaz.Cache.Extensions;
-using Hagalaz.Security;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace Hagalaz.Cache
 {
@@ -13,29 +10,20 @@ namespace Hagalaz.Cache
     /// with the file type and id it is more commonly known as the client's
     /// "update keys".
     /// </summary>
-    public class ChecksumTable : IDisposable
+    public class ChecksumTable : IDisposable, IEnumerable<ChecksumTableEntry>
     {
         /// <summary>
         /// The files.
         /// </summary>
-        internal ChecksumTableEntry[] _entries;
+        private readonly ChecksumTableEntry[] _entries;
 
         /// <summary>
         /// Contains count of entries.
         /// </summary>
         /// <value>The entry count.</value>
-        public int Count
-        {
-            get
-            {
-                if (_entries == null)
-                {
-                    throw new InvalidOperationException($"{nameof(ChecksumTable)} is not decoded");
-                }
+        public int Count => _entries.Length;
 
-                return _entries.Length;
-            }
-        }
+        public ChecksumTableEntry this[int index] => _entries[index];
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChecksumTable"/> class.
@@ -57,69 +45,15 @@ namespace Hagalaz.Cache
             _entries[entryID] = file;
         }
 
-        /// <summary>
-        /// Encodes this <see cref="ChecksumTable"/>.
-        /// Whirlpool digests are not encoded.
-        /// </summary>
-        /// <returns></returns>
-        public MemoryStream Encode() => Encode(false);
-
-        /// <summary>
-        /// Encodes this <see cref="ChecksumTable"/>.
-        /// </summary>
-        /// <param name="whirlpool">if set to <c>true</c> [whirlpool].</param>
-        /// <returns></returns>
-        public MemoryStream Encode(bool whirlpool) => Encode(whirlpool, BigInteger.MinusOne, BigInteger.MinusOne);
-
-        /// <summary>
-        /// Encodes this <see cref="ChecksumTable"/> and encrypts the final whirlpool hash.
-        /// </summary>
-        /// <param name="whirlpool">if set to <c>true</c> [whirlpool].</param>
-        /// <param name="modulus">The modulus.</param>
-        /// <param name="privateKey">The private key.</param>
-        /// <returns></returns>
-        public MemoryStream Encode(bool whirlpool, BigInteger modulus, BigInteger privateKey)
+        public IEnumerator<ChecksumTableEntry> GetEnumerator()
         {
-            var buffer = new MemoryStream();
-
-            /* as the new whirlpool format is more complicated we must write the number of entries */
-            if (whirlpool)
-                buffer.WriteByte(Count);
-
-            /* encode the individual entries */
             foreach (var entry in _entries)
             {
-                buffer.WriteInt(entry.Crc32);
-                buffer.WriteInt(entry.Version);
-                if (whirlpool)
-                    buffer.WriteBytes(entry.Digest);
+                yield return entry;
             }
-
-            /* compute (and encrypt) the digest of the whole table */
-            if (whirlpool)
-            {
-                byte[] data = buffer.ToArray();
-                using (var rsa = new MemoryStream(65))
-                {
-                    rsa.WriteByte(10);
-                    rsa.WriteBytes(Whirlpool.GenerateDigest(data, 0, data.Length));
-
-                    data = rsa.ToArray();
-                }
-
-                if (modulus != BigInteger.MinusOne && privateKey != BigInteger.MinusOne)
-                {
-                    var biginteger = new BigInteger(data.Reverse().ToArray()); // big endian to little endian (java)
-                    var biginteger2 = BigInteger.ModPow(biginteger, privateKey, modulus);
-                    data = biginteger2.ToByteArray().Reverse().ToArray(); // big endian to little endian (java)
-                }
-
-                buffer.WriteBytes(data);
-            }
-
-            buffer.Flip();
-            return buffer;
         }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
         /// Attempts to dispose the table.
@@ -134,7 +68,7 @@ namespace Hagalaz.Cache
         {
             if (disposing)
             {
-                _entries = null!;
+                // no-op
             }
         }
     }

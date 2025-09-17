@@ -152,9 +152,6 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 victor.Inventory.AddRange(SelfContainer);
                 victor.Inventory.AddRange(TargetContainer);
             }
-
-            victor.GetScript<DuelArenaCombatScript>()?.CancelDuelSession();
-            loser.GetScript<DuelArenaCombatScript>()?.CancelDuelSession();
         }
 
         /// <summary>
