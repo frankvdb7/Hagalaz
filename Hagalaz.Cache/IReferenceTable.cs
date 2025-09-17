@@ -8,7 +8,6 @@ namespace Hagalaz.Cache
         byte Protocol { get; }
         ReferenceTableFlags Flags { get; }
         int Capacity { get; }
-        MemoryStream Encode();
         int GetFileId(string fileName);
         void AddEntry(int fileId, ReferenceTableEntry entry);
         ReferenceTableEntry? GetEntry(int fileId);

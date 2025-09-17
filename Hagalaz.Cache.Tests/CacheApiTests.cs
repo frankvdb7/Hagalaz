@@ -21,7 +21,7 @@ namespace Hagalaz.Cache.Tests
         private readonly Mock<IReferenceTableProvider> _referenceTableProviderMock;
         private readonly Mock<ICacheWriter> _cacheWriterMock;
         private readonly Mock<IContainerDecoder> _containerDecoderMock;
-        private readonly Mock<IReferenceTableDecoder> _referenceTableDecoderMock;
+        private readonly Mock<IReferenceTableCodec> _referenceTableCodecMock;
         private readonly Mock<IArchiveDecoder> _archiveDecoderMock;
         private readonly CacheApi _cacheApi;
 
@@ -31,9 +31,9 @@ namespace Hagalaz.Cache.Tests
             _referenceTableProviderMock = new Mock<IReferenceTableProvider>();
             _cacheWriterMock = new Mock<ICacheWriter>();
             _containerDecoderMock = new Mock<IContainerDecoder>();
-            _referenceTableDecoderMock = new Mock<IReferenceTableDecoder>();
+            _referenceTableCodecMock = new Mock<IReferenceTableCodec>();
             _archiveDecoderMock = new Mock<IArchiveDecoder>();
-            _cacheApi = new CacheApi(_fileStoreMock.Object, _referenceTableProviderMock.Object, _cacheWriterMock.Object, _containerDecoderMock.Object, _referenceTableDecoderMock.Object, _archiveDecoderMock.Object);
+            _cacheApi = new CacheApi(_fileStoreMock.Object, _referenceTableProviderMock.Object, _cacheWriterMock.Object, _containerDecoderMock.Object, _referenceTableCodecMock.Object, _archiveDecoderMock.Object);
         }
 
         [Fact]
