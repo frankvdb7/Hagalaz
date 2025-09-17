@@ -40,4 +40,7 @@
     <Folder Include="Quests\" />
     <Folder Include="Skills\Magic\Enchanting\" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hagalaz.Game.Scripts.Tests" />
+  </ItemGroup>
 </Project>

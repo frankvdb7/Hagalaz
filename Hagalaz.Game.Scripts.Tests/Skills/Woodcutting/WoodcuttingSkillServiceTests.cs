@@ -166,15 +166,8 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
 
             Assert.IsNotNull(woodcuttingTask);
 
-            // Use reflection to get the private callback
-            var finishCallbackField = typeof(WoodcuttingTask).GetField("_finishCallback", BindingFlags.NonPublic | BindingFlags.Instance);
-            Assert.IsNotNull(finishCallbackField);
-            var finishCallbackDelegate = finishCallbackField.GetValue(woodcuttingTask);
-            Assert.IsNotNull(finishCallbackDelegate);
-            var finishCallback = (Func<ValueTask<bool>>)finishCallbackDelegate;
-
             // Invoke the callback directly
-            await finishCallback();
+            await woodcuttingTask._finishCallback();
 
             // Assert
             character.DidNotReceive().SendChatMessage(WoodcuttingSkillService.LogsReceived, Arg.Any<ChatMessageType>(), null);
