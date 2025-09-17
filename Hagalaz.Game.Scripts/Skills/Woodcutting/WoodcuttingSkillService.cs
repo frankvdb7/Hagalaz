@@ -166,9 +166,12 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                     return true;
                 }
 
-                character.SendChatMessage(LogsReceived);
-                character.Inventory.TryAddLoot(character, table, out _);
-                character.Statistics.AddExperience(StatisticsConstants.Woodcutting, expReceived);
+                character.Inventory.TryAddLoot(character, table, out var items);
+                if (items.Any())
+                {
+                    character.SendChatMessage(LogsReceived);
+                    character.Statistics.AddExperience(StatisticsConstants.Woodcutting, expReceived);
+                }
                 // Calculate the chance of the tree falling.
                 var randomVal = RandomStatic.Generator.NextDouble();
                 if (randomVal <= fallChance)

@@ -50,7 +50,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         /// <summary>
         ///     Contains finish callback.
         /// </summary>
-        private readonly Func<ValueTask<bool>> _finishCallback;
+        internal readonly Func<ValueTask<bool>> _finishCallback;
 
         /// <summary>
         ///     Contains performer.
