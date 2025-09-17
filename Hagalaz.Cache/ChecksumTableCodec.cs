@@ -22,7 +22,7 @@ namespace Hagalaz.Cache
                 buffer.WriteByte(table.Count);
 
             /* encode the individual entries */
-            foreach (var entry in table._entries)
+            foreach (var entry in table)
             {
                 buffer.WriteInt(entry.Crc32);
                 buffer.WriteInt(entry.Version);

@@ -26,8 +26,8 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(table.Count, decodedTable.Count);
             for (int i = 0; i < table.Count; i++)
             {
-                Assert.Equal(table._entries[i].Crc32, decodedTable._entries[i].Crc32);
-                Assert.Equal(table._entries[i].Version, decodedTable._entries[i].Version);
+                Assert.Equal(table[i].Crc32, decodedTable[i].Crc32);
+                Assert.Equal(table[i].Version, decodedTable[i].Version);
             }
         }
 
@@ -46,8 +46,8 @@ namespace Hagalaz.Cache.Tests
             // Assert
             Assert.NotNull(decodedTable);
             Assert.Equal(table.Count, decodedTable.Count);
-            Assert.Equal(table._entries[0].Crc32, decodedTable._entries[0].Crc32);
-            Assert.Equal(table._entries[0].Version, decodedTable._entries[0].Version);
+            Assert.Equal(table[0].Crc32, decodedTable[0].Crc32);
+            Assert.Equal(table[0].Version, decodedTable[0].Version);
         }
 
         [Fact]
@@ -71,8 +71,8 @@ namespace Hagalaz.Cache.Tests
             // Assert
             Assert.NotNull(decodedTable);
             Assert.Equal(table.Count, decodedTable.Count);
-            Assert.Equal(table._entries[0].Crc32, decodedTable._entries[0].Crc32);
-            Assert.Equal(table._entries[0].Version, decodedTable._entries[0].Version);
+            Assert.Equal(table[0].Crc32, decodedTable[0].Crc32);
+            Assert.Equal(table[0].Version, decodedTable[0].Version);
         }
 
         [Fact]
@@ -189,8 +189,8 @@ namespace Hagalaz.Cache.Tests
             // Assert
             Assert.NotNull(decodedTable);
             Assert.Equal(table.Count, decodedTable.Count);
-            Assert.Equal(table._entries[0].Crc32, decodedTable._entries[0].Crc32);
-            Assert.Equal(table._entries[0].Version, decodedTable._entries[0].Version);
+            Assert.Equal(table[0].Crc32, decodedTable[0].Crc32);
+            Assert.Equal(table[0].Version, decodedTable[0].Version);
         }
     }
 }

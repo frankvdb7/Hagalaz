@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace Hagalaz.Cache
 {
@@ -8,29 +10,20 @@ namespace Hagalaz.Cache
     /// with the file type and id it is more commonly known as the client's
     /// "update keys".
     /// </summary>
-    public class ChecksumTable : IDisposable
+    public class ChecksumTable : IDisposable, IEnumerable<ChecksumTableEntry>
     {
         /// <summary>
         /// The files.
         /// </summary>
-        internal ChecksumTableEntry[] _entries;
+        private readonly ChecksumTableEntry[] _entries;
 
         /// <summary>
         /// Contains count of entries.
         /// </summary>
         /// <value>The entry count.</value>
-        public int Count
-        {
-            get
-            {
-                if (_entries == null)
-                {
-                    throw new InvalidOperationException($"{nameof(ChecksumTable)} is not decoded");
-                }
+        public int Count => _entries.Length;
 
-                return _entries.Length;
-            }
-        }
+        public ChecksumTableEntry this[int index] => _entries[index];
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChecksumTable"/> class.
@@ -52,6 +45,16 @@ namespace Hagalaz.Cache
             _entries[entryID] = file;
         }
 
+        public IEnumerator<ChecksumTableEntry> GetEnumerator()
+        {
+            foreach (var entry in _entries)
+            {
+                yield return entry;
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
         /// <summary>
         /// Attempts to dispose the table.
         /// </summary>
@@ -65,7 +68,7 @@ namespace Hagalaz.Cache
         {
             if (disposing)
             {
-                _entries = null!;
+                // no-op
             }
         }
     }
