@@ -9,12 +9,14 @@ namespace Hagalaz.Services.GameUpdate.Services
     public class CacheService : ICacheService
     {
         private readonly ICacheAPI _cacheApi;
+        private readonly IChecksumTableCodec _checksumTableCodec;
         private readonly IOptions<RsaConfig> _rsaOptions;
         private readonly Lazy<byte[]> _encodedChecksumTable;
 
-        public CacheService(ICacheAPI cacheApi, IOptions<RsaConfig> rsaOptions)
+        public CacheService(ICacheAPI cacheApi, IChecksumTableCodec checksumTableCodec, IOptions<RsaConfig> rsaOptions)
         {
             _cacheApi = cacheApi;
+            _checksumTableCodec = checksumTableCodec;
             _rsaOptions = rsaOptions;
             _encodedChecksumTable = new Lazy<byte[]>(EncodeChecksumTable);
         }
@@ -24,7 +26,7 @@ namespace Hagalaz.Services.GameUpdate.Services
             using (var table = _cacheApi.CreateChecksumTable())
             {
                 var rsa = _rsaOptions.Value;
-                var encodedTable = table.Encode(true, rsa.ModulusKey, rsa.PrivateKey);
+                var encodedTable = _checksumTableCodec.Encode(table, true, rsa.ModulusKey, rsa.PrivateKey);
                 using (var container = new Container(encodedTable))
                 {
                     return container.Encode();

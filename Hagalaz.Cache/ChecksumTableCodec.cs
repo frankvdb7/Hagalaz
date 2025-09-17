@@ -7,8 +7,55 @@ using Hagalaz.Security;
 
 namespace Hagalaz.Cache
 {
-    public class ChecksumTableDecoder : IChecksumTableDecoder
+    public class ChecksumTableCodec : IChecksumTableCodec
     {
+        public MemoryStream Encode(ChecksumTable table) => Encode(table, false);
+
+        public MemoryStream Encode(ChecksumTable table, bool whirlpool) => Encode(table, whirlpool, BigInteger.MinusOne, BigInteger.MinusOne);
+
+        public MemoryStream Encode(ChecksumTable table, bool whirlpool, BigInteger modulus, BigInteger privateKey)
+        {
+            var buffer = new MemoryStream();
+
+            /* as the new whirlpool format is more complicated we must write the number of entries */
+            if (whirlpool)
+                buffer.WriteByte(table.Count);
+
+            /* encode the individual entries */
+            foreach (var entry in table._entries)
+            {
+                buffer.WriteInt(entry.Crc32);
+                buffer.WriteInt(entry.Version);
+                if (whirlpool)
+                    buffer.WriteBytes(entry.Digest);
+            }
+
+            /* compute (and encrypt) the digest of the whole table */
+            if (whirlpool)
+            {
+                byte[] data = buffer.ToArray();
+                using (var rsa = new MemoryStream(65))
+                {
+                    rsa.WriteByte(10);
+                    rsa.WriteBytes(Whirlpool.GenerateDigest(data, 0, data.Length));
+
+                    data = rsa.ToArray();
+                }
+
+                if (modulus != BigInteger.MinusOne && privateKey != BigInteger.MinusOne)
+                {
+                    var biginteger = new BigInteger(data.Reverse().ToArray()); // big endian to little endian (java)
+                    var biginteger2 = BigInteger.ModPow(biginteger, privateKey, modulus);
+                    data = biginteger2.ToByteArray().Reverse().ToArray(); // big endian to little endian (java)
+                }
+
+                buffer.WriteBytes(data);
+            }
+
+            buffer.Flip();
+            return buffer;
+        }
+
         public ChecksumTable Decode(MemoryStream stream) => Decode(stream, false);
 
         public ChecksumTable Decode(MemoryStream stream, bool whirlpool) => Decode(stream, whirlpool, BigInteger.MinusOne, BigInteger.MinusOne);

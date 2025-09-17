@@ -45,7 +45,7 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddSingleton<ICacheWriter, CacheWriter>();
             services.TryAddSingleton<IContainerDecoder, ContainerDecoder>();
             services.TryAddSingleton<IArchiveDecoder, ArchiveDecoder>();
-            services.TryAddSingleton<IChecksumTableDecoder, ChecksumTableDecoder>();
+            services.TryAddSingleton<IChecksumTableCodec, ChecksumTableCodec>();
             services.TryAddSingleton<IIndexCodec, IndexCodec>();
             services.TryAddSingleton<IReferenceTableDecoder, ReferenceTableDecoder>();
             services.TryAddSingleton<ICacheAPI, CacheApi>();
