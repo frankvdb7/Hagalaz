@@ -30,6 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="KubernetesClient" Version="17.0.14" />
     <ProjectReference Include="..\Hagalaz.Services.Authorization\Hagalaz.Services.Authorization.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.Characters\Hagalaz.Services.Characters.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.Contacts\Hagalaz.Services.Contacts.csproj" />
