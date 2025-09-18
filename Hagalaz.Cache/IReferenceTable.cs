@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 
 namespace Hagalaz.Cache
@@ -8,6 +9,7 @@ namespace Hagalaz.Cache
         byte Protocol { get; }
         ReferenceTableFlags Flags { get; }
         int Capacity { get; }
+        IEnumerable<KeyValuePair<int, ReferenceTableEntry>> Entries { get; }
         int GetFileId(string fileName);
         void AddEntry(int fileId, ReferenceTableEntry entry);
         ReferenceTableEntry? GetEntry(int fileId);
