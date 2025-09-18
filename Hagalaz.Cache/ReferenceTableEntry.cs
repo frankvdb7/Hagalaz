@@ -90,7 +90,7 @@ namespace Hagalaz.Cache
         /// <summary>
         /// Contains the entries.
         /// </summary>
-        public IEnumerable<ReferenceTableChildEntry> Entries
+        public IEnumerable<KeyValuePair<int, ReferenceTableChildEntry>> Entries
         {
             get
             {
@@ -99,7 +99,7 @@ namespace Hagalaz.Cache
                     throw new InvalidOperationException($"{nameof(ReferenceTableEntry)} is not initialized");
                 }
 
-                return _entries.Values;
+                return _entries;
             }
         }
 

@@ -155,51 +155,51 @@ namespace Hagalaz.Cache
             /* write the ids */
             var refTable = (table as ReferenceTable) ?? new ReferenceTable(table);
             int last = 0;
-            foreach (var entry in refTable.Entries)
+            foreach (var (id, entry) in refTable.Entries)
             {
-                int delta = entry.Index - last;
+                int delta = id - last;
                 ew.WriteBigSmart(delta);
-                last = entry.Index;
+                last = id;
             }
 
             /* write the identifiers if required */
             if (table.Flags.HasFlag(ReferenceTableFlags.Identifiers))
-                foreach (var entry in refTable.Entries)
+                foreach (var (_, entry) in refTable.Entries)
                     ew.WriteInt(entry.Id);
 
             /* write the CRC checksums */
-            foreach (var entry in refTable.Entries)
+            foreach (var (_, entry) in refTable.Entries)
                 ew.WriteInt(entry.Crc32);
 
             /* write the whirlpool digests if required */
             if (table.Flags.HasFlag(ReferenceTableFlags.Digests))
-                foreach (var entry in refTable.Entries)
+                foreach (var (_, entry) in refTable.Entries)
                     ew.WriteBytes(entry.WhirlpoolDigest);
 
             /* write the versions */
-            foreach (var entry in refTable.Entries)
+            foreach (var (_, entry) in refTable.Entries)
                 ew.WriteInt(entry.Version);
 
             /* calculate and write the number of non-null child entries */
-            foreach (var entry in refTable.Entries)
+            foreach (var (_, entry) in refTable.Entries)
                 ew.WriteBigSmart(entry.Capacity);
 
             /* write the child ids */
-            foreach (var entry in refTable.Entries)
+            foreach (var (_, entry) in refTable.Entries)
             {
                 last = 0;
-                foreach (var child in entry.Entries)
+                foreach (var (childId, _) in entry.Entries)
                 {
-                    int delta = child.Index - last;
+                    int delta = childId - last;
                     ew.WriteBigSmart(delta);
-                    last = child.Index;
+                    last = childId;
                 }
             }
 
             /* write the child identifiers if required  */
             if (table.Flags.HasFlag(ReferenceTableFlags.Identifiers))
-                foreach (var entry in refTable.Entries)
-                    foreach (var child in entry.Entries)
+                foreach (var (_, entry) in refTable.Entries)
+                    foreach (var (_, child) in entry.Entries)
                         ew.WriteInt(child.Id);
 
 

@@ -53,7 +53,7 @@ namespace Hagalaz.Cache
             _entries = new SortedList<int, ReferenceTableEntry>(fileCount);
         }
 
-        public IEnumerable<ReferenceTableEntry> Entries => _entries.Values;
+        public IEnumerable<KeyValuePair<int, ReferenceTableEntry>> Entries => _entries;
 
         public ReferenceTable(IReferenceTable table)
         {
