@@ -42,6 +42,9 @@ namespace Hagalaz.Cache.Tests
 
             // Assert
             Assert.NotNull(result);
+            Assert.Equal(table.Protocol, result.Protocol);
+            Assert.Equal(table.Version, result.Version);
+            Assert.Equal(table.Flags, result.Flags);
         }
     }
 }
