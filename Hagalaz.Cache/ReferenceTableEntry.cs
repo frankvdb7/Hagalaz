@@ -12,7 +12,7 @@ namespace Hagalaz.Cache
         /// <summary>
         /// Contains the identifier.
         /// </summary>
-        public int Id { get; internal set; } = -1;
+        public int Id { get; set; } = -1;
 
         /// <summary>
         /// Contains the index.
@@ -48,7 +48,7 @@ namespace Hagalaz.Cache
         /// <summary>
         /// Contains file id.
         /// </summary>
-        public int Id { get; internal set; } = -1;
+        public int Id { get; set; } = -1;
 
         /// <summary>
         /// Contains whirlpool digest of this file.
@@ -90,7 +90,7 @@ namespace Hagalaz.Cache
         /// <summary>
         /// Contains the entries.
         /// </summary>
-        public IEnumerable<ReferenceTableChildEntry> Entries
+        public IEnumerable<KeyValuePair<int, ReferenceTableChildEntry>> Entries
         {
             get
             {
@@ -99,7 +99,7 @@ namespace Hagalaz.Cache
                     throw new InvalidOperationException($"{nameof(ReferenceTableEntry)} is not initialized");
                 }
 
-                return _entries.Values;
+                return _entries;
             }
         }
 
@@ -166,6 +166,6 @@ namespace Hagalaz.Cache
         /// Initializes the entries.
         /// </summary>
         /// <param name="capacity">The capacity.</param>
-        internal void InitializeEntries(int capacity) => _entries = new SortedList<int, ReferenceTableChildEntry>(capacity);
+        public void InitializeEntries(int capacity) => _entries = new SortedList<int, ReferenceTableChildEntry>(capacity);
     }
 }

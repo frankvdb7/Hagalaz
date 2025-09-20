@@ -20,9 +20,9 @@ namespace Hagalaz.Cache
         private readonly IContainerDecoder _containerFactory;
         private readonly IArchiveDecoder _archiveDecoder;
 
-        private readonly IReferenceTableDecoder _referenceTableFactory;
+        private readonly IReferenceTableCodec _referenceTableFactory;
 
-        public CacheApi(IFileStore store, IReferenceTableProvider referenceTableProvider, ICacheWriter cacheWriter, IContainerDecoder containerFactory, IReferenceTableDecoder referenceTableFactory, IArchiveDecoder archiveDecoder)
+        public CacheApi(IFileStore store, IReferenceTableProvider referenceTableProvider, ICacheWriter cacheWriter, IContainerDecoder containerFactory, IReferenceTableCodec referenceTableFactory, IArchiveDecoder archiveDecoder)
         {
             _store = store;
             _referenceTableProvider = referenceTableProvider;
