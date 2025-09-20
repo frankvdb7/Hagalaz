@@ -9,6 +9,7 @@ namespace Hagalaz.Cache.Tests
         private readonly Mock<IFileStore> _fileStoreMock;
         private readonly Mock<IReferenceTableProvider> _referenceTableProviderMock;
         private readonly Mock<IContainerDecoder> _containerDecoderMock;
+        private readonly Mock<IReferenceTableCodec> _referenceTableCodecMock;
         private readonly CacheWriter _cacheWriter;
 
         public CacheWriterTests()
@@ -16,7 +17,8 @@ namespace Hagalaz.Cache.Tests
             _fileStoreMock = new Mock<IFileStore>();
             _referenceTableProviderMock = new Mock<IReferenceTableProvider>();
             _containerDecoderMock = new Mock<IContainerDecoder>();
-            _cacheWriter = new CacheWriter(_fileStoreMock.Object, _referenceTableProviderMock.Object, _containerDecoderMock.Object);
+            _referenceTableCodecMock = new Mock<IReferenceTableCodec>();
+            _cacheWriter = new CacheWriter(_fileStoreMock.Object, _referenceTableProviderMock.Object, _containerDecoderMock.Object, _referenceTableCodecMock.Object);
         }
 
         [Fact]
@@ -26,7 +28,7 @@ namespace Hagalaz.Cache.Tests
             var containerMock = new Mock<IContainer>();
             containerMock.Setup(c => c.Encode(false)).Returns(new byte[0]);
             var referenceTableMock = new Mock<IReferenceTable>();
-            referenceTableMock.Setup(rt => rt.Encode()).Returns(new MemoryStream());
+            _referenceTableCodecMock.Setup(rt => rt.Encode(referenceTableMock.Object)).Returns(new MemoryStream());
             _referenceTableProviderMock.Setup(rtm => rtm.ReadReferenceTable(1)).Returns(referenceTableMock.Object);
 
             var oldContainerMock = new Mock<IContainer>();

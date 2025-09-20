@@ -11,7 +11,7 @@ namespace Hagalaz.Cache.Tests
         public void ReferenceTableDecoder_Decode_WithInvalidProtocol_ShouldThrowInvalidDataException()
         {
             // Arrange
-            var factory = new ReferenceTableDecoder();
+            var factory = new ReferenceTableCodec();
             using var stream = new MemoryStream();
             var writer = new BinaryWriter(stream);
             writer.Write((byte)4); // Invalid protocol
