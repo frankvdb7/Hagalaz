@@ -1,3 +1,4 @@
+using Hagalaz.Game.Abstractions;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Utilities;
@@ -10,41 +11,39 @@ namespace Hagalaz.Game.Extensions.Tests
     public class LocationExtensionsTests
     {
         [TestMethod]
-        public void ToLocation_ConvertsVector3ToLocation()
+        public void ToLocation_WithVector3_ReturnsCorrectLocation()
         {
             // Arrange
             var vector = Substitute.For<IVector3>();
-            vector.X.Returns(10);
-            vector.Y.Returns(20);
-            vector.Z.Returns(1);
+            vector.X.Returns(1);
+            vector.Y.Returns(2);
+            vector.Z.Returns(3);
 
             // Act
             var location = vector.ToLocation();
 
             // Assert
-            Assert.AreEqual(10, location.X);
-            Assert.AreEqual(20, location.Y);
-            Assert.AreEqual(1, location.Z);
+            Assert.AreEqual(1, location.X);
+            Assert.AreEqual(2, location.Y);
+            Assert.AreEqual(3, location.Z);
         }
 
         [TestMethod]
-        public void Translate_WithDirection_ReturnsTranslatedLocation()
+        public void Translate_WithOffsets_ReturnsCorrectLocation()
         {
             // Arrange
             var location = Substitute.For<ILocation>();
             location.X.Returns(10);
             location.Y.Returns(20);
-            location.Z.Returns(1);
-            location.Translate(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
-                .Returns(x => Location.Create(location.X + (int)x[0], location.Y + (int)x[1], location.Z + (int)x[2]));
+            location.Z.Returns(30);
 
             // Act
-            var newLocation = location.Translate(DirectionFlag.North);
+            var newLocation = location.Translate(1, 2, 3);
 
             // Assert
-            Assert.AreEqual(10, newLocation.X);
-            Assert.AreEqual(21, newLocation.Y);
-            Assert.AreEqual(1, newLocation.Z);
+            Assert.AreEqual(11, newLocation.X);
+            Assert.AreEqual(22, newLocation.Y);
+            Assert.AreEqual(33, newCastedLocation.Z);
         }
 
         [TestMethod]
@@ -52,15 +51,15 @@ namespace Hagalaz.Game.Extensions.Tests
         {
             // Arrange
             var location = Substitute.For<ILocation>();
-            location.RegionPartX.Returns(1);
-            location.RegionPartY.Returns(2);
-            location.Z.Returns(3);
+            location.X.Returns(3200);
+            location.Y.Returns(3200);
+            location.Z.Returns(0);
+            var expectedHash = LocationHelper.GetRegionPartHash(location.X, location.Y, location.Z);
 
             // Act
             var hash = location.GetRegionPartHash();
 
             // Assert
-            var expectedHash = LocationHelper.GetRegionPartHash(1, 2, 3);
             Assert.AreEqual(expectedHash, hash);
         }
 
@@ -69,15 +68,16 @@ namespace Hagalaz.Game.Extensions.Tests
         {
             // Arrange
             var location = Substitute.For<ILocation>();
-            location.X.Returns(10);
-            location.Y.Returns(20);
+            location.X.Returns(3205);
+            location.Y.Returns(3205);
             location.Z.Returns(1);
+            var expectedHash = LocationHelper.GetRegionLocalHash(location.X, location.Y);
+
 
             // Act
             var hash = location.GetRegionLocalHash();
 
             // Assert
-            var expectedHash = LocationHelper.GetRegionLocalHash(10, 20, 1);
             Assert.AreEqual(expectedHash, hash);
         }
     }

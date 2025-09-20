@@ -1,5 +1,6 @@
+using Hagalaz.Game.Abstractions;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
-using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
@@ -10,64 +11,79 @@ namespace Hagalaz.Game.Extensions.Tests
     public class CreatureExtensionsTests
     {
         [TestMethod]
-        public void FaceLocation_WithGameObject_CallsFaceLocationWithCorrectParameters()
+        public void IsDead_WhenCombatIsDead_ReturnsTrue()
+        {
+            // Arrange
+            var combat = Substitute.For<ICreatureCombat>();
+            combat.IsDead.Returns(true);
+            var creature = Substitute.For<ICreature>();
+            creature.Combat.Returns(combat);
+
+            // Act
+            var isDead = creature.IsDead();
+
+            // Assert
+            Assert.IsTrue(isDead);
+        }
+
+        [TestMethod]
+        public void IsAlive_WhenCombatIsAlive_ReturnsTrue()
+        {
+            // Arrange
+            var combat = Substitute.For<ICreatureCombat>();
+            combat.IsDead.Returns(false);
+            var creature = Substitute.For<ICreature>();
+            creature.Combat.Returns(combat);
+
+            // Act
+            var isAlive = creature.IsAlive();
+
+            // Assert
+            Assert.IsTrue(isAlive);
+        }
+
+        [TestMethod]
+        public void FaceLocation_CallsFaceWithCorrectLocation()
         {
             // Arrange
             var creature = Substitute.For<ICreature>();
-            var gameObject = Substitute.For<IGameObject>();
             var location = Substitute.For<ILocation>();
-            gameObject.Location.Returns(location);
-            gameObject.SizeX.Returns(1);
-            gameObject.SizeY.Returns(1);
 
             // Act
-            creature.FaceLocation(gameObject);
+            creature.Face(location);
 
             // Assert
-            creature.Received(1).FaceLocation(location, 1, 1);
+            creature.Received(1).Face(location);
         }
 
         [TestMethod]
-        public void FaceLocation_WithCreature_CallsFaceLocationWithCorrectParameters()
+        public void FaceCreature_CallsFaceWithCorrectCreature()
         {
             // Arrange
             var creature = Substitute.For<ICreature>();
-            var creatureToFace = Substitute.For<ICreature>();
-            var location = Substitute.For<ILocation>();
-            creatureToFace.Location.Returns(location);
-            creatureToFace.Size.Returns(1);
+            var target = Substitute.For<ICreature>();
 
             // Act
-            creature.FaceLocation(creatureToFace);
+            creature.Face(target);
 
             // Assert
-            creature.Received(1).FaceLocation(location, 1, 1);
+            creature.Received(1).Face(target);
         }
 
         [TestMethod]
-        public void QueueTask_WithFunc_CallsQueueTaskWithCorrectParameters()
+        public void QueueTask_CallsSchedulerWithCorrectTask()
         {
             // Arrange
             var creature = Substitute.For<ICreature>();
+            var scheduler = Substitute.For<IScheduler>();
+            creature.Scheduler.Returns(scheduler);
+            var task = Substitute.For<RsTask>();
 
             // Act
-            creature.QueueTask(() => System.Threading.Tasks.Task.CompletedTask);
+            creature.QueueTask(task);
 
             // Assert
-            creature.Received(1).QueueTask(Arg.Any<RsAsyncTask>());
-        }
-
-        [TestMethod]
-        public void QueueTask_WithAction_CallsQueueTaskWithCorrectParameters()
-        {
-            // Arrange
-            var creature = Substitute.For<ICreature>();
-
-            // Act
-            creature.QueueTask(() => { }, 1);
-
-            // Assert
-            creature.Received(1).QueueTask(Arg.Any<RsTask>());
+            scheduler.Received(1).QueueTask(task);
         }
     }
 }

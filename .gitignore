@@ -141,6 +141,8 @@ _TeamCity*
 # Visual Studio code coverage results
 *.coverage
 *.coveragexml
+*.runsettings
+coverage/
 
 # NCrunch
 _NCrunch_*
