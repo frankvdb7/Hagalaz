@@ -72,5 +72,82 @@ namespace Hagalaz.Security.Tests
 
             Assert.IsTrue(result1.ToCharArray().All(c => char.IsLower(c) || char.IsDigit(c)));
         }
+
+        [TestMethod]
+        public void ComputeHash_WithInvalidHashType_ShouldReturnEmptyString()
+        {
+            // Arrange
+            const string text = "test";
+            const HashType hashType = (HashType) 99;
+
+            // Act
+            var result = HashHelper.ComputeHash(text, hashType);
+
+            // Assert
+            Assert.AreEqual(string.Empty, result);
+        }
+
+        [TestMethod]
+        public void CreateNewInstance_WithMD5_ShouldReturnMD5()
+        {
+            // Act
+            var result = HashHelper.CreateNewInstance(HashType.MD5);
+
+            // Assert
+            Assert.IsInstanceOfType(result, typeof(System.Security.Cryptography.MD5));
+        }
+
+        [TestMethod]
+        public void CreateNewInstance_WithSHA1_ShouldReturnSHA1()
+        {
+            // Act
+            var result = HashHelper.CreateNewInstance(HashType.SHA1);
+
+            // Assert
+            Assert.IsInstanceOfType(result, typeof(System.Security.Cryptography.SHA1));
+        }
+
+        [TestMethod]
+        public void CreateNewInstance_WithSHA256_ShouldReturnSHA256()
+        {
+            // Act
+            var result = HashHelper.CreateNewInstance(HashType.SHA256);
+
+            // Assert
+            Assert.IsInstanceOfType(result, typeof(System.Security.Cryptography.SHA256));
+        }
+
+        [TestMethod]
+        public void CreateNewInstance_WithSHA384_ShouldReturnSHA384()
+        {
+            // Act
+            var result = HashHelper.CreateNewInstance(HashType.SHA384);
+
+            // Assert
+            Assert.IsInstanceOfType(result, typeof(System.Security.Cryptography.SHA384));
+        }
+
+        [TestMethod]
+        public void CreateNewInstance_WithSHA512_ShouldReturnSHA512()
+        {
+            // Act
+            var result = HashHelper.CreateNewInstance(HashType.SHA512);
+
+            // Assert
+            Assert.IsInstanceOfType(result, typeof(System.Security.Cryptography.SHA512));
+        }
+
+        [TestMethod]
+        public void CreateNewInstance_WithInvalidHashType_ShouldReturnNull()
+        {
+            // Arrange
+            const HashType hashType = (HashType) 99;
+
+            // Act
+            var result = HashHelper.CreateNewInstance(hashType);
+
+            // Assert
+            Assert.IsNull(result);
+        }
     }
 }
