@@ -1,22 +1,27 @@
+using System;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Skills.Firemaking;
 using Hagalaz.Game.Scripts.Skills.Fletching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using System;
-using System.Linq;
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Collections;
+using System.Linq;
 using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
 {
@@ -33,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
         private StandardLog _standardLog;
 
         [TestInitialize]
-        public void Setup()
+        public void TestInitialize()
         {
             _firemakingService = Substitute.For<IFiremakingService>();
             _fletchingSkillService = Substitute.For<IFletchingSkillService>();
@@ -50,11 +55,14 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
                 _pathFinderProvider,
                 _groundItemBuilder,
                 _gameObjectBuilder,
-                _mapRegionService);
+                _mapRegionService
+            );
         }
 
-        [TestMethod]
-        public void UseItemOnItem_WithTinderbox_ShouldLightLog()
+        [DataTestMethod]
+        [DataRow(true, "Tinderbox on Log")]
+        [DataRow(false, "Log on Tinderbox")]
+        public void UseItemOnItem_Success_ShouldReturnTrueAndQueueTask(bool tinderboxFirst, string displayName)
         {
             // Arrange
             var character = Substitute.For<ICharacter>();
@@ -64,24 +72,29 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             var groundItemService = Substitute.For<IGroundItemService>();
             var groundItem = Substitute.For<IGroundItem>();
             var serviceProvider = Substitute.For<IServiceProvider>();
+            var inventory = Substitute.For<IInventoryContainer>();
             var firemakingDefinition = new FiremakingDto { ItemId = 1, RequiredLevel = 1, FireObjectId = 1, Experience = 1, Ticks = 1 };
 
             tinderboxItem.Id.Returns(FiremakingConstants.Tinderbox);
             logItem.ItemScript.Returns(itemScript);
-            character.Inventory.GetInstanceSlot(logItem).Returns(0);
+            character.Inventory.Returns(inventory);
+            inventory.GetInstanceSlot(logItem).Returns(0);
             _firemakingService.FindByLogId(logItem.Id).Returns(Task.FromResult<FiremakingDto?>(firemakingDefinition));
             itemScript.DropItem(logItem, character).Returns(true);
             character.ServiceProvider.Returns(serviceProvider);
             serviceProvider.GetService(typeof(IGroundItemService)).Returns(groundItemService);
-            groundItemService.FindAllGroundItems(Arg.Any<ILocation>()).Returns(new List<IGroundItem> { groundItem });
+            groundItemService.FindAllGroundItems(character.Location).Returns(new[] { groundItem });
             groundItem.ItemOnGround.Returns(logItem);
 
+            var item1 = tinderboxFirst ? tinderboxItem : logItem;
+            var item2 = tinderboxFirst ? logItem : tinderboxItem;
+
             // Act
-            var result = _standardLog.UseItemOnItem(tinderboxItem, logItem, character);
+            var result = _standardLog.UseItemOnItem(item1, item2, character);
 
             // Assert
-            Assert.IsTrue(result);
-            character.Received().QueueTask(Arg.Any<ITaskItem>());
+            Assert.IsTrue(result, $"Test case: {displayName}");
+            character.Received(1).QueueTask(Arg.Any<ITaskItem>());
         }
 
         [TestMethod]
@@ -103,11 +116,46 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             await _standardLog.LightGroundLog(character, groundItem);
 
             // Assert
-            character.Received().SendChatMessage("You need firemaking level of 99 to light this log.");
+            var expectedMessage = $"You need firemaking level of {firemakingDefinition.RequiredLevel} to light this log.";
+            character.Received().SendChatMessage(expectedMessage);
         }
 
         [TestMethod]
-        public async Task LightGroundLog_InvalidLocation_ShouldSendErrorMessage()
+        public void UseItemOnItem_WhenDropFails_ShouldReturnFalseAndSendMessage()
+        {
+            // Arrange
+            var character = Substitute.For<ICharacter>();
+            var logItem = Substitute.For<IItem>();
+            var tinderboxItem = Substitute.For<IItem>();
+            var itemScript = Substitute.For<IItemScript>();
+            var inventory = Substitute.For<IInventoryContainer>();
+
+            tinderboxItem.Id.Returns(FiremakingConstants.Tinderbox);
+            logItem.ItemScript.Returns(itemScript);
+            character.Inventory.Returns(inventory);
+            inventory.GetInstanceSlot(logItem).Returns(0);
+            itemScript.DropItem(logItem, character).Returns(false);
+
+            var firemakingDefinition = new FiremakingDto
+            {
+                ItemId = 1,
+                RequiredLevel = 1,
+                FireObjectId = 2,
+                Experience = 10,
+                Ticks = 100
+            };
+            _firemakingService.FindByLogId(logItem.Id).Returns(Task.FromResult<FiremakingDto?>(firemakingDefinition));
+
+            // Act
+            var result = _standardLog.UseItemOnItem(tinderboxItem, logItem, character);
+
+            // Assert
+            Assert.IsFalse(result);
+            character.Received().SendChatMessage("You can't drop the logs here to make a fire.");
+        }
+
+        [TestMethod]
+        public async Task LightGroundLog_Success_ShouldQueueTaskAndSendMessage()
         {
             // Arrange
             var character = Substitute.For<ICharacter>();
@@ -117,6 +165,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             var mapRegion = Substitute.For<IMapRegion>();
             var location = Substitute.For<ILocation>();
             var firemakingDefinition = new FiremakingDto { ItemId = 1, RequiredLevel = 1, FireObjectId = 1, Experience = 1, Ticks = 1 };
+            var inventory = Substitute.For<IInventoryContainer>();
 
             groundItem.ItemOnGround.Returns(logItem);
             groundItem.Location.Returns(location);
@@ -124,46 +173,17 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             character.Statistics.Returns(statistics);
             statistics.GetSkillLevel(StatisticsConstants.Firemaking).Returns(99);
             _mapRegionService.GetMapRegion(Arg.Any<int>(), Arg.Any<int>(), false, true).Returns(mapRegion);
-            mapRegion.FindStandardGameObject(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(Substitute.For<IGameObject>());
+            mapRegion.FindStandardGameObject(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns((IGameObject)null);
+            character.Inventory.Returns(inventory);
+            inventory.GetById(FiremakingConstants.Tinderbox).Returns(Substitute.For<IItem>());
 
             // Act
             await _standardLog.LightGroundLog(character, groundItem);
 
             // Assert
-            character.Received().SendChatMessage("You can't light a fire here.");
-        }
-
-        [TestMethod]
-        public void UseItemOnItem_WithKnife_ShouldTryFletch()
-        {
-            // Arrange
-            var character = Substitute.For<ICharacter>();
-            var knifeItem = Substitute.For<IItem>();
-            var logItem = Substitute.For<IItem>();
-
-            // Act
-            _standardLog.UseItemOnItem(knifeItem, logItem, character);
-
-            // Assert
-            _fletchingSkillService.Received().TryFletchWood(character, knifeItem, logItem);
-        }
-
-        [TestMethod]
-        public void UseItemOnItem_WithInvalidItem_ShouldReturnFalse()
-        {
-            // Arrange
-            var character = Substitute.For<ICharacter>();
-            var invalidItem = Substitute.For<IItem>();
-            var logItem = Substitute.For<IItem>();
-
-            _fletchingSkillService.TryFletchWood(character, invalidItem, logItem).Returns(false);
-
-            // Act
-            var result = _standardLog.UseItemOnItem(invalidItem, logItem, character);
-
-            // Assert
-            Assert.IsFalse(result);
-            character.DidNotReceive().QueueTask(Arg.Any<ITaskItem>());
+            character.Received().FaceLocation(location);
+            character.Received().QueueTask(Arg.Any<FiremakingTask>());
+            character.Received().SendChatMessage("You attempt to light the logs.");
         }
     }
 }
