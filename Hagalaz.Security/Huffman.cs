@@ -211,7 +211,7 @@ namespace Hagalaz.Security
                     var byteRead = stream.ReadByte();
                     if (byteRead == -1)
                     {
-                        throw new EndOfStreamException("Huffman stream ended prematurely.");
+                        return string.Empty;
                     }
                     var val = (sbyte)byteRead;
                     if (val >= 0)
