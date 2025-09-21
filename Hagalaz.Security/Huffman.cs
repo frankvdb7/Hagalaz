@@ -208,8 +208,12 @@ namespace Hagalaz.Security
                 var value = string.Empty;
                 for (; ; )
                 {
-                    //sbyte i_7_ = unchecked((sbyte)p.ReadByte());
-                    var val = (sbyte)stream.ReadByte();
+                    var byteRead = stream.ReadByte();
+                    if (byteRead == -1)
+                    {
+                        return string.Empty;
+                    }
+                    var val = (sbyte)byteRead;
                     if (val >= 0)
                     {
                         keyIndex++;
