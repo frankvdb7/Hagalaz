@@ -1,5 +1,4 @@
 using System.IO;
-using Hagalaz.Cache.Utilities;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests;

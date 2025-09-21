@@ -342,7 +342,3 @@ node_modules
 /.tye
 /Data
 /Cache
-
-# Code coverage
-**/coverage.opencover.xml
-**/*.cobertura.xml
