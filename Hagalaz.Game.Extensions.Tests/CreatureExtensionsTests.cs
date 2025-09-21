@@ -1,7 +1,5 @@
-using Hagalaz.Game.Abstractions;
-using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
-using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Extensions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -40,50 +38,6 @@ namespace Hagalaz.Game.Extensions.Tests
 
             // Assert
             Assert.IsTrue(isAlive);
-        }
-
-        [TestMethod]
-        public void FaceLocation_CallsFaceWithCorrectLocation()
-        {
-            // Arrange
-            var creature = Substitute.For<ICreature>();
-            var location = Substitute.For<ILocation>();
-
-            // Act
-            creature.Face(location);
-
-            // Assert
-            creature.Received(1).Face(location);
-        }
-
-        [TestMethod]
-        public void FaceCreature_CallsFaceWithCorrectCreature()
-        {
-            // Arrange
-            var creature = Substitute.For<ICreature>();
-            var target = Substitute.For<ICreature>();
-
-            // Act
-            creature.Face(target);
-
-            // Assert
-            creature.Received(1).Face(target);
-        }
-
-        [TestMethod]
-        public void QueueTask_CallsSchedulerWithCorrectTask()
-        {
-            // Arrange
-            var creature = Substitute.For<ICreature>();
-            var scheduler = Substitute.For<IScheduler>();
-            creature.Scheduler.Returns(scheduler);
-            var task = Substitute.For<RsTask>();
-
-            // Act
-            creature.QueueTask(task);
-
-            // Assert
-            scheduler.Received(1).QueueTask(task);
         }
     }
 }

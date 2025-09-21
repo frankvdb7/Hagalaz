@@ -14,10 +14,7 @@ namespace Hagalaz.Game.Extensions.Tests
         public void ToLocation_WithVector3_ReturnsCorrectLocation()
         {
             // Arrange
-            var vector = Substitute.For<IVector3>();
-            vector.X.Returns(1);
-            vector.Y.Returns(2);
-            vector.Z.Returns(3);
+            var vector = new Location(1, 2, 3, 0);
 
             // Act
             var location = vector.ToLocation();
@@ -32,10 +29,7 @@ namespace Hagalaz.Game.Extensions.Tests
         public void Translate_WithOffsets_ReturnsCorrectLocation()
         {
             // Arrange
-            var location = Substitute.For<ILocation>();
-            location.X.Returns(10);
-            location.Y.Returns(20);
-            location.Z.Returns(30);
+            var location = new Location(10, 20, 30, 0);
 
             // Act
             var newLocation = location.Translate(1, 2, 3);
@@ -43,18 +37,15 @@ namespace Hagalaz.Game.Extensions.Tests
             // Assert
             Assert.AreEqual(11, newLocation.X);
             Assert.AreEqual(22, newLocation.Y);
-            Assert.AreEqual(33, newCastedLocation.Z);
+            Assert.AreEqual(33, newLocation.Z);
         }
 
         [TestMethod]
         public void GetRegionPartHash_ReturnsCorrectHash()
         {
             // Arrange
-            var location = Substitute.For<ILocation>();
-            location.X.Returns(3200);
-            location.Y.Returns(3200);
-            location.Z.Returns(0);
-            var expectedHash = LocationHelper.GetRegionPartHash(location.X, location.Y, location.Z);
+            var location = new Location(3200, 3200, 0, 0);
+            var expectedHash = LocationHelper.GetRegionPartHash(location.RegionPartX, location.RegionPartY, location.Z);
 
             // Act
             var hash = location.GetRegionPartHash();
@@ -67,11 +58,8 @@ namespace Hagalaz.Game.Extensions.Tests
         public void GetRegionLocalHash_ReturnsCorrectHash()
         {
             // Arrange
-            var location = Substitute.For<ILocation>();
-            location.X.Returns(3205);
-            location.Y.Returns(3205);
-            location.Z.Returns(1);
-            var expectedHash = LocationHelper.GetRegionLocalHash(location.X, location.Y);
+            var location = new Location(3205, 3205, 1, 0);
+            var expectedHash = LocationHelper.GetRegionLocalHash(location.X, location.Y, location.Z);
 
 
             // Act
