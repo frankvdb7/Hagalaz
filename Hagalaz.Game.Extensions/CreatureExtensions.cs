@@ -22,6 +22,21 @@ namespace Hagalaz.Game.Extensions
         /// <param name="creatureToFace">The creature to face.</param>
         public static void FaceLocation(this ICreature creature, ICreature creatureToFace) => creature.FaceLocation(creatureToFace.Location, creatureToFace.Size, creatureToFace.Size);
 
+        public static void Face(this ICreature creature, IGameObject target)
+        {
+            creature.FaceLocation(target.Location);
+        }
+
+        public static bool IsDead(this ICreature creature)
+        {
+            return creature.Combat.IsDead;
+        }
+
+        public static bool IsAlive(this ICreature creature)
+        {
+            return !creature.Combat.IsDead;
+        }
+
         /// <summary>
         /// Queue's task to be performed.
         /// </summary>
