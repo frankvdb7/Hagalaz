@@ -13,6 +13,10 @@
 
     <ItemGroup>
       <PackageReference Include="AwesomeAssertions" Version="9.1.0" />
+      <PackageReference Include="coverlet.msbuild" Version="6.0.4">
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        <PrivateAssets>all</PrivateAssets>
+      </PackageReference>
       <PackageReference Include="NSubstitute" Version="5.1.0" />
       <PackageReference Update="MSTest.Analyzers" Version="3.7.2">
         <PrivateAssets>all</PrivateAssets>

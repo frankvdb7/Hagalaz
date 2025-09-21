@@ -19,4 +19,10 @@
     <PackageReference Update="MSTest.TestAdapter" Version="3.10.4" />
     <PackageReference Update="MSTest.TestFramework" Version="3.10.4" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="coverlet.msbuild" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
 </Project>
