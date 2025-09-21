@@ -1,12 +1,15 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using Hagalaz.Cache.Extensions;
+using System.IO;
 
 namespace Hagalaz.Cache
 {
-    public class ReferenceTableDecoder : IReferenceTableDecoder
+    public class ReferenceTableCodec : IReferenceTableCodec
     {
+        public IReferenceTable Decode(MemoryStream stream)
+        {
+            return Decode(stream, true);
+        }
+
         public IReferenceTable Decode(MemoryStream stream, bool readEntries)
         {
             /* read header */
@@ -126,12 +129,82 @@ namespace Hagalaz.Cache
                     foreach (var child in members[id])
                     {
                         var parentEntry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while reading child identifiers.");
-                        var entry = parentEntry.GetEntry(child) ?? throw new InvalidOperationException($"{nameof(ReferenceTableChildEntry)} with id {child} does not exist in {nameof(ReferenceTableEntry)} with id {id}");
+                        var entry = parentEntry.GetEntry(child) ?? throw new System.InvalidOperationException($"{nameof(ReferenceTableChildEntry)} with id {child} does not exist in {nameof(ReferenceTableEntry)} with id {id}");
                         entry.Id = stream.ReadInt();
                     }
                 }
             }
             return table;
+        }
+
+        public MemoryStream Encode(IReferenceTable table)
+        {
+            /* we can't (easily) predict the size ahead of time, so we write to a
+               stream and then to the buffer */
+            var ew = new MemoryStream();
+
+            /* write the header */
+            ew.WriteByte(table.Protocol);
+            if (table.Protocol >= 6)
+                ew.WriteInt(table.Version);
+            ew.WriteByte((byte)table.Flags);
+
+            /* calculate and write the number of non-null entries */
+            ew.WriteBigSmart(table.Capacity);
+
+            /* write the ids */
+            int last = 0;
+            foreach (var (id, entry) in table.Entries)
+            {
+                int delta = id - last;
+                ew.WriteBigSmart(delta);
+                last = id;
+            }
+
+            /* write the identifiers if required */
+            if (table.Flags.HasFlag(ReferenceTableFlags.Identifiers))
+                foreach (var (_, entry) in table.Entries)
+                    ew.WriteInt(entry.Id);
+
+            /* write the CRC checksums */
+            foreach (var (_, entry) in table.Entries)
+                ew.WriteInt(entry.Crc32);
+
+            /* write the whirlpool digests if required */
+            if (table.Flags.HasFlag(ReferenceTableFlags.Digests))
+                foreach (var (_, entry) in table.Entries)
+                    ew.WriteBytes(entry.WhirlpoolDigest);
+
+            /* write the versions */
+            foreach (var (_, entry) in table.Entries)
+                ew.WriteInt(entry.Version);
+
+            /* calculate and write the number of non-null child entries */
+            foreach (var (_, entry) in table.Entries)
+                ew.WriteBigSmart(entry.Capacity);
+
+            /* write the child ids */
+            foreach (var (_, entry) in table.Entries)
+            {
+                last = 0;
+                foreach (var (childId, _) in entry.Entries)
+                {
+                    int delta = childId - last;
+                    ew.WriteBigSmart(delta);
+                    last = childId;
+                }
+            }
+
+            /* write the child identifiers if required  */
+            if (table.Flags.HasFlag(ReferenceTableFlags.Identifiers))
+                foreach (var (_, entry) in table.Entries)
+                    foreach (var (_, child) in entry.Entries)
+                        ew.WriteInt(child.Id);
+
+
+            /* flip the buffer and return the stream */
+            ew.Flip();
+            return ew;
         }
     }
 }

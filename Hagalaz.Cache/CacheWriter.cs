@@ -9,12 +9,14 @@ namespace Hagalaz.Cache
         private readonly IFileStore _store;
         private readonly IReferenceTableProvider _referenceTableProvider;
         private readonly IContainerDecoder _containerFactory;
+        private readonly IReferenceTableCodec _referenceTableCodec;
 
-        public CacheWriter(IFileStore store, IReferenceTableProvider referenceTableProvider, IContainerDecoder containerFactory)
+        public CacheWriter(IFileStore store, IReferenceTableProvider referenceTableProvider, IContainerDecoder containerFactory, IReferenceTableCodec referenceTableCodec)
         {
             _store = store;
             _referenceTableProvider = referenceTableProvider;
             _containerFactory = containerFactory;
+            _referenceTableCodec = referenceTableCodec;
         }
 
         public void Write(int indexId, int fileId, IContainer container)
@@ -64,7 +66,7 @@ namespace Hagalaz.Cache
             using var oldReferenceTableContainerStream = _store.Read(255, indexId);
             using var oldReferenceTableContainer = _containerFactory.Decode(oldReferenceTableContainerStream);
 
-            using (var referenceTableContainer = new Container(oldReferenceTableContainer.CompressionType, table.Encode()))
+            using (var referenceTableContainer = new Container(oldReferenceTableContainer.CompressionType, _referenceTableCodec.Encode(table)))
             {
                 using (MemoryStream refStream = new MemoryStream(referenceTableContainer.Encode()))
                     _store.Write(255, indexId, refStream);
