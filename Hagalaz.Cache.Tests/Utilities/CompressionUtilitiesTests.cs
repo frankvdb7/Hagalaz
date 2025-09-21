@@ -15,9 +15,7 @@ namespace Hagalaz.Cache.Tests.Utilities
 
             // Act
             var compressedData = CompressionUtilities.BzipCompress(originalData);
-            var strippedData = new byte[compressedData.Length - 4];
-            System.Array.Copy(compressedData, 4, strippedData, 0, strippedData.Length);
-            var decompressedData = CompressionUtilities.BzipDecompress(strippedData);
+            var decompressedData = CompressionUtilities.BzipDecompress(compressedData);
             var decompressedString = Encoding.UTF8.GetString(decompressedData);
 
             // Assert
