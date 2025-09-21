@@ -18,6 +18,10 @@ using Hagalaz.Game.Scripts.Skills.Fletching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Collections;
+using System.Linq;
+using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
 {
@@ -55,16 +59,81 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             );
         }
 
+        [DataTestMethod]
+        [DataRow(true, "Tinderbox on Log")]
+        [DataRow(false, "Log on Tinderbox")]
+        public void UseItemOnItem_Success_ShouldReturnTrueAndQueueTask(bool tinderboxFirst, string displayName)
+        {
+            // Arrange
+            var character = Substitute.For<ICharacter>();
+            var tinderboxItem = Substitute.For<IItem>();
+            var logItem = Substitute.For<IItem>();
+            var itemScript = Substitute.For<IItemScript>();
+            var groundItemService = Substitute.For<IGroundItemService>();
+            var groundItem = Substitute.For<IGroundItem>();
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            var inventory = Substitute.For<IInventoryContainer>();
+            var firemakingDefinition = new FiremakingDto { ItemId = 1, RequiredLevel = 1, FireObjectId = 1, Experience = 1, Ticks = 1 };
+
+            tinderboxItem.Id.Returns(FiremakingConstants.Tinderbox);
+            logItem.ItemScript.Returns(itemScript);
+            character.Inventory.Returns(inventory);
+            inventory.GetInstanceSlot(logItem).Returns(0);
+            _firemakingService.FindByLogId(logItem.Id).Returns(Task.FromResult<FiremakingDto?>(firemakingDefinition));
+            itemScript.DropItem(logItem, character).Returns(true);
+            character.ServiceProvider.Returns(serviceProvider);
+            serviceProvider.GetService(typeof(IGroundItemService)).Returns(groundItemService);
+            groundItemService.FindAllGroundItems(character.Location).Returns(new[] { groundItem });
+            groundItem.ItemOnGround.Returns(logItem);
+
+            var item1 = tinderboxFirst ? tinderboxItem : logItem;
+            var item2 = tinderboxFirst ? logItem : tinderboxItem;
+
+            // Act
+            var result = _standardLog.UseItemOnItem(item1, item2, character);
+
+            // Assert
+            Assert.IsTrue(result, $"Test case: {displayName}");
+            character.Received(1).QueueTask(Arg.Any<ITaskItem>());
+        }
+
         [TestMethod]
-        public void LightInventoryLog_WhenDropFails_ShouldReturnFalseAndSendMessage()
+        public async Task LightGroundLog_InsufficientLevel_ShouldSendErrorMessage()
+        {
+            // Arrange
+            var character = Substitute.For<ICharacter>();
+            var groundItem = Substitute.For<IGroundItem>();
+            var logItem = Substitute.For<IItem>();
+            var statistics = Substitute.For<ICharacterStatistics>();
+            var firemakingDefinition = new FiremakingDto { ItemId = 1, RequiredLevel = 99, FireObjectId = 1, Experience = 1, Ticks = 1 };
+
+            groundItem.ItemOnGround.Returns(logItem);
+            _firemakingService.FindByLogId(logItem.Id).Returns(Task.FromResult<FiremakingDto?>(firemakingDefinition));
+            character.Statistics.Returns(statistics);
+            statistics.GetSkillLevel(StatisticsConstants.Firemaking).Returns(1);
+
+            // Act
+            await _standardLog.LightGroundLog(character, groundItem);
+
+            // Assert
+            var expectedMessage = $"You need firemaking level of {firemakingDefinition.RequiredLevel} to light this log.";
+            character.Received().SendChatMessage(expectedMessage);
+        }
+
+        [TestMethod]
+        public void UseItemOnItem_WhenDropFails_ShouldReturnFalseAndSendMessage()
         {
             // Arrange
             var character = Substitute.For<ICharacter>();
             var logItem = Substitute.For<IItem>();
+            var tinderboxItem = Substitute.For<IItem>();
             var itemScript = Substitute.For<IItemScript>();
+            var inventory = Substitute.For<IInventoryContainer>();
 
+            tinderboxItem.Id.Returns(FiremakingConstants.Tinderbox);
             logItem.ItemScript.Returns(itemScript);
-            character.Inventory.GetInstanceSlot(logItem).Returns(0);
+            character.Inventory.Returns(inventory);
+            inventory.GetInstanceSlot(logItem).Returns(0);
             itemScript.DropItem(logItem, character).Returns(false);
 
             var firemakingDefinition = new FiremakingDto
@@ -78,7 +147,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             _firemakingService.FindByLogId(logItem.Id).Returns(Task.FromResult<FiremakingDto?>(firemakingDefinition));
 
             // Act
-            var result = _standardLog.LightInventoryLog(character, logItem);
+            var result = _standardLog.UseItemOnItem(tinderboxItem, logItem, character);
 
             // Assert
             Assert.IsFalse(result);
@@ -86,62 +155,35 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
         }
 
         [TestMethod]
-        public void LightGroundLog_ShouldFaceLogLocation()
+        public async Task LightGroundLog_Success_ShouldQueueTaskAndSendMessage()
         {
             // Arrange
             var character = Substitute.For<ICharacter>();
-            var logItem = Substitute.For<IGroundItem>();
-            var location = Location.Create(1, 1, 0, 0);
-            var characterLocation = Location.Create(1, 2, 0, 0);
-            var item = Substitute.For<IItem>();
-            item.Id.Returns(1511);
-            var region = Substitute.For<IMapRegion>();
-            character.Location.Returns(characterLocation);
-            character.Statistics.GetSkillLevel(Arg.Any<int>()).Returns(99);
-            var firemakingDefinition = new FiremakingDto
-            {
-                ItemId = 1511,
-                RequiredLevel = 1,
-                FireObjectId = 2,
-                Experience = 10,
-                Ticks = 100
-            };
+            var groundItem = Substitute.For<IGroundItem>();
+            var logItem = Substitute.For<IItem>();
+            var statistics = Substitute.For<ICharacterStatistics>();
+            var mapRegion = Substitute.For<IMapRegion>();
+            var location = Substitute.For<ILocation>();
+            var firemakingDefinition = new FiremakingDto { ItemId = 1, RequiredLevel = 1, FireObjectId = 1, Experience = 1, Ticks = 1 };
+            var inventory = Substitute.For<IInventoryContainer>();
 
-            logItem.Location.Returns(location);
-            logItem.ItemOnGround.Returns(item);
-            _firemakingService.FindByLogId(1511).Returns(Task.FromResult<FiremakingDto?>(firemakingDefinition));
-            _mapRegionService.GetMapRegion(location.RegionId, location.Dimension, false, true).Returns(region);
-            region.FindStandardGameObject(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns((IGameObject)null);
-            character.Inventory.GetById(FiremakingConstants.Tinderbox).Returns(Substitute.For<IItem>());
-
-            ITaskItem capturedTask = null;
-            character.When(x => x.QueueTask(Arg.Any<ITaskItem>()))
-                .Do(callInfo =>
-                {
-                    capturedTask = callInfo.Arg<ITaskItem>();
-                });
-
-            _taskService.When(x => x.Schedule(Arg.Any<FiremakingTask>()))
-                .Do(callInfo =>
-                {
-                    var firemakingTask = callInfo.Arg<FiremakingTask>();
-                    firemakingTask.Tick();
-                });
+            groundItem.ItemOnGround.Returns(logItem);
+            groundItem.Location.Returns(location);
+            _firemakingService.FindByLogId(logItem.Id).Returns(Task.FromResult<FiremakingDto?>(firemakingDefinition));
+            character.Statistics.Returns(statistics);
+            statistics.GetSkillLevel(StatisticsConstants.Firemaking).Returns(99);
+            _mapRegionService.GetMapRegion(Arg.Any<int>(), Arg.Any<int>(), false, true).Returns(mapRegion);
+            mapRegion.FindStandardGameObject(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns((IGameObject)null);
+            character.Inventory.Returns(inventory);
+            inventory.GetById(FiremakingConstants.Tinderbox).Returns(Substitute.For<IItem>());
 
             // Act
-            _standardLog.ItemClickedOnGroundPerform(logItem, GroundItemClickType.Option4Click, character);
-
-            if (capturedTask is RsAsyncTask rsAsyncTask)
-            {
-                rsAsyncTask.Tick();
-            }
-            else if (capturedTask is RsTask rsTask)
-            {
-                rsTask.Tick();
-            }
+            await _standardLog.LightGroundLog(character, groundItem);
 
             // Assert
             character.Received().FaceLocation(location);
+            character.Received().QueueTask(Arg.Any<FiremakingTask>());
+            character.Received().SendChatMessage("You attempt to light the logs.");
         }
     }
 }
