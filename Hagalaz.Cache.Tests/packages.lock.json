@@ -4,9 +4,9 @@
     "net9.0": {
       "coverlet.collector": {
         "type": "Direct",
-        "requested": "[6.0.2, )",
-        "resolved": "6.0.2",
-        "contentHash": "bJShQ6uWRTQ100ZeyiMqcFlhP7WJ+bCuabUs885dJiBEzMsJMSFr7BOyeCw4rgvQokteGi5rKQTlkhfQPUXg2A=="
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "tW3lsNS+dAEII6YGUX/VMoJjBS1QvsxqJeqLaJXub08y1FSjasFPtQ4UBUsudE9PNrzLjooClMsPtY2cZLdXpQ=="
       },
       "Microsoft.NET.Test.Sdk": {
         "type": "Direct",
@@ -176,20 +176,28 @@
           "Microsoft.Extensions.Logging.Abstractions": "[9.0.8, )",
           "Microsoft.Extensions.Options": "[9.0.8, )",
           "SharpZipLib": "[1.4.2, )",
-          "SixLabors.ImageSharp": "[3.1.11, )"
+          "SixLabors.ImageSharp": "[3.1.11, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.cache.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.cache.extensions": {
         "type": "Project",
         "dependencies": {
-          "Hagalaz.Cache.Abstractions": "[1.0.0, )"
+          "Hagalaz.Cache.Abstractions": "[1.0.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.security": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       }
     }
   }

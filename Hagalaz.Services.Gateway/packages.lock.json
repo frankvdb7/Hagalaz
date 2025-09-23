@@ -2,6 +2,12 @@
   "version": 1,
   "dependencies": {
     "net9.0": {
+      "coverlet.collector": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "tW3lsNS+dAEII6YGUX/VMoJjBS1QvsxqJeqLaJXub08y1FSjasFPtQ4UBUsudE9PNrzLjooClMsPtY2cZLdXpQ=="
+      },
       "Microsoft.Extensions.ServiceDiscovery.Yarp": {
         "type": "Direct",
         "requested": "[9.4.2, )",
@@ -566,7 +572,8 @@
           "OpenTelemetry.Instrumentation.Process": "[1.11.0-beta.2, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.12.0, )",
           "Polly": "[8.6.3, )",
-          "Scalar.AspNetCore": "[2.7.4, )"
+          "Scalar.AspNetCore": "[2.7.4, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       }
     }

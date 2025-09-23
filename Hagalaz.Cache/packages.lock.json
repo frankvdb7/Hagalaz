@@ -2,6 +2,12 @@
   "version": 1,
   "dependencies": {
     "net9.0": {
+      "coverlet.collector": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "tW3lsNS+dAEII6YGUX/VMoJjBS1QvsxqJeqLaJXub08y1FSjasFPtQ4UBUsudE9PNrzLjooClMsPtY2cZLdXpQ=="
+      },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Direct",
         "requested": "[9.0.8, )",
@@ -45,16 +51,23 @@
         "contentHash": "tizSIOEsIgSNSSh+hKeUVPK7xmTIjR8s+mJWOu1KXV3htvNQiPMFRMO17OdI1y/4ZApdBVk49u/08QGC9yvLug=="
       },
       "hagalaz.cache.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.cache.extensions": {
         "type": "Project",
         "dependencies": {
-          "Hagalaz.Cache.Abstractions": "[1.0.0, )"
+          "Hagalaz.Cache.Abstractions": "[1.0.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.security": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       }
     }
   }

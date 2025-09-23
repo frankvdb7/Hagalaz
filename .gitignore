@@ -342,3 +342,4 @@ node_modules
 /.tye
 /Data
 /Cache
+coveragereport/

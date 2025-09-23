@@ -2,6 +2,12 @@
   "version": 1,
   "dependencies": {
     "net9.0": {
+      "coverlet.collector": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "tW3lsNS+dAEII6YGUX/VMoJjBS1QvsxqJeqLaJXub08y1FSjasFPtQ4UBUsudE9PNrzLjooClMsPtY2cZLdXpQ=="
+      },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Direct",
         "requested": "[9.0.8, )",
@@ -17,13 +23,22 @@
         "contentHash": "xY3lTjj4+ZYmiKIkyWitddrp1uL5uYiweQjqo4BKBw01ZC4HhcfgLghDpPZcUlppgWAFqFy9SgkiYWOMx365pw=="
       },
       "hagalaz.cache.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.utilities": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "raido.common": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       }
     }
   }

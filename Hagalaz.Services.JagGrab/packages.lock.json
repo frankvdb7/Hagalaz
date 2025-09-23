@@ -2,6 +2,12 @@
   "version": 1,
   "dependencies": {
     "net9.0": {
+      "coverlet.collector": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "tW3lsNS+dAEII6YGUX/VMoJjBS1QvsxqJeqLaJXub08y1FSjasFPtQ4UBUsudE9PNrzLjooClMsPtY2cZLdXpQ=="
+      },
       "Microsoft.AspNetCore.Authorization": {
         "type": "Transitive",
         "resolved": "9.0.8",
@@ -171,11 +177,15 @@
       "hagalaz.hosting.extensions": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.Hosting.Abstractions": "[9.0.8, )"
+          "Microsoft.Extensions.Hosting.Abstractions": "[9.0.8, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.services.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.services.common": {
         "type": "Project",
@@ -184,7 +194,8 @@
           "Microsoft.AspNetCore.Authorization": "[9.0.8, )",
           "Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore": "[9.0.8, )",
           "Microsoft.EntityFrameworkCore": "[9.0.8, )",
-          "Microsoft.Extensions.Configuration": "[9.0.8, )"
+          "Microsoft.Extensions.Configuration": "[9.0.8, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       }
     }

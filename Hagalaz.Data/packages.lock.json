@@ -25,6 +25,12 @@
           "Pomelo.EntityFrameworkCore.MySql": "8.0.3"
         }
       },
+      "coverlet.collector": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "tW3lsNS+dAEII6YGUX/VMoJjBS1QvsxqJeqLaJXub08y1FSjasFPtQ4UBUsudE9PNrzLjooClMsPtY2cZLdXpQ=="
+      },
       "Microsoft.AspNetCore.Identity.EntityFrameworkCore": {
         "type": "Direct",
         "requested": "[9.0.8, )",
@@ -652,7 +658,10 @@
         "contentHash": "qmeeYNROMsONF6ndEZcIQ+VxR4Q/TX/7uIVLJqtwIWL7dDWeh0l1UIqgo4wYyjG//5lUNhwkLDSFl+pAWO6oiA=="
       },
       "hagalaz.security": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       }
     }
   }
