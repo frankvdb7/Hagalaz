@@ -8,6 +8,12 @@
         "resolved": "9.1.0",
         "contentHash": "EEXt/qvPP8sAMVIiUNOf2wHlMw9f8xckgM8sU791TSWUy7crn3rF14TkHfG8hNnQOQdq+83rX8Y5pNsZ/L06DQ=="
       },
+      "coverlet.collector": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "tW3lsNS+dAEII6YGUX/VMoJjBS1QvsxqJeqLaJXub08y1FSjasFPtQ4UBUsudE9PNrzLjooClMsPtY2cZLdXpQ=="
+      },
       "Microsoft.NET.Test.Sdk": {
         "type": "Direct",
         "requested": "[17.13.0, )",
@@ -1188,10 +1194,16 @@
         }
       },
       "hagalaz.authorization.constants": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.authorization.messages": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.cache": {
         "type": "Project",
@@ -1203,36 +1215,54 @@
           "Microsoft.Extensions.Logging.Abstractions": "[9.0.8, )",
           "Microsoft.Extensions.Options": "[9.0.8, )",
           "SharpZipLib": "[1.4.2, )",
-          "SixLabors.ImageSharp": "[3.1.11, )"
+          "SixLabors.ImageSharp": "[3.1.11, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.cache.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.cache.extensions": {
         "type": "Project",
         "dependencies": {
-          "Hagalaz.Cache.Abstractions": "[1.0.0, )"
+          "Hagalaz.Cache.Abstractions": "[1.0.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.characters.messages": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.collections": {
         "type": "Project",
         "dependencies": {
           "Hagalaz.Collections.Extensions": "[1.0.0, )",
-          "JetBrains.Annotations": "[2025.2.2, )"
+          "JetBrains.Annotations": "[2025.2.2, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.collections.extensions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.configuration": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.contacts.messages": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.data": {
         "type": "Project",
@@ -1245,27 +1275,36 @@
           "Microsoft.EntityFrameworkCore.Relational": "[9.0.8, )",
           "MySqlConnector": "[2.4.0, )",
           "OpenIddict.EntityFrameworkCore": "[7.0.0, )",
-          "Pomelo.EntityFrameworkCore.MySql": "[9.0.0, )"
+          "Pomelo.EntityFrameworkCore.MySql": "[9.0.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.data.extensions": {
         "type": "Project",
         "dependencies": {
           "Aspire.Pomelo.EntityFrameworkCore.MySql": "[9.4.2, )",
-          "Hagalaz.Data": "[1.0.0, )"
+          "Hagalaz.Data": "[1.0.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.dependencyinjection.extensions": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.8, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.8, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.exceptions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.extensions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.game": {
         "type": "Project",
@@ -1274,7 +1313,8 @@
           "Hagalaz.Game.Abstractions": "[1.0.0, )",
           "Microsoft.Extensions.Options": "[9.0.8, )",
           "Nito.AsyncEx": "[5.1.2, )",
-          "QuadTrees.Core": "[1.0.0, )"
+          "QuadTrees.Core": "[1.0.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.game.abstractions": {
@@ -1283,18 +1323,23 @@
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Utilities": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection": "[9.0.8, )",
-          "Raido.Common": "[1.0.0, )"
+          "Raido.Common": "[1.0.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.game.common": {
         "type": "Project",
         "dependencies": {
           "Hagalaz.DependencyInjection.Extensions": "[1.0.0, )",
-          "Hagalaz.Game.Abstractions": "[1.0.0, )"
+          "Hagalaz.Game.Abstractions": "[1.0.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.game.configuration": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.game.extensions": {
         "type": "Project",
@@ -1302,40 +1347,56 @@
           "Hagalaz.Configuration": "[1.0.0, )",
           "Hagalaz.Game.Abstractions": "[1.0.0, )",
           "Hagalaz.Game.Utilities": "[1.0.0, )",
-          "System.Reactive": "[6.0.2, )"
+          "System.Reactive": "[6.0.2, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.game.features": {
         "type": "Project",
         "dependencies": {
           "Hagalaz.Game.Abstractions": "[1.0.0, )",
-          "Hagalaz.Utilities": "[1.0.0, )"
+          "Hagalaz.Utilities": "[1.0.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.game.messages": {
         "type": "Project",
         "dependencies": {
           "Hagalaz.Game.Abstractions": "[1.0.0, )",
-          "Raido.Common": "[1.0.0, )"
+          "Raido.Common": "[1.0.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.game.resources": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.game.utilities": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.hosting.extensions": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.Hosting.Abstractions": "[9.0.8, )"
+          "Microsoft.Extensions.Hosting.Abstractions": "[9.0.8, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.security": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.security.extensions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.servicedefaults": {
         "type": "Project",
@@ -1356,11 +1417,15 @@
           "OpenTelemetry.Instrumentation.Process": "[1.11.0-beta.2, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.12.0, )",
           "Polly": "[8.6.3, )",
-          "Scalar.AspNetCore": "[2.7.4, )"
+          "Scalar.AspNetCore": "[2.7.4, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.services.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.services.common": {
         "type": "Project",
@@ -1369,7 +1434,8 @@
           "Microsoft.AspNetCore.Authorization": "[9.0.8, )",
           "Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore": "[9.0.8, )",
           "Microsoft.EntityFrameworkCore": "[9.0.8, )",
-          "Microsoft.Extensions.Configuration": "[9.0.8, )"
+          "Microsoft.Extensions.Configuration": "[9.0.8, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.services.extensions": {
@@ -1378,7 +1444,8 @@
           "Hagalaz.Services.Abstractions": "[1.0.0, )",
           "Hagalaz.Services.Common": "[1.0.0, )",
           "Microsoft.Extensions.Hosting.Abstractions": "[9.0.8, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[9.0.8, )"
+          "Microsoft.Extensions.Logging.Abstractions": "[9.0.8, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.services.gameworld": {
@@ -1420,27 +1487,41 @@
           "Raido.Server": "[1.0.0, )",
           "System.Linq.Async": "[6.0.3, )",
           "ZiggyCreatures.FusionCache": "[2.4.0, )",
-          "ZiggyCreatures.FusionCache.Serialization.SystemTextJson": "[2.4.0, )"
+          "ZiggyCreatures.FusionCache.Serialization.SystemTextJson": "[2.4.0, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "hagalaz.tasks.extensions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.text.json": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.utilities": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "hagalaz.workers": {
         "type": "Project",
         "dependencies": {
           "Microsoft.Extensions.Hosting.Abstractions": "[9.0.8, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[9.0.8, )"
+          "Microsoft.Extensions.Logging.Abstractions": "[9.0.8, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       },
       "raido.common": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "coverlet.collector": "[6.0.0, )"
+        }
       },
       "raido.server": {
         "type": "Project",
@@ -1449,7 +1530,8 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.8, )",
           "Microsoft.Extensions.Options": "[9.0.8, )",
           "Raido.Common": "[1.0.0, )",
-          "System.IO.Pipelines": "[9.0.8, )"
+          "System.IO.Pipelines": "[9.0.8, )",
+          "coverlet.collector": "[6.0.0, )"
         }
       }
     }
