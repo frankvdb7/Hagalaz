@@ -19,15 +19,15 @@ namespace Hagalaz.Services.GameWorld.Services
     {
         private readonly IMapRegionService _regionService;
         private readonly IGameObjectDefinitionRepository _gameObjectDefinitionRepository;
-        private readonly ITypeDecoder<GameObjectDefinition> _objectDecoder;
+        private readonly ITypeProvider<GameObjectDefinition> _objectProvider;
 
         public GameObjectService(
             IMapRegionService regionService, IGameObjectDefinitionRepository gameObjectDefinitionRepository,
-            ITypeDecoder<GameObjectDefinition> objectDecoder)
+            ITypeProvider<GameObjectDefinition> objectProvider)
         {
             _regionService = regionService;
             _gameObjectDefinitionRepository = gameObjectDefinitionRepository;
-            _objectDecoder = objectDecoder;
+            _objectProvider = objectProvider;
         }
 
         public IEnumerable<IGameObject> FindByLocation(ILocation location)
@@ -75,7 +75,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async Task<GameObjectDefinition> FindGameObjectDefinitionById(int objectId, CancellationToken cancellationToken = default)
         {
-            var definition = _objectDecoder.Decode(objectId);
+            var definition = _objectProvider.Decode(objectId);
             var databaseDefinition = await _gameObjectDefinitionRepository.FindAll()
                 .Where(g => g.GameobjectId == objectId)
                 .FirstOrDefaultAsync(cancellationToken);
@@ -90,6 +90,6 @@ namespace Hagalaz.Services.GameWorld.Services
             return definition;
         }
 
-        public int GetObjectsCount() => _objectDecoder.ArchiveSize;
+        public int GetObjectsCount() => _objectProvider.ArchiveSize;
     }
 }

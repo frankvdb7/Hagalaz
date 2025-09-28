@@ -21,19 +21,19 @@ namespace Hagalaz.Services.GameWorld.Store
         private Dictionary<int, Hagalaz.Data.Entities.NpcStatistic> _databaseNpcStatistics = new();
         private Dictionary<int, Hagalaz.Data.Entities.NpcBonuses> _databaseNpcBonuses = new();
         private readonly IServiceProvider _serviceProvider;
-        private readonly ITypeDecoder<INpcDefinition> _npcDecoder;
+        private readonly ITypeProvider<INpcDefinition> _npcProvider;
         private readonly ILogger<NpcDefinitionStore> _logger;
 
-        public NpcDefinitionStore(IServiceProvider serviceProvider, ITypeDecoder<INpcDefinition> npcDecoder, ILogger<NpcDefinitionStore> logger)
+        public NpcDefinitionStore(IServiceProvider serviceProvider, ITypeProvider<INpcDefinition> npcProvider, ILogger<NpcDefinitionStore> logger)
         {
             _serviceProvider = serviceProvider;
-            _npcDecoder = npcDecoder;
+            _npcProvider = npcProvider;
             _logger = logger;
         }
 
         private INpcDefinition LoadNpcDefinition(int npcId)
         {
-            var type = _npcDecoder.Decode(npcId);
+            var type = _npcProvider.Decode(npcId);
             if (_databaseNpcs.TryGetValue(npcId, out var npc))
             {
                 type.DisplayName = npc.Name;

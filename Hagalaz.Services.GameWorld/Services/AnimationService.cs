@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Concurrent;
+using System;
+using System.Collections.Concurrent;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Services;
@@ -11,10 +13,10 @@ namespace Hagalaz.Services.GameWorld.Services
     {
         private readonly ConcurrentDictionary<int, IAnimationDefinition> _animations = new();
         private readonly IAnimationDefinition _resetAnimation = new AnimationDefinition(-1);
-        private readonly ITypeDecoder<IAnimationDefinition> _typeDecoder;
+        private readonly ITypeProvider<IAnimationDefinition> _typeProvider;
         private int _cachedTotalAnimations = -1;
 
-        public AnimationService(ITypeDecoder<IAnimationDefinition> typeDecoder) => _typeDecoder = typeDecoder;
+        public AnimationService(ITypeProvider<IAnimationDefinition> typeProvider) => _typeProvider = typeProvider;
 
         public IAnimationDefinition FindAnimationById(int animationId)
         {
@@ -24,7 +26,7 @@ namespace Hagalaz.Services.GameWorld.Services
             }
             if (_cachedTotalAnimations == -1)
             {
-                _cachedTotalAnimations = _typeDecoder.ArchiveSize;
+                _cachedTotalAnimations = _typeProvider.ArchiveSize;
             }
             if (animationId < 0 || animationId > _cachedTotalAnimations)
             {
@@ -34,7 +36,7 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 return value;
             }
-            return _animations.GetOrAdd(animationId, _typeDecoder.Decode);
+            return _animations.GetOrAdd(animationId, _typeProvider.Decode);
         }
     }
 }

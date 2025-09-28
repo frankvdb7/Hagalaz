@@ -4,7 +4,7 @@ namespace Hagalaz.Cache.Types.Hooks
 {
     public class ObjectTypeEventHook : ITypeEventHook<IObjectType>
     {
-        public void AfterDecode(ITypeDecoder<IObjectType> decoder, IObjectType[] types)
+        public void AfterDecode(ITypeProvider<IObjectType> provider, IObjectType[] types)
         {
             foreach (var type in types)
             {

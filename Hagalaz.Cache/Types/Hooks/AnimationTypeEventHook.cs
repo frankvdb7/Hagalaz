@@ -4,7 +4,7 @@ namespace Hagalaz.Cache.Types.Hooks
 {
     public class AnimationTypeEventHook : ITypeEventHook<IAnimationType>
     {
-        public void AfterDecode(ITypeDecoder<IAnimationType> decoder, IAnimationType[] types)
+        public void AfterDecode(ITypeProvider<IAnimationType> provider, IAnimationType[] types)
         {
             foreach (var type in types)
             {
