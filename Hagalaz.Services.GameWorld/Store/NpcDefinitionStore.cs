@@ -33,7 +33,7 @@ namespace Hagalaz.Services.GameWorld.Store
 
         private INpcDefinition LoadNpcDefinition(int npcId)
         {
-            var type = _npcProvider.Decode(npcId);
+            var type = _npcProvider.Get(npcId);
             if (_databaseNpcs.TryGetValue(npcId, out var npc))
             {
                 type.DisplayName = npc.Name;

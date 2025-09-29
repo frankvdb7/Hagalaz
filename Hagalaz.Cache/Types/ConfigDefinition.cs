@@ -12,7 +12,7 @@ namespace Hagalaz.Cache.Types
         /// <summary>
         /// The configuration definitions
         /// </summary>
-        private static ConfigDefinition[] configDefinitions;
+        private static ConfigDefinition[]? configDefinitions;
         /// <summary>
         /// Contains the identifier.
         /// </summary>

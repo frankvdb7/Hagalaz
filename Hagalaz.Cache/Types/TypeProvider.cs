@@ -22,11 +22,11 @@ namespace Hagalaz.Cache.Types
             _customDecoder = customDecoder;
         }
 
-        public T Decode(int typeId)
+        public T Get(int typeId)
         {
             if (_customDecoder != null)
             {
-                return _customDecoder.Decode(typeId);
+                return _customDecoder.Get(typeId);
             }
 
             var table = _cache.ReadReferenceTable(_typeData.IndexId);
@@ -44,11 +44,11 @@ namespace Hagalaz.Cache.Types
             return type;
         }
 
-        public T[] DecodeRange(int startTypeId, int endTypeId)
+        public T[] GetRange(int startTypeId, int endTypeId)
         {
             if (_customDecoder != null)
             {
-                return _customDecoder.DecodeRange(startTypeId, endTypeId);
+                return _customDecoder.GetRange(startTypeId, endTypeId);
             }
 
             var types = new T[endTypeId - startTypeId];
@@ -77,15 +77,15 @@ namespace Hagalaz.Cache.Types
             return types;
         }
 
-        public T[] DecodeAll()
+        public T[] GetAll()
         {
             if (_customDecoder != null)
             {
-                return _customDecoder.DecodeAll();
+                return _customDecoder.GetAll();
             }
 
             var count = _typeData.GetArchiveSize(_cache);
-            return DecodeRange(0, count);
+            return GetRange(0, count);
         }
     }
 }

@@ -401,6 +401,8 @@ namespace Hagalaz.Cache.Types
             AnInt1510 = -1;
             ExtraData = null;
             Speed = 0;
+            AByteArray1446 = Array.Empty<sbyte>();
+            AnIntArrayArray1449 = Array.Empty<int[]>();
         }
 
         /// <summary>

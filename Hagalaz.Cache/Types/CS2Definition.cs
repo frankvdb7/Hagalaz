@@ -12,7 +12,7 @@ namespace Hagalaz.Cache.Types
         /// <summary>
         /// The CS2 definitions.
         /// </summary>
-        private static Cs2Definition[] cs2Definitions;
+        private static Cs2Definition[]? cs2Definitions;
         /// <summary>
         /// Contains the identifier.
         /// </summary>
@@ -29,6 +29,7 @@ namespace Hagalaz.Cache.Types
         public Cs2Definition(short id)
         {
             ID = id;
+            Name = string.Empty;
         }
 
         /// <summary>

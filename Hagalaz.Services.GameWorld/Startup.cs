@@ -85,7 +85,6 @@ using Hagalaz.Services.GameWorld.Logic.Loot;
 using Hagalaz.Services.GameWorld.Logic.Random;
 using Hagalaz.Services.GameWorld.Logic.Skills;
 using Hagalaz.Services.GameWorld.Services.Cache;
-using Hagalaz.Services.GameWorld.Services.Cache;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Polly;
@@ -386,6 +385,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddTransient<ITypeEventHook<IItemDefinition>, ItemTypeEventHook>();
             services.AddTransient<ITypeEventHook<GameObjectDefinition>, ObjectTypeEventHook>();
 
+            services.AddTransient<ITypeProvider<IItemType>, ItemTypeProvider>();
             services.AddTransient<ITypeProvider<IItemDefinition>, ItemDefinitionProvider>();
             services.AddTransient<ITypeProvider<INpcDefinition>, TypeProvider<INpcDefinition, NpcTypeData>>();
             services.AddTransient<ITypeProvider<GameObjectDefinition>, TypeProvider<GameObjectDefinition, ObjectTypeData>>();

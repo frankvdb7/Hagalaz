@@ -12,24 +12,24 @@
         int ArchiveSize { get; }
 
         /// <summary>
-        /// Decodes all instances of the type from the cache.
+        /// Gets all instances of the type from the cache.
         /// </summary>
-        /// <returns>An array containing all decoded instances of the type.</returns>
-        T[] DecodeAll();
+        /// <returns>An array containing all instances of the type.</returns>
+        T[] GetAll();
 
         /// <summary>
-        /// Decodes a range of instances of the type from the cache.
+        /// Gets a range of instances of the type from the cache.
         /// </summary>
         /// <param name="startTypeId">The starting type ID.</param>
         /// <param name="endTypeId">The ending type ID.</param>
-        /// <returns>An array containing the decoded instances within the specified range.</returns>
-        T[] DecodeRange(int startTypeId, int endTypeId);
+        /// <returns>An array containing the instances within the specified range.</returns>
+        T[] GetRange(int startTypeId, int endTypeId);
 
         /// <summary>
-        /// Decodes a single instance of the type from the cache.
+        /// Gets a single instance of the type from the cache.
         /// </summary>
-        /// <param name="typeId">The ID of the type to decode.</param>
-        /// <returns>The decoded instance of the type.</returns>
-        T Decode(int typeId);
+        /// <param name="typeId">The ID of the type to get.</param>
+        /// <returns>The instance of the type.</returns>
+        T Get(int typeId);
     }
 }

@@ -21,45 +21,36 @@ namespace Hagalaz.Services.GameWorld.Services.Cache
 
         public int ArchiveSize => _itemTypeProvider.ArchiveSize;
 
-        public IItemDefinition Decode(int typeId)
+        public IItemDefinition Get(int typeId)
         {
-            var itemType = _itemTypeProvider.Decode(typeId);
+            var itemType = _itemTypeProvider.Get(typeId);
             var itemDefinitionEntity = _repository.FindAll().FirstOrDefault(d => d.Id == (ushort)typeId);
 
-            var itemDefinition = _mapper.Map<IItemDefinition>(itemType);
             if (itemDefinitionEntity != null)
             {
-                _mapper.Map(itemDefinitionEntity, itemDefinition);
+                var itemDefinition = _mapper.Map<IItemDefinition>(itemDefinitionEntity);
+                _mapper.Map(itemType, itemDefinition);
+                return itemDefinition;
             }
 
-            return itemDefinition;
+            return _mapper.Map<IItemDefinition>(itemType);
         }
 
-        public IItemDefinition[] DecodeRange(int startTypeId, int endTypeId)
+        public IItemDefinition[] GetRange(int startTypeId, int endTypeId)
         {
-            var types = new IItemDefinition[endTypeId - startTypeId];
-            var itemDefinitions = _repository.FindAll().Where(d => d.Id >= startTypeId && d.Id < endTypeId).ToDictionary(d => d.Id, d => d);
-
-            for (var i = 0; i < types.Length; i++)
+            var definitions = new IItemDefinition[endTypeId - startTypeId];
+            for (var i = 0; i < definitions.Length; i++)
             {
                 var typeId = startTypeId + i;
-                var itemType = _itemTypeProvider.Decode(typeId);
-                var itemDefinition = _mapper.Map<IItemDefinition>(itemType);
-
-                if (itemDefinitions.TryGetValue((ushort)typeId, out var itemDefinitionEntity))
-                {
-                    _mapper.Map(itemDefinitionEntity, itemDefinition);
-                }
-
-                types[i] = itemDefinition;
+                definitions[i] = Get(typeId);
             }
-            return types;
+            return definitions;
         }
 
-        public IItemDefinition[] DecodeAll()
+        public IItemDefinition[] GetAll()
         {
             var count = ArchiveSize;
-            return DecodeRange(0, count);
+            return GetRange(0, count);
         }
     }
 }

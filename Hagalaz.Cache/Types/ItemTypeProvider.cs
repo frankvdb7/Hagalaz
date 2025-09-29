@@ -34,7 +34,7 @@ namespace Hagalaz.Cache.Types
         public int ArchiveSize => _typeData.GetArchiveSize(_cache);
 
         /// <inheritdoc />
-        public IItemType Decode(int typeId)
+        public IItemType Get(int typeId)
         {
             var table = _cache.ReadReferenceTable(_typeData.IndexId);
             var archiveId = _typeData.GetArchiveId(typeId);
@@ -53,22 +53,22 @@ namespace Hagalaz.Cache.Types
         }
 
         /// <inheritdoc />
-        public IItemType[] DecodeRange(int startTypeId, int endTypeId)
+        public IItemType[] GetRange(int startTypeId, int endTypeId)
         {
             var types = new IItemType[endTypeId - startTypeId];
             for (var i = 0; i < types.Length; i++)
             {
                 var typeId = startTypeId + i;
-                types[i] = Decode(typeId);
+                types[i] = Get(typeId);
             }
             return types;
         }
 
         /// <inheritdoc />
-        public IItemType[] DecodeAll()
+        public IItemType[] GetAll()
         {
             var count = ArchiveSize;
-            return DecodeRange(0, count);
+            return GetRange(0, count);
         }
     }
 }

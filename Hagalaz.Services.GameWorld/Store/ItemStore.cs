@@ -30,7 +30,7 @@ namespace Hagalaz.Services.GameWorld.Store
 
         private IItemDefinition LoadItemDefinition(int itemId)
         {
-            var definition = _itemProvider.Decode(itemId);
+            var definition = _itemProvider.Get(itemId);
             if (_databaseItems.TryGetValue(itemId, out var item))
             {
                 definition.Examine = item.Examine;

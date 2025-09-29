@@ -75,7 +75,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async Task<GameObjectDefinition> FindGameObjectDefinitionById(int objectId, CancellationToken cancellationToken = default)
         {
-            var definition = _objectProvider.Decode(objectId);
+            var definition = _objectProvider.Get(objectId);
             var databaseDefinition = await _gameObjectDefinitionRepository.FindAll()
                 .Where(g => g.GameobjectId == objectId)
                 .FirstOrDefaultAsync(cancellationToken);

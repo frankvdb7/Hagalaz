@@ -50,6 +50,7 @@ namespace Hagalaz.Cache.Types
         public SpriteType(int id)
         {
             Id = id;
+            Image = new Image<Bgra5551>(1, 1);
         }
 
         /// <summary>

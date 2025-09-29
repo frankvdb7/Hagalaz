@@ -60,6 +60,7 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ITypeProvider<IQuestType>, TypeProvider<IQuestType, QuestTypeData>>();
             services.TryAddTransient<ITypeProvider<IObjectType>, TypeProvider<IObjectType, ObjectTypeData>>();
             services.TryAddTransient<ITypeProvider<IAnimationType>, TypeProvider<IAnimationType, AnimationTypeData>>();
+            services.TryAddTransient<ITypeFactory<IItemType>, ItemTypeFactory>();
             services.TryAddTransient<ITypeFactory<INpcType>, NpcTypeFactory>();
             services.TryAddTransient<ITypeFactory<ISpriteType>, SpriteTypeFactory>();
             services.TryAddTransient<ITypeFactory<IQuestType>, QuestTypeFactory>();

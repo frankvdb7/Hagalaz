@@ -36,7 +36,7 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 return value;
             }
-            return _animations.GetOrAdd(animationId, _typeProvider.Decode);
+            return _animations.GetOrAdd(animationId, _typeProvider.Get);
         }
     }
 }

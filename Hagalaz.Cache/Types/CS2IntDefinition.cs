@@ -12,7 +12,7 @@ namespace Hagalaz.Cache.Types
         /// <summary>
         /// The configuration definitions
         /// </summary>
-        private static Cs2IntDefinition[] cs2IntDefinitions;
+        private static Cs2IntDefinition[]? cs2IntDefinitions;
         /// <summary>
         /// Contains the identifier.
         /// </summary>
