@@ -56,10 +56,9 @@ namespace Hagalaz.Cache.Types
         public IItemType[] GetRange(int startTypeId, int endTypeId)
         {
             var types = new IItemType[endTypeId - startTypeId];
-            for (var i = 0; i < types.Length; i++)
+            for (var typeId = startTypeId; typeId < endTypeId; typeId++)
             {
-                var typeId = startTypeId + i;
-                types[i] = Get(typeId);
+                types[typeId - startTypeId] = Get(typeId);
             }
             return types;
         }

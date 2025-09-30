@@ -38,11 +38,28 @@ namespace Hagalaz.Services.GameWorld.Services.Cache
 
         public IItemDefinition[] GetRange(int startTypeId, int endTypeId)
         {
-            var definitions = new IItemDefinition[endTypeId - startTypeId];
-            for (var i = 0; i < definitions.Length; i++)
+            var itemTypes = _itemTypeProvider.GetRange(startTypeId, endTypeId);
+            var typeIds = Enumerable.Range(startTypeId, endTypeId - startTypeId).Select(id => (ushort)id).ToHashSet();
+            var itemDefinitionEntities = _repository.FindAll()
+                .Where(d => typeIds.Contains(d.Id))
+                .ToDictionary(d => d.Id);
+
+            var definitions = new IItemDefinition[itemTypes.Length];
+            for (var i = 0; i < itemTypes.Length; i++)
             {
-                var typeId = startTypeId + i;
-                definitions[i] = Get(typeId);
+                var itemType = itemTypes[i];
+                var typeId = (ushort)itemType.Id;
+
+                if (itemDefinitionEntities.TryGetValue(typeId, out var itemDefinitionEntity))
+                {
+                    var itemDefinition = _mapper.Map<IItemDefinition>(itemDefinitionEntity);
+                    _mapper.Map(itemType, itemDefinition);
+                    definitions[i] = itemDefinition;
+                }
+                else
+                {
+                    definitions[i] = _mapper.Map<IItemDefinition>(itemType);
+                }
             }
             return definitions;
         }
