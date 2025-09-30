@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Logic;
 
 namespace Hagalaz.Cache.Types
 {
@@ -77,12 +78,12 @@ namespace Hagalaz.Cache.Types
         public sbyte EquipSlot { get; internal set; }
         public sbyte EquipType { get; internal set; }
         public sbyte SomeEquipInt { get; internal set; }
-        public bool Noted { get; internal set; }
-        public bool Stackable { get; internal set; }
-        public bool HasWearModel { get; internal set; }
-        public DegradeType DegradeType { get; internal set; }
-        public int RenderAnimationId { get; internal set; }
-        public bool HasDestroyOption { get; internal set; }
+        public bool Noted => ItemTypeLogic.IsNoted(this);
+        public bool Stackable => ItemTypeLogic.IsStackable(this);
+        public bool HasWearModel => ItemTypeLogic.HasWearModel(this);
+        public DegradeType DegradeType => ItemTypeLogic.GetDegradeType(this);
+        public int RenderAnimationId => ItemTypeLogic.GetRenderAnimationId(this);
+        public bool HasDestroyOption => ItemTypeLogic.HasDestroyOption(this);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ItemType"/> class.
