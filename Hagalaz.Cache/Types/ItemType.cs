@@ -117,113 +117,135 @@ namespace Hagalaz.Cache.Types
         /// <inheritdoc />
         public void MakeNote(IItemType item, IItemType template)
         {
+            // Set properties from the original item
             MembersOnly = item.MembersOnly;
-            InterfaceModelId = template.InterfaceModelId;
-            OriginalModelColors = template.OriginalModelColors;
-            Name = item.Name;
-            ModelOffset2 = template.ModelOffset2;
-            OriginalTextureColors = template.OriginalTextureColors;
             Value = item.Value;
-            ModelRotation2 = template.ModelRotation2;
+            Name = item.Name;
             StackableType = 1;
-            ModifiedModelColors = template.ModifiedModelColors;
-            ModelRotation1 = template.ModelRotation1;
+
+            // Set properties from the template
+            InterfaceModelId = template.InterfaceModelId;
             ModelZoom = template.ModelZoom;
+            ModelRotation1 = template.ModelRotation1;
+            ModelRotation2 = template.ModelRotation2;
+            ModelOffset1 = template.ModelOffset1;
+            ModelOffset2 = template.ModelOffset2;
             Zan2D = template.Zan2D;
+
+            OriginalModelColors = template.OriginalModelColors;
+            ModifiedModelColors = template.ModifiedModelColors;
+            OriginalTextureColors = template.OriginalTextureColors;
+            ModifiedTextureColors = template.ModifiedTextureColors;
         }
         /// <inheritdoc />
         public void MakeLend(IItemType item, IItemType template)
         {
-            MaleWornModelId2 = item.MaleWornModelId2;
-            MaleHeadModel = item.MaleHeadModel;
-            FemaleWornModelId1 = item.FemaleWornModelId1;
-            MaleWearYOffset = item.MaleWearYOffset;
-            MembersOnly = item.MembersOnly;
-            InterfaceModelId = template.InterfaceModelId;
-            ModifiedTextureColors = item.ModifiedTextureColors;
-            FemaleWearXOffset = item.FemaleWearXOffset;
-            GroundOptions = item.GroundOptions;
-            UnknownArray1 = item.UnknownArray1;
-            ModelRotation1 = template.ModelRotation1;
-            ModelRotation2 = template.ModelRotation2;
-            OriginalModelColors = item.OriginalModelColors;
-            Name = item.Name;
-            FemaleHeadModel2 = item.FemaleHeadModel2;
+            // Set properties from the original item
             MaleWornModelId1 = item.MaleWornModelId1;
-            MaleWearZOffset = item.MaleWearZOffset;
-            MaleHeadModel2 = item.MaleHeadModel2;
+            MaleWornModelId2 = item.MaleWornModelId2;
             MaleWornModelId3 = item.MaleWornModelId3;
-            TeamId = item.TeamId;
-            ModelOffset2 = template.ModelOffset2;
-            ExtraData = item.ExtraData;
-            ModifiedModelColors = item.ModifiedModelColors;
-            MaleWearXOffset = item.MaleWearXOffset;
-            FemaleWornModelId3 = item.FemaleWornModelId3;
-            FemaleHeadModel = item.FemaleHeadModel;
-            ModelOffset1 = template.ModelOffset1;
-            FemaleWearZOffset = item.FemaleWearZOffset;
-            OriginalTextureColors = item.OriginalTextureColors;
-            Value = 0;
-            Zan2D = template.Zan2D;
-            ModelZoom = template.ModelZoom;
-            FemaleWearYOffset = item.FemaleWearYOffset;
-            InventoryOptions = new string[5];
+            FemaleWornModelId1 = item.FemaleWornModelId1;
             FemaleWornModelId2 = item.FemaleWornModelId2;
-            if (item.InventoryOptions != null)
-                for (int i = 0; i < 4; i++)
-                    InventoryOptions[i] = item.InventoryOptions[i];
-            InventoryOptions[4] = "Discard";
+            FemaleWornModelId3 = item.FemaleWornModelId3;
+            MaleHeadModel = item.MaleHeadModel;
+            MaleHeadModel2 = item.MaleHeadModel2;
+            FemaleHeadModel = item.FemaleHeadModel;
+            FemaleHeadModel2 = item.FemaleHeadModel2;
+            MaleWearXOffset = item.MaleWearXOffset;
+            MaleWearYOffset = item.MaleWearYOffset;
+            MaleWearZOffset = item.MaleWearZOffset;
+            FemaleWearXOffset = item.FemaleWearXOffset;
+            FemaleWearYOffset = item.FemaleWearYOffset;
+            FemaleWearZOffset = item.FemaleWearZOffset;
             EquipSlot = item.EquipSlot;
             EquipType = item.EquipType;
-        }
-
-        /// <inheritdoc />
-        public void MakeBought(IItemType item, IItemType template)
-        {
-            FemaleWornModelId2 = item.FemaleWornModelId2;
-            FemaleWearXOffset = item.FemaleWearXOffset;
-            InventoryOptions = new string[5];
-            ModelRotation2 = template.ModelRotation2;
-            Name = item.Name;
-            MaleWornModelId1 = item.MaleWornModelId1;
-            ModelOffset2 = template.ModelOffset2;
-            MaleWearXOffset = item.MaleWearXOffset;
-            MaleWornModelId2 = item.MaleWornModelId2;
-            FemaleWornModelId1 = item.FemaleWornModelId1;
-            MaleHeadModel = item.MaleHeadModel;
-            Zan2D = template.Zan2D;
-            ModelOffset1 = template.ModelOffset1;
-            UnknownArray1 = item.UnknownArray1;
-            StackableType = item.StackableType;
-            ModelRotation1 = template.ModelRotation1;
-            OriginalTextureColors = item.OriginalTextureColors;
-            MaleHeadModel2 = item.MaleHeadModel2;
-            FemaleHeadModel2 = item.FemaleHeadModel2;
-            MaleWornModelId3 = item.MaleWornModelId3;
-            ModifiedTextureColors = item.ModifiedTextureColors;
-            FemaleWearZOffset = item.FemaleWearZOffset;
-            ModifiedModelColors = item.ModifiedModelColors;
-            ModelZoom = template.ModelZoom;
-            FemaleWornModelId3 = item.FemaleWornModelId3;
-            TeamId = item.TeamId;
-            Value = 0;
             GroundOptions = item.GroundOptions;
-            OriginalModelColors = item.OriginalModelColors;
-            MaleWearYOffset = item.MaleWearYOffset;
-            MembersOnly = item.MembersOnly;
-            FemaleWearYOffset = item.FemaleWearYOffset;
+            UnknownArray1 = item.UnknownArray1;
+            TeamId = item.TeamId;
             ExtraData = item.ExtraData;
-            MaleWearZOffset = item.MaleWearZOffset;
+            MembersOnly = item.MembersOnly;
+            Name = item.Name;
+            Value = 0;
+
+            // Set properties from the template
             InterfaceModelId = template.InterfaceModelId;
-            FemaleHeadModel = item.FemaleHeadModel;
+            ModelZoom = template.ModelZoom;
+            ModelRotation1 = template.ModelRotation1;
+            ModelRotation2 = template.ModelRotation2;
+            ModelOffset1 = template.ModelOffset1;
+            ModelOffset2 = template.ModelOffset2;
+            Zan2D = template.Zan2D;
+
+            // Set colors and textures from the item
+            OriginalModelColors = item.OriginalModelColors;
+            ModifiedModelColors = item.ModifiedModelColors;
+            OriginalTextureColors = item.OriginalTextureColors;
+            ModifiedTextureColors = item.ModifiedTextureColors;
+
+            // Set inventory options
+            InventoryOptions = new string[5];
             if (item.InventoryOptions != null)
             {
                 for (int i = 0; i < 4; i++)
                     InventoryOptions[i] = item.InventoryOptions[i];
             }
             InventoryOptions[4] = "Discard";
+        }
+
+        /// <inheritdoc />
+        public void MakeBought(IItemType item, IItemType template)
+        {
+            // Set properties from the original item
+            MaleWornModelId1 = item.MaleWornModelId1;
+            MaleWornModelId2 = item.MaleWornModelId2;
+            MaleWornModelId3 = item.MaleWornModelId3;
+            FemaleWornModelId1 = item.FemaleWornModelId1;
+            FemaleWornModelId2 = item.FemaleWornModelId2;
+            FemaleWornModelId3 = item.FemaleWornModelId3;
+            MaleHeadModel = item.MaleHeadModel;
+            MaleHeadModel2 = item.MaleHeadModel2;
+            FemaleHeadModel = item.FemaleHeadModel;
+            FemaleHeadModel2 = item.FemaleHeadModel2;
+            MaleWearXOffset = item.MaleWearXOffset;
+            MaleWearYOffset = item.MaleWearYOffset;
+            MaleWearZOffset = item.MaleWearZOffset;
+            FemaleWearXOffset = item.FemaleWearXOffset;
+            FemaleWearYOffset = item.FemaleWearYOffset;
+            FemaleWearZOffset = item.FemaleWearZOffset;
             EquipSlot = item.EquipSlot;
             EquipType = item.EquipType;
+            GroundOptions = item.GroundOptions;
+            UnknownArray1 = item.UnknownArray1;
+            TeamId = item.TeamId;
+            ExtraData = item.ExtraData;
+            MembersOnly = item.MembersOnly;
+            Name = item.Name;
+            StackableType = item.StackableType;
+            Value = 0;
+
+            // Set properties from the template
+            InterfaceModelId = template.InterfaceModelId;
+            ModelZoom = template.ModelZoom;
+            ModelRotation1 = template.ModelRotation1;
+            ModelRotation2 = template.ModelRotation2;
+            ModelOffset1 = template.ModelOffset1;
+            ModelOffset2 = template.ModelOffset2;
+            Zan2D = template.Zan2D;
+
+            // Set colors and textures from the item
+            OriginalModelColors = item.OriginalModelColors;
+            ModifiedModelColors = item.ModifiedModelColors;
+            OriginalTextureColors = item.OriginalTextureColors;
+            ModifiedTextureColors = item.ModifiedTextureColors;
+
+            // Set inventory options
+            InventoryOptions = new string[5];
+            if (item.InventoryOptions != null)
+            {
+                for (int i = 0; i < 4; i++)
+                    InventoryOptions[i] = item.InventoryOptions[i];
+            }
+            InventoryOptions[4] = "Discard";
         }
 
     }

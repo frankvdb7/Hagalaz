@@ -19,12 +19,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns><c>true</c> if the item has a special attack bar; otherwise, <c>false</c>.</returns>
         public static bool HasSpecialBar(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.HasSpecialBar, out var value))
             {
-                if (!itemType.ExtraData.ContainsKey(687))
-                    return false;
-                if (((int)itemType.ExtraData[687]) == 1)
+                if (value is int intValue && intValue == 1)
+                {
                     return true;
+                }
             }
             return false;
         }
@@ -36,12 +36,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The quest ID, or -1 if no quest is required.</returns>
         public static int GetQuestId(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.QuestId, out var value))
             {
-                if (!itemType.ExtraData.ContainsKey(861))
-                    return -1;
-                if (itemType.ExtraData[861] is int)
-                    return (int)itemType.ExtraData[861];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return -1;
         }
@@ -53,10 +53,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The attack speed value, defaulting to 4 if not specified.</returns>
         public static int GetAttackSpeed(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.AttackSpeed, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(14))
-                    return (int)itemType.ExtraData[14];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 4;
         }
@@ -68,10 +70,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The stab attack bonus.</returns>
         public static int GetStabAttack(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.StabAttack, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(0))
-                    return (int)itemType.ExtraData[0];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -83,10 +87,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The slash attack bonus.</returns>
         public static int GetSlashAttack(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.SlashAttack, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(1))
-                    return (int)itemType.ExtraData[1];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -98,10 +104,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The crush attack bonus.</returns>
         public static int GetCrushAttack(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.CrushAttack, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(2))
-                    return (int)itemType.ExtraData[2];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -113,10 +121,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The magic attack bonus.</returns>
         public static int GetMagicAttack(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.MagicAttack, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(3))
-                    return (int)itemType.ExtraData[3];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -128,10 +138,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The ranged attack bonus.</returns>
         public static int GetRangeAttack(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.RangeAttack, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(4))
-                    return (int)itemType.ExtraData[4];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -143,10 +155,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The stab defence bonus.</returns>
         public static int GetStabDefence(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.StabDefence, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(5))
-                    return (int)itemType.ExtraData[5];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -158,10 +172,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The slash defence bonus.</returns>
         public static int GetSlashDefence(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.SlashDefence, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(6))
-                    return (int)itemType.ExtraData[6];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -173,10 +189,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The crush defence bonus.</returns>
         public static int GetCrushDefence(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.CrushDefence, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(7))
-                    return (int)itemType.ExtraData[7];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -188,10 +206,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The magic defence bonus.</returns>
         public static int GetMagicDefence(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.MagicDefence, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(8))
-                    return (int)itemType.ExtraData[8];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -203,10 +223,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The ranged defence bonus.</returns>
         public static int GetRangeDefence(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.RangeDefence, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(9))
-                    return (int)itemType.ExtraData[9];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -218,10 +240,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The summoning defence bonus.</returns>
         public static int GetSummoningDefence(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.SummoningDefence, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(417))
-                    return (int)itemType.ExtraData[417];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -233,10 +257,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The melee absorption bonus.</returns>
         public static int GetAbsorbMeleeBonus(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.AbsorbMeleeBonus, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(967))
-                    return (int)itemType.ExtraData[967];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -248,10 +274,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The magic absorption bonus.</returns>
         public static int GetAbsorbMageBonus(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.AbsorbMageBonus, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(969))
-                    return (int)itemType.ExtraData[969];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -263,10 +291,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The ranged absorption bonus.</returns>
         public static int GetAbsorbRangeBonus(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.AbsorbRangeBonus, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(968))
-                    return (int)itemType.ExtraData[968];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -278,10 +308,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The strength bonus.</returns>
         public static int GetStrengthBonus(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.StrengthBonus, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(641))
-                    return (int)itemType.ExtraData[641] / 10;
+                if (value is int intValue)
+                {
+                    return intValue / 10;
+                }
             }
             return 0;
         }
@@ -293,10 +325,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The ranged strength bonus.</returns>
         public static int GetRangedStrengthBonus(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.RangedStrengthBonus, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(643))
-                    return (int)itemType.ExtraData[643] / 10;
+                if (value is int intValue)
+                {
+                    return intValue / 10;
+                }
             }
             return 0;
         }
@@ -308,10 +342,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The magic damage bonus.</returns>
         public static int GetMagicDamage(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.MagicDamage, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(685))
-                    return (int)itemType.ExtraData[685];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -323,10 +359,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The prayer bonus.</returns>
         public static int GetPrayerBonus(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.PrayerBonus, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(11))
-                    return (int)itemType.ExtraData[11];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -338,10 +376,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The weapon type ID.</returns>
         public static int GetWeaponType(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.WeaponType, out var value))
             {
-                if (itemType.ExtraData.ContainsKey(686))
-                    return (int)itemType.ExtraData[686];
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return 0;
         }
@@ -486,7 +526,7 @@ namespace Hagalaz.Cache.Logic
                         }
                     }
                 }
-                if (itemType.ExtraData.TryGetValue(277, out var maxedSkillObj) && maxedSkillObj is int maxedSkill)
+                if (itemType.ExtraData.TryGetValue(ItemConstants.MaxedSkillRequirement, out var maxedSkillObj) && maxedSkillObj is int maxedSkill)
                 {
                     if (maxedSkill >= 0 && maxedSkill <= 24)
                     {
@@ -525,11 +565,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The degradation type.</returns>
         public static DegradeType GetDegradeType(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.DegradeType, out var value))
             {
-                if (!itemType.ExtraData.ContainsKey(1397))
-                    return DegradeType.DropItem;
-                return (DegradeType)itemType.ExtraData[1397];
+                if (value is int intValue)
+                {
+                    return (DegradeType)intValue;
+                }
             }
             return DegradeType.DropItem;
         }
@@ -541,12 +582,12 @@ namespace Hagalaz.Cache.Logic
         /// <returns>The render animation ID, or -1 if not applicable.</returns>
         public static int GetRenderAnimationId(this IItemType itemType)
         {
-            if (itemType.ExtraData != null)
+            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.RenderAnimationId, out var value))
             {
-                if (!itemType.ExtraData.ContainsKey(644))
-                    return -1;
-                if (itemType.ExtraData[644] is int @int)
-                    return @int;
+                if (value is int intValue)
+                {
+                    return intValue;
+                }
             }
             return -1;
         }
