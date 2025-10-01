@@ -56,10 +56,31 @@ namespace Hagalaz.Cache.Types
         public INpcType[] GetRange(int startTypeId, int endTypeId)
         {
             var types = new INpcType[endTypeId - startTypeId];
+            var table = _cache.ReadReferenceTable(_typeData.IndexId);
+            Archive? archive = null;
+            var currentArchiveId = -1;
+
             for (var typeId = startTypeId; typeId < endTypeId; typeId++)
             {
-                types[typeId - startTypeId] = Get(typeId);
+                var archiveId = _typeData.GetArchiveId(typeId);
+                if (archiveId != currentArchiveId)
+                {
+                    archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
+                    currentArchiveId = archiveId;
+                }
+
+                var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
+                if (entry == null || archive == null)
+                {
+                    types[typeId - startTypeId] = _typeFactory.CreateType(typeId);
+                    continue;
+                }
+
+                var stream = archive.GetEntry(entry.Index);
+                types[typeId - startTypeId] = _codec.Decode(typeId, stream);
             }
+
+            _typeEventHook?.AfterDecode(this, types);
             return types;
         }
 

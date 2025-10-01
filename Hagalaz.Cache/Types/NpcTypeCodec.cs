@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
 
@@ -22,7 +23,7 @@ namespace Hagalaz.Cache.Types
 
             if (npc.ModelIDs != null)
             {
-                writer.WriteByte(1);
+                writer.WriteByte(NpcTypeOpcodes.ModelIDs);
                 writer.WriteByte((byte)npc.ModelIDs.Length);
                 foreach (var modelId in npc.ModelIDs)
                 {
@@ -32,13 +33,13 @@ namespace Hagalaz.Cache.Types
 
             if (npc.Name != "null")
             {
-                writer.WriteByte(2);
+                writer.WriteByte(NpcTypeOpcodes.Name);
                 writer.WriteString(npc.Name);
             }
 
             if (npc.Size != 1)
             {
-                writer.WriteByte(12);
+                writer.WriteByte(NpcTypeOpcodes.Size);
                 writer.WriteByte((byte)npc.Size);
             }
 
@@ -46,14 +47,14 @@ namespace Hagalaz.Cache.Types
             {
                 if (npc.Actions[i] != null && npc.Actions[i] != "Attack")
                 {
-                    writer.WriteByte((byte)(30 + i));
+                    writer.WriteByte((byte)(NpcTypeOpcodes.Actions + i));
                     writer.WriteString(npc.Actions[i]);
                 }
             }
 
             if (npc.OriginalColours != null && npc.ModifiedColours != null)
             {
-                writer.WriteByte(40);
+                writer.WriteByte(NpcTypeOpcodes.ModifiedColours);
                 writer.WriteByte((byte)npc.OriginalColours.Length);
                 for (int i = 0; i < npc.OriginalColours.Length; i++)
                 {
@@ -64,7 +65,7 @@ namespace Hagalaz.Cache.Types
 
             if (npc.AShortArray1508 != null && npc.AShortArray1491 != null)
             {
-                writer.WriteByte(41);
+                writer.WriteByte(NpcTypeOpcodes.AShortArrays);
                 writer.WriteByte((byte)npc.AShortArray1508.Length);
                 for (int i = 0; i < npc.AShortArray1508.Length; i++)
                 {
@@ -75,7 +76,7 @@ namespace Hagalaz.Cache.Types
 
             if (npc.AByteArray1446 != null)
             {
-                writer.WriteByte(42);
+                writer.WriteByte(NpcTypeOpcodes.AByteArray1446);
                 writer.WriteByte((byte)npc.AByteArray1446.Length);
                 foreach (var val in npc.AByteArray1446)
                 {
@@ -85,7 +86,7 @@ namespace Hagalaz.Cache.Types
 
             if (npc.InterfaceModelIDs != null)
             {
-                writer.WriteByte(60);
+                writer.WriteByte(NpcTypeOpcodes.InterfaceModelIDs);
                 writer.WriteByte((byte)npc.InterfaceModelIDs.Length);
                 foreach (var modelId in npc.InterfaceModelIDs)
                 {
@@ -95,65 +96,82 @@ namespace Hagalaz.Cache.Types
 
             if (!npc.VisibleOnMinimap)
             {
-                writer.WriteByte(93);
+                writer.WriteByte(NpcTypeOpcodes.VisibleOnMinimap);
             }
 
             if (npc.CombatLevel != -1)
             {
-                writer.WriteByte(95);
+                writer.WriteByte(NpcTypeOpcodes.CombatLevel);
                 writer.WriteShort(npc.CombatLevel);
             }
 
             if (npc.ScaleX != 128)
             {
-                writer.WriteByte(97);
+                writer.WriteByte(NpcTypeOpcodes.ScaleX);
                 writer.WriteShort(npc.ScaleX);
             }
 
             if (npc.ScaleY != 128)
             {
-                writer.WriteByte(98);
+                writer.WriteByte(NpcTypeOpcodes.ScaleY);
                 writer.WriteShort(npc.ScaleY);
             }
 
             if (npc.IsVisible)
             {
-                writer.WriteByte(99);
+                writer.WriteByte(NpcTypeOpcodes.IsVisible);
             }
 
             if (npc.LightModifier != 0)
             {
-                writer.WriteByte(100);
+                writer.WriteByte(NpcTypeOpcodes.LightModifier);
                 writer.WriteByte((byte)npc.LightModifier);
             }
 
             if (npc.ShadowModifier != 0)
             {
-                writer.WriteByte(101);
+                writer.WriteByte(NpcTypeOpcodes.ShadowModifier);
                 writer.WriteByte((byte)(npc.ShadowModifier / 5));
             }
 
             if (npc.HeadIcon != -1)
             {
-                writer.WriteByte(102);
+                writer.WriteByte(NpcTypeOpcodes.HeadIcon);
                 writer.WriteShort(npc.HeadIcon);
             }
 
             if (npc.DegreesToTurn != 32)
             {
-                writer.WriteByte(103);
+                writer.WriteByte(NpcTypeOpcodes.DegreesToTurn);
                 writer.WriteShort(npc.DegreesToTurn);
             }
 
             if (npc.TransformToIDs != null)
             {
-                writer.WriteByte(118); // or 106
+                int lastVal = -1;
+                int baseOpcode = NpcTypeOpcodes.TransformToIDs1;
+                if (npc.TransformToIDs.Length > 0)
+                {
+                    lastVal = npc.TransformToIDs[npc.TransformToIDs.Length - 1];
+                    if (lastVal != -1)
+                    {
+                        baseOpcode = NpcTypeOpcodes.TransformToIDs2;
+                    }
+                }
+
+                writer.WriteByte((byte)baseOpcode);
                 writer.WriteShort(npc.VarpBitFileID);
                 writer.WriteShort(npc.ConfigID);
-                var lastVal = npc.TransformToIDs[npc.TransformToIDs.Length - 1];
-                writer.WriteShort(lastVal);
-                writer.WriteByte((byte)(npc.TransformToIDs.Length - 2));
-                for (int i = 0; i <= npc.TransformToIDs.Length - 2; i++)
+
+                if (baseOpcode == NpcTypeOpcodes.TransformToIDs2)
+                {
+                    writer.WriteShort(lastVal);
+                }
+
+                int baseModelIndex = npc.TransformToIDs.Length > 0 ? npc.TransformToIDs.Length - 2 : -1;
+                writer.WriteByte((byte)baseModelIndex);
+
+                for (int i = 0; i <= baseModelIndex; i++)
                 {
                     writer.WriteShort(npc.TransformToIDs[i]);
                 }
@@ -161,79 +179,91 @@ namespace Hagalaz.Cache.Types
 
             if (!npc.IsClickable)
             {
-                writer.WriteByte(107);
+                writer.WriteByte(NpcTypeOpcodes.IsClickable);
             }
 
             if (!npc.ABoolean1470)
             {
-                writer.WriteByte(109);
+                writer.WriteByte(NpcTypeOpcodes.ABoolean1470);
             }
 
             if (!npc.ABoolean1457)
             {
-                writer.WriteByte(111);
+                writer.WriteByte(NpcTypeOpcodes.ABoolean1457);
             }
 
             if (npc.AShort1495 != 0 || npc.AShort1490 != 0)
             {
-                writer.WriteByte(113);
+                writer.WriteByte(NpcTypeOpcodes.AShorts);
                 writer.WriteShort(npc.AShort1495);
                 writer.WriteShort(npc.AShort1490);
             }
 
             if (npc.AByte1447 != -96 || npc.AByte1445 != -16)
             {
-                writer.WriteByte(114);
+                writer.WriteByte(NpcTypeOpcodes.ABytes);
                 writer.WriteByte((byte)npc.AByte1447);
                 writer.WriteByte((byte)npc.AByte1445);
             }
 
             if (npc.WalkingProperties != 0)
             {
-                writer.WriteByte(119);
+                writer.WriteByte(NpcTypeOpcodes.WalkingProperties);
                 writer.WriteByte((byte)npc.WalkingProperties);
             }
 
             if (npc.AnIntArrayArray1449 != null && npc.ModelIDs != null)
             {
-                writer.WriteByte(121);
-                writer.WriteByte((byte)npc.AnIntArrayArray1449.Length);
+                writer.WriteByte(NpcTypeOpcodes.AnIntArrayArray1449);
+                int count = 0;
                 for(int i = 0; i < npc.AnIntArrayArray1449.Length; i++)
                 {
-                    for(int j = 0; j < npc.AnIntArrayArray1449[i].Length; j++)
+                    if (npc.AnIntArrayArray1449[i] != null)
                     {
-                        writer.WriteByte((byte)npc.AnIntArrayArray1449[i][j]);
+                        count++;
+                    }
+                }
+                writer.WriteByte((byte)count);
+
+                for (int i = 0; i < npc.AnIntArrayArray1449.Length; i++)
+                {
+                    if (npc.AnIntArrayArray1449[i] != null)
+                    {
+                        writer.WriteByte((byte)i);
+                        writer.WriteByte((byte)npc.AnIntArrayArray1449[i][0]);
+                        writer.WriteByte((byte)npc.AnIntArrayArray1449[i][1]);
+                        writer.WriteByte((byte)npc.AnIntArrayArray1449[i][2]);
                     }
                 }
             }
 
             if (npc.AnInt1462 != -1)
             {
-                writer.WriteByte(123);
+                writer.WriteByte(NpcTypeOpcodes.AnInt1462);
                 writer.WriteShort(npc.AnInt1462);
             }
 
             if (npc.SpawnFaceDirection != 7)
             {
-                writer.WriteByte(125);
+                writer.WriteByte(NpcTypeOpcodes.SpawnFaceDirection);
                 writer.WriteByte((byte)npc.SpawnFaceDirection);
             }
 
             if (npc.RenderId != -1)
             {
-                writer.WriteByte(127);
+                writer.WriteByte(NpcTypeOpcodes.RenderId);
                 writer.WriteShort(npc.RenderId);
             }
 
             if (npc.Speed != 0)
             {
-                writer.WriteByte(128);
+                writer.WriteByte(NpcTypeOpcodes.Speed);
                 writer.WriteByte((byte)npc.Speed);
             }
 
             if (npc.IdleAnimationId != -1 || npc.MoveType1AnimationId != -1 || npc.MoveType2AnimationId != -1 || npc.RunAnimationId != -1)
             {
-                writer.WriteByte(134);
+                writer.WriteByte(NpcTypeOpcodes.PassiveAnimations);
                 writer.WriteShort(npc.IdleAnimationId);
                 writer.WriteShort(npc.MoveType1AnimationId);
                 writer.WriteShort(npc.MoveType2AnimationId);
@@ -243,64 +273,64 @@ namespace Hagalaz.Cache.Types
 
             if (npc.AnInt1480 != -1 || npc.AnInt1453 != -1)
             {
-                writer.WriteByte(135);
+                writer.WriteByte(NpcTypeOpcodes.AnInts1);
                 writer.WriteByte((byte)npc.AnInt1480);
                 writer.WriteShort(npc.AnInt1453);
             }
 
             if (npc.AnInt1510 != -1 || npc.AnInt1475 != -1)
             {
-                writer.WriteByte(136);
+                writer.WriteByte(NpcTypeOpcodes.AnInts2);
                 writer.WriteByte((byte)npc.AnInt1510);
                 writer.WriteShort(npc.AnInt1475);
             }
 
             if (npc.AttackCursor != -1)
             {
-                writer.WriteByte(137);
+                writer.WriteByte(NpcTypeOpcodes.AttackCursor);
                 writer.WriteShort(npc.AttackCursor);
             }
 
             if (npc.AnInt1507 != -1)
             {
-                writer.WriteByte(138);
+                writer.WriteByte(NpcTypeOpcodes.AnInt1507);
                 writer.WriteBigSmart(npc.AnInt1507);
             }
 
             if (npc.AnInt1456 != 255)
             {
-                writer.WriteByte(140);
+                writer.WriteByte(NpcTypeOpcodes.AnInt1456);
                 writer.WriteByte((byte)npc.AnInt1456);
             }
 
             if (npc.ABoolean1511)
             {
-                writer.WriteByte(141);
+                writer.WriteByte(NpcTypeOpcodes.ABoolean1511);
             }
 
             if (npc.MapIcon != -1)
             {
-                writer.WriteByte(142);
+                writer.WriteByte(NpcTypeOpcodes.MapIcon);
                 writer.WriteShort(npc.MapIcon);
             }
 
             if (npc.ABoolean1483)
             {
-                writer.WriteByte(143);
+                writer.WriteByte(NpcTypeOpcodes.ABoolean1483);
             }
 
             for (int i = 0; i < 5; i++)
             {
                 if (npc.Actions[i] != null && npc.Actions[i] == "Attack")
                 {
-                    writer.WriteByte((byte)(150 + i));
+                    writer.WriteByte((byte)(NpcTypeOpcodes.ActionsAttack + i));
                     writer.WriteString(npc.Actions[i]);
                 }
             }
 
             if (npc.ModelRedColor != 0 || npc.ModelGreenColor != 0 || npc.ModelBlueColor != 0 || npc.ModelAlphaColor != 0)
             {
-                writer.WriteByte(155);
+                writer.WriteByte(NpcTypeOpcodes.ModelColors);
                 writer.WriteByte((byte)npc.ModelRedColor);
                 writer.WriteByte((byte)npc.ModelGreenColor);
                 writer.WriteByte((byte)npc.ModelBlueColor);
@@ -309,17 +339,17 @@ namespace Hagalaz.Cache.Types
 
             if (npc.AByte1487 == 1)
             {
-                writer.WriteByte(158);
+                writer.WriteByte(NpcTypeOpcodes.AByte1487_1);
             }
 
             if (npc.AByte1487 == 0)
             {
-                writer.WriteByte(159);
+                writer.WriteByte(NpcTypeOpcodes.AByte1487_0);
             }
 
             if (npc.QuestIDs != null)
             {
-                writer.WriteByte(160);
+                writer.WriteByte(NpcTypeOpcodes.QuestIDs);
                 writer.WriteByte((byte)npc.QuestIDs.Length);
                 foreach (var questId in npc.QuestIDs)
                 {
@@ -329,37 +359,37 @@ namespace Hagalaz.Cache.Types
 
             if (npc.HasDisplayName)
             {
-                writer.WriteByte(162);
+                writer.WriteByte(NpcTypeOpcodes.HasDisplayName);
             }
 
             if (npc.AnInt1454 != -1)
             {
-                writer.WriteByte(163);
+                writer.WriteByte(NpcTypeOpcodes.AnInt1454);
                 writer.WriteByte((byte)npc.AnInt1454);
             }
 
             if (npc.AnInt1502 != 256 || npc.AnInt1463 != 256)
             {
-                writer.WriteByte(164);
+                writer.WriteByte(NpcTypeOpcodes.AnInts3);
                 writer.WriteShort(npc.AnInt1502);
                 writer.WriteShort(npc.AnInt1463);
             }
 
             if (npc.AnInt1497 != 0)
             {
-                writer.WriteByte(165);
+                writer.WriteByte(NpcTypeOpcodes.AnInt1497);
                 writer.WriteByte((byte)npc.AnInt1497);
             }
 
             if (npc.AnInt1464 != 0)
             {
-                writer.WriteByte(168);
+                writer.WriteByte(NpcTypeOpcodes.AnInt1464);
                 writer.WriteByte((byte)npc.AnInt1464);
             }
 
             if (npc.ExtraData != null)
             {
-                writer.WriteByte(249);
+                writer.WriteByte(NpcTypeOpcodes.ExtraData);
                 writer.WriteByte((byte)npc.ExtraData.Count);
                 foreach (var pair in npc.ExtraData)
                 {
@@ -377,7 +407,7 @@ namespace Hagalaz.Cache.Types
             }
 
 
-            writer.WriteByte(0);
+            writer.WriteByte(NpcTypeOpcodes.End);
             return writer;
         }
 
@@ -386,19 +416,19 @@ namespace Hagalaz.Cache.Types
             while (true)
             {
                 int opcode = stream.ReadUnsignedByte();
-                if (opcode == 0)
+                if (opcode == NpcTypeOpcodes.End)
                 {
                     return;
                 }
-                if (opcode != 1)
+                if (opcode != NpcTypeOpcodes.ModelIDs)
                 {
-                    if (opcode == 2)
+                    if (opcode == NpcTypeOpcodes.Name)
                         npcType.Name = stream.ReadString();
-                    else if (opcode != 12)
+                    else if (opcode != NpcTypeOpcodes.Size)
                     {
-                        if (opcode >= 30 && opcode < 35)
+                        if (opcode >= NpcTypeOpcodes.Actions && opcode < 35)
                             npcType.Actions[opcode - 30] = stream.ReadString();
-                        else if (opcode == 40)
+                        else if (opcode == NpcTypeOpcodes.ModifiedColours)
                         {
                             int len = stream.ReadUnsignedByte();
                             npcType.ModifiedColours = new short[len];
@@ -409,9 +439,9 @@ namespace Hagalaz.Cache.Types
                                 npcType.ModifiedColours[i] = (short)stream.ReadUnsignedShort();
                             }
                         }
-                        else if (opcode != 41)
+                        else if (opcode != NpcTypeOpcodes.AShortArrays)
                         {
-                            if (opcode == 42)
+                            if (opcode == NpcTypeOpcodes.AByteArray1446)
                             {
                                 int i4 = stream.ReadUnsignedByte();
                                 npcType.AByteArray1446 = new sbyte[i4];
@@ -421,67 +451,37 @@ namespace Hagalaz.Cache.Types
                             else if (opcode == 44)
                             {
                                 int i152 = stream.ReadUnsignedShort();
-                                /*int i_153_ = 0;
-                                for (int i_154_ = i_152_; i_154_ > 0; i_154_ >>= 1)
-                                    i_153_++;
-                                sbyte[] aByteArray4855 = new sbyte[i_153_];
-                                sbyte i_155_ = 0;
-                                for (int i_156_ = 0; i_156_ < i_153_; i_156_++)
-                                {
-                                    if ((i_152_ & 1 << i_156_) > 0)
-                                    {
-                                        aByteArray4855[i_156_] = i_155_;
-                                        i_155_++;
-                                    }
-                                    else
-                                        aByteArray4855[i_156_] = (sbyte)-1;
-                                }*/
                             }
                             else if (opcode == 45)
                             {
                                 int i157 = stream.ReadUnsignedShort();
-                                /*int i_158_ = 0;
-                                for (int i_159_ = i_157_; i_159_ > 0; i_159_ >>= 1)
-                                    i_158_++;
-                                sbyte[] aByteArray4856 = new sbyte[i_158_];
-                                sbyte i_160_ = 0;
-                                for (int i_161_ = 0; i_161_ < i_158_; i_161_++)
-                                {
-                                    if ((i_157_ & 1 << i_161_) > 0)
-                                    {
-                                        aByteArray4856[i_161_] = i_160_;
-                                        i_160_++;
-                                    }
-                                    else
-                                        aByteArray4856[i_161_] = (sbyte)-1;
-                                }*/
                             }
-                            else if (opcode == 60)
+                            else if (opcode == NpcTypeOpcodes.InterfaceModelIDs)
                             {
                                 int i6 = stream.ReadUnsignedByte();
                                 npcType.InterfaceModelIDs = new int[i6];
                                 for (int i7 = 0; i6 > i7; i7++)
                                     npcType.InterfaceModelIDs[i7] = stream.ReadBigSmart();
                             }
-                            else if (opcode == 93)
+                            else if (opcode == NpcTypeOpcodes.VisibleOnMinimap)
                                 npcType.VisibleOnMinimap = false;
-                            else if (opcode != 95)
+                            else if (opcode != NpcTypeOpcodes.CombatLevel)
                             {
-                                if (opcode == 97)
+                                if (opcode == NpcTypeOpcodes.ScaleX)
                                     npcType.ScaleX = stream.ReadUnsignedShort();
-                                else if (opcode != 98)
+                                else if (opcode != NpcTypeOpcodes.ScaleY)
                                 {
-                                    if (opcode != 99)
+                                    if (opcode != NpcTypeOpcodes.IsVisible)
                                     {
-                                        if (opcode != 100)
+                                        if (opcode != NpcTypeOpcodes.LightModifier)
                                         {
-                                            if (opcode == 101)
+                                            if (opcode == NpcTypeOpcodes.ShadowModifier)
                                                 npcType.ShadowModifier = (sbyte)stream.ReadSignedByte() * 5;
-                                            else if (opcode == 102)
+                                            else if (opcode == NpcTypeOpcodes.HeadIcon)
                                                 npcType.HeadIcon = stream.ReadUnsignedShort();
-                                            else if (opcode != 103)
+                                            else if (opcode != NpcTypeOpcodes.DegreesToTurn)
                                             {
-                                                if (opcode == 106 || opcode == 118)
+                                                if (opcode == NpcTypeOpcodes.TransformToIDs1 || opcode == NpcTypeOpcodes.TransformToIDs2)
                                                 {
                                                     npcType.VarpBitFileID = stream.ReadUnsignedShort();
                                                     if (npcType.VarpBitFileID == 65535)
@@ -490,7 +490,7 @@ namespace Hagalaz.Cache.Types
                                                     if (npcType.ConfigID == 65535)
                                                         npcType.ConfigID = -1;
                                                     int baseModelId = -1;
-                                                    if (opcode == 118)
+                                                    if (opcode == NpcTypeOpcodes.TransformToIDs2)
                                                     {
                                                         baseModelId = stream.ReadUnsignedShort();
                                                         if (baseModelId == 65535)
@@ -508,44 +508,54 @@ namespace Hagalaz.Cache.Types
 
                                                     npcType.TransformToIDs[baseModelIndex + 1] = baseModelId;
                                                 }
-                                                else if (opcode != 107)
+                                                else if (opcode != NpcTypeOpcodes.IsClickable)
                                                 {
-                                                    if (opcode == 109)
+                                                    if (opcode == NpcTypeOpcodes.ABoolean1470)
                                                         npcType.ABoolean1470 = false;
-                                                    else if (opcode == 111)
+                                                    else if (opcode == NpcTypeOpcodes.ABoolean1457)
                                                         npcType.ABoolean1457 = false;
-                                                    else if (opcode != 113)
+                                                    else if (opcode != NpcTypeOpcodes.AShorts)
                                                     {
-                                                        if (opcode != 114)
+                                                        if (opcode != NpcTypeOpcodes.ABytes)
                                                         {
-                                                            if (opcode == 119)
+                                                            if (opcode == NpcTypeOpcodes.WalkingProperties)
                                                                 npcType.WalkingProperties = ((sbyte)stream.ReadSignedByte());
-                                                            else if (opcode == 121)
+                                                            else if (opcode == NpcTypeOpcodes.AnIntArrayArray1449)
                                                             {
-                                                                npcType.AnIntArrayArray1449 = (new int[npcType.ModelIDs.Length][]);
-                                                                int i11 = (stream.ReadUnsignedByte());
+                                                                int i11 = stream.ReadUnsignedByte();
+                                                                if (npcType.ModelIDs == null)
+                                                                {
+                                                                    for (int i12 = 0; i12 < i11; i12++)
+                                                                    {
+                                                                        stream.ReadUnsignedByte();
+                                                                        stream.ReadSignedByte();
+                                                                        stream.ReadSignedByte();
+                                                                        stream.ReadSignedByte();
+                                                                    }
+                                                                    continue;
+                                                                }
+                                                                npcType.AnIntArrayArray1449 = new int[npcType.ModelIDs.Length][];
                                                                 for (int i12 = 0; i12 < i11; i12++)
                                                                 {
-                                                                    int i13 = (stream.ReadUnsignedByte());
-                                                                    int[] isa = (npcType.AnIntArrayArray1449[i13] = (new int[3]));
-                                                                    isa[0] = ((sbyte)stream.ReadSignedByte());
-                                                                    isa[1] = ((sbyte)stream.ReadSignedByte());
-                                                                    isa[2] = ((sbyte)stream.ReadSignedByte());
+                                                                    int i13 = stream.ReadUnsignedByte();
+                                                                    int[] isa = (npcType.AnIntArrayArray1449[i13] = new int[3]);
+                                                                    isa[0] = (sbyte)stream.ReadSignedByte();
+                                                                    isa[1] = (sbyte)stream.ReadSignedByte();
+                                                                    isa[2] = (sbyte)stream.ReadSignedByte();
                                                                 }
                                                             }
                                                             else if (opcode != 122)
                                                             {
-                                                                if (opcode != 123)
+                                                                if (opcode != NpcTypeOpcodes.AnInt1462)
                                                                 {
-                                                                    if (opcode != 125)
+                                                                    if (opcode != NpcTypeOpcodes.SpawnFaceDirection)
                                                                     {
-                                                                        if (opcode == 127)
+                                                                        if (opcode == NpcTypeOpcodes.RenderId)
                                                                             npcType.RenderId = (stream.ReadUnsignedShort());
-                                                                        else if (opcode != 128)
+                                                                        else if (opcode != NpcTypeOpcodes.Speed)
                                                                         {
-                                                                            if (opcode == 134)
+                                                                            if (opcode == NpcTypeOpcodes.PassiveAnimations)
                                                                             {
-                                                                                // passive anims
                                                                                 npcType.IdleAnimationId = stream.ReadUnsignedShort();
                                                                                 if (npcType.IdleAnimationId == 65535)
                                                                                     npcType.IdleAnimationId = -1;
@@ -560,61 +570,60 @@ namespace Hagalaz.Cache.Types
                                                                                     npcType.RunAnimationId = -1;
                                                                                 npcType.AnInt1504 = stream.ReadUnsignedByte();
                                                                             }
-                                                                            else if (opcode == 135)
+                                                                            else if (opcode == NpcTypeOpcodes.AnInts1)
                                                                             {
                                                                                 npcType.AnInt1480 = stream.ReadUnsignedByte();
                                                                                 npcType.AnInt1453 = stream.ReadUnsignedShort();
                                                                             }
-                                                                            else if (opcode == 136)
+                                                                            else if (opcode == NpcTypeOpcodes.AnInts2)
                                                                             {
                                                                                 npcType.AnInt1510 = stream.ReadUnsignedByte();
                                                                                 npcType.AnInt1475 = stream.ReadUnsignedShort();
                                                                             }
-                                                                            else if (opcode != 137)
+                                                                            else if (opcode != NpcTypeOpcodes.AttackCursor)
                                                                             {
-                                                                                if (opcode != 138)
+                                                                                if (opcode != NpcTypeOpcodes.AnInt1507)
                                                                                 {
-                                                                                    if (opcode == 140)
-                                                                                        npcType.AnInt1456 = stream.ReadUnsignedByte(); // passive anim
-                                                                                    else if (opcode != 141)
+                                                                                    if (opcode == NpcTypeOpcodes.AnInt1456)
+                                                                                        npcType.AnInt1456 = stream.ReadUnsignedByte();
+                                                                                    else if (opcode != NpcTypeOpcodes.ABoolean1511)
                                                                                     {
-                                                                                        if (opcode != 142)
+                                                                                        if (opcode != NpcTypeOpcodes.MapIcon)
                                                                                         {
-                                                                                            if (opcode == 143)
+                                                                                            if (opcode == NpcTypeOpcodes.ABoolean1483)
                                                                                                 npcType.ABoolean1483 = true;
-                                                                                            else if (opcode >= 150 && opcode < 155)
+                                                                                            else if (opcode >= NpcTypeOpcodes.ActionsAttack && opcode < 155)
                                                                                             {
                                                                                                 npcType.Actions[opcode - 150] = stream.ReadString();
                                                                                             }
-                                                                                            else if (opcode == 155)
+                                                                                            else if (opcode == NpcTypeOpcodes.ModelColors)
                                                                                             {
                                                                                                 npcType.ModelRedColor = (sbyte)stream.ReadSignedByte();
                                                                                                 npcType.ModelGreenColor = (sbyte)stream.ReadSignedByte();
                                                                                                 npcType.ModelBlueColor = (sbyte)stream.ReadSignedByte();
                                                                                                 npcType.ModelAlphaColor = (sbyte)stream.ReadSignedByte();
                                                                                             }
-                                                                                            else if (opcode == 158)
+                                                                                            else if (opcode == NpcTypeOpcodes.AByte1487_1)
                                                                                                 npcType.AByte1487 = 1;
-                                                                                            else if (opcode != 159)
+                                                                                            else if (opcode != NpcTypeOpcodes.AByte1487_0)
                                                                                             {
-                                                                                                if (opcode != 160)
+                                                                                                if (opcode != NpcTypeOpcodes.QuestIDs)
                                                                                                 {
-                                                                                                    if (opcode == 162)
+                                                                                                    if (opcode == NpcTypeOpcodes.HasDisplayName)
                                                                                                         npcType.HasDisplayName = true;
-                                                                                                    else if (opcode != 163)
+                                                                                                    else if (opcode != NpcTypeOpcodes.AnInt1454)
                                                                                                     {
-                                                                                                        if (opcode == 164)
+                                                                                                        if (opcode == NpcTypeOpcodes.AnInts3)
                                                                                                         {
                                                                                                             npcType.AnInt1502 = stream.ReadUnsignedShort();
                                                                                                             npcType.AnInt1463 = stream.ReadUnsignedShort();
                                                                                                         }
-                                                                                                        else if (opcode == 165)
+                                                                                                        else if (opcode == NpcTypeOpcodes.AnInt1497)
                                                                                                             npcType.AnInt1497 = stream.ReadUnsignedByte();
-                                                                                                        else if (opcode != 168)
+                                                                                                        else if (opcode != NpcTypeOpcodes.AnInt1464)
                                                                                                         {
                                                                                                             if (opcode == 169)
                                                                                                             {
-                                                                                                                // some bool = false
                                                                                                             }
                                                                                                             else if (opcode >= 170 && opcode < 176)
                                                                                                             {
@@ -622,7 +631,7 @@ namespace Hagalaz.Cache.Types
                                                                                                                 if (unknownShort == 65535)
                                                                                                                     unknownShort = -1;
                                                                                                             }
-                                                                                                            else if (opcode == 249)
+                                                                                                            else if (opcode == NpcTypeOpcodes.ExtraData)
                                                                                                             {
                                                                                                                 int i14 = stream.ReadUnsignedByte();
                                                                                                                 npcType.ExtraData = new Dictionary<int, object>(i14);
@@ -680,7 +689,7 @@ namespace Hagalaz.Cache.Types
                                                                     npcType.AnInt1462 = (stream.ReadUnsignedShort());
                                                             }
                                                             else
-                                                                npcType.AnInt1485 = 0; // not used
+                                                                npcType.AnInt1485 = 0;
                                                         }
                                                         else
                                                         {

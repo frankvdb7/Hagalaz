@@ -32,7 +32,8 @@ namespace Hagalaz.Cache.Tests
                 ScaleY = 150,
                 IsClickable = false,
                 SpawnFaceDirection = 3,
-                RenderId = 99
+                RenderId = 99,
+                TransformToIDs = new []{ 1, 2, 3, -1}
             };
 
             // Act
@@ -56,6 +57,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalNpc.IsClickable, decodedNpc.IsClickable);
             Assert.Equal(originalNpc.SpawnFaceDirection, decodedNpc.SpawnFaceDirection);
             Assert.Equal(originalNpc.RenderId, decodedNpc.RenderId);
+            Assert.Equal(originalNpc.TransformToIDs, decodedNpc.TransformToIDs);
         }
 
         [Fact]
@@ -93,7 +95,8 @@ namespace Hagalaz.Cache.Tests
                 ModelIDs = System.Array.Empty<int>(),
                 OriginalColours = System.Array.Empty<short>(),
                 ModifiedColours = System.Array.Empty<short>(),
-                ExtraData = new Dictionary<int, object>()
+                ExtraData = new Dictionary<int, object>(),
+                TransformToIDs = System.Array.Empty<int>()
             };
 
             // Act
@@ -107,6 +110,27 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalNpc.OriginalColours, decodedNpc.OriginalColours);
             Assert.Equal(originalNpc.ModifiedColours, decodedNpc.ModifiedColours);
             Assert.Equal(originalNpc.ExtraData, decodedNpc.ExtraData);
+            Assert.Equal(originalNpc.TransformToIDs, decodedNpc.TransformToIDs);
+        }
+
+        [Fact]
+        public void TestEncodeDecode_TransformToIDs_Empty()
+        {
+            // Arrange
+            var codec = new NpcTypeCodec();
+            var originalNpc = new NpcType(4)
+            {
+                Name = "TransformToIDs Empty",
+                TransformToIDs = System.Array.Empty<int>()
+            };
+
+            // Act
+            var encodedStream = codec.Encode(originalNpc);
+            encodedStream.Position = 0;
+            var decodedNpc = (NpcType)codec.Decode(4, encodedStream);
+
+            // Assert
+            Assert.Equal(originalNpc.TransformToIDs, decodedNpc.TransformToIDs);
         }
     }
 }
