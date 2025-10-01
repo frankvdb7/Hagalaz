@@ -3,7 +3,7 @@
     /// <summary>
     /// 
     /// </summary>
-    public interface INpcType : IType
+    public interface INpcType
     {
         /// <summary>
         /// Contains the NPC's id.
