@@ -54,8 +54,9 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<IHuffmanDecoder, HuffmanCodec>();
             services.TryAddTransient<IHuffmanEncoder, HuffmanCodec>();
             services.TryAddTransient<IItemTypeCodec, ItemTypeCodec>();
+            services.TryAddTransient<INpcTypeCodec, NpcTypeCodec>();
             services.TryAddTransient<ITypeProvider<IItemType>, ItemTypeProvider>();
-            services.TryAddTransient<ITypeProvider<INpcType>, TypeProvider<INpcType, NpcTypeData>>();
+            services.TryAddTransient<ITypeProvider<INpcType>, NpcTypeProvider>();
             services.TryAddTransient<ITypeProvider<ISpriteType>, TypeProvider<ISpriteType, SpriteTypeData>>();
             services.TryAddTransient<ITypeProvider<IQuestType>, TypeProvider<IQuestType, QuestTypeData>>();
             services.TryAddTransient<ITypeProvider<IObjectType>, TypeProvider<IObjectType, ObjectTypeData>>();

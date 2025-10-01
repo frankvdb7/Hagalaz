@@ -387,7 +387,7 @@ namespace Hagalaz.Services.GameWorld
 
             services.AddTransient<ITypeProvider<IItemType>, ItemTypeProvider>();
             services.AddTransient<ITypeProvider<IItemDefinition>, ItemDefinitionProvider>();
-            services.AddTransient<ITypeProvider<INpcDefinition>, TypeProvider<INpcDefinition, NpcTypeData>>();
+            services.AddTransient<ITypeProvider<INpcDefinition>, NpcDefinitionProvider>();
             services.AddTransient<ITypeProvider<GameObjectDefinition>, TypeProvider<GameObjectDefinition, ObjectTypeData>>();
             services.AddTransient<ITypeProvider<IAnimationDefinition>, TypeProvider<IAnimationDefinition, AnimationTypeData>>();
 
