@@ -52,7 +52,7 @@ namespace Hagalaz.Cache.Types
                 }
             }
 
-            if (npc.OriginalColours != null && npc.ModifiedColours != null)
+            if (npc.OriginalColours != null && npc.ModifiedColours != null && npc.OriginalColours.Length > 0)
             {
                 writer.WriteByte(NpcTypeOpcodes.ModifiedColours);
                 writer.WriteByte((byte)npc.OriginalColours.Length);
@@ -146,17 +146,13 @@ namespace Hagalaz.Cache.Types
                 writer.WriteShort(npc.DegreesToTurn);
             }
 
-            if (npc.TransformToIDs != null)
+            if (npc.TransformToIDs != null && npc.TransformToIDs.Length > 1)
             {
-                int lastVal = -1;
-                int baseOpcode = NpcTypeOpcodes.TransformToIDs1;
-                if (npc.TransformToIDs.Length > 0)
+                var lastVal = npc.TransformToIDs[npc.TransformToIDs.Length - 1];
+                var baseOpcode = NpcTypeOpcodes.TransformToIDs1;
+                if (lastVal != -1)
                 {
-                    lastVal = npc.TransformToIDs[npc.TransformToIDs.Length - 1];
-                    if (lastVal != -1)
-                    {
-                        baseOpcode = NpcTypeOpcodes.TransformToIDs2;
-                    }
+                    baseOpcode = NpcTypeOpcodes.TransformToIDs2;
                 }
 
                 writer.WriteByte((byte)baseOpcode);
@@ -168,10 +164,10 @@ namespace Hagalaz.Cache.Types
                     writer.WriteShort(lastVal);
                 }
 
-                int baseModelIndex = npc.TransformToIDs.Length > 0 ? npc.TransformToIDs.Length - 2 : -1;
+                var baseModelIndex = npc.TransformToIDs.Length - 2;
                 writer.WriteByte((byte)baseModelIndex);
 
-                for (int i = 0; i <= baseModelIndex; i++)
+                for (var i = 0; i <= baseModelIndex; i++)
                 {
                     writer.WriteShort(npc.TransformToIDs[i]);
                 }

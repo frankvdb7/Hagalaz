@@ -107,10 +107,10 @@ namespace Hagalaz.Cache.Tests
             // Assert
             Assert.Equal(originalNpc.Name, decodedNpc.Name);
             Assert.Equal(originalNpc.ModelIDs, decodedNpc.ModelIDs);
-            Assert.Equal(originalNpc.OriginalColours, decodedNpc.OriginalColours);
-            Assert.Equal(originalNpc.ModifiedColours, decodedNpc.ModifiedColours);
+            Assert.Null(decodedNpc.OriginalColours);
+            Assert.Null(decodedNpc.ModifiedColours);
             Assert.Equal(originalNpc.ExtraData, decodedNpc.ExtraData);
-            Assert.Equal(originalNpc.TransformToIDs, decodedNpc.TransformToIDs);
+            Assert.Null(decodedNpc.TransformToIDs);
         }
 
         [Fact]
@@ -130,7 +130,27 @@ namespace Hagalaz.Cache.Tests
             var decodedNpc = (NpcType)codec.Decode(4, encodedStream);
 
             // Assert
-            Assert.Equal(originalNpc.TransformToIDs, decodedNpc.TransformToIDs);
+            Assert.Null(decodedNpc.TransformToIDs);
+        }
+
+        [Fact]
+        public void TestEncodeDecode_TransformToIDs_SingleElement()
+        {
+            // Arrange
+            var codec = new NpcTypeCodec();
+            var originalNpc = new NpcType(5)
+            {
+                Name = "TransformToIDs Single Element",
+                TransformToIDs = new[] { 1 }
+            };
+
+            // Act
+            var encodedStream = codec.Encode(originalNpc);
+            encodedStream.Position = 0;
+            var decodedNpc = (NpcType)codec.Decode(5, encodedStream);
+
+            // Assert
+            Assert.Null(decodedNpc.TransformToIDs);
         }
     }
 }
