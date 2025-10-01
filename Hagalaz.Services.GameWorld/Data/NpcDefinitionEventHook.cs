@@ -5,7 +5,7 @@ namespace Hagalaz.Services.GameWorld.Data
 {
     public class NpcDefinitionEventHook : ITypeEventHook<INpcDefinition>
     {
-        public void AfterDecode(ITypeDecoder<INpcDefinition> decoder, INpcDefinition[] types)
+        public void AfterDecode(ITypeProvider<INpcDefinition> provider, INpcDefinition[] types)
         {
             foreach (var type in types)
             {

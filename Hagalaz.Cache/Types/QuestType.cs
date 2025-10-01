@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
@@ -179,6 +180,22 @@ namespace Hagalaz.Cache.Types
         public QuestType(int id)
         {
             Id = id;
+            Name = string.Empty;
+            ExtraData = new Dictionary<int, object>();
+            MinVarBitValue = Array.Empty<int>();
+            ProgressVarBits = new int[0, 0];
+            QuestRequirements = Array.Empty<int>();
+            SortName = string.Empty;
+            AnIntArray4092 = Array.Empty<int>();
+            VarBitRequirements = Array.Empty<int>();
+            StatRequirements = new int[0, 0];
+            VarpRequirements = Array.Empty<int>();
+            MaxVarpValue = Array.Empty<int>();
+            VarpRequirementNames = Array.Empty<string>();
+            ProgressVarps = new int[0, 0];
+            MaxVarBitValue = Array.Empty<int>();
+            VarbitRequirementNames = Array.Empty<string>();
+            MinVarpValue = Array.Empty<int>();
         }
 
         /// <summary>
@@ -340,6 +357,6 @@ namespace Hagalaz.Cache.Types
         /// Encodes this instance.
         /// </summary>
         /// <returns></returns>
-        public MemoryStream Encode() => null;
+        public MemoryStream Encode() => throw new NotImplementedException();
     }
 }

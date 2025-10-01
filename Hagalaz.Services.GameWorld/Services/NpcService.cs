@@ -12,14 +12,14 @@ namespace Hagalaz.Services.GameWorld.Services
     {
         private readonly INpcStore _npcStore;
         private readonly NpcDefinitionStore _npcDefinitionStore;
-        private readonly ITypeDecoder<INpcDefinition> _typeDecoder;
+        private readonly ITypeProvider<INpcDefinition> _typeProvider;
         private readonly ILogger<NpcService> _logger;
 
-        public NpcService(INpcStore npcStore, NpcDefinitionStore npcDefinitionStore, ITypeDecoder<INpcDefinition> typeDecoder, ILogger<NpcService> logger)
+        public NpcService(INpcStore npcStore, NpcDefinitionStore npcDefinitionStore, ITypeProvider<INpcDefinition> typeProvider, ILogger<NpcService> logger)
         {
             _npcStore = npcStore;
             _npcDefinitionStore = npcDefinitionStore;
-            _typeDecoder = typeDecoder;
+            _typeProvider = typeProvider;
             _logger = logger;
         }
 
@@ -54,6 +54,6 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public INpcDefinition FindNpcDefinitionById(int npcID) => _npcDefinitionStore.GetOrAdd(npcID);
 
-        public int GetNpcDefinitionCount() => _typeDecoder.ArchiveSize;
+        public int GetNpcDefinitionCount() => _typeProvider.ArchiveSize;
     }
 }

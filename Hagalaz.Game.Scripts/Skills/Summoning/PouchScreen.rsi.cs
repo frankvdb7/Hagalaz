@@ -1,6 +1,7 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
+using Hagalaz.Cache.Logic;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Widgets;
@@ -99,7 +100,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                             }
 
                             var itemDef = _itemService.FindItemDefinitionById(itemID);
-                            var requirements = itemDef.GetCreateItemRequirements();
+                            var requirements = ItemTypeLogic.GetCreateItemRequirements(itemDef);
                             foreach (var (key, iAmount) in requirements)
                             {
                                 Owner.Inventory.Remove(_itemBuilder.Create().WithId(key).WithCount(iAmount * value).Build());
@@ -127,7 +128,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     }
 
                     var itemDef = _itemService.FindItemDefinitionById(itemID);
-                    var requirements = itemDef.GetCreateItemRequirements();
+                    var requirements = ItemTypeLogic.GetCreateItemRequirements(itemDef);
                     if (requirements != null)
                     {
                         foreach (var (key, iAmount) in requirements)

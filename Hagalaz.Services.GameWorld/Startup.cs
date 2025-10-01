@@ -385,10 +385,11 @@ namespace Hagalaz.Services.GameWorld
             services.AddTransient<ITypeEventHook<IItemDefinition>, ItemTypeEventHook>();
             services.AddTransient<ITypeEventHook<GameObjectDefinition>, ObjectTypeEventHook>();
 
-            services.AddTransient<ITypeDecoder<IItemDefinition>, TypeDecoder<IItemDefinition, ItemTypeData>>();
-            services.AddTransient<ITypeDecoder<INpcDefinition>, TypeDecoder<INpcDefinition, NpcTypeData>>();
-            services.AddTransient<ITypeDecoder<GameObjectDefinition>, TypeDecoder<GameObjectDefinition, ObjectTypeData>>();
-            services.AddTransient<ITypeDecoder<IAnimationDefinition>, TypeDecoder<IAnimationDefinition, AnimationTypeData>>();
+            services.AddTransient<ITypeProvider<IItemType>, ItemTypeProvider>();
+            services.AddTransient<ITypeProvider<IItemDefinition>, ItemDefinitionProvider>();
+            services.AddTransient<ITypeProvider<INpcDefinition>, TypeProvider<INpcDefinition, NpcTypeData>>();
+            services.AddTransient<ITypeProvider<GameObjectDefinition>, TypeProvider<GameObjectDefinition, ObjectTypeData>>();
+            services.AddTransient<ITypeProvider<IAnimationDefinition>, TypeProvider<IAnimationDefinition, AnimationTypeData>>();
 
             // world options
             services.Configure<WorldOptions>(Configuration.GetSection(WorldOptions.Key), options => options.BindNonPublicProperties = true);

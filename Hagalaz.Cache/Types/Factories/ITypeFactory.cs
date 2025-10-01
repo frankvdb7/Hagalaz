@@ -6,7 +6,7 @@ namespace Hagalaz.Cache.Types.Factories
     /// 
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public interface ITypeFactory<out T> where T : IType
+    public interface ITypeFactory<out T>
     {
         /// <summary>
         /// Creates the type.

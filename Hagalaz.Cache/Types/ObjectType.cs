@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
@@ -464,6 +465,8 @@ namespace Hagalaz.Cache.Types
             ABoolean838 = true;
             VarpFileId = -1;
             ScaleZ = 128;
+            ModelIDs = Array.Empty<int[]>();
+            AByteArray816 = Array.Empty<sbyte>();
         }
 
         /// <summary>

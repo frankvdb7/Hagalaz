@@ -15,4 +15,7 @@
     <ProjectReference Include="..\Hagalaz.Cache.Extensions\Hagalaz.Cache.Extensions.csproj" />
     <ProjectReference Include="..\Hagalaz.Security\Hagalaz.Security.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hagalaz.Cache.Tests" />
+  </ItemGroup>
 </Project>

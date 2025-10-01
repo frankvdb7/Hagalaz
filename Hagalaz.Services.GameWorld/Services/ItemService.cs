@@ -8,17 +8,17 @@ namespace Hagalaz.Services.GameWorld.Services
     public class ItemService : IItemService
     {
         private readonly ItemStore _items;
-        private readonly ITypeDecoder<IItemDefinition> _itemDecoder;
+        private readonly ITypeProvider<IItemDefinition> _itemProvider;
 
-        public ItemService(ItemStore items, ITypeDecoder<IItemDefinition> itemDecoder)
+        public ItemService(ItemStore items, ITypeProvider<IItemDefinition> itemProvider)
         {
             _items = items;
-            _itemDecoder = itemDecoder;
+            _itemProvider = itemProvider;
         }
 
 
         public IItemDefinition FindItemDefinitionById(int itemId) => _items.GetOrAdd(itemId);
 
-        public int GetTotalItemCount() => _itemDecoder.ArchiveSize;
+        public int GetTotalItemCount() => _itemProvider.ArchiveSize;
     }
 }

@@ -1,15 +1,17 @@
-﻿namespace Hagalaz.Cache.Types.Factories
+using Hagalaz.Cache.Abstractions.Types;
+
+namespace Hagalaz.Cache.Types.Factories
 {
     /// <summary>
-    /// 
+    /// A factory for creating <see cref="IItemType"/> instances.
     /// </summary>
-    public class ItemTypeFactory : ITypeFactory<ItemType>
+    public class ItemTypeFactory : ITypeFactory<IItemType>
     {
         /// <summary>
-        /// Creates the type.
+        /// Creates a new <see cref="IItemType"/> with the specified ID.
         /// </summary>
-        /// <param name="typeId">The type identifier.</param>
-        /// <returns></returns>
-        public ItemType CreateType(int typeId) => new(typeId);
+        /// <param name="id">The ID of the item type.</param>
+        /// <returns>A new <see cref="IItemType"/> instance.</returns>
+        public IItemType CreateType(int id) => new ItemType(id);
     }
 }

@@ -18,19 +18,19 @@ namespace Hagalaz.Services.GameWorld.Store
     {
         private Dictionary<int, Hagalaz.Data.Entities.ItemDefinition> _databaseItems = new();
         private readonly IServiceProvider _serviceProvider;
-        private readonly ITypeDecoder<IItemDefinition> _itemDecoder;
+        private readonly ITypeProvider<IItemDefinition> _itemProvider;
         private readonly ILogger<ItemStore> _logger;
 
-        public ItemStore(IServiceProvider serviceProvider, ITypeDecoder<IItemDefinition> itemDecoder, ILogger<ItemStore> logger)
+        public ItemStore(IServiceProvider serviceProvider, ITypeProvider<IItemDefinition> itemProvider, ILogger<ItemStore> logger)
         {
             _serviceProvider = serviceProvider;
-            _itemDecoder = itemDecoder;
+            _itemProvider = itemProvider;
             _logger = logger;
         }
 
         private IItemDefinition LoadItemDefinition(int itemId)
         {
-            var definition = _itemDecoder.Decode(itemId);
+            var definition = _itemProvider.Get(itemId);
             if (_databaseItems.TryGetValue(itemId, out var item))
             {
                 definition.Examine = item.Examine;

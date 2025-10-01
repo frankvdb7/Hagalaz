@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Pnpcs
     [CharacterNpcScriptMetaData([2417, 3334])]
     public class WildyWyrm : CharacterNpcScriptBase
     {
-        public WildyWyrm(ITypeDecoder<IItemDefinition> itemDecoder) => _itemDecoder = itemDecoder;
+        public WildyWyrm(ITypeProvider<IItemDefinition> itemProvider) => _itemProvider = itemProvider;
 
         /// <summary>
         /// </summary>
@@ -46,7 +46,7 @@ namespace Hagalaz.Game.Scripts.Pnpcs
         /// <summary>
         /// 
         /// </summary>
-        private readonly ITypeDecoder<IItemDefinition> _itemDecoder;
+        private readonly ITypeProvider<IItemDefinition> _itemProvider;
 
         /// <summary>
         ///     Happens when character is turned to npc for

@@ -35,7 +35,7 @@ namespace Hagalaz.Cache.Utilities
                         {
                             writer.Write(i); // region
                             for (int x = 0; x < 4; x++)
-                                writer.Write(int.Parse(r.ReadLine()));
+                                writer.Write(int.Parse(r.ReadLine()!));
                         }
                     }
                 }

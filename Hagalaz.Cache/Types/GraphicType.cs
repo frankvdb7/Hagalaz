@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using Hagalaz.Cache.Extensions;
 
 namespace Hagalaz.Cache.Types
@@ -108,6 +109,12 @@ namespace Hagalaz.Cache.Types
             AnInt265 = -1;
             ResizeX = 128;
             ResizeY = 128;
+            RecolorToFind = Array.Empty<short>();
+            RetextureToReplace = Array.Empty<short>();
+            RetextureToFind = Array.Empty<short>();
+            RecolorToReplace = Array.Empty<short>();
+            AByteArray4428 = Array.Empty<byte>();
+            AByteArray4433 = Array.Empty<byte>();
         }
 
         /// <summary>

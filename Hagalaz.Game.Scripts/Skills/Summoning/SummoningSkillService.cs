@@ -2,6 +2,7 @@
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Cache.Logic;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
@@ -114,7 +115,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
 
             var itemRepository = character.ServiceProvider.GetRequiredService<IItemService>();
             var itemDef = itemRepository.FindItemDefinitionById(itemId);
-            var requirements = itemDef.GetCreateItemRequirements();
+            var requirements = ItemTypeLogic.GetCreateItemRequirements(itemDef);
             if (requirements == null)
             {
                 return true;

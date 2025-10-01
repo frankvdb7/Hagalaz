@@ -14,23 +14,23 @@ using Microsoft.Extensions.Options;
 namespace Hagalaz.Cache.Extensions
 {
     /// <summary>
-    /// 
+    /// Provides extension methods for setting up Hagalaz cache services in an <see cref="IServiceCollection"/>.
     /// </summary>
     public static class ServiceCollectionExtensions
     {
         /// <summary>
-        /// Adds the cache.
+        /// Adds the Hagalaz game cache services to the specified <see cref="IServiceCollection"/>.
         /// </summary>
-        /// <param name="services">The services.</param>
-        /// <returns></returns>
+        /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
+        /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
         public static IServiceCollection AddGameCache(this IServiceCollection services) => AddGameCache(services, options => { });
 
         /// <summary>
-        /// Adds the cache.
+        /// Adds the Hagalaz game cache services to the specified <see cref="IServiceCollection"/>.
         /// </summary>
-        /// <param name="services">The services.</param>
-        /// <param name="options">The options.</param>
-        /// <returns></returns>
+        /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
+        /// <param name="options">An <see cref="Action{CacheOptions}"/> to configure the provided <see cref="CacheOptions"/>.</param>
+        /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
         public static IServiceCollection AddGameCache(this IServiceCollection services, Action<CacheOptions> options)
         {
             services.Configure(options);
@@ -53,12 +53,13 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<IMapDecoder, MapDecoder>();
             services.TryAddTransient<IHuffmanDecoder, HuffmanCodec>();
             services.TryAddTransient<IHuffmanEncoder, HuffmanCodec>();
-            services.TryAddTransient<ITypeDecoder<IItemType>, TypeDecoder<IItemType, ItemTypeData>>();
-            services.TryAddTransient<ITypeDecoder<INpcType>, TypeDecoder<INpcType, NpcTypeData>>();
-            services.TryAddTransient<ITypeDecoder<ISpriteType>, TypeDecoder<ISpriteType, SpriteTypeData>>();
-            services.TryAddTransient<ITypeDecoder<IQuestType>, TypeDecoder<IQuestType, QuestTypeData>>();
-            services.TryAddTransient<ITypeDecoder<IObjectType>, TypeDecoder<IObjectType, ObjectTypeData>>();
-            services.TryAddTransient<ITypeDecoder<IAnimationType>, TypeDecoder<IAnimationType, AnimationTypeData>>();
+            services.TryAddTransient<IItemTypeCodec, ItemTypeCodec>();
+            services.TryAddTransient<ITypeProvider<IItemType>, ItemTypeProvider>();
+            services.TryAddTransient<ITypeProvider<INpcType>, TypeProvider<INpcType, NpcTypeData>>();
+            services.TryAddTransient<ITypeProvider<ISpriteType>, TypeProvider<ISpriteType, SpriteTypeData>>();
+            services.TryAddTransient<ITypeProvider<IQuestType>, TypeProvider<IQuestType, QuestTypeData>>();
+            services.TryAddTransient<ITypeProvider<IObjectType>, TypeProvider<IObjectType, ObjectTypeData>>();
+            services.TryAddTransient<ITypeProvider<IAnimationType>, TypeProvider<IAnimationType, AnimationTypeData>>();
             services.TryAddTransient<ITypeFactory<IItemType>, ItemTypeFactory>();
             services.TryAddTransient<ITypeFactory<INpcType>, NpcTypeFactory>();
             services.TryAddTransient<ITypeFactory<ISpriteType>, SpriteTypeFactory>();

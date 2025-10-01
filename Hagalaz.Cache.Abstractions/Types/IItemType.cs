@@ -4,506 +4,282 @@ using Hagalaz.Cache.Abstractions.Model;
 namespace Hagalaz.Cache.Abstractions.Types
 {
     /// <summary>
-    /// 
+    /// Represents the definition of an in-game item, including its properties, models, and behaviors.
+    /// This interface provides a read-only view of an item's data as stored in the cache.
     /// </summary>
-    public interface IItemType : IType
+    public interface IItemType
     {
         /// <summary>
-        /// Contains ID of this item.
+        /// Gets the unique identifier for this item type.
         /// </summary>
         int Id { get; }
 
         /// <summary>
-        /// Gets the name.
+        /// Gets the name of the item as it appears in-game.
         /// </summary>
-        /// <value>
-        /// The name.
-        /// </value>
         string Name { get; }
 
         /// <summary>
-        /// Gets a value indicating whether this <see cref="IItemType"/> is noted.
+        /// Gets a value indicating whether this item is in its noted form, which is a stackable representation of an unstackable item.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if noted; otherwise, <c>false</c>.
-        /// </value>
         bool Noted { get; }
 
         /// <summary>
-        /// Gets a value indicating whether this <see cref="IItemType"/> is stackable.
+        /// Gets a value indicating whether this item can be stacked in a single inventory slot.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if stackable; otherwise, <c>false</c>.
-        /// </value>
         bool Stackable { get; }
 
         /// <summary>
-        /// Gets the note identifier.
+        /// Gets the item ID of the noted version of this item. If the item is already noted, this will be its own ID.
         /// </summary>
-        /// <value>
-        /// The note identifier.
-        /// </value>
         int NoteId { get; }
 
         /// <summary>
-        /// Get's item render animation ID.
+        /// Gets the render animation ID used when this item is equipped, which determines its idle animation.
         /// </summary>
-        /// <returns>Return's render animation ID or -1 if it doesn't have it.</returns>
+        /// <returns>The render animation ID, or -1 if the item does not have a specific render animation.</returns>
         int RenderAnimationId { get; }
 
         /// <summary>
-        /// Determines whether [has destroy option].
+        /// Gets a value indicating whether the item has a "destroy" option in the inventory.
         /// </summary>
-        /// <returns><c>true</c> if [has destroy option]; otherwise, <c>false</c>.</returns>
         bool HasDestroyOption { get; }
 
         /// <summary>
-        /// Gets the note template ID.
+        /// Gets the template ID used to create the noted version of this item.
         /// </summary>
-        /// <value>The note template ID.</value>
         int NoteTemplateId { get; }
 
         /// <summary>
-        /// Gets the lend template ID.
+        /// Gets the template ID used to create a lent version of this item.
         /// </summary>
-        /// <value>The lend template ID.</value>
         int LendTemplateId { get; }
 
         /// <summary>
-        /// Gets the unknown template ID.
+        /// Gets the template ID used to create a "bought" version of this item, typically from a shop.
         /// </summary>
-        /// <value>The unknown template ID.</value>
         int BoughtTemplateId { get; }
 
         /// <summary>
-        /// Gets the unknown item ID.
+        /// Gets the item ID of the "bought" version of this item.
         /// </summary>
-        /// <value>The unknown item ID.</value>
         int BoughtItemId { get; }
 
         /// <summary>
-        /// Gets the lend ID.
+        /// Gets the item ID of the lent version of this item.
         /// </summary>
-        /// <value>The lend ID.</value>
         int LendId { get; }
 
         /// <summary>
-        /// Gets the value.
+        /// Gets the base monetary value of the item, often used for alchemy or shop prices.
         /// </summary>
-        /// <value>The value.</value>
         int Value { get; }
 
         /// <summary>
-        /// Gets the type of the item degrade (if dropped).
-        /// Used to determine if the item should be protected, destroyed or dropped.
+        /// Gets the behavior of the item when dropped, such as being destroyed or becoming visible to other players.
         /// </summary>
         DegradeType DegradeType { get; }
 
         /// <summary>
-        /// Gets a value indicating whether [members only].
+        /// Gets a value indicating whether this item is exclusive to members.
         /// </summary>
-        /// <value><c>true</c> if [members only]; otherwise, <c>false</c>.</value>
         bool MembersOnly { get; }
 
         /// <summary>
-        /// Gets the male worn model id1.
+        /// Gets the primary model ID for male characters wearing this item.
         /// </summary>
-        /// <value>The male worn model id1.</value>
         int MaleWornModelId1 { get; }
 
         /// <summary>
-        /// Gets the female worn model id1.
+        /// Gets the secondary model ID for male characters, often used for arms or other additional parts.
         /// </summary>
-        /// <value>The female worn model id1.</value>
         int MaleWornModelId2 { get; }
 
         /// <summary>
-        /// Gets the male worn model id2.
+        /// Gets the primary model ID for female characters wearing this item.
         /// </summary>
-        /// <value>The male worn model id2.</value>
         int FemaleWornModelId1 { get; }
 
         /// <summary>
-        /// Gets the female worn model id2.
+        /// Gets the secondary model ID for female characters, often used for arms or other additional parts.
         /// </summary>
-        /// <value>The female worn model id2.</value>
         int FemaleWornModelId2 { get; }
 
         /// <summary>
-        /// Gets the unknown int1.
+        /// Gets the head model ID for male characters when this item is equipped, often for helmets or masks.
         /// </summary>
-        /// <value>The unknown int1.</value>
         int MaleHeadModel { get; }
 
         /// <summary>
-        /// Gets the unknown int2.
+        /// Gets the head model ID for female characters when this item is equipped.
         /// </summary>
-        /// <value>The unknown int2.</value>
         int FemaleHeadModel { get; }
 
         /// <summary>
-        /// Gets the unknown int3.
+        /// Gets the secondary head model ID for male characters.
         /// </summary>
-        /// <value>The unknown int3.</value>
         int MaleHeadModel2 { get; }
 
         /// <summary>
-        /// Gets the unknown int4.
+        /// Gets the secondary head model ID for female characters.
         /// </summary>
-        /// <value>The unknown int4.</value>
         int FemaleHeadModel2 { get; }
 
         /// <summary>
-        /// Gets the unknown int12.
+        /// Gets the X-axis offset for the male worn model.
         /// </summary>
-        /// <value>The unknown int12.</value>
         int MaleWearXOffset { get; }
 
         /// <summary>
-        /// Gets the unknown int13.
+        /// Gets the Y-axis offset for the male worn model.
         /// </summary>
-        /// <value>The unknown int13.</value>
         int MaleWearYOffset { get; }
 
         /// <summary>
-        /// Gets the unknown int14.
+        /// Gets the Z-axis offset for the male worn model.
         /// </summary>
-        /// <value>The unknown int14.</value>
         int MaleWearZOffset { get; }
 
         /// <summary>
-        /// Gets the unknown int15.
+        /// Gets the X-axis offset for the female worn model.
         /// </summary>
-        /// <value>The unknown int15.</value>
         int FemaleWearXOffset { get; }
 
         /// <summary>
-        /// Gets the unknown int16.
+        /// Gets the Y-axis offset for the female worn model.
         /// </summary>
-        /// <value>The unknown int16.</value>
         int FemaleWearYOffset { get; }
 
         /// <summary>
-        /// Gets the unknown int17.
+        /// Gets the Z-axis offset for the female worn model.
         /// </summary>
-        /// <value>The unknown int17.</value>
         int FemaleWearZOffset { get; }
 
         /// <summary>
-        /// Gets the interface model id.
+        /// Gets the model ID used for rendering the item in interfaces like the inventory or bank.
         /// </summary>
-        /// <value>The interface model id.</value>
         int InterfaceModelId { get; }
 
         /// <summary>
-        /// Gets the original model colors.
+        /// Gets the original colors of the item's model that are replaced by <see cref="ModifiedModelColors"/>.
         /// </summary>
-        /// <value>The original model colors.</value>
         int[]? OriginalModelColors { get; }
 
         /// <summary>
-        /// Gets the modified model colors.
+        /// Gets the new colors that replace the <see cref="OriginalModelColors"/> in the item's model.
         /// </summary>
-        /// <value>The modified model colors.</value>
         int[]? ModifiedModelColors { get; }
 
         /// <summary>
-        /// Gets the texture colour1.
+        /// Gets the original texture colors of the item's model that are replaced by <see cref="ModifiedTextureColors"/>.
         /// </summary>
-        /// <value>The texture colour1.</value>
         int[]? OriginalTextureColors { get; }
 
         /// <summary>
-        /// Gets the texture colour2.
+        /// Gets the new texture colors that replace the <see cref="OriginalTextureColors"/> in the item's model.
         /// </summary>
-        /// <value>The texture colour2.</value>
         int[]? ModifiedTextureColors { get; }
 
         /// <summary>
-        /// Gets the model offset1.
+        /// Gets the first model offset value, used for fine-tuning the model's position.
         /// </summary>
-        /// <value>The model offset1.</value>
         int ModelOffset1 { get; }
 
         /// <summary>
-        /// Gets the model offset2.
+        /// Gets the second model offset value.
         /// </summary>
-        /// <value>The model offset2.</value>
         int ModelOffset2 { get; }
 
         /// <summary>
-        /// Gets the colour equip1.
+        /// Gets the tertiary model ID for male characters, used for complex items.
         /// </summary>
-        /// <value>The colour equip1.</value>
         int MaleWornModelId3 { get; }
 
         /// <summary>
-        /// Gets the colour equip2.
+        /// Gets the tertiary model ID for female characters.
         /// </summary>
-        /// <value>The colour equip2.</value>
         int FemaleWornModelId3 { get; }
 
         /// <summary>
-        /// Gets the ground options.
+        /// Gets the array of options available for the item when it is on the ground.
         /// </summary>
-        /// <value>The ground options.</value>
         string?[] GroundOptions { get; }
 
         /// <summary>
-        /// Contains item extra data.
+        /// Gets a dictionary of additional key-value data associated with the item, used for custom properties.
         /// </summary>
-        /// <value>The extra data.</value>
         IReadOnlyDictionary<int, object>? ExtraData { get; }
 
         /// <summary>
-        /// Gets the model zoom.
+        /// Gets the zoom level of the item's model in the inventory interface.
         /// </summary>
-        /// <value>The model zoom.</value>
         int ModelZoom { get; }
 
         /// <summary>
-        /// Gets the unknown int5.
+        /// Gets a 2D rotation value for the item's model.
         /// </summary>
-        /// <value>The unknown int5.</value>
         int Zan2D { get; }
 
         /// <summary>
-        /// Gets the unknown array1.
+        /// Gets an array of signed bytes containing unknown or legacy data.
         /// </summary>
-        /// <value>The unknown array1.</value>
         sbyte[]? UnknownArray1 { get; }
 
         /// <summary>
-        /// Gets the model rotation2.
+        /// Gets the second model rotation value.
         /// </summary>
-        /// <value>The model rotation2.</value>
         int ModelRotation2 { get; }
 
         /// <summary>
-        /// Gets the inventory options.
+        /// Gets the array of options available for the item when it is in the inventory.
         /// </summary>
-        /// <value>The inventory options.</value>
         string?[] InventoryOptions { get; }
 
         /// <summary>
-        /// Gets the team id.
+        /// Gets the team ID this item is associated with, used in certain minigames.
         /// </summary>
-        /// <value>The team id.</value>
         int TeamId { get; }
 
         /// <summary>
-        /// Gets the equip ID.
+        /// Gets the equipment slot where this item is worn.
         /// </summary>
-        /// <value>
-        /// The equip ID.
-        /// </value>
         sbyte EquipSlot { get; }
 
         /// <summary>
-        /// Gets the type of the equip.
+        /// Gets the type of equipment, which can affect which other items can be worn.
         /// </summary>
-        /// <value>
-        /// The type of the equip.
-        /// </value>
         sbyte EquipType { get; }
 
         /// <summary>
-        /// Gets the model rotation1.
+        /// Gets the first model rotation value.
         /// </summary>
-        /// <value>The model rotation1.</value>
         int ModelRotation1 { get; }
 
         /// <summary>
-        /// Gets the stackable.
+        /// Gets the stackable type of the item, where 1 indicates it is always stackable.
         /// </summary>
-        /// <value>The stackable.</value>
         int StackableType { get; }
 
-        /// <summary>
-        /// Get's if this item has a special bar.
-        /// </summary>
-        /// <returns>Return's true if this item has special bar.</returns>
-        bool HasSpecialBar();
 
         /// <summary>
-        /// Get's Quest ID of this item.
+        /// Configures this item type as a noted item based on a template.
         /// </summary>
-        /// <returns>Return's quest ID or -1 if it's not found.</returns>
-        int GetQuestId();
-
-        /// <summary>
-        /// Get's attack bonus types of this weapon.
-        /// Return's array of size 4.
-        /// Stab = 1,
-        /// Slash = 2,
-        /// Crush = 3,
-        /// Ranged = 4,
-        /// Magic = 5,
-        /// </summary>
-        /// <returns>System.Int32[][].</returns>
-        int[] GetAttackBonusTypes();
-
-        /// <summary>
-        /// Get's attack styles types of this weapon.
-        /// Return's array of size 4.
-        /// MeleeAccurate = 1,
-        /// MeleeAggressive = 2,
-        /// MeleeDefensive = 3,
-        /// MeleeControlled = 4,
-        /// RangedAccurate = 5,
-        /// RangedRapid = 6,
-        /// RangedLongrange = 7,
-        /// MagicNormal = 8,
-        /// MagicDefensive = 9,
-        /// </summary>
-        /// <returns>System.Int32[][].</returns>
-        int[] GetAttackStylesTypes();
-
-        /// <summary>
-        /// Gets the equipment level requirements.
-        /// </summary>
-        /// <returns>Dictionary{System.Int32System.Int32}.</returns>
-        IReadOnlyDictionary<int, int> GetEquipmentRequirements();
-
-        /// <summary>
-        /// Gets the create item requirements.
-        /// </summary>
-        /// <returns></returns>
-        IReadOnlyDictionary<int, int>? GetCreateItemRequirements();
-
-        /// <summary>
-        /// Gets the attack speed.
-        /// </summary>
-        /// <returns></returns>
-        int GetAttackSpeed();
-
-        /// <summary>
-        /// Gets the stab attack.
-        /// </summary>
-        /// <returns></returns>
-        int GetStabAttack();
-
-        /// <summary>
-        /// Gets the slash attack.
-        /// </summary>
-        /// <returns></returns>
-        int GetSlashAttack();
-
-        /// <summary>
-        /// Gets the crush attack.
-        /// </summary>
-        /// <returns></returns>
-        int GetCrushAttack();
-
-        /// <summary>
-        /// Gets the magic attack.
-        /// </summary>
-        /// <returns></returns>
-        int GetMagicAttack();
-
-        /// <summary>
-        /// Gets the range attack.
-        /// </summary>
-        /// <returns></returns>
-        int GetRangeAttack();
-
-        /// <summary>
-        /// Gets the stab defence.
-        /// </summary>
-        /// <returns></returns>
-        int GetStabDefence();
-
-        /// <summary>
-        /// Gets the slash defence.
-        /// </summary>
-        /// <returns></returns>
-        int GetSlashDefence();
-
-        /// <summary>
-        /// Gets the crush defence.
-        /// </summary>
-        /// <returns></returns>
-        int GetCrushDefence();
-
-        /// <summary>
-        /// Gets the magic defence.
-        /// </summary>
-        /// <returns></returns>
-        int GetMagicDefence();
-
-        /// <summary>
-        /// Gets the range defence.
-        /// </summary>
-        /// <returns></returns>
-        int GetRangeDefence();
-
-        /// <summary>
-        /// Gets the summoning defence.
-        /// </summary>
-        /// <returns></returns>
-        int GetSummoningDefence();
-
-        /// <summary>
-        /// Gets the absorb melee bonus.
-        /// </summary>
-        /// <returns></returns>
-        int GetAbsorbMeleeBonus();
-
-        /// <summary>
-        /// Gets the absorb mage bonus.
-        /// </summary>
-        /// <returns></returns>
-        int GetAbsorbMageBonus();
-
-        /// <summary>
-        /// Gets the absorb range bonus.
-        /// </summary>
-        /// <returns></returns>
-        int GetAbsorbRangeBonus();
-
-        /// <summary>
-        /// Gets the strength bonus.
-        /// </summary>
-        /// <returns></returns>
-        int GetStrengthBonus();
-
-        /// <summary>
-        /// Gets the ranged strength bonus.
-        /// </summary>
-        /// <returns></returns>
-        int GetRangedStrengthBonus();
-
-        /// <summary>
-        /// Gets the magic damage.
-        /// </summary>
-        /// <returns></returns>
-        int GetMagicDamage();
-
-        /// <summary>
-        /// Gets the prayer bonus.
-        /// </summary>
-        /// <returns></returns>
-        int GetPrayerBonus();
-
-        /// <summary>
-        /// Adds note data to this item definition.
-        /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="template">The template.</param>
+        /// <param name="item">The original item type.</param>
+        /// <param name="template">The noted item template.</param>
         void MakeNote(IItemType item, IItemType template);
 
         /// <summary>
-        /// Add's lend data to this item definition.
+        /// Configures this item type as a lent item based on a template.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="template">The template.</param>
+        /// <param name="item">The original item type.</param>
+        /// <param name="template">The lent item template.</param>
         void MakeLend(IItemType item, IItemType template);
 
         /// <summary>
-        /// Add's data which is unknown to this item.
+        /// Configures this item type as a bought item based on a template.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="template">The template.</param>
+        /// <param name="item">The original item type.</param>
+        /// <param name="template">The bought item template.</param>
         void MakeBought(IItemType item, IItemType template);
     }
 }
