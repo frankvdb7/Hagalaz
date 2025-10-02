@@ -356,23 +356,10 @@ namespace Hagalaz.Cache.Types
             {
                 writer.WriteByte(106);
                 writer.WriteByte((byte)obj.AnimationIDs.Length);
-                int total = 0;
-                var normalized = new int[obj.AnIntArray784.Length];
-
-                for (int i = 0; i < obj.AnIntArray784.Length; i++)
-                {
-                    total += obj.AnIntArray784[i];
-                }
-
-                for (int i = 0; i < obj.AnIntArray784.Length; i++)
-                {
-                    normalized[i] = obj.AnIntArray784[i] * 65535 / total;
-                }
-
                 for (int i = 0; i < obj.AnimationIDs.Length; i++)
                 {
                     writer.WriteBigSmart(obj.AnimationIDs[i] == -1 ? 65535 : obj.AnimationIDs[i]);
-                    writer.WriteByte((byte)normalized[i]);
+                    writer.WriteByte((byte)obj.AnIntArray784[i]);
                 }
             }
 
@@ -644,19 +631,18 @@ namespace Hagalaz.Cache.Types
                                                                                                                                                 objectType.FlipMapSprite = true;
                                                                                                                                             else if (opcode == 106)
                                                                                                                                             {
-                                                                                                                                                int i22 = buffer.ReadUnsignedByte();
-                                                                                                                                                int i23 = 0;
-                                                                                                                                                objectType.AnIntArray784 = new int[i22];
-                                                                                                                                                objectType.AnimationIDs = new int[i22];
-                                                                                                                                                for (int i24 = 0; i22 > i24; i24++)
+                                                                                                                                                int count = buffer.ReadUnsignedByte();
+                                                                                                                                                objectType.AnIntArray784 = new int[count];
+                                                                                                                                                objectType.AnimationIDs = new int[count];
+                                                                                                                                                for (int i = 0; i < count; i++)
                                                                                                                                                 {
-                                                                                                                                                    objectType.AnimationIDs[i24] = buffer.ReadBigSmart();
-                                                                                                                                                    if (objectType.AnimationIDs[i24] == 65535)
-                                                                                                                                                        objectType.AnimationIDs[i24] = -1;
-                                                                                                                                                    i23 += objectType.AnIntArray784[i24] = buffer.ReadUnsignedByte();
+                                                                                                                                                    objectType.AnimationIDs[i] = buffer.ReadBigSmart();
+                                                                                                                                                    if (objectType.AnimationIDs[i] == 65535)
+                                                                                                                                                    {
+                                                                                                                                                        objectType.AnimationIDs[i] = -1;
+                                                                                                                                                    }
+                                                                                                                                                    objectType.AnIntArray784[i] = buffer.ReadUnsignedByte();
                                                                                                                                                 }
-                                                                                                                                                for (int i25 = 0; i22 > i25; i25++)
-                                                                                                                                                    objectType.AnIntArray784[i25] = objectType.AnIntArray784[i25] * 65535 / i23;
                                                                                                                                             }
                                                                                                                                             else if (opcode != 107)
                                                                                                                                             {

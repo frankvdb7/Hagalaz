@@ -471,7 +471,9 @@ namespace Hagalaz.Cache.Types
         public void Decode(MemoryStream buffer) => throw new NotImplementedException();
 
         public MemoryStream Encode() => throw new NotImplementedException();
-
+        /// <summary>
+        /// Called after decode.
+        /// </summary>
         public void AfterDecode()
         {
             if (Interactable == -1)
