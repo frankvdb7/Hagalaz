@@ -86,6 +86,30 @@ namespace Hagalaz.Cache.Extensions
         public static void WriteByte(this MemoryStream stream, int value) => stream.WriteByte((byte)value);
 
         /// <summary>
+        /// Writes a signed byte to the stream.
+        /// </summary>
+        /// <param name="stream">The stream.</param>
+        /// <param name="value">The value.</param>
+        public static void WriteSignedByte(this MemoryStream stream, sbyte value) => stream.WriteByte((byte)value);
+
+        /// <summary>
+        /// Writes a smart value to the stream.
+        /// </summary>
+        /// <param name="stream">The stream.</param>
+        /// <param name="value">The value.</param>
+        public static void WriteSmart(this MemoryStream stream, int value)
+        {
+            if (value < 128)
+            {
+                stream.WriteByte((byte)value);
+            }
+            else
+            {
+                stream.WriteShort(value + 32768);
+            }
+        }
+
+        /// <summary>
         /// Writes bytes to stream.
         /// </summary>
         /// <param name="stream"></param>
