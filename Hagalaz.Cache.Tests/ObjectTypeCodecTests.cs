@@ -20,6 +20,8 @@ namespace Hagalaz.Cache.Tests
                 Solid = false,
                 Interactable = 1,
                 Actions = new[] { "Action1", "Action2", null, null, null, "Examine" },
+                AnimationIDs = new[] { 1, 2, 3 },
+                AnIntArray784 = new[] { 10, 20, 30 },
                 ExtraData = new Dictionary<int, object>
                 {
                     { 1, "string value" },
@@ -40,6 +42,13 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalObject.Solid, decodedObject.Solid);
             Assert.Equal(originalObject.Interactable, decodedObject.Interactable);
             Assert.Equal(originalObject.Actions, decodedObject.Actions);
+            Assert.Equal(originalObject.AnimationIDs, decodedObject.AnimationIDs);
+
+            // Note: AnIntArray784 is normalized on decode, so we can't directly compare the arrays.
+            // We can, however, verify that the decoded array is not null and has the correct length.
+            Assert.NotNull(decodedObject.AnIntArray784);
+            Assert.Equal(originalObject.AnIntArray784.Length, decodedObject.AnIntArray784.Length);
+
             Assert.Equal(originalObject.ExtraData, decodedObject.ExtraData);
         }
 

@@ -1,0 +1,74 @@
+﻿namespace Hagalaz.Cache.Types
+{
+    internal static class ObjectTypeOpcodes
+    {
+        internal const int ModelIDs = 1;
+        internal const int Name = 2;
+        internal const int SizeX = 14;
+        internal const int SizeY = 15;
+        internal const int ClipTypeSolidFalse = 17;
+        internal const int SolidFalse = 18;
+        internal const int Interactable = 19;
+        internal const int GroundContoured1 = 21;
+        internal const int DelayShading = 22;
+        internal const int Occludes1 = 23;
+        internal const int AnimationID = 24;
+        internal const int ClipType1 = 27;
+        internal const int DecorDisplacement = 28;
+        internal const int Ambient = 29;
+        internal const int Contrast = 39;
+        internal const int Colors = 40;
+        internal const int ShortArrays = 41;
+        internal const int ByteArray816 = 42;
+        internal const int Inverted = 62;
+        internal const int CastsShadowFalse = 64;
+        internal const int ScaleX = 65;
+        internal const int ScaleY = 66;
+        internal const int ScaleZ = 67;
+        internal const int Surroundings = 69;
+        internal const int OffsetX = 70;
+        internal const int OffsetY = 71;
+        internal const int OffsetZ = 72;
+        internal const int ObstructsGround = 73;
+        internal const int Gateway = 74;
+        internal const int SupportItemsFlag = 75;
+        internal const int VarpTransform = 77;
+        internal const int AmbientSound = 78;
+        internal const int AudioTracks = 79;
+        internal const int GroundContoured2 = 81;
+        internal const int Hidden = 82;
+        internal const int ABoolean779False = 88;
+        internal const int ABoolean838False = 89;
+        internal const int MembersOnly = 91;
+        internal const int VarpTransformWithExtra = 92;
+        internal const int GroundContoured3Short = 93;
+        internal const int GroundContoured4 = 94;
+        internal const int GroundContoured5 = 95;
+        internal const int AdjustMapSceneRotation = 97;
+        internal const int HasAnimation = 98;
+        internal const int AnInt788 = 99;
+        internal const int AnInt764 = 100;
+        internal const int MapSpriteRotation = 101;
+        internal const int MapSpriteType = 102;
+        internal const int Occludes0 = 103;
+        internal const int AmbientSoundVolume = 104;
+        internal const int FlipMapSprite = 105;
+        internal const int AnimationIDs = 106;
+        internal const int MapIcon = 107;
+        internal const int QuestIDs = 160;
+        internal const int GroundContoured3Int = 162;
+        internal const int Bytes = 163;
+        internal const int AnInt782 = 164;
+        internal const int AnInt830 = 165;
+        internal const int AnInt778 = 166;
+        internal const int AnInt776 = 167;
+        internal const int ABoolean810 = 168;
+        internal const int ABoolean781 = 169;
+        internal const int AnInt823 = 170;
+        internal const int AnInt773 = 171;
+        internal const int AnInts825And808 = 173;
+        internal const int ABoolean835 = 177;
+        internal const int AnInt813 = 178;
+        internal const int ExtraData = 249;
+    }
+}

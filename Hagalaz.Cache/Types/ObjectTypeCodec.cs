@@ -19,9 +19,9 @@ namespace Hagalaz.Cache.Types
             var obj = (ObjectType)type;
             var writer = new MemoryStream();
 
-            if (obj.ModelIDs != null && obj.ModelIDs.Length > 0)
+            if (obj.ModelIDs != null && obj.Shapes != null && obj.ModelIDs.Length > 0 && obj.ModelIDs.Length == obj.Shapes.Length)
             {
-                writer.WriteByte(1);
+                writer.WriteByte(ObjectTypeOpcodes.ModelIDs);
                 writer.WriteByte((byte)obj.ModelIDs.Length);
                 for (int i = 0; i < obj.ModelIDs.Length; i++)
                 {
@@ -36,78 +36,78 @@ namespace Hagalaz.Cache.Types
 
             if (obj.Name != "null")
             {
-                writer.WriteByte(2);
+                writer.WriteByte(ObjectTypeOpcodes.Name);
                 writer.WriteString(obj.Name);
             }
 
             if (obj.SizeX != 1)
             {
-                writer.WriteByte(14);
+                writer.WriteByte(ObjectTypeOpcodes.SizeX);
                 writer.WriteByte((byte)obj.SizeX);
             }
 
             if (obj.SizeY != 1)
             {
-                writer.WriteByte(15);
+                writer.WriteByte(ObjectTypeOpcodes.SizeY);
                 writer.WriteByte((byte)obj.SizeY);
             }
 
             if (obj.ClipType == 0)
             {
-                writer.WriteByte(17);
+                writer.WriteByte(ObjectTypeOpcodes.ClipTypeSolidFalse);
             }
             else if (!obj.Solid)
             {
-                writer.WriteByte(18);
+                writer.WriteByte(ObjectTypeOpcodes.SolidFalse);
             }
 
             if (obj.Interactable != -1)
             {
-                writer.WriteByte(19);
+                writer.WriteByte(ObjectTypeOpcodes.Interactable);
                 writer.WriteByte((byte)obj.Interactable);
             }
 
             if (obj.GroundContoured == 1)
             {
-                writer.WriteByte(21);
+                writer.WriteByte(ObjectTypeOpcodes.GroundContoured1);
             }
 
             if (obj.DelayShading)
             {
-                writer.WriteByte(22);
+                writer.WriteByte(ObjectTypeOpcodes.DelayShading);
             }
 
             if (obj.Occludes == 1)
             {
-                writer.WriteByte(23);
+                writer.WriteByte(ObjectTypeOpcodes.Occludes1);
             }
 
             if (obj.AnimationIDs != null && obj.AnimationIDs.Length == 1)
             {
-                writer.WriteByte(24);
+                writer.WriteByte(ObjectTypeOpcodes.AnimationID);
                 writer.WriteBigSmart(obj.AnimationIDs[0]);
             }
 
             if (obj.ClipType == 1)
             {
-                writer.WriteByte(27);
+                writer.WriteByte(ObjectTypeOpcodes.ClipType1);
             }
 
             if (obj.DecorDisplacement != 64)
             {
-                writer.WriteByte(28);
+                writer.WriteByte(ObjectTypeOpcodes.DecorDisplacement);
                 writer.WriteByte((byte)(obj.DecorDisplacement >> 2));
             }
 
             if (obj.Ambient != 0)
             {
-                writer.WriteByte(29);
+                writer.WriteByte(ObjectTypeOpcodes.Ambient);
                 writer.WriteSignedByte((sbyte)obj.Ambient);
             }
 
             if (obj.Contrast != 0)
             {
-                writer.WriteByte(39);
+                writer.WriteByte(ObjectTypeOpcodes.Contrast);
                 writer.WriteSignedByte((sbyte)(obj.Contrast / 5));
             }
 
@@ -120,9 +120,9 @@ namespace Hagalaz.Cache.Types
                 }
             }
 
-            if (obj.OriginalColors != null && obj.ModifiedColors != null)
+            if (obj.OriginalColors != null && obj.ModifiedColors != null && obj.OriginalColors.Length == obj.ModifiedColors.Length)
             {
-                writer.WriteByte(40);
+                writer.WriteByte(ObjectTypeOpcodes.Colors);
                 writer.WriteByte((byte)obj.OriginalColors.Length);
                 for(int i = 0; i < obj.OriginalColors.Length; i++)
                 {
@@ -131,9 +131,9 @@ namespace Hagalaz.Cache.Types
                 }
             }
 
-            if (obj.AShortArray831 != null && obj.AShortArray762 != null)
+            if (obj.AShortArray831 != null && obj.AShortArray762 != null && obj.AShortArray831.Length == obj.AShortArray762.Length)
             {
-                writer.WriteByte(41);
+                writer.WriteByte(ObjectTypeOpcodes.ShortArrays);
                 writer.WriteByte((byte)obj.AShortArray831.Length);
                 for(int i = 0; i < obj.AShortArray831.Length; i++)
                 {
@@ -144,7 +144,7 @@ namespace Hagalaz.Cache.Types
 
             if (obj.AByteArray816 != null)
             {
-                writer.WriteByte(42);
+                writer.WriteByte(ObjectTypeOpcodes.ByteArray816);
                 writer.WriteByte((byte)obj.AByteArray816.Length);
                 foreach (var val in obj.AByteArray816)
                 {
@@ -154,82 +154,82 @@ namespace Hagalaz.Cache.Types
 
             if(obj.Inverted)
             {
-                writer.WriteByte(62);
+                writer.WriteByte(ObjectTypeOpcodes.Inverted);
             }
 
             if (!obj.CastsShadow)
             {
-                writer.WriteByte(64);
+                writer.WriteByte(ObjectTypeOpcodes.CastsShadowFalse);
             }
 
             if (obj.ScaleX != 128)
             {
-                writer.WriteByte(65);
+                writer.WriteByte(ObjectTypeOpcodes.ScaleX);
                 writer.WriteShort(obj.ScaleX);
             }
 
             if (obj.ScaleY != 128)
             {
-                writer.WriteByte(66);
+                writer.WriteByte(ObjectTypeOpcodes.ScaleY);
                 writer.WriteShort(obj.ScaleY);
             }
 
             if (obj.ScaleZ != 128)
             {
-                writer.WriteByte(67);
+                writer.WriteByte(ObjectTypeOpcodes.ScaleZ);
                 writer.WriteShort(obj.ScaleZ);
             }
 
             if (obj.Surroundings != 0)
             {
-                writer.WriteByte(69);
+                writer.WriteByte(ObjectTypeOpcodes.Surroundings);
                 writer.WriteByte(obj.Surroundings);
             }
 
             if (obj.OffsetX != 0)
             {
-                writer.WriteByte(70);
+                writer.WriteByte(ObjectTypeOpcodes.OffsetX);
                 writer.WriteShort(obj.OffsetX >> 2);
             }
 
             if (obj.OffsetY != 0)
             {
-                writer.WriteByte(71);
+                writer.WriteByte(ObjectTypeOpcodes.OffsetY);
                 writer.WriteShort(obj.OffsetY >> 2);
             }
 
             if (obj.OffsetZ != 0)
             {
-                writer.WriteByte(72);
+                writer.WriteByte(ObjectTypeOpcodes.OffsetZ);
                 writer.WriteShort(obj.OffsetZ >> 2);
             }
 
             if (obj.ObstructsGround)
             {
-                writer.WriteByte(73);
+                writer.WriteByte(ObjectTypeOpcodes.ObstructsGround);
             }
 
             if (obj.Gateway)
             {
-                writer.WriteByte(74);
+                writer.WriteByte(ObjectTypeOpcodes.Gateway);
             }
 
             if (obj.SupportItemsFlag != -1)
             {
-                writer.WriteByte(75);
+                writer.WriteByte(ObjectTypeOpcodes.SupportItemsFlag);
                 writer.WriteByte((byte)obj.SupportItemsFlag);
             }
 
             if (obj.AmbientSoundID != -1)
             {
-                writer.WriteByte(78);
+                writer.WriteByte(ObjectTypeOpcodes.AmbientSound);
                 writer.WriteShort(obj.AmbientSoundID);
                 writer.WriteByte((byte)obj.AmbientSoundHearDistance);
             }
 
             if (obj.AudioTracks != null)
             {
-                writer.WriteByte(79);
+                writer.WriteByte(ObjectTypeOpcodes.AudioTracks);
                 writer.WriteShort(obj.AnInt833);
                 writer.WriteShort(obj.AnInt768);
                 writer.WriteByte((byte)obj.AmbientSoundHearDistance);
@@ -242,34 +242,34 @@ namespace Hagalaz.Cache.Types
 
             if (obj.GroundContoured == 2)
             {
-                writer.WriteByte(81);
+                writer.WriteByte(ObjectTypeOpcodes.GroundContoured2);
                 writer.WriteByte((byte)(obj.AnInt780 / 256));
             }
 
             if (obj.Hidden)
             {
-                writer.WriteByte(82);
+                writer.WriteByte(ObjectTypeOpcodes.Hidden);
             }
 
             if (!obj.ABoolean779)
             {
-                writer.WriteByte(88);
+                writer.WriteByte(ObjectTypeOpcodes.ABoolean779False);
             }
 
             if (!obj.ABoolean838)
             {
-                writer.WriteByte(89);
+                writer.WriteByte(ObjectTypeOpcodes.ABoolean838False);
             }
 
             if (obj.MembersOnly)
             {
-                writer.WriteByte(91);
+                writer.WriteByte(ObjectTypeOpcodes.MembersOnly);
             }
 
             if (obj.TransformToIDs != null)
             {
                 bool hasExtra = obj.TransformToIDs[obj.TransformToIDs.Length - 1] != -1;
-                writer.WriteByte((byte)(hasExtra ? 92 : 77));
+                writer.WriteByte((byte)(hasExtra ? ObjectTypeOpcodes.VarpTransformWithExtra : ObjectTypeOpcodes.VarpTransform));
                 writer.WriteShort(obj.VarpBitFileId);
                 writer.WriteShort(obj.VarpFileId);
                 if (hasExtra)
@@ -285,76 +285,76 @@ namespace Hagalaz.Cache.Types
 
             if(obj.GroundContoured == 3 && obj.AnInt780 != -1)
             {
-                writer.WriteByte(93);
+                writer.WriteByte(ObjectTypeOpcodes.GroundContoured3Short);
                 writer.WriteShort(obj.AnInt780);
             }
 
             if(obj.GroundContoured == 4)
             {
-                writer.WriteByte(94);
+                writer.WriteByte(ObjectTypeOpcodes.GroundContoured4);
             }
 
             if(obj.GroundContoured == 5 && obj.AnInt780 != -1)
             {
-                writer.WriteByte(95);
+                writer.WriteByte(ObjectTypeOpcodes.GroundContoured5);
                 writer.WriteShort(obj.AnInt780);
             }
 
             if (obj.AdjustMapSceneRotation)
             {
-                writer.WriteByte(97);
+                writer.WriteByte(ObjectTypeOpcodes.AdjustMapSceneRotation);
             }
 
             if (obj.HasAnimation)
             {
-                writer.WriteByte(98);
+                writer.WriteByte(ObjectTypeOpcodes.HasAnimation);
             }
 
             if(obj.AnInt788 != -1)
             {
-                writer.WriteByte(99);
+                writer.WriteByte(ObjectTypeOpcodes.AnInt788);
                 writer.WriteByte((byte)obj.AnInt788);
                 writer.WriteShort(obj.AnInt827);
             }
 
             if(obj.AnInt764 != -1)
             {
-                writer.WriteByte(100);
+                writer.WriteByte(ObjectTypeOpcodes.AnInt764);
                 writer.WriteByte((byte)obj.AnInt764);
                 writer.WriteShort(obj.AnInt828);
             }
 
             if (obj.MapSpriteRotation != 0)
             {
-                writer.WriteByte(101);
+                writer.WriteByte(ObjectTypeOpcodes.MapSpriteRotation);
                 writer.WriteByte((byte)obj.MapSpriteRotation);
             }
 
             if (obj.MapSpriteType != -1)
             {
-                writer.WriteByte(102);
+                writer.WriteByte(ObjectTypeOpcodes.MapSpriteType);
                 writer.WriteShort(obj.MapSpriteType);
             }
 
             if (obj.Occludes == 0)
             {
-                writer.WriteByte(103);
+                writer.WriteByte(ObjectTypeOpcodes.Occludes0);
             }
 
             if (obj.AmbientSoundVolume != 255)
             {
-                writer.WriteByte(104);
+                writer.WriteByte(ObjectTypeOpcodes.AmbientSoundVolume);
                 writer.WriteByte((byte)obj.AmbientSoundVolume);
             }
 
             if(obj.FlipMapSprite)
             {
-                writer.WriteByte(105);
+                writer.WriteByte(ObjectTypeOpcodes.FlipMapSprite);
             }
 
-            if (obj.AnimationIDs != null && obj.AnIntArray784 != null)
+            if (obj.AnimationIDs != null && obj.AnIntArray784 != null && obj.AnimationIDs.Length == obj.AnIntArray784.Length)
             {
-                writer.WriteByte(106);
+                writer.WriteByte(ObjectTypeOpcodes.AnimationIDs);
                 writer.WriteByte((byte)obj.AnimationIDs.Length);
                 for (int i = 0; i < obj.AnimationIDs.Length; i++)
                 {
@@ -365,7 +365,7 @@ namespace Hagalaz.Cache.Types
 
             if (obj.MapIcon != -1)
             {
-                writer.WriteByte(107);
+                writer.WriteByte(ObjectTypeOpcodes.MapIcon);
                 writer.WriteShort(obj.MapIcon);
             }
 
@@ -380,7 +380,7 @@ namespace Hagalaz.Cache.Types
 
             if (obj.QuestIDs != null)
             {
-                writer.WriteByte(160);
+                writer.WriteByte(ObjectTypeOpcodes.QuestIDs);
                 writer.WriteByte((byte)obj.QuestIDs.Length);
                 foreach (var questId in obj.QuestIDs)
                 {
@@ -390,13 +390,13 @@ namespace Hagalaz.Cache.Types
 
             if (obj.GroundContoured == 3 && obj.AnInt780 != -1)
             {
-                writer.WriteByte(162);
+                writer.WriteByte(ObjectTypeOpcodes.GroundContoured3Int);
                 writer.WriteInt(obj.AnInt780);
             }
 
             if (obj.AByte826 != 0 || obj.AByte790 != 0 || obj.AByte821 != 0 || obj.AByte787 != 0)
             {
-                writer.WriteByte(163);
+                writer.WriteByte(ObjectTypeOpcodes.Bytes);
                 writer.WriteSignedByte(obj.AByte826);
                 writer.WriteSignedByte(obj.AByte790);
                 writer.WriteSignedByte(obj.AByte821);
@@ -405,71 +405,71 @@ namespace Hagalaz.Cache.Types
 
             if (obj.AnInt782 != 0)
             {
-                writer.WriteByte(164);
+                writer.WriteByte(ObjectTypeOpcodes.AnInt782);
                 writer.WriteShort(obj.AnInt782);
             }
 
             if (obj.AnInt830 != 0)
             {
-                writer.WriteByte(165);
+                writer.WriteByte(ObjectTypeOpcodes.AnInt830);
                 writer.WriteShort(obj.AnInt830);
             }
 
             if (obj.AnInt778 != 0)
             {
-                writer.WriteByte(166);
+                writer.WriteByte(ObjectTypeOpcodes.AnInt778);
                 writer.WriteShort(obj.AnInt778);
             }
 
             if (obj.AnInt776 != 0)
             {
-                writer.WriteByte(167);
+                writer.WriteByte(ObjectTypeOpcodes.AnInt776);
                 writer.WriteShort(obj.AnInt776);
             }
 
             if (obj.ABoolean810)
             {
-                writer.WriteByte(168);
+                writer.WriteByte(ObjectTypeOpcodes.ABoolean810);
             }
 
             if (obj.ABoolean781)
             {
-                writer.WriteByte(169);
+                writer.WriteByte(ObjectTypeOpcodes.ABoolean781);
             }
 
             if (obj.AnInt823 != 960)
             {
-                writer.WriteByte(170);
+                writer.WriteByte(ObjectTypeOpcodes.AnInt823);
                 writer.WriteSmart(obj.AnInt823);
             }
 
             if (obj.AnInt773 != 0)
             {
-                writer.WriteByte(171);
+                writer.WriteByte(ObjectTypeOpcodes.AnInt773);
                 writer.WriteSmart(obj.AnInt773);
             }
 
             if (obj.AnInt825 != 256 || obj.AnInt808 != 256)
             {
-                writer.WriteByte(173);
+                writer.WriteByte(ObjectTypeOpcodes.AnInts825And808);
                 writer.WriteShort(obj.AnInt825);
                 writer.WriteShort(obj.AnInt808);
             }
 
             if (obj.ABoolean835)
             {
-                writer.WriteByte(177);
+                writer.WriteByte(ObjectTypeOpcodes.ABoolean835);
             }
 
             if (obj.AnInt813 != 0)
             {
-                writer.WriteByte(178);
+                writer.WriteByte(ObjectTypeOpcodes.AnInt813);
                 writer.WriteByte((byte)obj.AnInt813);
             }
 
             if (obj.ExtraData != null && obj.ExtraData.Count > 0)
             {
-                writer.WriteByte(249);
+                writer.WriteByte(ObjectTypeOpcodes.ExtraData);
                 writer.WriteByte((byte)obj.ExtraData.Count);
                 foreach (var pair in obj.ExtraData)
                 {
@@ -500,45 +500,45 @@ namespace Hagalaz.Cache.Types
                 {
                     return;
                 }
-                if (opcode != 1)
+                if (opcode != ObjectTypeOpcodes.ModelIDs)
                 {
-                    if (opcode != 2)
+                    if (opcode != ObjectTypeOpcodes.Name)
                     {
-                        if (opcode != 14)
+                        if (opcode != ObjectTypeOpcodes.SizeX)
                         {
-                            if (opcode == 15)
+                            if (opcode == ObjectTypeOpcodes.SizeY)
                                 objectType.SizeY = buffer.ReadUnsignedByte();
-                            else if (opcode != 17)
+                            else if (opcode != ObjectTypeOpcodes.ClipTypeSolidFalse)
                             {
-                                if (opcode == 18)
+                                if (opcode == ObjectTypeOpcodes.SolidFalse)
                                     objectType.Solid = false;
-                                else if (opcode != 19)
+                                else if (opcode != ObjectTypeOpcodes.Interactable)
                                 {
-                                    if (opcode == 21)
+                                    if (opcode == ObjectTypeOpcodes.GroundContoured1)
                                         objectType.GroundContoured = 1;
-                                    else if (opcode == 22)
+                                    else if (opcode == ObjectTypeOpcodes.DelayShading)
                                         objectType.DelayShading = true;
-                                    else if (opcode != 23)
+                                    else if (opcode != ObjectTypeOpcodes.Occludes1)
                                     {
-                                        if (opcode == 24)
+                                        if (opcode == ObjectTypeOpcodes.AnimationID)
                                         {
                                             int animationID = buffer.ReadBigSmart();
                                             if (animationID != 65535)
                                                 objectType.AnimationIDs = new int[] { animationID };
                                         }
-                                        else if (opcode != 27)
+                                        else if (opcode != ObjectTypeOpcodes.ClipType1)
                                         {
-                                            if (opcode != 28)
+                                            if (opcode != ObjectTypeOpcodes.DecorDisplacement)
                                             {
-                                                if (opcode != 29)
+                                                if (opcode != ObjectTypeOpcodes.Ambient)
                                                 {
-                                                    if (opcode != 39)
+                                                    if (opcode != ObjectTypeOpcodes.Contrast)
                                                     {
                                                         if (opcode >= 30 && opcode < 35)
                                                             objectType.Actions[opcode - 30] = (buffer.ReadString());
-                                                        else if (opcode != 40)
+                                                        else if (opcode != ObjectTypeOpcodes.Colors)
                                                         {
-                                                            if (opcode == 41)
+                                                            if (opcode == ObjectTypeOpcodes.ShortArrays)
                                                             {
                                                                 int i20 = (buffer.ReadUnsignedByte());
                                                                 objectType.AShortArray831 = new short[i20];
@@ -549,7 +549,7 @@ namespace Hagalaz.Cache.Types
                                                                     objectType.AShortArray762[i21] = (short)(buffer.ReadUnsignedShort());
                                                                 }
                                                             }
-                                                            else if (opcode != 42)
+                                                            else if (opcode != ObjectTypeOpcodes.ByteArray816)
                                                             {
                                                                 if (opcode == 44)
                                                                 {
@@ -559,81 +559,82 @@ namespace Hagalaz.Cache.Types
                                                                 {
                                                                     int i21 = buffer.ReadUnsignedShort();
                                                                 }
-                                                                else if (opcode == 62)
+                                                                else if (opcode == ObjectTypeOpcodes.Inverted)
                                                                     objectType.Inverted = true;
-                                                                else if (opcode == 64)
+                                                                else if (opcode == ObjectTypeOpcodes.CastsShadowFalse)
                                                                     objectType.CastsShadow = false;
-                                                                else if (opcode != 65)
+                                                                else if (opcode != ObjectTypeOpcodes.ScaleX)
                                                                 {
-                                                                    if (opcode == 66)
+                                                                    if (opcode == ObjectTypeOpcodes.ScaleY)
                                                                         objectType.ScaleY = (buffer.ReadUnsignedShort());
-                                                                    else if (opcode == 67)
+                                                                    else if (opcode == ObjectTypeOpcodes.ScaleZ)
                                                                         objectType.ScaleZ = (buffer.ReadUnsignedShort());
-                                                                    else if (opcode != 69)
+                                                                    else if (opcode != ObjectTypeOpcodes.Surroundings)
                                                                     {
-                                                                        if (opcode == 70)
+                                                                        if (opcode == ObjectTypeOpcodes.OffsetX)
                                                                             objectType.OffsetX = ((buffer.ReadShort()) << 2);
-                                                                        else if (opcode != 71)
+                                                                        else if (opcode != ObjectTypeOpcodes.OffsetY)
                                                                         {
-                                                                            if (opcode != 72)
+                                                                            if (opcode != ObjectTypeOpcodes.OffsetZ)
                                                                             {
-                                                                                if (opcode != 73)
+                                                                                if (opcode != ObjectTypeOpcodes.ObstructsGround)
                                                                                 {
-                                                                                    if (opcode != 74)
+                                                                                    if (opcode != ObjectTypeOpcodes.Gateway)
                                                                                     {
-                                                                                        if (opcode != 75)
+                                                                                        if (opcode != ObjectTypeOpcodes.SupportItemsFlag)
                                                                                         {
-                                                                                            if (opcode != 77 && opcode != 92)
+                                                                                            if (opcode != ObjectTypeOpcodes.VarpTransform && opcode != ObjectTypeOpcodes.VarpTransformWithExtra)
                                                                                             {
-                                                                                                if (opcode != 78)
+                                                                                                if (opcode != ObjectTypeOpcodes.AmbientSound)
                                                                                                 {
-                                                                                                    if (opcode != 79)
+                                                                                                    if (opcode != ObjectTypeOpcodes.AudioTracks)
                                                                                                     {
-                                                                                                        if (opcode != 81)
+                                                                                                        if (opcode != ObjectTypeOpcodes.GroundContoured2)
                                                                                                         {
-                                                                                                            if (opcode != 82)
+                                                                                                            if (opcode != ObjectTypeOpcodes.Hidden)
                                                                                                             {
-                                                                                                                if (opcode == 88)
+                                                                                                                if (opcode == ObjectTypeOpcodes.ABoolean779False)
                                                                                                                     objectType.ABoolean779 = false;
-                                                                                                                else if (opcode != 89)
+                                                                                                                else if (opcode != ObjectTypeOpcodes.ABoolean838False)
                                                                                                                 {
-                                                                                                                    if (opcode != 91)
+                                                                                                                    if (opcode != ObjectTypeOpcodes.MembersOnly)
                                                                                                                     {
-                                                                                                                        if (opcode == 93)
+                                                                                                                        if (opcode == ObjectTypeOpcodes.GroundContoured3Short)
                                                                                                                         {
                                                                                                                             objectType.GroundContoured = (sbyte)3;
                                                                                                                             objectType.AnInt780 = buffer.ReadUnsignedShort();
                                                                                                                         }
-                                                                                                                        else if (opcode == 94)
+                                                                                                                        else if (opcode == ObjectTypeOpcodes.GroundContoured4)
                                                                                                                             objectType.GroundContoured = (sbyte)4;
-                                                                                                                        else if (opcode != 95)
+                                                                                                                        else if (opcode != ObjectTypeOpcodes.GroundContoured5)
                                                                                                                         {
-                                                                                                                            if (opcode != 97)
+                                                                                                                            if (opcode != ObjectTypeOpcodes.AdjustMapSceneRotation)
                                                                                                                             {
-                                                                                                                                if (opcode == 98)
+                                                                                                                                if (opcode == ObjectTypeOpcodes.HasAnimation)
                                                                                                                                     objectType.HasAnimation = true;
-                                                                                                                                else if (opcode != 99)
+                                                                                                                                else if (opcode != ObjectTypeOpcodes.AnInt788)
                                                                                                                                 {
-                                                                                                                                    if (opcode == 100)
+                                                                                                                                    if (opcode == ObjectTypeOpcodes.AnInt764)
                                                                                                                                     {
                                                                                                                                         objectType.AnInt764 = buffer.ReadUnsignedByte();
                                                                                                                                         objectType.AnInt828 = buffer.ReadUnsignedShort();
                                                                                                                                     }
-                                                                                                                                    else if (opcode != 101)
+                                                                                                                                    else if (opcode != ObjectTypeOpcodes.MapSpriteRotation)
                                                                                                                                     {
-                                                                                                                                        if (opcode == 102)
+                                                                                                                                        if (opcode == ObjectTypeOpcodes.MapSpriteType)
                                                                                                                                             objectType.MapSpriteType = buffer.ReadUnsignedShort();
-                                                                                                                                        else if (opcode != 103)
+                                                                                                                                        else if (opcode != ObjectTypeOpcodes.Occludes0)
                                                                                                                                         {
-                                                                                                                                            if (opcode == 104)
+                                                                                                                                            if (opcode == ObjectTypeOpcodes.AmbientSoundVolume)
                                                                                                                                                 objectType.AmbientSoundVolume = buffer.ReadUnsignedByte();
-                                                                                                                                            else if (opcode == 105)
+                                                                                                                                            else if (opcode == ObjectTypeOpcodes.FlipMapSprite)
                                                                                                                                                 objectType.FlipMapSprite = true;
-                                                                                                                                            else if (opcode == 106)
+                                                                                                                                            else if (opcode == ObjectTypeOpcodes.AnimationIDs)
                                                                                                                                             {
                                                                                                                                                 int count = buffer.ReadUnsignedByte();
                                                                                                                                                 objectType.AnIntArray784 = new int[count];
                                                                                                                                                 objectType.AnimationIDs = new int[count];
+                                                                                                                                                int total = 0;
                                                                                                                                                 for (int i = 0; i < count; i++)
                                                                                                                                                 {
                                                                                                                                                     objectType.AnimationIDs[i] = buffer.ReadBigSmart();
@@ -641,53 +642,60 @@ namespace Hagalaz.Cache.Types
                                                                                                                                                     {
                                                                                                                                                         objectType.AnimationIDs[i] = -1;
                                                                                                                                                     }
-                                                                                                                                                    objectType.AnIntArray784[i] = buffer.ReadUnsignedByte();
+                                                                                                                                                    total += objectType.AnIntArray784[i] = buffer.ReadUnsignedByte();
+                                                                                                                                                }
+                                                                                                                                                if (total > 0)
+                                                                                                                                                {
+                                                                                                                                                    for (int i = 0; i < count; i++)
+                                                                                                                                                    {
+                                                                                                                                                        objectType.AnIntArray784[i] = objectType.AnIntArray784[i] * 65535 / total;
+                                                                                                                                                    }
                                                                                                                                                 }
                                                                                                                                             }
-                                                                                                                                            else if (opcode != 107)
+                                                                                                                                            else if (opcode != ObjectTypeOpcodes.MapIcon)
                                                                                                                                             {
                                                                                                                                                 if (opcode < 150 || opcode >= 155)
                                                                                                                                                 {
-                                                                                                                                                    if (opcode == 160)
+                                                                                                                                                    if (opcode == ObjectTypeOpcodes.QuestIDs)
                                                                                                                                                     {
                                                                                                                                                         int i26 = buffer.ReadUnsignedByte();
                                                                                                                                                         objectType.QuestIDs = new int[i26];
                                                                                                                                                         for (int i27 = 0; i27 < i26; i27++)
                                                                                                                                                             objectType.QuestIDs[i27] = buffer.ReadUnsignedShort();
                                                                                                                                                     }
-                                                                                                                                                    else if (opcode != 162)
+                                                                                                                                                    else if (opcode != ObjectTypeOpcodes.GroundContoured3Int)
                                                                                                                                                     {
-                                                                                                                                                        if (opcode == 163)
+                                                                                                                                                        if (opcode == ObjectTypeOpcodes.Bytes)
                                                                                                                                                         {
                                                                                                                                                             objectType.AByte826 = (sbyte)buffer.ReadSignedByte();
                                                                                                                                                             objectType.AByte790 = (sbyte)buffer.ReadSignedByte();
                                                                                                                                                             objectType.AByte821 = (sbyte)buffer.ReadSignedByte();
                                                                                                                                                             objectType.AByte787 = (sbyte)buffer.ReadSignedByte();
                                                                                                                                                         }
-                                                                                                                                                        else if (opcode != 164)
+                                                                                                                                                        else if (opcode != ObjectTypeOpcodes.AnInt782)
                                                                                                                                                         {
-                                                                                                                                                            if (opcode == 165)
+                                                                                                                                                            if (opcode == ObjectTypeOpcodes.AnInt830)
                                                                                                                                                                 objectType.AnInt830 = buffer.ReadShort();
-                                                                                                                                                            else if (opcode == 166)
+                                                                                                                                                            else if (opcode == ObjectTypeOpcodes.AnInt778)
                                                                                                                                                                 objectType.AnInt778 = buffer.ReadShort();
-                                                                                                                                                            else if (opcode == 167)
+                                                                                                                                                            else if (opcode == ObjectTypeOpcodes.AnInt776)
                                                                                                                                                                 objectType.AnInt776 = buffer.ReadUnsignedShort();
-                                                                                                                                                            else if (opcode == 168)
+                                                                                                                                                            else if (opcode == ObjectTypeOpcodes.ABoolean810)
                                                                                                                                                                 objectType.ABoolean810 = true;
-                                                                                                                                                            else if (opcode == 169)
+                                                                                                                                                            else if (opcode == ObjectTypeOpcodes.ABoolean781)
                                                                                                                                                                 objectType.ABoolean781 = true;
-                                                                                                                                                            else if (opcode != 170)
+                                                                                                                                                            else if (opcode != ObjectTypeOpcodes.AnInt823)
                                                                                                                                                             {
-                                                                                                                                                                if (opcode != 171)
+                                                                                                                                                                if (opcode != ObjectTypeOpcodes.AnInt773)
                                                                                                                                                                 {
-                                                                                                                                                                    if (opcode == 173)
+                                                                                                                                                                    if (opcode == ObjectTypeOpcodes.AnInts825And808)
                                                                                                                                                                     {
                                                                                                                                                                         objectType.AnInt825 = buffer.ReadUnsignedShort();
                                                                                                                                                                         objectType.AnInt808 = buffer.ReadUnsignedShort();
                                                                                                                                                                     }
-                                                                                                                                                                    else if (opcode == 177)
+                                                                                                                                                                    else if (opcode == ObjectTypeOpcodes.ABoolean835)
                                                                                                                                                                         objectType.ABoolean835 = true;
-                                                                                                                                                                    else if (opcode != 178)
+                                                                                                                                                                    else if (opcode != ObjectTypeOpcodes.AnInt813)
                                                                                                                                                                     {
                                                                                                                                                                         if (opcode == 189)
                                                                                                                                                                         {
@@ -696,11 +704,11 @@ namespace Hagalaz.Cache.Types
                                                                                                                                                                         {
                                                                                                                                                                             buffer.ReadUnsignedShort();
                                                                                                                                                                         }
-                                                                                                                                                                        else if (opcode == 249)
+                                                                                                                                                                        else if (opcode == ObjectTypeOpcodes.ExtraData)
                                                                                                                                                                         {
                                                                                                                                                                             int count = buffer.ReadUnsignedByte();
                                                                                                                                                                             objectType.ExtraData = new Dictionary<int, object>(count);
-                                                                                                                                                                            for (int i = 0; count > i; i++)
+                                                                                                                                                                            for (int i = 0; i < count; i++)
                                                                                                                                                                             {
                                                                                                                                                                                 bool isStr = buffer.ReadUnsignedByte() == 1;
                                                                                                                                                                                 int key = buffer.ReadMedInt();
@@ -799,7 +807,7 @@ namespace Hagalaz.Cache.Types
                                                                                                 if (objectType.VarpFileId == 65535)
                                                                                                     objectType.VarpFileId = -1;
                                                                                                 int i34 = -1;
-                                                                                                if (opcode == 92)
+                                                                                                if (opcode == ObjectTypeOpcodes.VarpTransformWithExtra)
                                                                                                 {
                                                                                                     i34 = buffer.ReadBigSmart();
                                                                                                 }
