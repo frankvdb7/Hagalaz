@@ -468,9 +468,6 @@ namespace Hagalaz.Cache.Types
             AByteArray816 = Array.Empty<sbyte>();
         }
 
-        public void Decode(MemoryStream buffer) => throw new NotImplementedException();
-
-        public MemoryStream Encode() => throw new NotImplementedException();
         /// <summary>
         /// Called after decode.
         /// </summary>
