@@ -160,19 +160,16 @@ namespace Hagalaz.Cache.Logic.Codecs
                 throw new ArgumentException("The provided instance is not a valid SpriteType.", nameof(instance));
             }
 
-            var pixelDataStream = new MemoryStream();
-            var paletteDataStream = new MemoryStream();
-            var metaDataStream = new MemoryStream();
-            var finalStream = new MemoryStream();
+            using var pixelDataStream = new MemoryStream();
+            using var paletteDataStream = new MemoryStream();
+            using var metaDataStream = new MemoryStream();
 
-            /* set up some variables */
             var palette = new List<Color>
             {
                 Color.Transparent
             };
             var transparentPixel = Color.Transparent.ToPixel<Rgba32>();
 
-            // Step 1: Build a global palette for the entire image
             bool hasAlpha = false;
             foreach (var frame in sprite.Image.Frames)
             {
@@ -181,7 +178,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                     for (int x = 0; x < frame.Width; x++)
                     {
                         var rgba = transparentPixel;
-                        sprite.Image[x,y].ToRgba32(ref rgba);
+                        frame[x, y].ToRgba32(ref rgba);
 
                         if (rgba.A != byte.MinValue && rgba.A != byte.MaxValue)
                             hasAlpha = true;
@@ -194,10 +191,8 @@ namespace Hagalaz.Cache.Logic.Codecs
                 }
             }
 
-            // Step 2: Write pixel data to a temporary stream
             foreach (var frame in sprite.Image.Frames)
             {
-                /* check if we can encode this */
                 if (frame.Width != sprite.Image.Width || frame.Height != sprite.Image.Height)
                     throw new IOException("All frames must have the same dimensions!");
 
@@ -207,18 +202,16 @@ namespace Hagalaz.Cache.Logic.Codecs
 
                 pixelDataStream.WriteByte((byte)flags);
 
-                // Write pixel indices
                 for (var x = 0; x < frame.Width; x++)
                 {
                     for (var y = 0; y < frame.Height; y++)
                     {
                         var rgba = transparentPixel;
-                        sprite.Image[x,y].ToRgba32(ref rgba);
+                        frame[x, y].ToRgba32(ref rgba);
                         pixelDataStream.WriteByte((byte)palette.IndexOf(rgba));
                     }
                 }
 
-                // Write alpha channel if this sprite has one
                 if (hasAlpha)
                 {
                     for (var x = 0; x < frame.Width; x++)
@@ -226,32 +219,30 @@ namespace Hagalaz.Cache.Logic.Codecs
                         for (var y = 0; y < frame.Height; y++)
                         {
                             var rgba = transparentPixel;
-                            sprite.Image[x,y].ToRgba32(ref rgba);
+                            frame[x, y].ToRgba32(ref rgba);
                             pixelDataStream.WriteByte(rgba.A);
                         }
                     }
                 }
             }
 
-            // Step 3: Write palette data to a temporary stream
             for (var i = 1; i < palette.Count; i++)
             {
                 var color = palette[i].ToPixel<Rgb24>();
                 paletteDataStream.WriteMedInt(color.R << 16 | color.G << 8 | color.B);
             }
 
-            // Step 4: Write metadata to a temporary stream
             metaDataStream.WriteShort(sprite.Image.Width);
             metaDataStream.WriteShort(sprite.Image.Height);
             metaDataStream.WriteByte(palette.Count - 1);
 
             for (var i = 0; i < sprite.Image.Frames.Count; i++)
             {
-                metaDataStream.WriteShort(0); // offset x
+                metaDataStream.WriteShort(0);
             }
             for (var i = 0; i < sprite.Image.Frames.Count; i++)
             {
-                metaDataStream.WriteShort(0); // offset y
+                metaDataStream.WriteShort(0);
             }
             for (var i = 0; i < sprite.Image.Frames.Count; i++)
             {
@@ -262,12 +253,19 @@ namespace Hagalaz.Cache.Logic.Codecs
                 metaDataStream.WriteShort(sprite.Image.Height);
             }
 
-            // Step 5: Assemble the final stream
-            finalStream.Write(pixelDataStream.ToArray());
-            finalStream.Write(paletteDataStream.ToArray());
-            finalStream.Write(metaDataStream.ToArray());
+            var finalStream = new MemoryStream();
+
+            pixelDataStream.Position = 0;
+            paletteDataStream.Position = 0;
+            metaDataStream.Position = 0;
+
+            pixelDataStream.CopyTo(finalStream);
+            paletteDataStream.CopyTo(finalStream);
+            metaDataStream.CopyTo(finalStream);
+
             finalStream.WriteShort(sprite.Image.Frames.Count);
 
+            finalStream.Position = 0;
             return finalStream;
         }
     }
