@@ -1,12 +1,14 @@
-﻿using System;
+﻿using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Providers;
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
 using Hagalaz.Cache.Types.Factories;
 using Hagalaz.Cache.Types.Hooks;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -56,9 +58,10 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<IItemTypeCodec, ItemTypeCodec>();
             services.TryAddTransient<INpcTypeCodec, NpcTypeCodec>();
             services.TryAddTransient<IObjectTypeCodec, ObjectTypeCodec>();
+            services.TryAddTransient<ISpriteTypeCodec, SpriteTypeCodec>();
             services.TryAddTransient<ITypeProvider<IItemType>, ItemTypeProvider>();
             services.TryAddTransient<ITypeProvider<INpcType>, NpcTypeProvider>();
-            services.TryAddTransient<ITypeProvider<ISpriteType>, TypeProvider<ISpriteType, SpriteTypeData>>();
+            services.TryAddTransient<ITypeProvider<ISpriteType>, SpriteTypeProvider>();
             services.TryAddTransient<ITypeProvider<IQuestType>, TypeProvider<IQuestType, QuestTypeData>>();
             services.TryAddTransient<ITypeProvider<IObjectType>, ObjectTypeProvider>();
             services.TryAddTransient<ITypeProvider<IAnimationType>, TypeProvider<IAnimationType, AnimationTypeData>>();
