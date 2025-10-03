@@ -66,5 +66,17 @@ namespace Hagalaz.Cache.Types
                 Image.Mutate(x => x.Resize(frame.Width, frame.Height));
             }
         }
+
+        [Obsolete("Use the SpriteTypeCodec instead.", error: true)]
+        public void Decode(MemoryStream stream)
+        {
+            throw new NotSupportedException();
+        }
+
+        [Obsolete("Use the SpriteTypeCodec instead.", error: true)]
+        public MemoryStream Encode()
+        {
+            throw new NotSupportedException();
+        }
     }
 }

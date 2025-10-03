@@ -503,5 +503,17 @@ namespace Hagalaz.Cache.Types
                 Solid = false;
             }
         }
+
+        [Obsolete("Use the ObjectTypeCodec instead.", error: true)]
+        public void Decode(MemoryStream stream)
+        {
+            throw new NotSupportedException();
+        }
+
+        [Obsolete("Use the ObjectTypeCodec instead.", error: true)]
+        public MemoryStream Encode()
+        {
+            throw new NotSupportedException();
+        }
     }
 }
