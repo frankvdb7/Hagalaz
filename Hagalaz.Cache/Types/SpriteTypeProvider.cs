@@ -34,7 +34,7 @@ namespace Hagalaz.Cache.Types
             {
                 return _typeFactory.CreateType(typeId);
             }
-            var type = _codec.Decode(archive.GetEntry(entry.Index));
+            var type = _codec.Decode(typeId, archive.GetEntry(entry.Index));
             _typeEventHook?.AfterDecode(this, new[] { type });
 
             return type;

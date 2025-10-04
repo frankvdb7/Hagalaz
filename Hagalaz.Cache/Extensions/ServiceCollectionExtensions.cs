@@ -62,9 +62,21 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ITypeProvider<IItemType>, ItemTypeProvider>();
             services.TryAddTransient<ITypeProvider<INpcType>, NpcTypeProvider>();
             services.TryAddTransient<ITypeProvider<ISpriteType>, SpriteTypeProvider>();
-            services.TryAddTransient<ITypeProvider<IQuestType>, TypeProvider<IQuestType, QuestTypeData>>();
+            services.TryAddTransient<IQuestTypeCodec, QuestTypeCodec>();
+            services.TryAddTransient<IAnimationTypeCodec, AnimationTypeCodec>();
+            services.TryAddTransient<ITypeProvider<IQuestType>>(provider =>
+                new TypeProvider<IQuestType, QuestTypeData>(
+                    provider.GetRequiredService<ICacheAPI>(),
+                    provider.GetRequiredService<ITypeFactory<IQuestType>>(),
+                    provider.GetRequiredService<IQuestTypeCodec>(),
+                    provider.GetService<ITypeEventHook<IQuestType>>()));
             services.TryAddTransient<ITypeProvider<IObjectType>, ObjectTypeProvider>();
-            services.TryAddTransient<ITypeProvider<IAnimationType>, TypeProvider<IAnimationType, AnimationTypeData>>();
+            services.TryAddTransient<ITypeProvider<IAnimationType>>(provider =>
+                new TypeProvider<IAnimationType, AnimationTypeData>(
+                    provider.GetRequiredService<ICacheAPI>(),
+                    provider.GetRequiredService<ITypeFactory<IAnimationType>>(),
+                    provider.GetRequiredService<IAnimationTypeCodec>(),
+                    provider.GetService<ITypeEventHook<IAnimationType>>()));
             services.TryAddTransient<ITypeFactory<IItemType>, ItemTypeFactory>();
             services.TryAddTransient<ITypeFactory<INpcType>, NpcTypeFactory>();
             services.TryAddTransient<ITypeFactory<ISpriteType>, SpriteTypeFactory>();

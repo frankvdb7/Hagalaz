@@ -504,16 +504,5 @@ namespace Hagalaz.Cache.Types
             }
         }
 
-        [Obsolete("Use the ObjectTypeCodec instead.", error: true)]
-        public void Decode(MemoryStream stream)
-        {
-            throw new NotSupportedException();
-        }
-
-        [Obsolete("Use the ObjectTypeCodec instead.", error: true)]
-        public MemoryStream Encode()
-        {
-            throw new NotSupportedException();
-        }
     }
 }

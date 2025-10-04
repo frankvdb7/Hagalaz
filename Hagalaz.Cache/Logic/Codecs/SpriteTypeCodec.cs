@@ -12,7 +12,7 @@ namespace Hagalaz.Cache.Logic.Codecs
 {
     public class SpriteTypeCodec : ISpriteTypeCodec
     {
-        public ISpriteType Decode(MemoryStream stream)
+        public ISpriteType Decode(int id, MemoryStream stream)
         {
             /* find the size of this sprite set */
             stream.Position = stream.Length - 2;
@@ -59,18 +59,18 @@ namespace Hagalaz.Cache.Logic.Codecs
                     palette[index] = 1;
             }
 
-            var spriteType = new SpriteType(0)
+            var spriteType = new SpriteType(id)
             {
                 Image = new Image<Rgba32>(Width, Height)
             };
 
             /* read the pixels themselves */
             stream.Position = 0;
-            for (var id = 0; id < size; id++)
+            for (var i = 0; i < size; i++)
             {
                 /* grab some frequently used values */
-                int subWidth = subWidths[id], subHeight = subHeights[id];
-                int offsetX = offsetsX[id], offsetY = offsetsY[id];
+                int subWidth = subWidths[i], subHeight = subHeights[i];
+                int offsetX = offsetsX[i], offsetY = offsetsY[i];
 
                 var frameImage = new Image<Rgba32>(Width, Height);
 
@@ -165,11 +165,6 @@ namespace Hagalaz.Cache.Logic.Codecs
 
         public MemoryStream Encode(ISpriteType instance)
         {
-            if (instance is not SpriteType sprite)
-            {
-                throw new ArgumentException("The provided instance is not a valid SpriteType.", nameof(instance));
-            }
-
             using var pixelDataStream = new MemoryStream();
             using var paletteDataStream = new MemoryStream();
             using var metaDataStream = new MemoryStream();
@@ -180,7 +175,7 @@ namespace Hagalaz.Cache.Logic.Codecs
             };
 
             bool hasAlpha = false;
-            foreach (var frame in sprite.Image.Frames)
+            foreach (var frame in instance.Image.Frames)
             {
                 for (int y = 0; y < frame.Height; y++)
                 {
@@ -199,11 +194,12 @@ namespace Hagalaz.Cache.Logic.Codecs
                 }
             }
 
-            foreach (var frame in sprite.Image.Frames)
+            foreach (var frame in instance.Image.Frames)
             {
-                if (frame.Width != sprite.Image.Width || frame.Height != sprite.Image.Height)
+                if (frame.Width != instance.Image.Width || frame.Height != instance.Image.Height)
                     throw new IOException("All frames must have the same dimensions!");
 
+                // TODO: Support horizontal encoding
                 SpriteType.Flags flags = SpriteType.Flags.Vertical;
                 if (hasAlpha)
                     flags |= SpriteType.Flags.Alpha;
@@ -236,25 +232,25 @@ namespace Hagalaz.Cache.Logic.Codecs
                 paletteDataStream.WriteMedInt(color.R << 16 | color.G << 8 | color.B);
             }
 
-            metaDataStream.WriteShort(sprite.Image.Width);
-            metaDataStream.WriteShort(sprite.Image.Height);
+            metaDataStream.WriteShort(instance.Image.Width);
+            metaDataStream.WriteShort(instance.Image.Height);
             metaDataStream.WriteByte(palette.Count - 1);
 
-            for (var i = 0; i < sprite.Image.Frames.Count; i++)
+            for (var i = 0; i < instance.Image.Frames.Count; i++)
             {
                 metaDataStream.WriteShort(0);
             }
-            for (var i = 0; i < sprite.Image.Frames.Count; i++)
+            for (var i = 0; i < instance.Image.Frames.Count; i++)
             {
                 metaDataStream.WriteShort(0);
             }
-            for (var i = 0; i < sprite.Image.Frames.Count; i++)
+            for (var i = 0; i < instance.Image.Frames.Count; i++)
             {
-                metaDataStream.WriteShort(sprite.Image.Width);
+                metaDataStream.WriteShort(instance.Image.Width);
             }
-            for (var i = 0; i < sprite.Image.Frames.Count; i++)
+            for (var i = 0; i < instance.Image.Frames.Count; i++)
             {
-                metaDataStream.WriteShort(sprite.Image.Height);
+                metaDataStream.WriteShort(instance.Image.Height);
             }
 
             var finalStream = new MemoryStream();
@@ -267,7 +263,7 @@ namespace Hagalaz.Cache.Logic.Codecs
             paletteDataStream.CopyTo(finalStream);
             metaDataStream.CopyTo(finalStream);
 
-            finalStream.WriteShort(sprite.Image.Frames.Count);
+            finalStream.WriteShort(instance.Image.Frames.Count);
 
             finalStream.Position = 0;
             return finalStream;

@@ -5,7 +5,7 @@ namespace Hagalaz.Cache.Abstractions.Logic.Codecs
 {
     public interface ITypeCodec<T> where T : IType
     {
-        T Decode(MemoryStream stream);
+        T Decode(int id, MemoryStream stream);
         MemoryStream Encode(T instance);
     }
 }

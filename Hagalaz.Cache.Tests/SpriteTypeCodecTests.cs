@@ -23,7 +23,7 @@ namespace Hagalaz.Cache.Tests
             // Act
             var encodedStream = codec.Encode(originalSprite);
             encodedStream.Position = 0;
-            var decodedSprite = (SpriteType)codec.Decode(encodedStream);
+            var decodedSprite = (SpriteType)codec.Decode(originalSprite.Id, encodedStream);
 
             // Assert
             Assert.Equal(originalSprite.Image[0,0], decodedSprite.Image.Frames[0][0, 0]);
@@ -50,7 +50,7 @@ namespace Hagalaz.Cache.Tests
             // Act
             var encodedStream = codec.Encode(originalSprite);
             encodedStream.Position = 0;
-            var decodedSprite = (SpriteType)codec.Decode(encodedStream);
+            var decodedSprite = (SpriteType)codec.Decode(originalSprite.Id, encodedStream);
 
             // Assert
             Assert.Equal(originalSprite.Image.Frames.Count, decodedSprite.Image.Frames.Count);
@@ -75,7 +75,7 @@ namespace Hagalaz.Cache.Tests
             // Act
             var encodedStream = codec.Encode(originalSprite);
             encodedStream.Position = 0;
-            var decodedSprite = (SpriteType)codec.Decode(encodedStream);
+            var decodedSprite = (SpriteType)codec.Decode(originalSprite.Id, encodedStream);
 
             // Assert
             Assert.Equal(originalSprite.Image[0,0], decodedSprite.Image.Frames[0][0,0]);
@@ -96,7 +96,7 @@ namespace Hagalaz.Cache.Tests
             // Act
             var encodedStream = codec.Encode(originalSprite);
             encodedStream.Position = 0;
-            var decodedSprite = (SpriteType)codec.Decode(encodedStream);
+            var decodedSprite = (SpriteType)codec.Decode(originalSprite.Id, encodedStream);
 
             // Assert
             Assert.Equal(originalSprite.Image.Width, decodedSprite.Image.Width);
