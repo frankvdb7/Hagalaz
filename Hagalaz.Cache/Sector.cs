@@ -1,6 +1,4 @@
-﻿using System;
-using System.IO;
-using Hagalaz.Cache.Extensions;
+using Hagalaz.Cache.Abstractions.Model;
 
 namespace Hagalaz.Cache
 {
@@ -10,7 +8,7 @@ namespace Hagalaz.Cache
     /// chunk. It also contains a pointer to the next sector such that the sectors
     /// form a singly-linked list. The data is simply up to 512 or 510 bytes of the file.
     /// </summary>
-    public struct Sector
+    public struct Sector : ISector
     {
         /// <summary>
         /// The size of a data block in the data file.
@@ -67,50 +65,6 @@ namespace Hagalaz.Cache
             FileID = fileID;
             ChunkID = chunkID;
             NextSectorID = nextSectorID;
-        }
-
-        /// <summary>
-        /// Decodes the specified buffer.
-        /// </summary>
-        /// <param name="data">The data.</param>
-        /// <param name="extended">if set to <c>true</c> [extended].</param>
-        /// <returns></returns>
-        /// <exception cref="System.ArgumentException"></exception>
-        public static Sector Decode(byte[] data, bool extended)
-        {
-            if (data.Length != DataSize)
-                throw new ArgumentException();
-
-            int position = 0;
-            int fileID;
-            if (extended) fileID = ((data[position++] & 0xFF) << 24) | ((data[position++] & 0xFF) << 16) | ((data[position++] & 0xFF) << 8) | (data[position++] & 0xFF);
-            else fileID = ((data[position++] & 0xFF) << 8) | (data[position++] & 0xFF) & 0xFFFF;
-            int chunkID = ((data[position++] & 0xFF) << 8) | (data[position++] & 0xFF) & 0xFFFF;
-            int nextSectorID = ((data[position++] & 0xFF) << 16) | ((data[position++] & 0xFF) << 8) | (data[position++] & 0xFF);
-            byte cacheID = (byte)(data[position] & 0xFF);
-
-            return new Sector(fileID, chunkID, nextSectorID, cacheID);
-        }
-
-        /// <summary>
-        /// Encodes this instance.
-        /// </summary>
-        /// <param name="dataBlock">The data block.</param>
-        /// <returns></returns>
-        public byte[] Encode(byte[] dataBlock)
-        {
-            using (var writer = new MemoryStream(DataSize))
-            {
-                if (FileID > ushort.MaxValue)
-                    writer.WriteInt(FileID);
-                else
-                    writer.WriteShort(FileID);
-                writer.WriteShort(ChunkID);
-                writer.WriteMedInt(NextSectorID);
-                writer.WriteByte(IndexID);
-                writer.WriteBytes(dataBlock);
-                return writer.ToArray();
-            }
         }
     }
 }
