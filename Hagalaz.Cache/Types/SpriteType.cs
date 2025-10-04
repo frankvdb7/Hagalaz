@@ -41,7 +41,7 @@ namespace Hagalaz.Cache.Types
         /// <summary>
         /// Gets the actual image.
         /// </summary>
-        public Image<Bgra5551> Image { get; internal set; }
+        public Image<Rgba32> Image { get; internal set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SpriteType"/> class.
@@ -50,7 +50,7 @@ namespace Hagalaz.Cache.Types
         public SpriteType(int id)
         {
             Id = id;
-            Image = new Image<Bgra5551>(1, 1);
+            Image = new Image<Rgba32>(1, 1);
         }
 
         /// <summary>
@@ -58,7 +58,7 @@ namespace Hagalaz.Cache.Types
         /// </summary>
         /// <param name="index">The index.</param>
         /// <param name="frame">The frame.</param>
-        public void InsertFrame(int index, ImageFrame frame)
+        public void InsertFrame(int index, ImageFrame<Rgba32> frame)
         {
             Image.Frames.InsertFrame(index, frame);
             if (index == 0)

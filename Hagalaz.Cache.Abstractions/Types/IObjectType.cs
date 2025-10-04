@@ -3,7 +3,7 @@
     /// <summary>
     /// 
     /// </summary>
-    public interface IObjectType : IType
+    public interface IObjectType
     {
         /// <summary>
         /// Contains the id of this object.

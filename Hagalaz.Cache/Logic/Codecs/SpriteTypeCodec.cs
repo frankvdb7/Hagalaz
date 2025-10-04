@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
@@ -14,8 +14,6 @@ namespace Hagalaz.Cache.Logic.Codecs
     {
         public ISpriteType Decode(MemoryStream stream)
         {
-            var spriteType = new SpriteType(0);
-
             /* find the size of this sprite set */
             stream.Position = stream.Length - 2;
 
@@ -61,7 +59,10 @@ namespace Hagalaz.Cache.Logic.Codecs
                     palette[index] = 1;
             }
 
-            spriteType.Image = new Image<Bgra5551>(Width, Height);
+            var spriteType = new SpriteType(0)
+            {
+                Image = new Image<Rgba32>(Width, Height)
+            };
 
             /* read the pixels themselves */
             stream.Position = 0;
@@ -70,6 +71,8 @@ namespace Hagalaz.Cache.Logic.Codecs
                 /* grab some frequently used values */
                 int subWidth = subWidths[id], subHeight = subHeights[id];
                 int offsetX = offsetsX[id], offsetY = offsetsY[id];
+
+                var frameImage = new Image<Rgba32>(Width, Height);
 
                 /* allocate an array for the palette indices */
                 int[,] indices = new int[subWidth, subHeight];
@@ -114,7 +117,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                                 var r = (byte)(c >> 16);
                                 var g = (byte)(c >> 8);
                                 var b = (byte)c;
-                                spriteType.Image[x + offsetX, y + offsetY] = new Color(new Rgba32(r, g, b, (byte)alpha)).ToPixel<Bgra5551>();
+                                frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)alpha);
                             }
                         }
                     }
@@ -129,7 +132,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                                 var r = (byte)(c >> 16);
                                 var g = (byte)(c >> 8);
                                 var b = (byte)c;
-                                spriteType.Image[x + offsetX, y + offsetY] = new Color(new Rgba32(r, g, b, (byte)alpha)).ToPixel<Bgra5551>();
+                                frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)alpha);
                             }
                         }
                     }
@@ -145,11 +148,18 @@ namespace Hagalaz.Cache.Logic.Codecs
                             var r = (byte)(c >> 16);
                             var g = (byte)(c >> 8);
                             var b = (byte)c;
-                            spriteType.Image[x + offsetX, y + offsetY] = new Color(new Rgba32(r, g, b, (byte)(index == 0 ? 0 : 255))).ToPixel<Bgra5551>();
+                            frameImage[x + offsetX, y + offsetY] = new Rgba32(r, g, b, (byte)(index == 0 ? 0 : 255));
                         }
                     }
                 }
+                spriteType.Image.Frames.AddFrame(frameImage.Frames.RootFrame);
             }
+
+            if (size > 0)
+            {
+                spriteType.Image.Frames.RemoveFrame(0);
+            }
+
             return spriteType;
         }
 
@@ -164,11 +174,10 @@ namespace Hagalaz.Cache.Logic.Codecs
             using var paletteDataStream = new MemoryStream();
             using var metaDataStream = new MemoryStream();
 
-            var palette = new List<Color>
+            var palette = new List<Rgba32>
             {
-                Color.Transparent
+                Color.Transparent.ToPixel<Rgba32>()
             };
-            var transparentPixel = Color.Transparent.ToPixel<Rgba32>();
 
             bool hasAlpha = false;
             foreach (var frame in sprite.Image.Frames)
@@ -177,8 +186,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                 {
                     for (int x = 0; x < frame.Width; x++)
                     {
-                        var rgba = transparentPixel;
-                        frame[x, y].ToRgba32(ref rgba);
+                        var rgba = frame[x, y];
 
                         if (rgba.A != byte.MinValue && rgba.A != byte.MaxValue)
                             hasAlpha = true;
@@ -206,9 +214,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                 {
                     for (var y = 0; y < frame.Height; y++)
                     {
-                        var rgba = transparentPixel;
-                        frame[x, y].ToRgba32(ref rgba);
-                        pixelDataStream.WriteByte((byte)palette.IndexOf(rgba));
+                        pixelDataStream.WriteByte((byte)palette.IndexOf(frame[x, y]));
                     }
                 }
 
@@ -218,9 +224,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                     {
                         for (var y = 0; y < frame.Height; y++)
                         {
-                            var rgba = transparentPixel;
-                            frame[x, y].ToRgba32(ref rgba);
-                            pixelDataStream.WriteByte(rgba.A);
+                            pixelDataStream.WriteByte(frame[x, y].A);
                         }
                     }
                 }
@@ -228,7 +232,7 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             for (var i = 1; i < palette.Count; i++)
             {
-                var color = palette[i].ToPixel<Rgb24>();
+                var color = palette[i];
                 paletteDataStream.WriteMedInt(color.R << 16 | color.G << 8 | color.B);
             }
 

@@ -658,6 +658,11 @@
           "System.Threading.RateLimiting": "8.0.0"
         }
       },
+      "SixLabors.ImageSharp": {
+        "type": "Transitive",
+        "resolved": "3.1.11",
+        "contentHash": "JfPLyigLthuE50yi6tMt7Amrenr/fA31t2CvJyhy/kQmfulIBAqo5T/YFUSRHtuYPXRSaUHygFeh6Qd933EoSw=="
+      },
       "System.Buffers": {
         "type": "Transitive",
         "resolved": "4.5.1",
@@ -724,6 +729,7 @@
       "hagalaz.cache.abstractions": {
         "type": "Project",
         "dependencies": {
+          "SixLabors.ImageSharp": "[3.1.11, )",
           "coverlet.collector": "[6.0.0, )"
         }
       },

@@ -195,6 +195,7 @@
       "hagalaz.cache.abstractions": {
         "type": "Project",
         "dependencies": {
+          "SixLabors.ImageSharp": "[3.1.11, )",
           "coverlet.collector": "[6.0.0, )"
         }
       },
