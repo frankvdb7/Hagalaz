@@ -1,4 +1,5 @@
-﻿using Hagalaz.Cache.Abstractions.Types;
+﻿using Hagalaz.Cache.Abstractions.Logic.Codecs;
+using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Types.Data;
 using Hagalaz.Cache.Types.Factories;
 
@@ -14,10 +15,13 @@ namespace Hagalaz.Cache.Types
 
         public int ArchiveSize => _customDecoder?.ArchiveSize ?? _typeData.GetArchiveSize(_cache);
 
-        public TypeProvider(ICacheAPI cache, ITypeFactory<T> typeFactory, ITypeEventHook<T>? typeEventHook = null, ITypeProvider<T>? customDecoder = null)
+        private readonly ITypeCodec<T> _codec;
+
+        public TypeProvider(ICacheAPI cache, ITypeFactory<T> typeFactory, ITypeCodec<T> codec, ITypeEventHook<T>? typeEventHook = null, ITypeProvider<T>? customDecoder = null)
         {
             _cache = cache;
             _typeFactory = typeFactory;
+            _codec = codec;
             _typeEventHook = typeEventHook;
             _customDecoder = customDecoder;
         }
@@ -30,16 +34,15 @@ namespace Hagalaz.Cache.Types
             }
 
             var table = _cache.ReadReferenceTable(_typeData.IndexId);
-            var type = _typeFactory.CreateType(typeId);
             var archiveId = _typeData.GetArchiveId(typeId);
             var archive = _cache.ReadArchive(_typeData.IndexId, archiveId);
             var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
             if (entry == null)
             {
-                return type;
+                return _typeFactory.CreateType(typeId);
             }
 
-            type.Decode(archive.GetEntry(entry.Index));
+            var type = _codec.Decode(typeId, archive.GetEntry(entry.Index));
             _typeEventHook?.AfterDecode(this, new[] { type });
             return type;
         }
@@ -57,7 +60,6 @@ namespace Hagalaz.Cache.Types
             var currentArchiveId = -1;
             for (var typeId = startTypeId; typeId < endTypeId; typeId++)
             {
-                var type = types[typeId] = _typeFactory.CreateType(typeId);
                 var archiveId = _typeData.GetArchiveId(typeId);
                 if (archiveId != currentArchiveId)
                 {
@@ -67,10 +69,11 @@ namespace Hagalaz.Cache.Types
                 var entry = table.GetEntry(archiveId, _typeData.GetArchiveEntryId(typeId));
                 if (entry == null || archive == null)
                 {
+                    types[typeId - startTypeId] = _typeFactory.CreateType(typeId);
                     continue;
                 }
 
-                types[typeId].Decode(archive.GetEntry(entry.Index));
+                types[typeId - startTypeId] = _codec.Decode(typeId, archive.GetEntry(entry.Index));
             }
             _typeEventHook?.AfterDecode(this, types);
 

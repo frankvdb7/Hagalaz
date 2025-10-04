@@ -8,7 +8,7 @@ namespace Hagalaz.Cache.Types
     /// <summary>
     /// Represend's owner object definition.
     /// </summary>
-    public class ObjectType : IObjectType
+    public class ObjectType : IObjectType, IType
     {
         /// <summary>
         /// Contains object extra data.
@@ -503,5 +503,6 @@ namespace Hagalaz.Cache.Types
                 Solid = false;
             }
         }
+
     }
 }

@@ -7,7 +7,7 @@ namespace Hagalaz.Cache.Abstractions.Types
     /// Represents the definition of an in-game item, including its properties, models, and behaviors.
     /// This interface provides a read-only view of an item's data as stored in the cache.
     /// </summary>
-    public interface IItemType
+    public interface IItemType : IType
     {
         /// <summary>
         /// Gets the unique identifier for this item type.

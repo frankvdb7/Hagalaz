@@ -156,6 +156,11 @@
         "resolved": "13.0.1",
         "contentHash": "ppPFpBcvxdsfUonNcvITKqLl3bqxWbDCZIzDWHzjpdAHRFfZe0Dw9HmA0+za13IdyrgJwpkDTDA9fHaxOrt20A=="
       },
+      "SixLabors.ImageSharp": {
+        "type": "Transitive",
+        "resolved": "3.1.11",
+        "contentHash": "JfPLyigLthuE50yi6tMt7Amrenr/fA31t2CvJyhy/kQmfulIBAqo5T/YFUSRHtuYPXRSaUHygFeh6Qd933EoSw=="
+      },
       "System.Diagnostics.DiagnosticSource": {
         "type": "Transitive",
         "resolved": "5.0.0",
@@ -179,6 +184,7 @@
       "hagalaz.cache.abstractions": {
         "type": "Project",
         "dependencies": {
+          "SixLabors.ImageSharp": "[3.1.11, )",
           "coverlet.collector": "[6.0.0, )"
         }
       },

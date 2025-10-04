@@ -1,12 +1,9 @@
-﻿using System.IO;
+﻿using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 
 namespace Hagalaz.Cache.Types
 {
-    public interface INpcTypeCodec
+    public interface INpcTypeCodec : ITypeCodec<INpcType>
     {
-        INpcType Decode(int id, MemoryStream stream);
-
-        MemoryStream Encode(INpcType npcType);
     }
 }
