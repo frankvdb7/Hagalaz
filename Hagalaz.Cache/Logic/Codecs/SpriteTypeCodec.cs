@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
@@ -169,12 +170,9 @@ namespace Hagalaz.Cache.Logic.Codecs
             using var paletteDataStream = new MemoryStream();
             using var metaDataStream = new MemoryStream();
 
-            var palette = new List<Rgba32>
-            {
-                Color.Transparent.ToPixel<Rgba32>()
-            };
-
+            var paletteSet = new HashSet<Rgba32> { new Rgba32(0, 0, 0, 0) };
             bool hasAlpha = false;
+
             foreach (var frame in instance.Image.Frames)
             {
                 for (int y = 0; y < frame.Height; y++)
@@ -182,45 +180,63 @@ namespace Hagalaz.Cache.Logic.Codecs
                     for (int x = 0; x < frame.Width; x++)
                     {
                         var rgba = frame[x, y];
-
-                        if (rgba.A != byte.MinValue && rgba.A != byte.MaxValue)
-                            hasAlpha = true;
-
-                        if (!palette.Contains(rgba) && palette.Count <= byte.MaxValue)
+                        if (rgba.A != 0 && rgba.A != 255)
                         {
-                            palette.Add(rgba);
+                            hasAlpha = true;
+                        }
+                        if (paletteSet.Count < 256)
+                        {
+                            paletteSet.Add(rgba);
                         }
                     }
                 }
             }
 
-            foreach (var frame in instance.Image.Frames)
+            var palette = paletteSet.ToList();
+            var paletteMap = new Dictionary<Rgba32, byte>();
+            for (int i = 0; i < palette.Count; i++)
             {
+                paletteMap[palette[i]] = (byte)i;
+            }
+
+            var offsetsX = new int[instance.Image.Frames.Count];
+            var offsetsY = new int[instance.Image.Frames.Count];
+            var subWidths = new int[instance.Image.Frames.Count];
+            var subHeights = new int[instance.Image.Frames.Count];
+
+            for (int i = 0; i < instance.Image.Frames.Count; i++)
+            {
+                var frame = instance.Image.Frames[i];
                 if (frame.Width != instance.Image.Width || frame.Height != instance.Image.Height)
                     throw new IOException("All frames must have the same dimensions!");
 
-                // TODO: Support horizontal encoding
+                var (minX, minY, width, height) = GetBoundingBox(frame);
+                offsetsX[i] = minX;
+                offsetsY[i] = minY;
+                subWidths[i] = width;
+                subHeights[i] = height;
+
                 SpriteType.Flags flags = SpriteType.Flags.Vertical;
                 if (hasAlpha)
                     flags |= SpriteType.Flags.Alpha;
 
                 pixelDataStream.WriteByte((byte)flags);
 
-                for (var x = 0; x < frame.Width; x++)
+                for (var x = 0; x < width; x++)
                 {
-                    for (var y = 0; y < frame.Height; y++)
+                    for (var y = 0; y < height; y++)
                     {
-                        pixelDataStream.WriteByte((byte)palette.IndexOf(frame[x, y]));
+                        pixelDataStream.WriteByte(paletteMap[frame[x + minX, y + minY]]);
                     }
                 }
 
                 if (hasAlpha)
                 {
-                    for (var x = 0; x < frame.Width; x++)
+                    for (var x = 0; x < width; x++)
                     {
-                        for (var y = 0; y < frame.Height; y++)
+                        for (var y = 0; y < height; y++)
                         {
-                            pixelDataStream.WriteByte(frame[x, y].A);
+                            pixelDataStream.WriteByte(frame[x + minX, y + minY].A);
                         }
                     }
                 }
@@ -236,22 +252,10 @@ namespace Hagalaz.Cache.Logic.Codecs
             metaDataStream.WriteShort(instance.Image.Height);
             metaDataStream.WriteByte(palette.Count - 1);
 
-            for (var i = 0; i < instance.Image.Frames.Count; i++)
-            {
-                metaDataStream.WriteShort(0);
-            }
-            for (var i = 0; i < instance.Image.Frames.Count; i++)
-            {
-                metaDataStream.WriteShort(0);
-            }
-            for (var i = 0; i < instance.Image.Frames.Count; i++)
-            {
-                metaDataStream.WriteShort(instance.Image.Width);
-            }
-            for (var i = 0; i < instance.Image.Frames.Count; i++)
-            {
-                metaDataStream.WriteShort(instance.Image.Height);
-            }
+            foreach(var val in offsetsX) metaDataStream.WriteShort(val);
+            foreach(var val in offsetsY) metaDataStream.WriteShort(val);
+            foreach(var val in subWidths) metaDataStream.WriteShort(val);
+            foreach(var val in subHeights) metaDataStream.WriteShort(val);
 
             var finalStream = new MemoryStream();
 
@@ -267,6 +271,35 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             finalStream.Position = 0;
             return finalStream;
+        }
+
+        private (int, int, int, int) GetBoundingBox(ImageFrame<Rgba32> frame)
+        {
+            int minX = frame.Width;
+            int minY = frame.Height;
+            int maxX = 0;
+            int maxY = 0;
+
+            for (int y = 0; y < frame.Height; y++)
+            {
+                for (int x = 0; x < frame.Width; x++)
+                {
+                    if (frame[x, y].A != 0)
+                    {
+                        if (x < minX) minX = x;
+                        if (y < minY) minY = y;
+                        if (x > maxX) maxX = x;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            }
+
+            if (minX > maxX || minY > maxY)
+            {
+                return (0, 0, 0, 0);
+            }
+
+            return (minX, minY, maxX - minX + 1, maxY - minY + 1);
         }
     }
 }

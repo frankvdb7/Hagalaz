@@ -94,21 +94,25 @@ namespace Hagalaz.Cache.Types
                                                     animationType.ABoolean409 = true;
                                                 else if (opcode == 19)
                                                 {
+                                                    if (animationType.SoundSettings == null)
+                                                        throw new InvalidDataException("AnimationType: opcode 19 appeared before opcode 13.");
                                                     if (animationType.SoundVolumes == null)
                                                     {
-                                                        animationType.SoundVolumes = new int[animationType.SoundSettings!.Length];
-                                                        for (int i15 = 0; i15 < animationType.SoundSettings!.Length; i15++)
+                                                        animationType.SoundVolumes = new int[animationType.SoundSettings.Length];
+                                                        for (int i15 = 0; i15 < animationType.SoundSettings.Length; i15++)
                                                             animationType.SoundVolumes[i15] = 255;
                                                     }
                                                     animationType.SoundVolumes[buffer.ReadUnsignedByte()] = buffer.ReadUnsignedByte();
                                                 }
                                                 else if (opcode == 20)
                                                 {
+                                                    if (animationType.SoundSettings == null)
+                                                        throw new InvalidDataException("AnimationType: opcode 20 appeared before opcode 13.");
                                                     if (animationType.MinSoundSpeed == null || animationType.MaxSoundSpeed == null)
                                                     {
-                                                        animationType.MinSoundSpeed = (new int[animationType.SoundSettings!.Length]);
-                                                        animationType.MaxSoundSpeed = (new int[animationType.SoundSettings!.Length]);
-                                                        for (int i16 = 0; (animationType.SoundSettings!.Length > i16); i16++)
+                                                        animationType.MinSoundSpeed = (new int[animationType.SoundSettings.Length]);
+                                                        animationType.MaxSoundSpeed = (new int[animationType.SoundSettings.Length]);
+                                                        for (int i16 = 0; (animationType.SoundSettings.Length > i16); i16++)
                                                         {
                                                             animationType.MinSoundSpeed[i16] = 256;
                                                             animationType.MaxSoundSpeed[i16] = 256;
