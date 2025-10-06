@@ -225,7 +225,7 @@ public class TypeCodecTests
         // Arrange
         var codec = new ObjectTypeCodec();
         using var stream = new MemoryStream();
-        stream.WriteByte(24); // Opcode for ClipType1
+        stream.WriteByte(27); // Opcode for ClipType1
         stream.WriteByte(0); // End of data
         stream.Position = 0;
 
@@ -237,7 +237,7 @@ public class TypeCodecTests
     }
 
     [Theory]
-    [InlineData(25, 10)]
+    [InlineData(28, 10)]
     public void ObjectTypeCodec_CanDecodeDecorDisplacement(byte opcode, int displacement)
     {
         // Arrange
@@ -256,7 +256,7 @@ public class TypeCodecTests
     }
 
     [Theory]
-    [InlineData(26, 10)]
+    [InlineData(29, 10)]
     public void ObjectTypeCodec_CanDecodeAmbient(byte opcode, sbyte ambient)
     {
         // Arrange
@@ -275,7 +275,7 @@ public class TypeCodecTests
     }
 
     [Theory]
-    [InlineData(27, 10)]
+    [InlineData(39, 10)]
     public void ObjectTypeCodec_CanDecodeContrast(byte opcode, sbyte contrast)
     {
         // Arrange
@@ -299,7 +299,7 @@ public class TypeCodecTests
         // Arrange
         var codec = new ObjectTypeCodec();
         using var stream = new MemoryStream();
-        stream.WriteByte(65); // Opcode for Inverted
+        stream.WriteByte(62); // Opcode for Inverted
         stream.WriteByte(0); // End of data
         stream.Position = 0;
 
@@ -316,7 +316,7 @@ public class TypeCodecTests
         // Arrange
         var codec = new ObjectTypeCodec();
         using var stream = new MemoryStream();
-        stream.WriteByte(66); // Opcode for CastsShadowFalse
+        stream.WriteByte(64); // Opcode for CastsShadowFalse
         stream.WriteByte(0); // End of data
         stream.Position = 0;
 
