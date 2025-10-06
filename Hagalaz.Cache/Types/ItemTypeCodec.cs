@@ -55,7 +55,7 @@ namespace Hagalaz.Cache.Types
                 writer.WriteByte(7);
                 int value = itemType.ModelOffset1;
                 if (value < 0)
-                    value += 65536;
+                    value += ushort.MaxValue;
                 writer.WriteShort(value);
             }
 
@@ -64,7 +64,7 @@ namespace Hagalaz.Cache.Types
                 writer.WriteByte(8);
                 int value = itemType.ModelOffset2;
                 if (value < 0)
-                    value += 65536;
+                    value += ushort.MaxValue;
                 writer.WriteShort(value);
             }
 

@@ -2,6 +2,8 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using Hagalaz.Cache.Abstractions.Logic.Codecs;
+using Hagalaz.Cache.Abstractions.Model;
 using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Cache
@@ -33,6 +35,7 @@ namespace Hagalaz.Cache
         private FileStream _mainIndexFile;
 
         private readonly IIndexCodec _indexCodec;
+        private readonly ISectorCodec _sectorCodec;
 
         /// <summary>
         /// Contains the cache file count.
@@ -47,12 +50,14 @@ namespace Hagalaz.Cache
         /// <param name="indexFiles">The index files.</param>
         /// <param name="mainIndexFile">The 'meta' index file.</param>
         /// <param name="indexCodec">The index codec.</param>
-        public FileStore(FileStream dataFile, FileStream[] indexFiles, FileStream mainIndexFile, IIndexCodec indexCodec)
+        /// <param name="sectorCodec">The sector codec.</param>
+        public FileStore(FileStream dataFile, FileStream[] indexFiles, FileStream mainIndexFile, IIndexCodec indexCodec, ISectorCodec sectorCodec)
         {
             _dataFile = dataFile;
             _indexFiles = indexFiles;
             _mainIndexFile = mainIndexFile;
             _indexCodec = indexCodec;
+            _sectorCodec = sectorCodec;
         }
 
         /// <summary>
@@ -126,7 +131,7 @@ namespace Hagalaz.Cache
                         if (dataSectorSize > sectorSize) dataSectorSize = sectorSize;
                         _dataFile.Read(dataBuffer, 0, headerSectorSize + dataSectorSize);
 
-                        var sector = Sector.Decode(dataBuffer, extended);
+                        var sector = _sectorCodec.Decode(dataBuffer, extended);
                         if (fileId != sector.FileID) throw new InvalidDataException("Invalid file id.");
                         if (indexId != sector.IndexID) throw new InvalidDataException("Invalid index id.");
                         if (currentChunkId != sector.ChunkID) throw new InvalidDataException("Invalid chunk id.");
@@ -227,7 +232,7 @@ namespace Hagalaz.Cache
                         _dataFile.Seek(ptr, SeekOrigin.Begin);
                         _dataFile.Read(dataBuffer, 0, dataBuffer.Length);
 
-                        var sector = Sector.Decode(dataBuffer, extended);
+                        var sector = _sectorCodec.Decode(dataBuffer, extended);
 
                         if (sector.IndexID != indexId) return false;
 
@@ -261,7 +266,7 @@ namespace Hagalaz.Cache
                     }
 
                     var newSector = new Sector(fileId, currentChunkId++, nextSectorId, indexId);
-                    byte[] newSectorData = newSector.Encode(dataBlock);
+                    byte[] newSectorData = _sectorCodec.Encode(newSector, dataBlock);
                     _dataFile.Seek(ptr, SeekOrigin.Begin);
                     _dataFile.Write(newSectorData, 0, newSectorData.Length);
                 }

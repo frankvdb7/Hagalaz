@@ -50,6 +50,7 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddSingleton<IChecksumTableCodec, ChecksumTableCodec>();
             services.TryAddSingleton<IIndexCodec, IndexCodec>();
             services.TryAddSingleton<IReferenceTableCodec, ReferenceTableCodec>();
+            services.TryAddSingleton<ISectorCodec, SectorCodec>();
             services.TryAddSingleton<ICacheAPI, CacheApi>();
             services.TryAddSingleton<IHuffmanCodeProvider, HuffmanCodeProvider>();
             services.TryAddTransient<IMapDecoder, MapDecoder>();
