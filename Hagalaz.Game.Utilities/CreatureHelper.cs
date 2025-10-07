@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace Hagalaz.Game.Utilities
 {
     public static class CreatureHelper
@@ -9,25 +11,8 @@ namespace Hagalaz.Game.Utilities
         /// <returns>System.Int32.</returns>
         public static int CalculatePredictedDamage(int[] hits)
         {
-            var predicted = -1; // miss
-            for (var i = 0; i < hits.Length; i++)
-            {
-                if (i == -1)
-                {
-                    continue;
-                }
-
-                if (predicted == -1)
-                {
-                    predicted = i;
-                }
-                else
-                {
-                    predicted += i;
-                }
-            }
-
-            return predicted;
+            var actualHits = hits.Where(h => h > 0).ToArray();
+            return actualHits.Any() ? actualHits.Sum() : -1;
         }
 
         /// <summary>
