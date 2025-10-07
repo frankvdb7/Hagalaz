@@ -31,6 +31,10 @@ namespace Hagalaz.Game.Extensions
         /// <returns></returns>
         public static int GetDeltaX(this DirectionFlag direction)
         {
+            if (direction == DirectionFlag.None)
+            {
+                return 0;
+            }
             if ((direction & DirectionFlag.West) != 0)
                 return -1;
             else if ((direction & DirectionFlag.East) != 0)
@@ -45,6 +49,10 @@ namespace Hagalaz.Game.Extensions
         /// <returns></returns>
         public static int GetDeltaY(this DirectionFlag direction)
         {
+            if (direction == DirectionFlag.None)
+            {
+                return 0;
+            }
             if ((direction & DirectionFlag.South) != 0)
                 return -1;
             else if ((direction & DirectionFlag.North) != 0)
