@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace Hagalaz.Utilities.Tests
 {
     [TestClass]
@@ -55,11 +57,221 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("some-name", true)]
         [DataRow("toolongname123", false)]
         [DataRow("invalid#name", false)]
+        [DataRow("", false)]
         public void IsValidName_ValidatesCorrectly(string name, bool expected)
         {
             // Arrange
             // Act
             bool actual = StringUtilities.IsValidName(name);
+
+            // Assert
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void EncodeValues_IntArray_EncodesCorrectly()
+        {
+            // Arrange
+            var values = new int[] { 1, 2, 3 };
+            var expected = "1,2,3";
+
+            // Act
+            var actual = StringUtilities.EncodeValues(values);
+
+            // Assert
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void EncodeValues_StringArray_EncodesCorrectly()
+        {
+            // Arrange
+            var values = new string[] { "a", "b", "c" };
+            var expected = "a,b,c";
+
+            // Act
+            var actual = StringUtilities.EncodeValues(values);
+
+            // Assert
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void EncodeValues_EmptyArray_ReturnsEmptyString()
+        {
+            // Arrange
+            var values = new int[] { };
+            var expected = "";
+
+            // Act
+            var actual = StringUtilities.EncodeValues(values);
+
+            // Assert
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void EncodeValues_BoolArray_EncodesCorrectly()
+        {
+            // Arrange
+            var values = new bool[] { true, false, true };
+            var expected = "1,0,1";
+
+            // Act
+            var actual = StringUtilities.EncodeValues(values);
+
+            // Assert
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void SelectDoubleFromString_ValidInput_ReturnsCorrectDoubles()
+        {
+            // Arrange
+            var input = "1.1,2.2,3.3";
+            var expected = new double[] { 1.1, 2.2, 3.3 };
+
+            // Act
+            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void SelectDoubleFromString_InvalidInput_ReturnsZeroForInvalid()
+        {
+            // Arrange
+            var input = "1.1,abc,3.3";
+            var expected = new double[] { 1.1, 0.0, 3.3 };
+
+            // Act
+            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void SelectDoubleFromString_EmptyInput_ReturnsEmpty()
+        {
+            // Arrange
+            var input = "";
+
+            // Act
+            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
+
+            // Assert
+            Assert.AreEqual(0, actual.Length);
+        }
+
+        [TestMethod]
+        public void SelectIntFromString_ValidInput_ReturnsCorrectInts()
+        {
+            // Arrange
+            var input = "1,2,3";
+            var expected = new int[] { 1, 2, 3 };
+
+            // Act
+            var actual = StringUtilities.SelectIntFromString(input).ToArray();
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void SelectBoolFromString_ValidInput_ReturnsCorrectBools()
+        {
+            // Arrange
+            var input = "1,0,1";
+            var expected = new bool[] { true, false, true };
+
+            // Act
+            var actual = StringUtilities.SelectBoolFromString(input).ToArray();
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void DecodeValues_String_DecodesCorrectly()
+        {
+            // Arrange
+            var data = "1,2,3";
+            var expected = new int[] { 1, 2, 3 };
+
+            // Act
+            var actual = StringUtilities.DecodeValues(data, int.Parse);
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void DecodeValues_StringWithCustomSeparator_DecodesCorrectly()
+        {
+            // Arrange
+            var data = "1;2;3";
+            var expected = new int[] { 1, 2, 3 };
+
+            // Act
+            var actual = StringUtilities.DecodeValues(data, int.Parse, ';');
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void DecodeValues_EmptyString_ReturnsEmptyArray()
+        {
+            // Arrange
+            var data = "";
+
+            // Act
+            var actual = StringUtilities.DecodeValues(data, int.Parse);
+
+            // Assert
+            Assert.AreEqual(0, actual.Length);
+        }
+
+        [TestMethod]
+        public void DecodeValues_Bool_DecodesCorrectly()
+        {
+            // Arrange
+            var data = "1,0,1";
+            var expected = new bool[] { true, false, true };
+
+            // Act
+            var actual = StringUtilities.DecodeValues(data);
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void GetStringInBetween_FindsString()
+        {
+            // Arrange
+            var source = "begin THE_STRING end";
+            var expected = "THE_STRING";
+
+            // Act
+            var result = StringUtilities.GetStringInBetween("begin ", " end", source, false, false);
+
+            // Assert
+            Assert.AreEqual(expected, result[0]);
+            Assert.AreEqual("", result[1]);
+        }
+
+        [TestMethod]
+        public void FormatNumber_FormatsCorrectly()
+        {
+            // Arrange
+            var value = 1234567;
+            var expected = "1,234,567";
+
+            // Act
+            var actual = StringUtilities.FormatNumber(value);
 
             // Assert
             Assert.AreEqual(expected, actual);
