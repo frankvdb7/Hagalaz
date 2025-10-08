@@ -1,5 +1,4 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Utilities.Tests
 {
@@ -7,48 +6,55 @@ namespace Hagalaz.Game.Utilities.Tests
     public class CreatureHelperTests
     {
         [TestMethod]
-        public void CalculatePredictedDamage_WithNoHits_ReturnsMinusOne()
+        public void CalculatePredictedDamage_WithPositiveHits_ReturnsSum()
         {
-            var hits = new int[] { };
+            // Arrange
+            var hits = new[] { 10, 20, 5 };
+
+            // Act
             var result = CreatureHelper.CalculatePredictedDamage(hits);
-            Assert.AreEqual(-1, result, "Should return -1 for no hits.");
+
+            // Assert
+            Assert.AreEqual(35, result);
         }
 
         [TestMethod]
-        public void CalculatePredictedDamage_WithSingleHit_ReturnsHitValue()
+        public void CalculatePredictedDamage_WithMixedHits_ReturnsSumOfPositiveHits()
         {
-            var hits = new int[] { 10 };
-            // This test will fail due to the bug in the implementation.
-            // Expected: 10, Actual: 0
-            Assert.AreEqual(10, CreatureHelper.CalculatePredictedDamage(hits), "Should return the value of the single hit.");
+            // Arrange
+            var hits = new[] { 10, -5, 20, 0, 5 };
+
+            // Act
+            var result = CreatureHelper.CalculatePredictedDamage(hits);
+
+            // Assert
+            Assert.AreEqual(35, result);
         }
 
         [TestMethod]
-        public void CalculatePredictedDamage_WithMultipleHits_ReturnsSumOfHits()
+        public void CalculatePredictedDamage_WithOnlyNegativeAndZeroHits_ReturnsMinusOne()
         {
-            var hits = new int[] { 10, 20, 5 };
-            // This test will fail due to the bug in the implementation.
-            // Expected: 35, Actual: 3 (0 + 1 + 2)
-            Assert.AreEqual(35, CreatureHelper.CalculatePredictedDamage(hits), "Should return the sum of all hits.");
+            // Arrange
+            var hits = new[] { -10, -5, 0 };
+
+            // Act
+            var result = CreatureHelper.CalculatePredictedDamage(hits);
+
+            // Assert
+            Assert.AreEqual(-1, result);
         }
 
         [TestMethod]
-        public void CalculatePredictedDamage_WithMisses_IgnoresMissesAndReturnsSumOfHits()
+        public void CalculatePredictedDamage_WithEmptyArray_ReturnsMinusOne()
         {
-            // Assuming -1 represents a miss
-            var hits = new int[] { 10, -1, 20, -1, 5 };
-            // This test will fail due to the bug in the implementation.
-            // Expected: 35, Actual: 10 (0+1+2+3+4)
-            Assert.AreEqual(35, CreatureHelper.CalculatePredictedDamage(hits), "Should ignore misses and return the sum of hits.");
-        }
+            // Arrange
+            var hits = new int[0];
 
-        [TestMethod]
-        public void CalculatePredictedDamage_WithAllMisses_ReturnsMinusOne()
-        {
-            var hits = new int[] { -1, -1, -1 };
-            // This test will fail due to the bug in the implementation.
-            // Expected: -1, Actual: 3 (0+1+2)
-            Assert.AreEqual(-1, CreatureHelper.CalculatePredictedDamage(hits), "Should return -1 if all hits are misses.");
+            // Act
+            var result = CreatureHelper.CalculatePredictedDamage(hits);
+
+            // Assert
+            Assert.AreEqual(-1, result);
         }
 
         [DataTestMethod]
@@ -59,10 +65,13 @@ namespace Hagalaz.Game.Utilities.Tests
         [DataRow(31, 2)]
         [DataRow(60, 2)]
         [DataRow(600, 20)]
-        public void CalculateTicksForClientTicks_ReturnsCorrectValue(int clientTicks, int expectedServerTicks)
+        public void CalculateTicksForClientTicks_WithVariousInputs_ReturnsCorrectTicks(int clientTicks, int expectedServerTicks)
         {
+            // Act
             var result = CreatureHelper.CalculateTicksForClientTicks(clientTicks);
-            Assert.AreEqual(expectedServerTicks, result, $"For {clientTicks} client ticks, expected {expectedServerTicks} server ticks.");
+
+            // Assert
+            Assert.AreEqual(expectedServerTicks, result);
         }
     }
 }
