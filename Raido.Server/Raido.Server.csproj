@@ -6,6 +6,10 @@
   <ItemGroup>
     <ProjectReference Include="..\Raido.Common\Raido.Common.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Raido.Server.Tests" />
+  </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
