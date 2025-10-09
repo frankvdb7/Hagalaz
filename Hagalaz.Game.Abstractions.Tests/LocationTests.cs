@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Maps;
 
 namespace Hagalaz.Game.Abstractions.Tests;
 
@@ -302,6 +303,49 @@ public class LocationTests
 
         // Act
         var result = -location;
+
+        // Assert
+        Assert.AreEqual(expected, result);
+    }
+
+    [TestMethod]
+    public void GetDirection_WithLocation_ShouldReturnCorrectDirection()
+    {
+        // Arrange
+        var from = new Location(10, 10, 0, 0);
+        var to = new Location(11, 11, 0, 0);
+        var expected = DirectionFlag.NorthEast;
+
+        // Act
+        var result = from.GetDirection(to);
+
+        // Assert
+        Assert.AreEqual(expected, result);
+    }
+
+    [TestMethod]
+    public void Static_GetDistance_ShouldReturnCorrectDistance()
+    {
+        // Arrange
+        const double expected = 5.0;
+
+        // Act
+        var result = Location.GetDistance(10, 10, 13, 14);
+
+        // Assert
+        Assert.AreEqual(expected, result, 0.001);
+    }
+
+    [TestMethod]
+    public void Static_GetDelta_ShouldReturnCorrectLocation()
+    {
+        // Arrange
+        var from = new Location(10, 10, 2, 1);
+        var to = new Location(15, 5, 3, 2);
+        var expected = new Location(5, -5, 1, 1);
+
+        // Act
+        var result = Location.GetDelta(from, to);
 
         // Assert
         Assert.AreEqual(expected, result);
