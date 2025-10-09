@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Cache.Abstractions\Hagalaz.Cache.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>
