@@ -7,31 +7,30 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
-    /// Represents a RSItem container.
-    /// Base by Graham.
+    /// Provides a foundational, abstract implementation for an item container,
+    /// offering core logic for managing a collection of <see cref="IItem"/> objects.
     /// </summary>
     public abstract class BaseItemContainer : IItemContainer
     {
         /// <summary>
-        /// An array of <code>Hagalaz.Game.Model.RSItems.Item</code> objects.
+        /// The internal array storing the item objects.
         /// </summary>
         protected IItem?[] Items;
 
         /// <summary>
-        /// The count to reset to.
+        /// When an item's count is reduced to zero, if this value is not -1, the item's count
+        /// is reset to this value instead of being removed from the container.
         /// </summary>
         protected int CountToResetTo = -1;
 
         private int _version;
 
         /// <summary>
-        /// Gets the item by the specified array index.
+        /// Gets the item at the specified index in the container.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <returns>
-        /// Returns the Item object.
-        /// </returns>
-        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        /// <param name="index">The zero-based index of the item to retrieve.</param>
+        /// <returns>The <see cref="IItem"/> at the specified index, or <c>null</c> if the slot is empty.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if the index is out of the valid range for the container.</exception>
         public IItem? this[int index]
         {
             get
@@ -46,34 +45,30 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// The capacity for the amount of objects the internal array can hold.
+        /// Gets the total number of slots this container can hold.
         /// </summary>
-        /// <value>The capacity.</value>
         public int Capacity { get; }
 
         /// <summary>
-        /// How the items in this container are stored.
+        /// Gets the storage behavior of this container, such as how it handles item stacking.
         /// </summary>
-        /// <value>The type.</value>
         public StorageType Type { get; }
 
         /// <summary>
-        /// The number of free slots.
+        /// Gets the number of empty slots in the container.
         /// </summary>
-        /// <value>The free slots.</value>
         public int FreeSlots => Items.Count(t => t == null);
 
         /// <summary>
-        /// The number of taken slots.
+        /// Gets the number of occupied slots in the container.
         /// </summary>
-        /// <value>The taken slots.</value>
         public int TakenSlots => Items.Count(t => t != null);
 
         /// <summary>
-        /// Constructs a new container with the specified capacity limit.
+        /// Initializes a new instance of the <see cref="BaseItemContainer"/> class with a specified storage type and capacity.
         /// </summary>
-        /// <param name="type">The type of storage.</param>
-        /// <param name="capacity">The capacity for this container.</param>
+        /// <param name="type">The storage behavior type for the container.</param>
+        /// <param name="capacity">The maximum number of slots the container can hold.</param>
         protected BaseItemContainer(StorageType type, int capacity)
         {
             Type = type;
@@ -82,11 +77,11 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// 
+        /// Initializes a new instance of the <see cref="BaseItemContainer"/> class with a specified storage type, capacity, and an initial set of items.
         /// </summary>
-        /// <param name="type"></param>
-        /// <param name="items"></param>
-        /// <param name="capacity"></param>
+        /// <param name="type">The storage behavior type for the container.</param>
+        /// <param name="items">The initial collection of items to populate the container with.</param>
+        /// <param name="capacity">The maximum number of slots the container can hold.</param>
         protected BaseItemContainer(StorageType type, IEnumerable<IItem> items, int capacity) : this(type, capacity)
         {
             ArgumentNullException.ThrowIfNull(items);
@@ -108,16 +103,17 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Called when multiple items from specified slot(s) have changed.
+        /// A callback method invoked when the container's contents are updated.
+        /// This should be implemented by derived classes to handle state changes, such as refreshing a player's view.
         /// </summary>
-        /// <param name="slots">The slots.</param>
+        /// <param name="slots">A hash set of the specific slot indices that were changed. If null, a full update is assumed.</param>
         public abstract void OnUpdate(HashSet<int>? slots = null);
 
         /// <summary>
-        /// Get's if this container has space for specific items.
+        /// Checks if the container has enough space to add a given item, considering stacking rules.
         /// </summary>
-        /// <param name="item">Item for which space should be checked.</param>
-        /// <returns>If this container has space for specific items.</returns>
+        /// <param name="item">The item to check space for.</param>
+        /// <returns><c>true</c> if the item can be added; otherwise, <c>false</c>.</returns>
         public bool HasSpaceFor(IItem item)
         {
             foreach (var localItem in Items)
@@ -140,10 +136,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Get's if this container has space for specific items.
+        /// Checks if the container has enough space to add a collection of items.
         /// </summary>
-        /// <param name="items">Items for which space should be checked.</param>
-        /// <returns>If this container has space for specific items.</returns>
+        /// <param name="items">The collection of items to check space for.</param>
+        /// <returns><c>true</c> if all items can be added; otherwise, <c>false</c>.</returns>
         public bool HasSpaceForRange(IEnumerable<IItem?> items)
         {
             var counts = new long[Capacity];
@@ -186,11 +182,12 @@ namespace Hagalaz.Game.Abstractions.Collections
 
 
         /// <summary>
-        /// Adds a certain amount of item in specific slot.
+        /// Adds an item to a specific slot in the container. If the slot is occupied by a stackable item of the same type,
+        /// it increases the count. If the slot is empty, it places the item there.
         /// </summary>
-        /// <param name="slot">Slot at which item should be added.</param>
+        /// <param name="slot">The zero-based index of the slot to add the item to.</param>
         /// <param name="item">The item to add.</param>
-        /// <returns>If item was added.</returns>
+        /// <returns><c>true</c> if the item was successfully added; otherwise, <c>false</c>.</returns>
         public virtual bool Add(int slot, IItem item)
         {
             if (slot < 0 || slot >= Capacity)
@@ -222,10 +219,10 @@ namespace Hagalaz.Game.Abstractions.Collections
 
 
         /// <summary>
-        /// Adds a certain amount of Item objects to the container.
+        /// Adds an item to the container. It will either stack with an existing item or be placed in the first available free slot.
         /// </summary>
         /// <param name="item">The item to add.</param>
-        /// <returns>Returns true if item was added successfully; False otherwise.</returns>
+        /// <returns><c>true</c> if the item was successfully added; otherwise, <c>false</c>.</returns>
         public bool Add(IItem item)
         {
             for (var slot = 0; slot < Items.Length; slot++)
@@ -275,12 +272,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Adds an array of items to this container.
+        /// Adds a collection of items to this container.
         /// </summary>
-        /// <param name="newItems">The new items.</param>
-        /// <returns>
-        /// Returns true if successfully added all items; false otherwise.
-        /// </returns>
+        /// <param name="newItems">The collection of items to add.</param>
+        /// <returns><c>true</c> if all items were added successfully; otherwise, <c>false</c>.</returns>
         public bool AddRange(IEnumerable<IItem?> newItems)
         {
             ArgumentNullException.ThrowIfNull(newItems);
@@ -348,9 +343,9 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Adds the and remove from.
+        /// Transfers all items from another container into this one.
         /// </summary>
-        /// <param name="container">The container.</param>
+        /// <param name="container">The source container from which to transfer items.</param>
         public void AddAndRemoveFrom(IItemContainer container)
         {
             var slotsToUpdate = new HashSet<int>();
@@ -423,14 +418,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Removes a certain amount of Item objects from the container.
+        /// Removes a specified item from the container.
         /// </summary>
-        /// <param name="item">The item to be removed.</param>
-        /// <param name="preferredSlot">Preferred slot for removal.</param>
-        /// <param name="update">if set to <c>true</c> [update].</param>
-        /// <returns>
-        /// Returns the number of Item objects removed from the container.
-        /// </returns>
+        /// <param name="item">The item to remove, including the amount to be removed.</param>
+        /// <param name="preferredSlot">The preferred slot to remove from. If -1, any slot will be used.</param>
+        /// <param name="update">If set to <c>true</c>, the <see cref="OnUpdate"/> callback is invoked.</param>
+        /// <returns>The number of items actually removed.</returns>
         public int Remove(IItem item, int preferredSlot = -1, bool update = true)
         {
             var removed = 0;
@@ -511,10 +504,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Removes the specified container.
+        /// Removes all items present in another container from this one.
         /// </summary>
-        /// <param name="container">The container.</param>
-        /// <param name="update">if set to <c>true</c> [update].</param>
+        /// <param name="container">The container holding the items to remove.</param>
+        /// <param name="update">If set to <c>true</c>, the <see cref="OnUpdate"/> callback is invoked.</param>
         public void Remove(BaseItemContainer container, bool update = true)
         {
             var slotsToUpdate = new HashSet<int>();
@@ -573,12 +566,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Replace's specific slot with specific item.
-        /// Item cannot be null.
-        /// This method does not check things such as stacking and counts.
+        /// Replaces the item at a specific slot with a new item, without any stacking or count checks.
         /// </summary>
-        /// <param name="slot">The slot.</param>
-        /// <param name="item">The item.</param>
+        /// <param name="slot">The zero-based index of the slot to replace.</param>
+        /// <param name="item">The new item to place in the slot. This cannot be null.</param>
         public virtual void Replace(int slot, IItem item)
         {
             Items[slot] = item;
@@ -587,10 +578,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Moves an Item from a slot to the specified slot.
+        /// Moves an item from one slot to another, shifting existing items to fill the gap.
         /// </summary>
-        /// <param name="fromSlot">The slot the Item object is currently located.</param>
-        /// <param name="toSlot">The slot to insert the Item object to.</param>
+        /// <param name="fromSlot">The slot of the item to move.</param>
+        /// <param name="toSlot">The destination slot.</param>
         public void Move(int fromSlot, int toSlot)
         {
             var fromItem = Items[fromSlot];
@@ -645,10 +636,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Swaps an item from one slot to another.
+        /// Swaps the items in two specified slots.
         /// </summary>
-        /// <param name="fromSlot">The Item object's slot.</param>
-        /// <param name="toSlot">The Item object's new slot.</param>
+        /// <param name="fromSlot">The first slot to swap.</param>
+        /// <param name="toSlot">The second slot to swap.</param>
         public void Swap(int fromSlot, int toSlot)
         {
             var fromItem = Items[fromSlot];
@@ -662,45 +653,43 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Attempts to find a free slot in the container.
+        /// Finds the first available empty slot in the container.
         /// </summary>
-        /// <returns>Returns the availible slot id; -1 if none.</returns>
+        /// <returns>The zero-based index of the first free slot, or -1 if the container is full.</returns>
         public virtual int GetFreeSlot() => Array.FindIndex(Items, item => item == null);
 
         /// <summary>
-        /// Gets the first slot that holds item which equals to the given item.
+        /// Gets the first slot that contains an item matching the specified item.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="ignoreCount">if set to <c>true</c> [ignore count].</param>
-        /// <returns>Returns the slot id; -1 if none.</returns>
+        /// <param name="item">The item to find.</param>
+        /// <param name="ignoreCount">If set to <c>true</c>, the item count is ignored during comparison.</param>
+        /// <returns>The zero-based index of the first matching slot, or -1 if not found.</returns>
         public int GetSlotByItem(IItem item, bool ignoreCount = true) => Array.FindIndex(Items, i => i != null && i.Equals(item, ignoreCount));
 
         /// <summary>
-        /// Gets an Item object by the specified id.
+        /// Gets the first item in the container that has the specified ID.
         /// </summary>
-        /// <param name="id">The identifier.</param>
-        /// <returns>
-        /// Returns the Item object instance; null if not found.
-        /// </returns>
+        /// <param name="id">The item ID to search for.</param>
+        /// <returns>The first <see cref="IItem"/> instance with the given ID, or <c>null</c> if not found.</returns>
         public IItem? GetById(int id) => Items.FirstOrDefault(item => item?.Id == id);
 
         /// <summary>
-        /// Gets the total number of a specified item in this container.
+        /// Gets the total count of a specified item in this container, summing up all stacks.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <returns>Return the total number of items of the same id in this container.</returns>
+        /// <param name="item">The item to count.</param>
+        /// <returns>The total number of the specified item.</returns>
         public int GetCount(IItem item) => Items.OfType<IItem>().Where(tItem => tItem.Equals(item, true)).Sum(tItem => tItem.Count);
 
         /// <summary>
-        /// Gets the total number of a specified item in this container.
+        /// Gets the total count of an item by its ID in this container, summing up all stacks.
         /// </summary>
-        /// <param name="id">The Item id.</param>
-        /// <returns>Return the total number of items of the same id in this container.</returns>
+        /// <param name="id">The ID of the item to count.</param>
+        /// <returns>The total number of items with the specified ID.</returns>
         public int GetCountById(int id) =>
             (int)Items.OfType<IItem>().Where(item => item.Id == id).Aggregate<IItem, long>(0, (current, item) => current + item.Count);
 
         /// <summary>
-        /// Sort's this container.
+        /// Sorts the container by moving all items to the beginning, removing any empty slots between them.
         /// </summary>
         public void Sort()
         {
@@ -723,49 +712,46 @@ namespace Hagalaz.Game.Abstractions.Collections
 
 
         /// <summary>
-        /// Whether the container contains a certain Item.
+        /// Determines whether the container holds at least one of the specified item.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="ignoreCount">if set to <c>true</c> [ignore count].</param>
-        /// <returns>Returns true if contained; false otherwise.</returns>
+        /// <param name="item">The item to check for.</param>
+        /// <param name="ignoreCount">If set to <c>true</c>, the item count is ignored during comparison.</param>
+        /// <returns><c>true</c> if the item is contained; otherwise, <c>false</c>.</returns>
         public bool Contains(IItem item, bool ignoreCount = true) => GetSlotByItem(item, ignoreCount) != -1;
 
         /// <summary>
-        /// Whether the container contains a certain Item.
+        /// Determines whether the container holds at least one item with the specified ID.
         /// </summary>
-        /// <param name="id">The Item id.</param>
-        /// <returns>Returns true if contained; false otherwise.</returns>
+        /// <param name="id">The ID of the item to check for.</param>
+        /// <returns><c>true</c> if an item with the ID is contained; otherwise, <c>false</c>.</returns>
         public bool Contains(int id) => Items.Any(item => item?.Id == id);
 
         /// <summary>
-        /// Whether the container contains a certain Item.
+        /// Determines whether the container holds at least a specified amount of an item with the given ID.
         /// </summary>
-        /// <param name="id">The Item id.</param>
-        /// <param name="count">The count.</param>
-        /// <returns>Returns true if contained; false otherwise.</returns>
+        /// <param name="id">The ID of the item to check for.</param>
+        /// <param name="count">The minimum required amount.</param>
+        /// <returns><c>true</c> if the container has at least the specified count of the item; otherwise, <c>false</c>.</returns>
         public virtual bool Contains(int id, int count) =>
             count <= Items.OfType<IItem>().Where(item => item.Id == id).Aggregate<IItem, long>(0, (current, item) => current + item.Count);
 
         /// <summary>
-        /// Get's slot of specific item instance.
-        /// -1 if this container does not contain specific instance.
+        /// Gets the slot of a specific item instance.
         /// </summary>
-        /// <param name="instance">The instance.</param>
-        /// <returns>System.Int32.</returns>
+        /// <param name="instance">The exact item instance to find.</param>
+        /// <returns>The zero-based index of the slot, or -1 if the specific instance is not found.</returns>
         public int GetInstanceSlot(IItem instance) => Array.IndexOf(Items, instance);
 
         /// <summary>
-        /// Creates a copy of the internal container array.
+        /// Creates a new array containing all items in the container.
         /// </summary>
-        /// <returns>
-        /// Returns an array of Item objects.
-        /// </returns>
+        /// <returns>A new array copy of the items.</returns>
         public IItem?[] ToArray() => Enumerable.ToArray(this);
 
         /// <summary>
-        /// Clears the container.
+        /// Clears all items from the container.
         /// </summary>
-        /// <param name="update">if set to <c>true</c> [update].</param>
+        /// <param name="update">If set to <c>true</c>, the <see cref="OnUpdate"/> callback is invoked.</param>
         public virtual void Clear(bool update)
         {
             if (Items.Length <= 0)
@@ -784,10 +770,10 @@ namespace Hagalaz.Game.Abstractions.Collections
         }
 
         /// <summary>
-        /// Sets the internal items array with the given array.
+        /// Replaces the entire internal item array with a new one.
         /// </summary>
-        /// <param name="items">An array of Item objects.</param>
-        /// <param name="update">if set to <c>true</c> [update].</param>
+        /// <param name="items">The new array of items.</param>
+        /// <param name="update">If set to <c>true</c>, the <see cref="OnUpdate"/> callback is invoked.</param>
         public virtual void SetItems(IItem[] items, bool update)
         {
             Items = items;
@@ -799,24 +785,18 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Returns an enumerator that iterates through the collection.
         /// </summary>
-        /// <returns>
-        /// An enumerator that can be used to iterate through the collection.
-        /// </returns>
+        /// <returns>An enumerator that can be used to iterate through the collection.</returns>
         public IEnumerator<IItem?> GetEnumerator() => new ItemContainerEnumerator(this);
 
         /// <summary>
         /// Returns an enumerator that iterates through a collection.
         /// </summary>
-        /// <returns>
-        /// An <see cref="T:System.Collections.IEnumerator" /> object that can be used to iterate through the collection.
-        /// </returns>
+        /// <returns>An <see cref="IEnumerator"/> object that can be used to iterate through the collection.</returns>
         IEnumerator IEnumerable.GetEnumerator() => new ItemContainerEnumerator(this);
 
         /// <summary>
-        /// 
+        /// A version-aware enumerator for the item container to prevent modification during enumeration.
         /// </summary>
-        /// <seealso cref="IEnumerator{Item}" />
-        /// <seealso cref="IEnumerator" />
         [Serializable]
         private struct ItemContainerEnumerator : IEnumerator<IItem?>, IEnumerator
         {
@@ -831,7 +811,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             /// <summary>
             /// Initializes a new instance of the <see cref="ItemContainerEnumerator"/> struct.
             /// </summary>
-            /// <param name="container">The container.</param>
+            /// <param name="container">The container to enumerate.</param>
             internal ItemContainerEnumerator(BaseItemContainer container)
             {
                 _container = container;
@@ -843,9 +823,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             /// <summary>
             /// Advances the enumerator to the next element of the collection.
             /// </summary>
-            /// <returns>
-            /// true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-            /// </returns>
+            /// <returns><c>true</c> if the enumerator was successfully advanced; otherwise, <c>false</c>.</returns>
             public bool MoveNext()
             {
                 var container = _container;
@@ -860,9 +838,8 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             /// <summary>
-            /// Moves the next rare.
+            /// Handles the rare case for MoveNext, primarily for checking version mismatches.
             /// </summary>
-            /// <returns></returns>
             private bool MoveNextRare()
             {
                 if (_version != _container._version)
@@ -876,20 +853,13 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             /// <summary>
-            /// Gets the current.
+            /// Gets the element at the current position of the enumerator.
             /// </summary>
-            /// <value>
-            /// The current.
-            /// </value>
             public IItem? Current => _current;
 
             /// <summary>
-            /// Gets the current.
+            /// Gets the element at the current position of the enumerator.
             /// </summary>
-            /// <value>
-            /// The current.
-            /// </value>
-            /// <exception cref="InvalidOperationException">Index out of bounds.</exception>
             object? IEnumerator.Current
             {
                 get

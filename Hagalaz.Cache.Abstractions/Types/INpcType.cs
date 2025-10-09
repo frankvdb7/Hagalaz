@@ -1,35 +1,39 @@
 ﻿namespace Hagalaz.Cache.Abstractions.Types
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a Non-Player Character (NPC) type, containing all the
+    /// static data for a specific kind of NPC as loaded from the game cache.
     /// </summary>
     public interface INpcType : IType
     {
         /// <summary>
-        /// Contains the NPC's id.
+        /// Gets the unique identifier for this NPC type.
         /// </summary>
         int Id { get; }
+
         /// <summary>
-        /// Gets the combat level.
+        /// Gets or sets the combat level of the NPC. This value may be adjusted after being loaded from the cache.
         /// </summary>
-        /// <value>The combat level.</value>
         int CombatLevel { get; set; }
+
         /// <summary>
-        /// The NPC's name.
+        /// Gets the name of the NPC as it appears in-game.
         /// </summary>
         string Name { get; }
+
         /// <summary>
-        /// Contains size of the npc.
+        /// Gets the size of the NPC in game tiles (e.g., a value of 1 means a 1x1 tile footprint).
         /// </summary>
         int Size { get; }
+
         /// <summary>
-        /// Contains the standart spawn direction. (As loaded from owner)
+        /// Gets the default direction the NPC faces when it spawns.
         /// </summary>
         sbyte SpawnFaceDirection { get; }
+
         /// <summary>
-        /// Gets the render emote.
+        /// Gets the animation ID used for the NPC's default standing or idle animation.
         /// </summary>
-        /// <value>The render emote.</value>
         int RenderId { get; }
     }
 }

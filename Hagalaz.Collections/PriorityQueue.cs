@@ -7,11 +7,12 @@ using JetBrains.Annotations;
 namespace Hagalaz.Collections
 {
     /// <summary>
-    /// A simplified priority queue implementation.  Is stable, auto-resizes, and thread-safe, at the cost of being slightly slower than
-    /// FastPriorityQueue
+    /// A user-friendly, thread-safe, and stable priority queue that automatically resizes.
+    /// It is a wrapper around <see cref="GenericPriorityQueue{TItem, TPriority}"/>, providing a simpler API
+    /// at the cost of some performance overhead for operations like Contains, Remove, and UpdatePriority.
     /// </summary>
-    /// <typeparam name="TItem">The type to enqueue</typeparam>
-    /// <typeparam name="TPriority">The priority-type to use for nodes.  Must extend IComparable&lt;TPriority&gt;</typeparam>
+    /// <typeparam name="TItem">The type of items to enqueue.</typeparam>
+    /// <typeparam name="TPriority">The type used for priority, which must implement <see cref="IComparable{T}"/>.</typeparam>
     [PublicAPI]
     public class PriorityQueue<TItem, TPriority> : IPriorityQueue<TItem, TPriority>
         where TPriority : IComparable<TPriority>
@@ -32,7 +33,7 @@ namespace Hagalaz.Collections
         public PriorityQueue() => _queue = new GenericPriorityQueue<SimpleNode, TPriority>(_initialQueueSize);
 
         /// <summary>
-        /// Given an item of type T, returns the exist SimpleNode in the queue
+        /// Finds and returns the internal node wrapper for a given item.
         /// </summary>
         private SimpleNode GetExistingNode(TItem item)
         {
@@ -48,8 +49,8 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Returns the number of nodes in the queue.
-        /// O(1)
+        /// Gets the number of items currently in the queue.
+        /// Time complexity: O(1).
         /// </summary>
         public int Count
         {
@@ -64,10 +65,10 @@ namespace Hagalaz.Collections
 
 
         /// <summary>
-        /// Returns the head of the queue, without removing it (use Dequeue() for that).
-        /// Throws an exception when the queue is empty.
-        /// O(1)
+        /// Gets the item with the highest priority from the queue without removing it.
+        /// Time complexity: O(1).
         /// </summary>
+        /// <exception cref="InvalidOperationException">Thrown if the queue is empty.</exception>
         public TItem? First
         {
             get
@@ -86,8 +87,8 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Removes every node from the queue.
-        /// O(n)
+        /// Removes all items from the queue.
+        /// Time complexity: O(n).
         /// </summary>
         public void Clear()
         {
@@ -98,9 +99,11 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Returns whether the given item is in the queue.
-        /// O(n)
+        /// Determines whether the queue contains a specific item.
+        /// Time complexity: O(n).
         /// </summary>
+        /// <param name="item">The item to locate in the queue.</param>
+        /// <returns><c>true</c> if the item is found; otherwise, <c>false</c>.</returns>
         public bool Contains(TItem item)
         {
             lock (_queue)
@@ -111,10 +114,12 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Removes the head of the queue (node with minimum priority; ties are broken by order of insertion), and returns it.
-        /// If queue is empty, throws an exception
-        /// O(log n)
+        /// Removes and returns the item with the highest priority from the head of the queue.
+        /// Ties are broken by insertion order.
+        /// Time complexity: O(log n).
         /// </summary>
+        /// <returns>The item that was removed from the queue.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the queue is empty.</exception>
         public TItem? Dequeue()
         {
             lock (_queue)
@@ -130,11 +135,13 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Enqueue a node to the priority queue.  Lower values are placed in front. Ties are broken by first-in-first-out.
-        /// This queue automatically resizes itself, so there's no concern of the queue becoming 'full'.
-        /// Duplicates are allowed.
-        /// O(log n)
+        /// Adds an item to the queue with a specified priority.
+        /// Lower priority values are considered higher priority. The queue automatically resizes if necessary.
+        /// Duplicates are permitted.
+        /// Time complexity: O(log n).
         /// </summary>
+        /// <param name="item">The item to add to the queue.</param>
+        /// <param name="priority">The priority of the item.</param>
         public void Enqueue(TItem item, TPriority priority)
         {
             lock (_queue)
@@ -149,11 +156,12 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Removes an item from the queue.  The item does not need to be the head of the queue.  
-        /// If the item is not in the queue, an exception is thrown.  If unsure, check Contains() first.
-        /// If multiple copies of the item are enqueued, only the first one is removed. 
-        /// O(n)
+        /// Removes an item from the queue. This item does not need to be at the head.
+        /// If multiple instances of the same item exist, only the first one found is removed.
+        /// Time complexity: O(n).
         /// </summary>
+        /// <param name="item">The item to remove.</param>
+        /// <exception cref="InvalidOperationException">Thrown if the item is not found in the queue. Use <see cref="Contains(TItem)"/> to check for existence first.</exception>
         public void Remove(TItem item)
         {
             lock (_queue)
@@ -170,13 +178,13 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Call this method to change the priority of an item.
-        /// Calling this method on a item not in the queue will throw an exception.
-        /// If the item is enqueued multiple times, only the first one will be updated.
-        /// (If your requirements are complex enough that you need to enqueue the same item multiple times <i>and</i> be able
-        /// to update all of them, please wrap your items in a wrapper class so they can be distinguished).
-        /// O(n)
+        /// Updates the priority of an item already in the queue.
+        /// If the item is present multiple times, only the first one found is updated.
+        /// Time complexity: O(n).
         /// </summary>
+        /// <param name="item">The item whose priority is to be updated.</param>
+        /// <param name="priority">The new priority for the item.</param>
+        /// <exception cref="InvalidOperationException">Thrown if the item is not found in the queue.</exception>
         public void UpdatePriority(TItem item, TPriority priority)
         {
             lock (_queue)
@@ -194,11 +202,10 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Returns an enumerator that iterates through the collection.
+        /// Returns a thread-safe enumerator that iterates through the collection.
         /// </summary>
-        /// <returns>
-        /// An enumerator that can be used to iterate through the collection.
-        /// </returns>
+        /// <returns>An <see cref="IEnumerator{T}"/> that can be used to iterate through the collection.</returns>
+        /// <remarks>This method creates a snapshot of the queue, so it is safe to use even if the queue is modified during enumeration.</remarks>
         public IEnumerator<TItem> GetEnumerator()
         {
             var queueData = new List<TItem>();
@@ -214,17 +221,14 @@ namespace Hagalaz.Collections
         /// <summary>
         /// Returns an enumerator that iterates through a collection.
         /// </summary>
-        /// <returns>
-        /// An <see cref="T:System.Collections.IEnumerator" /> object that can be used to iterate through the collection.
-        /// </returns>
+        /// <returns>An <see cref="IEnumerator"/> object that can be used to iterate through the collection.</returns>
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
-        /// Determines whether [is valid queue].
+        /// Checks if the queue is still in a valid heap state.
+        /// This method should not be called in production code as it is intended for testing and debugging purposes only.
         /// </summary>
-        /// <returns>
-        ///   <c>true</c> if [is valid queue]; otherwise, <c>false</c>.
-        /// </returns>
+        /// <returns><c>true</c> if the queue is a valid heap; otherwise, <c>false</c>.</returns>
         public bool IsValidQueue()
         {
             lock (_queue)
@@ -235,11 +239,10 @@ namespace Hagalaz.Collections
     }
 
     /// <summary>
-    /// A simplified priority queue implementation.  Is stable, auto-resizes, and thread-safe, at the cost of being slightly slower than
-    /// FastPriorityQueue
-    /// This class is kept here for backwards compatibility.  It's recommended you use Simple
+    /// A convenient, user-friendly priority queue where the priority is a <see cref="float"/>.
+    /// This class is stable, thread-safe, and automatically resizes. It inherits from <see cref="PriorityQueue{TItem, TPriority}"/>.
     /// </summary>
-    /// <typeparam name="TItem">The type to enqueue</typeparam>
+    /// <typeparam name="TItem">The type of items to enqueue.</typeparam>
     [PublicAPI]
     public class SimplePriorityQueue<TItem> : PriorityQueue<TItem, float> { }
 }

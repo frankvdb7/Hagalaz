@@ -4,8 +4,8 @@ using Hagalaz.Cache.Abstractions.Model;
 namespace Hagalaz.Cache.Abstractions.Types
 {
     /// <summary>
-    /// Represents the definition of an in-game item, including its properties, models, and behaviors.
-    /// This interface provides a read-only view of an item's data as stored in the cache.
+    /// Defines the contract for an in-game item type, detailing its properties, models, and behaviors
+    /// as defined in the game cache.
     /// </summary>
     public interface IItemType : IType
     {
@@ -20,7 +20,7 @@ namespace Hagalaz.Cache.Abstractions.Types
         string Name { get; }
 
         /// <summary>
-        /// Gets a value indicating whether this item is in its noted form, which is a stackable representation of an unstackable item.
+        /// Gets a value indicating whether this item is in its noted form, which is a stackable representation of an otherwise unstackable item.
         /// </summary>
         bool Noted { get; }
 
@@ -35,13 +35,13 @@ namespace Hagalaz.Cache.Abstractions.Types
         int NoteId { get; }
 
         /// <summary>
-        /// Gets the render animation ID used when this item is equipped, which determines its idle animation.
+        /// Gets the render animation ID used when this item is equipped, determining its idle animation.
         /// </summary>
         /// <returns>The render animation ID, or -1 if the item does not have a specific render animation.</returns>
         int RenderAnimationId { get; }
 
         /// <summary>
-        /// Gets a value indicating whether the item has a "destroy" option in the inventory.
+        /// Gets a value indicating whether the item displays a "destroy" option in the inventory.
         /// </summary>
         bool HasDestroyOption { get; }
 
@@ -71,12 +71,12 @@ namespace Hagalaz.Cache.Abstractions.Types
         int LendId { get; }
 
         /// <summary>
-        /// Gets the base monetary value of the item, often used for alchemy or shop prices.
+        /// Gets the base monetary value of the item, often used for alchemy or determining shop prices.
         /// </summary>
         int Value { get; }
 
         /// <summary>
-        /// Gets the behavior of the item when dropped, such as being destroyed or becoming visible to other players.
+        /// Gets the behavior of the item when dropped, such as being destroyed, kept on death, or becoming visible to other players.
         /// </summary>
         DegradeType DegradeType { get; }
 
@@ -86,7 +86,7 @@ namespace Hagalaz.Cache.Abstractions.Types
         bool MembersOnly { get; }
 
         /// <summary>
-        /// Gets the primary model ID for male characters wearing this item.
+        /// Gets the primary model ID for male characters when wearing this item.
         /// </summary>
         int MaleWornModelId1 { get; }
 
@@ -96,7 +96,7 @@ namespace Hagalaz.Cache.Abstractions.Types
         int MaleWornModelId2 { get; }
 
         /// <summary>
-        /// Gets the primary model ID for female characters wearing this item.
+        /// Gets the primary model ID for female characters when wearing this item.
         /// </summary>
         int FemaleWornModelId1 { get; }
 
@@ -106,7 +106,7 @@ namespace Hagalaz.Cache.Abstractions.Types
         int FemaleWornModelId2 { get; }
 
         /// <summary>
-        /// Gets the head model ID for male characters when this item is equipped, often for helmets or masks.
+        /// Gets the head model ID for male characters when this item is equipped, such as for helmets or masks.
         /// </summary>
         int MaleHeadModel { get; }
 
@@ -126,42 +126,42 @@ namespace Hagalaz.Cache.Abstractions.Types
         int FemaleHeadModel2 { get; }
 
         /// <summary>
-        /// Gets the X-axis offset for the male worn model.
+        /// Gets the X-axis offset for the male character's worn model.
         /// </summary>
         int MaleWearXOffset { get; }
 
         /// <summary>
-        /// Gets the Y-axis offset for the male worn model.
+        /// Gets the Y-axis offset for the male character's worn model.
         /// </summary>
         int MaleWearYOffset { get; }
 
         /// <summary>
-        /// Gets the Z-axis offset for the male worn model.
+        /// Gets the Z-axis offset for the male character's worn model.
         /// </summary>
         int MaleWearZOffset { get; }
 
         /// <summary>
-        /// Gets the X-axis offset for the female worn model.
+        /// Gets the X-axis offset for the female character's worn model.
         /// </summary>
         int FemaleWearXOffset { get; }
 
         /// <summary>
-        /// Gets the Y-axis offset for the female worn model.
+        /// Gets the Y-axis offset for the female character's worn model.
         /// </summary>
         int FemaleWearYOffset { get; }
 
         /// <summary>
-        /// Gets the Z-axis offset for the female worn model.
+        /// Gets the Z-axis offset for the female character's worn model.
         /// </summary>
         int FemaleWearZOffset { get; }
 
         /// <summary>
-        /// Gets the model ID used for rendering the item in interfaces like the inventory or bank.
+        /// Gets the model ID used for rendering the item in UI interfaces like the inventory or bank.
         /// </summary>
         int InterfaceModelId { get; }
 
         /// <summary>
-        /// Gets the original colors of the item's model that are replaced by <see cref="ModifiedModelColors"/>.
+        /// Gets the original colors of the item's model that are intended to be replaced by <see cref="ModifiedModelColors"/>.
         /// </summary>
         int[]? OriginalModelColors { get; }
 
@@ -171,7 +171,7 @@ namespace Hagalaz.Cache.Abstractions.Types
         int[]? ModifiedModelColors { get; }
 
         /// <summary>
-        /// Gets the original texture colors of the item's model that are replaced by <see cref="ModifiedTextureColors"/>.
+        /// Gets the original texture colors of the item's model that are intended to be replaced by <see cref="ModifiedTextureColors"/>.
         /// </summary>
         int[]? OriginalTextureColors { get; }
 
@@ -191,12 +191,12 @@ namespace Hagalaz.Cache.Abstractions.Types
         int ModelOffset2 { get; }
 
         /// <summary>
-        /// Gets the tertiary model ID for male characters, used for complex items.
+        /// Gets the tertiary model ID for male characters, used for complex items like full-body outfits.
         /// </summary>
         int MaleWornModelId3 { get; }
 
         /// <summary>
-        /// Gets the tertiary model ID for female characters.
+        /// Gets the tertiary model ID for female characters, used for complex items.
         /// </summary>
         int FemaleWornModelId3 { get; }
 
@@ -206,7 +206,7 @@ namespace Hagalaz.Cache.Abstractions.Types
         string?[] GroundOptions { get; }
 
         /// <summary>
-        /// Gets a dictionary of additional key-value data associated with the item, used for custom properties.
+        /// Gets a dictionary of additional key-value data associated with the item, used for custom or script-driven properties.
         /// </summary>
         IReadOnlyDictionary<int, object>? ExtraData { get; }
 
@@ -216,70 +216,70 @@ namespace Hagalaz.Cache.Abstractions.Types
         int ModelZoom { get; }
 
         /// <summary>
-        /// Gets a 2D rotation value for the item's model.
+        /// Gets a 2D rotation value for the item's model when displayed in an interface.
         /// </summary>
         int Zan2D { get; }
 
         /// <summary>
-        /// Gets an array of signed bytes containing unknown or legacy data.
+        /// Gets an array of signed bytes containing unknown or legacy data for this item.
         /// </summary>
         sbyte[]? UnknownArray1 { get; }
 
         /// <summary>
-        /// Gets the second model rotation value.
+        /// Gets the second model rotation value, used for interface displays.
         /// </summary>
         int ModelRotation2 { get; }
 
         /// <summary>
-        /// Gets the array of options available for the item when it is in the inventory.
+        /// Gets the array of options available for the item when it is in the player's inventory.
         /// </summary>
         string?[] InventoryOptions { get; }
 
         /// <summary>
-        /// Gets the team ID this item is associated with, used in certain minigames.
+        /// Gets the team ID this item is associated with, used in certain minigames or team-based activities.
         /// </summary>
         int TeamId { get; }
 
         /// <summary>
-        /// Gets the equipment slot where this item is worn.
+        /// Gets the equipment slot where this item is worn (e.g., head, chest, weapon).
         /// </summary>
         sbyte EquipSlot { get; }
 
         /// <summary>
-        /// Gets the type of equipment, which can affect which other items can be worn.
+        /// Gets the type of equipment, which can affect which other items can be worn simultaneously.
         /// </summary>
         sbyte EquipType { get; }
 
         /// <summary>
-        /// Gets the first model rotation value.
+        /// Gets the first model rotation value, used for interface displays.
         /// </summary>
         int ModelRotation1 { get; }
 
         /// <summary>
-        /// Gets the stackable type of the item, where 1 indicates it is always stackable.
+        /// Gets the stackable type of the item, where a value of 1 typically indicates it is always stackable.
         /// </summary>
         int StackableType { get; }
 
 
         /// <summary>
-        /// Configures this item type as a noted item based on a template.
+        /// Transforms this item type into its noted form using a template.
         /// </summary>
-        /// <param name="item">The original item type.</param>
-        /// <param name="template">The noted item template.</param>
+        /// <param name="item">The original, un-noted item type.</param>
+        /// <param name="template">The template item that defines the appearance and properties of a noted item.</param>
         void MakeNote(IItemType item, IItemType template);
 
         /// <summary>
-        /// Configures this item type as a lent item based on a template.
+        /// Transforms this item type into its lent form using a template.
         /// </summary>
-        /// <param name="item">The original item type.</param>
-        /// <param name="template">The lent item template.</param>
+        /// <param name="item">The original, non-lent item type.</param>
+        /// <param name="template">The template item that defines the properties of a lent item.</param>
         void MakeLend(IItemType item, IItemType template);
 
         /// <summary>
-        /// Configures this item type as a bought item based on a template.
+        /// Transforms this item type into its "bought" form using a template, typically for items from special shops.
         /// </summary>
         /// <param name="item">The original item type.</param>
-        /// <param name="template">The bought item template.</param>
+        /// <param name="template">The template item that defines the properties of a "bought" item.</param>
         void MakeBought(IItemType item, IItemType template);
     }
 }

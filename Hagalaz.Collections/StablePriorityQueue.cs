@@ -6,25 +6,29 @@ using JetBrains.Annotations;
 namespace Hagalaz.Collections
 {
     /// <summary>
-    /// Represents a node in a stable priority queue, maintaining an insertion index to
-    /// ensure stability when nodes with the same priority are enqueued. Stability ensures
-    /// that nodes with equal priorities are dequeued in the same order they were added.
-    /// Inherits from <see cref="FixedPriorityQueueNode" /> to provide priority and queue index functionality.
+    /// Represents a node for use in a <see cref="StablePriorityQueue{T}"/>.
+    /// It extends <see cref="FixedPriorityQueueNode"/> with an <see cref="InsertionIndex"/>
+    /// to ensure that items with the same priority are dequeued in the order they were enqueued (FIFO).
     /// </summary>
     public class StablePriorityQueueNode : FixedPriorityQueueNode
     {
         /// <summary>
-        /// Represents the order the node was inserted in
+        /// Gets the unique, sequential index assigned to this node upon insertion.
+        /// This property is managed by the queue and should not be modified manually.
         /// </summary>
         public long InsertionIndex { get; internal set; }
     }
 
     /// <summary>
-    /// A copy of FixedPriorityQueue which is also stable - that is, when two nodes are enqueued with the same priority, they
-    /// are always dequeued in the same order.
-    /// See https://github.com/BlueRaja/High-Speed-Priority-Queue-for-C-Sharp/wiki/Getting-Started for more information
+    /// A high-performance, stable, min-priority queue implementation with a fixed capacity that can be resized.
+    /// Stability ensures that when two nodes are enqueued with the same priority, they are dequeued in the same
+    /// order they were inserted. It provides O(1) time complexity for the <c>Contains</c> operation.
     /// </summary>
-    /// <typeparam name="T">The values in the queue.  Must extend the StablePriorityQueueNode class</typeparam>
+    /// <typeparam name="T">The type of items in the queue, which must inherit from <see cref="StablePriorityQueueNode"/>.</typeparam>
+    /// <remarks>
+    /// Based on the implementation by BlueRaja:
+    /// See https://github.com/BlueRaja/High-Speed-Priority-Queue-for-C-Sharp/wiki/Getting-Started for more information.
+    /// </remarks>
     [PublicAPI]
     public sealed class StablePriorityQueue<T> : IFixedSizePriorityQueue<T, float>
         where T : StablePriorityQueueNode
@@ -33,9 +37,11 @@ namespace Hagalaz.Collections
         private long _numNodesEverEnqueued;
 
         /// <summary>
-        /// Instantiate a new Priority Queue
+        /// Initializes a new instance of the <see cref="StablePriorityQueue{T}"/> class
+        /// with a specified maximum capacity.
         /// </summary>
-        /// <param name="maxNodes">The max nodes ever allowed to be enqueued (going over this will cause undefined behavior)</param>
+        /// <param name="maxNodes">The maximum number of nodes that the queue can hold.</param>
+        /// <exception cref="InvalidOperationException">Thrown if <paramref name="maxNodes"/> is less than or equal to 0.</exception>
         public StablePriorityQueue(int maxNodes)
         {
 #if DEBUG
@@ -51,20 +57,20 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Returns the number of nodes in the queue.
-        /// O(1)
+        /// Gets the number of nodes currently in the queue.
+        /// Time complexity: O(1).
         /// </summary>
         public int Count { get; private set; }
 
         /// <summary>
-        /// Returns the maximum number of items that can be enqueued at once in this queue.  Once you hit this number (ie. once Count == MaxSize),
-        /// attempting to enqueue another item will cause undefined behavior.  O(1)
+        /// Gets the maximum number of items that can be enqueued in this queue.
+        /// Time complexity: O(1).
         /// </summary>
         public int MaxSize => _nodes.Length - 1;
 
         /// <summary>
-        /// Removes every node from the queue.
-        /// O(n) (So, don't do this often!)
+        /// Removes all nodes from the queue.
+        /// Time complexity: O(n).
         /// </summary>
 #if NET_VERSION_4_5
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -76,8 +82,13 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Returns (in O(1)!) whether the given node is in the queue.  O(1)
+        /// Determines whether the specified node is present in the queue.
+        /// Time complexity: O(1).
         /// </summary>
+        /// <param name="node">The node to locate in the queue.</param>
+        /// <returns><c>true</c> if the node is found; otherwise, <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="node"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">Thrown in DEBUG builds if the node's queue index is corrupted.</exception>
 #if NET_VERSION_4_5
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -95,11 +106,16 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Enqueue a node to the priority queue.  Lower values are placed in front. Ties are broken by first-in-first-out.
-        /// If the queue is full, the result is undefined.
-        /// If the node is already enqueued, the result is undefined.
-        /// O(log n)
+        /// Adds a node to the priority queue. Lower priority values are placed first. Ties are broken by insertion order.
+        /// Time complexity: O(log n).
         /// </summary>
+        /// <param name="node">The node to enqueue.</param>
+        /// <param name="priority">The priority of the node.</param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="node"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown in DEBUG builds if the queue is full or if the node is already enqueued.
+        /// In RELEASE builds, such actions result in undefined behavior.
+        /// </exception>
 #if NET_VERSION_4_5
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -234,10 +250,14 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Removes the head of the queue (node with minimum priority; ties are broken by order of insertion), and returns it.
-        /// If queue is empty, result is undefined
-        /// O(log n)
+        /// Removes and returns the node with the highest priority (the head of the queue).
+        /// Ties are broken by insertion order. Time complexity: O(log n).
         /// </summary>
+        /// <returns>The node with the highest priority.</returns>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown in DEBUG builds if the queue is empty or corrupted.
+        /// In RELEASE builds, dequeueing from an empty queue results in undefined behavior.
+        /// </exception>
         public T? Dequeue()
         {
 #if DEBUG
@@ -263,10 +283,14 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Resize the queue so it can accept more nodes.  All currently enqueued nodes are remain.
-        /// Attempting to decrease the queue size to a size too small to hold the existing nodes results in undefined behavior
-        /// O(n)
+        /// Resizes the queue's internal array to a new maximum capacity.
+        /// All currently enqueued nodes are preserved. Time complexity: O(n).
         /// </summary>
+        /// <param name="maxNodes">The new maximum capacity of the queue.</param>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown in DEBUG builds if <paramref name="maxNodes"/> is not a positive number
+        /// or if it is smaller than the current number of nodes in the queue.
+        /// </exception>
         public void Resize(int maxNodes)
         {
 #if DEBUG
@@ -292,10 +316,13 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Returns the head of the queue, without removing it (use Dequeue() for that).
-        /// If the queue is empty, behavior is undefined.
-        /// O(1)
+        /// Gets the node with the highest priority (the head of the queue) without removing it.
+        /// Time complexity: O(1).
         /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown in DEBUG builds if the queue is empty.
+        /// In RELEASE builds, accessing First on an empty queue results in undefined behavior.
+        /// </exception>
         public T? First
         {
             get
@@ -312,11 +339,16 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// This method must be called on a node every time its priority changes while it is in the queue.  
-        /// <b>Forgetting to call this method will result in a corrupted queue!</b>
-        /// Calling this method on a node not in the queue results in undefined behavior
-        /// O(log n)
+        /// This method must be called on a node every time its priority changes while it is in the queue.
+        /// Forgetting to call this method will result in a corrupted queue. Time complexity: O(log n).
         /// </summary>
+        /// <param name="node">The node in the queue that has a new priority.</param>
+        /// <param name="priority">The new priority of the node.</param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="node"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown in DEBUG builds if the node is not in the queue.
+        /// In RELEASE builds, such an action results in undefined behavior.
+        /// </exception>
 #if NET_VERSION_4_5
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -352,10 +384,13 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Removes a node from the queue.  The node does not need to be the head of the queue.  
-        /// If the node is not in the queue, the result is undefined.  If unsure, check Contains() first
-        /// O(log n)
+        /// Removes a specific node from the queue. The node does not need to be at the head.
+        /// If the node is not in the queue, behavior is undefined. Use <see cref="Contains(T)"/> first if unsure.
+        /// Time complexity: O(log n).
         /// </summary>
+        /// <param name="node">The node to remove from the queue.</param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="node"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">Thrown in DEBUG builds if the node is not in the queue.</exception>
         public void Remove(T node)
         {
 #if DEBUG
@@ -395,9 +430,7 @@ namespace Hagalaz.Collections
         /// <summary>
         /// Returns an enumerator that iterates through the collection.
         /// </summary>
-        /// <returns>
-        /// An enumerator that can be used to iterate through the collection.
-        /// </returns>
+        /// <returns>An <see cref="IEnumerator{T}"/> that can be used to iterate through the collection.</returns>
         public IEnumerator<T?> GetEnumerator()
         {
             for (var i = 1; i <= Count; i++) yield return _nodes[i];
@@ -406,15 +439,14 @@ namespace Hagalaz.Collections
         /// <summary>
         /// Returns an enumerator that iterates through a collection.
         /// </summary>
-        /// <returns>
-        /// An <see cref="T:System.Collections.IEnumerator" /> object that can be used to iterate through the collection.
-        /// </returns>
+        /// <returns>An <see cref="IEnumerator"/> object that can be used to iterate through the collection.</returns>
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
-        /// <b>Should not be called in production code.</b>
-        /// Checks to make sure the queue is still in a valid state.  Used for testing/debugging the queue.
+        /// Checks if the queue is still in a valid heap state.
+        /// This method should not be called in production code as it is intended for testing and debugging purposes only.
         /// </summary>
+        /// <returns><c>true</c> if the queue is a valid heap; otherwise, <c>false</c>.</returns>
         public bool IsValidQueue()
         {
             for (var i = 1; i < _nodes.Length; i++)

@@ -6,30 +6,30 @@ using System.Text.RegularExpressions;
 namespace Hagalaz.Utilities
 {
     /// <summary>
-    /// Provides multiple ways of working with strings.
+    /// Provides a collection of static utility methods for string manipulation, validation, and conversion.
     /// </summary>
     public static class StringUtilities
     {
         /// <summary>
-        ///
+        /// Defines a delegate for parsing a string into a specific type.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="value">The value.</param>
-        /// <returns></returns>
+        /// <typeparam name="T">The target type of the parsing operation.</typeparam>
+        /// <param name="value">The string value to parse.</param>
+        /// <returns>The parsed value of type <typeparamref name="T"/>.</returns>
         public delegate T ValueParser<out T>(string value);
 
         /// <summary>
-        /// The valid mail
+        /// A regular expression for validating standard email address formats.
         /// </summary>
         private static readonly Regex _validMail = new Regex(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$", RegexOptions.IgnoreCase);
 
         /// <summary>
-        /// The valid name
+        /// A regular expression for validating names, likely usernames, allowing for simple or multi-part names.
         /// </summary>
         private static readonly Regex _validName = new Regex(@"(^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)");
 
         /// <summary>
-        /// Valid characters able to be sent to client.
+        /// An array of characters that are considered valid for specific contexts, such as client-side communication or base-37 encoding.
         /// </summary>
         private static readonly char[] _validChars =
         [
@@ -40,21 +40,17 @@ namespace Hagalaz.Utilities
         ];
 
         /// <summary>
-		/// Determines whether [is valid email] [the specified email].
-		/// </summary>
-		/// <param name="email">The email.</param>
-		/// <returns>
-		///   <c>true</c> if [is valid email] [the specified email]; otherwise, <c>false</c>.
-		/// </returns>
+        /// Validates whether the given string is a well-formed email address.
+        /// </summary>
+        /// <param name="email">The email string to validate.</param>
+        /// <returns><c>true</c> if the email format is valid; otherwise, <c>false</c>.</returns>
 		public static bool IsValidEmail(string email) => _validMail.IsMatch(email);
 
         /// <summary>
-        /// Determines whether [is valid name] [the specified name].
+        /// Validates whether the given string is a valid name, conforming to length and character constraints.
         /// </summary>
-        /// <param name="name">The name.</param>
-        /// <returns>
-        ///   <c>true</c> if [is valid name] [the specified name]; otherwise, <c>false</c>.
-        /// </returns>
+        /// <param name="name">The name string to validate.</param>
+        /// <returns><c>true</c> if the name is valid; otherwise, <c>false</c>.</returns>
         public static bool IsValidName(string name)
         {
             if (name.Length < 1 || name.Length > 12)
@@ -63,11 +59,11 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
-        /// Encodes the values.
+        /// Encodes an array of values into a single comma-separated string.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="values">The values.</param>
-        /// <returns></returns>
+        /// <typeparam name="T">The type of values in the array.</typeparam>
+        /// <param name="values">The array of values to encode.</param>
+        /// <returns>A string containing the comma-separated values.</returns>
         public static string EncodeValues<T>(T[] values)
         {
             StringBuilder bld = new StringBuilder();
@@ -81,10 +77,10 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
-        /// Encodes the values.
+        /// Encodes an array of booleans into a comma-separated string, where <c>true</c> is "1" and <c>false</c> is "0".
         /// </summary>
-        /// <param name="values">The values.</param>
-        /// <returns></returns>
+        /// <param name="values">The array of booleans to encode.</param>
+        /// <returns>A string containing the comma-separated numeric representation of the booleans.</returns>
         public static string EncodeValues(bool[] values)
         {
             var bld = new StringBuilder();
@@ -97,6 +93,11 @@ namespace Hagalaz.Utilities
             return bld.ToString();
         }
 
+        /// <summary>
+        /// Parses a comma-separated string into an enumerable of doubles. Invalid entries default to 0.0.
+        /// </summary>
+        /// <param name="input">The comma-separated string of numbers.</param>
+        /// <returns>An <see cref="IEnumerable{T}"/> of doubles.</returns>
         public static IEnumerable<double> SelectDoubleFromString(string input)
         {
             if (string.IsNullOrEmpty(input))
@@ -118,6 +119,11 @@ namespace Hagalaz.Utilities
             }
         }
 
+        /// <summary>
+        /// Parses a comma-separated string into an enumerable of integers. Invalid entries default to 0.
+        /// </summary>
+        /// <param name="input">The comma-separated string of numbers.</param>
+        /// <returns>An <see cref="IEnumerable{T}"/> of integers.</returns>
         public static IEnumerable<int> SelectIntFromString(string input)
         {
             if (string.IsNullOrEmpty(input))
@@ -139,6 +145,11 @@ namespace Hagalaz.Utilities
             }
         }
 
+        /// <summary>
+        /// Parses a comma-separated string of numbers into an enumerable of booleans, where "1" is <c>true</c>.
+        /// </summary>
+        /// <param name="input">The comma-separated string of numbers (e.g., "1,0,1").</param>
+        /// <returns>An <see cref="IEnumerable{T}"/> of booleans.</returns>
         public static IEnumerable<bool> SelectBoolFromString(string input)
         {
             if (string.IsNullOrEmpty(input))
@@ -153,13 +164,13 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
-        /// Decodes the values.
+        /// Decodes a separated string into an array of a specified type using a custom parser.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="data">The data.</param>
-        /// <param name="parser">The parser.</param>
-        /// <param name="separator"></param>
-        /// <returns></returns>
+        /// <typeparam name="T">The target type for the decoded values.</typeparam>
+        /// <param name="data">The string data to decode.</param>
+        /// <param name="parser">The delegate function used to parse each string segment.</param>
+        /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
+        /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
         public static T[] DecodeValues<T>(string data, ValueParser<T> parser, char separator = ',')
         {
             if (string.IsNullOrEmpty(data))
@@ -172,10 +183,10 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
-        /// Decodes the values.
+        /// Decodes a comma-separated string of numbers into a boolean array, where "1" represents <c>true</c>.
         /// </summary>
-        /// <param name="data">The data.</param>
-        /// <returns></returns>
+        /// <param name="data">The comma-separated string to decode.</param>
+        /// <returns>A boolean array representing the decoded data.</returns>
         public static bool[] DecodeValues(string data)
         {
             var split = data.Split(',');
@@ -186,10 +197,10 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
-        /// Converts a given 64-bit integer to a string.
+        /// Converts a 64-bit integer into a base-37 encoded string, commonly used for names or identifiers.
         /// </summary>
-        /// <param name="value">The value of the integer.</param>
-        /// <returns>Returns a string.</returns>
+        /// <param name="value">The integer value to convert.</param>
+        /// <returns>A base-37 encoded string, or <c>null</c> if the value is out of the valid range.</returns>
         public static string? LongToString(this long value)
         {
             if (value <= 0L || value >= 0x5B5B57F8A98A5DD1L)
@@ -209,10 +220,10 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
-        /// Converts a given string to a 64-bit integer.
+        /// Converts a base-37 encoded string back into a 64-bit integer.
         /// </summary>
-        /// <param name="s">The string to convert.</param>
-        /// <returns>Returns a 64-bit integer.</returns>
+        /// <param name="s">The base-37 encoded string to convert.</param>
+        /// <returns>The decoded 64-bit integer value.</returns>
         public static long StringToLong(this string s)
         {
             long l = 0L;
@@ -233,14 +244,14 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
-        /// Gets a string inbetween a string.
+        /// Extracts a substring between two specified markers.
         /// </summary>
-        /// <param name="strBegin">The beginning marker.</param>
-        /// <param name="strEnd">The end marker.</param>
-        /// <param name="strSource">The source.</param>
-        /// <param name="includeBegin">Whether to include begin marker.</param>
-        /// <param name="includeEnd">Whtehr to include end marker.</param>
-        /// <returns>System.String[][].</returns>
+        /// <param name="strBegin">The string that marks the beginning of the substring.</param>
+        /// <param name="strEnd">The string that marks the end of the substring.</param>
+        /// <param name="strSource">The source string to search within.</param>
+        /// <param name="includeBegin">If true, the beginning marker is included in the result.</param>
+        /// <param name="includeEnd">If true, the ending marker is included in the result.</param>
+        /// <returns>A string array where the first element is the extracted substring and the second element is the remainder of the source string.</returns>
         public static string[] GetStringInBetween(string strBegin, string strEnd, string strSource, bool includeBegin, bool includeEnd)
         {
             string[] result = { "", "" };
@@ -272,10 +283,10 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
-        /// Formats the number.
+        /// Formats an integer as a string with thousands separators.
         /// </summary>
-        /// <param name="value">The value.</param>
-        /// <returns></returns>
+        /// <param name="value">The integer value to format.</param>
+        /// <returns>A formatted string representation of the number (e.g., "1,234,567").</returns>
         public static string FormatNumber(int value) => value.ToString("#,###,##0");
     }
 }
