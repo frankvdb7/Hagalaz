@@ -188,11 +188,7 @@ namespace Hagalaz.Game.Abstractions.Model
         {
             if (other.Z != Z || other.Dimension != Dimension) return false;
 
-            int deltaX = other.X - X, deltaY = other.Y - Y;
-            return deltaX <= distance
-                   && deltaX >= 0 - distance - 1
-                   && deltaY <= distance
-                   && deltaY >= 0 - distance - 1;
+            return Math.Abs(other.X - X) <= distance && Math.Abs(other.Y - Y) <= distance;
         }
 
         /// <summary>
