@@ -68,4 +68,104 @@ public class DirectionHelperTests
         // Assert
         Assert.AreEqual(expected, result);
     }
+
+    [TestMethod]
+    public void DirectionDeltaX_ShouldContainCorrectValues()
+    {
+        // Arrange
+        var expected = new sbyte[] { 0, 1, 0, -1, 1, 1, -1, -1 };
+
+        // Act
+        var result = DirectionHelper.DirectionDeltaX;
+
+        // Assert
+        CollectionAssert.AreEqual(expected, result);
+    }
+
+    [TestMethod]
+    public void ThreeBitsNpcMovementType_ShouldContainCorrectValues()
+    {
+        // Arrange
+        var expected = new[,]
+        {
+            { 5, 6, 7 },
+            { 4, -1, 0 },
+            { 3, 2, 1 }
+        };
+
+        // Act
+        var result = DirectionHelper.ThreeBitsNpcMovementType;
+
+        // Assert
+        CollectionAssert.AreEqual(expected, result);
+    }
+
+    [TestMethod]
+    public void RegionMovementType_ShouldContainCorrectValues()
+    {
+        // Arrange
+        var expected = new[,]
+        {
+            { 0, 3, 5 },
+            { 1, -1, 6 },
+            { 2, 4, 7 }
+        };
+
+        // Act
+        var result = DirectionHelper.RegionMovementType;
+
+        // Assert
+        CollectionAssert.AreEqual(expected, result);
+    }
+
+    [TestMethod]
+    public void FourBitsMovementType_ShouldContainCorrectValues()
+    {
+        // Arrange
+        var expected = new[,]
+        {
+            { 0, 5, 7, 9, 11 },
+            { 1, -1, -1, -1, 12 },
+            { 2, -1, -1, -1, 13 },
+            { 3, -1, -1, -1, 14 },
+            { 4, 6, 8, 10, 15 }
+        };
+
+        // Act
+        var result = DirectionHelper.FourBitsMovementType;
+
+        // Assert
+        CollectionAssert.AreEqual(expected, result);
+    }
+
+    [TestMethod]
+    public void ThreeBitsMovementType_ShouldContainCorrectValues()
+    {
+        // Arrange
+        var expected = new[,]
+        {
+            { 0, 3, 5 },
+            { 1, -1, 6 },
+            { 2, 4, 7 }
+        };
+
+        // Act
+        var result = DirectionHelper.ThreeBitsMovementType;
+
+        // Assert
+        CollectionAssert.AreEqual(expected, result);
+    }
+
+    [TestMethod]
+    public void DirectionDeltaY_ShouldContainCorrectValues()
+    {
+        // Arrange
+        var expected = new sbyte[] { 1, 0, -1, 0, 1, -1, 1, -1 };
+
+        // Act
+        var result = DirectionHelper.DirectionDeltaY;
+
+        // Assert
+        CollectionAssert.AreEqual(expected, result);
+    }
 }
