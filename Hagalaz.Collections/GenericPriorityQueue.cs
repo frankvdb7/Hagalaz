@@ -6,35 +6,39 @@ using JetBrains.Annotations;
 namespace Hagalaz.Collections
 {
     /// <summary>
-    /// Represents a node used within a generic priority queue. Stores information about its priority,
-    /// its position in the queue, and the order of its insertion.
+    /// Represents a node for use in a <see cref="GenericPriorityQueue{TItem, TPriority}"/>.
+    /// It encapsulates the priority, queue position, and insertion order for an item.
     /// </summary>
-    /// <typeparam name="TPriority">The type representing the priority of the node. Must implement IComparable&lt;TPriority&gt;.</typeparam>
+    /// <typeparam name="TPriority">The type used for priority, which must be comparable.</typeparam>
     public class GenericPriorityQueueNode<TPriority>
         where TPriority : IComparable<TPriority>
     {
         /// <summary>
-        /// The Priority to insert this node at.  Must be set BEFORE adding a node to the queue (ideally just once, in the node's constructor).
-        /// Should not be manually edited once the node has been enqueued - use queue.UpdatePriority() instead
+        /// Gets or sets the priority of this node. This value should be set before enqueueing
+        /// and only modified via the <see cref="GenericPriorityQueue{TItem, TPriority}.UpdatePriority"/> method thereafter.
         /// </summary>
         public TPriority Priority { get; protected internal set; } = default!;
 
         /// <summary>
-        /// Represents the current position in the queue
+        /// Gets the internal index of this node within the queue's heap structure.
+        /// This property is managed by the queue and should not be modified manually.
         /// </summary>
         public int QueueIndex { get; internal set; }
 
         /// <summary>
-        /// Represents the order the node was inserted in
+        /// Gets the unique, sequential index assigned to this node upon insertion, used for maintaining stable sorting.
+        /// This property is managed by the queue and should not be modified manually.
         /// </summary>
         public long InsertionIndex { get; internal set; }
     }
 
     /// <summary>
-    /// A copy of StablePriorityQueue which also has a generic priority-type
+    /// A high-performance, stable, min-priority queue with a generic priority type. It has a fixed maximum size
+    /// and provides O(1) time complexity for the <c>Contains</c> operation. Ties in priority are broken
+    /// by the order of insertion (first-in, first-out).
     /// </summary>
-    /// <typeparam name="TItem">The values in the queue.  Must extend the GenericPriorityQueue class</typeparam>
-    /// <typeparam name="TPriority">The priority-type.  Must extend IComparable&lt;TPriority&gt;</typeparam>
+    /// <typeparam name="TItem">The type of items in the queue, which must inherit from <see cref="GenericPriorityQueueNode{TPriority}"/>.</typeparam>
+    /// <typeparam name="TPriority">The type used for priority, which must implement <see cref="IComparable{T}"/>.</typeparam>
     [PublicAPI]
     public sealed class GenericPriorityQueue<TItem, TPriority> : IFixedSizePriorityQueue<TItem, TPriority>
         where TItem : GenericPriorityQueueNode<TPriority>
@@ -44,9 +48,11 @@ namespace Hagalaz.Collections
         private long _numNodesEverEnqueued;
 
         /// <summary>
-        /// Instantiate a new Priority Queue
+        /// Initializes a new instance of the <see cref="GenericPriorityQueue{TItem, TPriority}"/> class
+        /// with a specified maximum capacity.
         /// </summary>
-        /// <param name="maxNodes">The max nodes ever allowed to be enqueued (going over this will cause undefined behavior)</param>
+        /// <param name="maxNodes">The maximum number of nodes that the queue can hold.</param>
+        /// <exception cref="InvalidOperationException">Thrown if <paramref name="maxNodes"/> is less than or equal to 0.</exception>
         public GenericPriorityQueue(int maxNodes)
         {
 #if DEBUG
@@ -62,20 +68,20 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Returns the number of nodes in the queue.
-        /// O(1)
+        /// Gets the number of nodes currently in the queue.
+        /// Time complexity: O(1).
         /// </summary>
         public int Count { get; private set; }
 
         /// <summary>
-        /// Returns the maximum number of items that can be enqueued at once in this queue.  Once you hit this number (ie. once Count == MaxSize),
-        /// attempting to enqueue another item will cause undefined behavior.  O(1)
+        /// Gets the maximum number of items that can be enqueued in this queue.
+        /// Time complexity: O(1).
         /// </summary>
         public int MaxSize => _nodes.Length - 1;
 
         /// <summary>
-        /// Removes every node from the queue.
-        /// O(n) (So, don't do this often!)
+        /// Removes all nodes from the queue.
+        /// Time complexity: O(n), where n is the current count of items in the queue.
         /// </summary>
 #if NET_VERSION_4_5
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -87,8 +93,13 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Returns (in O(1)!) whether the given node is in the queue.  O(1)
+        /// Determines whether the specified node is present in the queue.
+        /// Time complexity: O(1).
         /// </summary>
+        /// <param name="node">The node to locate in the queue.</param>
+        /// <returns><c>true</c> if the node is found in the queue; otherwise, <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="node"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">Thrown in DEBUG builds if the node's queue index is corrupted.</exception>
 #if NET_VERSION_4_5
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -107,11 +118,16 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Enqueue a node to the priority queue.  Lower values are placed in front. Ties are broken by first-in-first-out.
-        /// If the queue is full, the result is undefined.
-        /// If the node is already enqueued, the result is undefined.
-        /// O(log n)
+        /// Adds a node to the priority queue. Lower priority values are placed first. Ties are broken by insertion order.
+        /// Time complexity: O(log n).
         /// </summary>
+        /// <param name="node">The node to enqueue.</param>
+        /// <param name="priority">The priority of the node.</param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="node"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown in DEBUG builds if the queue is full or if the node is already enqueued.
+        /// In RELEASE builds, such actions result in undefined behavior.
+        /// </exception>
 #if NET_VERSION_4_5
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -246,10 +262,14 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Removes the head of the queue (node with minimum priority; ties are broken by order of insertion), and returns it.
-        /// If queue is empty, result is undefined
-        /// O(log n)
+        /// Removes the node with the highest priority (the head of the queue) and returns it.
+        /// Ties are broken by insertion order. Time complexity: O(log n).
         /// </summary>
+        /// <returns>The node with the highest priority in the queue.</returns>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown in DEBUG builds if the queue is empty or corrupted.
+        /// In RELEASE builds, dequeueing from an empty queue results in undefined behavior.
+        /// </exception>
         public TItem? Dequeue()
         {
 #if DEBUG
@@ -275,10 +295,14 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Resize the queue so it can accept more nodes.  All currently enqueued nodes are remain.
-        /// Attempting to decrease the queue size to a size too small to hold the existing nodes results in undefined behavior
-        /// O(n)
+        /// Resizes the queue's internal array to accommodate a new maximum number of nodes.
+        /// All currently enqueued nodes are preserved. Time complexity: O(n).
         /// </summary>
+        /// <param name="maxNodes">The new maximum capacity of the queue.</param>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown in DEBUG builds if <paramref name="maxNodes"/> is not a positive number
+        /// or if it is smaller than the current number of nodes in the queue.
+        /// </exception>
         public void Resize(int maxNodes)
         {
 #if DEBUG
@@ -304,10 +328,13 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Returns the head of the queue, without removing it (use Dequeue() for that).
-        /// If the queue is empty, behavior is undefined.
-        /// O(1)
+        /// Gets the node with the highest priority (the head of the queue) without removing it.
+        /// Time complexity: O(1).
         /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown in DEBUG builds if the queue is empty.
+        /// In RELEASE builds, accessing First on an empty queue results in undefined behavior.
+        /// </exception>
         public TItem? First
         {
             get
@@ -324,11 +351,16 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// This method must be called on a node every time its priority changes while it is in the queue.  
-        /// <b>Forgetting to call this method will result in a corrupted queue!</b>
-        /// Calling this method on a node not in the queue results in undefined behavior
-        /// O(log n)
+        /// This method must be called on a node every time its priority changes while it is in the queue.
+        /// Forgetting to call this method will result in a corrupted queue. Time complexity: O(log n).
         /// </summary>
+        /// <param name="node">The node in the queue that has a new priority.</param>
+        /// <param name="priority">The new priority of the node.</param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="node"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown in DEBUG builds if the node is not in the queue.
+        /// In RELEASE builds, such an action results in undefined behavior.
+        /// </exception>
 #if NET_VERSION_4_5
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -365,10 +397,13 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Removes a node from the queue.  The node does not need to be the head of the queue.  
-        /// If the node is not in the queue, the result is undefined.  If unsure, check Contains() first
-        /// O(log n)
+        /// Removes a specific node from the queue. The node does not need to be the head.
+        /// If the node is not in the queue, behavior is undefined. Use <see cref="Contains(TItem)"/> first if unsure.
+        /// Time complexity: O(log n).
         /// </summary>
+        /// <param name="node">The node to remove from the queue.</param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="node"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">Thrown in DEBUG builds if the node is not in the queue.</exception>
         public void Remove(TItem node)
         {
 #if DEBUG
@@ -408,9 +443,7 @@ namespace Hagalaz.Collections
         /// <summary>
         /// Returns an enumerator that iterates through the collection.
         /// </summary>
-        /// <returns>
-        /// An enumerator that can be used to iterate through the collection.
-        /// </returns>
+        /// <returns>An <see cref="IEnumerator{T}"/> that can be used to iterate through the collection.</returns>
         public IEnumerator<TItem?> GetEnumerator()
         {
             for (var i = 1; i <= Count; i++) yield return _nodes[i];
@@ -419,15 +452,14 @@ namespace Hagalaz.Collections
         /// <summary>
         /// Returns an enumerator that iterates through a collection.
         /// </summary>
-        /// <returns>
-        /// An <see cref="T:System.Collections.IEnumerator" /> object that can be used to iterate through the collection.
-        /// </returns>
+        /// <returns>An <see cref="IEnumerator"/> object that can be used to iterate through the collection.</returns>
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
-        /// <b>Should not be called in production code.</b>
-        /// Checks to make sure the queue is still in a valid state.  Used for testing/debugging the queue.
+        /// Checks if the queue is still in a valid heap state.
+        /// This method should not be called in production code as it is intended for testing and debugging purposes only.
         /// </summary>
+        /// <returns><c>true</c> if the queue is a valid heap; otherwise, <c>false</c>.</returns>
         public bool IsValidQueue()
         {
             for (var i = 1; i < _nodes.Length; i++)

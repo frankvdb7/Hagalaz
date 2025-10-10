@@ -5,23 +5,28 @@ using JetBrains.Annotations;
 namespace Hagalaz.Collections
 {
     /// <summary>
-    /// Represents an asynchronous queue that allows enqueuing items and dequeuing them asynchronously.
+    /// Defines the contract for a thread-safe, asynchronous queue that allows items to be
+    /// enqueued and dequeued asynchronously.
     /// </summary>
-    /// <typeparam name="T">The type of items in the queue.</typeparam>
+    /// <typeparam name="T">The type of elements in the asynchronous queue.</typeparam>
     [PublicAPI]
     public interface IAsyncQueue<T>
     {
         /// <summary>
-        /// Queues the item.
+        /// Adds an item to the end of the queue.
         /// </summary>
-        /// <param name="item">The item.</param>
+        /// <param name="item">The item to add to the queue.</param>
         void Enqueue(T item);
 
         /// <summary>
-        /// Dequeue the asynchronous.
+        /// Asynchronously removes and returns the item at the beginning of the queue.
+        /// If the queue is empty, this method waits until an item becomes available.
         /// </summary>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns></returns>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for a task to complete.</param>
+        /// <returns>
+        /// A task that represents the asynchronous dequeue operation. The value of the task's result is the item
+        /// that is removed from the beginning of the queue. Returns <c>null</c> if the operation is cancelled.
+        /// </returns>
         Task<T?> DequeueAsync(CancellationToken cancellationToken);
     }
 }
