@@ -1,17 +1,17 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// 
+    /// Defines the contract for managing a creature's visual appearance.
     /// </summary>
     public interface ICreatureAppearance
     {
         /// <summary>
-        /// Contains boolean if creature is visible.
+        /// Gets or sets a value indicating whether the creature is currently visible.
         /// </summary>
         bool Visible { get; set; }
 
         /// <summary>
-        /// Contains size of creature.
+        /// Gets the size of the creature in game tiles.
         /// </summary>
         int Size { get; }
     }

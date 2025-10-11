@@ -4,83 +4,72 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 namespace Hagalaz.Game.Abstractions.Model
 {
     /// <summary>
-    /// Represents a model's location in the game world.
+    /// Represents an immutable 3D coordinate in the game world, including a dimension for instancing.
     /// </summary>
     public readonly struct Location : ILocation, IVector2, IVector3, IEquatable<Location>
     {
         /// <summary>
-        /// Contains dimension of this location.
+        /// Gets the dimension (or instance) of this location.
         /// </summary>
-        /// <value>The dimension.</value>
         public int Dimension { get; }
 
         /// <summary>
-        /// Gets or sets the model's X coordinate.
+        /// Gets the X-coordinate of the location.
         /// </summary>
-        /// <value>The X.</value>
         public int X { get; }
 
         /// <summary>
-        /// Gets or sets the model's Y coordinate.
+        /// Gets the Y-coordinate of the location.
         /// </summary>
-        /// <value>The Y.</value>
         public int Y { get; }
 
         /// <summary>
-        /// Gets or sets the model's Z coordinate.
+        /// Gets the Z-coordinate (or plane) of the location.
         /// </summary>
-        /// <value>The Z.</value>
         public int Z { get; }
 
         /// <summary>
-        /// Gets the 8x8 splice X coordinate.
+        /// Gets the X-coordinate of the 8x8 map region part this location belongs to.
         /// </summary>
-        /// <value>The region part X.</value>
         public int RegionPartX => X >> 3;
 
         /// <summary>
-        /// Gets the 8x8 splice Y coordinate.
+        /// Gets the Y-coordinate of the 8x8 map region part this location belongs to.
         /// </summary>
-        /// <value>The region part Y.</value>
         public int RegionPartY => Y >> 3;
 
         /// <summary>
-        /// Get's the 64x64 splice X of this location.
+        /// Gets the X-coordinate of the 64x64 map region this location belongs to.
         /// </summary>
-        /// <value>The region X.</value>
         public int RegionX => X >> 6;
 
         /// <summary>
-        /// Get's the 64x64 splice X of this location.
+        /// Gets the Y-coordinate of the 64x64 map region this location belongs to.
         /// </summary>
-        /// <value>The region Y.</value>
         public int RegionY => Y >> 6;
 
         /// <summary>
-        /// Return's local X coordinate in the location's region.
+        /// Gets the local X-coordinate within the location's 64x64 map region.
         /// </summary>
-        /// <value>The region local X.</value>
         public int RegionLocalX => X & 0x3F;
 
         /// <summary>
-        /// Return's local Y coordinate in the location's region.
+        /// Gets the local Y-coordinate within the location's 64x64 map region.
         /// </summary>
-        /// <value>The region local Y.</value>
         public int RegionLocalY => Y & 0x3F;
 
         /// <summary>
-        /// Get's the region Id of this location.
+        /// Gets the unique identifier for the 64x64 map region this location belongs to.
         /// </summary>
-        /// <value>The region Id.</value>
         public int RegionId => (RegionX << 8) + RegionY;
 
         /// <summary>
-        /// Constructs a new location instance.
+        /// Initializes a new instance of the <see cref="Location"/> struct.
         /// </summary>
-        /// <param name="x">The instance's X coordinate.</param>
-        /// <param name="y">The instance's Y coordinate.</param>
-        /// <param name="z">The instance's Z coordinate.</param>
-        /// <param name="dimension">The dimension.</param>
+        /// <param name="x">The X-coordinate.</param>
+        /// <param name="y">The Y-coordinate.</param>
+        /// <param name="z">The Z-coordinate (plane).</param>
+        /// <param name="dimension">The dimension or instance ID.</param>
         public Location(int x, int y, int z, int dimension)
         {
             X = x;
@@ -88,102 +77,103 @@ namespace Hagalaz.Game.Abstractions.Model
             Z = z;
             Dimension = dimension;
         }
+
         /// <summary>
-        /// Creates a location instance.
+        /// Creates a new <see cref="Location"/> instance on plane 0 and in dimension 0.
         /// </summary>
-        /// <param name="x">The instance's X coordinate.</param>
-        /// <param name="y">The instance's Y coordinate.</param>
-        /// <param name="z">The instance's Z coordinate.</param>
-        /// <returns></returns>
+        /// <param name="x">The X-coordinate.</param>
+        /// <param name="y">The Y-coordinate.</param>
+        /// <returns>A new <see cref="Location"/> instance.</returns>
         public static Location Create(int x, int y) => Create(x, y, 0, 0);
 
         /// <summary>
-        /// Creates a location instance.
+        /// Creates a new <see cref="Location"/> instance in dimension 0.
         /// </summary>
-        /// <param name="x">The instance's X coordinate.</param>
-        /// <param name="y">The instance's Y coordinate.</param>
-        /// <param name="z">The instance's Z coordinate.</param>
-        /// <returns></returns>
+        /// <param name="x">The X-coordinate.</param>
+        /// <param name="y">The Y-coordinate.</param>
+        /// <param name="z">The Z-coordinate (plane).</param>
+        /// <returns>A new <see cref="Location"/> instance.</returns>
         public static Location Create(int x, int y, int z) => Create(x, y, z, 0);
 
         /// <summary>
-        /// Creates a location instance.
+        /// Creates a new <see cref="Location"/> instance.
         /// </summary>
-        /// <param name="x">The instance's X coordinate.</param>
-        /// <param name="y">The instance's Y coordinate.</param>
-        /// <param name="z">The instance's Z coordinate.</param>
-        /// <param name="dimension">The dimension.</param>
-        /// <returns></returns>
+        /// <param name="x">The X-coordinate.</param>
+        /// <param name="y">The Y-coordinate.</param>
+        /// <param name="z">The Z-coordinate (plane).</param>
+        /// <param name="dimension">The dimension or instance ID.</param>
+        /// <returns>A new <see cref="Location"/> instance.</returns>
         public static Location Create(int x, int y, int z, int dimension) => new(x, y, z, dimension);
 
         /// <summary>
-        /// Copies the current location instance.
+        /// Creates a new, identical copy of this location.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>A new <see cref="ILocation"/> instance with the same coordinates and dimension.</returns>
         public ILocation Clone() => new Location(X, Y, Z, Dimension);
 
         /// <summary>
-        /// Copies the specified dimension.
+        /// Creates a new copy of this location in a different dimension.
         /// </summary>
-        /// <param name="dimension">The dimension.</param>
-        /// <returns></returns>
+        /// <param name="dimension">The dimension for the new location.</param>
+        /// <returns>A new <see cref="ILocation"/> instance with the same coordinates but in the new dimension.</returns>
         public ILocation Copy(int dimension) => new Location(X, Y, Z, dimension);
 
         /// <summary>
-        /// Translates the specified location.
+        /// Creates a new location by translating (moving) this location by the specified offsets.
         /// </summary>
-        /// <param name="x">The x.</param>
-        /// <param name="y">The y.</param>
-        /// <param name="z">The z.</param>
-        /// <returns></returns>
+        /// <param name="x">The offset to apply to the X-coordinate.</param>
+        /// <param name="y">The offset to apply to the Y-coordinate.</param>
+        /// <param name="z">The offset to apply to the Z-coordinate (plane).</param>
+        /// <returns>A new <see cref="ILocation"/> instance representing the translated location.</returns>
         public ILocation Translate(int x, int y, int z) => new Location(X + x, Y + y, Z + z, Dimension);
 
         /// <summary>
-        /// Gets the location's sortHash code.
+        /// Gets a hash code for the location, combining its coordinates and dimension into a single integer.
         /// </summary>
-        /// <returns>Returns an integer.</returns>
-        /// 2 bits for Z
-        /// 13 bits for X
-        /// 13 bits for Y
-        /// 4 bits for Dimension
+        /// <returns>An integer hash code.</returns>
         public override int GetHashCode() => ((Z & 0x3) << 30) | ((X & 0xFFF) << 17) | ((Y & 0xFFF) << 4) | (Dimension & 0x3F);
 
         /// <summary>
-        /// Gets the direction.
+        /// Calculates the direction from this location to a target coordinate.
         /// </summary>
-        /// <param name="toX">To x.</param>
-        /// <param name="toY">To y.</param>
-        /// <returns></returns>
+        /// <param name="toX">The X-coordinate of the target location.</param>
+        /// <param name="toY">The Y-coordinate of the target location.</param>
+        /// <returns>A <see cref="DirectionFlag"/> representing the calculated direction.</returns>
         public DirectionFlag GetDirection(int toX, int toY) => DirectionHelper.GetDirection(X, Y, toX, toY);
 
         /// <summary>
-        /// Gets the direction.
+        /// Calculates the direction from this location to a target location.
         /// </summary>
-        /// <param name="to">To.</param>
-        /// <returns></returns>
+        /// <param name="to">The target location.</param>
+        /// <returns>A <see cref="DirectionFlag"/> representing the calculated direction.</returns>
         public DirectionFlag GetDirection(ILocation to) => DirectionHelper.GetDirection(X, Y, to.X, to.Y);
 
         /// <summary>
-        /// Compares two Location objects to see if their coordinates match.
+        /// Determines whether the specified object is equal to the current location.
         /// </summary>
-        /// <param name="obj">The location object.</param>
-        /// <returns>Returns true if both objects have the same coordinates; false if they dont.</returns>
+        /// <param name="obj">The object to compare with the current location.</param>
+        /// <returns><c>true</c> if the specified object is equal to the current location; otherwise, <c>false</c>.</returns>
         public override bool Equals(object? obj) => obj is Location location && Equals(location);
 
+        /// <summary>
+        /// Determines whether another <see cref="Location"/> is equal to this one, comparing all coordinates and the dimension.
+        /// </summary>
+        /// <param name="other">The location to compare with this one.</param>
+        /// <returns><c>true</c> if the locations are equal; otherwise, <c>false</c>.</returns>
         public bool Equals(Location other) => Dimension == other.Dimension && X == other.X && Y == other.Y && Z == other.Z;
 
         /// <summary>
-        /// Provides a string that shows the location's coordinates.
+        /// Returns a string representation of the location's coordinates.
         /// </summary>
-        /// <returns>Returns a string containing locations coordinates.</returns>
+        /// <returns>A string in the format "x=X,y=Y,z=Z,dimension=Dimension".</returns>
         public override string ToString() => "x=" + X + ",y=" + Y + ",z=" + Z + ",dimension=" + Dimension;
 
         /// <summary>
-        /// Measures the distance between two locations.
+        /// Checks if another location is within a specified Manhattan distance from this location on the same plane and dimension.
         /// </summary>
         /// <param name="other">The location to compare with.</param>
-        /// <param name="distance">The instance that the distance has to be within</param>
-        /// <returns>Returns true if the given location is within distance of the given distance range; false if not.</returns>
+        /// <param name="distance">The maximum distance to check for.</param>
+        /// <returns><c>true</c> if the other location is within the specified distance; otherwise, <c>false</c>.</returns>
         public bool WithinDistance(ILocation other, int distance)
         {
             if (other.Z != Z || other.Dimension != Dimension) return false;
@@ -192,10 +182,10 @@ namespace Hagalaz.Game.Abstractions.Model
         }
 
         /// <summary>
-        /// Access the /x/, /y/, /z/ or /dimension/ component using [0], [1], [2] or [3] respectively.
+        /// Gets the X, Y, Z, or Dimension component of the location by its index.
         /// </summary>
-        /// <param name="index"></param>
-        /// <exception cref="IndexOutOfRangeException"></exception>
+        /// <param name="index">The index of the component (0=X, 1=Y, 2=Z, 3=Dimension).</param>
+        /// <exception cref="IndexOutOfRangeException">Thrown if the index is not between 0 and 3.</exception>
         public int this[int index] =>
             index switch
             {
@@ -207,40 +197,40 @@ namespace Hagalaz.Game.Abstractions.Model
             };
 
         /// <summary>
-        /// Location zero
+        /// Represents a location at the origin (0, 0, 0) in dimension 0.
         /// </summary>
         public static readonly Location Zero = new(0, 0, 0, 0);
 
         /// <summary>
-        /// Location one
+        /// Represents a location at (1, 1, 1) in dimension 0.
         /// </summary>
         public static readonly Location One = new(1, 1, 1, 0);
 
         /// <summary>
-        /// Location up
+        /// Represents a unit vector pointing up (0, 1, 0).
         /// </summary>
         public static readonly Location Up = new(0, 1, 0, 0);
 
         /// <summary>
-        /// Location down
+        /// Represents a unit vector pointing down (0, -1, 0).
         /// </summary>
         public static readonly Location Down = new(0, -1, 0, 0);
 
         /// <summary>
-        /// Location left
+        /// Represents a unit vector pointing left (-1, 0, 0).
         /// </summary>
         public static readonly Location Left = new(-1, 0, 0, 0);
 
         /// <summary>
-        /// Location right
+        /// Represents a unit vector pointing right (1, 0, 0).
         /// </summary>
         public static readonly Location Right = new(1, 0, 0, 0);
 
         /// <summary>
-        /// Gets the absolute distance between the specified location.
+        /// Calculates the Euclidean distance between this location and another.
         /// </summary>
         /// <param name="other">The location to compare with.</param>
-        /// <returns>Returns a double holding the value of the distance.</returns>
+        /// <returns>The distance as a double-precision floating-point number.</returns>
         public double GetDistance(ILocation other)
         {
             var xDiff = X - other.X;
@@ -249,13 +239,13 @@ namespace Hagalaz.Game.Abstractions.Model
         }
 
         /// <summary>
-        /// Gets the absolute distance between the specified coordinates.
+        /// Calculates the Euclidean distance between two sets of coordinates.
         /// </summary>
-        /// <param name="x1">The x1.</param>
-        /// <param name="y1">The y1.</param>
-        /// <param name="x2">The x2.</param>
-        /// <param name="y2">The y2.</param>
-        /// <returns>Returns a double holding the value of the distance.</returns>
+        /// <param name="x1">The first X-coordinate.</param>
+        /// <param name="y1">The first Y-coordinate.</param>
+        /// <param name="x2">The second X-coordinate.</param>
+        /// <param name="y2">The second Y-coordinate.</param>
+        /// <returns>The distance as a double-precision floating-point number.</returns>
         public static double GetDistance(int x1, int y1, int x2, int y2)
         {
             var xDiff = x1 - x2;
@@ -264,11 +254,11 @@ namespace Hagalaz.Game.Abstractions.Model
         }
 
         /// <summary>
-        /// Gets delta location.
+        /// Calculates the delta (difference) between two locations.
         /// </summary>
-        /// <param name="from">From.</param>
-        /// <param name="to">To.</param>
-        /// <returns>Location.</returns>
+        /// <param name="from">The starting location.</param>
+        /// <param name="to">The ending location.</param>
+        /// <returns>A new <see cref="Location"/> representing the vector from the start to the end location.</returns>
         public static Location GetDelta(ILocation from, ILocation to) => Create(to.X - from.X, to.Y - from.Y, to.Z - from.Z, to.Dimension - from.Dimension);
 
         public static bool operator ==(Location left, Location right) => left.Equals(right);

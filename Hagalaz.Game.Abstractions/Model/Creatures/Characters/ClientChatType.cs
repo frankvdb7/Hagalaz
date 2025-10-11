@@ -1,24 +1,24 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the different chat channels that the client can be in.
     /// </summary>
     public enum ClientChatType : byte
     {
         /// <summary>
-        /// The normal
+        /// Standard public chat.
         /// </summary>
         Normal = 0,
         /// <summary>
-        /// The friends
+        /// Friends chat channel.
         /// </summary>
         Friends = 1,
         /// <summary>
-        /// The clan
+        /// Clan chat channel for members.
         /// </summary>
         Clan = 2,
         /// <summary>
-        /// The clan guest
+        /// Clan chat channel for guests.
         /// </summary>
         ClanGuest = 3,
     }

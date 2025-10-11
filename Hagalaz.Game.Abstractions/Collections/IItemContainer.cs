@@ -4,152 +4,164 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
-    /// 
+    /// Defines a generic contract for a container that holds game items.
+    /// This interface provides a comprehensive API for adding, removing, and managing items.
     /// </summary>
     public interface IItemContainer : IContainer<IItem?>
     {
         /// <summary>
-        /// How the objects in this container are stored.
+        /// Gets the storage behavior of this container, such as how it handles item stacking.
         /// </summary>
-        /// <value>The type.</value>
         StorageType Type { get; }
+
         /// <summary>
-        /// The number of free slots.
+        /// Gets the number of empty slots in the container.
         /// </summary>
-        /// <value>The free slots.</value>
         int FreeSlots { get; }
+
         /// <summary>
-        /// The number of taken slots.
+        /// Gets the number of occupied slots in the container.
         /// </summary>
-        /// <value>The taken slots.</value>
         int TakenSlots { get; }
+
         /// <summary>
-        /// Adds a certain amount of Item objects to the container.
+        /// Adds an item to the container, either by stacking it with an existing item or placing it in the first available slot.
         /// </summary>
         /// <param name="item">The item to add.</param>
-        /// <returns>Returns true if item was added successfully; False otherwise.</returns>
+        /// <returns><c>true</c> if the item was added successfully; otherwise, <c>false</c>.</returns>
         bool Add(IItem item);
+
         /// <summary>
-        /// Adds a certain amount of item in specific slot.
+        /// Adds an item to a specific slot in the container.
         /// </summary>
-        /// <param name="slot">Slot at which item should be added.</param>
+        /// <param name="slot">The zero-based index of the slot to add the item to.</param>
         /// <param name="item">The item to add.</param>
-        /// <returns>If item was added.</returns>
+        /// <returns><c>true</c> if the item was added successfully; otherwise, <c>false</c>.</returns>
         bool Add(int slot, IItem item);
+
         /// <summary>
-        /// Adds the and remove from.
+        /// Transfers all items from another container into this one and removes them from the source.
         /// </summary>
-        /// <param name="container">The container.</param>
+        /// <param name="container">The source container from which to transfer items.</param>
         void AddAndRemoveFrom(IItemContainer container);
+
         /// <summary>
-        /// Gets an Item object by the specified id.
+        /// Gets the first item in the container that has the specified ID.
         /// </summary>
-        /// <param name="id">The identifier.</param>
-        /// <returns>
-        /// Returns the Item object instance; null if not found.
-        /// </returns>
+        /// <param name="id">The item ID to search for.</param>
+        /// <returns>The first <see cref="IItem"/> instance with the given ID, or <c>null</c> if not found.</returns>
         IItem? GetById(int id);
+
         /// <summary>
-        /// Removes a certain amount of Item objects from the container.
+        /// Removes a specified item from the container.
         /// </summary>
-        /// <param name="item">The item to be removed.</param>
-        /// <param name="preferredSlot">Preferred slot for removal.</param>
-        /// <param name="update">if set to <c>true</c> [update].</param>
-        /// <returns>
-        /// Returns the number of Item objects removed from the container.
-        /// </returns>
+        /// <param name="item">The item to remove, including the amount to be removed.</param>
+        /// <param name="preferredSlot">The preferred slot to remove from. If -1, any slot containing the item will be used.</param>
+        /// <param name="update">If set to <c>true</c>, an update callback is invoked.</param>
+        /// <returns>The number of items actually removed.</returns>
         int Remove(IItem item, int preferredSlot = -1, bool update = true);
+
         /// <summary>
-        /// Replace's specific slot with specific item.
-        /// Item cannot be null.
-        /// This method does not check things such as stacking and counts.
+        /// Replaces the item at a specific slot with a new item, without any stacking or count checks.
         /// </summary>
-        /// <param name="slot">The slot.</param>
-        /// <param name="item">The item.</param>
+        /// <param name="slot">The zero-based index of the slot to replace.</param>
+        /// <param name="item">The new item to place in the slot. This cannot be null.</param>
         void Replace(int slot, IItem item);
+
         /// <summary>
-        /// Swaps an item from one slot to another.
+        /// Swaps the items in two specified slots.
         /// </summary>
-        /// <param name="fromSlot">The Item object's slot.</param>
-        /// <param name="toSlot">The Item object's new slot.</param>
+        /// <param name="fromSlot">The first slot to swap.</param>
+        /// <param name="toSlot">The second slot to swap.</param>
         void Swap(int fromSlot, int toSlot);
+
         /// <summary>
-        /// Inserts an Item object to the specified slot.
+        /// Moves an item from one slot to another, shifting existing items to fill the gap.
         /// </summary>
-        /// <param name="fromSlot">The slot the Item object is currently located.</param>
-        /// <param name="toSlot">The slot to insert the Item object to.</param>
+        /// <param name="fromSlot">The slot of the item to move.</param>
+        /// <param name="toSlot">The destination slot.</param>
         void Move(int fromSlot, int toSlot);
+
         /// <summary>
-        /// Adds an array of items to this container.
+        /// Adds a collection of items to this container.
         /// </summary>
-        /// <param name="newItems">The new items.</param>
-        /// <returns>
-        /// Returns true if successfully added all items; false otherwise.
-        /// </returns>
+        /// <param name="newItems">The collection of items to add.</param>
+        /// <returns><c>true</c> if all items were added successfully; otherwise, <c>false</c>.</returns>
         bool AddRange(IEnumerable<IItem?> newItems);
+
         /// <summary>
-        /// Whether the container contains a certain Item.
+        /// Determines whether the container holds at least a specified amount of an item with the given ID.
         /// </summary>
-        /// <param name="id">The Item id.</param>
-        /// <param name="count">The count.</param>
-        /// <returns>Returns true if contained; false otherwise.</returns>
+        /// <param name="id">The ID of the item to check for.</param>
+        /// <param name="count">The minimum required amount.</param>
+        /// <returns><c>true</c> if the container has at least the specified count of the item; otherwise, <c>false</c>.</returns>
         bool Contains(int id, int count);
+
         /// <summary>
-        /// Whether the container contains a certain Item.
+        /// Determines whether the container holds at least one item with the specified ID.
         /// </summary>
-        /// <param name="id">The Item id.</param>
-        /// <returns>Returns true if contained; false otherwise.</returns>
+        /// <param name="id">The ID of the item to check for.</param>
+        /// <returns><c>true</c> if an item with the ID is contained; otherwise, <c>false</c>.</returns>
         bool Contains(int id);
+
         /// <summary>
-        /// Gets the total number of a specified item in this container.
+        /// Gets the total count of a specified item in this container, summing up all stacks.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <returns>Return the total number of items of the same id in this container.</returns>
+        /// <param name="item">The item to count.</param>
+        /// <returns>The total number of the specified item.</returns>
         int GetCount(IItem item);
+
         /// <summary>
-        /// Gets the total number of a specified item in this container.
+        /// Gets the total count of an item by its ID in this container, summing up all stacks.
         /// </summary>
-        /// <param name="id">The Item id.</param>
-        /// <returns>Return the total number of items of the same id in this container.</returns>
+        /// <param name="id">The ID of the item to count.</param>
+        /// <returns>The total number of items with the specified ID.</returns>
         int GetCountById(int id);
+
         /// <summary>
-        /// Get's slot of specific item instance.
-        /// -1 if this container does not contain specific instance.
+        /// Gets the slot of a specific item instance.
         /// </summary>
-        /// <param name="instance">The instance.</param>
-        /// <returns>System.Int32.</returns>
+        /// <param name="instance">The exact item instance to find.</param>
+        /// <returns>The zero-based index of the slot, or -1 if the specific instance is not found.</returns>
         int GetInstanceSlot(IItem instance);
+
         /// <summary>
-        /// Sort's this container.
+        /// Sorts the container by moving all items to the beginning, removing any empty slots between them.
         /// </summary>
         void Sort();
+
         /// <summary>
-        /// Gets the first slot that holds item which equals to the given item.
+        /// Gets the first slot that contains an item matching the specified item.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="ignoreCount">if set to <c>true</c> [ignore count].</param>
-        /// <returns>Returns the slot id; -1 if none.</returns>
+        /// <param name="item">The item to find.</param>
+        /// <param name="ignoreCount">If set to <c>true</c>, the item count is ignored during comparison.</param>
+        /// <returns>The zero-based index of the first matching slot, or -1 if not found.</returns>
         int GetSlotByItem(IItem item, bool ignoreCount = true);
+
         /// <summary>
-        /// Get's if this container has space for specific items.
+        /// Checks if the container has enough space to add a given item, considering stacking rules.
         /// </summary>
-        /// <param name="item">Item for which space should be checked.</param>
-        /// <returns>If this container has space for specific items.</returns>
+        /// <param name="item">The item to check space for.</param>
+        /// <returns><c>true</c> if the item can be added; otherwise, <c>false</c>.</returns>
         bool HasSpaceFor(IItem item);
+
         /// <summary>
-        /// Get's if this container has space for specific items.
+        /// Checks if the container has enough space to add a collection of items.
         /// </summary>
-        /// <param name="items">Items for which space should be checked.</param>
-        /// <returns>If this container has space for specific items.</returns>
+        /// <param name="items">The collection of items to check space for.</param>
+        /// <returns><c>true</c> if all items can be added; otherwise, <c>false</c>.</returns>
         bool HasSpaceForRange(IEnumerable<IItem?> items);
+
         /// <summary>
-        /// Clears the container.
+        /// Clears all items from the container.
         /// </summary>
-        /// <param name="update">if set to <c>true</c> [update].</param>
+        /// <param name="update">If set to <c>true</c>, an update callback is invoked.</param>
         void Clear(bool update);
+
         /// <summary>
-        /// Called when some or all items in the container has changed.
+        /// A callback method invoked when the container's contents are updated.
         /// </summary>
+        /// <param name="slots">A hash set of the specific slot indices that were changed. If null, a full update is assumed.</param>
         void OnUpdate(HashSet<int>? slots = null);
     }
 }

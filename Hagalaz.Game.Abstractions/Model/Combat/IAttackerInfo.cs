@@ -1,27 +1,25 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Combat
 {
     /// <summary>
-    /// 
+    /// Defines a contract for an object that tracks information about damage received from a specific attacker.
+    /// This is used to manage threat levels and determine who gets credit for a kill.
     /// </summary>
-    /// <typeparam name="TAttacker">The type of the attacker.</typeparam>
-    public interface IAttackerInfo<TAttacker>
+    /// <typeparam name="TAttacker">The type of the attacker (e.g., a specific creature implementation).</typeparam>
+    public interface IAttackerInfo<out TAttacker>
     {
         /// <summary>
-        ///     Gets or sets the damage.
+        /// Gets or sets the total damage dealt by this attacker.
         /// </summary>
-        /// <value>The damage.</value>
         int TotalDamage { get; set; }
 
         /// <summary>
-        ///     Contains last tick
+        /// Gets or sets the game tick of the last attack from this attacker.
         /// </summary>
-        /// <value>The last attack tick.</value>
         int LastAttackTick { get; set; }
 
         /// <summary>
-        ///     Contains attacker.
+        /// Gets the attacker instance.
         /// </summary>
-        /// <value>The attacker creature.</value>
         TAttacker Attacker { get; }
     }
 }

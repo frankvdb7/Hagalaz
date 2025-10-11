@@ -3,29 +3,28 @@
 namespace Hagalaz.Game.Abstractions.Features.States
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a script that contains the logic for a temporary state or effect.
     /// </summary>
     public interface IStateScript
     {
         /// <summary>
-        /// Determines whether this instance is serializable.
-        /// By default, the state is not serializable.
+        /// Determines whether the state associated with this script should be saved when the character logs out.
         /// </summary>
-        /// <returns></returns>
+        /// <returns><c>true</c> if the state is serializable and should persist; otherwise, <c>false</c>.</returns>
         bool IsSerializable();
+
         /// <summary>
-        /// Gets called when the state is removed.
-        /// By default, this method invokes the OnRemoveCallback of the state, if any.
+        /// A callback method that is executed when the state is removed from a creature (e.g., when it expires or is cured).
         /// </summary>
-        /// <param name="state">The state.</param>
-        /// <param name="creature">The creature.</param>
+        /// <param name="state">The state instance that is being removed.</param>
+        /// <param name="creature">The creature from which the state is being removed.</param>
         void OnStateRemoved(IState state, ICreature creature);
+
         /// <summary>
-        /// Gets called when the state is added.
-        /// By default, this method does nothing.
+        /// A callback method that is executed when the state is first added to a creature.
         /// </summary>
-        /// <param name="state">The state.</param>
-        /// <param name="creature">The creature.</param>
+        /// <param name="state">The state instance that has been added.</param>
+        /// <param name="creature">The creature to which the state has been added.</param>
         void OnStateAdded(IState state, ICreature creature);
     }
 }

@@ -1,49 +1,51 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// 
+    /// Defines a contract for a collection of standard combat bonuses.
     /// </summary>
-    /// <seealso cref="BonusType" />
     public interface IBonuses : IBonuses<BonusType>
     {
         /// <summary>
-        /// Copies this bonuses.
+        /// Creates a new, identical copy of this bonuses collection.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>A new <see cref="IBonuses"/> instance with the same bonus values.</returns>
         IBonuses Copy();
     }
 
     /// <summary>
-    /// 
+    /// Defines a generic contract for a collection of bonuses, where the type of bonus is specified by an enum.
     /// </summary>
-    /// <typeparam name="TBonusType">The type of the bonus type.</typeparam>
-    /// <seealso cref="Creatures.BonusType" />
-    public interface IBonuses<TBonusType>
+    /// <typeparam name="TBonusType">The enum type that defines the different kinds of bonuses.</typeparam>
+    public interface IBonuses<in TBonusType>
     {
         /// <summary>
-        /// Add's specific bonuses to this bonuses class.
+        /// Adds the values from another bonus collection to this one.
         /// </summary>
-        /// <param name="bonuses">Bonuses which should be added.</param>
+        /// <param name="bonuses">The bonus collection to add.</param>
         void Add(IBonuses<TBonusType> bonuses);
+
         /// <summary>
-        /// Remove's specific bonuses to this bonuses class.
+        /// Subtracts the values from another bonus collection from this one.
         /// </summary>
-        /// <param name="bonuses">Bonuses which should be removed.</param>
+        /// <param name="bonuses">The bonus collection to remove.</param>
         void Remove(IBonuses<TBonusType> bonuses);
+
         /// <summary>
-        /// Get's specific bonus.
+        /// Gets the value of a specific bonus type.
         /// </summary>
-        /// <param name="type">Type of the bonus to get.</param>
-        /// <returns></returns>
+        /// <param name="type">The type of the bonus to retrieve.</param>
+        /// <returns>The integer value of the specified bonus.</returns>
         int GetBonus(TBonusType type);
+
         /// <summary>
-        /// Set's specific bonus.
+        /// Sets the value of a specific bonus type.
         /// </summary>
-        /// <param name="type">Type of the bonus to set.</param>
-        /// <param name="value">Value which should be seted.</param>
+        /// <param name="type">The type of the bonus to set.</param>
+        /// <param name="value">The new value for the bonus.</param>
         void SetBonus(TBonusType type, int value);
+
         /// <summary>
-        /// Set's all bonuses to 0.
+        /// Resets all bonus values in this collection to zero.
         /// </summary>
         void Reset();
     }

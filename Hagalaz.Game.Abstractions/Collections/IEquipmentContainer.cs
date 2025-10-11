@@ -5,80 +5,85 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a character's equipment container, which manages the items a character is currently wearing.
     /// </summary>
     public interface IEquipmentContainer : IEnumerable<IItem?>, IEnumerable, IContainer<IItem?>
     {
         /// <summary>
-        /// The number of free slots.
+        /// Gets the number of empty equipment slots.
         /// </summary>
-        /// <value>The free slots.</value>
         int FreeSlots { get; }
+
         /// <summary>
-        /// Gets the item by the specified array index.
+        /// Gets the item in the specified equipment slot.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <returns>Returns the Item object.</returns>
+        /// <param name="index">The equipment slot to retrieve the item from.</param>
+        /// <returns>The <see cref="IItem"/> in the specified slot, or <c>null</c> if the slot is empty.</returns>
         IItem? this[EquipmentSlot index] { get; }
+
         /// <summary>
-        /// Equips item to this character.
+        /// Equips an item from another container (e.g., inventory) to the appropriate slot on the character.
         /// </summary>
-        /// <param name="item">Item in inventory.</param>
-        /// <returns>True if item was equiped sucessfully.</returns>
+        /// <param name="item">The item to equip.</param>
+        /// <returns><c>true</c> if the item was equipped successfully; otherwise, <c>false</c>.</returns>
         bool EquipItem(IItem item);
+
         /// <summary>
-        /// UnEquips item to this character.
+        /// Unequips an item from the character and prepares it for placement in another container.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="toInventorySlot">To inventory slot.</param>
-        /// <returns>True if item was unequiped sucessfully.</returns>
+        /// <param name="item">The item to unequip.</param>
+        /// <param name="toInventorySlot">The preferred destination slot in the inventory. If -1, the item will be placed in the first available slot.</param>
+        /// <returns><c>true</c> if the item was unequipped successfully; otherwise, <c>false</c>.</returns>
         bool UnEquipItem(IItem item, int toInventorySlot = -1);
+
         /// <summary>
-        /// Get's slot of specific item instance.
-        /// -1 if this container does not contain specific instance.
+        /// Gets the equipment slot of a specific item instance currently worn by the character.
         /// </summary>
-        /// <param name="instance">The instance.</param>
-        /// <returns>System.Int32.</returns>
+        /// <param name="instance">The exact item instance to find.</param>
+        /// <returns>The <see cref="EquipmentSlot"/> where the item is equipped, or <see cref="EquipmentSlot.NoSlot"/> if not found.</returns>
         EquipmentSlot GetInstanceSlot(IItem instance);
+
         /// <summary>
-        /// Replaces the specific slot with the item.
+        /// Replaces the item in a specific slot with a new item, without any validation.
         /// </summary>
-        /// <param name="slot"></param>
-        /// <param name="item"></param>
+        /// <param name="slot">The equipment slot to replace.</param>
+        /// <param name="item">The new item to place in the slot.</param>
         void Replace(EquipmentSlot slot, IItem item);
+
         /// <summary>
-        /// Removes a certain amount of Item objects from the container.
+        /// Removes a specified item from the equipment container.
         /// </summary>
         /// <param name="item">The item to be removed.</param>
-        /// <param name="preferredSlot">Preferred slot for removal.</param>
-        /// <param name="update">if set to <c>true</c> [update].</param>
-        /// <returns>
-        /// Returns the number of Item objects removed from the container.
-        /// </returns>
+        /// <param name="preferredSlot">The preferred slot to remove the item from.</param>
+        /// <param name="update">If set to <c>true</c>, an update callback is invoked.</param>
+        /// <returns>The number of items actually removed.</returns>
         int Remove(IItem item, EquipmentSlot preferredSlot = EquipmentSlot.NoSlot, bool update = true);
+
         /// <summary>
-        /// Gets an Item object by the specified id.
+        /// Gets the first equipped item that matches the specified ID.
         /// </summary>
-        /// <param name="id">The identifier.</param>
-        /// <returns>
-        /// Returns the Item object instance; null if not found.
-        /// </returns>
+        /// <param name="id">The item ID to search for.</param>
+        /// <returns>The first equipped <see cref="IItem"/> instance with the given ID, or <c>null</c> if not found.</returns>
         IItem? GetById(int id);
+
         /// <summary>
-        /// Add's a certain amount of item in specific slot.
+        /// Adds an item to a specific equipment slot. This is typically used for direct manipulation rather than standard equipping logic.
         /// </summary>
-        /// <param name="slot">Slot at which item should be added.</param>
+        /// <param name="slot">The equipment slot where the item should be added.</param>
         /// <param name="item">The item to add.</param>
-        /// <returns>If item was added.</returns>
+        /// <returns><c>true</c> if the item was added successfully; otherwise, <c>false</c>.</returns>
         bool Add(EquipmentSlot slot, IItem item);
+
         /// <summary>
-        /// Clears the container.
+        /// Clears all items from the equipment container.
         /// </summary>
-        /// <param name="update">if set to <c>true</c> [update].</param>
+        /// <param name="update">If set to <c>true</c>, an update callback is invoked.</param>
         void Clear(bool update);
+
         /// <summary>
-        /// Called when some or all items in the container has changed.
+        /// A callback method invoked when the equipment container's contents are updated.
         /// </summary>
+        /// <param name="slots">A hash set of the specific equipment slots that were changed. If null, a full update is assumed.</param>
         void OnUpdate(HashSet<EquipmentSlot>? slots = null);
     }
 }

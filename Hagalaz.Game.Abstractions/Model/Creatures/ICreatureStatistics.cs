@@ -1,115 +1,114 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// 
+    /// Defines the contract for managing a creature's statistics, including health, skills, and combat bonuses.
     /// </summary>
     public interface ICreatureStatistics
     {
         /// <summary>
-        /// Contains creature hitpoints.
+        /// Gets the current life points (health) of the creature.
         /// </summary>
-        /// <value>The constitution points.</value>
         int LifePoints { get; }
+
         /// <summary>
-        /// Get's if player is poisoned.
+        /// Gets a value indicating whether the creature is currently poisoned.
         /// </summary>
-        /// <value><c>true</c> if poisoned; otherwise, <c>false</c>.</value>
         bool Poisoned { get; }
+
         /// <summary>
-        /// Gets the bonuses.
+        /// Gets the collection of combat bonuses derived from the creature's equipment.
         /// </summary>
-        /// <value>
-        /// The bonuses.
-        /// </value>
         IBonuses Bonuses { get; }
+
         /// <summary>
-        /// Gets the prayer bonuses.
+        /// Gets the collection of combat bonuses derived from the creature's active prayers and curses.
         /// </summary>
-        /// <value>
-        /// The prayer bonuses.
-        /// </value>
         IBonusesPrayer PrayerBonuses { get; }
+
         /// <summary>
-        /// Damage's creature hitpoints.
-        /// creature.OnDeath() is possible.
+        /// Reduces the creature's life points by a specified amount.
         /// </summary>
-        /// <param name="amount">Amount of damage.</param>
-        /// <returns>
-        /// Return's the actual amount of damage.
-        /// </returns>
+        /// <param name="amount">The amount of damage to inflict.</param>
+        /// <returns>The actual amount of damage dealt.</returns>
         int DamageLifePoints(int amount);
+
         /// <summary>
-        /// Heal's creature hitpoints by the given amount.
+        /// Increases the creature's life points by a specified amount.
         /// </summary>
-        /// <param name="amount">Amount to heal hitpoints.</param>
-        /// <returns>Returns the amount of points healed actually.</returns>
+        /// <param name="amount">The amount to heal.</param>
+        /// <returns>The actual amount of life points restored.</returns>
         int HealLifePoints(int amount);
+
         /// <summary>
-        /// Get's level of specific skill.
+        /// Gets the current level of a specific skill.
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <returns>System.Int32.</returns>
-        /// <exception cref="System.Exception"></exception>
+        /// <param name="skillID">The ID of the skill to retrieve.</param>
+        /// <returns>The level of the specified skill.</returns>
         int GetSkillLevel(int skillID);
+
         /// <summary>
-        /// Damage's (Decreases) specific skill.
+        /// Reduces the level of a specific skill by a specified amount.
         /// </summary>
-        /// <param name="skillID">The skill Id.</param>
-        /// <param name="damage">The damage.</param>
-        /// <returns>Returns the actual damage.</returns>
+        /// <param name="skillID">The ID of the skill to damage.</param>
+        /// <param name="damage">The amount to reduce the skill level by.</param>
+        /// <returns>The actual amount the skill was damaged.</returns>
         int DamageSkill(int skillID, int damage);
+
         /// <summary>
-        /// Heals (Increases) specific skill.
+        /// Increases the level of a specific skill by a specified amount.
         /// </summary>
-        /// <param name="skillID">The skill Id.</param>
-        /// <param name="amount">The amount.</param>
-        /// <returns>Returns the actual heal amount.</returns>
+        /// <param name="skillID">The ID of the skill to heal.</param>
+        /// <param name="amount">The amount to increase the skill level by.</param>
+        /// <returns>The actual amount the skill was healed.</returns>
         int HealSkill(int skillID, int amount);
+
         /// <summary>
-        /// Set's character poison amount.
+        /// Sets the current poison strength for the creature.
         /// </summary>
-        /// <param name="amount">The amount.</param>
+        /// <param name="amount">The strength of the poison.</param>
         void SetPoisonAmount(int amount);
+
         /// <summary>
-        /// Increase's dynamic prayer bonus of specific type by 1.
-        /// Does not work if current prayer bonus is higher or equal to 15.
-        /// Type must be curse bonus!
+        /// Increases a dynamic curse bonus, up to a specified maximum.
         /// </summary>
-        /// <param name="type">The type.</param>
-        /// <param name="max">The max.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="type">The type of curse bonus to increase.</param>
+        /// <param name="max">The maximum value for the bonus.</param>
+        /// <returns><c>true</c> if the bonus was increased; otherwise, <c>false</c>.</returns>
         bool IncreaseCursePrayerBonus(BonusPrayerType type, int max);
+
         /// <summary>
-        /// Decrease's dynamic prayer bonus of specific type by 1.
-        /// Does not work if current bonus is lower or equal to maximum.
-        /// Type must be curse bonus!
+        /// Decreases a dynamic curse bonus.
         /// </summary>
-        /// <param name="type">The type.</param>
-        /// <param name="max">The max.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="type">The type of curse bonus to decrease.</param>
+        /// <param name="max">The maximum value for the bonus (used in calculation).</param>
+        /// <returns><c>true</c> if the bonus was decreased; otherwise, <c>false</c>.</returns>
         bool DecreaseCursePrayerBonus(BonusPrayerType type, int max);
+
         /// <summary>
-        /// Set's instant curse prayer bonus.
+        /// Sets an instantaneous curse bonus to a specific value.
         /// </summary>
-        /// <param name="type">The type.</param>
-        /// <param name="value">The value.</param>
+        /// <param name="type">The type of curse bonus to set.</param>
+        /// <param name="value">The value to set.</param>
         void SetInstantCursePrayerBonus(BonusPrayerType type, int value);
+
         /// <summary>
-        /// Set's turmoil bonuses according to target's skills.
+        /// Sets the bonuses for the Turmoil curse based on the target's skill levels.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The target creature whose stats will influence the Turmoil bonus.</param>
         void SetTurmoilBonuses(ICreature target);
+
         /// <summary>
-        /// Reset's all turmoil bonuses.
+        /// Resets all bonuses related to the Turmoil curse to zero.
         /// </summary>
         void ResetTurmoilBonuses();
+
         /// <summary>
-        /// Reset's all skill levels , hitpoints, prayerpoints
-        /// to their full values.
+        /// Restores all of the creature's stats (skills, life points, prayer) to their base levels.
         /// </summary>
         void Normalise();
+
         /// <summary>
-        /// Ticks this instance.
+        /// Processes a single game tick for the creature's statistics, handling effects like poison and prayer drain.
         /// </summary>
         void Tick();
     }

@@ -3,22 +3,22 @@ using Hagalaz.Game.Abstractions.Collections;
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// Class which contains data about an item.
+    /// Represents a data transfer object containing information about an item to be given to a newly created character.
     /// </summary>
     public class CharacterCreateInfoDto
     {
         /// <summary>
-        /// The item Id.
+        /// Gets or sets the unique identifier of the item.
         /// </summary>
         public int Id { get; set; }
 
         /// <summary>
-        /// The item count.
+        /// Gets or sets the quantity of the item.
         /// </summary>
         public int Count { get; set; }
 
         /// <summary>
-        /// The container type.
+        /// Gets or sets the type of container where the item should be placed (e.g., inventory, bank).
         /// </summary>
         public ItemContainerType Type { get; set; }
     }

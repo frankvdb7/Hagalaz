@@ -1,10 +1,13 @@
 ﻿namespace Hagalaz.Game.Abstractions.Features.Clans
 {
     /// <summary>
-    /// 
+    /// Defines the various job titles or roles that a member can have within a clan.
     /// </summary>
     public enum ClanJob : byte
     {
+        /// <summary>
+        /// The member has no specific job title.
+        /// </summary>
         None = 0,
         /// <summary>
         /// The administrator

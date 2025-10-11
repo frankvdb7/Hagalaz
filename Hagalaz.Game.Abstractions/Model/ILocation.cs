@@ -3,96 +3,100 @@
 namespace Hagalaz.Game.Abstractions.Model
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a 3D location in the game world, including methods for calculations related to distance, direction, and regions.
     /// </summary>
     public interface ILocation : IVector3
     {
         /// <summary>
-        /// Get's the 64x64 splice X of this location.
+        /// Gets the X-coordinate of the 64x64 map region this location belongs to.
         /// </summary>
-        /// <value>The region X.</value>
         int RegionX { get; }
+
         /// <summary>
-        /// Get's the 64x64 splice X of this location.
+        /// Gets the Y-coordinate of the 64x64 map region this location belongs to.
         /// </summary>
-        /// <value>The region Y.</value>
         int RegionY { get; }
+
         /// <summary>
-        /// Gets the 8x8 splice X coordinate.
+        /// Gets the X-coordinate of the 8x8 map region part this location belongs to.
         /// </summary>
-        /// <value>The region part X.</value>
         int RegionPartX { get; }
+
         /// <summary>
-        /// Gets the 8x8 splice Y coordinate.
+        /// Gets the Y-coordinate of the 8x8 map region part this location belongs to.
         /// </summary>
-        /// <value>The region part Y.</value>
         int RegionPartY { get; }
+
         /// <summary>
-        /// Return's local X coordinate in the location's region.
+        /// Gets the local X-coordinate within the location's 64x64 map region.
         /// </summary>
-        /// <value>The region local X.</value>
         int RegionLocalX { get; }
+
         /// <summary>
-        /// Return's local Y coordinate in the location's region.
+        /// Gets the local Y-coordinate within the location's 64x64 map region.
         /// </summary>
-        /// <value>The region local Y.</value>
         int RegionLocalY { get; }
+
         /// <summary>
-        /// Contains dimension of this location.
+        /// Gets the dimension (or instance) of this location, allowing for multiple parallel versions of the game world.
         /// </summary>
-        /// <value>The dimension.</value>
         int Dimension { get; }
+
         /// <summary>
-        /// Gets the region identifier.
+        /// Gets the unique identifier for the 64x64 map region this location belongs to.
         /// </summary>
-        /// <value>
-        /// The region identifier.
-        /// </value>
         int RegionId { get; }
+
         /// <summary>
-        /// Translates the specified location.
+        /// Creates a new location by translating (moving) this location by the specified offsets.
         /// </summary>
-        /// <param name="x">The x.</param>
-        /// <param name="y">The y.</param>
-        /// <param name="z">The z.</param>
-        /// <returns></returns>
+        /// <param name="x">The offset to apply to the X-coordinate.</param>
+        /// <param name="y">The offset to apply to the Y-coordinate.</param>
+        /// <param name="z">The offset to apply to the Z-coordinate (plane).</param>
+        /// <returns>A new <see cref="ILocation"/> instance representing the translated location.</returns>
         ILocation Translate(int x, int y, int z);
+
         /// <summary>
-        /// Gets the direction.
+        /// Calculates the direction from this location to a target coordinate.
         /// </summary>
-        /// <param name="toX">To x.</param>
-        /// <param name="toY">To y.</param>
-        /// <returns></returns>
+        /// <param name="toX">The X-coordinate of the target location.</param>
+        /// <param name="toY">The Y-coordinate of the target location.</param>
+        /// <returns>A <see cref="DirectionFlag"/> representing the calculated direction.</returns>
         DirectionFlag GetDirection(int toX, int toY);
+
         /// <summary>
-        /// Gets the direction.
+        /// Calculates the direction from this location to a target location.
         /// </summary>
-        /// <param name="to">To.</param>
-        /// <returns></returns>
+        /// <param name="to">The target location.</param>
+        /// <returns>A <see cref="DirectionFlag"/> representing the calculated direction.</returns>
         DirectionFlag GetDirection(ILocation to);
+
         /// <summary>
-        /// Gets the distance.
+        /// Calculates the Euclidean distance between this location and another.
         /// </summary>
-        /// <param name="other">The other.</param>
-        /// <returns></returns>
+        /// <param name="other">The other location.</param>
+        /// <returns>The distance as a double-precision floating-point number.</returns>
         double GetDistance(ILocation other);
+
         /// <summary>
-        /// Measures the distance between two locations.
+        /// Checks if another location is within a specified Manhattan distance from this location.
         /// </summary>
         /// <param name="other">The location to compare with.</param>
-        /// <param name="distance">The instance that the distance has to be within</param>
-        /// <returns>Returns true if the given location is within distance of the given distance range; false if not.</returns>
+        /// <param name="distance">The maximum distance to check for.</param>
+        /// <returns><c>true</c> if the other location is within the specified distance; otherwise, <c>false</c>.</returns>
         bool WithinDistance(ILocation other, int distance);
+
         /// <summary>
-        /// Copies this instance.
+        /// Creates a new, identical copy of this location.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>A new <see cref="ILocation"/> instance with the same coordinates and dimension.</returns>
         ILocation Clone();
+
         /// <summary>
-        /// Copies the specified new dimension.
+        /// Creates a new copy of this location in a different dimension.
         /// </summary>
-        /// <param name="newDimension">The new dimension.</param>
-        /// <returns></returns>
+        /// <param name="newDimension">The dimension for the new location.</param>
+        /// <returns>A new <see cref="ILocation"/> instance with the same coordinates but in the new dimension.</returns>
         ILocation Copy(int newDimension);
     }
 }

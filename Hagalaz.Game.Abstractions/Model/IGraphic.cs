@@ -1,29 +1,28 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a temporary, non-interactive graphical effect.
     /// </summary>
     public interface IGraphic
     {
         /// <summary>
-        /// Gets the graphic id (id from client).
+        /// Gets the unique identifier for the graphical effect.
         /// </summary>
-        /// <value>The id.</value>
         int Id { get; }
+
         /// <summary>
-        /// Gets the graphic delay.
+        /// Gets the delay in game ticks before the graphic is displayed.
         /// </summary>
-        /// <value>The delay.</value>
         int Delay { get; }
+
         /// <summary>
-        /// Get's the graphic height.
+        /// Gets the height offset at which the graphic is rendered relative to the ground.
         /// </summary>
-        /// <value>The height.</value>
         int Height { get; }
+
         /// <summary>
-        /// Get's the graphic rotation.
+        /// Gets the rotation of the graphic.
         /// </summary>
-        /// <value>The rotation.</value>
         int Rotation { get; }
     }
 }

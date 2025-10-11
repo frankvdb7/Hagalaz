@@ -55,9 +55,9 @@ namespace Hagalaz.Collections
         #region IDisposable Support
 
         /// <summary>
-        /// Releases the managed resources used by the <see cref="SemaphoreAsyncQueue{T}"/>.
+        /// Releases the managed and unmanaged resources used by the <see cref="SemaphoreAsyncQueue{T}"/>.
         /// </summary>
-        /// <param name="disposing"><c>true</c> to release managed resources; otherwise, <c>false</c>.</param>
+        /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
         protected virtual void Dispose(bool disposing)
         {
             if (!disposing || _signal == null!)
@@ -69,7 +69,7 @@ namespace Hagalaz.Collections
         }
 
         /// <summary>
-        /// Performs application-defined tasks associated with freeing, releasing, or resetting resources.
+        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
         /// </summary>
         public void Dispose()
         {

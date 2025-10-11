@@ -1,12 +1,11 @@
 ﻿using Hagalaz.Game.Abstractions.Logic.Random;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Game.Abstractions.Logic.Skills
 {
     /// <summary>
-    /// 
+    /// Defines a marker interface for any object that can be part of a slayer task generation table.
+    /// It inherits from <see cref="IRandomObject"/>, indicating that it can be selected from a weighted random collection.
     /// </summary>
-    /// <seealso cref="IRandomObject" />
     public interface ISlayerObject : IRandomObject
     {
 

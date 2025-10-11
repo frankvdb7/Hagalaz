@@ -1,24 +1,23 @@
 ﻿namespace Hagalaz.Game.Abstractions.Logic.Loot
 {
     /// <summary>
-    /// 
+    /// Defines the contract for an item that can be dropped as loot, specifying its ID and quantity range.
     /// </summary>
     public interface ILootItem : ILootObject
     {
         /// <summary>
-        /// The item id.
+        /// Gets the unique identifier of the item type.
         /// </summary>
-        /// <value>The item id</value>
         int Id { get; }
+
         /// <summary>
-        /// The minimum loot.
+        /// Gets the minimum number of this item that can be dropped in a single loot instance.
         /// </summary>
-        /// <value>The minimum count.</value>
         int MinimumCount { get; }
+
         /// <summary>
-        /// The maximum loot.
+        /// Gets the maximum number of this item that can be dropped in a single loot instance.
         /// </summary>
-        /// <value>The maximum count.</value>
         int MaximumCount { get; }
     }
 }

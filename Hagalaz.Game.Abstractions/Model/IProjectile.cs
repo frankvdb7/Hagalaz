@@ -2,81 +2,78 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 
 namespace Hagalaz.Game.Abstractions.Model
 {
+    /// <summary>
+    /// Defines the contract for a projectile, which is a moving graphic that travels from a start point to an end point.
+    /// </summary>
     public interface IProjectile
     {
         /// <summary>
-        /// Contains location from which projectile is comming,
-        /// can't be null.
+        /// Gets the starting location of the projectile.
         /// </summary>
         ILocation FromLocation { get; }
 
         /// <summary>
-        /// Contains location to which projectile is comming,
-        /// can't be null.
+        /// Gets the destination location of the projectile.
         /// </summary>
         ILocation ToLocation { get; }
 
         /// <summary>
-        /// Contains sender character, can be null.
+        /// Gets the creature that fired the projectile, if any.
         /// </summary>
         ICreature? FromCreature { get; }
 
         /// <summary>
-        /// Contains receiver character , can be null.
+        /// Gets the creature targeted by the projectile, if any.
         /// </summary>
         ICreature? ToCreature { get; }
 
         /// <summary>
-        /// Boolean which defines if starting height should be adjusted.
+        /// Gets a value indicating whether the projectile's starting height should be adjusted based on the source creature's flying height.
         /// </summary>
         bool AdjustFromFlyingHeight { get; }
 
         /// <summary>
-        /// Boolean which defines if projectile height should be adjusted when it's
-        /// flying so it doesn't fly thru mountains for example.
+        /// Gets a value indicating whether the projectile's ending height should be adjusted based on the target creature's flying height.
         /// </summary>
         bool AdjustToFlyingHeight { get; }
 
         /// <summary>
-        /// Id of the body part from which sender is sending projectile.
-        /// Only usable if AdjustSenderStartHeight is enabled and Sender is not null.
+        /// Gets the ID of the body part from which the projectile originates, used for height adjustments.
         /// </summary>
         int FromBodyPartId { get; }
 
         /// <summary>
-        /// Contains projectile graphic Id.
+        /// Gets the unique identifier for the projectile's visual graphic.
         /// </summary>
         int GraphicId { get; }
 
         /// <summary>
-        /// Contains projectile delay. 1 = 25ms , 2 = 50ms n so on. 
+        /// Gets the delay in game ticks before the projectile is launched.
         /// </summary>
         int Delay { get; }
 
         /// <summary>
-        /// Contains projectile duration, higher duration - lower speed , 
-        /// lower duration - higher speed.
-        /// 1 = 25ms , 2 = 50ms n so on.
+        /// Gets the total duration of the projectile's flight in game ticks.
         /// </summary>
         int Duration { get; }
 
         /// <summary>
-        /// Contains starting height of the projectile.
+        /// Gets the starting height of the projectile, relative to its location.
         /// </summary>
         int FromHeight { get; }
 
         /// <summary>
-        /// Contains end height of the projectile.
+        /// Gets the ending height of the projectile, relative to its location.
         /// </summary>
         int ToHeight { get; }
 
         /// <summary>
-        /// Contains projectile slope.
+        /// Gets the slope or arc of the projectile's flight path.
         /// </summary>
         int Slope { get; }
 
         /// <summary>
-        /// Contains projectile angle.
+        /// Gets the initial angle of the projectile's launch.
         /// </summary>
         int Angle { get; }
     }
