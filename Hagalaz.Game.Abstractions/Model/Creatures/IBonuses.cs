@@ -16,7 +16,7 @@
     /// Defines a generic contract for a collection of bonuses, where the type of bonus is specified by an enum.
     /// </summary>
     /// <typeparam name="TBonusType">The enum type that defines the different kinds of bonuses.</typeparam>
-    public interface IBonuses<in TBonusType>
+    public interface IBonuses<TBonusType>
     {
         /// <summary>
         /// Adds the values from another bonus collection to this one.

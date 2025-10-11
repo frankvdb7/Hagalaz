@@ -7,7 +7,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
     /// Defines a contract for a collection of creatures, providing methods for adding, removing, and accessing them by index.
     /// </summary>
     /// <typeparam name="TCreature">The type of creature stored in the collection, which must implement <see cref="ICreature"/>.</typeparam>
-    public interface ICreatureCollection<in TCreature> : IEnumerable, IEnumerable<TCreature> where TCreature : ICreature
+    public interface ICreatureCollection<TCreature> : IEnumerable, IEnumerable<TCreature> where TCreature : ICreature
     {
         /// <summary>
         /// Gets the creature at the specified index.

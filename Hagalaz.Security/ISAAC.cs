@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Hagalaz.Security
+﻿namespace Hagalaz.Security
 {
     /// <summary>
     /// Provides packet opcode encryption and decryption.
@@ -51,11 +49,6 @@ namespace Hagalaz.Security
         /// <param name="seed"></param>
         public ISAAC(uint[] seed)
         {
-            if (seed is null)
-            {
-                throw new ArgumentNullException(nameof(seed));
-            }
-
             _keySet = new uint[256];
             _cryptSet = new uint[256];
             for (var i = 0; seed.Length > i; i++)
