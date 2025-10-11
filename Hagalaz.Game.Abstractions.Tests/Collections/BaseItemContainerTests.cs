@@ -251,5 +251,64 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.IsNotNull(container[5]);
             Assert.IsTrue(item1.Equals(container[5]));
         }
+
+        [TestMethod]
+        public void AddAndRemoveFrom_TransferAllItems_Success()
+        {
+            // Arrange
+            var sourceContainer = new TestableItemContainer(StorageType.Normal, 5);
+            var destContainer = new TestableItemContainer(StorageType.Normal, 10);
+            var item1 = CreateItem(1, 1);
+            var item2 = CreateItem(2, 1, stackable: true);
+            sourceContainer.Add(item1);
+            sourceContainer.Add(item2);
+
+            // Act
+            destContainer.AddAndRemoveFrom(sourceContainer);
+
+            // Assert
+            Assert.AreEqual(0, sourceContainer.TakenSlots);
+            Assert.AreEqual(2, destContainer.TakenSlots);
+            Assert.IsTrue(destContainer.Contains(item1));
+            Assert.IsTrue(destContainer.Contains(item2));
+        }
+
+        [TestMethod]
+        public void Remove_FromContainerWithUpdateFalse_DoesNotCallOnUpdate()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(1, 1);
+            container.Add(item);
+
+            // Act
+            container.Remove(item, update: false);
+
+        }
+
+        [TestMethod]
+        public void Clear_WithUpdateFalse_DoesNotCallOnUpdate()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(1, 1);
+            container.Add(item);
+
+            // Act
+            container.Clear(false);
+
+        }
+
+        [TestMethod]
+        public void SetItems_WithUpdateFalse_DoesNotCallOnUpdate()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var items = new IItem[] { CreateItem(1, 1) };
+
+            // Act
+            container.SetItems(items, false);
+
+        }
     }
 }

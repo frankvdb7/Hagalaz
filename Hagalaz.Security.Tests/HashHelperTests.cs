@@ -1,5 +1,7 @@
 using System.Text;
 
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
 namespace Hagalaz.Security.Tests
 {
     [TestClass]

@@ -1,6 +1,8 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.IO;
 
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
 namespace Hagalaz.Security.Tests
 {
     [TestClass]
