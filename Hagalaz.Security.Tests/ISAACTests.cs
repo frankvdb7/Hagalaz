@@ -162,14 +162,9 @@ namespace Hagalaz.Security.Tests
         }
 
         [TestMethod]
-        [Ignore("This test fails because ISAAC constructor throws NullReferenceException instead of ArgumentNullException for null seed.")]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void Constructor_WithNullSeed_ShouldThrowArgumentNullException()
         {
-            // Arrange & Act
-            new ISAAC(null);
-
-            // Assert - Handled by ExpectedException
+            Assert.ThrowsException<ArgumentNullException>(() => new ISAAC(null));
         }
     }
 }

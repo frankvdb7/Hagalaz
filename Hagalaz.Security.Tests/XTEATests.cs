@@ -109,5 +109,24 @@ namespace Hagalaz.Security.Tests
                 Assert.AreEqual(originalData[i], encryptedData[i], $"Trailing byte at index {i} was modified.");
             }
         }
+
+        [TestMethod]
+        public void TestTransform()
+        {
+            var key = new uint[] { 1, 2, 3, 4 };
+
+            var data = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+            var originalData = (byte[])data.Clone();
+
+            var encryptedData = new byte[data.Length];
+            XTEA.Encrypt(data, encryptedData, key);
+
+            Assert.AreNotEqual(originalData, encryptedData);
+
+            var decryptedData = new byte[data.Length];
+            XTEA.Decrypt(encryptedData, decryptedData, key);
+
+            CollectionAssert.AreEqual(originalData, decryptedData);
+        }
     }
 }
