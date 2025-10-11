@@ -3,127 +3,98 @@
 namespace Hagalaz.Game.Abstractions.Features.Clans
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a clan's settings, which control various aspects of the clan's appearance, permissions, and behavior.
     /// </summary>
     public interface IClanSettings
     {
         /// <summary>
-        /// Occurs when [changed].
+        /// An event that is raised whenever a setting is changed.
         /// </summary>
         event Action OnChanged;
+
         /// <summary>
-        /// Gets or sets the clan identifier.
+        /// Gets or sets the unique identifier for the clan.
         /// </summary>
-        /// <value>
-        /// The clan identifier.
-        /// </value>
         uint ClanId { get; set; }
+
         /// <summary>
-        /// Gets a value indicating whether this instance is clan time.
-        /// False is to use the standard game time (UTC)
+        /// Gets or sets a value indicating whether the clan uses its own time zone (<c>true</c>) or the standard game time (UTC) (<c>false</c>).
         /// </summary>
-        /// <value>
-        /// <c>true</c> if this instance is clan time; otherwise, <c>false</c>.
-        /// </value>
         bool ClanTime { get; set; }
+
         /// <summary>
-        /// Gets the time zone.
+        /// Gets or sets the time zone offset for the clan if <see cref="ClanTime"/> is enabled.
         /// </summary>
-        /// <value>
-        /// The time zone.
-        /// </value>
         int TimeZone { get; set; }
+
         /// <summary>
-        /// Gets the motto.
+        /// Gets or sets the clan's motto.
         /// </summary>
-        /// <value>
-        /// The motto.
-        /// </value>
         string Motto { get; set; }
+
         /// <summary>
-        /// Gets the thread identifier.
+        /// Gets or sets the ID of the clan's forum thread.
         /// </summary>
-        /// <value>
-        /// The thread identifier.
-        /// </value>
         string ThreadID { get; set; }
+
         /// <summary>
-        /// Gets a value indicating whether this <see cref="Clan"/> is recruiting.
+        /// Gets or sets a value indicating whether the clan is currently open for recruitment.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if recruiting; otherwise, <c>false</c>.
-        /// </value>
         bool Recruiting { get; set; }
+
         /// <summary>
-        /// Gets the world identifier.
+        /// Gets or sets the ID of the clan's home world.
         /// </summary>
-        /// <value>
-        /// The world identifier.
-        /// </value>
         ushort WorldID { get; set; }
+
         /// <summary>
-        /// Gets the clan flag.
+        /// Gets or sets the ID of the clan's national flag, used for display on vexillums.
         /// </summary>
-        /// <value>
-        /// The clan flag.
-        /// </value>
         int NationalFlag { get; set; }
+
         /// <summary>
-        /// Gets the mottif top.
+        /// Gets or sets the ID for the top part of the clan's custom motif.
         /// </summary>
-        /// <value>
-        /// The mottif top.
-        /// </value>
         byte MottifTop { get; set; }
+
         /// <summary>
-        /// Gets the mottif bottom.
+        /// Gets or sets the ID for the bottom part of the clan's custom motif.
         /// </summary>
-        /// <value>
-        /// The mottif bottom.
-        /// </value>
         byte MottifBottom { get; set; }
+
         /// <summary>
-        /// Gets or sets the mottif colour left top.
+        /// Gets or sets the color for the top-left section of the clan's motif.
         /// </summary>
-        /// <value>
-        /// The mottif colour left top.
-        /// </value>
         int MottifColourLeftTop { get; set; }
+
         /// <summary>
-        /// Gets or sets the mottif colour right bottom.
+        /// Gets or sets the color for the bottom-right section of the clan's motif.
         /// </summary>
-        /// <value>
-        /// The mottif colour right bottom.
-        /// </value>
         int MottifColourRightBottom { get; set; }
+
         /// <summary>
-        /// Gets or sets the primary clan colour.
+        /// Gets or sets the primary color used for the clan's cape and vexillum.
         /// </summary>
-        /// <value>
-        /// The primary clan colour.
-        /// </value>
         int PrimaryClanColour { get; set; }
+
         /// <summary>
-        /// Gets or sets the secondary clan colour.
+        /// Gets or sets the secondary color used for the clan's cape and vexillum.
         /// </summary>
-        /// <value>
-        /// The secondary clan colour.
-        /// </value>
         int SecondaryClanColour { get; set; }
+
         /// <summary>
-        /// Rank required to kick in the clan.
+        /// Gets or sets the minimum rank required to kick a member from the clan chat channel.
         /// </summary>
-        /// <value>The rank to kick.</value>
         ClanRank RankToKick { get; set; }
+
         /// <summary>
-        /// Rank required to enter to enter chat channel.
+        /// Gets or sets the minimum rank required to enter the clan's chat channel.
         /// </summary>
-        /// <value>The rank to kick.</value>
         ClanRank RankToEnterCc { get; set; }
+
         /// <summary>
-        /// Rank required to talk in the chat channel.
+        /// Gets or sets the minimum rank required to speak in the clan's chat channel.
         /// </summary>
-        /// <value>The rank to talk.</value>
         ClanRank RankToTalk { get; set; }
     }
 }

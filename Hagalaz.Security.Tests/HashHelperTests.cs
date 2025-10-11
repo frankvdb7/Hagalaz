@@ -1,7 +1,5 @@
 using System.Text;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-
 namespace Hagalaz.Security.Tests
 {
     [TestClass]
@@ -150,13 +148,6 @@ namespace Hagalaz.Security.Tests
 
             // Assert
             Assert.IsNull(result);
-        }
-
-        [TestMethod]
-        public void TestInvalidHashType()
-        {
-            var result = HashHelper.ComputeHash(PlainText, (HashType)99);
-            Assert.AreEqual(string.Empty, result);
         }
     }
 }

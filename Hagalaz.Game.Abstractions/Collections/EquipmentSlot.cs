@@ -14,7 +14,7 @@
         /// </summary>
         Hat = 0,
         /// <summary>
-        /// The hat equipment slot id.
+        /// The cape equipment slot id.
         /// </summary>
         Cape = 1,
         /// <summary>

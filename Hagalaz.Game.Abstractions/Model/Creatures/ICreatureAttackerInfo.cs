@@ -3,9 +3,8 @@
 namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// 
+    /// Defines a specialized contract for attacker information where the attacker is a creature.
     /// </summary>
-    /// <seealso cref="ICreature" />
     public interface ICreatureAttackerInfo : IAttackerInfo<ICreature>
     {
     }

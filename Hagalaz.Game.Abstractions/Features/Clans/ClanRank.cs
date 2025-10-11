@@ -1,7 +1,7 @@
 ﻿namespace Hagalaz.Game.Abstractions.Features.Clans
 {
     /// <summary>
-    /// 
+    /// Defines the hierarchical ranks within a clan, which determine a member's permissions and standing.
     /// </summary>
     public enum ClanRank : sbyte
     {

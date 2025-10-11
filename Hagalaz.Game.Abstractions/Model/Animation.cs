@@ -3,34 +3,31 @@
 namespace Hagalaz.Game.Abstractions.Model
 {
     /// <summary>
-    /// Represents a single animation display request.
+    /// Represents a request to play a single animation sequence, such as a character's attack or an emote.
     /// </summary>
     public readonly struct Animation : IAnimation, IEquatable<Animation>
     {
         /// <summary>
-        /// Gets the animation id (id from client).
+        /// Gets the unique identifier for the animation sequence.
         /// </summary>
         public int Id { get; }
 
         /// <summary>
-        /// Gets the animation delay.
+        /// Gets the delay in game ticks before the animation starts playing.
         /// </summary>
         public int Delay { get; }
 
         /// <summary>
-        /// Gets the priority.
+        /// Gets the priority of the animation. Higher priority animations can override lower priority ones.
         /// </summary>
-        /// <value>
-        /// The priority.
-        /// </value>
         public int Priority { get; }
 
         /// <summary>
-        /// Constructs a new animation.
+        /// Initializes a new instance of the <see cref="Animation"/> struct.
         /// </summary>
-        /// <param name="id">The animation id.</param>
-        /// <param name="delay">The delay of the animation display.</param>
-        /// <param name="priority">The priority of the animation.</param>
+        /// <param name="id">The unique identifier for the animation sequence.</param>
+        /// <param name="delay">The delay in game ticks before the animation starts.</param>
+        /// <param name="priority">The priority level of the animation.</param>
         public Animation(int id, int delay, int priority)
         {
             Id = id;

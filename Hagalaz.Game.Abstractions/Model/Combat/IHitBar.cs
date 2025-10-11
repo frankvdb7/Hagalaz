@@ -1,44 +1,33 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Combat
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a hit bar, which visually represents a creature's health status.
     /// </summary>
     public interface IHitBar
     {
         /// <summary>
-        /// Gets the type.
+        /// Gets the visual type of the hit bar.
         /// </summary>
-        /// <value>
-        /// The type.
-        /// </value>
          HitBarType Type { get; }
+
         /// <summary>
-        /// Gets the delay.
+        /// Gets the delay before the hit bar appears or updates.
         /// </summary>
-        /// <value>
-        /// The delay.
-        /// </value>
         int Delay { get; }
+
         /// <summary>
-        /// The speed of updating changes (in 20ms cycles).
+        /// Gets the speed at which the hit bar animates to its new value.
         /// </summary>
-        /// <value>
-        /// The speed.
-        /// </value>
         int Speed { get; }
+
         /// <summary>
-        /// Gets the current life points.
+        /// Gets the starting health value for the hit bar's animation.
         /// </summary>
-        /// <value>
-        /// The current life points.
-        /// </value>
         int CurrentLifePoints { get; }
+
         /// <summary>
-        /// Gets the new life points.
+        /// Gets the ending health value for the hit bar's animation.
         /// </summary>
-        /// <value>
-        /// The new life points.
-        /// </value>
         int NewLifePoints { get; }
     }
 }

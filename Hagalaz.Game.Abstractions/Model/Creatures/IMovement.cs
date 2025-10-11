@@ -3,99 +3,88 @@
 namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// 
+    /// Defines the contract for managing a creature's movement, including pathfinding, teleportation, and state.
     /// </summary>
     public interface IMovement
     {
         /// <summary>
-        /// Get's if character is moving.
+        /// Gets a value indicating whether the creature is currently moving.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if moving; otherwise, <c>false</c>.
-        /// </value>
-        /// <exception cref="System.NotSupportedException">Can't set Moving to true!</exception>
         bool Moving { get; }
+
         /// <summary>
-        /// Get's if movement is locked.
+        /// Gets a value indicating whether the creature's movement is currently locked (e.g., by a stun or a script).
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if locked; otherwise, <c>false</c>.
-        /// </value>
         bool Locked { get; }
+
         /// <summary>
-        /// Contains boolean if creature moved on this cycle.
+        /// Gets a value indicating whether the creature has moved during the current game tick.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if moved; otherwise, <c>false</c>.
-        /// </value>
         bool Moved { get; }
+
         /// <summary>
-        /// Contains boolean if creature teleported on this cycle.
+        /// Gets a value indicating whether the creature has teleported during the current game tick.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if teleported; otherwise, <c>false</c>.
-        /// </value>
         bool Teleported { get; }
+
         /// <summary>
-        /// Contains boolean which tells if temporary movement type
-        /// is enabled.
+        /// Gets a value indicating whether a temporary movement type is currently active.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if [temporary movement type enabled]; otherwise, <c>false</c>.
-        /// </value>
         bool TemporaryMovementTypeEnabled { get; }
+
         /// <summary>
-        /// Contains creature movement type.
+        /// Gets or sets the creature's current movement type (e.g., walking, running).
         /// </summary>
-        /// <value>
-        /// The type of the movement.
-        /// </value>
         MovementType MovementType { get; set; }
+
         /// <summary>
-        /// Contains temporary movement type.
+        /// Gets the last temporary movement type that was active.
         /// </summary>
-        /// <value>
-        /// The last type of the temporary movement.
-        /// </value>
         MovementType LastTemporaryMovementType { get; }
 
         /// <summary>
-        /// Teleports character to given location.
+        /// Instantly moves the creature to a new location.
         /// </summary>
-        /// <param name="teleport">Location where to teleport.</param>
+        /// <param name="teleport">The teleport request containing the destination and type.</param>
         void Teleport(ITeleport teleport);
+
         /// <summary>
-        /// Adds to queue.
+        /// Adds a pre-calculated path to the movement queue.
         /// </summary>
-        /// <param name="path">The path.</param>
+        /// <param name="path">The path for the creature to follow.</param>
         void AddToQueue(IPath path);
+
         /// <summary>
-        /// Add's location to çreatures movement queue.
-        /// Does not add anything to the queue, if a movement lock has been set.
+        /// Calculates a path to the target location and adds it to the movement queue.
         /// </summary>
-        /// <param name="target">Where to move.</param>
+        /// <param name="target">The destination location.</param>
         void AddToQueue(ILocation target);
+
         /// <summary>
-        /// Clears movement queue.
+        /// Clears the current movement queue, stopping any planned movement.
         /// </summary>
         void ClearQueue();
+
         /// <summary>
-        /// Processes character movement.
+        /// Processes a single game tick for the creature's movement, advancing it along its path.
         /// </summary>
         void Tick();
+
         /// <summary>
-        /// Resets movement data.
+        /// Resets the movement state, clearing the queue and any movement-related flags.
         /// </summary>
         void Reset();
+
         /// <summary>
-        /// Lock's creature's movement.
+        /// Prevents the creature from moving.
         /// </summary>
-        /// <param name="resetQueue">Wheter movement queue should be reset.</param>
+        /// <param name="resetQueue">If set to <c>true</c>, the current movement queue will be cleared.</param>
         void Lock(bool resetQueue);
+
         /// <summary>
-        /// Unlocks creature's movement.
+        /// Allows the creature to move again.
         /// </summary>
-        /// <param name="resetLock">if set to <c>true</c> [reset lock] completely.</param>
+        /// <param name="resetLock">If set to <c>true</c>, any persistent movement lock is removed.</param>
         void Unlock(bool resetLock);
     }
 }

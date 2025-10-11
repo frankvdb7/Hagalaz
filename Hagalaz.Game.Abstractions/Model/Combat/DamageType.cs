@@ -1,61 +1,52 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Combat
 {
     /// <summary>
-    /// Defines combat damage types.
+    /// Defines the various types of damage that can be dealt in combat, which affects how protection prayers and other modifiers are applied.
     /// </summary>
     public enum DamageType
     {
         /// <summary>
-        /// Standard melee attack damage. Normal NPC's use this.
-        /// Protection prayers protect fully against this type of damage
+        /// Melee damage that can be fully blocked by protection prayers. Typically used by standard NPCs.
         /// </summary>
         StandardMelee,
         /// <summary>
-        /// Standard range attack damage. Normal NPC's use this.
-        /// Protection prayers protect fully against this type of damage
+        /// Ranged damage that can be fully blocked by protection prayers. Typically used by standard NPCs.
         /// </summary>
         StandardRange,
         /// <summary>
-        /// Standard magic attack damage. Normal NPC's use this.
-        /// Protection prayers protect fully against this type of damage
+        /// Magic damage that can be fully blocked by protection prayers. Typically used by standard NPCs.
         /// </summary>
         StandardMagic,
         /// <summary>
-        /// Standard summoning attack damage. Normal NPC's use this.
-        /// Protection prayers protect fully against this type of damage
+        /// Summoning-based damage that can be fully blocked by protection prayers.
         /// </summary>
         StandardSummoning,
         /// <summary>
-        /// 
+        /// Damage that is reflected back to an attacker (e.g., from a Vengeance spell or Ring of Recoil).
         /// </summary>
         Reflected,
         /// <summary>
-        /// Standard attack damage.
-        /// Protection prayers are not included in calculations.
+        /// Typeless damage that is not reduced by protection prayers.
         /// </summary>
         Standard,
         /// <summary>
-        /// 
+        /// Damage from dragonfire, which requires specific anti-dragon protection to mitigate.
         /// </summary>
         DragonFire,
         /// <summary>
-        /// Full melee attack damage. Some NPC's and all characters use this.  
-        /// Protection prayers protects you from most of the damage of this type.
+        /// Melee damage that is only partially blocked by protection prayers. Typically used by players and more powerful NPCs.
         /// </summary>
         FullMelee,
         /// <summary>
-        /// Full range attack damage. Some NPC's and all characters use this. 
-        /// Protection prayers protects you from most of the damage of this type.
+        /// Ranged damage that is only partially blocked by protection prayers. Typically used by players and more powerful NPCs.
         /// </summary>
         FullRange,
         /// <summary>
-        /// Full magic attack damage. Some NPC's and all characters use this. 
-        /// Protection prayers protects you from most of the damage of this type.
+        /// Magic damage that is only partially blocked by protection prayers. Typically used by players and more powerful NPCs.
         /// </summary>
         FullMagic,
         /// <summary>
-        /// Full summoning attack damage. Some NPC's and all characters use this. 
-        /// Protection prayers protects you from most of the damage of this type.
+        /// Summoning-based damage that is only partially blocked by protection prayers.
         /// </summary>
         FullSummoning,
     }

@@ -1,34 +1,37 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// Contains creature glow render.
+    /// Defines the contract for a glow effect that can be rendered on a creature, specifying its color and duration.
     /// </summary>
     public interface IGlow
     {
         /// <summary>
-        /// Contains glow color 1.
+        /// Gets the alpha (transparency) component of the glow color.
         /// </summary>
         int Alpha { get; }
+
         /// <summary>
-        /// Contains glow color 2.
+        /// Gets the red component of the glow color.
         /// </summary>
         int Red { get; }
+
         /// <summary>
-        /// Contains glow color 3.
+        /// Gets the green component of the glow color.
         /// </summary>
         int Green { get; }
+
         /// <summary>
-        /// Contains glow color 4.
+        /// Gets the blue component of the glow color.
         /// </summary>
         int Blue { get; }
+
         /// <summary>
-        /// Contains delay of the glow.
-        /// 1 = 30ms , 2 = 60ms , 3 = 90ms n so on.
+        /// Gets the delay in game ticks before the glow effect starts.
         /// </summary>
         int Delay { get; }
+
         /// <summary>
-        /// Contains duration of the glow.
-        /// 1 = 30ms , 2 = 60ms , 3 = 90ms n so on.
+        /// Gets the duration of the glow effect in game ticks.
         /// </summary>
         int Duration { get; }
     }

@@ -1,22 +1,22 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// 
+    /// Defines a contract for a collection of combat bonuses specifically granted by prayers and curses.
     /// </summary>
-    /// <seealso cref="BonusPrayerType" />
     public interface IBonusesPrayer : IBonuses<BonusPrayerType>
     {
         /// <summary>
-        /// Add's to specific bonus.
+        /// Increases the value of a specific prayer bonus by a given amount.
         /// </summary>
-        /// <param name="type">Type of the bonus to add to.</param>
-        /// <param name="amount">Amount which should be added.</param>
+        /// <param name="type">The type of the prayer bonus to modify.</param>
+        /// <param name="amount">The amount to add to the bonus.</param>
         void AddToBonus(BonusPrayerType type, int amount);
+
         /// <summary>
-        /// Remove's from specific bonus.
+        /// Decreases the value of a specific prayer bonus by a given amount.
         /// </summary>
-        /// <param name="type">Type of the bonus to remove from.</param>
-        /// <param name="amount">Amount which should be removed.</param>
+        /// <param name="type">The type of the prayer bonus to modify.</param>
+        /// <param name="amount">The amount to remove from the bonus.</param>
         void RemoveFromBonus(BonusPrayerType type, int amount);
     }
 }

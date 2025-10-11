@@ -2,23 +2,25 @@
 
 namespace Hagalaz.Game.Abstractions.Collections
 {
+    /// <summary>
+    /// Defines the contract for a familiar's inventory container, which holds items for a summoned creature (e.g., a beast of burden).
+    /// </summary>
     public interface IFamiliarInventoryContainer : IItemContainer
     {
         /// <summary>
-        /// Deposit's specific item into familiars inventory.
+        /// Deposits a specific item from the player's inventory into the familiar's inventory.
         /// </summary>
-        /// <param name="item">Item which should be deposited.</param>
-        /// <param name="count">The count.</param>
-        /// <returns>
-        /// If depositing was successful.
-        /// </returns>
+        /// <param name="item">The item from the player's inventory to be deposited.</param>
+        /// <param name="count">The number of items to deposit.</param>
+        /// <returns><c>true</c> if the deposit was successful; otherwise, <c>false</c>.</returns>
         bool DepositFromInventory(IItem item, int count);
+
         /// <summary>
-        /// Withdraws from familiar inventory.
+        /// Withdraws a specific item from the familiar's inventory, preparing it for placement in the player's inventory.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="count">The count.</param>
-        /// <returns></returns>
+        /// <param name="item">The item in the familiar's inventory to be withdrawn.</param>
+        /// <param name="count">The number of items to withdraw.</param>
+        /// <returns><c>true</c> if the withdrawal was successful; otherwise, <c>false</c>.</returns>
         bool WithdrawFromFamiliarInventory(IItem item, int count);
     }
 }

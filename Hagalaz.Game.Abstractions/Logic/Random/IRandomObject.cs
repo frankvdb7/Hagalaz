@@ -1,24 +1,22 @@
 ﻿namespace Hagalaz.Game.Abstractions.Logic.Random
 {
     /// <summary>
-    /// This interface contains the properties an object must have to be a valid result object.
+    /// Defines a contract for an object that can be selected from a weighted random table.
     /// </summary>
     public interface IRandomObject
     {
         /// <summary>
-        /// Gets or sets whether this object will always be part of the result set
-        /// (Probability is ignored when this flag is set to true)
+        /// Gets a value indicating whether this object will always be selected, regardless of its probability.
         /// </summary>
         bool Always { get; }
+
         /// <summary>
-        /// Gets or sets a value indicating whether this <see cref="IRandomObject"/> is enabled.
+        /// Gets a value indicating whether this object is currently enabled and can be selected.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if enabled; otherwise, <c>false</c>.
-        /// </value>
         bool Enabled { get; }
+
         /// <summary>
-        /// Contains the probability.
+        /// Gets the probability weight of this object being selected. Higher values are more likely.
         /// </summary>
         double Probability { get; }
     }

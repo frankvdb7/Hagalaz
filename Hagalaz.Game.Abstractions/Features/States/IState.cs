@@ -4,25 +4,28 @@ using Hagalaz.Game.Abstractions.Tasks;
 namespace Hagalaz.Game.Abstractions.Features.States
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a temporary state or effect that can be applied to a character, such as poison, stun, or a temporary boost.
+    /// States are processed on each game tick and can expire after a certain duration.
     /// </summary>
     public interface IState : ITickItem, IDisposable
     {
         /// <summary>
-        /// Contains the delay in ticks at which the state will be removed.
+        /// Gets the delay in game ticks before the state is automatically removed.
         /// </summary>
         int RemoveDelay { get; }
+
         /// <summary>
-        /// Contains type of the state.
+        /// Gets the type of the state, which categorizes its general effect (e.g., Skull, Vengeance).
         /// </summary>
-        /// <value>The type of the state.</value>
         StateType StateType { get; }
+
         /// <summary>
-        /// Contains the the state script.
+        /// Gets the script that defines the behavior and logic of this state.
         /// </summary>
         IStateScript Script { get; }
+
         /// <summary>
-        /// 
+        /// Gets a value indicating whether this state has been marked for removal.
         /// </summary>
         bool Removed { get; }
     }

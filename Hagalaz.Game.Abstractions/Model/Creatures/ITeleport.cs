@@ -1,20 +1,18 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a teleport request, specifying the destination and movement type.
     /// </summary>
     public interface ITeleport
     {
         /// <summary>
-        /// Contains teleport location.
+        /// Gets the destination location for the teleport.
         /// </summary>
-        /// <value>The location.</value>
         ILocation Location { get; }
+
         /// <summary>
-        /// Contains teleport type.
-        /// By default, this is the warp movement type.
+        /// Gets the type of teleport, which can affect visual effects or movement restrictions.
         /// </summary>
-        /// <value>The type.</value>
         MovementType Type { get; }
     }
 }

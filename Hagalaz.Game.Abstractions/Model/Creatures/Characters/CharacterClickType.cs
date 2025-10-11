@@ -1,44 +1,44 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the different types of right-click options available on a character.
     /// </summary>
     public enum CharacterClickType : byte
     {
         /// <summary>
-        /// The option1 click
+        /// The first right-click option.
         /// </summary>
         Option1Click,
         /// <summary>
-        /// The option2 click
+        /// The second right-click option.
         /// </summary>
         Option2Click,
         /// <summary>
-        /// The option3 click
+        /// The third right-click option.
         /// </summary>
         Option3Click,
         /// <summary>
-        /// The option4 click
+        /// The fourth right-click option.
         /// </summary>
         Option4Click,
         /// <summary>
-        /// The option5 click
+        /// The fifth right-click option.
         /// </summary>
         Option5Click,
         /// <summary>
-        /// The option6 click
+        /// The sixth right-click option.
         /// </summary>
         Option6Click,
         /// <summary>
-        /// The option7 click
+        /// The seventh right-click option.
         /// </summary>
         Option7Click,
         /// <summary>
-        /// The option8 click
+        /// The eighth right-click option.
         /// </summary>
         Option8Click,
         /// <summary>
-        /// The option9 click
+        /// The ninth right-click option.
         /// </summary>
         Option9Click
     }

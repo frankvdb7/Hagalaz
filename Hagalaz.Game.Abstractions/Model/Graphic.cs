@@ -3,41 +3,37 @@
 namespace Hagalaz.Game.Abstractions.Model
 {
     /// <summary>
-    /// Represents a single graphic display request.
+    /// Represents a request to display a temporary, non-interactive graphical effect at a specific location, such as a spell's impact explosion.
     /// </summary>
     public readonly struct Graphic : IGraphic, IEquatable<Graphic>
     {
         /// <summary>
-        /// Gets the graphic id (id from client).
+        /// Gets the unique identifier for the graphical effect.
         /// </summary>
-        /// <value>The id.</value>
         public int Id { get; }
 
         /// <summary>
-        /// Gets the graphic delay.
+        /// Gets the delay in game ticks before the graphic is displayed.
         /// </summary>
-        /// <value>The delay.</value>
         public int Delay { get; }
 
         /// <summary>
-        /// Get's the graphic height.
+        /// Gets the height offset at which the graphic is rendered relative to the ground.
         /// </summary>
-        /// <value>The height.</value>
         public int Height { get; }
 
         /// <summary>
-        /// Get's the graphic rotation.
+        /// Gets the rotation of the graphic.
         /// </summary>
-        /// <value>The rotation.</value>
         public int Rotation { get; }
 
         /// <summary>
-        /// Constructs a new graphic.
+        /// Initializes a new instance of the <see cref="Graphic"/> struct.
         /// </summary>
-        /// <param name="id">The graphic id.</param>
-        /// <param name="delay">The delay of the graphic display.</param>
-        /// <param name="height">The height.</param>
-        /// <param name="rotation">The rotation.</param>
+        /// <param name="id">The unique identifier for the graphic.</param>
+        /// <param name="delay">The delay in game ticks before the graphic is displayed.</param>
+        /// <param name="height">The height offset for the graphic.</param>
+        /// <param name="rotation">The rotation of the graphic.</param>
         public Graphic(int id, int delay, int height, int rotation)
         {
             Id = id;

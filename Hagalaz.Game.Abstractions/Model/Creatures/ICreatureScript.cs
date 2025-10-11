@@ -1,56 +1,55 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a script that contains the logic and behavior for a creature.
     /// </summary>
     public interface ICreatureScript
     {
         /// <summary>
-        /// Determines whether this instance [can be looted by] the specified killer.
+        /// Determines if this creature's loot can be received by a specific killer.
         /// </summary>
-        /// <param name="killer">The killer.</param>
-        /// <returns></returns>
+        /// <param name="killer">The creature that killed this creature.</param>
+        /// <returns><c>true</c> if the killer is eligible for loot; otherwise, <c>false</c>.</returns>
         bool CanBeLootedBy(ICreature killer);
+
         /// <summary>
-        /// Get's if this creature can attack the specified creature ('target').
-        /// By default , this method returns true.
+        /// Determines if this creature can attack a specific target.
         /// </summary>
-        /// <param name="target">Creature which is being attacked by this npc.</param>
-        /// <returns>If attack can be performed.</returns>
+        /// <param name="target">The potential target creature.</param>
+        /// <returns><c>true</c> if this creature can attack the target; otherwise, <c>false</c>.</returns>
         bool CanAttack(ICreature target);
+
         /// <summary>
-        /// Get's if this creature can be attacked by the specified creature ('attacker').
-        /// By default , this method does check if this creature is attackable.
-        /// This method also checks if the attacker is a character, wether or not it
-        /// has the required slayer level.
+        /// Determines if this creature can be attacked by a specific attacker.
         /// </summary>
-        /// <param name="attacker">Creature which is attacking this creature.</param>
-        /// <returns>If attack can be performed.</returns>
+        /// <param name="attacker">The potential attacker.</param>
+        /// <returns><c>true</c> if the attack is allowed; otherwise, <c>false</c>.</returns>
         bool CanBeAttackedBy(ICreature attacker);
+
         /// <summary>
-        /// Get's called when creature is dead.
-        /// By default, this method does nothing.
+        /// A callback executed when the creature dies.
         /// </summary>
         void OnDeath();
+
         /// <summary>
-        /// Get's called when creature is killed.
-        /// By default, this method does nothing.
+        /// A callback executed when this creature is killed by another creature.
         /// </summary>
-        /// <param name="killer">The killer.</param>
+        /// <param name="killer">The creature that dealt the killing blow.</param>
         void OnKilledBy(ICreature killer);
+
         /// <summary>
-        /// Get's called when creature killed its target.
-        /// By default, this method does nothing.
+        /// A callback executed when this creature kills another creature.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The creature that was killed.</param>
         void OnTargetKilled(ICreature target);
+
         /// <summary>
-        /// Get's called when creature is spawned.
-        /// By default, this method does nothing.
+        /// A callback executed when the creature is first spawned into the game world.
         /// </summary>
         void OnSpawn();
+
         /// <summary>
-        /// Performs every single tick.
+        /// Processes a single game tick for the creature's script logic.
         /// </summary>
         void Tick();
     }

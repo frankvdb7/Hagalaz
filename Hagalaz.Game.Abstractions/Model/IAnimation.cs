@@ -1,24 +1,23 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model
 {
     /// <summary>
-    /// Represents a single animation display request.
+    /// Defines the contract for a request to play a single animation sequence.
     /// </summary>
     public interface IAnimation
     {
         /// <summary>
-        /// Gets the animation id (id from client).
+        /// Gets the unique identifier for the animation sequence.
         /// </summary>
         int Id { get; }
+
         /// <summary>
-        /// Gets the animation delay.
+        /// Gets the delay in game ticks before the animation starts playing.
         /// </summary>
         int Delay { get; }
+
         /// <summary>
-        /// Gets the priority.
+        /// Gets the priority of the animation. Higher priority animations can override lower priority ones.
         /// </summary>
-        /// <value>
-        /// The priority.
-        /// </value>
         int Priority { get; }
     }
 }

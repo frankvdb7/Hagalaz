@@ -1,30 +1,33 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a forced movement, which is a non-standard movement path for a creature,
+    /// often used for special effects like knockbacks or cinematic sequences.
     /// </summary>
     public interface IForceMovement
     {
         /// <summary>
-        /// Location where movement starts.
+        /// Gets the starting location of the forced movement.
         /// </summary>
         ILocation StartLocation { get; }
+
         /// <summary>
-        /// Location where movement ends.
+        /// Gets the ending location of the forced movement.
         /// </summary>
         ILocation EndLocation { get; }
+
         /// <summary>
-        /// Speed per which the creature will move to start location 
-        /// from current location. 1 = 30ms, 2 = 60ms and so on.
+        /// Gets the speed of the movement towards the end location.
         /// </summary>
         int EndSpeed { get; }
+
         /// <summary>
-        /// Speed per which the creature will move to end location
-        /// from current location. 1 = 30ms, 2 = 60ms and so on.
+        /// Gets the speed of the movement from the start location.
         /// </summary>
         int StartSpeed { get; }
+
         /// <summary>
-        /// Contains creature facing direction while moving.
+        /// Gets the direction the creature should face during the movement.
         /// </summary>
          FaceDirection FaceDirection { get; }
     }

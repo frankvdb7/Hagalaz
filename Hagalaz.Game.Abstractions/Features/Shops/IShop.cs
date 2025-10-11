@@ -4,48 +4,47 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Features.Shops
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a shop, which manages its own stock, currency, and pricing.
     /// </summary>
     public interface IShop
     {
         /// <summary>
-        /// The name of the shop.
+        /// Gets the name of the shop.
         /// </summary>
-        /// <value>The name.</value>
         string Name { get; }
+
         /// <summary>
-        /// Gets the currency identifier.
+        /// Gets the item ID of the currency used in this shop (e.g., coins, tokens).
         /// </summary>
-        /// <value>
-        /// The currency identifier.
-        /// </value>
         int CurrencyId { get; }
+
         /// <summary>
-        /// Gets a value indicating whether [general store].
+        /// Gets a value indicating whether this is a general store, which typically buys any item from players.
         /// </summary>
-        /// <value><c>true</c> if [general store]; otherwise, <c>false</c>.</value>
         bool GeneralStore { get; }
+
         /// <summary>
-        /// The shop container that holds the main stock.
+        /// Gets the container that holds the main stock of the shop, which can fluctuate based on player transactions.
         /// </summary>
-        /// <value>The main stock container.</value>
         IShopStockContainer MainStockContainer { get; }
+
         /// <summary>
-        /// The shop container that holds the main stock.
+        /// Gets the container that holds a sample of the shop's default stock. This is used to determine what items the shop will buy back.
         /// </summary>
-        /// <value>The sample stock container.</value>
         IShopStockContainer SampleStockContainer { get; }
+
         /// <summary>
-        /// Gets the sell value for the item in this shop.
+        /// Calculates the value a player receives for selling a specific item to this shop.
         /// </summary>
-        /// <param name="item"></param>
-        /// <returns></returns>
+        /// <param name="item">The item to be sold.</param>
+        /// <returns>The sell value in the shop's currency.</returns>
         int GetSellValue(IItem item);
+
         /// <summary>
-        /// Gets the buy value for the item in this shop.
+        /// Calculates the cost for a player to buy a specific item from this shop.
         /// </summary>
-        /// <param name="item"></param>
-        /// <returns></returns>
+        /// <param name="item">The item to be bought.</param>
+        /// <returns>The buy value in the shop's currency.</returns>
         int GetBuyValue(IItem item);
     }
 }

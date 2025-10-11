@@ -3,15 +3,15 @@
 namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a character's inventory container, which holds the items the character is carrying.
     /// </summary>
     public interface IInventoryContainer : IItemContainer
     {
         /// <summary>
-        /// Drop's specific item.
+        /// Drops a specific item from the inventory onto the ground.
         /// </summary>
-        /// <param name="item">Item which should be dropped.</param>
-        /// <returns>If item was dropped successfully.</returns>
+        /// <param name="item">The item to be dropped.</param>
+        /// <returns><c>true</c> if the item was dropped successfully; otherwise, <c>false</c>.</returns>
         bool DropItem(IItem item);
     }
 }

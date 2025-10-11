@@ -3,26 +3,25 @@
 namespace Hagalaz.Game.Abstractions.Model
 {
     /// <summary>
-    /// Represents a single teleport info.
+    /// Represents a request to teleport a creature to a new location.
     /// </summary>
     public readonly struct Teleport : ITeleport
     {
         /// <summary>
-        /// Contains teleport location.
+        /// Gets the destination location for the teleport.
         /// </summary>
-        /// <value>The location.</value>
         public ILocation Location { get; }
 
         /// <summary>
-        /// Contains the teleport type
+        /// Gets the type of teleport, which can affect visual effects or movement restrictions.
         /// </summary>
         public MovementType Type { get; }
 
         /// <summary>
-        /// Constructs a new teleport.
+        /// Initializes a new instance of the <see cref="Teleport"/> struct.
         /// </summary>
-        /// <param name="loc">The loc.</param>
-        /// <param name="type"></param>
+        /// <param name="loc">The destination location.</param>
+        /// <param name="type">The type of teleport.</param>
         private Teleport(ILocation loc, MovementType type)
         {
             Location = loc;
@@ -30,17 +29,18 @@ namespace Hagalaz.Game.Abstractions.Model
         }
 
         /// <summary>
-        /// Creates a new teleport.
+        /// Creates a new teleport request with a default movement type of <see cref="MovementType.Warp"/>.
         /// </summary>
-        /// <param name="location">The location.</param>
-        /// <returns>Returns a new teleport containing its data.</returns>
+        /// <param name="location">The destination location.</param>
+        /// <returns>A new <see cref="Teleport"/> instance.</returns>
         public static Teleport Create(ILocation location) => new(location, MovementType.Warp);
+
         /// <summary>
-        /// Creates a new teleport at the specified location and type.
+        /// Creates a new teleport request with a specified movement type.
         /// </summary>
-        /// <param name="location"></param>
-        /// <param name="type"></param>
-        /// <returns></returns>
+        /// <param name="location">The destination location.</param>
+        /// <param name="type">The type of teleport movement.</param>
+        /// <returns>A new <see cref="Teleport"/> instance.</returns>
         public static Teleport Create(ILocation location, MovementType type) => new(location, type);
     }
 }
