@@ -138,6 +138,7 @@ public class DirectionHelperTests
         CollectionAssert.AreEqual(expected, result);
     }
 
+
     [TestMethod]
     public void ThreeBitsMovementType_ShouldContainCorrectValues()
     {
