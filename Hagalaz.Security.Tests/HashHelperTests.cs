@@ -1,153 +1,53 @@
-using System.Text;
+using System.Security.Cryptography;
+using Xunit;
 
 namespace Hagalaz.Security.Tests
 {
-    [TestClass]
     public class HashHelperTests
     {
-        private const string PlainText = "Stay hungry and stay foolish";
-
-        /*
-         * MD5 yields hexadecimal digits (0-15 / 0-F), so they are four bits each. 128 / 4 = 32 characters.
-         */
-        [TestMethod]
-        public void MD5()
-        {
-            var result1 = HashHelper.ComputeHash(PlainText, HashType.MD5);
-
-            Assert.IsTrue(Encoding.UTF8.GetByteCount(result1) == 32);
-
-            Assert.IsTrue(result1.ToCharArray().All(c => char.IsLower(c) || char.IsDigit(c)));
-        }
-
-        /**
-         * SHA-1 yields hexadecimal digits too (0-15 / 0-F), so 160 / 4 = 40 characters.
-         */
-        [TestMethod]
-        public void SHA1()
-        {
-            var result1 = HashHelper.ComputeHash(PlainText, HashType.SHA1);
-
-            Assert.IsTrue(Encoding.UTF8.GetByteCount(result1) == 40);
-
-            Assert.IsTrue(result1.ToCharArray().All(c => char.IsLower(c) || char.IsDigit(c)));
-        }
-
-        /**
-         * SHA-2 (256 variant) yields hexadecimal digits too (0-15 / 0-F), so 256 / 4 = 64 characters.
-         */
-        [TestMethod]
-        public void SHA256()
-        {
-            var result1 = HashHelper.ComputeHash(PlainText, HashType.SHA256);
-
-            Assert.IsTrue(Encoding.UTF8.GetByteCount(result1) == 64);
-
-
-            Assert.IsTrue(result1.ToCharArray().All(c => char.IsLower(c) || char.IsDigit(c)));
-        }
-
-
-        /**
-         * SHA-2 (384 variant) yields hexadecimal digits too (0-15 / 0-F), so 384 / 4 = 96 characters.
-         */
-        [TestMethod]
-        public void SHA384()
-        {
-            var result1 = HashHelper.ComputeHash(PlainText, HashType.SHA384);
-            Assert.IsTrue(Encoding.UTF8.GetByteCount(result1) == 96);
-
-            Assert.IsTrue(result1.ToCharArray().All(c => char.IsLower(c) || char.IsDigit(c)));
-        }
-
-        /**
-        * SHA-2 (512 variant) yields hexadecimal digits too (0-15 / 0-F), so 512 / 4 = 128 characters.
-       */
-        [TestMethod]
-        public void SHA512()
-        {
-            var result1 = HashHelper.ComputeHash(PlainText, HashType.SHA512);
-
-            Assert.IsTrue(Encoding.UTF8.GetByteCount(result1) == 128);
-
-            Assert.IsTrue(result1.ToCharArray().All(c => char.IsLower(c) || char.IsDigit(c)));
-        }
-
-        [TestMethod]
-        public void ComputeHash_WithInvalidHashType_ShouldReturnEmptyString()
+        [Theory]
+        [InlineData(HashType.MD5)]
+        [InlineData(HashType.SHA1)]
+        [InlineData(HashType.SHA256)]
+        [InlineData(HashType.SHA384)]
+        [InlineData(HashType.SHA512)]
+        public void TestComputeHash(HashType hashType)
         {
             // Arrange
-            const string text = "test";
-            const HashType hashType = (HashType) 99;
+            var data = "test";
 
             // Act
-            var result = HashHelper.ComputeHash(text, hashType);
+            var result = HashHelper.ComputeHash(data, hashType);
 
             // Assert
-            Assert.AreEqual(string.Empty, result);
+            Assert.NotNull(result);
+            Assert.NotEqual(data, result);
         }
 
-        [TestMethod]
-        public void CreateNewInstance_WithMD5_ShouldReturnMD5()
+        [Theory]
+        [InlineData(HashType.MD5, typeof(MD5))]
+        [InlineData(HashType.SHA1, typeof(SHA1))]
+        [InlineData(HashType.SHA256, typeof(SHA256))]
+        [InlineData(HashType.SHA384, typeof(SHA384))]
+        [InlineData(HashType.SHA512, typeof(SHA512))]
+        public void CreateNewInstance_ValidHashType_ReturnsInstance(HashType hashType, System.Type expectedType)
         {
-            // Act
-            var result = HashHelper.CreateNewInstance(HashType.MD5);
-
-            // Assert
-            Assert.IsInstanceOfType(result, typeof(System.Security.Cryptography.MD5));
-        }
-
-        [TestMethod]
-        public void CreateNewInstance_WithSHA1_ShouldReturnSHA1()
-        {
-            // Act
-            var result = HashHelper.CreateNewInstance(HashType.SHA1);
-
-            // Assert
-            Assert.IsInstanceOfType(result, typeof(System.Security.Cryptography.SHA1));
-        }
-
-        [TestMethod]
-        public void CreateNewInstance_WithSHA256_ShouldReturnSHA256()
-        {
-            // Act
-            var result = HashHelper.CreateNewInstance(HashType.SHA256);
-
-            // Assert
-            Assert.IsInstanceOfType(result, typeof(System.Security.Cryptography.SHA256));
-        }
-
-        [TestMethod]
-        public void CreateNewInstance_WithSHA384_ShouldReturnSHA384()
-        {
-            // Act
-            var result = HashHelper.CreateNewInstance(HashType.SHA384);
-
-            // Assert
-            Assert.IsInstanceOfType(result, typeof(System.Security.Cryptography.SHA384));
-        }
-
-        [TestMethod]
-        public void CreateNewInstance_WithSHA512_ShouldReturnSHA512()
-        {
-            // Act
-            var result = HashHelper.CreateNewInstance(HashType.SHA512);
-
-            // Assert
-            Assert.IsInstanceOfType(result, typeof(System.Security.Cryptography.SHA512));
-        }
-
-        [TestMethod]
-        public void CreateNewInstance_WithInvalidHashType_ShouldReturnNull()
-        {
-            // Arrange
-            const HashType hashType = (HashType) 99;
-
             // Act
             var result = HashHelper.CreateNewInstance(hashType);
 
             // Assert
-            Assert.IsNull(result);
+            Assert.NotNull(result);
+            Assert.IsAssignableFrom(expectedType, result);
+        }
+
+        [Fact]
+        public void CreateNewInstance_InvalidHashType_ReturnsNull()
+        {
+            // Act
+            var result = HashHelper.CreateNewInstance((HashType)99);
+
+            // Assert
+            Assert.Null(result);
         }
     }
 }

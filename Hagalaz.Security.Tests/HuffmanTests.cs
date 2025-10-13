@@ -1,17 +1,16 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.IO;
+using Xunit;
 
 namespace Hagalaz.Security.Tests
 {
-    [TestClass]
     public class HuffmanTests
     {
-        [TestMethod]
-        [DataRow("")]
-        [DataRow("Hello, World!")]
-        [DataRow("The quick brown fox jumps over the lazy dog.")]
-        [DataRow("1234567890!@#$%^&*()_+-=")]
-        [DataRow("This is a longer string with more characters to test the Huffman encoding and decoding process thoroughly.")]
+        [Theory]
+        [InlineData("")]
+        [InlineData("Hello, World!")]
+        [InlineData("The quick brown fox jumps over the lazy dog.")]
+        [InlineData("1234567890!@#$%^&*()_+-=")]
+        [InlineData("This is a longer string with more characters to test the Huffman encoding and decoding process thoroughly.")]
         public void Encode_Then_Decode_ShouldReturnOriginalString(string originalString)
         {
             // Arrange
@@ -22,10 +21,10 @@ namespace Hagalaz.Security.Tests
             var decodedString = Huffman.Decode(stream, messageLength);
 
             // Assert
-            Assert.AreEqual(originalString, decodedString);
+            Assert.Equal(originalString, decodedString);
         }
 
-        [TestMethod]
+        [Fact]
         public void Decode_WithEmptyStream_ShouldReturnEmptyString()
         {
             // Arrange
@@ -35,10 +34,10 @@ namespace Hagalaz.Security.Tests
             var result = Huffman.Decode(stream, 0);
 
             // Assert
-            Assert.AreEqual(string.Empty, result);
+            Assert.Equal(string.Empty, result);
         }
 
-        [TestMethod]
+        [Fact]
         public void Decode_WithZeroLength_ShouldReturnEmptyString()
         {
             // Arrange
@@ -49,10 +48,10 @@ namespace Hagalaz.Security.Tests
             var result = Huffman.Decode(stream, 0);
 
             // Assert
-            Assert.AreEqual(string.Empty, result);
+            Assert.Equal(string.Empty, result);
         }
 
-        [TestMethod]
+        [Fact]
         public void Encode_EmptyString_ShouldReturnEmptyArrayAndZeroLength()
         {
             // Arrange
@@ -62,11 +61,11 @@ namespace Hagalaz.Security.Tests
             var encodedBytes = Huffman.Encode(input, out var messageLength);
 
             // Assert
-            Assert.AreEqual(0, encodedBytes.Length);
-            Assert.AreEqual(0, messageLength);
+            Assert.Empty(encodedBytes);
+            Assert.Equal(0, messageLength);
         }
 
-        [TestMethod]
+        [Fact]
         public void Decode_WithTruncatedData_ShouldReturnEmptyString()
         {
             // Arrange
@@ -79,11 +78,10 @@ namespace Hagalaz.Security.Tests
             var result = Huffman.Decode(stream, validLength);
 
             // Assert
-            Assert.AreEqual(string.Empty, result);
+            Assert.Equal(string.Empty, result);
         }
 
-        [TestMethod]
-        [Ignore("This test is ignored because it exposes a pre-existing bug in Huffman.Decode. The method should return an empty string for invalid data but instead produces garbage output.")]
+        [Fact(Skip = "This test is ignored because it exposes a pre-existing bug in Huffman.Decode. The method should return an empty string for invalid data but instead produces garbage output.")]
         public void Decode_WithInvalidData_ShouldReturnEmptyString()
         {
             try
@@ -96,7 +94,7 @@ namespace Hagalaz.Security.Tests
                 var result = Huffman.Decode(stream, 5);
 
                 // Assert
-                Assert.AreEqual(string.Empty, result, "Decode should return an empty string for invalid byte sequences.");
+                Assert.Equal(string.Empty, result);
             }
             catch (System.Exception e)
             {
