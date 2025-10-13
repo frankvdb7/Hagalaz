@@ -1,13 +1,13 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Linq;
 using System.Text;
+using Xunit;
+using System;
 
 namespace Hagalaz.Security.Tests
 {
-    [TestClass]
     public class WhirlpoolTests
     {
-        [TestMethod]
+        [Fact]
         public void Whirlpool_EmptyString_ShouldReturnCorrectHash()
         {
             // Arrange
@@ -20,10 +20,10 @@ namespace Hagalaz.Security.Tests
             var actualHash = Convert.ToHexString(result);
 
             // Assert
-            Assert.AreEqual(expectedHash, actualHash, true);
+            Assert.Equal(expectedHash, actualHash, ignoreCase: true);
         }
 
-        [TestMethod]
+        [Fact]
         public void Whirlpool_LongString_ShouldReturnCorrectHash()
         {
             // Arrange
@@ -36,10 +36,10 @@ namespace Hagalaz.Security.Tests
             var actualHash = Convert.ToHexString(result);
 
             // Assert
-            Assert.AreEqual(expectedHash, actualHash, true);
+            Assert.Equal(expectedHash, actualHash, ignoreCase: true);
         }
 
-        [TestMethod]
+        [Fact]
         public void Whirlpool_AllByteValues_ShouldReturnCorrectHash()
         {
             // Arrange
@@ -51,10 +51,10 @@ namespace Hagalaz.Security.Tests
             var actualHash = Convert.ToHexString(result);
 
             // Assert
-            Assert.AreEqual(expectedHash, actualHash, true);
+            Assert.Equal(expectedHash, actualHash, ignoreCase: true);
         }
 
-        [TestMethod]
+        [Fact]
         public void Whirlpool_QuickBrownFox_ShouldReturnCorrectHash()
         {
             // Arrange
@@ -67,7 +67,7 @@ namespace Hagalaz.Security.Tests
             var actualHash = Convert.ToHexString(result);
 
             // Assert
-            Assert.AreEqual(expectedHash, actualHash, true);
+            Assert.Equal(expectedHash, actualHash, ignoreCase: true);
         }
     }
 }

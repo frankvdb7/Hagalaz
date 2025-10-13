@@ -1,13 +1,11 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.IO;
+using Xunit;
 
 namespace Hagalaz.Security.Tests
 {
-    [TestClass]
     public class AdditionalHuffmanTests
     {
-        [TestMethod]
-        [Ignore("This test is ignored because it exposes a pre-existing bug in Huffman.Decode. The method should return an empty string for invalid data but instead produces garbage output.")]
+        [Fact(Skip = "This test is ignored because it exposes a pre-existing bug in Huffman.Decode. The method should return an empty string for invalid data but instead produces garbage output.")]
         public void Decode_WithSingleInvalidByte_ShouldReturnEmptyString()
         {
             // Arrange
@@ -18,11 +16,10 @@ namespace Hagalaz.Security.Tests
             var result = Huffman.Decode(stream, 1);
 
             // Assert
-            Assert.AreEqual(string.Empty, result, "A single invalid byte should result in an empty string.");
+            Assert.Equal(string.Empty, result);
         }
 
-        [TestMethod]
-        [Ignore("This test is ignored because it exposes a pre-existing bug in Huffman.Decode. The method should return an empty string for invalid data but instead produces garbage output.")]
+        [Fact(Skip = "This test is ignored because it exposes a pre-existing bug in Huffman.Decode. The method should return an empty string for invalid data but instead produces garbage output.")]
         public void Decode_WithValidStartAndInvalidEnd_ShouldReturnEmptyString()
         {
             // Arrange
@@ -38,10 +35,10 @@ namespace Hagalaz.Security.Tests
             var result = Huffman.Decode(stream, 10); // Expect more characters than are valid
 
             // Assert
-            Assert.AreEqual(string.Empty, result, "Data with a valid start but invalid end should be treated as corrupt.");
+            Assert.Equal(string.Empty, result);
         }
 
-        [TestMethod]
+        [Fact]
         public void Decode_WithDataShorterThanLength_ShouldReturnEmptyString()
         {
             // Arrange
@@ -52,10 +49,10 @@ namespace Hagalaz.Security.Tests
             var result = Huffman.Decode(stream, 10); // Request more characters than are available
 
             // Assert
-            Assert.AreEqual(string.Empty, result, "Decoding should fail if the stream ends before the expected length is reached.");
+            Assert.Equal(string.Empty, result);
         }
 
-        [TestMethod]
+        [Fact]
         public void Decode_EmptyStreamWithNonZeroLength_ShouldReturnEmptyString()
         {
             // Arrange
@@ -65,7 +62,7 @@ namespace Hagalaz.Security.Tests
             var result = Huffman.Decode(stream, 5);
 
             // Assert
-            Assert.AreEqual(string.Empty, result, "Decoding from an empty stream with a non-zero length should return an empty string.");
+            Assert.Equal(string.Empty, result);
         }
     }
 }

@@ -1,11 +1,11 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
+using Xunit;
 
 namespace Hagalaz.Security.Tests
 {
-    [TestClass]
     public class ISAACTests
     {
-        [TestMethod]
+        [Fact]
         public void SameSeed_ShouldProduceSameSequence()
         {
             // Arrange
@@ -16,11 +16,11 @@ namespace Hagalaz.Security.Tests
             // Act & Assert
             for (int i = 0; i < 1000; i++)
             {
-                Assert.AreEqual(isaac1.ReadKey(), isaac2.ReadKey(), $"Values differ at iteration {i}");
+                Assert.Equal(isaac1.ReadKey(), isaac2.ReadKey());
             }
         }
 
-        [TestMethod]
+        [Fact]
         public void DifferentSeeds_ShouldProduceDifferentSequences()
         {
             // Arrange
@@ -41,10 +41,10 @@ namespace Hagalaz.Security.Tests
             }
 
             // Assert
-            Assert.IsTrue(sequencesAreDifferent, "Sequences for different seeds were identical.");
+            Assert.True(sequencesAreDifferent, "Sequences for different seeds were identical.");
         }
 
-        [TestMethod]
+        [Fact]
         public void ConsecutiveReads_ShouldProduceDifferentKeys()
         {
             // Arrange
@@ -56,10 +56,10 @@ namespace Hagalaz.Security.Tests
             var key2 = isaac.ReadKey();
 
             // Assert
-            Assert.AreNotEqual(key1, key2, "Consecutive calls to ReadKey returned the same value.");
+            Assert.NotEqual(key1, key2);
         }
 
-        [TestMethod]
+        [Fact]
         public void PeekKey_ShouldNotAdvanceState()
         {
             // Arrange
@@ -71,10 +71,10 @@ namespace Hagalaz.Security.Tests
             var readKey = isaac.ReadKey();
 
             // Assert
-            Assert.AreEqual(peekedKey, readKey, "PeekKey returned a different value than the subsequent ReadKey.");
+            Assert.Equal(peekedKey, readKey);
         }
 
-        [TestMethod]
+        [Fact]
         public void PeekKey_MultiplePeeks_ShouldReturnSameKey()
         {
             // Arrange
@@ -87,12 +87,11 @@ namespace Hagalaz.Security.Tests
             var readKey = isaac.ReadKey();
 
             // Assert
-            Assert.AreEqual(peekedKey1, peekedKey2, "Multiple calls to PeekKey returned different values.");
-            Assert.AreEqual(peekedKey1, readKey, "PeekKey value did not match the subsequent ReadKey value after multiple peeks.");
+            Assert.Equal(peekedKey1, peekedKey2);
+            Assert.Equal(peekedKey1, readKey);
         }
 
-        [TestMethod]
-        [Ignore] // This test fails due to a bug in the ISAAC implementation.
+        [Fact(Skip = "This test fails due to a bug in the ISAAC implementation.")]
         public void StandardTestVector_WithNullSeed_ShouldProduceCorrectSequence()
         {
             // This test uses the official known-answer test vector from Bob Jenkins,
@@ -130,10 +129,10 @@ namespace Hagalaz.Security.Tests
             }
 
             // Assert
-            CollectionAssert.AreEqual(expectedValues, actualValues, "Generated sequence does not match the official test vector.");
+            Assert.Equal(expectedValues, actualValues);
         }
 
-        [TestMethod]
+        [Fact]
         public void EncryptDecrypt_Symmetry()
         {
             // Arrange
@@ -158,18 +157,14 @@ namespace Hagalaz.Security.Tests
             }
 
             // Assert
-            CollectionAssert.AreEqual(originalPlaintext, decrypted, "Decrypted data does not match original plaintext.");
+            Assert.Equal(originalPlaintext, decrypted);
         }
 
-        [TestMethod]
-        [Ignore("This test fails because ISAAC constructor throws NullReferenceException instead of ArgumentNullException for null seed.")]
-        [ExpectedException(typeof(ArgumentNullException))]
+        [Fact(Skip = "This test fails because ISAAC constructor throws NullReferenceException instead of ArgumentNullException for null seed.")]
         public void Constructor_WithNullSeed_ShouldThrowArgumentNullException()
         {
-            // Arrange & Act
-            new ISAAC(null);
-
-            // Assert - Handled by ExpectedException
+            // Arrange & Act & Assert
+            Assert.Throws<ArgumentNullException>(() => new ISAAC(null));
         }
     }
 }
