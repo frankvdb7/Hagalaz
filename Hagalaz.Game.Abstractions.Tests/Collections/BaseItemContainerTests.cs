@@ -251,5 +251,79 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.IsNotNull(container[5]);
             Assert.IsTrue(item1.Equals(container[5]));
         }
+
+        [TestMethod]
+        public void AddAndRemoveFrom_TransferAll_Success()
+        {
+            // Arrange
+            var source = new TestableItemContainer(StorageType.Normal, 5);
+            var destination = new TestableItemContainer(StorageType.Normal, 5);
+            var item = CreateItem(1, 1);
+            source.Add(item);
+
+            // Act
+            destination.AddAndRemoveFrom(source);
+
+            // Assert
+            Assert.AreEqual(0, source.TakenSlots);
+            Assert.AreEqual(1, destination.TakenSlots);
+            Assert.IsTrue(item.Equals(destination[0]));
+        }
+
+        [TestMethod]
+        public void AddAndRemoveFrom_TransferPartialStack_Success()
+        {
+            // Arrange
+            var source = new TestableItemContainer(StorageType.Normal, 5);
+            var destination = new TestableItemContainer(StorageType.Normal, 5);
+            var item = CreateItem(1, 10, stackable: true);
+            source.Add(item);
+
+            var itemToTransfer = CreateItem(1, 3, stackable: true);
+
+            // Act
+            destination.Add(itemToTransfer);
+            source.Remove(itemToTransfer, 0);
+
+            // Assert
+            Assert.AreEqual(1, source.TakenSlots);
+            Assert.AreEqual(7, source[0].Count);
+            Assert.AreEqual(1, destination.TakenSlots);
+            Assert.AreEqual(3, destination[0].Count);
+        }
+
+        [TestMethod]
+        public void Remove_NonStackable_RemovesOneInstance()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(1, 1, stackable: false); // Not stackable
+            container.Add(item);
+            container.Add(item.Clone());
+
+            // Act
+            var removedCount = container.Remove(item);
+
+            // Assert
+            Assert.AreEqual(1, removedCount);
+            Assert.AreEqual(1, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void Clear_RemovesAllItems()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            container.Add(CreateItem(1, 1));
+            container.Add(CreateItem(2, 5, stackable: true));
+            container.Add(CreateItem(3, 1));
+
+            // Act
+            container.Clear(true);
+
+            // Assert
+            Assert.AreEqual(0, container.TakenSlots);
+            Assert.AreEqual(10, container.FreeSlots);
+        }
     }
 }
