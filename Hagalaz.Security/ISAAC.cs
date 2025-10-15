@@ -1,37 +1,37 @@
 ﻿namespace Hagalaz.Security
 {
     /// <summary>
-    /// Provides packet opcode encryption and decryption.
+    /// Implements the ISAAC (Indirection, Shift, Accumulate, Add, and Count) algorithm, a fast cryptographic random number generator.
     /// </summary>
     public class ISAAC
     {
         /// <summary>
-        /// Contains ISAAC keys.
+        /// The internal state of the generator.
         /// </summary>
         private readonly uint[] _keySet;
         /// <summary>
-        /// Unknown value.
+        /// The number of key sets generated.
         /// </summary>
         private uint _keysetsGenerated;
         /// <summary>
-        /// Contains current index in crypt array.
+        /// The current position in the key set array.
         /// </summary>
         private int _keyArrayIndex;
         /// <summary>
-        /// Unknown value.
+        /// An accumulator for the internal state.
         /// </summary>
         private uint _accumulator;
         /// <summary>
-        /// Unknown value.
+        /// The last generated key value.
         /// </summary>
         private uint _lastKey;
         /// <summary>
-        /// Contains cryption array.
+        /// The internal cryptographic state array.
         /// </summary>
         private readonly uint[] _cryptSet;
 
         /// <summary>
-        /// Contains golden radio.
+        /// The golden ratio constant used in the algorithm.
         /// </summary>
         private const uint _goldenRatio = 0x9e3779b9;
         private static readonly uint _a = _goldenRatio;
@@ -44,9 +44,9 @@
         private static readonly uint _h = _goldenRatio;
 
         /// <summary>
-        /// Construct's new ISAAC instance with given values.
+        /// Initializes a new instance of the <see cref="ISAAC"/> class with the specified seed.
         /// </summary>
-        /// <param name="seed"></param>
+        /// <param name="seed">The seed value to initialize the random number generator.</param>
         public ISAAC(uint[] seed)
         {
             _keySet = new uint[256];
@@ -189,9 +189,9 @@
         }
 
         /// <summary>
-        /// Read's key and goes to next.
+        /// Reads the next key from the generator and advances its internal state.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The next unsigned integer key.</returns>
         public uint ReadKey()
         {
             Next();
@@ -199,9 +199,9 @@
         }
 
         /// <summary>
-        /// Peek's key    
+        /// Peeks at the next key in the sequence without advancing the generator's state.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The next unsigned integer key.</returns>
         public uint PeekKey()
         {
             CheckNextKeySet();
@@ -209,7 +209,7 @@
         }
 
         /// <summary>
-        /// Advances to the next key set
+        /// Advances the generator to the next key set.
         /// </summary>
         public void Next()
         {

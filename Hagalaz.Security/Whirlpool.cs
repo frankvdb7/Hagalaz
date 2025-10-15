@@ -81,15 +81,18 @@ namespace Hagalaz.Security
     /// OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
     /// EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     /// </summary>
+    /// <summary>
+    /// Implements the Whirlpool hashing algorithm.
+    /// </summary>
     public class Whirlpool : System.Security.Cryptography.HashAlgorithm
     {
         /// <summary>
-        /// Gets the digest.
+        /// Computes the Whirlpool hash for a specified portion of a byte array.
         /// </summary>
-        /// <param name="data">The data.</param>
-        /// <param name="offset">The offset.</param>
-        /// <param name="length">The length.</param>
-        /// <returns>System.Byte[][].</returns>
+        /// <param name="data">The input byte array.</param>
+        /// <param name="offset">The offset from which to begin using data.</param>
+        /// <param name="length">The number of bytes to use as data.</param>
+        /// <returns>A byte array representing the computed Whirlpool hash.</returns>
         public static byte[] GenerateDigest(byte[] data, int offset, int length)
         {
             byte[] source;
@@ -147,7 +150,7 @@ namespace Hagalaz.Security
         private static ulong Ll(ulong ul) => ul;
 
         /// <summary>
-        /// 
+        /// The C0 constant array.
         /// </summary>
         static readonly ulong[] C0 = new ulong[256] {
             Ll(0x18186018c07830d8), Ll(0x23238c2305af4626), Ll(0xc6c63fc67ef991b8), Ll(0xe8e887e8136fcdfb),
@@ -217,7 +220,7 @@ namespace Hagalaz.Security
         };
 
         /// <summary>
-        /// 
+        /// The C1 constant array.
         /// </summary>
         static readonly ulong[] C1 = new ulong[256] {
             Ll(0xd818186018c07830), Ll(0x2623238c2305af46), Ll(0xb8c6c63fc67ef991), Ll(0xfbe8e887e8136fcd),
@@ -287,7 +290,7 @@ namespace Hagalaz.Security
         };
 
         /// <summary>
-        /// 
+        /// The C2 constant array.
         /// </summary>
         static readonly ulong[] C2 = new ulong[256] {
             Ll(0x30d818186018c078), Ll(0x462623238c2305af), Ll(0x91b8c6c63fc67ef9), Ll(0xcdfbe8e887e8136f),
@@ -357,7 +360,7 @@ namespace Hagalaz.Security
         };
 
         /// <summary>
-        /// 
+        /// The C3 constant array.
         /// </summary>
         static readonly ulong[] C3 = new ulong[256] {
             Ll(0x7830d818186018c0), Ll(0xaf462623238c2305), Ll(0xf991b8c6c63fc67e), Ll(0x6fcdfbe8e887e813),
@@ -427,7 +430,7 @@ namespace Hagalaz.Security
         };
 
         /// <summary>
-        /// 
+        /// The C4 constant array.
         /// </summary>
         static readonly ulong[] C4 = new ulong[256] {
             Ll(0xc07830d818186018), Ll(0x05af462623238c23), Ll(0x7ef991b8c6c63fc6), Ll(0x136fcdfbe8e887e8),
@@ -497,7 +500,7 @@ namespace Hagalaz.Security
         };
 
         /// <summary>
-        /// 
+        /// The C5 constant array.
         /// </summary>
         static readonly ulong[] C5 = new ulong[256] {
             Ll(0x18c07830d8181860), Ll(0x2305af462623238c), Ll(0xc67ef991b8c6c63f), Ll(0xe8136fcdfbe8e887),
@@ -567,7 +570,7 @@ namespace Hagalaz.Security
         };
 
         /// <summary>
-        /// 
+        /// The C6 constant array.
         /// </summary>
         static readonly ulong[] C6 = new ulong[256] {
             Ll(0x6018c07830d81818), Ll(0x8c2305af46262323), Ll(0x3fc67ef991b8c6c6), Ll(0x87e8136fcdfbe8e8),
@@ -637,7 +640,7 @@ namespace Hagalaz.Security
         };
 
         /// <summary>
-        /// 
+        /// The C7 constant array.
         /// </summary>
         static readonly ulong[] C7 = new ulong[256] {
             Ll(0x186018c07830d818), Ll(0x238c2305af462623), Ll(0xc63fc67ef991b8c6), Ll(0xe887e8136fcdfbe8),
@@ -706,16 +709,13 @@ namespace Hagalaz.Security
             Ll(0x28a0285d88507528), Ll(0x5c6d5cda31b8865c), Ll(0xf8c7f8933fed6bf8), Ll(0x86228644a411c286),
         };
 
-        /*
-         * The number of rounds of the internal dedicated block cipher.
-         */
         /// <summary>
-        /// 
+        /// The number of rounds of the internal dedicated block cipher.
         /// </summary>
         const int R = 10;
 
         /// <summary>
-        /// 
+        /// The round constants.
         /// </summary>
         static readonly ulong[] Rc = new ulong[R + 1] {
             Ll(0x0000000000000000),
@@ -732,58 +732,58 @@ namespace Hagalaz.Security
         };
 
         /// <summary>
-        /// 
+        /// The size of the digest in bytes.
         /// </summary>
         const int Digestbytes = 64;
         /// <summary>
-        /// 
+        /// The size of the digest in bits.
         /// </summary>
         const int Digestbits = (8 * Digestbytes); /* 512 */
         /// <summary>
-        /// 
+        /// The size of a block in bytes.
         /// </summary>
         const int Wblockbytes = 64;
         /// <summary>
-        /// 
+        /// The size of a block in bits.
         /// </summary>
         const int Wblockbits = (8 * Wblockbytes); /* 512 */
         /// <summary>
-        /// 
+        /// The size of the length field in bytes.
         /// </summary>
         const int Lengthbytes = 32;
         /// <summary>
-        /// 
+        /// The size of the length field in bits.
         /// </summary>
         const int Lengthbits = (8 * Lengthbytes); /* 256 */
 
         /// <summary>
-        /// 
+        /// A constant used for iterating a large number of times.
         /// </summary>
         const int LongIteration = 100000000;
 
         /// <summary>
-        /// 
+        /// A 256-bit counter for the global number of hashed bits.
         /// </summary>
         readonly byte[] _bitLength = new byte[Lengthbytes]; /* global number of hashed bits (256-bit counter) */
         /// <summary>
-        /// 
+        /// A buffer for storing data to be hashed.
         /// </summary>
         readonly byte[] _buffer = new byte[Wblockbytes];     /* buffer of data to hash */
         /// <summary>
-        /// 
+        /// The internal hashing state.
         /// </summary>
         readonly ulong[] _hash = new ulong[Digestbytes / 8];    /* the hashing state */
         /// <summary>
-        /// 
+        /// The current number of bits in the buffer.
         /// </summary>
         int _bufferBits;                 /* current number of bits on the buffer */
         /// <summary>
-        /// 
+        /// The current, possibly incomplete, byte slot in the buffer.
         /// </summary>
         int _bufferPos;                  /* current (possibly incomplete) byte slot on the buffer */
 
         /// <summary>
-        /// Initialize the hashing state.
+        /// Initializes the hashing state.
         /// </summary>
         void NessiEinit()
         {

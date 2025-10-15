@@ -1,7 +1,8 @@
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Utilities.Tests
 {
+    [TestClass]
     public class SetPropertyUtilityTests
     {
         private class TestClass
@@ -34,7 +35,7 @@ namespace Hagalaz.Utilities.Tests
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void SetClass_WhenValueChanged_ReturnsTrue()
         {
             var oldValue = new TestClass { Value = "a" };
@@ -42,11 +43,11 @@ namespace Hagalaz.Utilities.Tests
 
             var result = SetPropertyUtility.SetClass(ref oldValue, newValue);
 
-            Assert.True(result);
-            Assert.Equal(newValue, oldValue);
+            Assert.IsTrue(result);
+            Assert.AreEqual(newValue, oldValue);
         }
 
-        [Fact]
+        [TestMethod]
         public void SetClass_WhenValueChangesFromNull_ReturnsTrue()
         {
             TestClass? oldValue = null;
@@ -54,11 +55,11 @@ namespace Hagalaz.Utilities.Tests
 
             var result = SetPropertyUtility.SetClass(ref oldValue, newValue);
 
-            Assert.True(result);
-            Assert.Equal(newValue, oldValue);
+            Assert.IsTrue(result);
+            Assert.AreEqual(newValue, oldValue);
         }
 
-        [Fact]
+        [TestMethod]
         public void SetClass_WhenValueChangesToNull_ReturnsTrue()
         {
             var oldValue = new TestClass { Value = "a" };
@@ -66,11 +67,11 @@ namespace Hagalaz.Utilities.Tests
 
             var result = SetPropertyUtility.SetClass(ref oldValue, newValue);
 
-            Assert.True(result);
-            Assert.Null(oldValue);
+            Assert.IsTrue(result);
+            Assert.IsNull(oldValue);
         }
 
-        [Fact]
+        [TestMethod]
         public void SetClass_WhenValuesAreSame_ReturnsFalse()
         {
             var oldValue = new TestClass { Value = "a" };
@@ -78,11 +79,11 @@ namespace Hagalaz.Utilities.Tests
 
             var result = SetPropertyUtility.SetClass(ref oldValue, newValue);
 
-            Assert.False(result);
-            Assert.Equal(newValue, oldValue);
+            Assert.IsFalse(result);
+            Assert.AreEqual(newValue, oldValue);
         }
 
-        [Fact]
+        [TestMethod]
         public void SetClass_WhenBothValuesAreNull_ReturnsFalse()
         {
             TestClass? oldValue = null;
@@ -90,11 +91,11 @@ namespace Hagalaz.Utilities.Tests
 
             var result = SetPropertyUtility.SetClass(ref oldValue, newValue);
 
-            Assert.False(result);
-            Assert.Null(oldValue);
+            Assert.IsFalse(result);
+            Assert.IsNull(oldValue);
         }
 
-        [Fact]
+        [TestMethod]
         public void SetStruct_WhenValueChanged_ReturnsTrue()
         {
             var oldValue = new TestStruct { Value = 1 };
@@ -102,11 +103,11 @@ namespace Hagalaz.Utilities.Tests
 
             var result = SetPropertyUtility.SetStruct(ref oldValue, newValue);
 
-            Assert.True(result);
-            Assert.Equal(newValue, oldValue);
+            Assert.IsTrue(result);
+            Assert.AreEqual(newValue, oldValue);
         }
 
-        [Fact]
+        [TestMethod]
         public void SetStruct_WhenValuesAreSame_ReturnsFalse()
         {
             var oldValue = new TestStruct { Value = 1 };
@@ -114,8 +115,8 @@ namespace Hagalaz.Utilities.Tests
 
             var result = SetPropertyUtility.SetStruct(ref oldValue, newValue);
 
-            Assert.False(result);
-            Assert.Equal(newValue, oldValue);
+            Assert.IsFalse(result);
+            Assert.AreEqual(newValue, oldValue);
         }
     }
 }
