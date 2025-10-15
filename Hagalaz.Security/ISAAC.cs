@@ -1,3 +1,5 @@
+using System;
+
 ﻿namespace Hagalaz.Security
 {
     /// <summary>
@@ -49,6 +51,11 @@
         /// <param name="seed">The seed value to initialize the random number generator.</param>
         public ISAAC(uint[] seed)
         {
+            if (seed is null)
+            {
+                throw new ArgumentNullException(nameof(seed));
+            }
+
             _keySet = new uint[256];
             _cryptSet = new uint[256];
             for (var i = 0; seed.Length > i; i++)

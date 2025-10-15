@@ -160,7 +160,7 @@ namespace Hagalaz.Security.Tests
             Assert.Equal(originalPlaintext, decrypted);
         }
 
-        [Fact(Skip = "This test fails because ISAAC constructor throws NullReferenceException instead of ArgumentNullException for null seed.")]
+        [Fact]
         public void Constructor_WithNullSeed_ShouldThrowArgumentNullException()
         {
             // Arrange & Act & Assert
