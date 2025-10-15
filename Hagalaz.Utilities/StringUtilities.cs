@@ -44,7 +44,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="email">The email string to validate.</param>
         /// <returns><c>true</c> if the email format is valid; otherwise, <c>false</c>.</returns>
-		public static bool IsValidEmail(string email) => _validMail.IsMatch(email);
+		public static bool IsValidEmail(string email) => email is not null && _validMail.IsMatch(email);
 
         /// <summary>
         /// Validates whether the given string is a valid name, conforming to length and character constraints.

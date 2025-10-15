@@ -82,5 +82,19 @@ namespace Hagalaz.Utilities.Tests
             var result = ArrayUtilities.MakeArray(new[] { 1, 2, 3 }, new int[0]);
             CollectionAssert.AreEqual(new[] { 1, 2, 3 }, result.ToArray());
         }
+
+        [TestMethod]
+        public void MakeArray_WithSingleElementArrays_ReturnsCombinedArray()
+        {
+            var result = ArrayUtilities.MakeArray(new[] { 1 }, new[] { 2 }, new[] { 3 });
+            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, result.ToArray());
+        }
+
+        [TestMethod]
+        public void MakeArray_WithRepeatedNumbers_ReturnsCombinedArray()
+        {
+            var result = ArrayUtilities.MakeArray(new[] { 1, 1 }, new[] { 2, 2 });
+            CollectionAssert.AreEqual(new[] { 1, 1, 2, 2 }, result.ToArray());
+        }
     }
 }
