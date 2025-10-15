@@ -1,3 +1,4 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Linq;
 
 namespace Hagalaz.Utilities.Tests
@@ -10,6 +11,8 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("world", 43890588L)]
         [DataRow("csharp", 244048205L)]
         [DataRow("programming", 79330059267400463L)]
+        [DataRow("a", 1L)]
+        [DataRow(" ", 0L)]
         public void StringToLong_ConvertsCorrectly(string s, long expected)
         {
             // Arrange
@@ -25,6 +28,7 @@ namespace Hagalaz.Utilities.Tests
         [DataRow(43890588L, "world")]
         [DataRow(244048205L, "csharp")]
         [DataRow(79330059267400463L, "programming")]
+        [DataRow(1L, "a")]
         public void LongToString_ConvertsCorrectly(long value, string expected)
         {
             // Arrange
@@ -41,6 +45,8 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("test", false)]
         [DataRow("test@.com", false)]
         [DataRow("test@example", false)]
+        [DataRow(null, false)]
+        [DataRow("", false)]
         public void IsValidEmail_ValidatesCorrectly(string email, bool expected)
         {
             // Arrange
@@ -58,6 +64,7 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("toolongname123", false)]
         [DataRow("invalid#name", false)]
         [DataRow("", false)]
+        [DataRow("a", true)]
         public void IsValidName_ValidatesCorrectly(string name, bool expected)
         {
             // Arrange
