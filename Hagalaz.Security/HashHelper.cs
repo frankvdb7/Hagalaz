@@ -5,16 +5,16 @@ using System.Text;
 namespace Hagalaz.Security
 {
     /// <summary>
-    /// Provides method of hashing and comparing hashes.
+    /// Provides helper methods for computing hashes using various algorithms.
     /// </summary>
     public static class HashHelper
     {
         /// <summary>
-        /// Hashes a given text provided by the hash type.
+        /// Computes the hash of a given string using the specified hash algorithm.
         /// </summary>
-        /// <param name="text">The text to encrpyt.</param>
-        /// <param name="hashType">The hash type.</param>
-        /// <returns>Returns a string.</returns>
+        /// <param name="text">The input string to hash.</param>
+        /// <param name="hashType">The hash algorithm to use.</param>
+        /// <returns>A hexadecimal string representation of the computed hash. Returns an empty string if the hash algorithm is not supported.</returns>
         public static string ComputeHash(string text, HashType hashType)
         {
             var algorithm = CreateNewInstance(hashType);
@@ -29,7 +29,12 @@ namespace Hagalaz.Security
                 return string.Concat(Array.ConvertAll(hash, h => h.ToString("x2")));
             }
         }
-        
+
+        /// <summary>
+        /// Creates a new instance of a hash algorithm based on the specified hash type.
+        /// </summary>
+        /// <param name="hashType">The type of hash algorithm to create.</param>
+        /// <returns>A new instance of the specified <see cref="HashAlgorithm"/>, or <c>null</c> if the hash type is not supported.</returns>
         public static HashAlgorithm? CreateNewInstance(HashType hashType)
         {
             HashAlgorithm? result = null;

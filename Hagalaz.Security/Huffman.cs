@@ -4,6 +4,9 @@ using System.Text;
 
 namespace Hagalaz.Security
 {
+    /// <summary>
+    /// Provides methods for Huffman encoding and decoding of text, commonly used for compressing chat messages.
+    /// </summary>
     public static class Huffman
     {
         private static readonly int[] _huffmanDecryptKeys =
@@ -191,11 +194,11 @@ namespace Hagalaz.Security
     }*/
 
         /// <summary>
-        /// Decrpyts a character's chat.
+        /// Decodes a Huffman-encoded message from a memory stream.
         /// </summary>
-        /// <param name="stream">The packet holding the bytes.</param>
-        /// <param name="length">The length of the characters.</param>
-        /// <returns>Returns a string representing the text that the character has typed out.</returns>
+        /// <param name="stream">The memory stream containing the encoded data.</param>
+        /// <param name="length">The expected length of the decoded string.</param>
+        /// <returns>The decoded string. Returns an empty string if decoding fails or the length is zero.</returns>
         public static string Decode(MemoryStream stream, int length)
         {
             try
@@ -362,11 +365,11 @@ namespace Hagalaz.Security
         }
 
         /// <summary>
-        /// Encodes the specified text.
+        /// Encodes a string using Huffman compression.
         /// </summary>
-        /// <param name="text">The text.</param>
-        /// <param name="messageLength">Length of the message.</param>
-        /// <returns></returns>
+        /// <param name="text">The input string to encode.</param>
+        /// <param name="messageLength">When this method returns, contains the length of the encoded message.</param>
+        /// <returns>A byte array containing the Huffman-encoded data.</returns>
         public static byte[] Encode(string text, out int messageLength)
         {
             var messageData = Encoding.ASCII.GetBytes(text);
@@ -382,14 +385,14 @@ namespace Hagalaz.Security
         }
 
         /// <summary>
-        /// Encrypts a character's chat.
+        /// Encodes a portion of a byte array using Huffman compression into a destination buffer.
         /// </summary>
-        /// <param name="encodedText">The chat to encrpyt.</param>
-        /// <param name="textOffset">Unknown.</param>
-        /// <param name="streamOffset">Unknown.</param>
-        /// <param name="textLength">Unknown.</param>
-        /// <param name="text">Unknown.</param>
-        /// <returns>Returns an int representing the encrpyted value.</returns>
+        /// <param name="encodedText">The destination byte array for the encoded data.</param>
+        /// <param name="textOffset">The starting offset in the <paramref name="text"/> buffer.</param>
+        /// <param name="streamOffset">The starting offset in the <paramref name="encodedText"/> buffer.</param>
+        /// <param name="textLength">The number of bytes to encode from the <paramref name="text"/> buffer.</param>
+        /// <param name="text">The source byte array containing the text to encode.</param>
+        /// <returns>The number of bytes written to the <paramref name="encodedText"/> buffer.</returns>
         public static int Encode(byte[] encodedText, int textOffset, int streamOffset, int textLength, byte[] text)
         {
 
