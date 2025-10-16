@@ -147,6 +147,16 @@ namespace Hagalaz.Cache.Extensions
             stream.WriteBytes(Encoding.ASCII.GetBytes(value));
             stream.WriteByte(0);
         }
+
+        /// <summary>
+        /// Writes a "versioned" string, which is a standard null-terminated string prefixed by a version byte (which must be 0).
+        /// </summary>
+        /// <param name="stream">The memory stream.</param>
+        public static void WriteVString(this MemoryStream stream, string value)
+        {
+            stream.WriteByte(0);
+            stream.WriteString(value);
+        }
         
         /// <summary>
         /// Reads a single signed byte from the stream.

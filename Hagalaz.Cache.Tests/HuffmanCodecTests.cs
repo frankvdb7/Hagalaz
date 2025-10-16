@@ -95,5 +95,6 @@ namespace Hagalaz.Cache.Tests
             // Reset mock for other tests that might run in parallel
             _huffmanCodeProviderMock.Setup(p => p.GetCoding()).Returns(_realHuffmanCoding);
         }
+
     }
 }
