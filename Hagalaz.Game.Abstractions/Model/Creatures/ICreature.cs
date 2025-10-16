@@ -15,326 +15,284 @@ using Hagalaz.Game.Abstractions.Tasks;
 namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    ///     Represents a single creature inside the game world.
+    ///     Represents a single creature inside the game world, such as a player or an NPC.
     /// </summary>
     public interface ICreature : IEntity
     {
         /// <summary>
-        /// Gets a non-zero based index.
+        /// Gets or sets the unique server-side index of the creature.
         /// </summary>
-        /// <value>
-        /// The index.
-        /// </value>
         int Index { get; set; }
         /// <summary>
-        /// Contains the display name of the creature.
+        /// Gets the name of the creature as it should be displayed to players.
         /// </summary>
         string DisplayName { get; }
         /// <summary>
-        /// Gets the rendered nonstandard movement.
+        /// Gets the special movement, such as a knockback or jump, that is currently being rendered for this creature.
         /// </summary>
-        /// <value>
-        /// The rendered nonstandard movement.
-        /// </value>
         IForceMovement? RenderedNonstandardMovement { get; }
         /// <summary>
-        /// Gets the faced creature.
+        /// Gets the creature that this creature is currently facing.
         /// </summary>
-        /// <value>
-        /// The faced creature.
-        /// </value>
         ICreature? FacedCreature { get; }
         /// <summary>
-        /// Gets the last location.
+        /// Gets the creature's location from the previous game tick.
         /// </summary>
-        /// <value>
-        /// The last location.
-        /// </value>
         ILocation? LastLocation { get; }
         /// <summary>
-        /// Gets the game map.
+        /// Gets the creature's viewport, which manages the set of other entities visible to it.
         /// </summary>
-        /// <value>
-        /// The game map.
-        /// </value>
         IViewport Viewport { get; }
         /// <summary>
-        /// Gets the combat.
+        /// Gets the combat handler for this creature, which manages its combat state and actions.
         /// </summary>
-        /// <value>
-        /// The combat.
-        /// </value>
         ICreatureCombat Combat { get; }
         /// <summary>
-        /// Gets the area.
+        /// Gets the current map area the creature is in.
         /// </summary>
-        /// <value>
-        /// The area.
-        /// </value>
         IArea Area { get; }
         /// <summary>
-        /// Gets the movement.
+        /// Gets the movement handler for this creature, which manages its pathfinding and position updates.
         /// </summary>
-        /// <value>
-        /// The movement.
-        /// </value>
         IMovement Movement { get; }
         /// <summary>
         /// Gets the service scope for dependency injection.
         /// </summary>
         IServiceProvider ServiceProvider { get; }
         /// <summary>
-        /// Gets the mediator for this creature
+        /// Gets the mediator for this creature, used for handling game events and commands in a decoupled manner.
         /// </summary>
         IGameMediator Mediator { get; }
         /// <summary>
-        ///     Contains faced X coordinate.
-        ///     -1 if no specific location is faced.
+        /// Gets the X-coordinate that the creature is currently facing. A value of -1 indicates no specific location is being faced.
         /// </summary>
-        /// <value>The turned to X.</value>
         int TurnedToX { get; }
         /// <summary>
-        ///     Contains faced Y coordinate.
-        ///     -1 if no specific location is faced.
+        /// Gets the Y-coordinate that the creature is currently facing. A value of -1 indicates no specific location is being faced.
         /// </summary>
-        /// <value>The turned to Y.</value>
         int TurnedToY { get; }
         /// <summary>
-        ///     Contains creature speaking text or null if it isn't speaking
-        ///     anything this tick.
+        /// Gets the text that the creature is speaking during the current game tick, or null if it is not speaking.
         /// </summary>
-        /// <value>The speaking text.</value>
         string? SpeakingText { get; }
         /// <summary>
-        ///     Contains rendered glow.
+        /// Gets the graphical glow effect currently rendered on the creature.
         /// </summary>
-        /// <value>The rendered glow.</value>
         IGlow? RenderedGlow { get; }
         /// <summary>
-        ///     Contains rendered hitsplats.
+        /// Gets a read-only list of the hitsplats queued to be displayed on the creature in the current tick.
         /// </summary>
-        /// <value>The rendered hit splats.</value>
         IReadOnlyList<IHitSplat> RenderedHitSplats { get; }
         /// <summary>
-        ///     Contains  the rendered hit bars.
+        /// Gets a read-only list of the hit bars queued to be displayed on the creature in the current tick.
         /// </summary>
-        /// <value>
-        ///     The rendered hit bars.
-        /// </value>
         IReadOnlyList<IHitBar> RenderedHitBars { get; }
+        /// <summary>
+        /// Gets an enumeration of all active states on the creature.
+        /// </summary>
+        /// <returns>An <see cref="IEnumerable{T}"/> of <see cref="IState"/> currently affecting the creature.</returns>
         public IEnumerable<IState> GetStates();
         /// <summary>
-        ///     Get's facing direction of this creature.
+        /// Gets the cardinal or intercardinal direction the creature is currently facing.
         /// </summary>
-        /// <returns>
-        ///     System.Int32.
-        /// </returns>
         DirectionFlag FaceDirection { get; }
+        /// <summary>
+        /// Gets the pathfinding implementation used by this creature.
+        /// </summary>
         IPathFinder PathFinder { get; }
         /// <summary>
-        ///     Draw's nonstandart movement.
+        /// Queues a special movement (e.g., knockback, jump) to be rendered for this creature.
         /// </summary>
-        /// <param name="movement">Movement which should be rendered.</param>
+        /// <param name="movement">The force movement to be rendered.</param>
         void QueueForceMovement(IForceMovement movement);
         /// <summary>
-        ///     Checks if this creature is within specified range to other creature.
+        /// Determines whether this creature is within a specified distance of another creature.
         /// </summary>
-        /// <param name="otherCreature">The other creature.</param>
-        /// <param name="range">The range.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="otherCreature">The creature to check the distance to.</param>
+        /// <param name="range">The maximum allowed distance.</param>
+        /// <returns><c>true</c> if the distance between the creatures is within the specified range; otherwise, <c>false</c>.</returns>
         bool WithinRange(ICreature otherCreature, int range);
         /// <summary>
-        ///     Withins the range.
+        /// Determines whether this creature is within a specified distance of a given location, taking the target's size into account.
         /// </summary>
-        /// <param name="otherLocation">The other location.</param>
-        /// <param name="otherSize">Size of the other.</param>
-        /// <param name="range">The range.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="otherLocation">The location to check the distance to.</param>
+        /// <param name="otherSize">The size of the target at the location.</param>
+        /// <param name="range">The maximum allowed distance.</param>
+        /// <returns><c>true</c> if the distance is within the specified range; otherwise, <c>false</c>.</returns>
         bool WithinRange(ILocation otherLocation, int otherSize, int range);
         /// <summary>
-        /// 
+        /// A callback method that is executed when this creature is killed by another creature.
         /// </summary>
-        /// <param name="killer"></param>
+        /// <param name="killer">The creature that delivered the killing blow.</param>
         void OnKilledBy(ICreature killer);
         /// <summary>
-        ///     Reset's creature facing.
+        /// Resets the creature's facing direction to its default (typically South).
         /// </summary>
         void ResetFacing();
         /// <summary>
-        ///     Face's specific creature, can be null however if null is intentional
-        ///     then it is encouraged to use ResetFacing().
+        /// Makes this creature face another creature.
         /// </summary>
-        /// <param name="creature">The creature.</param>
+        /// <param name="creature">The creature to face.</param>
         void FaceCreature(ICreature creature);
         /// <summary>
-        ///     Applies standart state with immunity type argument.
-        ///     If this creature has a state that is same type as immunityType then
-        ///     this method does no effect and returns false.
+        /// Applies a standard state (e.g., poison, stun) to the creature, checking for immunity.
         /// </summary>
-        /// <param name="state">State which should be applied.</param>
-        /// <param name="immunityType">Type of the immunity.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="state">The state to apply.</param>
+        /// <param name="immunityType">The type of state to check for immunity against.</param>
+        /// <returns><c>true</c> if the state was successfully applied; otherwise, <c>false</c>.</returns>
         bool ApplyStandardState(IState state, StateType immunityType);
         /// <summary>
-        /// Get's if this character should be rendered for given character.
+        /// Determines if this creature should be visible to a specific player character.
         /// </summary>
-        /// <param name="viewer">Character for which this character should be rendered.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="viewer">The character viewing this creature.</param>
+        /// <returns><c>true</c> if this creature should be rendered for the viewer; otherwise, <c>false</c>.</returns>
         bool ShouldBeRenderedFor(ICharacter viewer);
         /// <summary>
-        /// Get's if this character should be rendered for given npc.
+        /// Determines if this creature should be visible to a specific NPC.
         /// </summary>
-        /// <param name="viewer">NPC for which this character should be rendered.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="viewer">The NPC viewing this creature.</param>
+        /// <returns><c>true</c> if this creature should be rendered for the viewer; otherwise, <c>false</c>.</returns>
         bool ShouldBeRenderedFor(INpc viewer);
         /// <summary>
-        ///     Respawn's this creature ( Normalises statistics, moves to spawn point)
-        ///     This also calls the OnSpawn method.
+        /// Resets the creature's stats and teleports it to its spawn location. This also calls the OnSpawn method.
         /// </summary>
         void Respawn();
         /// <summary>
-        ///     Get's called when creature dies.
+        /// A callback method that is executed when the creature's health reaches zero.
         /// </summary>
         void OnDeath();
         /// <summary>
-        /// Get's if this creature has specific state.
+        /// Checks if the creature currently has a specific state active.
         /// </summary>
-        /// <param name="type">Type of the state.</param>
-        /// <returns><c>true</c> if the specified type has state; otherwise, <c>false</c>.</returns>
+        /// <param name="type">The type of the state to check for.</param>
+        /// <returns><c>true</c> if a state of the specified type is active; otherwise, <c>false</c>.</returns>
         bool HasState(StateType type);
         /// <summary>
-        ///     Tick used for updating rendering information.
+        /// Performs the main update logic for the creature's client-side representation, such as movement and animation.
         /// </summary>
         Task MajorClientUpdateTickAsync();
         /// <summary>
-        ///     Tick used for generating update cycle info.
+        /// Prepares the data required for the client update tick, gathering all necessary information before the main update.
         /// </summary>
         Task MajorClientPrepareUpdateTickAsync();
         /// <summary>
-        ///     Tick used for cleaning up rendering information.
+        /// Resets the creature's update flags and clears temporary rendering data after a client update has been sent.
         /// </summary>
         Task MajorClientUpdateResetTickAsync();
         /// <summary>
-        ///     Tick used for various content processing.
+        /// Performs the main game logic update for the creature, such as processing states, timers, and combat actions.
         /// </summary>
         void MajorUpdateTick();
         /// <summary>
-        /// Interrupts the specified source.
+        /// Interrupts the creature's current action (e.g., skilling, combat) due to an external event.
         /// </summary>
-        /// <param name="source">The source.</param>
+        /// <param name="source">The object or system that initiated the interruption.</param>
         void Interrupt(object source);
         /// <summary>
-        /// This method gets executed when creature kills the target.
+        /// A callback method that is executed when this creature successfully kills another creature.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The creature that was killed.</param>
         void OnTargetKilled(ICreature target);
-
         /// <summary>
-        ///     Add's specific state to creature.
-        ///     If this creature already contains same type state then
-        ///     the one with longest expiry time remains.
+        /// Adds a state to the creature. If a state of the same type already exists, the one with the longer duration is kept.
         /// </summary>
-        /// <param name="state">The state.</param>
+        /// <param name="state">The state to add.</param>
         void AddState(IState state);
         /// <summary>
-        ///     Remove's specific state from creature.
+        /// Removes a state of a specific type from the creature.
         /// </summary>
-        /// <param name="type">The type.</param>
+        /// <param name="type">The type of the state to remove.</param>
         void RemoveState(StateType type);
         /// <summary>
-        ///     Speak's specific text.
+        /// Makes the creature display a line of text above its head.
         /// </summary>
-        /// <param name="text">Text which should be spoken.</param>
+        /// <param name="text">The text to be spoken.</param>
         void Speak(string text);
         /// <summary>
-        ///     Stun's this creature.
+        /// Stuns the creature for a specified number of game ticks, preventing most actions.
         /// </summary>
-        /// <param name="ticks">Amount of ticks creature will remain stunned.</param>
+        /// <param name="ticks">The duration of the stun in ticks.</param>
         void Stun(int ticks);
-
         /// <summary>
-        ///     Freeze's this creature.
+        /// Freezes the creature for a specified number of game ticks, preventing movement. Also applies a period of immunity to subsequent freezes.
         /// </summary>
-        /// <param name="ticks">Amount of ticks creature will remain frozen.</param>
-        /// <param name="immunityTicks">Amount of ticks creature will have immunity for freezing.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="ticks">The duration of the freeze in ticks.</param>
+        /// <param name="immunityTicks">The duration of freeze immunity in ticks after the freeze ends.</param>
+        /// <returns><c>true</c> if the creature was successfully frozen; otherwise, <c>false</c>.</returns>
         bool Freeze(int ticks, int immunityTicks);
         /// <summary>
-        ///     Poison's this creature by given amount.
-        ///     If amount is lower than 10 the creature is then unpoisoned.
+        /// Applies poison to the creature with a given strength. A strength less than 10 will cure the poison.
         /// </summary>
-        /// <param name="amount">Amount of poison strength.</param>
-        /// <returns>If creature was poisoned sucessfully.</returns>
+        /// <param name="amount">The strength of the poison to apply.</param>
+        /// <returns><c>true</c> if the creature was successfully poisoned; otherwise, <c>false</c>.</returns>
         bool Poison(short amount);
         /// <summary>
-        /// Queues the graphic.
+        /// Queues a graphical effect to be displayed on the creature.
         /// </summary>
-        /// <param name="graphic">The graphic.</param>
+        /// <param name="graphic">The graphic to display.</param>
         void QueueGraphic(IGraphic graphic);
         /// <summary>
-        /// Queues the animation.
+        /// Queues an animation to be played by the creature.
         /// </summary>
-        /// <param name="animation">The animation.</param>
+        /// <param name="animation">The animation to play.</param>
         void QueueAnimation(IAnimation animation);
         /// <summary>
-        /// Queue's specific hitsplat for this creature.
+        /// Queues a hitsplat to be displayed on the creature.
         /// </summary>
-        /// <param name="splat">Splat which should be rendered.</param>
+        /// <param name="splat">The hitsplat to display.</param>
         void QueueHitSplat(IHitSplat splat);
         /// <summary>
-        /// Queue's specific hitbar for this creature.
+        /// Queues a hit bar update to be displayed for the creature.
         /// </summary>
-        /// <param name="hitBar"></param>
+        /// <param name="hitBar">The hit bar to display.</param>
         void QueueHitBar(IHitBar hitBar);
         /// <summary>
-        /// Queue's task to be performed.
+        /// Queues a background task to be executed in the context of this creature.
         /// </summary>
-        /// <param name="task">The task.</param>
+        /// <param name="task">The task to be queued.</param>
+        /// <returns>A handle to the queued task.</returns>
         IRsTaskHandle QueueTask(ITaskItem task);
         /// <summary>
-        /// Queue's task to be performed.
+        /// Queues a background task with a return value to be executed in the context of this creature.
         /// </summary>
-        /// <param name="task"></param>
-        /// <typeparam name="TResult"></typeparam>
-        /// <returns></returns>
+        /// <typeparam name="TResult">The type of the task's result.</typeparam>
+        /// <param name="task">The task to be queued.</param>
+        /// <returns>A handle to the queued task, which can be used to retrieve the result.</returns>
         IRsTaskHandle<TResult> QueueTask<TResult>(ITaskItem<TResult> task);
         /// <summary>
-        ///     Turns to specific coordinates.
-        ///     Given location MUST be in current gamemap bounds, otherwise
-        ///     expect wrong facing directions.
-        ///     Sizes can't be lower THAN 1.
+        /// Makes the creature face a specific location. The location must be within the game map bounds.
         /// </summary>
-        /// <param name="location">The location.</param>
-        /// <param name="tileSizeX">The tile size X.</param>
-        /// <param name="tileSizeY">The tile size Y.</param>
+        /// <param name="location">The location to face.</param>
+        /// <param name="tileSizeX">The horizontal size of the target area to face. Must be at least 1.</param>
+        /// <param name="tileSizeY">The vertical size of the target area to face. Must be at least 1.</param>
         void FaceLocation(ILocation location, int tileSizeX = 1, int tileSizeY = 1);
         /// <summary>
-        /// 
+        /// Queues a glow effect to be displayed on the creature.
         /// </summary>
-        /// <param name="glow"></param>
+        /// <param name="glow">The glow effect to display.</param>
         void QueueGlow(IGlow glow);
         /// <summary>
-        ///     Determines whether this creature has a certain event handler.
+        /// Checks if there are any registered event handlers for a specific type of creature event.
         /// </summary>
-        /// <typeparam name="TEventType">The type of the event.</typeparam>
-        /// <returns></returns>
+        /// <typeparam name="TEventType">The type of the event to check for.</typeparam>
+        /// <returns><c>true</c> if at least one handler is registered for the event type; otherwise, <c>false</c>.</returns>
         bool HasEventHandler<TEventType>() where TEventType : ICreatureEvent;
         /// <summary>
-        ///     Registers the event handler.
+        /// Registers a callback to be executed when a specific type of creature event occurs.
         /// </summary>
         /// <typeparam name="TEventType">The type of the event.</typeparam>
-        /// <param name="handler">The handler.</param>
-        /// <returns></returns>
+        /// <param name="handler">The callback delegate to execute.</param>
+        /// <returns>An object representing the registered event handler, which can be used for unregistering.</returns>
         EventHappened RegisterEventHandler<TEventType>(EventHappened<TEventType> handler) where TEventType : ICreatureEvent;
         /// <summary>
-        ///     Unregisters the event handler.
+        /// Unregisters a previously registered event handler.
         /// </summary>
         /// <typeparam name="TEventType">The type of the event.</typeparam>
-        /// <param name="handler">Handler which should be unregistered.</param>
-        /// <returns></returns>
+        /// <param name="handler">The handler instance to unregister.</param>
+        /// <returns><c>true</c> if the handler was successfully unregistered; otherwise, <c>false</c>.</returns>
         bool UnregisterEventHandler<TEventType>(EventHappened handler) where TEventType : ICreatureEvent;
         /// <summary>
-        /// Get's called when entity is registered to world.
+        /// A callback method that is executed when the creature is successfully registered and added to the game world.
         /// </summary>
         Task OnRegistered();
     }

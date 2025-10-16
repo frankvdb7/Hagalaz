@@ -3,114 +3,99 @@
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a script that controls a player character's behavior while they are transformed into an NPC (Player-NPC).
     /// </summary>
     public interface ICharacterNpcScript
     {
         /// <summary>
-        /// Initializes this script with given owner.
+        /// Initializes the script with the character that it is attached to.
         /// </summary>
-        /// <param name="owner"></param>
+        /// <param name="owner">The character that owns this script.</param>
         void Initialize(ICharacter owner);
         /// <summary>
-        /// Happens when character is turned to npc for 
-        /// which this script is made.
-        /// This method usually get's called after Initialize()
-        /// By default, this method does nothing.
+        /// A callback executed when the character transforms into the NPC associated with this script.
         /// </summary>
         void OnTurnToNpc();
         /// <summary>
-        /// Happens when character is turned back to player 
-        /// and the script is about to be disposed, this method gives
-        /// opportunity to release used resources.
-        /// By default, this method does nothing.
+        /// A callback executed when the character reverts from the NPC transformation back to their player appearance.
         /// </summary>
         void OnTurnToPlayer();
         /// <summary>
-        /// Get's called when pnpc is dead.
-        /// By default, this method does nothing.
+        /// A callback executed when the transformed character dies.
         /// </summary>
         void OnDeath();
         /// <summary>
-        /// Get's called when pnpc is spawned.
-        /// By default, this method does nothing.
+        /// A callback executed when the transformed character spawns.
         /// </summary>
         void OnSpawn();
         /// <summary>
-        /// Get's attack distance of this pnpc.
-        /// By default, this method returns 1.
+        /// Gets the attack distance for the transformed character.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The attack distance in tiles.</returns>
         int GetAttackDistance();
         /// <summary>
-        /// Get's attack speed of this pnpc.
-        /// By default, this method does return Definition.AttackSpeed.
+        /// Gets the attack speed for the transformed character.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The attack speed in game ticks.</returns>
         int GetAttackSpeed();
         /// <summary>
-        /// Gets the maximum hitpoints.
+        /// Gets the maximum life points for the transformed character.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The maximum life points.</returns>
         int GetMaximumHitpoints();
         /// <summary>
-        /// Get's attack bonus type of this pnpc.
-        /// By default , this method does return AttackBonus.Crush
+        /// Gets the attack bonus type for the transformed character.
         /// </summary>
-        /// <returns>AttackBonus.</returns>
+        /// <returns>The <see cref="AttackBonus"/> type.</returns>
         AttackBonus GetAttackBonusType();
         /// <summary>
-        /// Get's attack style of this pnpc.
-        /// By default , this method does return AttackStyle.Accurate.
+        /// Gets the attack style for the transformed character.
         /// </summary>
-        /// <returns>AttackStyle.</returns>
+        /// <returns>The <see cref="AttackStyle"/>.</returns>
         AttackStyle GetAttackStyle();
         /// <summary>
-        /// Gets the display name.
+        /// Gets the display name for the transformed character.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The display name.</returns>
         string GetDisplayName();
         /// <summary>
-        /// Gets the combat level.
+        /// Gets the combat level for the transformed character.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The combat level.</returns>
         int GetCombatLevel();
         /// <summary>
-        /// Perform's attack on specific target.
+        /// Defines the logic for the transformed character's attack on a target.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The creature to be attacked.</param>
         void PerformAttack(ICreature target);
         /// <summary>
-        /// This method gets executed when creature kills the target.
+        /// A callback executed when the transformed character kills a target.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The creature that was killed.</param>
         void OnTargetKilled(ICreature target);
         /// <summary>
-        /// Determines whether this instance [can be looted by] the specified killer.
-        /// By default, this method returns true.
+        /// Determines if the transformed character's loot can be claimed by a specific killer.
         /// </summary>
-        /// <param name="killer">The killer.</param>
-        /// <returns></returns>
+        /// <param name="killer">The creature that killed the transformed character.</param>
+        /// <returns><c>true</c> if the killer can receive loot; otherwise, <c>false</c>.</returns>
         bool CanBeLootedBy(ICreature killer);
         /// <summary>
-        /// Get's called when pnpc is killed.
-        /// By default, this method does nothing.
+        /// A callback executed when the transformed character is killed by another creature.
         /// </summary>
-        /// <param name="killer">The killer.</param>
+        /// <param name="killer">The creature that dealt the killing blow.</param>
         void OnDeathBy(ICreature killer);
         /// <summary>
-        /// Render's this pnpc death.
+        /// Defines the death sequence for the transformed character.
         /// </summary>
-        /// <returns>Amount of ticks to wait before respawning.</returns>
+        /// <returns>The number of game ticks to wait before the character respawns.</returns>
         int RenderDeath();
-
         /// <summary>
-        /// Render's defence of this pnpc.
+        /// Defines the defensive animation or effect for the transformed character when attacked.
         /// </summary>
-        /// <param name="delay">Delay in client ticks till attack will reach the target.</param>
+        /// <param name="delay">The delay in client ticks until the incoming attack hits.</param>
         void RenderDefence(int delay);
         /// <summary>
-        /// Ticks this instance.
+        /// Processes a single game tick of logic for the script.
         /// </summary>
         void Tick();
     }

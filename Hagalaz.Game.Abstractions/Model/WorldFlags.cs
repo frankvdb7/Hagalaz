@@ -3,41 +3,41 @@
 namespace Hagalaz.Game.Abstractions.Model
 {
     /// <summary>
-    /// Contains world flag values.
+    /// Defines a set of flags that describe the properties and rules of a game world.
     /// </summary>
     [Flags]
     public enum WorldFlags
     {
         /// <summary>
-        /// No flags.
+        /// Indicates that no special flags are set for the world.
         /// </summary>
         None = 0,
         /// <summary>
-        /// Wether the world is members only.
+        /// Indicates that the world is for members only.
         /// </summary>
         MembersOnly = 0x1,
         /// <summary>
-        /// Wether the world has quick chat enabled.
+        /// Indicates that the world allows the use of quick chat.
         /// </summary>
         QuickChatAllowed = 0x2,
         /// <summary>
-        /// Whether the world has pvp enabled.
+        /// Indicates that the world has player-versus-player (PvP) combat enabled.
         /// </summary>
         PlayerVersusPlayer = 0x4,
         /// <summary>
-        /// Wether the world has loot share enabled.
+        /// Indicates that the world allows loot sharing among players.
         /// </summary>
         LootShareAllowed = 0x8,
         /// <summary>
-        /// Wether the world should be highlighted.
+        /// Indicates that the world should be highlighted in the world selection list.
         /// </summary>
         HighLight = 0x16,
         /// <summary>
-        /// Wheter game is for admins only.
+        /// Indicates that only game administrators can access the game world.
         /// </summary>
         GameAdminsOnly = 0x4000,
         /// <summary>
-        /// Wheter world lobby is for admins only.
+        /// Indicates that only game administrators can access the world's lobby.
         /// </summary>
         LobbyAdminsOnly = 0x2000,
     }

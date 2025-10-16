@@ -5,194 +5,163 @@ using Hagalaz.Game.Abstractions.Tasks;
 namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a creature's combat-related state and actions, managing everything from target selection to damage calculation.
     /// </summary>
     public interface ICreatureCombat
     {
         /// <summary>
-        /// Contains boolean if specific creature is dead.
+        /// Gets a value indicating whether the creature is currently dead.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if this instance is dead; otherwise, <c>false</c>.
-        /// </value>
         bool IsDead { get; }
         /// <summary>
-        ///     Contains target character or null.
+        /// Gets the creature's current combat target.
         /// </summary>
-        /// <value>The target.</value>
         ICreature? Target { get; }
         /// <summary>
-        ///     Contains combat delay tick.
+        /// Gets the game tick at which the creature can perform its next combat action.
         /// </summary>
-        /// <value>The delay tick.</value>
         int DelayTick { get; }
         /// <summary>
-        /// Contains last target or null.
+        /// Gets the last creature that this creature attacked.
         /// </summary>
-        /// <value>
-        /// The last attacked.
-        /// </value>
         ICreature? LastAttacked { get; }
         /// <summary>
-        /// Gets the recent attackers.
+        /// Gets a collection of creatures that have recently attacked this creature.
         /// </summary>
-        /// <value>
-        /// The recent attackers.
-        /// </value>
         IEnumerable<ICreatureAttackerInfo> RecentAttackers { get; }
         /// <summary>
-        /// Ticks this instance.
+        /// Executes a single game tick of combat logic for the creature.
         /// </summary>
         void Tick();
         /// <summary>
-        /// Set's ( Attacks ) the specified target ('target')
+        /// Sets the creature's combat target and initiates an attack.
         /// </summary>
-        /// <param name="target">Creature which should be attacked.</param>
-        /// <returns>
-        /// If creature target was set successfully.
-        /// </returns>
+        /// <param name="target">The creature to be attacked.</param>
+        /// <returns><c>true</c> if the target was successfully set; otherwise, <c>false</c>.</returns>
         bool SetTarget(ICreature target);
         /// <summary>
-        ///     Cancel's current target.
+        /// Cancels the creature's current combat target and stops its attack.
         /// </summary>
         void CancelTarget();
         /// <summary>
-        ///     This method gets executed when creature kills the target.
+        /// A callback method executed when this creature kills its target.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The creature that was killed.</param>
         void OnTargetKilled(ICreature target);
         /// <summary>
-        ///     This method gets executed on creatures death by creature.
+        /// A callback method executed when this creature is killed by another creature.
         /// </summary>
-        /// <param name="killer">The creature.</param>
+        /// <param name="killer">The creature that delivered the killing blow.</param>
         void OnKilledBy(ICreature killer);
         /// <summary>
-        ///     Render's death of this creature.
+        /// Initiates the death sequence for this creature, playing death animations and sounds.
         /// </summary>
         void OnDeath();
         /// <summary>
-        ///     Render's spawning of this character.
+        /// Renders the spawning effects for this creature, such as animations or graphics.
         /// </summary>
         void OnSpawn();
         /// <summary>
-        /// Get's if this creature can be attacked by specified attacker.
+        /// Determines if this creature can be attacked by a specific attacker.
         /// </summary>
-        /// <param name="attacker">The attacker.</param>
-        /// <returns>
-        ///   <c>true</c> if this instance [can be attacked by] the specified attacker; otherwise, <c>false</c>.
-        /// </returns>
+        /// <param name="attacker">The creature attempting to attack.</param>
+        /// <returns><c>true</c> if the attack is allowed; otherwise, <c>false</c>.</returns>
         bool CanBeAttackedBy(ICreature attacker);
         /// <summary>
-        ///     Get's called after attack was performed to specific target.
+        /// A callback method executed after this creature performs an attack on a target.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The creature that was attacked.</param>
         void OnAttackPerformed(ICreature target);
         /// <summary>
-        ///     Determines whether this instance [can set target] the specified target.
+        /// Determines if this creature can set a specific creature as its combat target.
         /// </summary>
-        /// <param name="target">The target.</param>
-        /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
+        /// <param name="target">The potential target creature.</param>
+        /// <returns><c>true</c> if the target can be set; otherwise, <c>false</c>.</returns>
         bool CanSetTarget(ICreature target);
         /// <summary>
-        ///     Determines whether this instance [can be looted].
+        /// Determines if this creature's loot can be claimed by a specific killer.
         /// </summary>
-        /// <param name="killer">The killer.</param>
-        /// <returns><c>true</c> if this instance [can be looted]; otherwise, <c>false</c>.</returns>
+        /// <param name="killer">The creature that killed this creature.</param>
+        /// <returns><c>true</c> if the killer is eligible to receive loot; otherwise, <c>false</c>.</returns>
         bool CanBeLootedBy(ICreature killer);
         /// <summary>
-        /// Get's if this creature is in combat.
+        /// Checks if the creature is currently engaged in combat.
         /// </summary>
-        /// <returns>
-        ///   <c>true</c> if [is in combat]; otherwise, <c>false</c>.
-        /// </returns>
+        /// <returns><c>true</c> if the creature is in combat; otherwise, <c>false</c>.</returns>
         bool IsInCombat();
         /// <summary>
-        /// Perform's attack on this creature.
-        /// Attacker target must be this creature.
-        /// Returns amount of damage that should be rendered on hitsplat.
-        /// If return is -1 , it means that attack wasn't performed.
+        /// Processes a direct attack on this creature, applying damage and effects.
         /// </summary>
-        /// <param name="attacker">Attacker character.</param>
-        /// <param name="damageType">Type of the damage.</param>
-        /// <param name="damage">Amount of damage, can be -1 in case of miss.</param>
-        /// <param name="soaked">Variable which will be set to amount of damage that was soaked.
-        /// If no damage was soaked then the variable will be -1.</param>
-        /// <returns>
-        /// Returns amount of damage that should be rendered on hitsplat.
-        /// </returns>
+        /// <param name="attacker">The creature performing the attack.</param>
+        /// <param name="damageType">The type of damage being dealt.</param>
+        /// <param name="damage">The amount of damage dealt, or -1 for a miss.</param>
+        /// <param name="soaked">A reference parameter that will be set to the amount of damage absorbed by defenses.</param>
+        /// <returns>The amount of damage that should be displayed on the hitsplat.</returns>
         int Attack(ICreature attacker, DamageType damageType, int damage, ref int soaked);
         /// <summary>
-        /// Performs incoming attack on this creature.
-        /// This attack does not damage the target but does check for protection prayers and performs
-        /// animations.
-        /// Attacker target must be this creature.
-        /// If return is -1 , it means that attack wasn't performed.
+        /// Processes the client-side effects of an incoming attack, such as animations and protection prayer checks, without applying damage.
         /// </summary>
-        /// <param name="attacker">Attacker creature.</param>
-        /// <param name="damageType">Type of the damage.</param>
-        /// <param name="damage">Amount of damage, can be -1 in case of miss.</param>
-        /// <param name="delay">Delay in client ticks until the attack will reach target.</param>
-        /// <returns>
-        /// Returns amount of damage that should be dealt.
-        /// </returns>
+        /// <param name="attacker">The creature performing the attack.</param>
+        /// <param name="damageType">The type of damage being dealt.</param>
+        /// <param name="damage">The potential amount of damage, or -1 for a miss.</param>
+        /// <param name="delay">The delay in client ticks until the attack hits.</param>
+        /// <returns>The amount of damage that will be dealt after a delay.</returns>
         int IncomingAttack(ICreature attacker, DamageType damageType, int damage, int delay);
         /// <summary>
-        /// Executes an attack using the provided parameters.
+        /// Executes a complete attack action based on a set of parameters.
         /// </summary>
-        /// <param name="attackParams">The parameters that define the attack, including target, damage, and damage type.</param>
-        /// <returns>An asynchronous task handle containing the result of the attack.</returns>
+        /// <param name="attackParams">The parameters defining the attack, including target, damage, and type.</param>
+        /// <returns>A task handle representing the asynchronous attack operation, which will yield an <see cref="AttackResult"/>.</returns>
         IRsTaskHandle<AttackResult> PerformAttack(AttackParams attackParams);
         /// <summary>
-        /// Get's attack level of this creature.
+        /// Gets the creature's effective Attack skill level, including any boosts or drains.
         /// </summary>
-        /// <returns>
-        /// System.Int32.
-        /// </returns>
+        /// <returns>The creature's effective Attack level.</returns>
         int GetAttackLevel();
         /// <summary>
-        /// Get's strength level of this creature.
+        /// Gets the creature's effective Strength skill level, including any boosts or drains.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The creature's effective Strength level.</returns>
         int GetStrengthLevel();
         /// <summary>
-        /// Get's defence level of this creature.
+        /// Gets the creature's effective Defence skill level, including any boosts or drains.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The creature's effective Defence level.</returns>
         int GetDefenceLevel();
         /// <summary>
-        /// Get's magic level .
+        /// Gets the creature's effective Magic skill level, including any boosts or drains.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The creature's effective Magic level.</returns>
         int GetMagicLevel();
         /// <summary>
-        /// Get's attack style of this creature.
+        /// Gets the creature's current combat style.
         /// </summary>
-        /// <returns>AttackStyle.</returns>
+        /// <returns>The creature's <see cref="AttackStyle"/>.</returns>
         AttackStyle GetAttackStyle();
         /// <summary>
-        /// Get's this creature defence bonus.
+        /// Gets the creature's defensive bonus against a specific type of attack.
         /// </summary>
-        /// <param name="attackBonusType">Type of the attackers attack bonus.</param>
-        /// <returns>System.Int32.</returns>
+        /// <param name="attackBonusType">The attack bonus type of the incoming attack.</param>
+        /// <returns>The creature's corresponding defensive bonus value.</returns>
         int GetDefenceBonus(AttackBonus attackBonusType);
         /// <summary>
-        /// Get's attack bonus of this creature.
+        /// Gets the creature's current attack bonus type (e.g., Stab, Slash, Ranged).
         /// </summary>
-        /// <returns>AttackBonus.</returns>
+        /// <returns>The creature's <see cref="AttackBonus"/> type.</returns>
         AttackBonus GetAttackBonusType();
         /// <summary>
-        /// Get's current attack bonus.
+        /// Gets the creature's current attack bonus value for its active combat style.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The creature's attack bonus value.</returns>
         int GetAttackBonus();
         /// <summary>
-        /// Gets the prayer bonus.
+        /// Gets the value of a specific prayer-based combat bonus.
         /// </summary>
-        /// <param name="bonusType">Type of the bonus.</param>
-        /// <returns></returns>
+        /// <param name="bonusType">The type of prayer bonus to retrieve.</param>
+        /// <returns>The value of the specified prayer bonus.</returns>
         int GetPrayerBonus(BonusPrayerType bonusType);
         /// <summary>
-        ///     Resets the combat delay.
+        /// Resets the creature's combat delay, allowing it to attack again immediately if a target is present.
         /// </summary>
         void ResetCombatDelay();
     }

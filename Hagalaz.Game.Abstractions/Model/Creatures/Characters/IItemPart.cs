@@ -3,54 +3,51 @@
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for an object that holds the appearance information for a single item, such as its models, colors, and textures.
     /// </summary>
     public interface IItemPart
     {
         /// <summary>
-        /// Contains the item Id.
+        /// Gets the unique ID of the item this appearance belongs to.
         /// </summary>
         int ItemId { get; }
         /// <summary>
-        /// Contains the male models.
+        /// Gets the array of model IDs used to render the item on a male character.
         /// </summary>
         int[] MaleModels { get; }
         /// <summary>
-        /// Contains the female models.
+        /// Gets the array of model IDs used to render the item on a female character.
         /// </summary>
         int[] FemaleModels { get;}
         /// <summary>
-        /// Contains the model colours.
+        /// Gets the array of original model colors that can be recolored.
         /// </summary>
         int[] ModelColors { get; }
         /// <summary>
-        /// Contains the texture colours.
+        /// Gets the array of original texture colors that can be retextured.
         /// </summary>
         int[] TextureColors { get; }
         /// <summary>
-        /// Contains the flags.
+        /// Gets the bitmask of flags that indicate which parts of the item's appearance have been customized.
         /// </summary>
         ItemUpdateFlags Flags { get; }
         /// <summary>
-        /// Sets the model part.
+        /// Sets the model ID for a specific part of the item's appearance.
         /// </summary>
-        /// <param name="part">The part.</param>
-        /// <param name="modelID">The model identifier.</param>
-        /// <exception cref="System.Exception">Invalid model part!</exception>
+        /// <param name="part">The index of the model part to set.</param>
+        /// <param name="modelID">The new model ID.</param>
         void SetModelPart(int part, int modelID);
         /// <summary>
-        /// Sets the model part colour.
+        /// Sets the color for a specific part of the item's model.
         /// </summary>
-        /// <param name="part">The part.</param>
-        /// <param name="colour">The colour.</param>
-        /// <exception cref="System.Exception">Invalid model colour part!</exception>
+        /// <param name="part">The index of the model color to set.</param>
+        /// <param name="colour">The new color value.</param>
         void SetModelPartColor(int part, int colour);
         /// <summary>
-        /// Sets the model part texture.
+        /// Sets the texture for a specific part of the item's model.
         /// </summary>
-        /// <param name="part">The part.</param>
-        /// <param name="texture">The texture.</param>
-        /// <exception cref="Exception">Invalid model texture part!</exception>
+        /// <param name="part">The index of the model texture to set.</param>
+        /// <param name="texture">The new texture value.</param>
         void SetModelPartTexture(int part, int texture);
     }
 }

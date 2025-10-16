@@ -4,50 +4,49 @@ using Hagalaz.Game.Abstractions.Services.Model;
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a script that controls the behavior of a Summoning familiar.
     /// </summary>
     public interface IFamiliarScript : INpcScript
     {
         /// <summary>
-        /// Contains the summoner.
+        /// Gets the character who summoned the familiar.
         /// </summary>
         ICharacter Summoner { get; }
         /// <summary>
-        /// Contains the owner of this script.
+        /// Gets the NPC instance that represents the familiar.
         /// </summary>
         INpc Familiar { get; }
         /// <summary>
-        /// Gets the type of the special.
+        /// Gets the target type for the familiar's special move.
         /// </summary>
-        /// <returns>SpecialType</returns>
+        /// <returns>The <see cref="FamiliarSpecialType"/> required by the special move.</returns>
         FamiliarSpecialType GetSpecialType();
         /// <summary>
-        /// Sets the special move target.
+        /// Sets the target for the familiar's special move.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The target entity for the special move.</param>
         void SetSpecialMoveTarget(IRuneObject? target);
         /// <summary>
-        /// Refreshe's familiar special move points.
+        /// Refreshes the familiar's special move points on the client.
         /// </summary>
         void RefreshSpecialMovePoints();
         /// <summary>
-        /// Refreshes the timer.
-        /// Every value of 75 is 30 seconds.
+        /// Refreshes the familiar's remaining time on the client.
         /// </summary>
         void RefreshTimer();
         /// <summary>
-        /// Calls the familiar.
+        /// Teleports the familiar to the summoner's location.
         /// </summary>
         void CallFamiliar();
         /// <summary>
-        /// Renews the familiar.
+        /// Extends the duration of the familiar's summoning time.
         /// </summary>
         void RenewFamiliar();
         /// <summary>
-        /// Initializes the specified owner.
+        /// Initializes the script with the summoner and the familiar's definition data.
         /// </summary>
-        /// <param name="summoner">The summoner.</param>
-        /// <param name="definition">The definition.</param>
+        /// <param name="summoner">The character who summoned the familiar.</param>
+        /// <param name="definition">The data definition for the familiar.</param>
         void InitializeSummoner(ICharacter summoner, SummoningDto definition);
     }
 }

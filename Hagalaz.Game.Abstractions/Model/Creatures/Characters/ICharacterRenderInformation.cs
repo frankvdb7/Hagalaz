@@ -5,104 +5,95 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for an object that holds the client-side rendering information for a player character.
     /// </summary>
     public interface ICharacterRenderInformation : ICreatureRenderInformation
     {
         /// <summary>
-        /// Contains character update flag.
+        /// Gets the combined bitmask of update flags that are currently scheduled for the character.
         /// </summary>
-        /// <value>The update flag.</value>
         UpdateFlags UpdateFlag { get; }
         /// <summary>
-        /// Gets a value indicating whether [item appearance update required].
+        /// Gets a value indicating whether the character's item-based appearance (e.g., equipment) needs to be updated on the client.
         /// </summary>
-        /// <value>
-        /// <c>true</c> if [item appearance update required]; otherwise, <c>false</c>.
-        /// </value>
         bool ItemAppearanceUpdateRequired { get; }
         /// <summary>
-        /// Gets a value indicating whether [large scene view].
+        /// Gets a value indicating whether the character is in a large scene view, which affects how many entities are rendered.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if [large scene view]; otherwise, <c>false</c>.
-        /// </value>
         bool LargeSceneView { get; }
         /// <summary>
-        /// Contains local NPCS.
+        /// Gets or sets the list of NPCs that are currently local to (and potentially visible to) the character.
         /// </summary>
-        /// <value>The local NPCS.</value>
         LinkedList<INpc> LocalNpcs { get; set; }
         /// <summary>
-        /// Contains visible local characters.
+        /// Gets or sets the list of other player characters that are currently local to this character.
         /// </summary>
-        /// <value>The local characters.</value>
         LinkedList<ICharacter> LocalCharacters { get; set; }
         /// <summary>
-        /// Shedules the item appearance update.
+        /// Schedules an update for the character's item-based appearance.
         /// </summary>
         void ScheduleItemAppearanceUpdate();
         /// <summary>
-        /// Get's if character is in screen.
+        /// Checks if another character is currently within this character's viewport.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <returns><c>true</c> if [is in viewport] [the specified index]; otherwise, <c>false</c>.</returns>
+        /// <param name="index">The server index of the other character.</param>
+        /// <returns><c>true</c> if the other character is in the viewport; otherwise, <c>false</c>.</returns>
         bool IsInViewport(int index);
         /// <summary>
-        /// Get's if character just showed up on screen.
+        /// Checks if another character has just entered this character's viewport in the current tick.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="index">The server index of the other character.</param>
+        /// <returns><c>true</c> if the other character just entered the viewport; otherwise, <c>false</c>.</returns>
         bool HasJustCrossedViewport(int index);
         /// <summary>
-        /// Set's if player is in screen.
+        /// Sets the viewport status for another character.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <param name="value">if set to <c>true</c> [value].</param>
+        /// <param name="index">The server index of the other character.</param>
+        /// <param name="value">The new viewport status.</param>
         void SetInViewport(int index, bool value);
         /// <summary>
-        /// Set's if player just showed up on screen.
+        /// Sets the flag indicating that another character has just entered this character's viewport.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <param name="value">if set to <c>true</c> [value].</param>
+        /// <param name="index">The server index of the other character.</param>
+        /// <param name="value">The new "just crossed" status.</param>
         void SetJustCrossedViewport(int index, bool value);
         /// <summary>
-        /// Set's that character skipped last cycle.
+        /// Sets the idle status for another character from the previous update cycle.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <param name="value">if set to <c>true</c> [value].</param>
+        /// <param name="index">The server index of the other character.</param>
+        /// <param name="value">The idle status to set.</param>
         void SetIdle(int index, bool value);
         /// <summary>
-        /// Set's that character this cycle.
+        /// Sets the idle status for another character for the current update cycle.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <param name="value">if set to <c>true</c> [value].</param>
+        /// <param name="index">The server index of the other character.</param>
+        /// <param name="value">The idle status to set.</param>
         void SetIdleOnThisLoop(int index, bool value);
         /// <summary>
-        /// Get's if character skipped last cycle.
+        /// Gets the idle status of another character from the previous update cycle.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <returns><c>true</c> if the specified index is idle; otherwise, <c>false</c>.</returns>
+        /// <param name="index">The server index of the other character.</param>
+        /// <returns><c>true</c> if the other character was idle; otherwise, <c>false</c>.</returns>
         bool IsIdle(int index);
         /// <summary>
-        /// Get's if character skipped this cycle.
+        /// Gets the idle status of another character for the current update cycle.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <returns><c>true</c> if [is idle on this loop] [the specified index]; otherwise, <c>false</c>.</returns>
+        /// <param name="index">The server index of the other character.</param>
+        /// <returns><c>true</c> if the other character is idle in the current loop; otherwise, <c>false</c>.</returns>
         bool IsIdleOnThisLoop(int index);
         /// <summary>
-        /// Updates this instance.
+        /// Asynchronously performs the main update logic for the character's rendering information.
         /// </summary>
         Task Update();
         /// <summary>
-        /// Shedule's flag based update to character.
+        /// Schedules a specific type of appearance update for the character using a bitmask flag.
         /// </summary>
-        /// <param name="flag">The flag.</param>
+        /// <param name="flag">The update flag to schedule.</param>
         void ScheduleFlagUpdate(UpdateFlags flag);
         /// <summary>
-        /// Cancel's sheduled flag update.
+        /// Cancels a previously scheduled appearance update.
         /// </summary>
-        /// <param name="flag">The flag.</param>
+        /// <param name="flag">The update flag to cancel.</param>
         void CancelScheduledUpdate(UpdateFlags flag);
     }
 }

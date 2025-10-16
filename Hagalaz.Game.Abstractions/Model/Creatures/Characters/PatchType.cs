@@ -1,36 +1,36 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the different types of farming patches available in the game.
     /// </summary>
     public enum PatchType
     {
         /// <summary>
-        /// The allotment
+        /// An allotment patch for growing vegetables and fruits.
         /// </summary>
         Allotment,
         /// <summary>
-        /// The tree
+        /// A tree patch for growing regular trees.
         /// </summary>
         Tree,
         /// <summary>
-        /// The hop
+        /// A hops patch for growing hops.
         /// </summary>
         Hop,
         /// <summary>
-        /// The flower
+        /// A flower patch for growing flowers.
         /// </summary>
         Flower,
         /// <summary>
-        /// The fruit tree
+        /// A fruit tree patch for growing fruit-bearing trees.
         /// </summary>
         FruitTree,
         /// <summary>
-        /// The bush
+        /// A bush patch for growing berries.
         /// </summary>
         Bush,
         /// <summary>
-        /// The herb
+        /// A herb patch for growing herbs.
         /// </summary>
         Herb
     }

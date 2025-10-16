@@ -5,84 +5,67 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 namespace Hagalaz.Game.Abstractions.Model.Creatures
 {
     /// <summary>
-    /// Contains a creatures viewport
+    /// Defines the contract for a creature's viewport, which manages the set of entities and map regions visible to the creature.
     /// </summary>
     public interface IViewport
     {
         /// <summary>
-        /// Gets the visible creatures.
+        /// Gets a read-only list of the creatures currently visible within this viewport.
         /// </summary>
-        /// <value>
-        /// The visible creatures.
-        /// </value>
         IReadOnlyList<ICreature> VisibleCreatures { get; }
         /// <summary>
-        /// Get's creature surrounding regions + center region.
+        /// Gets a read-only list of the map regions currently loaded in this viewport.
         /// </summary>
-        /// <returns>LinkedList{MapRegion}.</returns>
         IReadOnlyList<IMapRegion> VisibleRegions { get; }
         /// <summary>
-        /// Gets the view location.
+        /// Gets the central location around which the viewport is built.
         /// </summary>
-        /// <value>
-        /// The view location.
-        /// </value>
         ILocation ViewLocation { get; }
         /// <summary>
-        /// Contains size for both X and Y in tiles of this viewport.
-        /// Let's say viewport size is 104 so the character could be able to see
-        /// 104x104 tiles.
+        /// Gets the size of the viewport in tiles (e.g., 104x104).
         /// </summary>
-        /// <value>The size.</value>
         IMapSize MapSize { get; }
         /// <summary>
-        /// Get's base X coordinate of this map.
-        /// Base means starting absolute X.
+        /// Gets the absolute world X-coordinate of the bottom-left corner of the viewport.
         /// </summary>
-        /// <returns>System.Int32.</returns>
         int BaseAbsX { get; }
         /// <summary>
-        /// Get's base Y coordinate of this map.
-        /// Base means starting absolute Y.
+        /// Gets the absolute world Y-coordinate of the bottom-left corner of the viewport.
         /// </summary>
-        /// <returns>System.Int32.</returns>
         int BaseAbsY { get; }
         /// <summary>
-        /// Get's if one of the visible region's are dynamic.
+        /// Determines if any of the currently visible map regions require dynamic updates (e.g., for animated tiles).
         /// </summary>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <returns><c>true</c> if any visible region is dynamic; otherwise, <c>false</c>.</returns>
         bool NeedsDynamicDraw();
         /// <summary>
-        /// Get's if specific location is in bounds of this game map.
-        /// Dimension is not checked.
+        /// Checks if a specific location is within the bounds of this viewport. This check does not consider the dimension.
         /// </summary>
-        /// <param name="location">The location.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="location">The location to check.</param>
+        /// <returns><c>true</c> if the location is within the viewport's X and Y boundaries; otherwise, <c>false</c>.</returns>
         bool InBounds(ILocation location);
         /// <summary>
-        /// Get's if viewport is recommended to be updated.
-        /// It checks if player sees black map part on it's minimap.
+        /// Determines if the viewport needs to be completely rebuilt, typically because the creature has moved too far from the last build point.
         /// </summary>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <returns><c>true</c> if a rebuild is recommended; otherwise, <c>false</c>.</returns>
         bool ShouldRebuild();
         /// <summary>
-        /// Gets the map position.
+        /// Calculates the local coordinates of a world location relative to the viewport's origin.
         /// </summary>
-        /// <param name="location">The location.</param>
-        /// <param name="localX">The local x.</param>
-        /// <param name="localY">The local y.</param>
+        /// <param name="location">The world location.</param>
+        /// <param name="localX">A reference parameter that will be populated with the local X-coordinate.</param>
+        /// <param name="localY">A reference parameter that will be populated with the local Y-coordinate.</param>
         void GetLocalPosition(ILocation location, ref int localX, ref int localY);
         /// <summary>
-        /// Happens on update tick.
-        /// Refreshe's visible characters.
+        /// Processes a single game tick for the viewport, refreshing the list of visible creatures.
         /// </summary>
         void UpdateTick();
         /// <summary>
-        /// Rebuilds map region data.
+        /// Forces a complete rebuild of the viewport's visible map region data.
         /// </summary>
         void RebuildView();
         /// <summary>
-        /// Updates the map region data
+        /// Asynchronously updates the viewport, loading new map regions and entities as needed.
         /// </summary>
         Task UpdateViewport();
     }

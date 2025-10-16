@@ -1,10 +1,10 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// Contains delegate for character option click.
-    /// Happens when character clicks other character.
+    /// Represents a delegate for handling a click event on a character option.
+    /// This is triggered when a player right-clicks another character and selects an option from the context menu.
     /// </summary>
-    /// <param name="target">Character that was clicked.</param>
-    /// <param name="forceRun">Wheter character should force run to target.</param>
+    /// <param name="target">The character that was clicked on.</param>
+    /// <param name="forceRun">A value indicating whether the interacting character should force-run to the target.</param>
     public delegate void CharacterOptionClicked(ICharacter target, bool forceRun);
 }

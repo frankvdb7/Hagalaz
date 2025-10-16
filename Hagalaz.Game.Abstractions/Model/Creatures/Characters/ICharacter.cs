@@ -10,350 +10,287 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a player-controlled character, extending the base creature with player-specific properties and behaviors.
     /// </summary>
     public interface ICharacter : ICreature
     {
         /// <summary>
-        /// Gets the session.
+        /// Gets the game session associated with this character.
         /// </summary>
-        /// <value>
-        /// The session.
-        /// </value>
         IGameSession Session { get; }
         /// <summary>
-        /// Gets or sets the name.
+        /// Gets the unique display name of the character.
         /// </summary>
-        /// <value>
-        /// The name.
-        /// </value>
         new string Name { get; }
         /// <summary>
-        /// Contains the last game login.
+        /// Gets the timestamp of the character's last login.
         /// </summary>
         DateTimeOffset LastLogin { get; }
         /// <summary>
-        /// Gets a value indicating whether [received welcome].
+        /// Gets a value indicating whether the character has received the initial welcome message for this session.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if [received welcome]; otherwise, <c>false</c>.
-        /// </value>
         bool HasReceivedWelcome { get; }
+        /// <summary>
+        /// Gets the number of animations currently queued for this character.
+        /// </summary>
         int QueuedAnimationsCount { get; }
+        /// <summary>
+        /// Gets the number of graphics currently queued for this character.
+        /// </summary>
         int QueuedGraphicsCount { get; }
+        /// <summary>
+        /// Dequeues and returns the next animation in the queue.
+        /// </summary>
+        /// <returns>The next <see cref="IAnimation"/> to be played.</returns>
         IAnimation TakeAnimation();
+        /// <summary>
+        /// Dequeues and returns the next graphic in the queue.
+        /// </summary>
+        /// <returns>The next <see cref="IGraphic"/> to be displayed.</returns>
         IGraphic TakeGraphic();
+        /// <summary>
+        /// Gets an enumeration of all scripts currently attached to this character.
+        /// </summary>
+        /// <returns>An <see cref="IEnumerable{T}"/> of <see cref="ICharacterScript"/>.</returns>
         IEnumerable<ICharacterScript> GetScripts();
+        /// <summary>
+        /// Renders a skull icon above the character's head, typically indicating a PvP status.
+        /// </summary>
+        /// <param name="icon">The type of skull icon to display.</param>
+        /// <param name="ticks">The duration in game ticks for which the skull will be visible.</param>
+        /// <returns><c>true</c> if the skull was successfully rendered; otherwise, <c>false</c>.</returns>
         bool RenderSkull(SkullIcon icon, int ticks);
+        /// <summary>
+        /// A callback method executed when the character gains experience in a skill.
+        /// </summary>
+        /// <param name="skillID">The ID of the skill that gained experience.</param>
+        /// <param name="currentExperience">The total current experience in the skill after the gain.</param>
         void OnSkillExperienceGain(int skillID, double currentExperience);
         /// <summary>
-        /// Gets the master identifier.
+        /// Gets the unique identifier for the player's master account.
         /// </summary>
-        /// <value>
-        /// The master identifier.
-        /// </value>
         uint MasterId {get; }
         /// <summary>
-        /// Contains the previous display name.
+        /// Gets or sets the character's previous display name, used for tracking name changes.
         /// </summary>
         string? PreviousDisplayName { get; set; }
         /// <summary>
-        /// Gets the familiar script.
+        /// Gets the script for the character's currently summoned familiar.
         /// </summary>
-        /// <value>
-        /// The familiar script.
-        /// </value>
         IFamiliarScript FamiliarScript { get; }
         /// <summary>
-        /// Contains all special permissions that this character has been given.
+        /// Gets the special permissions and rights assigned to this character.
         /// </summary>
         Permission Permissions { get; }
         /// <summary>
-        /// Gets the statistics.
+        /// Gets the handler for the character's statistics, including skills and life points.
         /// </summary>
-        /// <value>
-        /// The statistics.
-        /// </value>
         ICharacterStatistics Statistics { get; }
         /// <summary>
-        /// Contains the slayer of the character.
+        /// Gets the handler for the character's Slayer skill data and tasks.
         /// </summary>
         ISlayer Slayer { get; }
         /// <summary>
-        /// Contains the farming of the character.
+        /// Gets the handler for the character's Farming skill data and patches.
         /// </summary>
         IFarming Farming { get; }
         /// <summary>
-        /// Contains the magic of the character.
+        /// Gets the handler for the character's Magic skill, including spellbook and runes.
         /// </summary>
         IMagic Magic { get; }
         /// <summary>
-        /// Gets the notes.
+        /// Gets the handler for the character's in-game notes.
         /// </summary>
-        /// <value>
-        /// The notes.
-        /// </value>
         INotes Notes { get; }
         /// <summary>
-        /// Gets the appearance.
+        /// Gets the handler for the character's visual appearance and customization.
         /// </summary>
-        /// <value>
-        /// The appearance.
-        /// </value>
         ICharacterAppearance Appearance { get; }
         /// <summary>
-        /// Gets the render information.
+        /// Gets the handler for the character's client-side rendering information.
         /// </summary>
-        /// <value>
-        /// The render information.
-        /// </value>
         ICharacterRenderInformation RenderInformation { get; }
         /// <summary>
-        /// Gets the configuration.
+        /// Gets the handler for the character's various settings and configurations.
         /// </summary>
-        /// <value>
-        /// The configuration.
-        /// </value>
         IConfigurations Configurations { get; }
         /// <summary>
-        /// Gets the prayers.
+        /// Gets the handler for the character's prayers and curses.
         /// </summary>
-        /// <value>
-        /// The prayers.
-        /// </value>
         IPrayers Prayers { get; }
         /// <summary>
-        /// Gets or sets the clan.
+        /// Gets or sets the clan that the character is a member of.
         /// </summary>
-        /// <value>
-        /// The clan.
-        /// </value>
         IClan Clan { get; set; }
         /// <summary>
-        /// Gets the friends list
+        /// Gets the character's friends list.
         /// </summary>
         IContactList<Friend> Friends { get; }
         /// <summary>
-        /// Gets the ignore list
+        /// Gets the character's ignore list.
         /// </summary>
         IContactList<Ignore> Ignores { get; }
         /// <summary>
-        /// Gets the music.
+        /// Gets the handler for the character's unlocked music tracks.
         /// </summary>
-        /// <value>
-        /// The music.
-        /// </value>
         IMusic Music { get; }
         /// <summary>
-        /// Gets the interfaces.
+        /// Gets the container for the character's user interface widgets (interfaces).
         /// </summary>
-        /// <value>
-        /// The interfaces.
-        /// </value>
         IWidgetContainer Widgets { get; }
         /// <summary>
-        /// Gets the game client.
+        /// Gets the handler for the character's game client settings and state.
         /// </summary>
-        /// <value>
-        /// The game client.
-        /// </value>
         IGameClient GameClient { get; }
         /// <summary>
-        /// Gets the profile.
+        /// Gets the handler for the character's persistent profile data.
         /// </summary>
         IProfile Profile { get; }
         /// <summary>
-        /// Gets the inventory.
+        /// Gets the character's inventory container.
         /// </summary>
-        /// <value>
-        /// The inventory.
-        /// </value>
         IInventoryContainer Inventory { get; }
         /// <summary>
-        /// Gets the equipment.
+        /// Gets the character's equipment container.
         /// </summary>
-        /// <value>
-        /// The equipment.
-        /// </value>
         IEquipmentContainer Equipment { get; }
         /// <summary>
-        /// Gets the money pouch.
+        /// Gets the character's money pouch container.
         /// </summary>
-        /// <value>
-        /// The money pouch.
-        /// </value>
         IMoneyPouchContainer MoneyPouch { get; }
         /// <summary>
-        /// Gets the rewards.
+        /// Gets the character's container for unclaimed rewards.
         /// </summary>
-        /// <value>
-        /// The rewards.
-        /// </value>
         IRewardContainer Rewards { get; }
         /// <summary>
-        /// Gets the bank.
+        /// Gets the character's bank container.
         /// </summary>
-        /// <value>
-        /// The bank.
-        /// </value>
         IBankContainer Bank { get; }
         /// <summary>
-        /// Gets a value indicating whether this <see cref="ICharacter"/> is muted.
+        /// Gets a value indicating whether the character is currently muted and unable to use chat.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if muted; otherwise, <c>false</c>.
-        /// </value>
         bool IsMuted { get; }
         /// <summary>
-        /// Gets the type of the current chat.
+        /// Gets or sets the character's current chat channel (e.g., public, friends, clan).
         /// </summary>
-        /// <value>
-        /// The type of the current chat.
-        /// </value>
         ClientChatType CurrentChatType { get; set; }
         /// <summary>
-        /// Gets or sets the current shop.
+        /// Gets or sets the shop that the character is currently interacting with.
         /// </summary>
-        /// <value>
-        /// The current shop.
-        /// </value>
         IShop? CurrentShop { get; set; }
         /// <summary>
-        /// Get's if character is busy.
+        /// Determines if the character is currently busy with an action that prevents other interactions (e.g., in a cutscene, trading).
         /// </summary>
-        /// <returns><c>true</c> if this instance is busy; otherwise, <c>false</c>.</returns>
+        /// <returns><c>true</c> if the character is busy; otherwise, <c>false</c>.</returns>
         bool IsBusy();
         /// <summary>
-        /// Interrupts the interfaces.
+        /// Closes any open user interface widgets.
         /// </summary>
         void InterruptInterfaces();
         /// <summary>
-        /// Update's character visible regions.
+        /// Updates the character's client with the latest map and entity information for their visible area.
         /// </summary>
+        /// <param name="forceUpdate">If set to <c>true</c>, forces a full map rebuild.</param>
+        /// <param name="renderViewPort">If set to <c>true</c>, forces the viewport to be re-rendered.</param>
         Task UpdateMapAsync(bool forceUpdate, bool renderViewPort = false);
-
         /// <summary>
-        /// Sends the message.
+        /// Sends a message to the character's chatbox or console.
         /// </summary>
-        /// <param name="message">The message.</param>
-        /// <param name="messageType">Type of the message.</param>
-        /// <param name="displayName"></param>
-        /// <param name="previousDisplayName"></param>
+        /// <param name="message">The message content.</param>
+        /// <param name="messageType">The type of message, which determines its color and formatting.</param>
+        /// <param name="displayName">The display name of the sender, if applicable.</param>
+        /// <param name="previousDisplayName">The previous display name of the sender, if applicable (for name changes).</param>
         void SendChatMessage(string message, ChatMessageType messageType = ChatMessageType.ChatboxText, string? displayName = null, string? previousDisplayName = null);
-
         /// <summary>
-        /// Registers the hint icon.
+        /// Attempts to register and display a hint icon for the character.
         /// </summary>
-        /// <param name="icon">The icon.</param>
-        /// <returns></returns>
+        /// <param name="icon">The hint icon to display.</param>
+        /// <returns><c>true</c> if the hint icon was successfully registered; otherwise, <c>false</c>.</returns>
         bool TryRegisterHintIcon(IHintIcon icon);
-
         /// <summary>
-        /// Tries to logout character.
+        /// Attempts to log the character out of the game.
         /// </summary>
-        /// <param name="toLobby">Wheter character is logging out to lobby.</param>
-        /// <returns>Returns true if character was logged out.</returns>
+        /// <param name="toLobby">If set to <c>true</c>, the character will be sent to the lobby instead of being fully disconnected.</param>
+        /// <returns><c>true</c> if the logout was successful; otherwise, <c>false</c>.</returns>
         bool TryLogout(bool toLobby);
-
         /// <summary>
-        /// Unregisters the hint ion.
+        /// Attempts to unregister and remove an active hint icon.
         /// </summary>
-        /// <param name="icon">The icon.</param>
-        /// <returns></returns>
+        /// <param name="icon">The hint icon to remove.</param>
+        /// <returns><c>true</c> if the hint icon was successfully unregistered; otherwise, <c>false</c>.</returns>
         bool TryUnregisterHintIcon(IHintIcon icon);
         /// <summary>
-        /// Gets the items get on death.
-        /// Item1 = protected item slots
-        /// Item2 = destroyed item slots
-        /// Item3 = dropped item slots
-        /// Item4 = kept item slots
+        /// Calculates which item slots are protected, destroyed, dropped, and kept upon death.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>A tuple containing lists of item slot indices for each category.</returns>
         (List<int> protectedItems, List<int> destroyedItems, List<int> droppedItems, List<int> keptItems) GetItemSlotsOnDeathData();
         /// <summary>
-        /// Gets the items on death data.
-        /// Item1 = dropped items
-        /// Item2 = kept items
+        /// Gets the actual items that will be dropped and kept upon the character's death.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>A tuple containing an array of dropped items and an array of kept items.</returns>
         (IItem[] droppedItems, IItem[] keptItems) GetItemsOnDeathData();
         /// <summary>
-        /// Gets the items on death data.
-        /// Item1 = dropped items
-        /// Item2 = kept items
+        /// Gets the items that will be dropped and kept upon death, based on pre-calculated slot data.
         /// </summary>
-        /// <param name="slotData">The slot data.</param>
-        /// <returns></returns>
+        /// <param name="slotData">The pre-calculated data of which slots are protected, destroyed, etc.</param>
+        /// <returns>A tuple containing an array of dropped items and an array of kept items.</returns>
         (IItem[] droppedItems, IItem[] keptItems) GetItemsOnDeathData((List<int> protectedItems, List<int> destroyedItems, List<int> droppedItems, List<int> keptItems) slotData);
         /// <summary>
-        /// Happens when character option click packet is received.
+        /// A callback method executed when this character clicks on another character.
         /// </summary>
-        /// <param name="clickType">Type of the click.</param>
-        /// <param name="forceRun">Wheter character should force RUN.</param>
-        /// <param name="target">Character that was clicked.</param>
+        /// <param name="clickType">The type of click option selected.</param>
+        /// <param name="forceRun">A value indicating whether the character should force-run to the target.</param>
+        /// <param name="target">The character that was clicked on.</param>
         void OnCharacterClicked(CharacterClickType clickType, bool forceRun, ICharacter target);
         /// <summary>
-        /// Trie's force logout on disconnection.
+        /// Attempts to forcefully log the character out, typically used on disconnection.
         /// </summary>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <returns><c>true</c> if the force logout was successful; otherwise, <c>false</c>.</returns>
         bool TryForceLogout();
         /// <summary>
-        /// Loads the script.
+        /// Adds a new script component of a specified type to the character.
         /// </summary>
-        /// <typeparam name="TScriptType">The type of the script type.</typeparam>
-        /// <returns>
-        /// Null if there was already a script with the same type.
-        /// </returns>
-        /// <exception cref="System.Exception">Tried to add a non-initialized CharacterScript.</exception>
+        /// <typeparam name="TScriptType">The type of the script to add.</typeparam>
+        /// <returns>The newly created and attached script instance.</returns>
         TScriptType AddScript<TScriptType>() where TScriptType : class, ICharacterScript;
         /// <summary>
-        /// Loads the script.
+        /// Adds an existing script component instance to the character.
         /// </summary>
         /// <typeparam name="TScriptType">The type of the script.</typeparam>
-        /// <param name="script">The script.</param>
-        /// <returns>
-        /// Null if there was already a script with the same type.
-        /// </returns>
-        /// <exception cref="System.Exception">Tried to add a non-initialized CharacterScript.</exception>
+        /// <param name="script">The script instance to add.</param>
+        /// <returns>The attached script instance.</returns>
         TScriptType AddScript<TScriptType>(TScriptType script) where TScriptType : class, ICharacterScript;
         /// <summary>
-        /// Determines whether this instance has script.
+        /// Checks if the character has a script of a specific type attached.
         /// </summary>
-        /// <typeparam name="TScriptType">The type of the cript type.</typeparam>
-        /// <returns>
-        ///   <c>true</c> if this instance has script; otherwise, <c>false</c>.
-        /// </returns>
+        /// <typeparam name="TScriptType">The type of the script to check for.</typeparam>
+        /// <returns><c>true</c> if a script of the specified type is attached; otherwise, <c>false</c>.</returns>
         bool HasScript<TScriptType>() where TScriptType : class, ICharacterScript;
         /// <summary>
-        /// Gets the script.
+        /// Retrieves a script of a specific type that is attached to the character.
         /// </summary>
-        /// <typeparam name="TScriptType">The type of the cript type.</typeparam>
-        /// <returns></returns>
+        /// <typeparam name="TScriptType">The type of the script to retrieve.</typeparam>
+        /// <returns>The script instance if found; otherwise, <c>null</c>.</returns>
         TScriptType? GetScript<TScriptType>() where TScriptType : class, ICharacterScript;
         /// <summary>
-        /// Removes the script.
+        /// Attempts to remove a script of a specific type from the character.
         /// </summary>
-        /// <typeparam name="TScriptType">The type of the script.</typeparam>
-        /// <returns>If the script was successfully removed.</returns>
+        /// <typeparam name="TScriptType">The type of the script to remove.</typeparam>
+        /// <returns><c>true</c> if the script was successfully removed; otherwise, <c>false</c>.</returns>
         bool TryRemoveScript<TScriptType>() where TScriptType : class, ICharacterScript;
         /// <summary>
-        /// Registers the characters option handler.
+        /// Registers a custom right-click option on this character that other players can interact with.
         /// </summary>
-        /// <param name="clickType"></param>
-        /// <param name="optionName">DisplayName of the option.</param>
-        /// <param name="iconID">The icon Id.</param>
-        /// <param name="showOnTop">if set to <c>true</c> [show on top].</param>
-        /// <param name="handler">The handler.</param>
-        /// <exception cref="System.Exception"></exception>
+        /// <param name="clickType">The click option slot to register.</param>
+        /// <param name="optionName">The text to be displayed for the option.</param>
+        /// <param name="iconID">The ID of the icon to display next to the option text.</param>
+        /// <param name="showOnTop">If set to <c>true</c>, this option will appear at the top of the context menu.</param>
+        /// <param name="handler">The delegate to be executed when the option is clicked.</param>
         void RegisterCharactersOptionHandler(CharacterClickType clickType, string optionName, int iconID, bool showOnTop, CharacterOptionClicked handler);
-
         /// <summary>
-        /// Unregisters the characters option handler.
+        /// Unregisters a previously registered custom right-click option.
         /// </summary>
-        /// <param name="clickType">Type of the click.</param>
-        /// <returns>
-        ///   <c>true</c> if XXXX, <c>false</c> otherwise
-        /// </returns>
+        /// <param name="clickType">The click option slot to unregister.</param>
         void UnregisterCharactersOptionHandler(CharacterClickType clickType);
     }
 }

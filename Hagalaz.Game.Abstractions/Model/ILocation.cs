@@ -95,8 +95,8 @@ namespace Hagalaz.Game.Abstractions.Model
         /// <summary>
         /// Creates a new copy of this location in a different dimension.
         /// </summary>
-        /// <param name="newDimension">The dimension for the new location.</param>
+        /// <param name="dimension">The dimension for the new location.</param>
         /// <returns>A new <see cref="ILocation"/> instance with the same coordinates but in the new dimension.</returns>
-        ILocation Copy(int newDimension);
+        ILocation Copy(int dimension);
     }
 }

@@ -1,100 +1,100 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// Contains staff types.
+    /// Defines the different types of magical staves, identified by their item ID.
     /// </summary>
     public enum StaffType : int
     {
         /// <summary>
-        /// The air staff
+        /// A staff of air.
         /// </summary>
         AirStaff = 1381,
         /// <summary>
-        /// The water staff
+        /// A staff of water.
         /// </summary>
         WaterStaff = 1383,
         /// <summary>
-        /// The earth staff
+        /// A staff of earth.
         /// </summary>
         EarthStaff = 1385,
         /// <summary>
-        /// The fire staff
+        /// A staff of fire.
         /// </summary>
         FireStaff = 1387,
         /// <summary>
-        /// The air battle staff
+        /// An air battlestaff.
         /// </summary>
         AirBattleStaff = 1397,
         /// <summary>
-        /// The water battle staff
+        /// A water battlestaff.
         /// </summary>
         WaterBattleStaff = 1395,
         /// <summary>
-        /// The earth battle staff
+        /// An earth battlestaff.
         /// </summary>
         EarthBattleStaff = 1399,
         /// <summary>
-        /// The fire battle staff
+        /// A fire battlestaff.
         /// </summary>
         FireBattleStaff = 1393,
         /// <summary>
-        /// The mud battle staff
+        /// A mud battlestaff.
         /// </summary>
         MudBattleStaff = 6562,
         /// <summary>
-        /// The steam battle staff
+        /// A steam battlestaff.
         /// </summary>
         SteamBattleStaff = 11736,
         /// <summary>
-        /// The lava battle staff
+        /// A lava battlestaff.
         /// </summary>
         LavaBattleStaff = 3053,
         /// <summary>
-        /// The mystic air staff
+        /// A mystic air staff.
         /// </summary>
         MysticAirStaff = 1405,
         /// <summary>
-        /// The mystic water staff
+        /// A mystic water staff.
         /// </summary>
         MysticWaterStaff = 1403,
         /// <summary>
-        /// The mystic earth staff
+        /// A mystic earth staff.
         /// </summary>
         MysticEarthStaff = 1407,
         /// <summary>
-        /// The mystic fire staff
+        /// A mystic fire staff.
         /// </summary>
         MysticFireStaff = 1401,
         /// <summary>
-        /// The saradomin staff
+        /// A Saradomin staff.
         /// </summary>
         SaradominStaff = 2415,
         /// <summary>
-        /// The guthix staff
+        /// A Guthix staff.
         /// </summary>
         GuthixStaff = 2416,
         /// <summary>
-        /// The zamorak staff
+        /// A Zamorak staff.
         /// </summary>
         ZamorakStaff = 2417,
         /// <summary>
-        /// The mystic mud staff
+        /// A mystic mud staff.
         /// </summary>
         MysticMudStaff = 6563,
         /// <summary>
-        /// The mystic steam staff
+        /// A mystic steam staff.
         /// </summary>
         MysticSteamStaff = 11738,
         /// <summary>
-        /// The mystic lava staff
+        /// A mystic lava staff.
         /// </summary>
         MysticLavaStaff = 3054,
         /// <summary>
-        /// The armadyl battle staff
+        /// An Armadyl battlestaff.
         /// </summary>
         ArmadylBattleStaff = 21777,
         /// <summary>
-        /// The dominion staff
+        /// A Dominion staff.
         /// </summary>
         DominionStaff = 22347,
     }

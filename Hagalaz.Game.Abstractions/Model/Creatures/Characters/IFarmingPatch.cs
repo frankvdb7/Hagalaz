@@ -4,66 +4,66 @@ using Hagalaz.Game.Abstractions.Tasks;
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a single farming patch, managing its state, growth cycles, and conditions.
     /// </summary>
     public interface IFarmingPatch : ITaskItem
     {
         /// <summary>
-        /// Contains the current cycle.
+        /// Gets the current growth cycle of the plant in the patch.
         /// </summary>
         int CurrentCycle { get; }
         /// <summary>
-        /// Contains the seed definition.
+        /// Gets the data definition for the seed that is currently planted.
         /// </summary>
         SeedDto? Seed { get; }
         /// <summary>
-        /// Contains the patch definition.
+        /// Gets the data definition for the farming patch itself.
         /// </summary>
         PatchDto PatchDefinition { get; }
         /// <summary>
-        /// Harvests a single product from this patch.
+        /// Performs a harvest action on the patch, gathering one of its products.
         /// </summary>
         void Harvest();
         /// <summary>
-        /// Resets the times performed.
+        /// Resets the patch to a clear state, ready for a new seed.
         /// </summary>
         void Reset();
         /// <summary>
-        /// Clears this farming patch (and conditions).
+        /// Clears the patch of any growing plants and removes all conditions.
         /// </summary>
         void Clear();
         /// <summary>
-        /// Refreshes this instance.
+        /// Forces a client-side update for the patch's appearance.
         /// </summary>
         void Refresh();
         /// <summary>
-        /// Increments the cycle.
+        /// Advances the patch to its next growth cycle.
         /// </summary>
         void IncrementCycle();
         /// <summary>
-        /// Decrements the cycle.
+        /// Reverts the patch to its previous growth cycle.
         /// </summary>
         void DecrementCycle();
         /// <summary>
-        /// Plants the specified definition.
+        /// Plants a new seed in the patch.
         /// </summary>
-        /// <param name="definition">The definition.</param>
+        /// <param name="definition">The data definition of the seed to plant.</param>
         void Plant(SeedDto definition);
         /// <summary>
-        /// Determines whether the specified flag has flag.
+        /// Checks if the patch currently has a specific condition.
         /// </summary>
-        /// <param name="condition">The flag.</param>
-        /// <returns></returns>
+        /// <param name="condition">The condition to check for (e.g., watered, diseased).</param>
+        /// <returns><c>true</c> if the patch has the condition; otherwise, <c>false</c>.</returns>
         bool HasCondition(PatchCondition condition);
         /// <summary>
-        /// Adds the condition.
+        /// Adds a condition to the patch.
         /// </summary>
-        /// <param name="condition">The condition.</param>
+        /// <param name="condition">The condition to add.</param>
         void AddCondition(PatchCondition condition);
         /// <summary>
-        /// Removes the condition.
+        /// Removes a condition from the patch.
         /// </summary>
-        /// <param name="condition">The condition.</param>
+        /// <param name="condition">The condition to remove.</param>
         void RemoveCondition(PatchCondition condition);
     }
 }
