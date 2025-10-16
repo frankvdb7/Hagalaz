@@ -45,16 +45,14 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         public static int GetPoisonRate() => 30;
 
         /// <summary>
-        /// Gets the run energy drain rate.
+        /// Gets the rate at which run energy drains.
         /// </summary>
-        /// <returns></returns>
-        // TODO - Include weight.
+        /// <returns>The run energy drain rate.</returns>
         public static int GetRunEnergyDrainRate() => 400;
-
         /// <summary>
-        /// Get's character special energy restore rate.
+        /// Gets the rate at which special attack energy restores.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The special energy restore rate in game ticks.</returns>
         public static int GetSpecialEnergyRestoreRate() => 50;
 
         /// <summary>

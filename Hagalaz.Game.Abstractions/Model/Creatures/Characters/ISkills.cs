@@ -1,23 +1,20 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a container that provides access to a character's various skill handlers.
     /// </summary>
     public interface ISkills
     {
         /// <summary>
-        /// Gets the magic.
+        /// Gets the handler for the character's Magic skill.
         /// </summary>
-        /// <value>
-        /// The magic.
-        /// </value>
         IMagic Magic { get; }
         /// <summary>
-        /// Contains the farming skill.
+        /// Gets the handler for the character's Farming skill.
         /// </summary>
         IFarming Farming { get; }
         /// <summary>
-        /// Contains the slayer skill.
+        /// Gets the handler for the character's Slayer skill.
         /// </summary>
         ISlayer Slayer { get; }
     }

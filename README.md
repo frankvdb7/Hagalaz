@@ -54,6 +54,19 @@ This repository is a comprehensive application built using modern development te
 - **Dynamic Proxying**: Achieved through YARP.
 - **Frontend**: Angular SPA with Material Design.
 
+## Key Projects
+
+### Hagalaz.Game.Abstractions
+
+`Hagalaz.Game.Abstractions` is the foundational project for the game's domain model. It defines the core interfaces, enums, and data structures that represent all entities and concepts within the game world. This project is crucial for ensuring a decoupled and maintainable architecture, as it provides the contracts that all other game-related services and components depend on.
+
+Key namespaces include:
+- **Model**: Contains the core data structures for game entities like `ICharacter`, `INpc`, `IItem`, and `IGameObject`. It also defines fundamental concepts such as `ILocation`, `IAnimation`, and various combat-related enums.
+- **Builders**: Defines fluent builder interfaces for constructing complex game objects and events, such as animations, projectiles, and widgets.
+- **Services**: Contains interfaces for game services that manage different aspects of the game, like `ICharacterService`, `IItemService`, and `IShopService`.
+- **Collections**: Defines interfaces for item containers like `IInventoryContainer` and `IBankContainer`.
+- **Scripts**: Contains interfaces for creating scripted game logic and behaviors.
+
 ## Prerequisites
 
 - RSPS Cache (placed in /Cache)

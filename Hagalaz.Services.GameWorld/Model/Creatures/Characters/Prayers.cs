@@ -307,7 +307,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     {
                         var icon = _owner.Appearance.PrayerIcon;
                         if (icon == PrayerIcon.ProtectFromMelee)
-                            icon = PrayerIcon.MelleSummoning;
+                            icon = PrayerIcon.MeleeSummoning;
                         else if (icon == PrayerIcon.ProtectFromRange)
                             icon = PrayerIcon.RangeSummoning;
                         else if (icon == PrayerIcon.ProtectFromMagic)
@@ -328,7 +328,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     _owner.Appearance.PrayerIcon = PrayerIcon.ProtectFromRange;
                     break;
                 case NormalPrayer.ProtectFromMelee when _owner.Appearance.PrayerIcon == PrayerIcon.Summoning:
-                    _owner.Appearance.PrayerIcon = PrayerIcon.MelleSummoning;
+                    _owner.Appearance.PrayerIcon = PrayerIcon.MeleeSummoning;
                     break;
                 case NormalPrayer.ProtectFromMelee:
                     _owner.Appearance.PrayerIcon = PrayerIcon.ProtectFromMelee;
@@ -412,7 +412,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     {
                         var icon = _owner.Appearance.PrayerIcon;
                         if (icon == PrayerIcon.DeflectMelee)
-                            icon = PrayerIcon.DeflectMelleSummoning;
+                            icon = PrayerIcon.DeflectMeleeSummoning;
                         else if (icon == PrayerIcon.DeflectRange)
                             icon = PrayerIcon.DeflectRangeSummoning;
                         else if (icon == PrayerIcon.DeflectMage)
@@ -421,7 +421,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         break;
                     }
                 case AncientCurses.DeflectMelee when _owner.Appearance.PrayerIcon == PrayerIcon.DeflectSummoning:
-                    _owner.Appearance.PrayerIcon = PrayerIcon.DeflectMelleSummoning;
+                    _owner.Appearance.PrayerIcon = PrayerIcon.DeflectMeleeSummoning;
                     break;
                 case AncientCurses.DeflectMelee:
                     _owner.Appearance.PrayerIcon = PrayerIcon.DeflectMelee;
@@ -602,7 +602,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 case NormalPrayer.ProtectFromSummoning:
                     {
                         var icon = _owner.Appearance.PrayerIcon;
-                        if (icon == PrayerIcon.MelleSummoning)
+                        if (icon == PrayerIcon.MeleeSummoning)
                             icon = PrayerIcon.ProtectFromMelee;
                         else if (icon == PrayerIcon.RangeSummoning)
                             icon = PrayerIcon.ProtectFromRange;
@@ -623,7 +623,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 case NormalPrayer.ProtectFromRanged:
                     _owner.Appearance.PrayerIcon = PrayerIcon.None;
                     break;
-                case NormalPrayer.ProtectFromMelee when _owner.Appearance.PrayerIcon == PrayerIcon.MelleSummoning:
+                case NormalPrayer.ProtectFromMelee when _owner.Appearance.PrayerIcon == PrayerIcon.MeleeSummoning:
                     _owner.Appearance.PrayerIcon = PrayerIcon.Summoning;
                     break;
                 case NormalPrayer.ProtectFromMelee:
@@ -683,7 +683,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 case AncientCurses.DeflectSummoning:
                     {
                         var icon = _owner.Appearance.PrayerIcon;
-                        if (icon == PrayerIcon.DeflectMelleSummoning)
+                        if (icon == PrayerIcon.DeflectMeleeSummoning)
                             icon = PrayerIcon.DeflectMelee;
                         else if (icon == PrayerIcon.DeflectRangeSummoning)
                             icon = PrayerIcon.DeflectRange;
@@ -692,7 +692,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         _owner.Appearance.PrayerIcon = icon;
                         break;
                     }
-                case AncientCurses.DeflectMelee when _owner.Appearance.PrayerIcon == PrayerIcon.DeflectMelleSummoning:
+                case AncientCurses.DeflectMelee when _owner.Appearance.PrayerIcon == PrayerIcon.DeflectMeleeSummoning:
                     _owner.Appearance.PrayerIcon = PrayerIcon.DeflectSummoning;
                     break;
                 case AncientCurses.DeflectMelee:

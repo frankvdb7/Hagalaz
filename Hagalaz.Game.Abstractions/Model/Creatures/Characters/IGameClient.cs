@@ -1,37 +1,33 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for an object that holds information about the character's game client, such as display settings and language.
     /// </summary>
     public interface IGameClient
     {
         /// <summary>
-        /// Contains display mode that is currently showed.
+        /// Gets or sets the current display mode of the game client.
         /// </summary>
-        /// <value>The display mode.</value>
         DisplayMode DisplayMode { get; set; }
+        /// <summary>
+        /// Gets or sets the language setting of the game client.
+        /// </summary>
         Language Language { get; set; }
         /// <summary>
-        /// Contains screen size X ( height )
+        /// Gets or sets the width of the game screen in pixels.
         /// </summary>
-        /// <value>The screen size X.</value>
         int ScreenSizeX { get; set; }
         /// <summary>
-        /// Contains screen size Y ( width )
+        /// Gets or sets the height of the game screen in pixels.
         /// </summary>
-        /// <value>The screen size Y.</value>
         int ScreenSizeY { get; set; }
         /// <summary>
-        /// Get's if client window is currently active.
+        /// Gets or sets a value indicating whether the game client window is currently active (in focus).
         /// </summary>
-        /// <value><c>true</c> if this instance is window active; otherwise, <c>false</c>.</value>
         bool IsWindowActive { get; set; }
         /// <summary>
-        /// Determines whether [is screen fixed].
+        /// Gets a value indicating whether the client is in a fixed-screen display mode.
         /// </summary>
-        /// <returns>
-        ///   <c>true</c> if [is screen fixed]; otherwise, <c>false</c>.
-        /// </returns>
         bool IsScreenFixed { get; }
     }
 }

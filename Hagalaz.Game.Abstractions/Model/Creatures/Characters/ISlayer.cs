@@ -1,25 +1,22 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for managing a character's Slayer skill, including their current task and kill count.
     /// </summary>
     public interface ISlayer
     {
         /// <summary>
-        /// Gets the required count.
+        /// Gets the number of creatures the character has killed for their current Slayer task.
         /// </summary>
-        /// <value>
-        /// The required count.
-        /// </value>
         int CurrentKillCount { get; }
         /// <summary>
-        /// Gets the current task id.
+        /// Gets the ID of the character's current Slayer task.
         /// </summary>
         int CurrentTaskId { get; }
         /// <summary>
-        /// Assigns the new task.
+        /// Assigns a new Slayer task to the character from a specific Slayer Master.
         /// </summary>
-        /// <param name="slayerMasterId">The slayer master identifier.</param>
+        /// <param name="slayerMasterId">The ID of the Slayer Master assigning the task.</param>
         void AssignNewTask(int slayerMasterId);
     }
 }

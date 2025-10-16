@@ -8,7 +8,7 @@
         /// <summary>
         /// An active hitsplat for melee damage.
         /// </summary>
-        ActiveMelle = 0,
+        ActiveMelee = 0,
         /// <summary>
         /// An active hitsplat for ranged damage.
         /// </summary>
@@ -44,11 +44,11 @@
         /// <summary>
         /// An active hitsplat for Dungeoneering-specific damage.
         /// </summary>
-        ActiveDungeonerring = 9,
+        ActiveDungeoneering = 9,
         /// <summary>
         /// An active hitsplat for a maximum melee hit.
         /// </summary>
-        ActiveMaxedMelle = 10,
+        ActiveMaxedMelee = 10,
         /// <summary>
         /// An active hitsplat for a maximum ranged hit.
         /// </summary>
@@ -64,35 +64,35 @@
         /// <summary>
         /// A passive hitsplat for melee damage.
         /// </summary>
-        PasiveMelleDamage = 14,
+        PassiveMeleeDamage = 14,
         /// <summary>
         /// A passive hitsplat for ranged damage.
         /// </summary>
-        PasiveRangeDamage = 15,
+        PassiveRangeDamage = 15,
         /// <summary>
         /// A passive hitsplat for magic damage.
         /// </summary>
-        PasiveMageDamage = 16,
+        PassiveMageDamage = 16,
         /// <summary>
         /// A generic passive red hitsplat.
         /// </summary>
-        PasiveRedDamage = 17,
+        PassiveRedDamage = 17,
         /// <summary>
         /// A passive hitsplat indicating deflected damage.
         /// </summary>
-        PasiveDeflectDamage = 18,
+        PassiveDeflectDamage = 18,
         /// <summary>
         /// A passive hitsplat indicating defended (blocked) damage.
         /// </summary>
-        PasiveDefendedDamage = 19,
+        PassiveDefendedDamage = 19,
         /// <summary>
         /// A passive hitsplat for poison damage.
         /// </summary>
-        PasivePoisonDamage = 20,
+        PassivePoisonDamage = 20,
         /// <summary>
         /// A secondary passive hitsplat for poison damage.
         /// </summary>
-        PasivePoisonDamage2 = 21,
+        PassivePoisonDamage2 = 21,
         /// <summary>
         /// An empty or transparent hitsplat, often used as a placeholder.
         /// </summary>
@@ -100,22 +100,22 @@
         /// <summary>
         /// A passive hitsplat for Dungeoneering-specific damage.
         /// </summary>
-        PasiveDungeonerringDamage = 23,
+        PassiveDungeoneeringDamage = 23,
         /// <summary>
         /// A passive hitsplat for a maximum melee hit.
         /// </summary>
-        PasiveMaxedMelle = 24,
+        PassiveMaxedMelee = 24,
         /// <summary>
         /// A passive hitsplat for a maximum ranged hit.
         /// </summary>
-        PasiveMaxedRange = 25,
+        PassiveMaxedRange = 25,
         /// <summary>
         /// A passive hitsplat for a maximum magic hit.
         /// </summary>
-        PasiveMaxedMage = 26,
+        PassiveMaxedMage = 26,
         /// <summary>
         /// A passive hitsplat for damage from a dwarf multi-cannon.
         /// </summary>
-        PasiveCannonDamage = 27
+        PassiveCannonDamage = 27
     }
 }

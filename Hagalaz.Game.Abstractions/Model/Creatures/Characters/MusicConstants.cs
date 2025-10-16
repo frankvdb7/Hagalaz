@@ -1,9 +1,12 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
+    /// <summary>
+    /// Provides constant values related to the music system.
+    /// </summary>
     public static class MusicConstants
     {
         /// <summary>
-        /// The configuration ids.
+        /// An array of client configuration IDs used to store the unlocked status of music tracks.
         /// </summary>
         public static readonly int[] ConfigIDs = new int[]
         {

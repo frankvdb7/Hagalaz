@@ -43,28 +43,49 @@ namespace Hagalaz.Game.Abstractions.Model
         }
 
         /// <summary>
-        /// Creates a new graphic display.
+        /// Creates a new <see cref="Graphic"/> instance.
         /// </summary>
-        /// <param name="id">The graphic id.</param>
-        /// <param name="delay">The delay of the graphic display.</param>
-        /// <param name="height">The height.</param>
-        /// <param name="rotation">The rotation.</param>
-        /// <returns>Returns a new instance holding the graphic data.</returns>
+        /// <param name="id">The unique identifier for the graphic.</param>
+        /// <param name="delay">The delay in game ticks before the graphic is displayed. Defaults to 0.</param>
+        /// <param name="height">The height offset for the graphic. Defaults to 0.</param>
+        /// <param name="rotation">The rotation of the graphic. Defaults to 0.</param>
+        /// <returns>A new <see cref="IGraphic"/> instance with the specified data.</returns>
         public static IGraphic Create(int id, int delay = 0, int height = 0, int rotation = 0) => new Graphic(id, delay, height, rotation);
 
         /// <summary>
-        /// Get's if this graphic equals to other given graphic.
+        /// Determines whether this graphic is equal to another graphic, based on their Id, Delay, Height, and Rotation.
         /// </summary>
-        /// <param name="other">The other.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="other">The graphic to compare with this one.</param>
+        /// <returns><c>true</c> if the graphics are equal; otherwise, <c>false</c>.</returns>
         public bool Equals(Graphic other) => Id == other.Id && Delay == other.Delay && Height == other.Height && Rotation == other.Rotation;
 
+        /// <summary>
+        /// Gets a hash code for the graphic, combining its Id, Delay, Height, and Rotation.
+        /// </summary>
+        /// <returns>An integer hash code.</returns>
         public override int GetHashCode() => HashCode.Combine(Id, Delay, Height, Rotation);
 
+        /// <summary>
+        /// Determines whether the specified object is equal to the current graphic.
+        /// </summary>
+        /// <param name="obj">The object to compare with the current graphic.</param>
+        /// <returns><c>true</c> if the specified object is equal to the current graphic; otherwise, <c>false</c>.</returns>
         public override bool Equals(object? obj) => obj is Graphic graphic && Equals(graphic);
 
+        /// <summary>
+        /// Compares two <see cref="Graphic"/> instances for equality.
+        /// </summary>
+        /// <param name="left">The first graphic to compare.</param>
+        /// <param name="right">The second graphic to compare.</param>
+        /// <returns><c>true</c> if the graphics are equal; otherwise, <c>false</c>.</returns>
         public static bool operator ==(Graphic left, Graphic right) => left.Equals(right);
 
+        /// <summary>
+        /// Compares two <see cref="Graphic"/> instances for inequality.
+        /// </summary>
+        /// <param name="left">The first graphic to compare.</param>
+        /// <param name="right">The second graphic to compare.</param>
+        /// <returns><c>true</c> if the graphics are not equal; otherwise, <c>false</c>.</returns>
         public static bool operator !=(Graphic left, Graphic right) => !(left == right);
     }
 }

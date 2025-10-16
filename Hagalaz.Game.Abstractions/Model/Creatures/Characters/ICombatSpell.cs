@@ -2,51 +2,60 @@
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// Contains combat spell.
+    /// Defines the contract for a combat spell, encapsulating its effects, requirements, and casting logic.
     /// </summary>
     public interface ICombatSpell
     {
         /// <summary>
-        /// Get's amount of magic experience this spell gives.
+        /// Gets the amount of Magic experience awarded for casting this spell.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The Magic experience gained.</returns>
         double GetMagicExperience();
         /// <summary>
-        /// Get's called when autocasting is set to this spell.
+        /// A callback executed when a character sets this spell as their autocast option.
         /// </summary>
+        /// <param name="activatedOn">The character who activated autocasting.</param>
         void OnAutoCastingActivation(ICharacter activatedOn);
         /// <summary>
-        /// Get's called when autocasting is unset to this spell.
+        /// A callback executed when a character deactivates this spell as their autocast option.
         /// </summary>
+        /// <param name="deactivatedOn">The character who deactivated autocasting.</param>
         void OnAutoCastingDeactivation(ICharacter deactivatedOn);
         /// <summary>
-        /// Get's speed of this spell.
+        /// Gets the casting speed of this spell.
         /// </summary>
+        /// <param name="caster">The character casting the spell.</param>
+        /// <returns>The casting speed in game ticks.</returns>
         int GetCastingSpeed(ICharacter caster);
         /// <summary>
-        /// Get's combat distance of this spell.
+        /// Gets the maximum attack distance of this spell.
         /// </summary>
+        /// <param name="caster">The character casting the spell.</param>
+        /// <returns>The maximum distance in tiles.</returns>
         int GetCombatDistance(ICharacter caster);
         /// <summary>
-        /// Perform's attack to specific target.
+        /// Executes the spell's attack logic against a victim.
         /// </summary>
+        /// <param name="caster">The character casting the spell.</param>
+        /// <param name="victim">The creature being targeted.</param>
         void PerformAttack(ICharacter caster, ICreature victim);
         /// <summary>
-        /// Check's if character meet's requirements.
+        /// Checks if the character meets all the requirements to cast this spell (e.g., level, runes, equipment).
         /// </summary>
+        /// <param name="caster">The character attempting to cast the spell.</param>
+        /// <returns><c>true</c> if all requirements are met; otherwise, <c>false</c>.</returns>
         bool CheckRequirements(ICharacter caster);
         /// <summary>
-        /// Remove's required items from character's inventory.
-        /// Return's if removed sucessfully.
+        /// Removes the required items (e.g., runes) from the caster's inventory after a successful cast.
         /// </summary>
-        /// <returns></returns>
+        /// <param name="caster">The character who cast the spell.</param>
         void RemoveRequirements(ICharacter caster);
         /// <summary>
-        /// Determines whether the caster can attack the specified victim.
+        /// Determines whether the caster can attack a specific victim with this spell.
         /// </summary>
-        /// <param name="caster">The caster.</param>
-        /// <param name="victim">The victim.</param>
-        /// <returns></returns>
+        /// <param name="caster">The character attempting to cast the spell.</param>
+        /// <param name="victim">The potential target.</param>
+        /// <returns><c>true</c> if the attack is possible; otherwise, <c>false</c>.</returns>
         bool CanAttack(ICharacter caster, ICreature victim);
     }
 }

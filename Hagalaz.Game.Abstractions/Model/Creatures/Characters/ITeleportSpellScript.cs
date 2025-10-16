@@ -31,46 +31,43 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         int[] Graphics { get; }
 
         /// <summary>
-        /// Gets the magic experience.
-        /// TODO - implement this in another class.
+        /// Gets the amount of Magic experience awarded for casting this spell.
         /// </summary>
-        /// <value></value>
         double MagicExperience { get; }
 
         /// <summary>
-        /// Gets the teleport distance.
+        /// Gets the maximum distance from the destination that the caster can be to perform this teleport.
         /// </summary>
-        /// <value></value>
         int TeleportDistance { get; }
 
         /// <summary>
-        /// Perform's teleport of the caster.
+        /// Executes the teleport logic for the caster.
         /// </summary>
-        /// <param name="caster">The caster.</param>
+        /// <param name="caster">The character casting the teleport spell.</param>
         void PerformTeleport(ICharacter caster);
 
         /// <summary>
-        /// Determines whether this instance [can perform teleport] the specified caster.
+        /// Checks if the caster meets all requirements to perform the teleport (e.g., levels, runes, location).
         /// </summary>
-        /// <param name="caster">The caster.</param>
-        /// <returns></returns>
+        /// <param name="caster">The character attempting to cast the spell.</param>
+        /// <returns><c>true</c> if the teleport can be performed; otherwise, <c>false</c>.</returns>
         bool CanPerformTeleport(ICharacter caster);
 
         /// <summary>
-        /// Determines whether this instance can teleport the specified caster.
+        /// A preliminary check to see if the character can generally use this teleport spell.
         /// </summary>
-        /// <param name="caster">The caster.</param>
-        /// <returns></returns>
+        /// <param name="caster">The character attempting to cast the spell.</param>
+        /// <returns><c>true</c> if the character can use this teleport; otherwise, <c>false</c>.</returns>
         bool CanTeleport(ICharacter caster);
 
         /// <summary>
-        /// Called when [teleport started].
+        /// A callback executed when the teleport sequence begins.
         /// </summary>
-        /// <param name="caster">The caster.</param>
+        /// <param name="caster">The character who started the teleport.</param>
         void OnTeleportStarted(ICharacter caster);
 
         /// <summary>
-        /// Called when [teleport finished].
+        /// A callback executed when the teleport sequence has finished.
         /// </summary>
         void OnTeleportFinished();
     }

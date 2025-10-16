@@ -1,66 +1,64 @@
 ﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for managing a character's prayers and curses, including activation, deactivation, and point drain.
     /// </summary>
     public interface IPrayers
     {
         /// <summary>
-        /// Tell's if character is currently praying.
+        /// Gets a value indicating whether the character has at least one prayer or curse active.
         /// </summary>
         bool Praying { get; }
         /// <summary>
-        /// Gets the quick prayer.
+        /// Gets the handler for the character's quick prayers setup.
         /// </summary>
         IQuickPrayer QuickPrayer { get; }
         /// <summary>
-        /// Tick's character's prayers.
+        /// Processes a single game tick for prayers, handling prayer point drain.
         /// </summary>
         void Tick();
         /// <summary>
-        /// Get's if character is praying specific prayer.
+        /// Checks if a specific standard prayer is currently active.
         /// </summary>
-        /// <returns></returns>
+        /// <param name="prayer">The prayer to check.</param>
+        /// <returns><c>true</c> if the prayer is active; otherwise, <c>false</c>.</returns>
         bool IsPraying(NormalPrayer prayer);
         /// <summary>
-        /// Get's if character is praying specific prayer.
+        /// Checks if a specific ancient curse is currently active.
         /// </summary>
-        /// <returns></returns>
+        /// <param name="prayer">The curse to check.</param>
+        /// <returns><c>true</c> if the curse is active; otherwise, <c>false</c>.</returns>
         bool IsPraying(AncientCurses prayer);
         /// <summary>
-        /// Activate's specific prayer.
-        /// This method does nothing if prayer is already activated or book is not
-        /// standart book.
+        /// Activates a standard prayer, deactivating any conflicting prayers.
         /// </summary>
+        /// <param name="prayer">The prayer to activate.</param>
         void ActivatePrayer(NormalPrayer prayer);
         /// <summary>
-        /// Activate's specific curse;
-        /// This method does nothing if prayer is already activated or book is not
-        /// standart book.
+        /// Activates an ancient curse, deactivating any conflicting curses.
         /// </summary>
+        /// <param name="prayer">The curse to activate.</param>
         void ActivatePrayer(AncientCurses prayer);
         /// <summary>
-        /// Deactivate's specific prayer.
-        /// This method does nothing if prayer is not activated.
+        /// Deactivates a standard prayer.
         /// </summary>
-        /// <param name="prayer"></param>
+        /// <param name="prayer">The prayer to deactivate.</param>
         void DeactivatePrayer(NormalPrayer prayer);
         /// <summary>
-        /// Deactivate's specific prayer.
-        /// This method does nothing if prayer is not activated.
+        /// Deactivates an ancient curse.
         /// </summary>
-        /// <param name="prayer"></param>
+        /// <param name="prayer">The curse to deactivate.</param>
         void DeactivatePrayer(AncientCurses prayer);
         /// <summary>
-        /// Deactivate's all prayers and curses.
+        /// Deactivates all currently active prayers and curses.
         /// </summary>
         void DeactivateAllPrayers();
         /// <summary>
-        /// Refreshe's dynamic bonuses.
+        /// Refreshes any dynamic prayer bonuses that change over time (e.g., Turmoil).
         /// </summary>
         void RefreshDynamicBonuses();
         /// <summary>
-        /// Refreshes the configurations.
+        /// Sends the current prayer configuration (e.g., active prayers, prayer points) to the client.
         /// </summary>
         void RefreshConfigurations();
     }
