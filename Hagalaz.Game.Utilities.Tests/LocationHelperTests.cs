@@ -10,6 +10,7 @@ namespace Hagalaz.Game.Utilities.Tests
         [DataRow(10, 5, 8, 50)]
         [DataRow(0, 0, 10, 0)]
         [DataRow(5, 10, 10, 105)]
+        [DataRow(0, 0, 0, 0)]
         public void ConvertLocalToAbsolute_ReturnsCorrectCoordinate(int local, int grid, int size, int expected)
         {
             var result = LocationHelper.ConvertLocalToAbsolute(local, grid, size);

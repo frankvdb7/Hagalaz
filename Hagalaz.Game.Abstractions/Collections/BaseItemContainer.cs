@@ -280,6 +280,11 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             ArgumentNullException.ThrowIfNull(newItems);
 
+            if (!HasSpaceForRange(newItems))
+            {
+                return false;
+            }
+
             var slotsToUpdate = new HashSet<int>();
 
             using (var enumerator = newItems.GetEnumerator())

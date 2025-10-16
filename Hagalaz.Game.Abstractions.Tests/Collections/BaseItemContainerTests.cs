@@ -325,5 +325,118 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreEqual(0, container.TakenSlots);
             Assert.AreEqual(10, container.FreeSlots);
         }
+
+        [TestMethod]
+        public void AddRange_WithMultipleItems_Success()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var items = new[]
+            {
+                CreateItem(1, 1),
+                CreateItem(2, 1),
+                CreateItem(3, 1)
+            };
+
+            // Act
+            var result = container.AddRange(items);
+
+            // Assert
+            Assert.IsTrue(result);
+            Assert.AreEqual(3, container.TakenSlots);
+            Assert.AreEqual(7, container.FreeSlots);
+        }
+
+        [TestMethod]
+        public void AddRange_FullContainer_Fails()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var items = new[]
+            {
+                CreateItem(1, 1),
+                CreateItem(2, 1),
+                CreateItem(3, 1)
+            };
+
+            // Act
+            var result = container.AddRange(items);
+
+            // Assert
+            Assert.IsFalse(result);
+            Assert.AreEqual(0, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void HasSpaceForRange_WithEnoughSpace_ReturnsTrue()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var items = new[]
+            {
+                CreateItem(1, 1),
+                CreateItem(2, 1),
+                CreateItem(3, 1)
+            };
+
+            // Act
+            var result = container.HasSpaceForRange(items);
+
+            // Assert
+            Assert.IsTrue(result);
+        }
+
+        [TestMethod]
+        public void HasSpaceForRange_WithNotEnoughSpace_ReturnsFalse()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var items = new[]
+            {
+                CreateItem(1, 1),
+                CreateItem(2, 1),
+                CreateItem(3, 1)
+            };
+
+            // Act
+            var result = container.HasSpaceForRange(items);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [TestMethod]
+        public void Remove_MoreThanInStack_RemovesAll()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(1, 5, stackable: true);
+            container.Add(item);
+            var itemToRemove = CreateItem(1, 10, stackable: true);
+
+            // Act
+            var removedCount = container.Remove(itemToRemove);
+
+            // Assert
+            Assert.AreEqual(5, removedCount);
+            Assert.AreEqual(0, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void Remove_ItemNotInContainer_ReturnsZero()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(1, 1);
+            container.Add(item);
+            var itemToRemove = CreateItem(2, 1);
+
+            // Act
+            var removedCount = container.Remove(itemToRemove);
+
+            // Assert
+            Assert.AreEqual(0, removedCount);
+            Assert.AreEqual(1, container.TakenSlots);
+        }
     }
 }
