@@ -11,6 +11,11 @@ namespace Hagalaz.Game.Utilities
         /// <returns>System.Int32.</returns>
         public static int CalculatePredictedDamage(int[] hits)
         {
+            if (hits is null || !hits.Any())
+            {
+                return -1;
+            }
+
             var actualHits = hits.Where(h => h > 0).ToArray();
             return actualHits.Any() ? actualHits.Sum() : -1;
         }

@@ -11,6 +11,7 @@ namespace Hagalaz.Game.Utilities.Tests
         [DataRow(0, 0, 0, 0, 0)]
         [DataRow(63, 63, 3, 3, 114687)]
         [DataRow(32, 16, 2, 1, 42016)]
+        [DataRow(-1, -1, -1, -1, -1)]
         public void GetRegionLocalHash_ReturnsCorrectHash(int x, int y, int z, int layer, int expectedHash)
         {
             var result = GameObjectHelper.GetRegionLocalHash(x, y, z, layer);

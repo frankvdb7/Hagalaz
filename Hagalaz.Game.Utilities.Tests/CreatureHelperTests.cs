@@ -57,14 +57,30 @@ namespace Hagalaz.Game.Utilities.Tests
             Assert.AreEqual(-1, result);
         }
 
+        [TestMethod]
+        public void CalculatePredictedDamage_WithNullArray_ReturnsMinusOne()
+        {
+            // Arrange
+            int[] hits = null;
+
+            // Act
+            var result = CreatureHelper.CalculatePredictedDamage(hits);
+
+            // Assert
+            Assert.AreEqual(-1, result);
+        }
+
         [DataTestMethod]
         [DataRow(0, 0)]
         [DataRow(1, 1)]
         [DataRow(29, 1)]
         [DataRow(30, 1)]
         [DataRow(31, 2)]
+        [DataRow(59, 2)]
         [DataRow(60, 2)]
+        [DataRow(61, 3)]
         [DataRow(600, 20)]
+        [DataRow(601, 21)]
         public void CalculateTicksForClientTicks_WithVariousInputs_ReturnsCorrectTicks(int clientTicks, int expectedServerTicks)
         {
             // Act
