@@ -55,7 +55,7 @@ namespace Hagalaz.Cache.Types
                 writer.WriteByte(7);
                 int value = itemType.ModelOffset1;
                 if (value < 0)
-                    value += ushort.MaxValue;
+                    value += 65536;
                 writer.WriteShort(value);
             }
 
@@ -64,13 +64,49 @@ namespace Hagalaz.Cache.Types
                 writer.WriteByte(8);
                 int value = itemType.ModelOffset2;
                 if (value < 0)
-                    value += ushort.MaxValue;
+                    value += 65536;
                 writer.WriteShort(value);
             }
 
             if (itemType.StackableType >= 1 && itemType.NoteTemplateId == -1)
             {
                 writer.WriteByte(11);
+            }
+
+            if (itemType.MaleHeadModel != -1)
+            {
+                writer.WriteByte(90);
+                writer.WriteShort((ushort)itemType.MaleHeadModel);
+            }
+
+            if (itemType.FemaleHeadModel != -1)
+            {
+                writer.WriteByte(91);
+                writer.WriteShort((ushort)itemType.FemaleHeadModel);
+            }
+
+            if (itemType.MaleHeadModel2 != -1)
+            {
+                writer.WriteByte(92);
+                writer.WriteShort((ushort)itemType.MaleHeadModel2);
+            }
+
+            if (itemType.FemaleHeadModel2 != -1)
+            {
+                writer.WriteByte(93);
+                writer.WriteShort((ushort)itemType.FemaleHeadModel2);
+            }
+
+            if (itemType.Zan2D != -1)
+            {
+                writer.WriteByte(95);
+                writer.WriteShort(itemType.Zan2D);
+            }
+
+            if (itemType.UnknownInt6 != -1)
+            {
+                writer.WriteByte(96);
+                writer.WriteByte((byte)itemType.UnknownInt6);
             }
 
             if (itemType.Value != 1 && itemType.LendTemplateId == -1)
@@ -91,9 +127,21 @@ namespace Hagalaz.Cache.Types
                 writer.WriteByte((byte)itemType.EquipType);
             }
 
+            if (itemType.SomeEquipInt != -1)
+            {
+                writer.WriteByte(27);
+                writer.WriteByte((byte)itemType.SomeEquipInt);
+            }
+
             if (itemType.MembersOnly && itemType.NoteId == -1)
             {
                 writer.WriteByte(16);
+            }
+
+            if (itemType.MultiStackSize != 0)
+            {
+                writer.WriteByte(18);
+                writer.WriteShort(itemType.MultiStackSize);
             }
 
             if (itemType.MaleWornModelId1 != -1)
@@ -117,6 +165,54 @@ namespace Hagalaz.Cache.Types
             {
                 writer.WriteByte(26);
                 writer.WriteBigSmart(itemType.FemaleWornModelId2);
+            }
+
+            for (int i = 0; i < itemType.GroundOptions.Length; i++)
+            {
+                if(itemType.GroundOptions[i] is null || (i == 2 && itemType.GroundOptions[i].ToLower() == "take"))
+                    continue;
+                writer.WriteByte((byte)(30 + i));
+                writer.WriteString(itemType.GroundOptions[i]);
+            }
+
+            for (int i = 0; i < itemType.InventoryOptions.Length; i++)
+            {
+                if(itemType.InventoryOptions[i] is null || (i == 4 && itemType.InventoryOptions[i] == "drop"))
+                    continue;
+                writer.WriteByte((byte)(35 + i));
+                writer.WriteString(itemType.InventoryOptions[i]);
+            }
+
+            if (itemType.OriginalModelColors != null && itemType.ModifiedModelColors != null)
+            {
+                writer.WriteByte(40);
+                writer.WriteByte((byte)itemType.OriginalModelColors.Length);
+                for (int i = 0; i < itemType.OriginalModelColors.Length; i++)
+                {
+                    writer.WriteShort(itemType.OriginalModelColors[i]);
+                    writer.WriteShort(itemType.ModifiedModelColors[i]);
+                }
+            }
+
+            if (itemType.OriginalTextureColors != null && itemType.ModifiedTextureColors != null)
+            {
+                writer.WriteByte(41);
+                writer.WriteByte((byte)itemType.OriginalTextureColors.Length);
+                for (int i = 0; i < itemType.OriginalTextureColors.Length; i++)
+                {
+                    writer.WriteShort(itemType.OriginalTextureColors[i]);
+                    writer.WriteShort(itemType.ModifiedTextureColors[i]);
+                }
+            }
+
+            if (itemType.UnknownArray1 != null)
+            {
+                writer.WriteByte(42);
+                writer.WriteByte((byte)itemType.UnknownArray1.Length);
+                foreach (var b in itemType.UnknownArray1)
+                {
+                    writer.WriteSignedByte(b);
+                }
             }
 
             if (itemType.Unnoted)
@@ -148,6 +244,49 @@ namespace Hagalaz.Cache.Types
                 writer.WriteShort(itemType.NoteTemplateId);
             }
 
+            if (itemType.StackIds != null && itemType.StackAmounts != null)
+            {
+                for (var i = 0; i < itemType.StackIds.Length; i++)
+                {
+                    if (itemType.StackAmounts[i] == 0)
+                        continue;
+
+                    writer.WriteByte((byte)(100 + i));
+                    writer.WriteShort(itemType.StackIds[i]);
+                    writer.WriteShort(itemType.StackAmounts[i]);
+                }
+            }
+
+            if (itemType.ScaleX != 128)
+            {
+                writer.WriteByte(110);
+                writer.WriteShort(itemType.ScaleX);
+            }
+
+            if (itemType.ScaleY != 128)
+            {
+                writer.WriteByte(111);
+                writer.WriteShort(itemType.ScaleY);
+            }
+
+            if (itemType.ScaleZ != 128)
+            {
+                writer.WriteByte(112);
+                writer.WriteShort(itemType.ScaleZ);
+            }
+
+            if (itemType.Ambient != 0)
+            {
+                writer.WriteByte(113);
+                writer.WriteSignedByte((sbyte)itemType.Ambient);
+            }
+
+            if (itemType.Contrast != 0)
+            {
+                writer.WriteByte(114);
+                writer.WriteSignedByte((sbyte)(itemType.Contrast / 5));
+            }
+
             if (itemType.TeamId != 0)
             {
                 writer.WriteByte(115);
@@ -164,6 +303,78 @@ namespace Hagalaz.Cache.Types
             {
                 writer.WriteByte(122);
                 writer.WriteShort(itemType.LendTemplateId);
+            }
+
+            if (itemType.MaleWearXOffset != 0 || itemType.MaleWearYOffset != 0 || itemType.MaleWearZOffset != 0)
+            {
+                writer.WriteByte(125);
+                writer.WriteSignedByte((sbyte)(itemType.MaleWearXOffset >> 2));
+                writer.WriteSignedByte((sbyte)(itemType.MaleWearYOffset >> 2));
+                writer.WriteSignedByte((sbyte)(itemType.MaleWearZOffset >> 2));
+            }
+
+            if (itemType.FemaleWearXOffset != 0 || itemType.FemaleWearYOffset != 0 || itemType.FemaleWearZOffset != 0)
+            {
+                writer.WriteByte(126);
+                writer.WriteSignedByte((sbyte)(itemType.FemaleWearXOffset >> 2));
+                writer.WriteSignedByte((sbyte)(itemType.FemaleWearYOffset >> 2));
+                writer.WriteSignedByte((sbyte)(itemType.FemaleWearZOffset >> 2));
+            }
+
+            if (itemType.UnknownInt18 != 0 && itemType.UnknownInt19 != 0)
+            {
+                writer.WriteByte(127);
+                writer.WriteByte((byte)itemType.UnknownInt18);
+                writer.WriteShort(itemType.UnknownInt19);
+            }
+
+            if (itemType.UnknownInt20 != 0 && itemType.UnknownInt21 != 0)
+            {
+                writer.WriteByte(128);
+                writer.WriteByte((byte)itemType.UnknownInt20);
+                writer.WriteShort(itemType.UnknownInt21);
+            }
+
+            if (itemType.UnknownInt22 != 0 && itemType.UnknownInt23 != 0)
+            {
+                writer.WriteByte(129);
+                writer.WriteByte((byte)itemType.UnknownInt22);
+                writer.WriteShort(itemType.UnknownInt23);
+            }
+
+            if (itemType.UnknownInt24 != 0 && itemType.UnknownInt25 != 0)
+            {
+                writer.WriteByte(130);
+                writer.WriteByte((byte)itemType.UnknownInt24);
+                writer.WriteShort(itemType.UnknownInt25);
+            }
+
+            if (itemType.QuestIDs != null)
+            {
+                writer.WriteByte(132);
+                writer.WriteByte((byte)itemType.QuestIDs.Length);
+                foreach (var questId in itemType.QuestIDs)
+                {
+                    writer.WriteShort(questId);
+                }
+            }
+
+            if (itemType.PickSizeShift != 0)
+            {
+                writer.WriteByte(134);
+                writer.WriteByte((byte)itemType.PickSizeShift);
+            }
+
+            if (itemType.BoughtItemId != -1)
+            {
+                writer.WriteByte(139);
+                writer.WriteShort(itemType.BoughtItemId);
+            }
+
+            if (itemType.BoughtTemplateId != -1)
+            {
+                writer.WriteByte(140);
+                writer.WriteShort(itemType.BoughtTemplateId);
             }
 
             if (itemType.ExtraData != null && itemType.ExtraData.Count > 0)
