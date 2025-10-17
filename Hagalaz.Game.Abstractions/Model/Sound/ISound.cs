@@ -1,40 +1,46 @@
-﻿using Raido.Common.Protocol;
+using Raido.Common.Protocol;
 
 namespace Hagalaz.Game.Abstractions.Model.Sound
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a sound effect to be played by the client.
     /// </summary>
     public interface ISound
     {
         /// <summary>
-        /// The id of the sound
+        /// Gets the ID of the sound effect.
         /// </summary>
         int Id { get; }
+
         /// <summary>
-        /// The distance of the sound
+        /// Gets the distance from which the sound can be heard.
         /// </summary>
         int Distance { get; }
+
         /// <summary>
-        /// The delay of the sound
+        /// Gets the delay in game ticks before the sound is played.
         /// </summary>
         int Delay { get; }
+
         /// <summary>
-        /// The volume of the sound
+        /// Gets the volume of the sound.
         /// </summary>
         int Volume { get; }
+
         /// <summary>
-        /// The repeat count of the sound
+        /// Gets the number of times the sound should repeat.
         /// </summary>
         int RepeatCount { get; }
+
         /// <summary>
-        /// The playback speed of the sound
+        /// Gets the playback speed of the sound.
         /// </summary>
         int PlaybackSpeed { get; }
+
         /// <summary>
-        /// Creates a message for this sound
+        /// Creates a network message for this sound effect.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>A <see cref="RaidoMessage"/> containing the sound data.</returns>
         RaidoMessage ToMessage();
     }
 }

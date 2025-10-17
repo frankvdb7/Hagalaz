@@ -1,12 +1,12 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Maps
+namespace Hagalaz.Game.Abstractions.Model.Maps
 {
     /// <summary>
-    /// 
+    /// Provides static helper methods and data for direction-related calculations.
     /// </summary>
     public static class DirectionHelper
     {
         /// <summary>
-        /// 
+        /// An array of X-coordinate offsets corresponding to different directions.
         /// </summary>
         public static readonly sbyte[] DirectionDeltaX =
         [
@@ -14,7 +14,7 @@
         ];
 
         /// <summary>
-        /// 
+        /// An array of Y-coordinate offsets corresponding to different directions.
         /// </summary>
         public static readonly sbyte[] DirectionDeltaY =
         [
@@ -22,8 +22,8 @@
         ];
 
         /// <summary>
-        /// Three bits movement type
-        /// [x + 1,y + 1] = Type
+        /// A lookup table for 3-bit movement types based on delta coordinates.
+        /// [x + 1, y + 1] = Type
         /// </summary>
         public static readonly int[,] ThreeBitsMovementType = new[,]
         {
@@ -39,8 +39,8 @@
         };
 
         /// <summary>
-        /// Four bits movement type
-        /// [x + 2,y + 2] = Type
+        /// A lookup table for 4-bit movement types based on delta coordinates.
+        /// [x + 2, y + 2] = Type
         /// </summary>
         public static readonly int[,] FourBitsMovementType = new[,]
         {
@@ -62,8 +62,8 @@
         };
 
         /// <summary>
-        /// Contains region movement type
-        /// [x + 1,y + 1] = Type
+        /// A lookup table for region-based movement types.
+        /// [x + 1, y + 1] = Type
         /// </summary>
         public static readonly int[,] RegionMovementType = new[,]
         {
@@ -79,8 +79,8 @@
         };
 
         /// <summary>
-        /// NPC three bits movement type.
-        /// [x + 1,y + 1] = Type
+        /// A lookup table for NPC 3-bit movement types based on delta coordinates.
+        /// [x + 1, y + 1] = Type
         /// </summary>
         public static readonly int[,] ThreeBitsNpcMovementType = new[,]
         {
@@ -96,11 +96,11 @@
         };
 
         /// <summary>
-        /// Gets the type of the NPC movement.
+        /// Gets the movement type ID for an NPC based on its change in coordinates.
         /// </summary>
-        /// <param name="deltaX">The delta x.</param>
-        /// <param name="deltaY">The delta y.</param>
-        /// <returns></returns>
+        /// <param name="deltaX">The change in the X-coordinate.</param>
+        /// <param name="deltaY">The change in the Y-coordinate.</param>
+        /// <returns>The movement type ID, or -1 if the movement is invalid.</returns>
         public static int GetNpcMovementType(int deltaX, int deltaY)
         {
             if (deltaX == 0 && deltaY > 0)
@@ -123,10 +123,10 @@
         }
 
         /// <summary>
-        /// Gets the direction flag of the npc face direction
+        /// Gets the direction flag corresponding to an NPC's face direction ID.
         /// </summary>
-        /// <param name="faceDirection"></param>
-        /// <returns></returns>
+        /// <param name="faceDirection">The face direction ID.</param>
+        /// <returns>The corresponding <see cref="DirectionFlag"/>.</returns>
         public static DirectionFlag GetNpcFaceDirection(int faceDirection)
         {
             if (faceDirection == 0)
@@ -165,13 +165,13 @@
         }
 
         /// <summary>
-        /// Gets the direction.
+        /// Calculates the direction from a starting coordinate to a target coordinate.
         /// </summary>
-        /// <param name="fromX">From x.</param>
-        /// <param name="fromY">From y.</param>
-        /// <param name="toX">To x.</param>
-        /// <param name="toY">To y.</param>
-        /// <returns></returns>
+        /// <param name="fromX">The starting X-coordinate.</param>
+        /// <param name="fromY">The starting Y-coordinate.</param>
+        /// <param name="toX">The target X-coordinate.</param>
+        /// <param name="toY">The target Y-coordinate.</param>
+        /// <returns>The calculated <see cref="DirectionFlag"/>.</returns>
         public static DirectionFlag GetDirection(int fromX, int fromY, int toX, int toY)
         {
             if (fromX == toX)

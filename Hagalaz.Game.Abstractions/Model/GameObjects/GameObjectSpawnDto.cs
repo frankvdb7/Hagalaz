@@ -1,27 +1,27 @@
 namespace Hagalaz.Game.Abstractions.Model.GameObjects
 {
     /// <summary>
-    /// Class which contains data about game object spawn.
+    /// A data transfer object containing information required to spawn a game object.
     /// </summary>
     public record GameObjectSpawnDto
     {
         /// <summary>
-        /// Id of the object.
+        /// Gets the ID of the game object to spawn.
         /// </summary>
         public int ObjectId { get; init; }
 
         /// <summary>
-        /// Type of the object.
+        /// Gets the shape type of the game object.
         /// </summary>
         public ShapeType ShapeType { get; init; }
 
         /// <summary>
-        /// Rotation of the object.
+        /// Gets the rotation of the game object.
         /// </summary>
         public int Rotation { get; init; }
 
         /// <summary>
-        /// Location of the object.
+        /// Gets or sets the spawn location of the game object.
         /// </summary>
         public ILocation Location { get; set; } = default!;
     }

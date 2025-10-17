@@ -1,17 +1,16 @@
 namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
-    /// 
+    /// Defines the different types of items that can be offered for Prayer experience.
     /// </summary>
     public enum PrayerDtoType
     {
         /// <summary>
-        /// The bones
+        /// Bones that can be buried or offered at an altar.
         /// </summary>
         Bones,
-
         /// <summary>
-        /// The ashes
+        /// Demonic ashes that can be scattered.
         /// </summary>
         Ashes
     }

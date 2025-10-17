@@ -1,4 +1,4 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
+namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
     /// Defines the set of prayers available in the standard prayer book.

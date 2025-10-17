@@ -3,7 +3,6 @@
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// <summary>
     /// Defines a set of flags used by the client to determine which parts of a character's appearance or state need to be updated.
     /// </summary>
     [Flags]

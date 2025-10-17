@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -6,73 +6,86 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 namespace Hagalaz.Game.Abstractions.Model.Items
 {
     /// <summary>
-    /// 
+    /// Defines the contract for an item's equipment-specific properties, such as stats, requirements, and combat animations.
     /// </summary>
     public interface IEquipmentDefinition
     {
         /// <summary>
-        /// Contains if it is weapon, and have special attack
+        /// Gets or sets a value indicating whether this item is a weapon with a special attack.
         /// </summary>
         bool SpecialWeapon { get; set; }
+
         /// <summary>
-        /// Contains item defence animation.
+        /// Gets or sets the ID of the animation played when defending while this item is equipped.
         /// </summary>
         int DefenceAnimation { get; set; }
+
         /// <summary>
-        /// Contains item attack speed.
+        /// Gets or sets the attack speed of this weapon in game ticks.
         /// </summary>
         int AttackSpeed { get; set; }
+
         /// <summary>
-        /// Contains item attack distance.
+        /// Gets or sets the attack distance of this weapon in tiles.
         /// </summary>
         int AttackDistance { get; set; }
+
         /// <summary>
-        /// Contains definition equipment type.
+        /// Gets or sets the equipment type of this item (e.g., Normal, TwoHanded, FullBody).
         /// </summary>
         EquipmentType Type { get; set; }
+
         /// <summary>
-        /// Contains definition equipment slot.
+        /// Gets or sets the equipment slot this item occupies.
         /// </summary>
         EquipmentSlot Slot { get; set; }
+
         /// <summary>
-        /// Contains the requirements.
+        /// Gets or sets a dictionary of skill level requirements to wield this item.
         /// </summary>
         IReadOnlyDictionary<int, int> Requirements { get; set; }
+
         /// <summary>
-        /// Contains equipment bonuses.
+        /// Gets or sets the collection of combat bonuses provided by this item.
         /// </summary>
         IBonuses Bonuses { get; set; }
+
         /// <summary>
-        /// Contains attack bonuses ids.
+        /// Gets or sets the array of attack bonus types available with this weapon.
         /// </summary>
         AttackBonus[] AttackBonusesIDs { get; set; }
+
         /// <summary>
-        /// Contains attack style ids.
+        /// Gets or sets the array of attack styles available with this weapon.
         /// </summary>
         AttackStyle[] AttackStyleIDs { get; set; }
+
         /// <summary>
-        /// Get's attack animation of this definition.
+        /// Gets the attack animation ID for a specific combat option.
         /// </summary>
-        /// <param name="optionID">The option Id.</param>
-        /// <returns>System.Int16.</returns>
+        /// <param name="optionID">The ID of the selected combat option.</param>
+        /// <returns>The attack animation ID.</returns>
         int GetAttackAnimationId(int optionID);
+
         /// <summary>
-        /// Get's attack graphic of this definition.
+        /// Gets the attack graphic ID for a specific combat option.
         /// </summary>
-        /// <param name="optionID">The option Id.</param>
-        /// <returns>System.Int16.</returns>
+        /// <param name="optionID">The ID of the selected combat option.</param>
+        /// <returns>The attack graphic ID.</returns>
         int GetAttackGraphicId(int optionID);
+
         /// <summary>
-        /// Get's attack style of this definition.
+        /// Gets the attack style for a specific combat option.
         /// </summary>
-        /// <param name="optionID">The option Id.</param>
-        /// <returns>AttackStyle.</returns>
+        /// <param name="optionID">The ID of the selected combat option.</param>
+        /// <returns>The <see cref="AttackStyle"/>.</returns>
         AttackStyle GetAttackStyle(int optionID);
+
         /// <summary>
-        /// Get's attack bonus of this definition.
+        /// Gets the attack bonus type for a specific combat option.
         /// </summary>
-        /// <param name="optionID">The option Id.</param>
-        /// <returns>AttackBonus.</returns>
+        /// <param name="optionID">The ID of the selected combat option.</param>
+        /// <returns>The <see cref="AttackBonus"/> type.</returns>
         AttackBonus GetAttackBonus(int optionID);
     }
 }

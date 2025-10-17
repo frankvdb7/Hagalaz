@@ -3,46 +3,34 @@ using System;
 namespace Hagalaz.Game.Abstractions.Model.Widgets
 {
     /// <summary>
-    /// The use on settings.
-    /// 0x1 - ground object
-    /// 0x2 - npc
-    /// 0x4 - location
-    /// 0x8 - player
-    /// 0x10 - if1 inventory(type 2)
-    /// 0x20 - if3 component
-    /// 0x40 - tiles(minimap and 3dscreen)
+    /// Defines a set of bitwise flags that specify what types of entities an item or component can be used on.
     /// </summary>
     [Flags]
     public enum UseOnOption : byte
     {
         /// <summary>
-        /// The ground items.
+        /// Can be used on ground items.
         /// </summary>
         GroundItems = 0x1,
-
         /// <summary>
-        /// The npcs.
+        /// Can be used on NPCs.
         /// </summary>
         Npcs = 0x2,
-
         /// <summary>
-        /// The game objects
+        /// Can be used on game objects.
         /// </summary>
-        GameObjects,
-
+        GameObjects = 0x4,
         /// <summary>
-        /// The other characters.
+        /// Can be used on other players.
         /// </summary>
         OtherCharacters = 0x8,
-
         /// <summary>
-        /// The self character.
+        /// Can be used on the player themselves.
         /// </summary>
-        SelfCharacter,
-
+        SelfCharacter = 0x10,
         /// <summary>
-        /// The interface components.
+        /// Can be used on other interface components.
         /// </summary>
-        InterfaceComponents,
+        InterfaceComponents = 0x20,
     }
 }

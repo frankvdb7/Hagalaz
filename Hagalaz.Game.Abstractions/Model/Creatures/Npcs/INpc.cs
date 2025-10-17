@@ -1,80 +1,62 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a non-player character (NPC), extending the base creature with NPC-specific properties and behaviors.
     /// </summary>
     public interface INpc : ICreature
     {
         /// <summary>
-        /// Gets the appearance.
+        /// Gets the handler for the NPC's visual appearance.
         /// </summary>
-        /// <value>
-        /// The appearance.
-        /// </value>
         INpcAppearance Appearance { get; }
 
         /// <summary>
-        /// Gets the definition.
+        /// Gets the data definition for this NPC, containing its base stats and properties.
         /// </summary>
-        /// <value>
-        /// The definition.
-        /// </value>
         INpcDefinition Definition { get; }
 
         /// <summary>
-        /// Gets the render information.
+        /// Gets the handler for the NPC's client-side rendering information.
         /// </summary>
-        /// <value>
-        /// The render information.
-        /// </value>
         INpcRenderInformation RenderInformation { get; }
 
         /// <summary>
-        /// Gets the statistics.
+        /// Gets the handler for the NPC's statistics.
         /// </summary>
-        /// <value>
-        /// The statistics.
-        /// </value>
         INpcStatistics Statistics { get; }
 
         /// <summary>
-        /// Gets the script.
+        /// Gets the script that controls the NPC's behavior and logic.
         /// </summary>
-        /// <value>
-        /// The script.
-        /// </value>
         INpcScript Script { get; }
 
         /// <summary>
-        /// Gets the bounds.
+        /// Gets the movement boundaries for the NPC.
         /// </summary>
-        /// <value>
-        /// The bounds.
-        /// </value>
         IBounds Bounds { get; }
 
         /// <summary>
-        /// Gets the script.
+        /// Retrieves a script of a specific type that is attached to the NPC.
         /// </summary>
-        /// <typeparam name="TScriptType">The type of the cript type.</typeparam>
-        /// <returns></returns>
+        /// <typeparam name="TScriptType">The type of the script to retrieve.</typeparam>
+        /// <returns>The script instance if found; otherwise, <c>null</c>.</returns>
         TScriptType? GetScript<TScriptType>() where TScriptType : class, INpcScript;
 
         /// <summary>
-        /// Determines whether this instance has script.
+        /// Checks if the NPC has a script of a specific type attached.
         /// </summary>
-        /// <typeparam name="TScriptType">The type of the cript type.</typeparam>
-        /// <returns></returns>
+        /// <typeparam name="TScriptType">The type of the script to check for.</typeparam>
+        /// <returns><c>true</c> if a script of the specified type is attached; otherwise, <c>false</c>.</returns>
         bool HasScript<TScriptType>() where TScriptType : class, INpcScript;
 
         /// <summary>
-        /// Tries to get the npc script of the supplied type.
-        /// Returns true if script is found.
+        /// Tries to get a script of a specific type that is attached to the NPC.
         /// </summary>
-        /// <typeparam name="TScriptType"></typeparam>
-        /// <returns></returns>
+        /// <typeparam name="TScriptType">The type of the script to retrieve.</typeparam>
+        /// <param name="script">When this method returns, contains the script instance if found; otherwise, null.</param>
+        /// <returns><c>true</c> if a script of the specified type was found; otherwise, <c>false</c>.</returns>
         bool TryGetScript<TScriptType>([NotNullWhen(true)] out TScriptType? script) where TScriptType : class, INpcScript;
     }
 }

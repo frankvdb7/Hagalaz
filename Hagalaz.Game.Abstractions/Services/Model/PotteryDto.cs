@@ -1,32 +1,32 @@
-﻿namespace Hagalaz.Game.Abstractions.Services.Model
+namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
-    /// 
+    /// A data transfer object containing the definition for crafting a piece of pottery.
     /// </summary>
     public record PotteryDto
     {
         /// <summary>
-        /// The product identifier
+        /// The item ID of the unfired pottery item.
         /// </summary>
         public required int FormedProductID;
 
         /// <summary>
-        /// The final product identifier
+        /// The item ID of the final, fired pottery item.
         /// </summary>
         public required int BakedProductID;
 
         /// <summary>
-        /// The required level
+        /// The required Crafting level to make this item.
         /// </summary>
         public required int RequiredLevel;
 
         /// <summary>
-        /// The form experience
+        /// The Crafting experience gained for forming the unfired item.
         /// </summary>
         public required double FormExperience;
 
         /// <summary>
-        /// The bake experience
+        /// The Crafting experience gained for firing the item in a kiln.
         /// </summary>
         public required double BakeExperience;
     }

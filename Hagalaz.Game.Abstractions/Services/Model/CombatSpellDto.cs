@@ -1,64 +1,64 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
-    /// 
+    /// A data transfer object containing the definition of a combat spell.
     /// </summary>
     public record CombatSpellDto
     {
         /// <summary>
-        /// The child identifier.
+        /// Gets the widget button ID for this spell.
         /// </summary>
         public int ButtonId { get; init; }
 
         /// <summary>
-        /// The base damage.
+        /// Gets the base damage of the spell.
         /// </summary>
         public int BaseDamage { get; init; }
 
         /// <summary>
-        /// The required level
+        /// Gets the required Magic level to cast this spell.
         /// </summary>
         public int RequiredLevel { get; init; }
 
         /// <summary>
-        /// The required runes
+        /// Gets or sets the array of rune types required to cast this spell.
         /// </summary>
         public RuneType[] RequiredRunes { get; set; } = default!;
 
         /// <summary>
-        /// The required runes amounts
+        /// Gets or sets the array of rune quantities required to cast this spell.
         /// </summary>
         public int[] RequiredRunesCounts { get; set; } = default!;
 
         /// <summary>
-        /// The experience
+        /// Gets the base Magic experience gained upon casting this spell.
         /// </summary>
         public double BaseExperience { get; init; }
 
         /// <summary>
-        /// The cast animation identifier.
+        /// Gets or sets the ID of the casting animation.
         /// </summary>
         public int CastAnimationId { get; set; }
 
         /// <summary>
-        /// The cast graphic identifier.
+        /// Gets or sets the ID of the casting graphic effect.
         /// </summary>
         public int CastGraphicId { get; set; }
 
         /// <summary>
-        /// The end graphic identifier.
+        /// Gets or sets the ID of the graphic effect that plays on the target.
         /// </summary>
         public int EndGraphicId { get; set; }
 
         /// <summary>
-        /// The projectile identifier.
+        /// Gets or sets the ID of the projectile graphic.
         /// </summary>
         public int ProjectileId { get; set; }
 
         /// <summary>
-        /// The automatic cast configuration.
+        /// Gets or sets the client configuration ID for autocasting this spell.
         /// </summary>
         public int AutoCastConfig { get; set; }
     }

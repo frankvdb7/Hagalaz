@@ -1,18 +1,17 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Events
+namespace Hagalaz.Game.Abstractions.Model.Events
 {
     /// <summary>
-    /// Get's called when given event is happened.
+    /// Represents a delegate for handling a specific type of game event.
     /// </summary>
-    /// <typeparam name="TEventType">The type of the event.</typeparam>
-    /// <param name="e">Event which is happened.</param>
-    /// <returns>
-    /// If return is true this event won't be sended to other handlers.
-    /// </returns>
+    /// <typeparam name="TEventType">The type of the event being handled.</typeparam>
+    /// <param name="e">The event instance that occurred.</param>
+    /// <returns><c>true</c> to indicate that the event has been consumed and should not be propagated to other handlers; otherwise, <c>false</c>.</returns>
     public delegate bool EventHappened<TEventType>(TEventType e) where TEventType : IEvent;
+
     /// <summary>
-    /// Get's called when given event is happened.
+    /// Represents a delegate for handling any type of game event.
     /// </summary>
-    /// <param name="e">Event which is happened.</param>
-    /// <returns>If return is true this event won't be sended to other handlers.</returns>
+    /// <param name="e">The event instance that occurred.</param>
+    /// <returns><c>true</c> to indicate that the event has been consumed and should not be propagated to other handlers; otherwise, <c>false</c>.</returns>
     public delegate bool EventHappened(IEvent e);
 }

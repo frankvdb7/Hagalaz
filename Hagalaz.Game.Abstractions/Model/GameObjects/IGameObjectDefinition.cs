@@ -1,22 +1,21 @@
-﻿using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Abstractions.Types;
 
 namespace Hagalaz.Game.Abstractions.Model.GameObjects
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a game object's data definition, containing its base properties.
     /// </summary>
     /// <seealso cref="IObjectType" />
     public interface IGameObjectDefinition : IObjectType
     {
         /// <summary>
-        /// Contains examine of this object.
+        /// Gets or sets the "Examine" text for this object.
         /// </summary>
-        /// <value>The examine.</value>
         string Examine { get; set; }
+
         /// <summary>
-        /// Contains the game object loot Id.
+        /// Gets or sets the ID of the loot table associated with this object.
         /// </summary>
-        /// <value>The game object loot Id.</value>
         int LootTableId { get; set; }
     }
 }

@@ -1,54 +1,52 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 
 namespace Hagalaz.Game.Abstractions.Model.Maps
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a map area, which can have special rules and behaviors.
     /// </summary>
     public interface IArea
     {
         /// <summary>
-        /// Contains area Id.
+        /// Gets the unique identifier for the area.
         /// </summary>
-        /// <value>The Id.</value>
         int Id { get; }
+
         /// <summary>
-        /// Whether this area is multi combat zone.
+        /// Gets a value indicating whether this area is a multi-combat zone.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if [multi combat]; otherwise, <c>false</c>.
-        /// </value>
         bool MultiCombat { get; }
+
         /// <summary>
-        /// Contains area name.
+        /// Gets the name of the area.
         /// </summary>
-        /// <value>The name.</value>
         string Name { get; }
+
         /// <summary>
-        /// Whether this area is pvp.
+        /// Gets a value indicating whether PvP (Player vs. Player) combat is enabled in this area.
         /// </summary>
-        /// <value><c>true</c> if [PvP]; otherwise, <c>false</c>.</value>
         bool IsPvP { get; }
+
         /// <summary>
-        /// Wether a familiar is allowed in this area.
+        /// Gets a value indicating whether Summoning familiars are allowed in this area.
         /// </summary>
         bool FamiliarAllowed { get; }
+
         /// <summary>
-        /// Gets the script.
+        /// Gets the script that controls the area's behavior and logic.
         /// </summary>
-        /// <value>
-        /// The script.
-        /// </value>
         IAreaScript Script { get; }
+
         /// <summary>
-        /// Happens when character enters this area.
+        /// A callback executed when a creature enters this area.
         /// </summary>
-        /// <param name="creature">The creature.</param>
+        /// <param name="creature">The creature that entered the area.</param>
         void OnCreatureEnterArea(ICreature creature);
+
         /// <summary>
-        /// Happens when character exits this area.
+        /// A callback executed when a creature exits this area.
         /// </summary>
-        /// <param name="creature">The creature.</param>
+        /// <param name="creature">The creature that exited the area.</param>
         void OnCreatureExitArea(ICreature creature);
     }
 }

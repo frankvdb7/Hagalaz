@@ -1,23 +1,24 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model;
 
 namespace Hagalaz.Game.Abstractions.Services
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a service that tracks the locations of characters.
     /// </summary>
     public interface ICharacterLocationService
     {
         /// <summary>
-        /// Sets the character location.
+        /// Sets the location for a character identified by their index.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <param name="location">The location.</param>
+        /// <param name="index">The index of the character.</param>
+        /// <param name="location">The new location of the character.</param>
         void SetLocationByIndex(int index, ILocation location);
+
         /// <summary>
-        /// Gets the character location.
+        /// Finds the location of a character by their index.
         /// </summary>
-        /// <param name="index">The index.</param>
-        /// <returns></returns>
+        /// <param name="index">The index of the character.</param>
+        /// <returns>The <see cref="ILocation"/> of the character.</returns>
         ILocation FindLocationByIndex(int index);
     }
 }

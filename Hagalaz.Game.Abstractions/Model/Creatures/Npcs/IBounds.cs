@@ -1,35 +1,35 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
+namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
 {
     /// <summary>
-    /// 
+    /// Defines the contract for an NPC's movement boundaries, which restrict its wandering area.
     /// </summary>
     public interface IBounds
     {
         /// <summary>
-        /// Contains npc bounds type.
+        /// Gets the type of movement boundary (e.g., Static, Range, Roam).
         /// </summary>
-        /// <value>The type of the bounds.</value>
         BoundsType BoundsType { get; }
+
         /// <summary>
-        /// The NPC's default spawn location.
+        /// Gets the NPC's default spawn location.
         /// </summary>
-        /// <value>The default location.</value>
         ILocation DefaultLocation { get; }
+
         /// <summary>
-        /// The NPC's minimum location.
+        /// Gets the minimum coordinate (bottom-left corner) of the boundary area.
         /// </summary>
-        /// <value>The minimum location.</value>
         ILocation MinimumLocation { get; }
+
         /// <summary>
-        /// The NPC's maximum location.
+        /// Gets the maximum coordinate (top-right corner) of the boundary area.
         /// </summary>
-        /// <value>The maximum location.</value>
         ILocation MaximumLocation { get; }
+
         /// <summary>
-        /// Get's if specific location is in npc location bounds.
+        /// Checks if a specific location is within the NPC's movement boundaries.
         /// </summary>
-        /// <param name="location">The location.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="location">The location to check.</param>
+        /// <returns><c>true</c> if the location is within the defined bounds; otherwise, <c>false</c>.</returns>
         bool InBounds(ILocation location);
     }
 }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -7,175 +6,170 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 namespace Hagalaz.Game.Abstractions.Model.Items
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a script that controls the behavior of an equippable item.
     /// </summary>
     public interface IEquipmentScript
     {
         /// <summary>
-        /// Get's attack speed of specific item.
-        /// By default , this method does return AttackSpeed field in EquipmentDefinition.
+        /// Gets the attack speed of a specific item.
         /// </summary>
-        /// <param name="item">Item instance.</param>
-        /// <returns>Attack speed of specific item.</returns>
+        /// <param name="item">The item instance.</param>
+        /// <returns>The attack speed in game ticks.</returns>
         int GetAttackSpeed(IItem item);
+
         /// <summary>
-        /// Get's attack distance of specific item.
-        /// By default , this method does return AttackDistance field in EquipmentDefinition.
+        /// Gets the attack distance of a specific item.
         /// </summary>
-        /// <param name="item">Item instance.</param>
-        /// <returns>Attack speed of specific item.</returns>
+        /// <param name="item">The item instance.</param>
+        /// <returns>The attack distance in tiles.</returns>
         int GetAttackDistance(IItem item);
+
         /// <summary>
-        /// Get's attack style.
-        /// By default , this method does return GetAttackStyle(attackStyleOptionID) in EquipmentDefinition return'ed value.
+        /// Gets the attack style for a given combat option.
         /// </summary>
-        /// <param name="item">Weapon item instance.</param>
-        /// <param name="attackStyleOptionID">Id of the attack style.</param>
-        /// <returns>AttackStyle.</returns>
+        /// <param name="item">The weapon item instance.</param>
+        /// <param name="attackStyleOptionID">The ID of the selected combat option.</param>
+        /// <returns>The <see cref="AttackStyle"/>.</returns>
         AttackStyle GetAttackStyle(IItem item, int attackStyleOptionID);
+
         /// <summary>
-        /// Get's attack bonus type.
-        /// By default , this method does return GetAttackBonus(attackStyleOptionID) in EquipmentDefinition return'ed value.
+        /// Gets the attack bonus type for a given combat option.
         /// </summary>
-        /// <param name="item">Weapon item instance.</param>
-        /// <param name="attackStyleOptionID">The attack style option Id.</param>
-        /// <returns>AttackBonus.</returns>
+        /// <param name="item">The weapon item instance.</param>
+        /// <param name="attackStyleOptionID">The ID of the selected combat option.</param>
+        /// <returns>The <see cref="AttackBonus"/> type.</returns>
         AttackBonus GetAttackBonusType(IItem item, int attackStyleOptionID);
+
         /// <summary>
-        /// Happens when this item is equiped by specific character.
-        /// By default , this method does nothing.
+        /// A callback executed when this item is equipped by a character.
         /// </summary>
-        /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
+        /// <param name="item">The item instance.</param>
+        /// <param name="character">The character who equipped the item.</param>
         void OnEquiped(IItem item, ICharacter character);
+
         /// <summary>
-        /// Happens when this item is unequiped by specific character.
-        /// By default , this method does nothing.
+        /// A callback executed when this item is unequipped by a character.
         /// </summary>
-        /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
+        /// <param name="item">The item instance.</param>
+        /// <param name="character">The character who unequipped the item.</param>
         void OnUnequiped(IItem item, ICharacter character);
+
         /// <summary>
-        /// Get's called after a character has died.
-        /// By default, this method does nothing.
+        /// A callback executed after a character dies while wearing this item.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="character">The character.</param>
+        /// <param name="item">The item instance.</param>
+        /// <param name="character">The character who died.</param>
         void OnDeath(IItem item, ICharacter character);
+
         /// <summary>
-        /// Render's weapon attack.
-        /// This method is not guaranteed to be used when performing attacks.
-        /// This method can throw NotImplementedException.
+        /// Renders the weapon's attack animation and graphics.
         /// </summary>
-        /// <param name="item">Item in equipment instance.</param>
-        /// <param name="animator">Character which is performing attack.</param>
-        /// <param name="specialAttack">Wheter attack is special.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
+        /// <param name="item">The weapon item instance.</param>
+        /// <param name="animator">The character performing the attack.</param>
+        /// <param name="specialAttack">A value indicating whether a special attack is being used.</param>
         void RenderAttack(IItem item, ICharacter animator, bool specialAttack);
+
         /// <summary>
-        /// Perform's special attack to victim.
-        /// By default , this method does throw NotImplementedException
+        /// Performs the weapon's special attack against a victim.
         /// </summary>
-        /// <param name="item">Weapon item instance.</param>
-        /// <param name="attacker">Attacker character.</param>
-        /// <param name="victim">Victim creature.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
+        /// <param name="item">The weapon item instance.</param>
+        /// <param name="attacker">The character performing the attack.</param>
+        /// <param name="victim">The creature being targeted.</param>
         void PerformSpecialAttack(IItem item, ICharacter attacker, ICreature victim);
+
         /// <summary>
-        /// Perform's standart ( Non special ) attack to victim.
+        /// Performs a standard (non-special) attack against a victim.
         /// </summary>
-        /// <param name="item">Weapon item instance.</param>
-        /// <param name="attacker">Attacker character.</param>
-        /// <param name="victim">Victim character.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
+        /// <param name="item">The weapon item instance.</param>
+        /// <param name="attacker">The character performing the attack.</param>
+        /// <param name="victim">The creature being targeted.</param>
         void PerformStandardAttack(IItem item, ICharacter attacker, ICreature victim);
 
         /// <summary>
-        /// Happens when incomming attack is performed to victim from attacker.
-        /// By default this method does nothing and return's damage in parameters.
+        /// A callback executed when an incoming attack is initiated against the wearer of this item.
         /// </summary>
-        /// <param name="item">Item in equipment instance.</param>
-        /// <param name="victim">Character which is being attacked.</param>
-        /// <param name="attacker">Creture which is attacking victim.</param>
-        /// <param name="damageType">Type of the damage that is being received.</param>
-        /// <param name="damage">Amount of damage, can be -1 incase of miss.</param>
-        /// <param name="delay">Delay in client ticks until the attack will reach the target.</param>
-        /// <returns>System.Int32.</returns>
+        /// <param name="item">The item instance.</param>
+        /// <param name="victim">The character being attacked.</param>
+        /// <param name="attacker">The creature performing the attack.</param>
+        /// <param name="damageType">The type of damage being dealt.</param>
+        /// <param name="damage">The potential amount of damage, or -1 for a miss.</param>
+        /// <param name="delay">The delay in client ticks until the attack connects.</param>
+        /// <returns>The modified damage amount after any script-specific effects.</returns>
         int OnIncomingAttack(IItem item, ICharacter victim, ICreature attacker, DamageType damageType, int damage, int delay);
+
         /// <summary>
-        /// Get's called when character receives damage.
-        /// By default this method returns damage amount in parameter.
+        /// A callback executed when an attack connects with the wearer of this item.
         /// </summary>
-        /// <param name="item">Item (shield or weapon) instance.</param>
-        /// <param name="victim">Character which is defending.</param>
-        /// <param name="attacker">Attacker character.</param>
-        /// <param name="damageType">Type of the damage.</param>
-        /// <param name="damage">Amount of damage, can be -1 incase of miss.</param>
-        /// <returns>Amount of damage remains after defence.</returns>
+        /// <param name="item">The item instance.</param>
+        /// <param name="victim">The character being attacked.</param>
+        /// <param name="attacker">The creature performing the attack.</param>
+        /// <param name="damageType">The type of damage dealt.</param>
+        /// <param name="damage">A reference to the damage amount, which can be modified by the script.</param>
         void OnAttack(IItem item, ICharacter victim, ICreature attacker, DamageType damageType, ref int damage);
+
         /// <summary>
-        /// Get's called after a character performed an attack.
-        /// By default, this method does nothing.
+        /// A callback executed after the wearer of this item performs an attack.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="attacker">The attacker.</param>
-        /// <param name="target">The target.</param>
+        /// <param name="item">The item instance.</param>
+        /// <param name="attacker">The character who performed the attack.</param>
+        /// <param name="target">The creature that was attacked.</param>
         void OnAttackPerformed(IItem item, ICharacter attacker, ICreature target);
+
         /// <summary>
-        /// Get's amount of special energy required by this weapon.
-        /// By default , this method does throw NotImplementedException
+        /// Gets the amount of special attack energy required by this weapon.
         /// </summary>
-        /// <param name="item">Weapon item instance.</param>
-        /// <param name="attacker">Attacker character.</param>
-        /// <returns>System.Int16.</returns>
-        /// <exception cref="System.NotImplementedException"></exception>
+        /// <param name="item">The weapon item instance.</param>
+        /// <param name="attacker">The character performing the attack.</param>
+        /// <returns>The required special energy amount.</returns>
         int GetRequiredSpecialEnergyAmount(IItem item, ICharacter attacker);
+
         /// <summary>
-        /// Happens when specific character clicks special bar ( which was not enabled ) on combat tab.
-        /// By default this method does return true if weapon is special weapon.
+        /// A callback executed when a character clicks the special attack bar while this weapon is equipped.
         /// </summary>
-        /// <param name="item">Weapon item instance.</param>
-        /// <param name="character">The character.</param>
-        /// <returns>If the bar should be enabled.</returns>
+        /// <param name="item">The weapon item instance.</param>
+        /// <param name="character">The character who clicked the bar.</param>
+        /// <returns><c>true</c> if the special attack should be enabled; otherwise, <c>false</c>.</returns>
         bool SpecialBarEnableClicked(IItem item, ICharacter character);
 
         /// <summary>
-        /// Render's item defence animation and or graphics.
-        /// Can throw NotImplementedException
+        /// Renders the item's defence animation and graphics.
         /// </summary>
-        /// <param name="item">Item in animator's inventory.</param>
-        /// <param name="animator">Character which is performing defence.</param>
-        /// <param name="delay">Delay in client ticks before the attack will reach animator.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
+        /// <param name="item">The item instance.</param>
+        /// <param name="animator">The character performing the defence.</param>
+        /// <param name="delay">The delay in client ticks until the incoming attack connects.</param>
         void RenderDefence(IItem item, ICharacter animator, int delay);
+
         /// <summary>
-        /// Get's if specific character can unequip specific item.
+        /// Checks if a character can unequip this item.
         /// </summary>
-        /// <param name="item">Item in character equipment.</param>
-        /// <param name="character">Character which wants to unequip item.</param>
-        /// <returns><c>true</c> if this instance [can un equip item] the specified item; otherwise, <c>false</c>.</returns>
+        /// <param name="item">The item to be unequipped.</param>
+        /// <param name="character">The character attempting to unequip the item.</param>
+        /// <returns><c>true</c> if the item can be unequipped; otherwise, <c>false</c>.</returns>
         bool CanUnEquipItem(IItem item, ICharacter character);
+
         /// <summary>
-        /// Get's called when specific item is about to be unequiped.
+        /// Handles the logic for unequipping this item.
         /// </summary>
-        /// <param name="item">Item in character equipment.</param>
-        /// <param name="character">Character which should unequip the item.</param>
-        /// <param name="toInventorySlot">To inventory slot.</param>
-        /// <returns><c>true</c> if unequiped, <c>false</c> otherwise</returns>
+        /// <param name="item">The item to be unequipped.</param>
+        /// <param name="character">The character unequipping the item.</param>
+        /// <param name="toInventorySlot">The optional inventory slot to move the item to.</param>
+        /// <returns><c>true</c> if the unequip was successful; otherwise, <c>false</c>.</returns>
         bool UnEquipItem(IItem item, ICharacter character, int toInventorySlot = -1);
+
         /// <summary>
-        /// Get's called when specific item is about to be equiped.
+        /// Handles the logic for equipping this item.
         /// </summary>
-        /// <param name="item">Item in character's inventory which should be equiped.</param>
-        /// <param name="character">Character which should equip the item.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="item">The item to be equipped.</param>
+        /// <param name="character">The character equipping the item.</param>
+        /// <returns><c>true</c> if the equip was successful; otherwise, <c>false</c>.</returns>
         bool EquipItem(IItem item, ICharacter character);
+
         /// <summary>
-        /// Get's if specific character can equip specific item.
+        /// Checks if a character can equip this item.
         /// </summary>
-        /// <param name="item">Item in character inventory.</param>
-        /// <param name="character">Character which wants to equip item.</param>
-        /// <returns><c>true</c> if this instance [can equip item] the specified item; otherwise, <c>false</c>.</returns>
+        /// <param name="item">The item to be equipped.</param>
+        /// <param name="character">The character attempting to equip the item.</param>
+        /// <returns><c>true</c> if the item can be equipped; otherwise, <c>false</c>.</returns>
         bool CanEquipItem(IItem item, ICharacter character);
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -7,286 +7,297 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Model.Widgets
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a user interface widget (also known as an interface).
     /// </summary>
     public interface IWidget
     {
         /// <summary>
-        /// Gets or sets the identifier.
+        /// Gets or sets the unique ID of the widget.
         /// </summary>
-        /// <value>
-        /// The identifier.
-        /// </value>
         int Id { get; set; }
+
         /// <summary>
-        /// Gets the owner.
+        /// Gets the character who owns this widget.
         /// </summary>
-        /// <value>
-        /// The owner.
-        /// </value>
         ICharacter Owner { get; }
+
         /// <summary>
-        /// Gets a value indicating whether this <see cref="IWidget"/> is opened.
+        /// Gets a value indicating whether this widget is currently open.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if opened; otherwise, <c>false</c>.
-        /// </value>
         bool IsOpened { get; }
+
         /// <summary>
-        /// Get's if interface is frame.
+        /// Gets a value indicating whether this widget is a top-level frame.
         /// </summary>
-        /// <value><c>true</c> if this instance is frame; otherwise, <c>false</c>.</value>
         bool IsFrame { get; }
+
         /// <summary>
-        /// Contains interface parentID.
+        /// Gets the ID of the parent widget.
         /// </summary>
-        /// <value>The parent.</value>
         int ParentId { get; }
+
         /// <summary>
-        /// Gets the script.
+        /// Gets the script that controls the widget's behavior and logic.
         /// </summary>
-        /// <value>
-        /// The script.
-        /// </value>
         IWidgetScript Script { get; }
+
         /// <summary>
-        /// Contains interface parentSlot.
+        /// Gets the component slot within the parent widget where this widget is located.
         /// </summary>
-        /// <value>The parent slot.</value>
         int ParentSlot { get; }
+
         /// <summary>
-        /// Gets the transparency.
+        /// Gets the transparency level of the widget.
         /// </summary>
-        /// <value>
-        /// The transparency.
-        /// </value>
         int Transparency { get; }
+
         /// <summary>
-        /// Attaches the children.
+        /// Attaches a child widget to a specific component slot of this widget.
         /// </summary>
-        /// <param name="children">The children.</param>
-        /// <param name="slot">The slot.</param>
+        /// <param name="children">The child widget to attach.</param>
+        /// <param name="slot">The component slot to attach to.</param>
         void AttachChildren(IWidget children, int slot);
+
         /// <summary>
-        /// Attaches component click handler to given childID.
+        /// Attaches a click handler to a specific component within this widget.
         /// </summary>
-        /// <param name="childID">childID to which should be listened to.</param>
-        /// <param name="handler">Handler which will be invoked when there's click on given childID.</param>
+        /// <param name="childID">The ID of the component to listen to.</param>
+        /// <param name="handler">The delegate to be executed on click.</param>
         void AttachClickHandler(int childID, OnComponentClick handler);
+
         /// <summary>
-        /// Attaches component drag handler to given childID.
+        /// Attaches a drag handler to a specific component within this widget.
         /// </summary>
-        /// <param name="childID">childID to which should be listened to.</param>
-        /// <param name="handler">Handler which will be invoked when there's drag from given childID.</param>
+        /// <param name="childID">The ID of the component to listen to.</param>
+        /// <param name="handler">The delegate to be executed on drag.</param>
         void AttachDragHandler(int childID, OnComponentDragged handler);
+
         /// <summary>
-        /// Attaches useOnObject handler to given childID.
+        /// Attaches a "use on game object" handler to a specific component.
         /// </summary>
-        /// <param name="childID">childID to which should be listened to.</param>
-        /// <param name="handler">Handler which will be invoked when there's useonobject from given childID.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="handler">The delegate to be executed.</param>
         void AttachUseOnObjectHandler(int childID, OnComponentUsedOnGameObject handler);
+
         /// <summary>
-        /// Attaches useOnGroundItem handler to given childID.
+        /// Attaches a "use on ground item" handler to a specific component.
         /// </summary>
-        /// <param name="childID">childID to which should be listened to.</param>
-        /// <param name="handler">Handler which will be invoked when there's useonobject from given childID.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="handler">The delegate to be executed.</param>
         void AttachUseOnGroundItemHandler(int childID, OnComponentUsedOnGroundItem handler);
+
         /// <summary>
-        /// Attaches useOnComponent handler to given childID.
+        /// Attaches a "use on component" handler to a specific component.
         /// </summary>
-        /// <param name="childID">childID to which should be listened to.</param>
-        /// <param name="handler">Handler which will be invoked when there's useoncomponent from given childID.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="handler">The delegate to be executed.</param>
         void AttachUseOnComponentHandler(int childID, OnComponentUsedOnComponent handler);
+
         /// <summary>
-        /// Attaches useOnCreature handler to given childID.
+        /// Attaches a "use on creature" handler to a specific component.
         /// </summary>
-        /// <param name="childID">childID to which should be listened to.</param>
-        /// <param name="handler">Handler which will be invoked when there's useoncharacter from given childID.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="handler">The delegate to be executed.</param>
         void AttachUseOnCreatureHandler(int childID, OnComponentUsedOnCreature handler);
+
         /// <summary>
-        /// Detaches the children.
+        /// Detaches a child widget from a specific component slot.
         /// </summary>
-        /// <param name="slot">The slot.</param>
+        /// <param name="slot">The slot from which to detach the child widget.</param>
         void DetachChildren(int slot);
+
         /// <summary>
-        /// Detaches given handler from given childID.
+        /// Detaches a specific click handler from a component.
         /// </summary>
-        /// <param name="childID">childID from which handler should be detached.</param>
-        /// <param name="handler">handler which should be detached.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="handler">The handler to detach.</param>
         void DetachClickHandler(int childID, OnComponentClick handler);
+
         /// <summary>
-        /// Detache's all click handlers on the given child id.
+        /// Detaches all click handlers from a specific component.
         /// </summary>
-        /// <param name="childId">The child identifier.</param>
-        /// <returns>True if successfully removed all clickhandlers on the given child id.</returns>
+        /// <param name="childId">The ID of the component.</param>
+        /// <returns><c>true</c> if handlers were successfully detached; otherwise, <c>false</c>.</returns>
         bool DetachClickHandlers(int childId);
+
         /// <summary>
-        /// Gets the child.
+        /// Gets the child widget attached to a specific slot.
         /// </summary>
-        /// <param name="slot">The slot.</param>
-        /// <returns></returns>
+        /// <param name="slot">The component slot.</param>
+        /// <returns>The child widget if found; otherwise, <c>null</c>.</returns>
         IWidget? GetChild(int slot);
+
         /// <summary>
-        /// Gets all childrens.
+        /// Gets a read-only list of all child widgets attached to this widget.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>A list of child widgets.</returns>
         IReadOnlyList<IWidget> GetAllChildren();
+
         /// <summary>
-        /// Determines whether this instance can interrupt.
+        /// Checks if this widget can be interrupted by other actions.
         /// </summary>
-        /// <returns>
-        ///   <c>true</c> if this instance can interrupt; otherwise, <c>false</c>.
-        /// </returns>
+        /// <returns><c>true</c> if the widget can be interrupted; otherwise, <c>false</c>.</returns>
         bool CanInterrupt();
+
         /// <summary>
-        /// Closes this instance.
+        /// Closes this widget.
         /// </summary>
         void Close();
+
         /// <summary>
-        /// Slots the used.
+        /// Checks if a specific component slot is currently occupied by a child widget.
         /// </summary>
-        /// <param name="slot">The slot.</param>
-        /// <returns></returns>
+        /// <param name="slot">The slot to check.</param>
+        /// <returns><c>true</c> if the slot is used; otherwise, <c>false</c>.</returns>
         bool SlotUsed(int slot);
+
         /// <summary>
-        /// Called when [display change].
+        /// A callback executed when the client's display mode changes.
         /// </summary>
         void OnDisplayChanged();
+
         /// <summary>
-        /// Called when [open].
+        /// A callback executed when the widget is opened.
         /// </summary>
         void OnOpen();
+
         /// <summary>
-        /// Raises the Close event.
+        /// A callback executed when the widget is closed.
         /// </summary>
         void OnClose();
 
         /// <summary>
-        /// Draws the item.
+        /// Draws an item model on a specific component of the widget.
         /// </summary>
-        /// <param name="childID">The child Id.</param>
-        /// <param name="itemID">The item Id.</param>
-        /// <param name="count">The amount.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="itemID">The ID of the item to draw.</param>
+        /// <param name="count">The quantity of the item to display.</param>
         void DrawItem(int childID, int itemID, int count);
 
         /// <summary>
-        /// Draw's string to interface child.
+        /// Draws a string of text on a specific component of the widget.
         /// </summary>
-        /// <param name="childID">Id of the child to draw string at.</param>
-        /// <param name="str">String which should be drawed.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="str">The string to draw.</param>
         void DrawString(int childID, string str);
 
         /// <summary>
-        /// Set's child visibility.
+        /// Sets the visibility of a specific component.
         /// </summary>
-        /// <param name="childID">Id of the child to set visibility.</param>
-        /// <param name="visible">Wheter child should be invisible.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="visible">A value indicating whether the component should be visible.</param>
         void SetVisible(int childID, bool visible);
 
         /// <summary>
-        /// Set's interface options.
+        /// Sets the available right-click options for a component.
         /// </summary>
-        /// <param name="childID">Component Id of the interface to set options to.</param>
-        /// <param name="min">Beginning array length.</param>
-        /// <param name="max">Ending array length.</param>
-        /// <param name="value">Value to set.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="min">The minimum index of the option range.</param>
+        /// <param name="max">The maximum index of the option range.</param>
+        /// <param name="value">The options bitmask.</param>
         void SetOptions(int childID, int min, int max, int value);
 
         /// <summary>
-        /// Sets the animation.
+        /// Sets the animation for a model on a component.
         /// </summary>
-        /// <param name="childID">The child Id.</param>
-        /// <param name="animationID">The animation Id.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="animationID">The ID of the animation to play.</param>
         void SetAnimation(int childID, int animationID);
 
         /// <summary>
-        /// Draws the model at given child.
+        /// Draws a model on a specific component.
         /// </summary>
-        /// <param name="childID">The child Id.</param>
-        /// <param name="modelID">The model Id.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="modelID">The ID of the model to draw.</param>
         void DrawModel(int childID, int modelID);
 
         /// <summary>
-        /// Draw's sprite at given child.
+        /// Draws a sprite on a specific component.
         /// </summary>
-        /// <param name="childID">Id of the child where sprite should be drawed.</param>
-        /// <param name="spriteID">Id of the sprite to be drawed.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="spriteID">The ID of the sprite to draw.</param>
         void DrawSprite(int childID, int spriteID);
 
         /// <summary>
-        /// Draw's character that will be viewing the interface head at the given child.
+        /// Draws the owner character's head model on a component.
         /// </summary>
-        /// <param name="childID">Id of the child where head should be drawed.</param>
+        /// <param name="childID">The ID of the component.</param>
         void DrawCharacterHead(int childID);
 
         /// <summary>
-        /// Draws the character head.
+        /// Draws a specific character's head model on a component.
         /// </summary>
-        /// <param name="childID">The child identifier.</param>
-        /// <param name="character">The character.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="character">The character whose head to draw.</param>
         void DrawCharacterHead(int childID, ICharacter character);
 
         /// <summary>
-        /// Draw's NPC head at given child.
+        /// Draws an NPC's head model on a component.
         /// </summary>
-        /// <param name="childID">Id of the child where npc head should be drawed.</param>
-        /// <param name="npcID">Id of the npc which head should be drawed.</param>
+        /// <param name="childID">The ID of the component.</param>
+        /// <param name="npcID">The ID of the NPC whose head to draw.</param>
         void DrawNpcHead(int childID, int npcID);
+
         /// <summary>
-        /// Called when [component click].
+        /// A callback executed when a component is clicked.
         /// </summary>
-        /// <param name="childID">The child Id.</param>
-        /// <param name="clickType">Type of the click.</param>
-        /// <param name="extraInfo1">The extra info1.</param>
-        /// <param name="extraInfo2">The extra info2.</param>
+        /// <param name="childID">The ID of the clicked component.</param>
+        /// <param name="clickType">The type of click performed.</param>
+        /// <param name="extraInfo1">Additional client-provided information.</param>
+        /// <param name="extraInfo2">Additional client-provided information.</param>
         void OnComponentClick(int childID, ComponentClickType clickType, int extraInfo1, int extraInfo2);
+
         /// <summary>
-        /// Happens when component is used on character.
+        /// A callback executed when a component is used on a ground item.
         /// </summary>
-        /// <param name="childID">childID which was used.</param>
-        /// <param name="usedOn">GameObject to which this component was used on.</param>
-        /// <param name="shouldRun">Wheter CTRL was pressed.</param>
-        /// <param name="extraInfo1">Extra info client provides.</param>
-        /// <param name="extraInfo2">Extra info client provides.</param>
+        /// <param name="childID">The ID of the component that was used.</param>
+        /// <param name="usedOn">The ground item the component was used on.</param>
+        /// <param name="shouldRun">A value indicating whether the character should force-run to the target.</param>
+        /// <param name="extraInfo1">Additional client-provided information.</param>
+        /// <param name="extraInfo2">Additional client-provided information.</param>
         void OnComponentUsedOnGroundItem(int childID, IGroundItem usedOn, bool shouldRun, int extraInfo1, int extraInfo2);
+
         /// <summary>
-        /// Happens when component is used on character.
+        /// A callback executed when a component is used on a creature.
         /// </summary>
-        /// <param name="childID">childID which was used.</param>
-        /// <param name="usedOn">Creature to which this component was used on.</param>
-        /// <param name="shouldRun">Wheter CTRL was pressed.</param>
-        /// <param name="extraInfo1">Extra info client provides.</param>
-        /// <param name="extraInfo2">Extra info client provides.</param>
+        /// <param name="childID">The ID of the component that was used.</param>
+        /// <param name="usedOn">The creature the component was used on.</param>
+        /// <param name="shouldRun">A value indicating whether the character should force-run to the target.</param>
+        /// <param name="extraInfo1">Additional client-provided information.</param>
+        /// <param name="extraInfo2">Additional client-provided information.</param>
         void OnComponentUsedOnCreature(int childID, ICreature usedOn, bool shouldRun, int extraInfo1, int extraInfo2);
+
         /// <summary>
-        /// Happens when component is draged.
+        /// A callback executed when a component is dragged.
         /// </summary>
-        /// <param name="childID">childID which was clicked.</param>
-        /// <param name="dragedFromExtraInfo1">The draged from extra info1.</param>
-        /// <param name="dragedFromExtraInfo2">The draged from extra info2.</param>
-        /// <param name="dragedToInterface">Interface to which given child was draged.</param>
-        /// <param name="dragedToChildID">Id of the child that given child was draged to.</param>
-        /// <param name="dragedToExtraInfo1">The draged to extra info1.</param>
-        /// <param name="dragedToExtraInfo2">The draged to extra info2.</param>
+        /// <param name="childID">The ID of the component that was dragged.</param>
+        /// <param name="dragedFromExtraInfo1">Additional information from the source component.</param>
+        /// <param name="dragedFromExtraInfo2">Additional information from the source component.</param>
+        /// <param name="dragedToInterface">The widget that the component was dragged to.</param>
+        /// <param name="dragedToChildID">The ID of the component that the source was dragged onto.</param>
+        /// <param name="dragedToExtraInfo1">Additional information from the destination component.</param>
+        /// <param name="dragedToExtraInfo2">Additional information from the destination component.</param>
         void OnComponentDrag(int childID, int dragedFromExtraInfo1, int dragedFromExtraInfo2, IWidget dragedToInterface, int dragedToChildID, int dragedToExtraInfo1, int dragedToExtraInfo2);
+
         /// <summary>
-        /// Happens when component is used on component.
+        /// A callback executed when a component is used on another component.
         /// </summary>
-        /// <param name="childID">childID which was used.</param>
-        /// <param name="extraInfo1">Extra info client provides.</param>
-        /// <param name="extraInfo2">Extra info client provides.</param>
-        /// <param name="extraInfo3">The extra info3.</param>
-        /// <param name="extraInfo4">The extra info4.</param>
-        /// <returns></returns>
+        /// <param name="childID">The ID of the component that was used.</param>
+        /// <param name="extraInfo1">Additional client-provided information.</param>
+        /// <param name="extraInfo2">Additional client-provided information.</param>
+        /// <param name="extraInfo3">Additional client-provided information.</param>
+        /// <param name="extraInfo4">Additional client-provided information.</param>
+        /// <returns><c>true</c> if the event was handled; otherwise, <c>false</c>.</returns>
         bool OnComponentUsedOnComponent(int childID, int extraInfo1, int extraInfo2, int extraInfo3, int extraInfo4);
+
         /// <summary>
-        /// Happens when component is used on character.
+        /// A callback executed when a component is used on a game object.
         /// </summary>
-        /// <param name="childID">childID which was used.</param>
-        /// <param name="usedOn">GameObject to which this component was used on.</param>
-        /// <param name="shouldRun">Wheter CTRL was pressed.</param>
-        /// <param name="extraInfo1">Extra info client provides.</param>
-        /// <param name="extraInfo2">Extra info client provides.</param>
+        /// <param name="childID">The ID of the component that was used.</param>
+        /// <param name="usedOn">The game object the component was used on.</param>
+        /// <param name="shouldRun">A value indicating whether the character should force-run to the target.</param>
+        /// <param name="extraInfo1">Additional client-provided information.</param>
+        /// <param name="extraInfo2">Additional client-provided information.</param>
         void OnComponentUsedOnGameObject(int childID, IGameObject usedOn, bool shouldRun, int extraInfo1, int extraInfo2);
     }
 }

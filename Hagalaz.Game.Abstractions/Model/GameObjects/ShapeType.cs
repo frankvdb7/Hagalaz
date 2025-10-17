@@ -1,102 +1,101 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.GameObjects
+namespace Hagalaz.Game.Abstractions.Model.GameObjects
 {
     /// <summary>
-    /// 
+    /// Defines the basic shape of a game object, which determines its rendering layer and clipping behavior.
     /// </summary>
     public enum ShapeType : byte
     {
         /// <summary>
-        /// The wall
+        /// A straight wall piece.
         /// </summary>
         Wall = 0,
         /// <summary>
-        /// The wall corner diagonal
+        /// A diagonal wall corner piece.
         /// </summary>
         WallCornerDiagonal = 1,
         /// <summary>
-        /// The unfinished wall
+        /// An entire wall section, often used for large buildings.
         /// </summary>
         UnfinishedWall = 2,
         /// <summary>
-        /// The wall corner
+        /// A standard wall corner piece.
         /// </summary>
         WallCorner = 3,
         /// <summary>
-        /// The wall decoration straight x offset
+        /// A straight wall decoration with a horizontal offset.
         /// </summary>
         WallDecorationStraightXOffset = 4,
         /// <summary>
-        /// The wall decoration straight z offset
+        /// A straight wall decoration with a vertical offset.
         /// </summary>
         WallDecorationStraightZOffset = 5,
         /// <summary>
-        /// The wall decoration diagonal x offset
+        /// A diagonal wall decoration with a horizontal offset.
         /// </summary>
         WallDecorationDiagonalXOffset = 6,
         /// <summary>
-        /// The wall decoration diagonal z offset
+        /// A diagonal wall decoration with a vertical offset.
         /// </summary>
         WallDecorationDiagonalZOffset = 7,
         /// <summary>
-        /// The interior wall decoration diagonal
+        /// A diagonal interior wall decoration.
         /// </summary>
         InteriorWallDecorationDiagonal = 8,
         /// <summary>
-        /// The wall open
+        /// A wall with a central opening, like a window or archway.
         /// </summary>
         WallOpen = 9,
         /// <summary>
-        /// The complex ground decoration
+        /// A complex ground decoration that may have multiple parts.
         /// </summary>
         ComplexGroundDecoration = 10,
         /// <summary>
-        /// The ground default
+        /// A standard ground-level object.
         /// </summary>
         GroundDefault = 11,
         /// <summary>
-        /// The root top side
+        /// A side piece of a rooftop.
         /// </summary>
         RoofTopSide = 12,
         /// <summary>
-        /// The roof top corner flat
+        /// A flat corner piece of a rooftop.
         /// </summary>
         RoofTopCornerFlat = 13,
         /// <summary>
-        /// The roof top flat downward crease
+        /// A flat rooftop piece with a downward crease.
         /// </summary>
         RoofTopFlatDownwardCrease = 14,
         /// <summary>
-        /// The roof top slanted upward crease
+        /// A slanted rooftop piece with an upward crease.
         /// </summary>
         RoofTopSlantedUpwardCrease = 15,
         /// <summary>
-        /// The roof top slanted downward crease
+        /// A slanted rooftop piece with a downward crease.
         /// </summary>
         RoofTopSlantedDownwardCrease = 16,
         /// <summary>
-        /// The roof top flat
+        /// A flat rooftop piece.
         /// </summary>
         RoofTopFlat = 17,
         /// <summary>
-        /// The roof edge
+        /// An edge piece of a rooftop.
         /// </summary>
         RoofEdge = 18,
         /// <summary>
-        /// The roof edge corner flat
+        /// A flat corner edge piece of a rooftop.
         /// </summary>
         RoofEdgeCornerFlat = 19,
         /// <summary>
-        /// The roof connecting edge
+        /// A connecting edge piece for a rooftop.
         /// </summary>
         RoofConnectingEdge = 20,
         /// <summary>
-        /// The roof edge corner pointed
+        /// A pointed corner edge piece for a rooftop.
         /// </summary>
         RoofEdgeCornerPointed = 21,
         /// <summary>
-        /// The ground decoration
+        /// A simple ground decoration.
         /// </summary>
         GroundDecoration = 22
-
     }
 }

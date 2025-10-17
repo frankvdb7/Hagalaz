@@ -1,20 +1,20 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
+namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
 {
     /// <summary>
-    /// The type of walking the npc does.
+    /// Defines the different types of movement boundaries for an NPC, controlling how it wanders.
     /// </summary>
     public enum BoundsType : int
     {
         /// <summary>
-        /// The npc does not walk, it stays in the same location.
+        /// The NPC remains stationary at its spawn point and does not walk.
         /// </summary>
         Static,
         /// <summary>
-        /// The npc walks in a specified range.
+        /// The NPC walks randomly within a specified rectangular area.
         /// </summary>
         Range,
         /// <summary>
-        /// The npc is free to roam where ever.
+        /// The NPC is free to roam anywhere on the map without restrictions.
         /// </summary>
         Roam
     }

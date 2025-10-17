@@ -1,42 +1,36 @@
-﻿namespace Hagalaz.Game.Abstractions.Services.Model
+namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
-    /// Types of pickaxes.
+    /// Defines the different types of pickaxes, ordered by their effectiveness.
     /// </summary>
     public enum PickaxeType : byte
     {
         /// <summary>
-        /// The bronze
+        /// A bronze pickaxe.
         /// </summary>
         Bronze = 0,
-
         /// <summary>
-        /// The iron
+        /// An iron pickaxe.
         /// </summary>
         Iron = 1,
-
         /// <summary>
-        /// The steel
+        /// A steel pickaxe.
         /// </summary>
         Steel = 2,
-
         /// <summary>
-        /// The mithril
+        /// A mithril pickaxe.
         /// </summary>
         Mithril = 3,
-
         /// <summary>
-        /// The adamant
+        /// An adamant pickaxe.
         /// </summary>
         Adamant = 4,
-
         /// <summary>
-        /// The rune
+        /// A rune pickaxe.
         /// </summary>
         Rune = 5,
-
         /// <summary>
-        /// The dragon
+        /// A dragon pickaxe.
         /// </summary>
         Dragon = 6
     }

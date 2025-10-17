@@ -1,109 +1,94 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 
 namespace Hagalaz.Game.Abstractions.Model.Maps
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a script that controls the behavior and rules of a map area.
     /// </summary>
     public interface IAreaScript
     {
         /// <summary>
-        /// Initialize's script with specific area.
+        /// Initializes the script with its owning area.
         /// </summary>
-        /// <param name="area">The area.</param>
+        /// <param name="area">The area that this script is attached to.</param>
         void Initialize(IArea area);
+
         /// <summary>
-        /// Happens when character enters this area.
-        /// The new area, is this scripts area.
-        /// By default this method performs some checks on wether some things are allowed in the area. (Familiars)
+        /// A callback executed when a creature enters this area.
         /// </summary>
-        /// <param name="creature">The creature.</param>
+        /// <param name="creature">The creature that entered the area.</param>
         void OnCreatureEnterArea(ICreature creature);
+
         /// <summary>
-        /// Happens when character exits this area.
-        /// The old area, is this scripts area.
-        /// By default this method does nothing.
+        /// A callback executed when a creature exits this area.
         /// </summary>
-        /// <param name="creature">The creature.</param>
+        /// <param name="creature">The creature that exited the area.</param>
         void OnCreatureExitArea(ICreature creature);
+
         /// <summary>
-        /// This method get's called when given character enters
-        /// this area.
-        /// The new area, is this scripts area.
-        /// By default this method does enable/disable multicombat icon
-        /// and adds/removes Attack options on characters if the ('character') is character.
+        /// A callback executed when a creature's client needs to render the effects of entering this area.
         /// </summary>
-        /// <param name="creature">The creature.</param>
+        /// <param name="creature">The creature entering the area.</param>
         void RenderEnterArea(ICreature creature);
+
         /// <summary>
-        /// This method get's called when given character exits
-        /// this area.
-        /// The old area, is this scripts area.
-        /// By default this method does nothing.
+        /// A callback executed when a creature's client needs to render the effects of exiting this area.
         /// </summary>
-        /// <param name="creature">The creature.</param>
+        /// <param name="creature">The creature exiting the area.</param>
         void RenderExitArea(ICreature creature);
+
         /// <summary>
-        /// Get's if specified character ('victim') which is in this area,
-        /// can be attacked by the specified character ('attacker') which can be in any area.
-        /// By default , before returning true this method checks if victim is being attacked by someone other
-        /// or this zone is multicombat.
+        /// Checks if a creature within this area can be attacked by another creature.
         /// </summary>
-        /// <param name="victim">Creature which is being attacked by the ('attacker')</param>
-        /// <param name="attacker">Creature which is attacking the ('victim')</param>
-        /// <returns>
-        /// If attack can be performed.
-        /// </returns>
+        /// <param name="victim">The creature being attacked (in this area).</param>
+        /// <param name="attacker">The creature performing the attack.</param>
+        /// <returns><c>true</c> if the attack is allowed; otherwise, <c>false</c>.</returns>
         bool CanBeAttacked(ICreature victim, ICreature attacker);
+
         /// <summary>
-        /// Get's if specific character ('attacker') which is in this area,
-        /// can attack the specified character ('target') which can be in any area.
-        /// By default , before returning true this method checks if target is being attacked by someone other
-        /// or this zone is multicombat.
+        /// Checks if a creature within this area can attack another creature.
         /// </summary>
-        /// <param name="attacker">Creature which is attacking the ('target')</param>
-        /// <param name="target">Creature which is being attacked by ('attacker')</param>
-        /// <returns>
-        /// If attack can be performed.
-        /// </returns>
+        /// <param name="attacker">The creature performing the attack (in this area).</param>
+        /// <param name="target">The creature being targeted.</param>
+        /// <returns><c>true</c> if the attack is allowed; otherwise, <c>false</c>.</returns>
         bool CanAttack(ICreature attacker, ICreature target);
+
         /// <summary>
-        /// Get's if character can do standart teleport. (Escape)
-        /// By default , this method returns true.
+        /// Checks if a character can perform a standard spellbook teleport while in this area.
         /// </summary>
-        /// <param name="character">Character which is trying to 'escape'</param>
-        /// <returns><c>true</c> if this instance [can do standart teleport] the specified character; otherwise, <c>false</c>.</returns>
+        /// <param name="character">The character attempting to teleport.</param>
+        /// <returns><c>true</c> if teleportation is allowed; otherwise, <c>false</c>.</returns>
         bool CanDoStandardTeleport(ICharacter character);
+
         /// <summary>
-        /// Determines whether this instance [can do game object teleport] the specified character.
+        /// Checks if a character can use a game object to teleport while in this area.
         /// </summary>
-        /// <param name="character">The character.</param>
-        /// <param name="obj">The obj.</param>
-        /// <returns>
-        ///   <c>true</c> if this instance [can do game object teleport] the specified character; otherwise, <c>false</c>.
-        /// </returns>
+        /// <param name="character">The character attempting to teleport.</param>
+        /// <param name="obj">The game object being used for teleportation.</param>
+        /// <returns><c>true</c> if teleportation is allowed; otherwise, <c>false</c>.</returns>
         bool CanDoGameObjectTeleport(ICharacter character, IGameObject obj);
+
         /// <summary>
-        /// Get's respawn location of specific character in this area.
-        /// By default this method does return World.SpawnPoint.
+        /// Gets the designated respawn location for a character who dies in this area.
         /// </summary>
-        /// <param name="character">Character which needs respawning.</param>
-        /// <returns>Location.</returns>
+        /// <param name="character">The character who died.</param>
+        /// <returns>The respawn <see cref="ILocation"/>.</returns>
         ILocation GetRespawnLocation(ICharacter character);
+
         /// <summary>
-        /// Gets the pvp combat level range.
+        /// Gets the combat level range for PvP encounters in this area.
         /// </summary>
-        /// <param name="character">The character.</param>
-        /// <returns></returns>
+        /// <param name="character">The character in the area.</param>
+        /// <returns>The combat level range.</returns>
         int GetPvPCombatLevelRange(ICharacter character);
+
         /// <summary>
-        /// Get's if this area should render base combat level (without summoning) and then render extra + (summoning level)
-        /// By default , this method does return false.
+        /// Determines if the client should render a character's base combat level separately from their Summoning-boosted level.
         /// </summary>
-        /// <param name="character">The character.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="character">The character to check.</param>
+        /// <returns><c>true</c> if the base combat level should be rendered separately; otherwise, <c>false</c>.</returns>
         bool ShouldRenderBaseCombatLevel(ICharacter character);
     }
 }

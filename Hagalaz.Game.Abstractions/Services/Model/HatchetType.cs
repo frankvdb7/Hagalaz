@@ -1,47 +1,40 @@
-﻿namespace Hagalaz.Game.Abstractions.Services.Model
+namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
-    /// Different types of hatchets usable.
+    /// Defines the different types of hatchets, ordered by their effectiveness.
     /// </summary>
     public enum HatchetType : byte
     {
         /// <summary>
-        /// The bronze
+        /// A bronze hatchet.
         /// </summary>
         Bronze = 0,
-
         /// <summary>
-        /// The iron
+        /// An iron hatchet.
         /// </summary>
         Iron = 1,
-
         /// <summary>
-        /// The steel
+        /// A steel hatchet.
         /// </summary>
         Steel = 2,
-
         /// <summary>
-        /// The black
+        /// A black hatchet.
         /// </summary>
         Black = 3,
-
         /// <summary>
-        /// The mithril
+        /// A mithril hatchet.
         /// </summary>
         Mithril = 4,
-
         /// <summary>
-        /// The adamant
+        /// An adamant hatchet.
         /// </summary>
         Adamant = 5,
-
         /// <summary>
-        /// The rune
+        /// A rune hatchet.
         /// </summary>
         Rune = 6,
-
         /// <summary>
-        /// The dragon
+        /// A dragon hatchet.
         /// </summary>
         Dragon = 7
     }

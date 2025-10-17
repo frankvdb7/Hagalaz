@@ -3,27 +3,24 @@ namespace Hagalaz.Game.Abstractions.Services.Model
     public partial class JewelryDto
     {
         /// <summary>
-        /// 
+        /// Defines the different types of jewelry that can be crafted.
         /// </summary>
         public enum JewelryType
         {
             /// <summary>
-            /// The amulet
+            /// An amulet.
             /// </summary>
             Amulet,
-
             /// <summary>
-            /// The ring
+            /// A ring.
             /// </summary>
             Ring,
-
             /// <summary>
-            /// The bracelet
+            /// A bracelet.
             /// </summary>
             Bracelet,
-
             /// <summary>
-            /// The necklace
+            /// A necklace.
             /// </summary>
             Necklace,
         }

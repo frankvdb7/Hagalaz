@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -7,189 +7,185 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a script that controls an NPC's behavior and logic.
     /// </summary>
     public interface INpcScript : ICreatureScript
     {
         /// <summary>
-        /// Get's npcIDS which are suitable for this script.
+        /// Gets the NPC IDs that this script is suitable for.
         /// </summary>
-        /// <returns>System.Int32[][].</returns>
+        /// <returns>An array of NPC IDs.</returns>
         [Obsolete("Please use NpcScriptMetaData attribute instead")]
         int[] GetSuitableNpcs();
+
         /// <summary>
-        /// Contains the path finder the NPC will use.
-        /// By default, this method returns the simple path finder when in combat
-        /// and the standart path finder for random walking.
+        /// Gets the pathfinder the NPC will use.
         /// </summary>
+        /// <returns>The <see cref="IPathFinder"/> for the NPC.</returns>
         IPathFinder GetPathfinder();
+
         /// <summary>
-        /// Respawns this npc.
-        /// By default, this unregisters the NPC if the CanSpawn method returns false.
-        /// Otherwise, this calls the Respawn method of the NPC.
+        /// Respawns the NPC.
         /// </summary>
         void Respawn();
+
         /// <summary>
-        /// Determines whether this instance can respawn.
-        /// If false, then the npc will be unregistered from the world.
+        /// Determines whether this NPC can respawn.
         /// </summary>
-        /// <returns>
-        ///   <c>true</c> if this instance can spawn; otherwise, <c>false</c>.
-        /// </returns>
+        /// <returns><c>true</c> if the NPC can respawn; otherwise, <c>false</c>.</returns>
         bool CanRespawn();
+
         /// <summary>
-        /// Render's npc death
+        /// Renders the NPC's death animation and effects.
         /// </summary>
-        /// <returns>Amount of ticks the death gonna be rendered.</returns>
+        /// <returns>The number of game ticks the death sequence will last.</returns>
         int RenderDeath();
 
         /// <summary>
-        /// Render's defence of this npc.
+        /// Renders the NPC's defence animation and effects.
         /// </summary>
-        /// <param name="delay">Delay in client ticks till attack will reach the target.</param>
+        /// <param name="delay">The delay in client ticks until the attack hits.</param>
         void RenderDefence(int delay);
+
         /// <summary>
-        /// Initializes this script with given owner.
+        /// Initializes the script with its owning NPC.
         /// </summary>
-        /// <param name="owner">The owner.</param>
+        /// <param name="owner">The NPC that this script is attached to.</param>
         void Initialize(INpc owner);
+
         /// <summary>
-        /// Happens when attacker attack reaches the npc.
-        /// By default this method does nothing and returns the damage provided in parameters.
+        /// A callback executed when an attacker's hit connects with the NPC.
         /// </summary>
-        /// <param name="attacker">Creature which performed attack.</param>
-        /// <param name="damageType">Type of the attack.</param>
-        /// <param name="damage">Amount of damage inflicted on this character or -1 if it's a miss.</param>
-        /// <returns>Return's amount of damage remains after defence.</returns>
+        /// <param name="attacker">The creature that performed the attack.</param>
+        /// <param name="damageType">The type of damage dealt.</param>
+        /// <param name="damage">The amount of damage inflicted, or -1 for a miss.</param>
+        /// <returns>The final damage amount after any script-specific modifications.</returns>
         int OnAttack(ICreature attacker, DamageType damageType, int damage);
 
         /// <summary>
-        /// Happens when attacker starts attack to this npc.
-        /// By default this method does nothing and returns the damage provided in parameters.
+        /// A callback executed when an attacker initiates an attack on this NPC.
         /// </summary>
-        /// <param name="attacker">Creature which started the attack.</param>
-        /// <param name="damageType">Type of the attack.</param>
-        /// <param name="damage">Amount of damage that is predicted to be inflicted or -1 if it's a miss.</param>
-        /// <param name="delay">Delay in client ticks until the attack will reach this npc and OnAttack will be called.</param>
-        /// <returns>Return's amount of damage that remains after defence.</returns>
+        /// <param name="attacker">The creature that initiated the attack.</param>
+        /// <param name="damageType">The type of damage to be dealt.</param>
+        /// <param name="damage">The predicted amount of damage, or -1 for a miss.</param>
+        /// <param name="delay">The delay in client ticks until the attack connects.</param>
+        /// <returns>The predicted damage amount after any script-specific modifications.</returns>
         int OnIncomingAttack(ICreature attacker, DamageType damageType, int damage, int delay);
+
         /// <summary>
-        /// Get's if this npc can retaliate to specific character attack.
-        /// By default, this method returns true.
+        /// Determines if this NPC should retaliate against a specific attacker.
         /// </summary>
-        /// <param name="creature">The creature.</param>
-        /// <returns><c>true</c> if this instance [can retaliate to] the specified creature; otherwise, <c>false</c>.</returns>
+        /// <param name="creature">The creature that attacked the NPC.</param>
+        /// <returns><c>true</c> if the NPC should retaliate; otherwise, <c>false</c>.</returns>
         bool CanRetaliateTo(ICreature creature);
+
         /// <summary>
-        /// Happens when this npc is clicked by specified character ('clicker').
-        /// By default this method does for possible attack option.
+        /// A callback executed when a character clicks on this NPC.
         /// </summary>
-        /// <param name="clicker">Character that clicked this npc.</param>
-        /// <param name="clickType">Type of the click that was performed.</param>
-        /// <param name="forceRun">Wheter clicker should forcerun to this npc.</param>
+        /// <param name="clicker">The character who clicked the NPC.</param>
+        /// <param name="clickType">The type of click option selected.</param>
+        /// <param name="forceRun">A value indicating whether the character should force-run to the NPC.</param>
         void OnCharacterClick(ICharacter clicker, NpcClickType clickType, bool forceRun);
+
         /// <summary>
-        /// Perform's attack on specific target.
-        /// By default this method will perform a standart melee attack.
+        /// Performs an attack on a specific target.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The creature to attack.</param>
         void PerformAttack(ICreature target);
+
         /// <summary>
-        /// Happens when the attack has been performed on the target.
-        /// By default this method will do nothing.
+        /// A callback executed after the NPC has performed an attack on a target.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The creature that was attacked.</param>
         void OnAttackPerformed(ICreature target);
+
         /// <summary>
-        /// Called when [set target].
-        /// By default, this method does nothing.
+        /// A callback executed when the NPC sets a new combat target.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="target">The new target.</param>
         void OnSetTarget(ICreature target);
+
         /// <summary>
-        /// Determines whether this instance [can set target] the specified target.
+        /// Determines if the NPC can set a specific creature as its combat target.
         /// </summary>
-        /// <param name="target">The target.</param>
-        /// <returns></returns>
+        /// <param name="target">The potential target.</param>
+        /// <returns><c>true</c> if the target can be set; otherwise, <c>false</c>.</returns>
         bool CanSetTarget(ICreature target);
+
         /// <summary>
-        /// Called when [cancel target].
-        /// By default, this method will let the NPC walk to its spawnpoint.
+        /// A callback executed when the NPC's combat target is cleared.
         /// </summary>
         void OnCancelTarget();
+
         /// <summary>
-        /// Get's attack bonus type of this npc.
-        /// By default , this method does return AttackBonus.Crush
+        /// Gets the attack bonus type for the NPC's current combat style.
         /// </summary>
-        /// <returns>AttackBonus.</returns>
+        /// <returns>The <see cref="AttackBonus"/> type.</returns>
         AttackBonus GetAttackBonusType();
+
         /// <summary>
-        /// Get's attack style of this npc.
-        /// By default , this method does return AttackStyle.Accurate.
+        /// Gets the attack style for the NPC.
         /// </summary>
-        /// <returns>AttackStyle.</returns>
+        /// <returns>The <see cref="AttackStyle"/>.</returns>
         AttackStyle GetAttackStyle();
+
         /// <summary>
-        /// Get's attack distance of this npc.
+        /// Gets the attack distance for the NPC.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The attack distance in tiles.</returns>
         int GetAttackDistance();
+
         /// <summary>
-        /// Get's attack speed of this npc.
-        /// By default, this method does return Definition.AttackSpeed.
+        /// Gets the attack speed for the NPC.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The attack speed in game ticks.</returns>
         int GetAttackSpeed();
+
         /// <summary>
-        /// Get's if this npc can be poisoned.
-        /// By default this method checks if this npc is poisonable.
+        /// Determines if this NPC can be poisoned.
         /// </summary>
-        /// <returns><c>true</c> if this instance can poison; otherwise, <c>false</c>.</returns>
+        /// <returns><c>true</c> if the NPC is poisonable; otherwise, <c>false</c>.</returns>
         bool CanPoison();
+
         /// <summary>
-        /// Determines whether this instance can spawn.
-        /// If false, then the npc will be unregistered from the world.
+        /// Determines if this NPC can spawn into the world.
         /// </summary>
-        /// <returns>
-        ///   <c>true</c> if this instance can spawn; otherwise, <c>false</c>.
-        /// </returns>
+        /// <returns><c>true</c> if the NPC can spawn; otherwise, <c>false</c>.</returns>
         bool CanSpawn();
+
         /// <summary>
-        /// Get's if this npc can be destroyed.
-        /// By default , this method returns true.
+        /// Determines if this NPC can be permanently destroyed.
         /// </summary>
-        /// <returns><c>true</c> if this instance can destroy; otherwise, <c>false</c>.</returns>
+        /// <returns><c>true</c> if the NPC can be destroyed; otherwise, <c>false</c>.</returns>
         bool CanDestroy();
+
         /// <summary>
-        /// Get's if this npc can be suspended.
-        /// By default , this method returns true.
+        /// Determines if this NPC's processing can be suspended (e.g., when no players are nearby).
         /// </summary>
-        /// <returns><c>true</c> if this instance can suspend; otherwise, <c>false</c>.</returns>
+        /// <returns><c>true</c> if the NPC can be suspended; otherwise, <c>false</c>.</returns>
         bool CanSuspend();
+
         /// <summary>
-        /// Uses the item on NPC.
-        /// By default, returns false: not handled.
+        /// Handles the "Use item on NPC" action.
         /// </summary>
-        /// <param name="used">The used.</param>
-        /// <param name="character">The character.</param>
-        /// <returns></returns>
+        /// <param name="used">The item being used on the NPC.</param>
+        /// <param name="character">The character using the item.</param>
+        /// <returns><c>true</c> if the action was handled by the script; otherwise, <c>false</c>.</returns>
         bool UseItemOnNpc(IItem used, ICharacter character);
+
         /// <summary>
-        /// Get's called when npc is interrupted.
-        /// By default this method does nothing.
+        /// A callback executed when the NPC's current action is interrupted.
         /// </summary>
-        /// <param name="source">Object which performed the interruption,
-        /// this parameter can be null , but it is not encouraged to do so.
-        /// Best use would be to set the invoker class instance as source.</param>
+        /// <param name="source">The object or system that caused the interruption.</param>
         void OnInterrupt(object source);
+
         /// <summary>
-        /// Get's called when npc is destroyed permanently.
-        /// By default, this method does nothing.
+        /// A callback executed when the NPC is permanently destroyed.
         /// </summary>
         void OnDestroy();
+
         /// <summary>
-        /// Get's called when npc is created.
-        /// By default, this method does nothing.
+        /// A callback executed when the NPC is first created.
         /// </summary>
         void OnCreate();
     }
