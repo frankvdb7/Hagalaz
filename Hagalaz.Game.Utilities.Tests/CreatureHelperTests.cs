@@ -45,6 +45,19 @@ namespace Hagalaz.Game.Utilities.Tests
         }
 
         [TestMethod]
+        public void CalculatePredictedDamage_WithNullValueInArray_ReturnsSumOfPositiveHits()
+        {
+            // Arrange
+            var hits = new[] { 10, 0, -5, 20, 5 };
+
+            // Act
+            var result = CreatureHelper.CalculatePredictedDamage(hits);
+
+            // Assert
+            Assert.AreEqual(35, result);
+        }
+
+        [TestMethod]
         public void CalculatePredictedDamage_WithEmptyArray_ReturnsMinusOne()
         {
             // Arrange
@@ -61,10 +74,10 @@ namespace Hagalaz.Game.Utilities.Tests
         public void CalculatePredictedDamage_WithNullArray_ReturnsMinusOne()
         {
             // Arrange
-            int[] hits = null;
+            int[]? hits = null;
 
             // Act
-            var result = CreatureHelper.CalculatePredictedDamage(hits);
+            var result = CreatureHelper.CalculatePredictedDamage(hits!);
 
             // Assert
             Assert.AreEqual(-1, result);
