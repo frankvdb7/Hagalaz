@@ -438,5 +438,88 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreEqual(0, removedCount);
             Assert.AreEqual(1, container.TakenSlots);
         }
+
+        [TestMethod]
+        public void AddRange_WithStackableItems_StacksCorrectly()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 5);
+            container.Add(CreateItem(1, 5, stackable: true));
+            var itemsToAdd = new[] { CreateItem(1, 3, stackable: true), CreateItem(2, 2, stackable: true) };
+
+            // Act
+            var result = container.AddRange(itemsToAdd);
+
+            // Assert
+            Assert.IsTrue(result);
+            Assert.AreEqual(2, container.TakenSlots);
+            Assert.AreEqual(8, container[0].Count);
+            Assert.AreEqual(2, container[1].Count);
+        }
+
+        [TestMethod]
+        public void AddRange_AtomicOperation_FailsIfOneItemDoesNotFit()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            container.Add(CreateItem(1, 1));
+            var itemsToAdd = new[] { CreateItem(2, 1), CreateItem(3, 1) }; // Not enough space for item 3
+
+            // Act
+            var result = container.AddRange(itemsToAdd);
+
+            // Assert
+            Assert.IsFalse(result);
+            Assert.AreEqual(1, container.TakenSlots); // Should not have added any items
+            Assert.AreEqual(1, container[0].Id);
+        }
+
+        [TestMethod]
+        public void HasSpaceFor_StackableItemWithNoExistingStack_ReturnsTrueIfFreeSlotAvailable()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 1);
+            var item = CreateItem(1, 1, stackable: true);
+
+            // Act
+            var result = container.HasSpaceFor(item);
+
+            // Assert
+            Assert.IsTrue(result);
+        }
+
+        [TestMethod]
+        public void HasSpaceFor_NonStackableItems_ReturnsFalseWhenNotEnoughSlots()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            container.Add(CreateItem(1, 1));
+            var item = CreateItem(2, 2, stackable: false); // Requires 2 slots
+
+            // Act
+            var result = container.HasSpaceFor(item);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [TestMethod]
+        public void Remove_NonStackableItemsFromMultipleSlots_Success()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(1, 1, stackable: false);
+            container.Add(item.Clone());
+            container.Add(item.Clone());
+            container.Add(item.Clone());
+            var itemToRemove = CreateItem(1, 2, stackable: false);
+
+            // Act
+            var removedCount = container.Remove(itemToRemove);
+
+            // Assert
+            Assert.AreEqual(2, removedCount);
+            Assert.AreEqual(1, container.TakenSlots);
+        }
     }
 }

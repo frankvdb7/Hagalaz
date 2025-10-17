@@ -320,7 +320,7 @@ namespace Hagalaz.Game.Abstractions.Collections
                         // Not existing in container.
                         var slot = GetFreeSlot();
                         if (slot == -1) return false;
-                        Items[slot] = current.Clone();
+                        Items[slot] = current;
                         slotsToUpdate.Add(slot);
                     }
                     else
