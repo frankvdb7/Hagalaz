@@ -785,5 +785,75 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreEqual(1, source.TakenSlots);
             Assert.AreEqual(int.MaxValue, destination[0]!.Count);
         }
+
+        [TestMethod]
+        public void Remove_FromAnotherContainer_Stackable_Success()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            container.Add(CreateItem(1, 10, true));
+
+            var itemsToRemove = new TestableItemContainer(StorageType.Normal, 1);
+            itemsToRemove.Add(CreateItem(1, 3, true));
+
+            // Act
+            container.Remove(itemsToRemove);
+
+            // Assert
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(7, container[0]!.Count);
+        }
+
+        [TestMethod]
+        public void Remove_FromAnotherContainer_NonStackable_Success()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            container.Add(CreateItem(1, 1, false));
+            container.Add(CreateItem(1, 1, false));
+            container.Add(CreateItem(1, 1, false));
+
+            var itemsToRemove = new TestableItemContainer(StorageType.Normal, 2);
+            itemsToRemove.Add(CreateItem(1, 2, false));
+
+            // Act
+            container.Remove(itemsToRemove, false);
+
+            // Assert
+            Assert.AreEqual(1, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void Remove_FromAnotherContainer_MoreThanExists_RemovesAll()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            container.Add(CreateItem(1, 5, true));
+            var itemsToRemove = new TestableItemContainer(StorageType.Normal, 1);
+            itemsToRemove.Add(CreateItem(1, 10, true));
+
+            // Act
+            container.Remove(itemsToRemove);
+
+            // Assert
+            Assert.AreEqual(0, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void Remove_FromAnotherContainer_WithCountToResetTo_ResetsCount()
+        {
+            // Arrange
+            var container = new TestableItemContainerWithReset(StorageType.Normal, 10, 1);
+            container.Add(CreateItem(1, 5, true));
+            var itemsToRemove = new TestableItemContainer(StorageType.Normal, 1);
+            itemsToRemove.Add(CreateItem(1, 5, true));
+
+            // Act
+            container.Remove(itemsToRemove);
+
+            // Assert
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(1, container[0]!.Count);
+        }
     }
 }
