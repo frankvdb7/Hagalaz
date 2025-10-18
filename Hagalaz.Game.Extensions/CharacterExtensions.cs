@@ -61,8 +61,16 @@ namespace Hagalaz.Game.Extensions
         /// <param name="character">The character.</param>
         /// <param name="forceRun">if set to <c>true</c> [force run].</param>
         /// <returns></returns>
-        public static void ForceRunMovementType(this ICharacter character, bool forceRun) =>
-            character.Movement.MovementType = character.Movement.MovementType == MovementType.Run || forceRun ? MovementType.Run : MovementType.Walk;
+        public static void ForceRunMovementType(this ICharacter character, bool forceRun)
+        {
+            if (forceRun)
+            {
+                character.Movement.MovementType = MovementType.Run;
+                return;
+            }
+
+            character.ResetMovementType();
+        }
 
         /// <summary>
         /// Resets the type of movement for the character to default
