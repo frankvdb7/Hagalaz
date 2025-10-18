@@ -1,70 +1,67 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Game.Abstractions.Model.Items
 {
     /// <summary>
-    /// 
+    /// Defines the contract for an item that is lying on the ground in the game world.
     /// </summary>
     public interface IGroundItem : IEntity
     {
         /// <summary>
-        /// Contains owner character of this ground item.
-        /// Can be null.
+        /// Gets or sets the character who owns this ground item. A null value indicates the item is public.
         /// </summary>
-        /// <value>The owner.</value>
         ICharacter? Owner { get; set; }
+
         /// <summary>
-        /// Gets the item on ground.
+        /// Gets the item instance that is on the ground.
         /// </summary>
-        /// <value>
-        /// The item on ground.
-        /// </value>
         IItem ItemOnGround { get; }
+
         /// <summary>
-        /// Contains a bool wether the item is public (no owner)
+        /// Gets a value indicating whether the item is public and can be seen and taken by any player.
         /// </summary>
         [MemberNotNullWhen(false, nameof(Owner))]
         bool IsPublic { get; }
+
         /// <summary>
-        /// Contains a bool wether to respawn this instance.
+        /// Gets a value indicating whether this ground item will respawn after being taken.
         /// </summary>
-        /// <value>Should respawn.</value>
         bool IsRespawning { get; }
+
         /// <summary>
-        /// Gets the amount of ticks before this item respawns.
+        /// Gets the number of game ticks until this item respawns after being taken.
         /// </summary>
         int RespawnTicks { get; }
+
         /// <summary>
-        /// Contains amount of owner ticks are left before the item
-        /// is either made public or destroyed.
+        /// Gets or sets the number of game ticks remaining until an owned item becomes public or disappears.
         /// </summary>
-        /// <value>The owner ticks left.</value>
         int TicksLeft { get; set; }
+
         /// <summary>
-        /// Determines whether this instance can stack the specified item.
+        /// Determines whether this ground item can be stacked with another ground item.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <returns>
-        ///   <c>true</c> if this instance can stack the specified item; otherwise, <c>false</c>.
-        /// </returns>
+        /// <param name="item">The other ground item to check.</param>
+        /// <returns><c>true</c> if the items can be stacked; otherwise, <c>false</c>.</returns>
         bool CanStack(IGroundItem item);
+
         /// <summary>
-        /// Determines whether this instance can respawn.
+        /// Determines whether this ground item is set to respawn.
         /// </summary>
-        /// <returns>
-        ///   <c>true</c> if this instance can respawn; otherwise, <c>false</c>.
-        /// </returns>
+        /// <returns><c>true</c> if the item will respawn; otherwise, <c>false</c>.</returns>
         bool CanRespawn();
+
         /// <summary>
-        /// Despawns this instance.
+        /// Removes the ground item from the game world.
         /// </summary>
-        /// <returns></returns>
+        /// <returns><c>true</c> if the item was successfully despawned; otherwise, <c>false</c>.</returns>
         bool Despawn();
+
         /// <summary>
-        /// Clones this instance.
+        /// Creates a new, identical copy of this ground item.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>A new <see cref="IGroundItem"/> instance.</returns>
         IGroundItem Clone();
     }
 }

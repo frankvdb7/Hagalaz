@@ -2,20 +2,21 @@
 
 namespace Hagalaz.Game.Abstractions.Tasks
 {
+    /// <summary>
+    /// Represents a delayed-execution task that returns a result of type <typeparamref name="TResult"/>.
+    /// </summary>
+    /// <typeparam name="TResult">The type of the result returned by the task.</typeparam>
     public class RsTask<TResult> : RsTask, ITaskItem<TResult>, IDisposable
     {
-        /// <summary>
-        /// Contains action perform executeAction.
-        /// </summary>
         private Func<TResult> _executeMethod;
         private Action<TResult> _resultHandler;
 
         /// <summary>
-        /// Creates new task.
+        /// Initializes a new instance of the <see cref="RsTask{TResult}"/> class.
         /// </summary>
-        /// <param name="executeFunc">Method which to execute when action is performed.</param>
-        /// <param name="executeDelay">The execute delay in ticks.</param>
-        /// <param name="resultHandler">The result handler for when the task executes and returns a result.</param>
+        /// <param name="executeFunc">The function to execute when the task runs.</param>
+        /// <param name="executeDelay">The delay in game ticks before the task executes.</param>
+        /// <param name="resultHandler">An optional handler to process the result of the task.</param>
         public RsTask(Func<TResult> executeFunc, int executeDelay, Action<TResult>? resultHandler = null)
         {
             _executeMethod = executeFunc;
@@ -23,8 +24,12 @@ namespace Hagalaz.Game.Abstractions.Tasks
             ExecuteDelay = executeDelay;
         }
 
+        /// <summary>
+        /// Finalizes an instance of the <see cref="RsTask{TResult}"/> class.
+        /// </summary>
         ~RsTask() => ReleaseUnmanagedResources();
 
+        /// <inheritdoc />
         protected override void Execute()
         {
             _resultHandler.Invoke(_executeMethod.Invoke());
@@ -33,6 +38,7 @@ namespace Hagalaz.Game.Abstractions.Tasks
 
         private static void NoopResultHandler(TResult _) { }
 
+        /// <inheritdoc />
         public void RegisterResultHandler(Action<TResult> resultHandler)
         {
             var currentHandler = _resultHandler;
@@ -49,6 +55,9 @@ namespace Hagalaz.Game.Abstractions.Tasks
             _resultHandler = null!;
         }
 
+        /// <summary>
+        /// Releases the resources used by the task.
+        /// </summary>
         public new void Dispose()
         {
             ReleaseUnmanagedResources();
@@ -57,39 +66,34 @@ namespace Hagalaz.Game.Abstractions.Tasks
     }
 
     /// <summary>
-    /// Class for standard actions.
+    /// Represents a standard, delayed-execution task that does not return a result.
     /// </summary>
     public class RsTask : ITaskItem, IDisposable
     {
         /// <summary>
-        /// Contains action perform executeAction.
+        /// The action to perform when the task executes.
         /// </summary>
         protected Action ExecuteHandler;
 
         /// <summary>
-        /// Contains execute delay in ticks.
+        /// The remaining delay in ticks before the task executes.
         /// </summary>
-        /// <value>The execute delay in ticks.</value>
         protected int ExecuteDelay { get; set; }
 
-        /// <summary>
-        /// Whether this task is cancelled.
-        /// </summary>
+        /// <inheritdoc />
         public bool IsCancelled { get; private set; }
-        /// <summary>
-        /// Whether this task is completed.
-        /// </summary>
+
+        /// <inheritdoc />
         public bool IsCompleted { get; private set; }
-        /// <summary>
-        /// Whether this task is faulted.
-        /// </summary>
+
+        /// <inheritdoc />
         public bool IsFaulted { get; private set; }
 
         /// <summary>
-        /// Creates new task.
+        /// Initializes a new instance of the <see cref="RsTask"/> class.
         /// </summary>
-        /// <param name="executeHandler">Method which to execute when action is performed.</param>
-        /// <param name="executeDelay">The execute delay in ticks.</param>
+        /// <param name="executeHandler">The delegate to execute when the task runs.</param>
+        /// <param name="executeDelay">The delay in game ticks before execution.</param>
         public RsTask(Action executeHandler, int executeDelay)
         {
             ExecuteHandler = executeHandler;
@@ -97,16 +101,12 @@ namespace Hagalaz.Game.Abstractions.Tasks
         }
 
         /// <summary>
-        /// Creates new action without callback being set.
-        /// This executeAction is only for subclasses of action.
-        /// If subclass is using this constructor, the executeAction must be set at the
-        /// subclass constructor.
+        /// Initializes a new instance of the <see cref="RsTask"/> class without a specific callback.
+        /// This is intended for use by subclasses that will set their own execution logic.
         /// </summary>
         protected RsTask() => ExecuteHandler = NoopExecuteHandler;
 
-        /// <summary>
-        /// Ticks this task once.
-        /// </summary>
+        /// <inheritdoc />
         public void Tick()
         {
             if (IsCancelled || IsCompleted || IsFaulted)
@@ -130,27 +130,37 @@ namespace Hagalaz.Game.Abstractions.Tasks
             }
         }
 
-        /// <summary>
-        /// Cancels this task.
-        /// </summary>
+        /// <inheritdoc />
         public void Cancel() => IsCancelled = true;
 
+        /// <summary>
+        /// Executes the task's logic. Can be overridden by subclasses for custom behavior.
+        /// </summary>
         protected virtual void Execute()
         {
             ExecuteHandler.Invoke();
             Complete();
         }
 
+        /// <summary>
+        /// Marks the task as completed.
+        /// </summary>
         protected void Complete() => IsCompleted = true;
 
         private void ReleaseUnmanagedResources() => ExecuteHandler = null!;
 
+        /// <summary>
+        /// Releases the resources used by the task.
+        /// </summary>
         public void Dispose()
         {
             ReleaseUnmanagedResources();
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Finalizes an instance of the <see cref="RsTask"/> class.
+        /// </summary>
         ~RsTask() => ReleaseUnmanagedResources();
 
         private static void NoopExecuteHandler() { }

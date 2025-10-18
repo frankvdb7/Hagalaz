@@ -1,64 +1,60 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Items
+namespace Hagalaz.Game.Abstractions.Model.Items
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a game item, combining its base properties with its data definitions and scripts.
     /// </summary>
     public interface IItem : IRuneObject, IItemBase
     {
         /// <summary>
-        /// Contains item extra data.
+        /// Gets an array of extra data associated with the item, used for storing custom state.
         /// </summary>
         long[] ExtraData { get; }
+
         /// <summary>
-        /// Gets the item definition.
+        /// Gets the data definition for this item.
         /// </summary>
-        /// <value>
-        /// The item definition.
-        /// </value>
         IItemDefinition ItemDefinition { get; }
+
         /// <summary>
-        /// Gets the equipment definition.
+        /// Gets the equipment-specific data definition for this item.
         /// </summary>
-        /// <value>
-        /// The equipment definition.
-        /// </value>
         IEquipmentDefinition EquipmentDefinition { get; }
+
         /// <summary>
-        /// Gets the item script.
+        /// Gets the script that controls the item's general behavior.
         /// </summary>
-        /// <value>
-        /// The item script.
-        /// </value>
         IItemScript ItemScript { get; }
+
         /// <summary>
-        /// Gets the equipment script.
+        /// Gets the script that controls the item's behavior when equipped.
         /// </summary>
-        /// <value>
-        /// The equipment script.
-        /// </value>
         IEquipmentScript EquipmentScript { get; }
+
         /// <summary>
-        /// Get's if this item equals to other item.
+        /// Checks if this item is equal to another item.
         /// </summary>
-        /// <param name="otherItem">The other item.</param>
-        /// <param name="ignoreCount">Wheter item count should be ignored.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        /// <param name="otherItem">The other item to compare with.</param>
+        /// <param name="ignoreCount">If set to <c>true</c>, the item count will be ignored during comparison.</param>
+        /// <returns><c>true</c> if the items are equal; otherwise, <c>false</c>.</returns>
         bool Equals(IItem otherItem, bool ignoreCount = true);
+
         /// <summary>
-        /// Serializes the data for database storing.
+        /// Serializes the item's extra data into a string for database storage.
         /// </summary>
-        /// <returns>Returns a string for database.</returns>
+        /// <returns>A string representation of the extra data, or <c>null</c> if there is no data to serialize.</returns>
         string? SerializeExtraData();
+
         /// <summary>
-        /// Clones this instance.
+        /// Creates a new, identical copy of this item.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>A new <see cref="IItem"/> instance.</returns>
         IItem Clone();
+
         /// <summary>
-        /// Copies the specified new count.
+        /// Creates a new copy of this item with a different quantity.
         /// </summary>
-        /// <param name="newCount">The new count.</param>
-        /// <returns></returns>
+        /// <param name="newCount">The quantity for the new item.</param>
+        /// <returns>A new <see cref="IItem"/> instance with the specified quantity.</returns>
         IItem Clone(int newCount);
     }
 }

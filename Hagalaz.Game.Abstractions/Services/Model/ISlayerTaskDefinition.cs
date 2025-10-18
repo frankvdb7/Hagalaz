@@ -1,71 +1,55 @@
-﻿using Hagalaz.Game.Abstractions.Logic.Random;
+using Hagalaz.Game.Abstractions.Logic.Random;
 
 namespace Hagalaz.Game.Abstractions.Services.Model
 {
+    /// <summary>
+    /// Defines the contract for a Slayer task definition.
+    /// </summary>
     public interface ISlayerTaskDefinition : IRandomObject
     {
         /// <summary>
-        /// Gets the Id.
+        /// Gets the unique identifier for the task.
         /// </summary>
-        /// <value>
-        /// The Id.
-        /// </value>
         public int Id { get; }
+
         /// <summary>
-        /// Gets the name.
+        /// Gets the name of the task (e.g., "Slay 50 Kalphites").
         /// </summary>
-        /// <value>
-        /// The name.
-        /// </value>
         public string Name { get; }
 
         /// <summary>
-        /// Gets the NPC ids.
+        /// Gets the array of NPC IDs that count towards this task.
         /// </summary>
-        /// <value>
-        /// The NPC ids.
-        /// </value>
         public int[] NpcIds { get; }
 
         /// <summary>
-        /// Gets the level requirement.
+        /// Gets the required Slayer level to receive this task.
         /// </summary>
-        /// <value>
-        /// The level requirement.
-        /// </value>
         public int LevelRequirement { get; }
 
         /// <summary>
-        /// Gets the combat level requirement.
+        /// Gets the required combat level to receive this task.
         /// </summary>
-        /// <value>
-        /// The combat level requirement.
-        /// </value>
         public int CombatLevelRequirement { get; }
 
         /// <summary>
-        /// The mimimum loot.
+        /// Gets the minimum number of creatures assigned for this task.
         /// </summary>
-        /// <value>The minimum count.</value>
         public int MinimumCount { get; }
 
         /// <summary>
-        /// The maximum loot.
+        /// Gets the maximum number of creatures assigned for this task.
         /// </summary>
-        /// <value>The maximum count.</value>
         public int MaximumCount { get; }
 
         /// <summary>
-        /// Contains the coin count.
+        /// Gets the number of coins awarded upon completing this task.
         /// </summary>
         public int CoinCount { get; }
 
         /// <summary>
-        /// Gets the slayer master identifier.
+        /// Gets the ID of the Slayer master who can assign this task.
         /// </summary>
-        /// <value>
-        /// The slayer master identifier.
-        /// </value>
         public int SlayerMasterId { get; }
     }
 }

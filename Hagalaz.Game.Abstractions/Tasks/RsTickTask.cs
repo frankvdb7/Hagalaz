@@ -3,51 +3,44 @@
 namespace Hagalaz.Game.Abstractions.Tasks
 {
     /// <summary>
-    /// Task that runs until cancelled.
+    /// Represents a task that executes a specific action on every game tick until it is explicitly canceled.
     /// </summary>
     public class RsTickTask : ITaskItem, IDisposable
     {
         /// <summary>
-        /// Contains action perform method.
+        /// The action to be invoked on each tick.
         /// </summary>
         protected Action? TickActionMethod;
 
         /// <summary>
-        /// Contains perform times counter.
+        /// Gets the number of times this task has been ticked.
         /// </summary>
-        /// <value>The times performed.</value>
         public int TickCount { get; protected set; }
-        /// <summary>
-        /// Contains whether this task is cancelled.
-        /// </summary>
+
+        /// <inheritdoc />
         public bool IsCancelled { get; private set; }
-        /// <summary>
-        /// Whether this task is faulted.
-        /// </summary>
+
+        /// <inheritdoc />
         public bool IsFaulted { get; private set; }
 
         /// <summary>
-        /// Contains whether this task is completed.
+        /// Gets a value indicating whether the task has completed. For a tick task, completion is equivalent to cancellation.
         /// </summary>
         public bool IsCompleted => IsCancelled;
 
         /// <summary>
-        /// Creates new action.
+        /// Initializes a new instance of the <see cref="RsTickTask"/> class.
         /// </summary>
-        /// <param name="tickAction">The perform method.</param>
+        /// <param name="tickAction">The action to execute on each game tick.</param>
         public RsTickTask(Action tickAction) => TickActionMethod = tickAction;
 
         /// <summary>
-        /// Creates new tickable action without callback being set.
-        /// This method is only for subclasses of tickable action.
-        /// If subclass is using this constructor, the method must be set at the
-        /// subclass constructor.
+        /// Initializes a new instance of the <see cref="RsTickTask"/> class.
+        /// This constructor is intended for use by subclasses that will provide their own tick action logic.
         /// </summary>
         protected RsTickTask() { }
 
-        /// <summary>
-        /// Ticks this task.
-        /// </summary>
+        /// <inheritdoc />
         public void Tick()
         {
             if (IsCancelled || IsCompleted || IsFaulted)
@@ -68,23 +61,27 @@ namespace Hagalaz.Game.Abstractions.Tasks
         }
 
         /// <summary>
-        /// Resets this task.
+        /// Resets the tick counter of this task.
         /// </summary>
         public virtual void Reset() => TickCount = 0;
 
-        /// <summary>
-        /// Cancels this task.
-        /// </summary>
+        /// <inheritdoc />
         public virtual void Cancel() => IsCancelled = true;
 
         private void ReleaseUnmanagedResources() => TickActionMethod = null;
 
+        /// <summary>
+        /// Releases the resources used by the task.
+        /// </summary>
         public void Dispose()
         {
             ReleaseUnmanagedResources();
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Finalizes an instance of the <see cref="RsTickTask"/> class.
+        /// </summary>
         ~RsTickTask() => ReleaseUnmanagedResources();
     }
 }

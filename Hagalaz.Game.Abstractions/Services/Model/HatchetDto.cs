@@ -1,37 +1,37 @@
-﻿namespace Hagalaz.Game.Abstractions.Services.Model
+namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
-    /// Holds information of hatchets.
+    /// A data transfer object containing the definition of a hatchet.
     /// </summary>
     public record HatchetDto
     {
         /// <summary>
-        /// The type of hatchet this is.
+        /// The type of the hatchet.
         /// </summary>
         public required HatchetType Type;
 
         /// <summary>
-        /// The item npcID of the hatchet.
+        /// The item ID of the hatchet.
         /// </summary>
         public required int ItemId;
 
         /// <summary>
-        /// The chopping animation of the hatchet.
+        /// The ID of the animation played when chopping with this hatchet.
         /// </summary>
         public required int ChopAnimationId;
 
         /// <summary>
-        /// The canoueing animation of the hatchet.
+        /// The ID of the animation played when making a canoe with this hatchet.
         /// </summary>
         public required int CanoeAnimationId;
 
         /// <summary>
-        /// Level requirement to use the hatchet.
+        /// The required Woodcutting level to use this hatchet.
         /// </summary>
         public required int RequiredLevel;
 
         /// <summary>
-        /// The base cut chance.
+        /// The base chance of successfully harvesting a log with this hatchet.
         /// </summary>
         public required double BaseHarvestChance;
     }

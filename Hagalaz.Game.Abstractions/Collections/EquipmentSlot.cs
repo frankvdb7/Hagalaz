@@ -1,60 +1,60 @@
-﻿namespace Hagalaz.Game.Abstractions.Collections
+namespace Hagalaz.Game.Abstractions.Collections
 {
     /// <summary>
-    /// Defines the different types of equipment colorSlots.
+    /// Defines the different equipment slots on a character.
     /// </summary>
     public enum EquipmentSlot : int
     {
         /// <summary>
-        /// Item that is not equipable.
+        /// An item that is not equippable.
         /// </summary>
         NoSlot = -1,
         /// <summary>
-        /// The hat equipment slot id.
+        /// The head slot.
         /// </summary>
         Hat = 0,
         /// <summary>
-        /// The cape equipment slot id.
+        /// The back slot.
         /// </summary>
         Cape = 1,
         /// <summary>
-        /// The amulet equipment slot id.
+        /// The neck slot.
         /// </summary>
         Amulet = 2,
         /// <summary>
-        /// The weapon equipment slot id.
+        /// The main-hand weapon slot.
         /// </summary>
         Weapon = 3,
         /// <summary>
-        /// The chest equipment slot id.
+        /// The torso slot.
         /// </summary>
         Chest = 4,
         /// <summary>
-        /// The shield equipment slot id.
+        /// The off-hand slot.
         /// </summary>
         Shield = 5,
         /// <summary>
-        /// The legs equipment slot id.
+        /// The legs slot.
         /// </summary>
         Legs = 7,
         /// <summary>
-        /// The hands equipment slot id.
+        /// The hands slot.
         /// </summary>
         Hands = 9,
         /// <summary>
-        /// The feet equipment slot id.
+        /// The feet slot.
         /// </summary>
         Feet = 10,
         /// <summary>
-        /// The ring equipment slot id.
+        /// The ring slot.
         /// </summary>
         Ring = 12,
         /// <summary>
-        /// The arrow equipment slot id.
+        /// The ammunition slot.
         /// </summary>
         Arrow = 13,
         /// <summary>
-        /// The aura equipment slot id.
+        /// The aura slot.
         /// </summary>
         Aura = 14,
     }

@@ -1,64 +1,64 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
-    /// This structure represents a seed definition.
+    /// A data transfer object containing the definition of a seed for the Farming skill.
     /// </summary>
     public record SeedDto
     {
         /// <summary>
-        /// The item identifier
+        /// The item ID of the seed.
         /// </summary>
         public required int ItemID;
 
         /// <summary>
-        /// The product identifier
+        /// The item ID of the harvested product.
         /// </summary>
         public required int ProductID;
 
         /// <summary>
-        /// The minimum product count
+        /// The minimum number of products yielded per harvest.
         /// </summary>
         public required int MinimumProductCount;
 
         /// <summary>
-        /// The maximum product count
+        /// The maximum number of products yielded per harvest.
         /// </summary>
         public required int MaximumProductCount;
 
         /// <summary>
-        /// The required level
+        /// The required Farming level to plant this seed.
         /// </summary>
         public required int RequiredLevel;
 
         /// <summary>
-        /// The planting experience
+        /// The Farming experience gained for planting this seed.
         /// </summary>
         public required double PlantingExperience;
 
         /// <summary>
-        /// The harvest experience
+        /// The Farming experience gained for harvesting the final product.
         /// </summary>
         public required double HarvestExperience;
 
         /// <summary>
-        /// The varp bit configuration index
+        /// The client variable bit index used to track the state of this plant type.
         /// </summary>
         public required int VarpBitIndex;
 
         /// <summary>
-        /// The maximum cycles.
+        /// The total number of growth cycles for this plant.
         /// </summary>
         public required int MaxCycles;
 
         /// <summary>
-        /// The ticks.
+        /// The number of game ticks per growth cycle.
         /// </summary>
         public required int CycleTicks;
 
         /// <summary>
-        /// The patch type.
+        /// The type of patch this seed can be planted in.
         /// </summary>
         public required PatchType Type;
     }

@@ -1,32 +1,24 @@
 namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
-    /// 
+    /// Defines the different types of global game messages, which determine their scope and audience.
     /// </summary>
     public enum GameMessageType
     {
         /// <summary>
-        /// The specific world announcement.
-        /// These announcements will appear to everyone who shares the character's world at the time. They will
-        /// also appear to all of the character's friends regardless of what world they are on.
+        /// An announcement broadcast to everyone on a specific world and to all friends of the announcer.
         /// </summary>
         WorldSpecific,
-
         /// <summary>
-        /// The world wide announcement.
-        /// These announcements will appear to everyone on all worlds across the game.
+        /// An announcement broadcast to everyone on all worlds.
         /// </summary>
         WorldWide,
-
         /// <summary>
-        /// The game announcement. 
-        /// These announcements are game-related news that inform the character of an upcoming event.
+        /// A standard game message, typically for system events or information.
         /// </summary>
         Game,
-
         /// <summary>
-        /// The friends announcement.
-        /// These announcements are sent to friends only.
+        /// An announcement broadcast only to the announcer's friends.
         /// </summary>
         Friends,
     }

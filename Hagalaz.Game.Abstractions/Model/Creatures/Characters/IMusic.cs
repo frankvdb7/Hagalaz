@@ -1,89 +1,99 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
+namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for managing a character's music player, including unlocked tracks, playlists, and playback state.
     /// </summary>
     public interface IMusic
     {
         /// <summary>
-        /// contains the index of the playing music.
+        /// Gets the index of the music track that is currently playing.
         /// </summary>
         int PlayingMusicIndex { get; }
 
         /// <summary>
-        /// Plays music by id.
+        /// Plays a specific music track by its index.
         /// </summary>
-        /// <param name="musicIndex">Index of the music.</param>
+        /// <param name="musicIndex">The index of the music track to play.</param>
         void PlayMusic(int musicIndex);
 
         /// <summary>
-        /// Called when [music played].
+        /// A callback executed when a music track has finished playing.
         /// </summary>
-        /// <param name="musicID">The music identifier.</param>
-        /// <returns></returns>
+        /// <param name="musicID">The ID of the music track that finished.</param>
         void OnMusicPlayed(int musicID);
+
         /// <summary>
-        /// Unlocks the music.
+        /// Unlocks a specific music track for the character, making it available in their music list.
         /// </summary>
-        /// <param name="musicIndex">Index of the music.</param>
-        /// <returns></returns>
+        /// <param name="musicIndex">The index of the music track to unlock.</param>
+        /// <returns><c>true</c> if the track was successfully unlocked; otherwise, <c>false</c>.</returns>
         bool UnlockMusic(int musicIndex);
+
         /// <summary>
-        /// Refreshes this instance.
+        /// Sends an update to the client to refresh the entire music list interface.
         /// </summary>
         void RefreshMusicList();
+
         /// <summary>
-        /// Sends the music hint by the music index.
+        /// Sends a hint to the client about how to unlock a specific music track.
         /// </summary>
-        /// <param name="musicIndex">The index.</param>
+        /// <param name="musicIndex">The index of the music track.</param>
         void SendHint(int musicIndex);
 
         /// <summary>
-        /// Adds the music to play list.
+        /// Adds a music track to the character's custom playlist.
         /// </summary>
-        /// <param name="musicIndex">Index of the music.</param>
+        /// <param name="musicIndex">The index of the music track to add.</param>
         void AddMusicToPlayList(int musicIndex);
+
         /// <summary>
-        /// Adds the playing music to play list.
+        /// Adds the currently playing music track to the custom playlist.
         /// </summary>
         void AddPlayingMusicToPlayList();
+
         /// <summary>
-        /// Removes the music from play list.
+        /// Removes a music track from the custom playlist by its track index.
         /// </summary>
-        /// <param name="musicIndex">Index of the music.</param>
+        /// <param name="musicIndex">The index of the music track to remove.</param>
         void RemoveMusicFromPlayList(int musicIndex);
 
         /// <summary>
-        /// Plays the music from play list.
+        /// Plays a music track from a specific position in the custom playlist.
         /// </summary>
-        /// <param name="playListIndex">Index of the play list.</param>
+        /// <param name="playListIndex">The index within the playlist to play from.</param>
         void PlayMusicFromPlayList(int playListIndex);
+
         /// <summary>
-        /// Removes the index of the music from play list by.
+        /// Removes a music track from the custom playlist by its position in the list.
         /// </summary>
-        /// <param name="playListIndex">Index of the play list.</param>
+        /// <param name="playListIndex">The index within the playlist to remove.</param>
         void RemoveMusicFromPlayListByIndex(int playListIndex);
+
         /// <summary>
-        /// Clears the play list.
+        /// Clears all tracks from the custom playlist.
         /// </summary>
         void ClearPlayList();
+
         /// <summary>
-        /// Toggles the play list.
+        /// Toggles the playlist loop functionality on or off.
         /// </summary>
         void TogglePlayList();
+
         /// <summary>
-        /// Toggles the shuffle.
+        /// Toggles the shuffle functionality for the playlist on or off.
         /// </summary>
         void ToggleShuffle();
+
         /// <summary>
-        /// Refreshes this instance.
+        /// Sends an update to the client to refresh the state of the music player (e.g., volume, shuffle/loop status).
         /// </summary>
         void Refresh();
+
         /// <summary>
-        /// Gets the name of the music.
+        /// Gets the name of a music track by its index.
         /// </summary>
-        /// <param name="musicIndex">Index of the music.</param>
-        /// <returns></returns>
+        /// <param name="musicIndex">The index of the music track.</param>
+        /// <returns>The name of the music track.</returns>
         string GetMusicName(int musicIndex);
     }
 }

@@ -1,22 +1,21 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
+namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
 {
     /// <summary>
-    /// 
+    /// Defines the contract for managing an NPC's statistics.
     /// </summary>
-    /// <seealso cref="Hagalaz.GameAbstractions.Model.Creatures.ICreatureStatistics" />
+    /// <seealso cref="Hagalaz.Game.Abstractions.Model.Creatures.ICreatureStatistics" />
     public interface INpcStatistics : ICreatureStatistics
     {
         /// <summary>
-        /// Contains npc combat level.
+        /// Gets or sets the combat level of the NPC.
         /// </summary>
-        /// <value>The combat level.</value>
         int CombatLevel { get; set; }
+
         /// <summary>
-        /// Get's max level of specific skill.
+        /// Gets the maximum level of a specific skill for the NPC, based on its definition.
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <returns>System.Int32.</returns>
-        /// <exception cref="System.Exception"></exception>
+        /// <param name="skillID">The ID of the skill.</param>
+        /// <returns>The maximum level of the specified skill.</returns>
         int GetMaxSkillLevel(int skillID);
     }
 }

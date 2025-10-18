@@ -1,32 +1,32 @@
-﻿namespace Hagalaz.Game.Abstractions.Services.Model
+namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
-    /// Holds information about pickaxes.
+    /// A data transfer object containing the definition of a pickaxe.
     /// </summary>
     public record PickaxeDto
     {
         /// <summary>
-        /// Type of pickaxe.
+        /// The type of the pickaxe.
         /// </summary>
         public required PickaxeType Type;
 
         /// <summary>
-        /// The item id of this pickaxe.
+        /// The item ID of this pickaxe.
         /// </summary>
         public required int ItemId;
 
         /// <summary>
-        /// The animation id for this pickaxe.
+        /// The ID of the animation played when mining with this pickaxe.
         /// </summary>
         public required int AnimationId;
 
         /// <summary>
-        /// The level requirement for this pickaxe.
+        /// The required Mining level to use this pickaxe.
         /// </summary>
         public required int RequiredLevel;
 
         /// <summary>
-        /// The base harvest chance
+        /// The base chance of successfully mining an ore with this pickaxe.
         /// </summary>
         public required double BaseHarvestChance;
     }

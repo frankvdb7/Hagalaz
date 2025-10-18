@@ -1,263 +1,282 @@
-﻿using System;
+using System;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>
-    /// 
+    /// Defines the contract for managing a player character's statistics, such as skills, combat levels, and energy sources.
     /// </summary>
-    /// <seealso cref="Hagalaz.GameAbstractions.Model.Creatures.ICreatureStatistics" />
+    /// <seealso cref="Hagalaz.Game.Abstractions.Model.Creatures.ICreatureStatistics" />
     public interface ICharacterStatistics : ICreatureStatistics
     {
         /// <summary>
-        /// Contains character prayer points.
+        /// Gets the character's current prayer points.
         /// </summary>
-        /// <value>The prayer points.</value>
         int PrayerPoints { get; }
+
         /// <summary>
-        /// Contains character special energy.
+        /// Gets the character's current special attack energy.
         /// </summary>
-        /// <value>The special energy.</value>
         int SpecialEnergy { get; }
+
         /// <summary>
-        /// Contains character run energy.
+        /// Gets the character's current run energy.
         /// </summary>
-        /// <value>The run energy.</value>
         int RunEnergy { get; }
+
         /// <summary>
-        /// Gets the character's combat level. (Excluding summoning)
+        /// Gets the character's combat level, excluding the Summoning skill.
         /// </summary>
-        /// <value>The base combat level.</value>
         int BaseCombatLevel { get; }
+
         /// <summary>
-        /// Gets the character's combat level. (Including summoning)
+        /// Gets the character's combat level, including the Summoning skill.
         /// </summary>
-        /// <value>The full combat level.</value>
         int FullCombatLevel { get; }
+
         /// <summary>
-        /// Get's character's total level.
+        /// Gets the character's total level across all skills.
         /// </summary>
-        /// <value>The total level.</value>
         int TotalLevel { get; }
+
         /// <summary>
-        /// Çontains the character total play time.
+        /// Gets the total time the character has been played.
         /// </summary>
         TimeSpan PlayTime { get; }
+
         /// <summary>
-        /// Set's xp counter.
+        /// Sets the experience value for a specific XP counter slot.
         /// </summary>
-        /// <param name="counterID">The counter identifier.</param>
-        /// <param name="xp">The xp.</param>
-        /// <exception cref="System.Exception">Invalid counter Id value.</exception>
+        /// <param name="counterID">The ID of the counter slot (0-2).</param>
+        /// <param name="xp">The experience value to set.</param>
         void SetXpCounter(int counterID, double xp);
+
         /// <summary>
-        /// Sets the tracked xp counter.
+        /// Sets a specific XP counter to track the experience gains of a particular skill.
         /// </summary>
-        /// <param name="counterID">The counter identifier.</param>
-        /// <param name="optionID">The skill identifier.</param>
-        /// <exception cref="System.Exception">Invalid Id given.</exception>
-        void SetTrackedXpCounter(int counterID, int optionID);
+        /// <param name="counterID">The ID of the counter slot to configure.</param>
+        /// <param name="skillID">The ID of the skill to be tracked.</param>
+        void SetTrackedXpCounter(int counterID, int skillID);
+
         /// <summary>
-        /// Refreshe's character special energy.
+        /// Sends an update to the client to refresh the special energy display.
         /// </summary>
         void RefreshSpecialEnergy();
+
         /// <summary>
-        /// Refreshes the xp counters, including the refresh of
-        /// -Enabled XP counters
-        /// -Tracked XP counters
-        /// -XP Counter value
+        /// Sends an update to the client to refresh all XP counter displays.
         /// </summary>
         void RefreshXpCounters();
+
         /// <summary>
-        /// Refreshe's hitpoints orb on client.
-        /// TODO - update this in the interface, by events.
+        /// Sends an update to the client to refresh the life points orb display.
         /// </summary>
         void RefreshLifePoints();
+
         /// <summary>
-        /// Normalises the boosted statistics.
+        /// Resets any temporarily boosted skill levels back to their base level.
         /// </summary>
         void NormalizeBoostedStatistics();
+
         /// <summary>
-        /// Refreshe's poison.
+        /// Sends an update to the client to refresh the poison status display.
         /// </summary>
         void RefreshPoison();
+
         /// <summary>
-        /// Refreshe's prayer points.
+        /// Sends an update to the client to refresh the prayer points display.
         /// </summary>
         void RefreshPrayerPoints();
+
         /// <summary>
-        /// Refreshe's run energy.
+        /// Sends an update to the client to refresh the run energy display.
         /// </summary>
         void RefreshRunEnergy();
+
         /// <summary>
-        /// Normalises the skills.
+        /// Restores the levels of specified skills to their base values.
         /// </summary>
-        /// <param name="skillIDs">The skills.</param>
+        /// <param name="skillIDs">An array of skill IDs to normalize.</param>
         void NormaliseSkills(int[] skillIDs);
+
         /// <summary>
-        /// Toggles the xp counter.
+        /// Toggles the enabled state of a specific XP counter.
         /// </summary>
-        /// <param name="counterID">The counter identifier.</param>
-        /// <exception cref="System.Exception">Invalid counter Id value.</exception>
+        /// <param name="counterID">The ID of the counter to toggle.</param>
         void ToggleXpCounter(int counterID);
+
         /// <summary>
-        /// Add's skill experience.
-        /// Experience is multiplied with the xp rate multiplier.
+        /// Adds a specified amount of experience to a skill, applying the server's XP rate multiplier.
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <param name="experience">Amount of experience to add.</param>
-        /// <returns>If the skill level was changed.</returns>
-        /// <exception cref="System.Exception"></exception>
+        /// <param name="skillID">The ID of the skill to add experience to.</param>
+        /// <param name="experience">The base amount of experience to add.</param>
+        /// <returns><c>true</c> if the character gained a level; otherwise, <c>false</c>.</returns>
         bool AddExperience(int skillID, double experience);
+
         /// <summary>
-        /// Set's skill level.
+        /// Sets the current level of a specific skill.
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <param name="level">Skill level.</param>
-        /// <exception cref="System.Exception">Bad skillID</exception>
+        /// <param name="skillID">The ID of the skill.</param>
+        /// <param name="level">The new level for the skill.</param>
         void SetSkillLevel(int skillID, int level);
+
         /// <summary>
-        /// Set's skill experience.
+        /// Sets the total experience of a specific skill.
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <param name="experience">Skill experience.</param>
-        /// <exception cref="System.Exception"></exception>
+        /// <param name="skillID">The ID of the skill.</param>
+        /// <param name="experience">The new total experience for the skill.</param>
         void SetSkillExperience(int skillID, double experience);
+
         /// <summary>
-        /// Gets the level for the amount of exp for the specified skill.
+        /// Calculates the skill level for a given amount of experience.
         /// </summary>
-        /// <param name="skillID">The skill</param>
-        /// <returns>System.Byte.</returns>
+        /// <param name="skillID">The ID of the skill.</param>
+        /// <returns>The corresponding skill level.</returns>
         int LevelForExperience(int skillID);
+
         /// <summary>
-        /// Drain's run energy by specified amount.
+        /// Drains a specified amount of run energy from the character.
         /// </summary>
-        /// <param name="amount">Amount to drain.</param>
-        /// <returns>Amount that was drained.</returns>
+        /// <param name="amount">The amount of run energy to drain.</param>
+        /// <returns>The actual amount of energy that was drained.</returns>
         int DrainRunEnergy(int amount);
+
         /// <summary>
-        /// Drain's character's prayer points.
+        /// Drains a specified amount of prayer points from the character.
         /// </summary>
-        /// <param name="amount">Amount of damage.</param>
-        /// <returns>Return's the actual amount of damage.</returns>
+        /// <param name="amount">The amount of prayer points to drain.</param>
+        /// <returns>The actual amount of prayer points that were drained.</returns>
         int DrainPrayerPoints(int amount);
+
         /// <summary>
-        /// Get's character maximum prayer points.
+        /// Gets the character's maximum prayer points, based on their Prayer level.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The maximum prayer points.</returns>
         int GetMaximumPrayerPoints();
+
         /// <summary>
-        /// Drain's character special energy.
+        /// Drains a specified amount of special attack energy from the character.
         /// </summary>
-        /// <param name="amount">Amount of special energy to be drained.</param>
-        /// <returns>Return's the actual amount of energy drained.</returns>
+        /// <param name="amount">The amount of special energy to drain.</param>
+        /// <returns>The actual amount of energy that was drained.</returns>
         int DrainSpecialEnergy(int amount);
+
         /// <summary>
-        /// Sets the skill target level.
+        /// Sets the target level for a specific skill, for use with the skill guide interface.
         /// </summary>
-        /// <param name="skillID">The skill identifier.</param>
-        /// <param name="level">The level.</param>
-        /// <exception cref="System.Exception">Bad skillID</exception>
+        /// <param name="skillID">The ID of the skill.</param>
+        /// <param name="level">The target level.</param>
         void SetSkillTargetLevel(int skillID, int level);
+
         /// <summary>
-        /// Sets the skill target experience.
+        /// Sets the target experience for a specific skill, for use with the skill guide interface.
         /// </summary>
-        /// <param name="skillID">The skill identifier.</param>
-        /// <param name="experience">The experience.</param>
-        /// <exception cref="System.Exception">Bad skillID</exception>
+        /// <param name="skillID">The ID of the skill.</param>
+        /// <param name="experience">The target experience.</param>
         void SetSkillTargetExperience(int skillID, int experience);
+
         /// <summary>
-        /// Stop's flashing specified skill.
+        /// Stops the flashing effect on a skill icon in the stats tab.
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <exception cref="System.Exception"></exception>
+        /// <param name="skillID">The ID of the skill to stop flashing.</param>
         void StopFlashingSkill(int skillID);
+
         /// <summary>
-        /// Heal's run energy by specified amount.
+        /// Restores a specified amount of run energy to the character.
         /// </summary>
-        /// <param name="amount">Amount to heal.</param>
-        /// <returns>Amount that was healed.</returns>
+        /// <param name="amount">The amount of run energy to restore.</param>
+        /// <returns>The actual amount of energy that was restored.</returns>
         int HealRunEnergy(int amount);
+
         /// <summary>
-        /// Refreshe's skills.
+        /// Sends an update to the client to refresh all skill level displays.
         /// </summary>
         void RefreshSkills();
+
         /// <summary>
-        /// Get's if specific skill is being flashed.
+        /// Checks if a specific skill icon is currently flashing (e.g., due to a level drain).
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <returns>If the skill is being flashed.</returns>
-        /// <exception cref="System.Exception"></exception>
+        /// <param name="skillID">The ID of the skill to check.</param>
+        /// <returns><c>true</c> if the skill is flashing; otherwise, <c>false</c>.</returns>
         bool SkillFlashed(int skillID);
+
         /// <summary>
-        /// Refreshes the skill targets.
+        /// Sends an update to the client to refresh the skill target displays.
         /// </summary>
         void RefreshSkillTargets();
+
         /// <summary>
-        /// Heal's character hitpoints by the given amount.
+        /// Restores a specified amount of life points to the character, up to a given maximum.
         /// </summary>
-        /// <param name="amount">Amount to heal hitpoints.</param>
-        /// <param name="max">Maximum amount of constitution points character can have.</param>
-        /// <returns>Returns the amount of points healed actually.</returns>
+        /// <param name="amount">The amount of life points to restore.</param>
+        /// <param name="max">The maximum life points the character can be healed to.</param>
+        /// <returns>The actual amount of life points that were restored.</returns>
         int HealLifePoints(int amount, int max);
+
         /// <summary>
-        /// Heal's character special energy.
+        /// Restores a specified amount of special attack energy to the character.
         /// </summary>
-        /// <param name="amount">Amount of special energy to be healed.</param>
-        /// <returns>Return's the actual amount of energy healed.</returns>
+        /// <param name="amount">The amount of special energy to restore.</param>
+        /// <returns>The actual amount of energy that was restored.</returns>
         int HealSpecialEnergy(int amount);
+
         /// <summary>
-        /// Get's skill experience.
+        /// Gets the total experience for a specific skill.
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <returns>System.Double.</returns>
-        /// <exception cref="System.Exception"></exception>
+        /// <param name="skillID">The ID of the skill.</param>
+        /// <returns>The total experience in the skill.</returns>
         double GetSkillExperience(int skillID);
+
         /// <summary>
-        /// Get's previous skill experience.
+        /// Gets the total experience for a specific skill from the previous game state (before the last update).
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <returns>System.Double.</returns>
-        /// <exception cref="System.Exception"></exception>
+        /// <param name="skillID">The ID of the skill.</param>
+        /// <returns>The previous total experience in the skill.</returns>
         double GetPreviousSkillExperience(int skillID);
+
         /// <summary>
-        /// Heal's character prayer points by the given amount.
+        /// Restores a specified amount of prayer points to the character.
         /// </summary>
-        /// <param name="amount">Amount to heal prayerpoints.</param>
-        /// <returns>Returns the amount of points healed actually.</returns>
+        /// <param name="amount">The amount of prayer points to restore.</param>
+        /// <returns>The actual amount of points that were restored.</returns>
         int HealPrayerPoints(int amount);
+
         /// <summary>
-        /// Heal's character prayer points by the given amount.
+        /// Restores a specified amount of prayer points to the character, up to a given maximum.
         /// </summary>
-        /// <param name="amount">Amount to heal prayerpoints.</param>
-        /// <param name="max">Maximum amount of prayer points character can have.</param>
-        /// <returns>Returns the amount of points healed actually.</returns>
+        /// <param name="amount">The amount of prayer points to restore.</param>
+        /// <param name="max">The maximum prayer points the character can be healed to.</param>
+        /// <returns>The actual amount of points that were restored.</returns>
         int HealPrayerPoints(int amount, int max);
+
         /// <summary>
-        /// Heals (Increases) specific skill.
+        /// Increases the level of a specific skill, up to a given maximum.
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <param name="max">Maximum level of the skill.</param>
-        /// <param name="amount">Amount to heal.</param>
-        /// <returns>Returns the actual heal amount.</returns>
+        /// <param name="skillID">The ID of the skill to boost.</param>
+        /// <param name="max">The maximum level the skill can be boosted to.</param>
+        /// <param name="amount">The amount to increase the skill level by.</param>
+        /// <returns>The actual amount the skill was boosted.</returns>
         int HealSkill(int skillID, int max, int amount);
+
         /// <summary>
-        /// Get's character maximum hitpoints.
+        /// Gets the character's maximum life points, based on their Constitution level.
         /// </summary>
-        /// <returns>System.Int32.</returns>
+        /// <returns>The maximum life points.</returns>
         int GetMaximumLifePoints();
+
         /// <summary>
-        /// Refreshe's flashed skills.
+        /// Sends an update to the client to refresh the display of all flashing skill icons.
         /// </summary>
         void RefreshFlashedSkills();
+
         /// <summary>
-        /// Calculate's character bonuses.
+        /// Recalculates all of the character's combat bonuses based on their equipment and active prayers.
         /// </summary>
         void CalculateBonuses();
+
         /// <summary>
-        /// Flashe's specific skill.
+        /// Starts the flashing effect on a skill icon in the stats tab.
         /// </summary>
-        /// <param name="skillID">Id of the skill.</param>
-        /// <exception cref="System.Exception"></exception>
+        /// <param name="skillID">The ID of the skill to flash.</param>
         void FlashSkill(int skillID);
     }
 }

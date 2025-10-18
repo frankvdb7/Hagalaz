@@ -1,20 +1,20 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
+namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
 {
     /// <summary>
-    /// A npc's reaction to seeing characters.
+    /// Defines how an NPC reacts when a character enters its line of sight.
     /// </summary>
     public enum ReactionType : int
     {
         /// <summary>
-        /// The npc is passive, and will not attack first or is not attackable.
+        /// The NPC is passive and will not initiate combat.
         /// </summary>
         Passive = 0,
         /// <summary>
-        /// The npc is aggressive, and will attack first.
+        /// The NPC is aggressive and will attack any character on sight.
         /// </summary>
         Aggressive = 1,
         /// <summary>
-        /// The npc is aggressive when the player is within a certain combat range, and will attack first.
+        /// The NPC is aggressive only towards characters whose combat level is within a certain range of its own.
         /// </summary>
         CombatAggressive = 2
     }

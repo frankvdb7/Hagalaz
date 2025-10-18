@@ -1,42 +1,45 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Widgets
+namespace Hagalaz.Game.Abstractions.Model.Widgets
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a script that controls a widget's behavior and lifecycle events.
     /// </summary>
     public interface IWidgetScript
     {
         /// <summary>
-        /// Get's called when interface script instance is created.
+        /// Initializes the script with its owning widget instance.
         /// </summary>
-        /// <param name="inter">Interface instance of opened interface.</param>
-        void Initialize(IWidget inter);
+        /// <param name="widget">The widget that this script is attached to.</param>
+        void Initialize(IWidget widget);
+
         /// <summary>
-        /// Happens when interface is opened for character.
+        /// A callback executed when the widget is about to be opened.
         /// </summary>
         void OnOpen();
+
         /// <summary>
-        /// Happens when interface has been opened for character.
+        /// A callback executed after the widget has been opened.
         /// </summary>
         void OnOpened();
+
         /// <summary>
-        /// Happens when interface is closed for character.
+        /// A callback executed when the widget is about to be closed.
         /// </summary>
         void OnClose();
+
         /// <summary>
-        /// Happens when interface has been closed for character.
+        /// A callback executed after the widget has been closed.
         /// </summary>
         void OnClosed();
+
         /// <summary>
-        /// Called when the display and the frame has been changed for the character.
-        /// Calling this will re-register the interface on the new frame.
+        /// A callback executed when the client's display mode changes, allowing the widget to re-register itself on the new frame if necessary.
         /// </summary>
         void OnDisplayChanged();
+
         /// <summary>
-        /// Determines whether this instance can be interrupted.
+        /// Checks if this widget can be interrupted by other actions.
         /// </summary>
-        /// <returns>
-        ///   <c>true</c> if this instance can be interrupted; otherwise, <c>false</c>.
-        /// </returns>
+        /// <returns><c>true</c> if the widget can be interrupted; otherwise, <c>false</c>.</returns>
         bool CanInterrupt();
     }
 }

@@ -1,117 +1,139 @@
-﻿using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Abstractions.Types;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
 {
     /// <summary>
-    /// 
+    /// Defines the contract for an NPC's data definition, containing its base stats, animations, and other non-volatile properties.
     /// </summary>
     public interface INpcDefinition : INpcType
     {
         /// <summary>
-        /// The NPC's display name.
+        /// Gets or sets the NPC's display name.
         /// </summary>
         string DisplayName { get; set; }
+
         /// <summary>
-        /// Contains boolean if this npc is attackable.
+        /// Gets or sets a value indicating whether this NPC can be attacked.
         /// </summary>
         bool Attackable { get; set; }
+
         /// <summary>
-        /// Contains max hitpoints of this npc.
+        /// Gets or sets the maximum life points of this NPC.
         /// </summary>
         int MaxLifePoints { get; set; }
+
         /// <summary>
-        /// Contains boolean if this npc walks randomly.
+        /// Gets or sets a value indicating whether this NPC walks randomly.
         /// </summary>
         bool WalksRandomly { get; set; }
+
         /// <summary>
-        /// Contains npc reaction.
+        /// Gets or sets the NPC's reaction type (e.g., aggressive, passive).
         /// </summary>
         ReactionType ReactionType { get; set; }
+
         /// <summary>
-        /// Contains npc walk type.
+        /// Gets or sets the NPC's movement boundary type.
         /// </summary>
         BoundsType BoundsType { get; set; }
+
         /// <summary>
-        /// Contains the pick pocketing loot table Id.
+        /// Gets or sets the ID of the loot table used when pickpocketing this NPC.
         /// </summary>
         int PickPocketingLootTableId { get; set; }
+
         /// <summary>
-        /// Contains npc attack level.
+        /// Gets or sets the NPC's maximum Attack level.
         /// </summary>
         int MaxAttackLevel { get; set; }
+
         /// <summary>
-        /// Contains npc strength level.
+        /// Gets or sets the NPC's maximum Strength level.
         /// </summary>
         int MaxStrengthLevel { get; set; }
+
         /// <summary>
-        /// Contains npc defence level.
+        /// Gets or sets the NPC's maximum Defence level.
         /// </summary>
         int MaxDefenceLevel { get; set; }
+
         /// <summary>
-        /// Contains npc ranged level.
+        /// Gets or sets the NPC's maximum Ranged level.
         /// </summary>
         int MaxRangedLevel { get; set; }
+
         /// <summary>
-        /// Contains npc magic level.
+        /// Gets or sets the NPC's maximum Magic level.
         /// </summary>
         int MaxMagicLevel { get; set; }
+
         /// <summary>
-        /// The NPC's examine text.
+        /// Gets or sets the NPC's examine text.
         /// </summary>
         string Examine { get; set; }
+
         /// <summary>
-        /// Contains npc attack speed.
+        /// Gets or sets the NPC's attack speed in game ticks.
         /// </summary>
         int AttackSpeed { get; set; }
+
         /// <summary>
-        /// Contains npc attack animation.
+        /// Gets or sets the ID of the NPC's attack animation.
         /// </summary>
         int AttackAnimation { get; set; }
+
         /// <summary>
-        /// Contains npc attack graphic.
+        /// Gets or sets the ID of the NPC's attack graphic effect.
         /// </summary>
         int AttackGraphic { get; set; }
+
         /// <summary>
-        /// Contains npc defence animation.
+        /// Gets or sets the ID of the NPC's defence animation.
         /// </summary>
         int DefenceAnimation { get; set; }
+
         /// <summary>
-        /// Contains npc defence graphic.
+        /// Gets or sets the ID of the NPC's defence graphic effect.
         /// </summary>
         int DefenseGraphic { get; set; }
+
         /// <summary>
-        /// Contains boolean if this npc is poisonable.
+        /// Gets or sets a value indicating whether this NPC can be poisoned.
         /// </summary>
         bool Poisonable { get; set; }
+
         /// <summary>
-        /// Contains npc death animation.
+        /// Gets or sets the ID of the NPC's death animation.
         /// </summary>
         int DeathAnimation { get; set; }
+
         /// <summary>
-        /// Contains npc death graphic.
+        /// Gets or sets the ID of the NPC's death graphic effect.
         /// </summary>
         int DeathGraphic { get; set; }
+
         /// <summary>
-        /// Contains the death ticks.
+        /// Gets or sets the duration of the NPC's death animation in game ticks.
         /// </summary>
         int DeathTicks { get; set; }
+
         /// <summary>
-        /// Contains this definition bonuses.
+        /// Gets or sets the collection of combat bonuses for this NPC.
         /// </summary>
         IBonuses Bonuses { get; set; }
+
         /// <summary>
-        /// Gets or sets the slayer level required.
+        /// Gets or sets the Slayer level required to attack this NPC.
         /// </summary>
-        /// <value>
-        /// The slayer level required.
-        /// </value>
         int SlayerLevelRequired { get; set; }
+
         /// <summary>
-        /// Contains npc respawn time.
+        /// Gets or sets the time in game ticks it takes for this NPC to respawn after death.
         /// </summary>
         int RespawnTime { get; set; }
+
         /// <summary>
-        /// Contains the loot table id.
+        /// Gets or sets the ID of the loot table used when this NPC is killed.
         /// </summary>
         int LootTableId { get; set; }
     }

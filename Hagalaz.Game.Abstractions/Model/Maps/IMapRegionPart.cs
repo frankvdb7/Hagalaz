@@ -6,105 +6,108 @@ using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 
 namespace Hagalaz.Game.Abstractions.Model.Maps
 {
+    /// <summary>
+    /// Defines the contract for an 8x8 section of a map region, used for dynamic map updates.
+    /// </summary>
     public interface IMapRegionPart
     {
         /// <summary>
-        /// Contains real (drawed) part X
-        /// If this part data is not modified this is same
-        /// as the PartX of this data.
+        /// Gets or sets the X-coordinate of the region part that this part's data is drawn from.
         /// </summary>
         int DrawRegionPartX { get; set; }
+
         /// <summary>
-        /// Contains real (drawed) part Y
-        /// If this part data is not modified this is same
-        /// as the PartY of this data.
+        /// Gets or sets the Y-coordinate of the region part that this part's data is drawn from.
         /// </summary>
         int DrawRegionPartY { get; set; }
+
         /// <summary>
-        /// Contains real (drawed) Z
-        /// If this part data is not modified this is same
-        /// as the Z of this data.
+        /// Gets or sets the plane (height level) of the region part that this part's data is drawn from.
         /// </summary>
         int DrawRegionZ { get; set; }
+
         /// <summary>
-        /// Contains rotation of this sector,
-        /// It is 0 by default if not modified.
+        /// Gets or sets the rotation of this region part.
         /// </summary>
         int Rotation { get; set; }
 
         /// <summary>
-        /// Finds the game object at the specified local coordinates and layer.
+        /// Finds a game object at the specified local coordinates and layer within this region part.
         /// </summary>
-        /// <param name="layer"></param>
-        /// <param name="localX"></param>
-        /// <param name="localY"></param>
-        /// <param name="z"></param>
-        /// <returns></returns>
+        /// <param name="layer">The rendering layer of the object.</param>
+        /// <param name="localX">The local X-coordinate within the part (0-7).</param>
+        /// <param name="localY">The local Y-coordinate within the part (0-7).</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <returns>The game object if found; otherwise, <c>null</c>.</returns>
         IGameObject? FindGameObject(LayerType layer, int localX, int localY, int z);
+
         /// <summary>
-        /// Finds all the game objects in this part.
+        /// Finds all game objects in this region part.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>An enumerable collection of game objects.</returns>
         IEnumerable<IGameObject> FindAllGameObjects();
+
         /// <summary>
-        /// Finds all the ground items in this part.
+        /// Finds all ground items in this region part.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>An enumerable collection of ground items.</returns>
         IEnumerable<IGroundItem> FindAllGroundItems();
-        
+
         /// <summary>
-        /// Adds the game object to this part.
+        /// Adds a game object to this region part.
         /// </summary>
-        /// <param name="gameObject"></param>
+        /// <param name="gameObject">The game object to add.</param>
         void Add(IGameObject gameObject);
+
         /// <summary>
-        /// Adds the ground item to this part.
+        /// Adds a ground item to this region part.
         /// </summary>
-        /// <param name="item"></param>
+        /// <param name="item">The ground item to add.</param>
         void Add(IGroundItem item);
 
         /// <summary>
-        /// Removes the game object from this part.
+        /// Removes a game object from this region part.
         /// </summary>
-        /// <param name="gameObject"></param>
+        /// <param name="gameObject">The game object to remove.</param>
         void Remove(IGameObject gameObject);
+
         /// <summary>
-        /// Removes the ground item from this part.
+        /// Removes a ground item from this region part.
         /// </summary>
-        /// <param name="item"></param>
+        /// <param name="item">The ground item to remove.</param>
         void Remove(IGroundItem item);
 
         /// <summary>
-        /// Handles an expired ground item and performs any state transitions.
+        /// Processes an expired ground item, making it public or despawning it.
         /// </summary>
-        /// <param name="item"></param>
+        /// <param name="item">The expired ground item.</param>
         void ProcessExpiredItem(IGroundItem item);
 
         /// <summary>
-        /// Sends all updates that happened inside this part to the character.
+        /// Sends all pending updates for this region part to a specific character.
         /// </summary>
-        /// <param name="character"></param>
-        /// <returns></returns>
+        /// <param name="character">The character to send the updates to.</param>
         void SendFullUpdate(ICharacter character);
 
         /// <summary>
-        /// Sends all the updates that happened in this tick to the character.
+        /// Sends the updates for the current tick to a specific character.
         /// </summary>
-        /// <param name="character"></param>
-        /// <returns></returns>
+        /// <param name="character">The character to send the updates to.</param>
         void SendUpdates(ICharacter character);
+
         /// <summary>
-        /// Queues a part update for this tick.
+        /// Queues an update for this region part to be sent in the next client update.
         /// </summary>
-        /// <param name="update"></param>
+        /// <param name="update">The region part update to queue.</param>
         void QueueUpdate(IRegionPartUpdate update);
+
         /// <summary>
-        /// Clears all the updates that happened in this tick.
+        /// Clears all queued updates for this region part.
         /// </summary>
         void ClearUpdates();
 
         /// <summary>
-        /// Erase's this region part.
+        /// Erases all dynamic data from this region part, resetting it to its base state.
         /// </summary>
         void Erase();
     }

@@ -1,28 +1,28 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Items
+namespace Hagalaz.Game.Abstractions.Model.Items
 {
     /// <summary>
-    /// 
+    /// Defines the type of an equipment item, which determines which body parts it covers.
     /// </summary>
     public enum EquipmentType : sbyte
     {
         /// <summary>
-        /// The normal
+        /// A standard, single-slot item.
         /// </summary>
         Normal = -1,
         /// <summary>
-        /// The two handed
+        /// A two-handed item that occupies both the main-hand and off-hand slots.
         /// </summary>
         TwoHanded = 5,
         /// <summary>
-        /// The full body
+        /// A full body item that covers both the torso and legs slots.
         /// </summary>
         FullBody = 6,
         /// <summary>
-        /// The full hat
+        /// A full hat or helmet that covers both the head and hair slots.
         /// </summary>
         FullHat = 8,
         /// <summary>
-        /// The full mask
+        /// A full mask that covers the head, hair, and facial hair slots.
         /// </summary>
         FullMask = 11,
     }

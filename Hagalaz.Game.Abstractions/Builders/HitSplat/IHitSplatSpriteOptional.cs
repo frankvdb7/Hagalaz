@@ -20,24 +20,28 @@ namespace Hagalaz.Game.Abstractions.Builders.HitSplat
         /// <param name="damage">The amount of damage.</param>
         /// <returns>The same builder instance to allow for further optional configuration.</returns>
         IHitSplatSpriteOptional WithDamage(int damage);
+
         /// <summary>
         /// Sets the type of the hitsplat, which determines its color and appearance (e.g., regular hit, poison, heal).
         /// </summary>
         /// <param name="type">The <see cref="HitSplatType"/> of the sprite.</param>
         /// <returns>The same builder instance to allow for further optional configuration.</returns>
         IHitSplatSpriteOptional WithSplatType(HitSplatType type);
+
         /// <summary>
         /// Sets the type of damage, which determines the icon displayed on the hitsplat (e.g., melee, magic, ranged).
         /// </summary>
         /// <param name="damageType">The <see cref="DamageType"/> of the sprite.</param>
         /// <returns>The same builder instance to allow for further optional configuration.</returns>
         IHitSplatSpriteOptional WithDamageType(DamageType damageType);
+
         /// <summary>
         /// Sets the maximum possible damage for this hit, used for visual scaling or effects.
         /// </summary>
         /// <param name="maxDamage">The maximum damage value.</param>
         /// <returns>The same builder instance to allow for further optional configuration.</returns>
         IHitSplatSpriteOptional WithMaxDamage(int maxDamage);
+
         /// <summary>
         /// Marks the hitsplat as a critical hit, which may alter its appearance.
         /// </summary>

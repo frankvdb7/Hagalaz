@@ -1,18 +1,18 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Items
+namespace Hagalaz.Game.Abstractions.Model.Items
 {
+    /// <summary>
+    /// Defines the contract for the most basic properties of an item: its ID and quantity.
+    /// </summary>
     public interface IItemBase
     {
         /// <summary>
-        /// Gets the identifier.
+        /// Gets the unique identifier of the item.
         /// </summary>
-        /// <value>
-        /// The identifier.
-        /// </value>
         public int Id { get; }
+
         /// <summary>
-        /// The quantity of the item.
+        /// Gets or sets the quantity of the item.
         /// </summary>
-        /// <value>The count.</value>
         public int Count { get; set; }
     }
 }

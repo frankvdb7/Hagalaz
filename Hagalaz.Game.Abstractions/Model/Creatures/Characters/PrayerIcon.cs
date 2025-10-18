@@ -1,6 +1,5 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
+namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
-    /// <summary>
     /// <summary>
     /// Defines the different icons that can be displayed above a character's head to indicate an active prayer or curse.
     /// </summary>

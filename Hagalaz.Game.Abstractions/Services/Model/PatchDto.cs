@@ -1,19 +1,19 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
 namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
-    /// 
+    /// A data transfer object containing the definition of a farming patch.
     /// </summary>
     public record PatchDto
     {
         /// <summary>
-        /// The object identifier.
+        /// The game object ID of the farming patch.
         /// </summary>
         public required int ObjectID;
 
         /// <summary>
-        /// The type.
+        /// The type of the farming patch (e.g., Allotment, Tree, Herb).
         /// </summary>
         public required PatchType Type;
     }

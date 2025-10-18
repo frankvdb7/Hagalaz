@@ -1,33 +1,33 @@
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
+    /// <summary>
+    /// Defines the contract for a teleportation spell, encapsulating its destination, effects, and casting logic.
+    /// </summary>
     public interface ITeleportSpellScript
     {
         /// <summary>
-        /// Gets or sets the magic book.
+        /// Gets the magic book this spell belongs to.
         /// </summary>
         MagicBook Book { get; }
 
         /// <summary>
-        /// Gets or sets the location.
+        /// Gets the destination location for this teleport.
         /// </summary>
         ILocation Destination { get; }
 
         /// <summary>
-        /// Gets the teleport delay.
+        /// Gets the delay in game ticks from the start of the teleport animation to the actual location change.
         /// </summary>
-        /// <value></value>
         int TeleportDelay { get; }
 
         /// <summary>
-        /// Gets the animations.
+        /// Gets the animation IDs to be played during the teleport sequence.
         /// </summary>
-        /// <value></value>
         int[] Animations { get; }
 
         /// <summary>
-        /// Gets the graphics.
+        /// Gets the graphic effect IDs to be displayed during the teleport sequence.
         /// </summary>
-        /// <value></value>
         int[] Graphics { get; }
 
         /// <summary>

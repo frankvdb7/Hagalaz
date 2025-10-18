@@ -1,67 +1,62 @@
-﻿namespace Hagalaz.Game.Abstractions.Model.GameObjects
+namespace Hagalaz.Game.Abstractions.Model.GameObjects
 {
     /// <summary>
-    /// 
+    /// Defines the contract for an interactive object in the game world.
     /// </summary>
     public interface IGameObject : IEntity
     {
         /// <summary>
-        /// Gets the identifier.
+        /// Gets the unique ID of the game object.
         /// </summary>
-        /// <value>
-        /// The identifier.
-        /// </value>
         int Id { get; }
+
         /// <summary>
-        /// Contains boolean if this object is static.
+        /// Gets a value indicating whether this object is static (part of the map) or dynamic (spawned).
         /// </summary>
         bool IsStatic { get; }
+
         /// <summary>
-        /// Contains object shape type.
+        /// Gets the shape type of the object, which defines its basic form and interaction model.
         /// </summary>
         ShapeType ShapeType { get; }
+
         /// <summary>
-        /// Contains object rotation.
+        /// Gets the rotation of the object.
         /// </summary>
         int Rotation { get; }
+
         /// <summary>
-        /// Gets the size x.
+        /// Gets the horizontal size of the object in tiles.
         /// </summary>
-        /// <value>
-        /// The size x.
-        /// </value>
         int SizeX { get; }
+
         /// <summary>
-        /// Gets the size y.
+        /// Gets the vertical size of the object in tiles.
         /// </summary>
-        /// <value>
-        /// The size y.
-        /// </value>
         int SizeY { get; }
+
         /// <summary>
-        /// Contains boolean if this object is disabled.
+        /// Gets a value indicating whether this object is currently disabled and non-interactive.
         /// </summary>
         bool IsDisabled { get; }
+
         /// <summary>
-        /// Gets the definition.
+        /// Gets the data definition for this game object.
         /// </summary>
-        /// <value>
-        /// The definition.
-        /// </value>
         IGameObjectDefinition Definition { get; }
+
         /// <summary>
-        /// Gets the script.
+        /// Gets the script that controls the object's behavior and logic.
         /// </summary>
-        /// <value>
-        /// The script.
-        /// </value>
         IGameObjectScript Script { get; }
+
         /// <summary>
-        /// Get's called when this object is disabled.
+        /// Enables the game object, making it interactive.
         /// </summary>
         void Enable();
+
         /// <summary>
-        /// Get's called when this object is disabled.
+        /// Disables the game object, making it non-interactive.
         /// </summary>
         void Disable();
     }

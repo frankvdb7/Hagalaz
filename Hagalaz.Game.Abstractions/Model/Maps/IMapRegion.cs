@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -9,250 +9,266 @@ using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 namespace Hagalaz.Game.Abstractions.Model.Maps
 {
     /// <summary>
-    /// 
+    /// Defines the contract for a map region, which is a 64x64 section of the game world.
     /// </summary>
     public interface IMapRegion
     {
         /// <summary>
-        /// Gets the region's unique id.
+        /// Gets the region's unique identifier.
         /// </summary>
-        /// <value>The id.</value>
         int Id { get; }
+
         /// <summary>
-        /// Gets the xtea keys for this map region.
+        /// Gets the XTEA keys used to decrypt this map region's data.
         /// </summary>
-        /// <returns>Returns an array of integers.</returns>
         int[] XteaKeys { get; }
+
         /// <summary>
-        /// The base location of the region.
+        /// Gets the base location (bottom-left corner) of the region.
         /// </summary>
         ILocation BaseLocation { get; }
+
         /// <summary>
-        /// The size of the region.
+        /// Gets the size of the region.
         /// </summary>
         IVector3 Size { get; }
+
         /// <summary>
-        /// Contains boolean if this region is dynamic.
+        /// Gets a value indicating whether this region is dynamic (i.e., has been modified from its base state).
         /// </summary>
-        /// <value><c>true</c> if dynamic; otherwise, <c>false</c>.</value>
         bool IsDynamic { get; }
+
         /// <summary>
-        /// Contains boolean if this region is loaded
+        /// Gets a value indicating whether this region's data has been loaded into memory.
         /// </summary>
         bool IsLoaded { get; }
+
         /// <summary>
-        /// Contains boolean if this region is destroyed
+        /// Gets a value indicating whether this region has been destroyed and is no longer active.
         /// </summary>
         bool IsDestroyed { get; }
+
         /// <summary>
-        /// Get's if this region can be destroyed.
+        /// Checks if this region can be destroyed (e.g., when it is empty).
         /// </summary>
-        /// <returns><c>true</c> if this instance can destroy; otherwise, <c>false</c>.</returns>
+        /// <returns><c>true</c> if the region can be destroyed; otherwise, <c>false</c>.</returns>
         bool CanDestroy();
+
         /// <summary>
-        /// Get's if this region can be idled.
+        /// Checks if this region can be suspended (made idle) to save resources.
         /// </summary>
-        /// <returns><c>true</c> if this instance can suspend; otherwise, <c>false</c>.</returns>
+        /// <returns><c>true</c> if the region can be suspended; otherwise, <c>false</c>.</returns>
         bool CanSuspend();
+
         /// <summary>
-        /// Loads this region
+        /// Loads the region's data from the cache.
         /// </summary>
-        /// <returns></returns>
         void Load();
+
         /// <summary>
-        /// Resumes this region
+        /// Resumes processing for a suspended (idle) region.
         /// </summary>
-        /// <returns></returns>
         void Resume();
+
         /// <summary>
-        /// Suspends this region
+        /// Suspends processing for this region, making it idle.
         /// </summary>
-        /// <returns></returns>
         void Suspend();
+
         /// <summary>
-        ///  Destroys this region
+        /// Asynchronously destroys the region, removing it from the game world.
         /// </summary>
         Task DestroyAsync();
+
         /// <summary>
-        /// Get's all the characters from this region.
+        /// Finds all characters currently in this region.
         /// </summary>
-        /// <value>The characters.</value>
+        /// <returns>An enumerable collection of characters.</returns>
         IEnumerable<ICharacter> FindAllCharacters();
+
         /// <summary>
-        /// Get's all the npcs from this region.
+        /// Finds all NPCs currently in this region.
         /// </summary>
-        /// <value>The npcs.</value>
+        /// <returns>An enumerable collection of NPCs.</returns>
         IEnumerable<INpc> FindAllNpcs();
+
         /// <summary>
-        /// Get's all the ground items from this region.
+        /// Finds all ground items currently in this region.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>An enumerable collection of ground items.</returns>
         IEnumerable<IGroundItem> FindAllGroundItems();
+
         /// <summary>
-        /// Get's all the ground items from this region.
+        /// Finds all game objects currently in this region.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>An enumerable collection of game objects.</returns>
         IEnumerable<IGameObject> FindAllGameObjects();
+
         /// <summary>
-        /// Make's region standart, and removes any changes
-        /// made to it.
+        /// Resets the region to its standard, unmodified state.
         /// </summary>
         void MakeStandard();
+
         /// <summary>
-        /// Make's this region dynamic.
+        /// Marks this region as dynamic, indicating it has been modified.
         /// </summary>
         void MakeDynamic();
+
         /// <summary>
-        /// Adds an npc who has entered this region.
+        /// Adds an NPC to the region.
         /// </summary>
-        /// <param name="npc">The NPC.</param>
+        /// <param name="npc">The NPC to add.</param>
         void Add(INpc npc);
+
         /// <summary>
-        /// Adds a player who has entered this region.
+        /// Adds a character to the region.
         /// </summary>
-        /// <param name="character">The character.</param>
+        /// <param name="character">The character to add.</param>
         void Add(ICharacter character);
+
         /// <summary>
-        /// Spawn's specific ground item.
+        /// Adds a ground item to the region.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <returns>Item which was spawned, if this item was not stacked with other ground items , then returns is ('item').
-        /// Return can be null if given item is already spawned.</returns>
+        /// <param name="item">The ground item to add.</param>
         void Add(IGroundItem item);
+
         /// <summary>
-        /// Spawn's given gameObject.
-        /// Despawns/Disables overloaded objects.
+        /// Adds a game object to the region.
         /// </summary>
-        /// <param name="gameObj">Object which should be spawned.</param>
+        /// <param name="gameObj">The game object to add.</param>
         void Add(IGameObject gameObj);
+
         /// <summary>
-        /// Revmoves a player who has left this region.
+        /// Removes a character from the region.
         /// </summary>
         /// <param name="character">The character to remove.</param>
         void Remove(ICharacter character);
+
         /// <summary>
-        /// Removes an npc who has left this region.
+        /// Removes an NPC from the region.
         /// </summary>
         /// <param name="npc">The NPC to remove.</param>
         void Remove(INpc npc);
+
         /// <summary>
-        /// Delete's or Disable's given gameObject.
+        /// Removes a game object from the region.
         /// </summary>
-        /// <param name="gameObj">Object which should be despawned.</param>
-        /// <returns>If deletion was sucessfull.</returns>
+        /// <param name="gameObj">The game object to remove.</param>
         void Remove(IGameObject gameObj);
+
         /// <summary>
-        /// Delete's specific ground item.
+        /// Removes a ground item from the region.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <returns>If item was sucessfully deleted.</returns>
+        /// <param name="item">The ground item to remove.</param>
         void Remove(IGroundItem item);
+
         /// <summary>
-        /// Flag's clip with specific flag at specific location.
-        /// Throws exception if location is invalid.
+        /// Applies a collision flag to a specific tile in the region.
         /// </summary>
-        /// <param name="localX">The x.</param>
-        /// <param name="localY">The y.</param>
-        /// <param name="z">The z.</param>
-        /// <param name="flag">The flag.</param>
+        /// <param name="localX">The local X-coordinate within the region (0-63).</param>
+        /// <param name="localY">The local Y-coordinate within the region (0-63).</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <param name="flag">The collision flag to add.</param>
         void FlagCollision(int localX, int localY, int z, CollisionFlag flag);
 
         /// <summary>
-        /// UnFlag's clip with specific flag at specific location.
-        /// Throws exception if location is invalid.
+        /// Removes a collision flag from a specific tile in the region.
         /// </summary>
-        /// <param name="localX">The x.</param>
-        /// <param name="localY">The y.</param>
-        /// <param name="z">The z.</param>
-        /// <param name="flag">The flag.</param>
+        /// <param name="localX">The local X-coordinate within the region (0-63).</param>
+        /// <param name="localY">The local Y-coordinate within the region (0-63).</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <param name="flag">The collision flag to remove.</param>
         void UnFlagCollision(int localX, int localY, int z, CollisionFlag flag);
+
         /// <summary>
-        /// Remove's specific object from clipping.
+        /// Removes the collision flags associated with a specific game object.
         /// </summary>
         /// <param name="gameObject">The game object.</param>
         void UnFlagCollision(IGameObject gameObject);
+
         /// <summary>
-        /// Add's specific object to clipping.
+        /// Adds the collision flags associated with a specific game object.
         /// </summary>
         /// <param name="gameObject">The game object.</param>
         void FlagCollision(IGameObject gameObject);
 
         /// <summary>
-        /// Tick 1.
+        /// Performs the main game logic update tick for the region.
         /// </summary>
         Task MajorUpdateTick();
 
         /// <summary>
-        /// Tick 2.
+        /// Prepares the data for the client update tick.
         /// </summary>
         Task MajorClientPrepareUpdateTick();
 
         /// <summary>
-        /// Tick 3.
+        /// Performs the main client update tick for the region.
         /// </summary>
         Task MajorClientUpdateTick();
 
         /// <summary>
-        /// Tick 4.
+        /// Resets the update flags for the region after a client update.
         /// </summary>
         Task MajorClientUpdateResetTick();
 
         /// <summary>
-        /// Sends all zone updates of this region to the character.
+        /// Sends all pending zone updates for this region to a specific character.
         /// </summary>
-        /// <param name="character"></param>
-        /// <returns></returns>
+        /// <param name="character">The character to send the updates to.</param>
         void SendFullPartUpdates(ICharacter character);
 
         /// <summary>
-        /// Get's region part data of given part.
+        /// Gets the data for a specific 8x8 part of the region.
         /// </summary>
-        /// <param name="partX">PartX of region to write. PartX = AbsX / 8.</param>
-        /// <param name="partY">PartY of region to write. PartY = AbsY / 8.</param>
-        /// <param name="z">The z.</param>
-        /// <returns>RegionPartData.</returns>
+        /// <param name="partX">The X-coordinate of the region part.</param>
+        /// <param name="partY">The Y-coordinate of the region part.</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <returns>The map region part data.</returns>
         IMapRegionPart GetRegionPartData(int partX, int partY, int z);
 
         /// <summary>
-        /// Writes region data to given block.
+        /// Writes the region's data to a client update block.
         /// </summary>
-        /// <param name="partX">PartX of region to write. PartX = AbsX / 8.</param>
-        /// <param name="partY">PartY of region to write. PartY = AbsY / 8.</param>
-        /// <param name="z">The z.</param>
-        /// <param name="drawPartX">The draw part X.</param>
-        /// <param name="drawPartY">The draw part Y.</param>
-        /// <param name="drawPartZ">The draw part Z.</param>
+        /// <param name="partX">The X-coordinate of the region part.</param>
+        /// <param name="partY">The Y-coordinate of the region part.</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <param name="drawPartX">The X-coordinate of the drawing area.</param>
+        /// <param name="drawPartY">The Y-coordinate of the drawing area.</param>
+        /// <param name="drawPartZ">The plane of the drawing area.</param>
         void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ);
+
         /// <summary>
-        /// Queues an update for this map region.
+        /// Queues an update for a part of this map region.
         /// </summary>
-        /// <param name="update"></param>
+        /// <param name="update">The region part update to queue.</param>
         void QueueUpdate(IRegionPartUpdate update);
+
         /// <summary>
-        /// Get's standart object at specific location.
-        /// Throws exception if location is invalid.
+        /// Finds a standard game object at a specific location in the region.
         /// </summary>
-        /// <param name="localX">The x.</param>
-        /// <param name="localY">The y.</param>
-        /// <param name="z">The z.</param>
-        /// <returns>GameObject or null if nothing is spawned at that location.</returns>
+        /// <param name="localX">The local X-coordinate within the region (0-63).</param>
+        /// <param name="localY">The local Y-coordinate within the region (0-63).</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <returns>The game object if found; otherwise, <c>null</c>.</returns>
         IGameObject? FindStandardGameObject(int localX, int localY, int z);
+
         /// <summary>
-        /// Get's game objects at specific location.
+        /// Finds all game objects at a specific location in the region.
         /// </summary>
-        /// <param name="localX">The x.</param>
-        /// <param name="localY">The y.</param>
-        /// <param name="z">The z.</param>
-        /// <returns>List{GameObject}.</returns>
+        /// <param name="localX">The local X-coordinate within the region (0-63).</param>
+        /// <param name="localY">The local Y-coordinate within the region (0-63).</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <returns>An enumerable collection of game objects at the location.</returns>
         IEnumerable<IGameObject> FindGameObjects(int localX, int localY, int z);
+
         /// <summary>
-        /// Get's clip at specific location.
-        /// Throws exception if location is invalid.
+        /// Gets the collision flags for a specific tile in the region.
         /// </summary>
-        /// <param name="localX">The local x in the region.</param>
-        /// <param name="localY">The local y in the region.</param>
-        /// <param name="z">The z.</param>
-        /// <returns>System.Int32.</returns>
+        /// <param name="localX">The local X-coordinate within the region (0-63).</param>
+        /// <param name="localY">The local Y-coordinate within the region (0-63).</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <returns>The collision flags for the tile.</returns>
         CollisionFlag GetCollision(int localX, int localY, int z);
     }
 }
