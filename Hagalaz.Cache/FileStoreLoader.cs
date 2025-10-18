@@ -5,12 +5,19 @@ using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Cache
 {
+    /// <summary>
+    /// Handles the loading and initialization of a <see cref="FileStore"/> from a specified directory.
+    /// It locates and opens the necessary data and index files (`main_file_cache.dat2`, `main_file_cache.idx*`).
+    /// </summary>
     public class FileStoreLoader : IFileStoreLoader
     {
         private readonly ILogger<FileStore> _logger;
         private readonly IIndexCodec _indexCodec;
         private readonly ISectorCodec _sectorCodec;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FileStoreLoader"/> class.
+        /// </summary>
         public FileStoreLoader(ILogger<FileStore> logger, IIndexCodec indexCodec, ISectorCodec sectorCodec)
         {
             _logger = logger;
@@ -18,6 +25,12 @@ namespace Hagalaz.Cache
             _sectorCodec = sectorCodec;
         }
 
+        /// <summary>
+        /// Opens the cache files from the specified root path and initializes a new <see cref="IFileStore"/>.
+        /// </summary>
+        /// <param name="rootPath">The directory path containing the cache files.</param>
+        /// <returns>An initialized <see cref="IFileStore"/> ready for use.</returns>
+        /// <exception cref="FileNotFoundException">Thrown if no cache index files are found in the specified directory.</exception>
         public IFileStore Open(string rootPath)
         {
             _logger.LogInformation("Cache file store path: {0}", Path.GetFullPath(rootPath));

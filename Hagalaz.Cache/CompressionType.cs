@@ -1,20 +1,22 @@
 ﻿namespace Hagalaz.Cache
 {
     /// <summary>
-    /// 
+    /// Defines the different types of compression used for data stored within the cache.
     /// </summary>
     public enum CompressionType : byte
     {
         /// <summary>
-        /// This type indicates that no compression is used.
+        /// Indicates that the data is not compressed.
         /// </summary>
         None = 0,
+
         /// <summary>
-        /// This type indicates that BZIP2 compression is used.
+        /// Indicates that the data is compressed using the BZIP2 algorithm.
         /// </summary>
         Bzip2 = 1,
+
         /// <summary>
-        /// This type indicates that GZIP compression is used.
+        /// Indicates that the data is compressed using the GZIP algorithm.
         /// </summary>
         Gzip = 2
     }

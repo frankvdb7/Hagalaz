@@ -7,12 +7,35 @@ using Hagalaz.Security;
 
 namespace Hagalaz.Cache
 {
+    /// <summary>
+    /// Handles the encoding and decoding of a <see cref="ChecksumTable"/>.
+    /// The checksum table is a critical part of the cache's update mechanism, often referred to as "update keys".
+    /// </summary>
     public class ChecksumTableCodec : IChecksumTableCodec
     {
+        /// <summary>
+        /// Encodes a <see cref="ChecksumTable"/> into a memory stream.
+        /// </summary>
+        /// <param name="table">The checksum table to encode.</param>
+        /// <returns>A memory stream containing the encoded checksum table.</returns>
         public MemoryStream Encode(ChecksumTable table) => Encode(table, false);
 
+        /// <summary>
+        /// Encodes a <see cref="ChecksumTable"/> into a memory stream, with an option to include whirlpool digests.
+        /// </summary>
+        /// <param name="table">The checksum table to encode.</param>
+        /// <param name="whirlpool">A flag indicating whether to include whirlpool digests for each entry.</param>
+        /// <returns>A memory stream containing the encoded checksum table.</returns>
         public MemoryStream Encode(ChecksumTable table, bool whirlpool) => Encode(table, whirlpool, BigInteger.MinusOne, BigInteger.MinusOne);
 
+        /// <summary>
+        /// Encodes a <see cref="ChecksumTable"/> into a memory stream, with options for whirlpool digests and RSA encryption.
+        /// </summary>
+        /// <param name="table">The checksum table to encode.</param>
+        /// <param name="whirlpool">A flag indicating whether to include whirlpool digests.</param>
+        /// <param name="modulus">The RSA modulus for encryption.</param>
+        /// <param name="privateKey">The RSA private key for encryption.</param>
+        /// <returns>A memory stream containing the encoded and potentially encrypted checksum table.</returns>
         public MemoryStream Encode(ChecksumTable table, bool whirlpool, BigInteger modulus, BigInteger privateKey)
         {
             var buffer = new MemoryStream();

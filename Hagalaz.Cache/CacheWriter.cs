@@ -4,6 +4,9 @@ using System.IO;
 
 namespace Hagalaz.Cache
 {
+    /// <summary>
+    /// Handles writing data to the cache, updating the necessary reference tables and checksums.
+    /// </summary>
     public class CacheWriter : ICacheWriter
     {
         private readonly IFileStore _store;
@@ -11,6 +14,9 @@ namespace Hagalaz.Cache
         private readonly IContainerDecoder _containerFactory;
         private readonly IReferenceTableCodec _referenceTableCodec;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CacheWriter"/> class.
+        /// </summary>
         public CacheWriter(IFileStore store, IReferenceTableProvider referenceTableProvider, IContainerDecoder containerFactory, IReferenceTableCodec referenceTableCodec)
         {
             _store = store;
@@ -19,6 +25,13 @@ namespace Hagalaz.Cache
             _referenceTableCodec = referenceTableCodec;
         }
 
+        /// <summary>
+        /// Writes a data container to a specific file in the cache, automatically updating the version, CRC, and whirlpool digest in the corresponding reference table.
+        /// </summary>
+        /// <param name="indexId">The identifier of the index (cache) to write to.</param>
+        /// <param name="fileId">The identifier of the file to write.</param>
+        /// <param name="container">The container holding the data to be written.</param>
+        /// <exception cref="IOException">Thrown if attempting to write to the master checksum table, which is managed automatically.</exception>
         public void Write(int indexId, int fileId, IContainer container)
         {
             /* we don't want people reading/manipulating these manually */

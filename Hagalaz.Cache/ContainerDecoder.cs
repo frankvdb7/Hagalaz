@@ -4,8 +4,17 @@ using Hagalaz.Cache.Utilities;
 
 namespace Hagalaz.Cache
 {
+    /// <summary>
+    /// Decodes a <see cref="Container"/> from a raw memory stream, handling different compression types and optional versioning.
+    /// </summary>
     public class ContainerDecoder : IContainerDecoder
     {
+        /// <summary>
+        /// Decodes a data container from the provided memory stream.
+        /// </summary>
+        /// <param name="stream">The memory stream containing the raw, compressed container data.</param>
+        /// <returns>A decoded <see cref="IContainer"/> with its data decompressed and version parsed.</returns>
+        /// <exception cref="IOException">Thrown if the compression type is invalid or if the decompressed data length does not match the expected length.</exception>
         public IContainer Decode(MemoryStream stream)
         {
             /* decode the type and length */
