@@ -521,5 +521,128 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreEqual(2, removedCount);
             Assert.AreEqual(1, container.TakenSlots);
         }
+
+        [TestMethod]
+        public void GetCountById_WithMultipleItems_ReturnsCorrectCount()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            container.Add(CreateItem(1, 5, stackable: true));
+            container.Add(CreateItem(1, 1, stackable: false));
+            container.Add(CreateItem(1, 1, stackable: false));
+            container.Add(CreateItem(2, 3, stackable: true));
+
+            // Act
+            var count = container.GetCountById(1);
+
+            // Assert
+            Assert.AreEqual(7, count);
+        }
+
+        [TestMethod]
+        public void AddToSlot_WithEmptySlot_Success()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(1, 1);
+
+            // Act
+            var result = container.Add(5, item);
+
+            // Assert
+            Assert.IsTrue(result);
+            Assert.IsNotNull(container[5]);
+            Assert.IsTrue(item.Equals(container[5]));
+        }
+
+        [TestMethod]
+        public void AddToSlot_WithOccupiedSlot_Overwrites()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var existingItem = CreateItem(1, 1);
+            container.Add(5, existingItem);
+
+            var newItem = CreateItem(2, 1);
+
+            // Act
+            var result = container.Add(5, newItem);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [TestMethod]
+        public void Add_AlwaysStack_StacksNonStackableItems()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.AlwaysStack, 10);
+            var item1 = CreateItem(1, 1, stackable: false);
+            var item2 = CreateItem(1, 1, stackable: false);
+
+            // Act
+            container.Add(item1);
+            var result = container.Add(item2);
+
+            // Assert
+            Assert.IsTrue(result);
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(2, container[0].Count);
+        }
+
+        [TestMethod]
+        public void Remove_AlwaysStack_RemovesFromStackedNonStackableItems()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.AlwaysStack, 10);
+            var item1 = CreateItem(1, 1, stackable: false);
+            var item2 = CreateItem(1, 1, stackable: false);
+            container.Add(item1);
+            container.Add(item2);
+
+            var itemToRemove = CreateItem(1, 1, stackable: false);
+
+            // Act
+            var removedCount = container.Remove(itemToRemove);
+
+            // Assert
+            Assert.AreEqual(1, removedCount);
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(1, container[0].Count);
+        }
+
+        [TestMethod]
+        public void CanStackItem_WithNotedItems_Stacks()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item1 = CreateItem(1, 1, noted: true);
+            var item2 = CreateItem(1, 1, noted: true);
+
+            // Act
+            container.Add(item1);
+            var result = container.Add(item2);
+
+            // Assert
+            Assert.IsTrue(result);
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(2, container[0].Count);
+        }
+
+        [TestMethod]
+        public void CanStackItem_WithDifferentIds_DoesNotStack()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item1 = CreateItem(1, 1, stackable: true);
+            var item2 = CreateItem(2, 1, stackable: true);
+
+            // Act
+            container.Add(item1);
+            container.Add(item2);
+
+            // Assert
+            Assert.AreEqual(2, container.TakenSlots);
+        }
     }
 }
