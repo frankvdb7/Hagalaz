@@ -369,7 +369,7 @@ namespace Hagalaz.Game.Abstractions.Collections
                         var total = item.Count + (long)containerItem.Count;
                         if (total > int.MaxValue)
                         {
-                            continue;
+                            goto end;
                         }
 
                         var removed = container.Remove(containerItem, i);
