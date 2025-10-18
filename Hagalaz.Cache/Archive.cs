@@ -11,23 +11,25 @@ namespace Hagalaz.Cache
     public class Archive : IDisposable
     {
         /// <summary>
-        /// The array of entries in this archive.
+        /// Gets the array of member file entries in this archive, represented as in-memory streams.
+        /// This property is populated after the archive is decoded.
         /// </summary>
         public MemoryStream[]? Entries { get; internal set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Archive" /> class.
         /// </summary>
-        /// <param name="size">The size.</param>
+        /// <param name="size">The number of member file entries this archive will hold.</param>
         public Archive(int size) => Entries = new MemoryStream[size];
 
 
         /// <summary>
-        /// Gets the entry.
+        /// Gets a specific member file entry by its identifier.
         /// </summary>
-        /// <param name="subFileId">The sub file identifier.</param>
-        /// <returns></returns>
-        /// <exception cref="System.ArgumentOutOfRangeException"></exception>
+        /// <param name="subFileId">The identifier of the member file to retrieve.</param>
+        /// <returns>A <see cref="MemoryStream"/> containing the data of the requested member file.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the archive has not yet been decoded.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if the <paramref name="subFileId"/> is out of the valid range for the archive's entries.</exception>
         public MemoryStream GetEntry(int subFileId)
         {
             if (Entries == null)
@@ -35,7 +37,7 @@ namespace Hagalaz.Cache
                 throw new InvalidOperationException($"{nameof(Archive)} is not decoded");
             }
             if (subFileId < 0 || subFileId >= Entries.Length)
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(subFileId));
             return Entries[subFileId];
         }
 

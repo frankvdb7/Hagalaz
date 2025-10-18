@@ -3,8 +3,18 @@ using Hagalaz.Cache.Extensions;
 
 namespace Hagalaz.Cache
 {
+    /// <summary>
+    /// Decodes an <see cref="Archive"/> from a data container. An archive is a file within the cache
+    /// that can have multiple member files inside it, often used for grouping related data.
+    /// </summary>
     public class ArchiveDecoder : IArchiveDecoder
     {
+        /// <summary>
+        /// Decodes the archive data from the provided container.
+        /// </summary>
+        /// <param name="container">The container holding the raw, compressed archive data.</param>
+        /// <param name="size">The number of member file entries expected in the archive.</param>
+        /// <returns>A decoded <see cref="Archive"/> with its member file entries populated.</returns>
         public Archive Decode(IContainer container, int size)
         {
             var stream = container.Data;

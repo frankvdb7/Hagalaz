@@ -15,22 +15,22 @@ namespace Hagalaz.Cache
     public class FileStore : IFileStore
     {
         /// <summary>
-        /// The lock object
+        /// A lock object to ensure thread-safe access to the file streams.
         /// </summary>
         private readonly object _lockObj = new object();
 
         /// <summary>
-        /// The data stream
+        /// The stream for the main data file (`main_file_cache.dat2`).
         /// </summary>
         private FileStream _dataFile;
 
         /// <summary>
-        /// The index streams
+        /// An array of streams for the index files (`main_file_cache.idx*`).
         /// </summary>
         private FileStream[] _indexFiles;
 
         /// <summary>
-        /// The meta stream
+        /// The stream for the master index file (`main_file_cache.idx255`).
         /// </summary>
         private FileStream _mainIndexFile;
 
@@ -38,19 +38,18 @@ namespace Hagalaz.Cache
         private readonly ISectorCodec _sectorCodec;
 
         /// <summary>
-        /// Contains the cache file count.
+        /// Gets the number of indices in this file store.
         /// </summary>
-        /// <returns></returns>
         public int IndexFileCount => _indexFiles.Length;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FileStore" /> class.
         /// </summary>
-        /// <param name="dataFile">The data file.</param>
-        /// <param name="indexFiles">The index files.</param>
-        /// <param name="mainIndexFile">The 'meta' index file.</param>
-        /// <param name="indexCodec">The index codec.</param>
-        /// <param name="sectorCodec">The sector codec.</param>
+        /// <param name="dataFile">The file stream for the main data file.</param>
+        /// <param name="indexFiles">An array of file streams for the index files.</param>
+        /// <param name="mainIndexFile">The file stream for the master index file (idx255).</param>
+        /// <param name="indexCodec">The codec for reading and writing index data.</param>
+        /// <param name="sectorCodec">The codec for reading and writing sector data.</param>
         public FileStore(FileStream dataFile, FileStream[] indexFiles, FileStream mainIndexFile, IIndexCodec indexCodec, ISectorCodec sectorCodec)
         {
             _dataFile = dataFile;
@@ -61,11 +60,11 @@ namespace Hagalaz.Cache
         }
 
         /// <summary>
-        /// Gets the file count.
+        /// Gets the total number of files within a specified index.
         /// </summary>
-        /// <param name="indexId">The index identifier.</param>
-        /// <returns></returns>
-        /// <exception cref="System.IO.FileNotFoundException"></exception>
+        /// <param name="indexId">The identifier of the index.</param>
+        /// <returns>The number of files in the index.</returns>
+        /// <exception cref="FileNotFoundException">Thrown if the specified <paramref name="indexId"/> is invalid.</exception>
         public int GetFileCount(int indexId)
         {
             if (indexId >= IndexFileCount && indexId != 255) throw new FileNotFoundException();
@@ -74,28 +73,13 @@ namespace Hagalaz.Cache
         }
 
         /// <summary>
-        /// Reads a file.
+        /// Reads a file from the cache, following the chain of sectors in the data file.
         /// </summary>
-        /// <param name="indexId">The cache identifier.</param>
-        /// <param name="fileId">The file identifier.</param>
-        /// <returns></returns>
-        /// <exception cref="System.IO.FileNotFoundException">
-        /// </exception>
-        /// <exception cref="InvalidDataException">
-        /// Index size is invalid.
-        /// or
-        /// Index sector id is invalid.
-        /// or
-        /// Invalid sector id.
-        /// or
-        /// Invalid file id.
-        /// or
-        /// Invalid cache id.
-        /// or
-        /// Invalid chunk id.
-        /// or
-        /// Invalid next sector id.
-        /// </exception>
+        /// <param name="indexId">The identifier of the index (cache) from which to read.</param>
+        /// <param name="fileId">The identifier of the file to read.</param>
+        /// <returns>A <see cref="MemoryStream"/> containing the raw, decompressed data of the file.</returns>
+        /// <exception cref="FileNotFoundException">Thrown if the specified index or file does not exist.</exception>
+        /// <exception cref="InvalidDataException">Thrown if the cache data is corrupt or inconsistent (e.g., invalid sector chains, mismatched IDs).</exception>
         public MemoryStream Read(int indexId, int fileId)
         {
             if (indexId >= IndexFileCount && indexId != 255) throw new FileNotFoundException();

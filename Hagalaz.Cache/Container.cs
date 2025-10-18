@@ -13,35 +13,35 @@ namespace Hagalaz.Cache
     public class Container : IContainer
     {
         /// <summary>
-        /// The type of compression this container uses.
+        /// Gets the type of compression used by this container.
         /// </summary>
         public CompressionType CompressionType { get; }
 
         /// <summary>
-        /// The decompressed data.
+        /// Gets the decompressed data stored in this container.
         /// </summary>
         public MemoryStream Data { get; private set; }
 
         /// <summary>
-        /// Contains the version.
+        /// Gets or sets the version of the file within the container. A value of -1 indicates no version.
         /// </summary>
         public short Version { get; set; }
 
         /// <summary>
-        /// Creates a new unversioned and uncompressed <see cref="Container"/> class.
+        /// Initializes a new instance of an unversioned and uncompressed <see cref="Container"/> class.
         /// </summary>
-        /// <param name="data">The data.</param>
+        /// <param name="data">The decompressed data to store in the container.</param>
         public Container(MemoryStream data)
             : this(CompressionType.None, data)
         {
         }
 
         /// <summary>
-        /// Creates a new versioned <see cref="Container" />.
+        /// Initializes a new instance of the <see cref="Container" /> class with a specified compression type and optional version.
         /// </summary>
-        /// <param name="type">The type.</param>
-        /// <param name="data">The data.</param>
-        /// <param name="version">The version.</param>
+        /// <param name="type">The compression type of the data.</param>
+        /// <param name="data">The decompressed data to store in the container.</param>
+        /// <param name="version">The version of the file. Defaults to -1 (unversioned).</param>
         public Container(CompressionType type, MemoryStream data, short version = -1)
         {
             CompressionType = type;
@@ -51,24 +51,22 @@ namespace Hagalaz.Cache
 
 
         /// <summary>
-        /// Determines whether this instance is versioned.
+        /// Determines whether this container includes version information.
         /// </summary>
-        /// <returns>
-        ///   <c>true</c> if this instance is versioned; otherwise, <c>false</c>.
-        /// </returns>
+        /// <returns><c>true</c> if the container is versioned; otherwise, <c>false</c>.</returns>
         public bool IsVersioned() => Version != -1;
 
         /// <summary>
-        /// Removes the version.
+        /// Removes the version information from this container by setting the version to -1.
         /// </summary>
         public void RemoveVersion() => Version = -1;
 
         /// <summary>
-        /// Encodes this instance.
+        /// Encodes the container's data into a byte array, applying the appropriate compression and prepending the necessary header.
         /// </summary>
-        /// <param name="writeVersion">if set to <c>true</c> [write version].</param>
-        /// <returns></returns>
-        /// <exception cref="System.IO.IOException">Invalid compression type.</exception>
+        /// <param name="writeVersion">If set to <c>true</c>, the version number will be appended to the end of the encoded data if the container is versioned.</param>
+        /// <returns>A byte array representing the fully encoded and compressed container.</returns>
+        /// <exception cref="IOException">Thrown if an invalid compression type is specified.</exception>
         public byte[] Encode(bool writeVersion = true)
         {
             /* grab the data as a byte array for compression */
