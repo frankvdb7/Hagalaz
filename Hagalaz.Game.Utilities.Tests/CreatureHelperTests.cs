@@ -71,6 +71,19 @@ namespace Hagalaz.Game.Utilities.Tests
         }
 
         [TestMethod]
+        public void CalculatePredictedDamage_WithOnlyZeroHits_ReturnsZero()
+        {
+            // Arrange
+            var hits = new[] { 0, 0, 0 };
+
+            // Act
+            var result = CreatureHelper.CalculatePredictedDamage(hits);
+
+            // Assert
+            Assert.AreEqual(0, result);
+        }
+
+        [TestMethod]
         public void CalculatePredictedDamage_WithNullArray_ReturnsMinusOne()
         {
             // Arrange
