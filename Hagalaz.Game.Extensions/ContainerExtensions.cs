@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
-using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Microsoft.Extensions.DependencyInjection;
+using Hagalaz.Game.Abstractions.Builders.Item;
 
 namespace Hagalaz.Game.Extensions
 {
