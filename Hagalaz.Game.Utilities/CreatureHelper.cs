@@ -16,6 +16,11 @@ namespace Hagalaz.Game.Utilities
                 return -1;
             }
 
+            if (hits.All(h => h == 0))
+            {
+                return 0;
+            }
+
             var actualHits = hits.Where(h => h > 0).ToArray();
             return actualHits.Any() ? actualHits.Sum() : -1;
         }
