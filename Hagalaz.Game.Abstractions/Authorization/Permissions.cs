@@ -50,7 +50,7 @@ namespace Hagalaz.Game.Abstractions.Authorization
         /// </returns>
         public static Permission ParseRole(string role)
         {
-            if (Enum.TryParse(role, out Permission parsedPermission))
+            if (Enum.TryParse(role, true, out Permission parsedPermission))
             {
                 return parsedPermission;
             }
