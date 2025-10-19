@@ -9,7 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Builders.Item;
 using System.Linq;
 
 namespace Hagalaz.Game.Extensions.Tests
@@ -24,6 +23,8 @@ namespace Hagalaz.Game.Extensions.Tests
         private IGroundItemLocation _groundItemLocation = null!;
         private IGroundItemOptional _groundItemOptional = null!;
         private IItemBuilder _itemBuilder = null!;
+        private IItemId _itemId = null!;
+        private IItemOptional _itemOptional = null!;
         private ILootGenerator _lootGenerator = null!;
 
         [TestInitialize]
@@ -37,6 +38,8 @@ namespace Hagalaz.Game.Extensions.Tests
             _groundItemLocation = Substitute.For<IGroundItemLocation>();
             _groundItemOptional = Substitute.For<IGroundItemOptional>();
             _itemBuilder = Substitute.For<IItemBuilder>();
+            _itemId = Substitute.For<IItemId>();
+            _itemOptional = Substitute.For<IItemOptional>();
             _lootGenerator = Substitute.For<ILootGenerator>();
 
             _character.ServiceProvider.Returns(serviceProvider);
@@ -47,13 +50,16 @@ namespace Hagalaz.Game.Extensions.Tests
             var groundItem = Substitute.For<IGroundItem>();
 
             _character.Location.Returns(new Location(1, 2, 3, 0));
-            serviceProvider.GetService(typeof(IGroundItemBuilder)).Returns(_groundItemBuilder);
 
             _groundItemBuilder.Create().ReturnsForAnyArgs(_groundItemOnGround);
             _groundItemOnGround.WithItem(Arg.Any<IItem>()).ReturnsForAnyArgs(_groundItemLocation);
             _groundItemLocation.WithLocation(Arg.Any<ILocation>()).ReturnsForAnyArgs(_groundItemOptional);
             _groundItemOptional.WithOwner(Arg.Any<ICharacter>()).ReturnsForAnyArgs(_groundItemOptional);
             _groundItemOptional.Spawn().ReturnsForAnyArgs(groundItem);
+
+            _itemBuilder.Create().Returns(_itemId);
+            _itemId.WithId(Arg.Any<int>()).Returns(_itemOptional);
+            _itemOptional.WithCount(Arg.Any<int>()).Returns(_itemOptional);
         }
 
         [TestMethod]
@@ -114,13 +120,13 @@ namespace Hagalaz.Game.Extensions.Tests
             var items = new List<(int, int)> { (1, 1), (2, 1) };
             var builtItems = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
             _inventory.Add(Arg.Any<IItem>()).Returns(true);
-            _itemBuilder.Create().WithId(Arg.Any<int>()).WithCount(Arg.Any<int>()).Build().Returns(builtItems[0], builtItems[1]);
+            _itemOptional.Build().Returns(builtItems[0], builtItems[1]);
 
             // Act
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            _itemBuilder.Received(2).Build();
+            _itemOptional.Received(2).Build();
             _inventory.Received(2).Add(Arg.Any<IItem>());
             _groundItemOptional.DidNotReceive().Spawn();
             Assert.AreEqual(2, addedItems.Count());
@@ -134,13 +140,13 @@ namespace Hagalaz.Game.Extensions.Tests
             var items = new List<(int, int)> { (1, 1), (2, 1) };
             var builtItems = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
             _inventory.Add(Arg.Any<IItem>()).Returns(false);
-            _itemBuilder.Create().WithId(Arg.Any<int>()).WithCount(Arg.Any<int>()).Build().Returns(builtItems[0], builtItems[1]);
+            _itemOptional.Build().Returns(builtItems[0], builtItems[1]);
 
             // Act
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            _itemBuilder.Received(2).Build();
+            _itemOptional.Received(2).Build();
             _inventory.Received(2).Add(Arg.Any<IItem>());
             _groundItemOptional.Received(2).Spawn();
             Assert.AreEqual(2, addedItems.Count());
@@ -154,13 +160,13 @@ namespace Hagalaz.Game.Extensions.Tests
             var items = new List<(int, int)> { (1, 1), (2, 1) };
             var builtItems = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
             _inventory.Add(Arg.Any<IItem>()).Returns(true, false);
-            _itemBuilder.Create().WithId(Arg.Any<int>()).WithCount(Arg.Any<int>()).Build().Returns(builtItems[0], builtItems[1]);
+            _itemOptional.Build().Returns(builtItems[0], builtItems.Last());
 
             // Act
             _inventory.TryAddItems(_character, items, out var addedItems);
 
             // Assert
-            _itemBuilder.Received(2).Build();
+            _itemOptional.Received(2).Build();
             _inventory.Received(2).Add(Arg.Any<IItem>());
             _groundItemOptional.Received(1).Spawn();
             Assert.AreEqual(2, addedItems.Count());
@@ -178,7 +184,7 @@ namespace Hagalaz.Game.Extensions.Tests
             var builtItem = Substitute.For<IItem>();
             _lootGenerator.GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>()).Returns(lootResults);
             _inventory.Add(Arg.Any<IItem>()).Returns(true);
-            _itemBuilder.Create().WithId(1).WithCount(1).Build().Returns(builtItem);
+            _itemOptional.Build().Returns(builtItem);
 
             // Act
             _inventory.TryAddLoot(_character, lootTable, out var addedItems);
@@ -202,7 +208,7 @@ namespace Hagalaz.Game.Extensions.Tests
             var builtItem = Substitute.For<IItem>();
             _lootGenerator.GenerateLoot<ILootItem>(Arg.Any<CharacterLootParams>()).Returns(lootResults);
             _inventory.Add(Arg.Any<IItem>()).Returns(false);
-            _itemBuilder.Create().WithId(1).WithCount(1).Build().Returns(builtItem);
+            _itemOptional.Build().Returns(builtItem);
 
             // Act
             _inventory.TryAddLoot(_character, lootTable, out var addedItems);
@@ -224,7 +230,7 @@ namespace Hagalaz.Game.Extensions.Tests
             var lootResults = new List<LootResult<ILootItem>> { new LootResult<ILootItem>(lootItem, 1) };
             var builtItem = Substitute.For<IItem>();
             _inventory.Add(Arg.Any<IItem>()).Returns(true);
-            _itemBuilder.Create().WithId(1).WithCount(1).Build().Returns(builtItem);
+            _itemOptional.Build().Returns(builtItem);
 
             // Act
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
@@ -245,7 +251,7 @@ namespace Hagalaz.Game.Extensions.Tests
             var lootResults = new List<LootResult<ILootItem>> { new LootResult<ILootItem>(lootItem, 1) };
             var builtItem = Substitute.For<IItem>();
             _inventory.Add(Arg.Any<IItem>()).Returns(false);
-            _itemBuilder.Create().WithId(1).WithCount(1).Build().Returns(builtItem);
+            _itemOptional.Build().Returns(builtItem);
 
             // Act
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
@@ -268,7 +274,7 @@ namespace Hagalaz.Game.Extensions.Tests
             var lootResults = new List<LootResult<ILootItem>> { new LootResult<ILootItem>(lootItem1, 1), new LootResult<ILootItem>(lootItem2, 1) };
             var builtItems = new List<IItem> { Substitute.For<IItem>(), Substitute.For<IItem>() };
             _inventory.Add(Arg.Any<IItem>()).Returns(true, false);
-            _itemBuilder.Create().WithId(Arg.Any<int>()).WithCount(Arg.Any<int>()).Build().Returns(builtItems[0], builtItems[1]);
+            _itemOptional.Build().Returns(builtItems[0], builtItems[1]);
 
             // Act
             _inventory.TryAddLoot(_character, lootResults, out var addedItems);
