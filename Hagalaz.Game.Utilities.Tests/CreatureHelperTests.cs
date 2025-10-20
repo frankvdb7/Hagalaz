@@ -1,119 +1,69 @@
+using Hagalaz.Game.Utilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Collections.Generic;
 
 namespace Hagalaz.Game.Utilities.Tests
 {
     [TestClass]
     public class CreatureHelperTests
     {
-        [TestMethod]
-        public void CalculatePredictedDamage_WithPositiveHits_ReturnsSum()
-        {
-            // Arrange
-            var hits = new[] { 10, 20, 5 };
-
-            // Act
-            var result = CreatureHelper.CalculatePredictedDamage(hits);
-
-            // Assert
-            Assert.AreEqual(35, result);
-        }
-
-        [TestMethod]
-        public void CalculatePredictedDamage_WithMixedHits_ReturnsSumOfPositiveHits()
-        {
-            // Arrange
-            var hits = new[] { 10, -5, 20, 0, 5 };
-
-            // Act
-            var result = CreatureHelper.CalculatePredictedDamage(hits);
-
-            // Assert
-            Assert.AreEqual(35, result);
-        }
-
-        [TestMethod]
-        public void CalculatePredictedDamage_WithOnlyNegativeAndZeroHits_ReturnsMinusOne()
-        {
-            // Arrange
-            var hits = new[] { -10, -5, 0 };
-
-            // Act
-            var result = CreatureHelper.CalculatePredictedDamage(hits);
-
-            // Assert
-            Assert.AreEqual(-1, result);
-        }
-
-        [TestMethod]
-        public void CalculatePredictedDamage_WithNullValueInArray_ReturnsSumOfPositiveHits()
-        {
-            // Arrange
-            var hits = new[] { 10, 0, -5, 20, 5 };
-
-            // Act
-            var result = CreatureHelper.CalculatePredictedDamage(hits);
-
-            // Assert
-            Assert.AreEqual(35, result);
-        }
-
-        [TestMethod]
-        public void CalculatePredictedDamage_WithEmptyArray_ReturnsMinusOne()
-        {
-            // Arrange
-            var hits = new int[0];
-
-            // Act
-            var result = CreatureHelper.CalculatePredictedDamage(hits);
-
-            // Assert
-            Assert.AreEqual(-1, result);
-        }
-
-        [TestMethod]
-        public void CalculatePredictedDamage_WithOnlyZeroHits_ReturnsZero()
-        {
-            // Arrange
-            var hits = new[] { 0, 0, 0 };
-
-            // Act
-            var result = CreatureHelper.CalculatePredictedDamage(hits);
-
-            // Assert
-            Assert.AreEqual(0, result);
-        }
-
-        [TestMethod]
-        public void CalculatePredictedDamage_WithNullArray_ReturnsMinusOne()
-        {
-            // Arrange
-            int[]? hits = null;
-
-            // Act
-            var result = CreatureHelper.CalculatePredictedDamage(hits!);
-
-            // Assert
-            Assert.AreEqual(-1, result);
-        }
+        public static IEnumerable<object[]> DamageTestData =>
+            new List<object[]>
+            {
+                new object[] { null, -1 },
+                new object[] { new int[0], -1 },
+                new object[] { new[] { 0, 0, 0 }, 0 },
+                new object[] { new[] { 10, -5, 5, 0 }, 15 },
+                new object[] { new[] { 10, 15, 5 }, 30 },
+                new object[] { new[] { -10, -5, 0 }, -1 },
+            };
 
         [DataTestMethod]
-        [DataRow(0, 0)]
-        [DataRow(1, 1)]
-        [DataRow(29, 1)]
-        [DataRow(30, 1)]
-        [DataRow(31, 2)]
-        [DataRow(59, 2)]
-        [DataRow(60, 2)]
-        [DataRow(61, 3)]
-        [DataRow(600, 20)]
-        [DataRow(601, 21)]
-        public void CalculateTicksForClientTicks_WithVariousInputs_ReturnsCorrectTicks(int clientTicks, int expectedServerTicks)
+        [DynamicData(nameof(DamageTestData))]
+        public void CalculatePredictedDamage_VariousInputs_CalculatesCorrectly(int[] hits, int expected)
         {
-            // Act
-            var result = CreatureHelper.CalculateTicksForClientTicks(clientTicks);
+            Assert.AreEqual(expected, CreatureHelper.CalculatePredictedDamage(hits));
+        }
 
-            // Assert
-            Assert.AreEqual(expectedServerTicks, result);
+        [TestMethod]
+        public void CalculateTicksForClientTicks_ZeroClientTicks_ReturnsZero()
+        {
+            Assert.AreEqual(0, CreatureHelper.CalculateTicksForClientTicks(0));
+        }
+
+        [TestMethod]
+        public void CalculateTicksForClientTicks_BoundaryValueJustBelowTick_ReturnsOne()
+        {
+            // (29 * 20 + 599) / 600 = 1179 / 600 = 1
+            Assert.AreEqual(1, CreatureHelper.CalculateTicksForClientTicks(29));
+        }
+
+        [TestMethod]
+        public void CalculateTicksForClientTicks_BoundaryValueAtTick_ReturnsOne()
+        {
+            // (30 * 20 + 599) / 600 = 1199 / 600 = 1
+            Assert.AreEqual(1, CreatureHelper.CalculateTicksForClientTicks(30));
+        }
+
+        [TestMethod]
+        public void CalculateTicksForClientTicks_BoundaryValueJustAboveTick_ReturnsTwo()
+        {
+            // (31 * 20 + 599) / 600 = 1219 / 600 = 2
+            Assert.AreEqual(2, CreatureHelper.CalculateTicksForClientTicks(31));
+        }
+
+        [TestMethod]
+        public void CalculateTicksForClientTicks_BoundaryValueAtTwoTicks_ReturnsTwo()
+        {
+            // (60 * 20 + 599) / 600 = 1799 / 600 = 2
+            Assert.AreEqual(2, CreatureHelper.CalculateTicksForClientTicks(60));
+        }
+
+        [TestMethod]
+        public void CalculateTicksForClientTicks_BoundaryValueJustAboveTwoTicks_ReturnsThree()
+        {
+            // (61 * 20 + 599) / 600 = 1819 / 600 = 3
+            Assert.AreEqual(3, CreatureHelper.CalculateTicksForClientTicks(61));
         }
     }
 }
