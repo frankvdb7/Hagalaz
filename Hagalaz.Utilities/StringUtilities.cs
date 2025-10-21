@@ -21,7 +21,7 @@ namespace Hagalaz.Utilities
         /// <summary>
         /// A regular expression for validating standard email address formats.
         /// </summary>
-        private static readonly Regex _validMail = new Regex(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$", RegexOptions.IgnoreCase);
+        private static readonly Regex _validMail = new Regex(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", RegexOptions.IgnoreCase);
 
         /// <summary>
         /// A regular expression for validating names, likely usernames, allowing for simple or multi-part names.

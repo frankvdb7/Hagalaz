@@ -29,6 +29,9 @@ namespace Hagalaz.Utilities.Tests
         [DataRow(244048205L, "csharp")]
         [DataRow(79330059267400463L, "programming")]
         [DataRow(1L, "a")]
+        [DataRow(0L, null)]
+        [DataRow(-1L, null)]
+        [DataRow(65535L, "aj5h")]
         public void LongToString_ConvertsCorrectly(long value, string expected)
         {
             // Arrange
@@ -47,6 +50,10 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("test@example", false)]
         [DataRow(null, false)]
         [DataRow("", false)]
+        [DataRow("test@example.co.uk", true)]
+        [DataRow("test+alias@example.com", true)]
+        [DataRow("test@example.museum", true)]
+        [DataRow("test@192.168.1.1", false)]
         public void IsValidEmail_ValidatesCorrectly(string email, bool expected)
         {
             // Arrange
@@ -282,6 +289,72 @@ namespace Hagalaz.Utilities.Tests
 
             // Assert
             Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void SelectIntFromString_EmptyInput_ReturnsEmpty()
+        {
+            // Arrange
+            var input = "";
+
+            // Act
+            var actual = StringUtilities.SelectIntFromString(input).ToArray();
+
+            // Assert
+            Assert.AreEqual(0, actual.Length);
+        }
+
+        [TestMethod]
+        public void SelectIntFromString_InvalidInput_ReturnsZeroForInvalid()
+        {
+            // Arrange
+            var input = "1,abc,3";
+            var expected = new int[] { 1, 0, 3 };
+
+            // Act
+            var actual = StringUtilities.SelectIntFromString(input).ToArray();
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void SelectBoolFromString_EmptyInput_ReturnsEmpty()
+        {
+            // Arrange
+            var input = "";
+
+            // Act
+            var actual = StringUtilities.SelectBoolFromString(input).ToArray();
+
+            // Assert
+            Assert.AreEqual(0, actual.Length);
+        }
+
+        [TestMethod]
+        [DataRow("HELLO", 15263440L)]
+        public void StringToLong_WithUppercase_ConvertsCorrectly(string s, long expected)
+        {
+            // Arrange
+            // Act
+            long actual = StringUtilities.StringToLong(s);
+
+            // Assert
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void GetStringInBetween_IncludesBeginAndEnd()
+        {
+            // Arrange
+            var source = "begin THE_STRING end";
+            var expected = "begin THE_STRING end";
+
+            // Act
+            var result = StringUtilities.GetStringInBetween("begin ", " end", source, true, true);
+
+            // Assert
+            Assert.AreEqual(expected, result[0]);
         }
     }
 }
