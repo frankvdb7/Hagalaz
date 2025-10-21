@@ -345,3 +345,4 @@ node_modules
 /Data
 /Cache
 coveragereport/
+coveragereport_utilities/
