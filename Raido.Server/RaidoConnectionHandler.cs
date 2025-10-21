@@ -9,6 +9,9 @@ using Raido.Server.Internal;
 
 namespace Raido.Server
 {
+    /// <summary>
+    /// Handles incoming Raido connections.
+    /// </summary>
     public class RaidoConnectionHandler
     {
         private readonly IRaidoLifetimeManager _lifetimeManager;
@@ -18,6 +21,14 @@ namespace Raido.Server
         private readonly long? _maximumReceiveMessageSize;
         private readonly TimeProvider _timeProvider;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RaidoConnectionHandler"/> class.
+        /// </summary>
+        /// <param name="loggerFactory">The logger factory.</param>
+        /// <param name="raidoOptions">The Raido options.</param>
+        /// <param name="lifetimeManager">The lifetime manager.</param>
+        /// <param name="dispatcher">The dispatcher.</param>
+        /// <param name="metrics">The metrics.</param>
         public RaidoConnectionHandler(
             ILoggerFactory loggerFactory, IOptions<RaidoOptions> raidoOptions,
             IRaidoLifetimeManager lifetimeManager, IRaidoDispatcher dispatcher, RaidoMetrics metrics)
@@ -30,6 +41,11 @@ namespace Raido.Server
             _timeProvider = TimeProvider.System;
         }
 
+        /// <summary>
+        /// Handles a new connection.
+        /// </summary>
+        /// <param name="connection">The connection to handle.</param>
+        /// <returns>A <see cref="Task"/> that represents the asynchronous connection handling.</returns>
         public async Task ConnectAsync(RaidoConnectionContext connection)
         {
             connection.MetricsContext = _metrics.CreateContext();
@@ -56,6 +72,11 @@ namespace Raido.Server
             }
         }
 
+        /// <summary>
+        /// Runs the connection loop.
+        /// </summary>
+        /// <param name="connection">The connection to run.</param>
+        /// <returns>A <see cref="Task"/> that represents the asynchronous connection loop.</returns>
         public virtual async Task RunAsync(RaidoConnectionContext connection)
         {
             try
@@ -88,6 +109,11 @@ namespace Raido.Server
             await OnDisconnectedAsync(connection, connection.CloseException);
         }
 
+        /// <summary>
+        /// Dispatches messages from the connection.
+        /// </summary>
+        /// <param name="connection">The connection to dispatch messages from.</param>
+        /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
         public virtual async Task DispatchMessagesAsync(RaidoConnectionContext connection)
         {
             await using (var protocolReader = connection.CreateReader())
@@ -127,6 +153,12 @@ namespace Raido.Server
             }
         }
 
+        /// <summary>
+        /// Handles a connection disconnect.
+        /// </summary>
+        /// <param name="connection">The connection that disconnected.</param>
+        /// <param name="exception">The exception that caused the disconnect, if any.</param>
+        /// <returns>A <see cref="Task"/> that represents the asynchronous disconnect handling.</returns>
         public virtual async Task OnDisconnectedAsync(RaidoConnectionContext connection, Exception? exception)
         {
             // We wait on abort to complete, this is so that we can guarantee that all callbacks have fired

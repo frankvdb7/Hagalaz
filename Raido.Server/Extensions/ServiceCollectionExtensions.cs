@@ -7,8 +7,16 @@ using Raido.Server.Internal;
 
 namespace Raido.Server.Extensions
 {
+    /// <summary>
+    /// Extension methods for <see cref="IServiceCollection"/>.
+    /// </summary>
     public static class ServiceCollectionExtensions
     {
+        /// <summary>
+        /// Adds the core Raido server services to the specified <see cref="IServiceCollection"/>.
+        /// </summary>
+        /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
+        /// <returns>A <see cref="IRaidoBuilder"/> that can be used to further configure the Raido server.</returns>
         public static IRaidoBuilder AddRaidoServerCore(this IServiceCollection services)
         {
             if (services == null)
@@ -39,6 +47,12 @@ namespace Raido.Server.Extensions
             return new DefaultRaidoBuilder(services);
         }
         
+        /// <summary>
+        /// Adds the Raido server services to the specified <see cref="IServiceCollection"/>.
+        /// </summary>
+        /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
+        /// <param name="options">A delegate to configure the <see cref="RaidoOptions"/>.</param>
+        /// <returns>A <see cref="IRaidoBuilder"/> that can be used to further configure the Raido server.</returns>
         public static IRaidoBuilder AddRaidoServer(this IServiceCollection services, Action<RaidoOptions> options)
         {
             if (services == null)
@@ -52,6 +66,11 @@ namespace Raido.Server.Extensions
             return builder;
         }
         
+        /// <summary>
+        /// Adds the Raido server services to the specified <see cref="IServiceCollection"/>.
+        /// </summary>
+        /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
+        /// <returns>A <see cref="IRaidoBuilder"/> that can be used to further configure the Raido server.</returns>
         public static IRaidoBuilder AddRaidoServer(this IServiceCollection services) => services.AddRaidoServer(_ => { });
     }
 }

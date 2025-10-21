@@ -1,9 +1,16 @@
 namespace Raido.Server
 {
+    /// <summary>
+    /// A proxy that provides access to the calling client and other clients.
+    /// </summary>
     public interface IRaidoCallerClients : IRaidoCallerClients<IRaidoClientProxy>
     {
     }
 
+    /// <summary>
+    /// A proxy that provides access to the calling client and other clients.
+    /// </summary>
+    /// <typeparam name="T">The type of the client proxy.</typeparam>
     public interface IRaidoCallerClients<out T> : IRaidoClients<T>
     {
         /// <summary>

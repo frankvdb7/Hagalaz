@@ -3,6 +3,9 @@ using Microsoft.Extensions.Options;
 
 namespace Raido.Server
 {
+    /// <summary>
+    /// Sets up the default options for Raido.
+    /// </summary>
     public class RaidoOptionsSetup : IConfigureOptions<RaidoOptions>
     {
         internal static TimeSpan DefaultKeepAliveInterval => TimeSpan.FromSeconds(15);
@@ -11,6 +14,10 @@ namespace Raido.Server
 
         internal const int DefaultMaximumMessageSize = 32 * 1024;
 
+        /// <summary>
+        /// Configures the Raido options.
+        /// </summary>
+        /// <param name="options">The options to configure.</param>
         public void Configure(RaidoOptions options)
         {
             if (options.KeepAliveInterval == null)
