@@ -3,12 +3,18 @@ using System.Threading.Tasks;
 
 namespace Raido.Server
 {
+    /// <summary>
+    /// A base class for a Raido hub.
+    /// </summary>
     public abstract class RaidoHub : IDisposable
     {
         private bool _disposed;
         private IRaidoCallerClients _clients = default!;
         private RaidoCallerContext _context = default!;
         
+        /// <summary>
+        /// Gets a <see cref="IRaidoCallerClients"/> that can be used to invoke methods on the clients connected to the hub.
+        /// </summary>
         public IRaidoCallerClients Clients
         {
             get
@@ -23,6 +29,9 @@ namespace Raido.Server
             }
         }
         
+        /// <summary>
+        /// Gets the context for the current invocation.
+        /// </summary>
         public RaidoCallerContext Context
         {
             get

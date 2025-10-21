@@ -8,6 +8,9 @@ using Raido.Common.Protocol;
 
 namespace Raido.Server
 {
+    /// <summary>
+    /// A protocol reader for Raido messages.
+    /// </summary>
     public class RaidoProtocolReader : IAsyncDisposable
     {
         private readonly PipeReader _reader;
@@ -19,21 +22,52 @@ namespace Raido.Server
         private bool _hasMessage;
         private bool _disposed;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RaidoProtocolReader"/> class.
+        /// </summary>
+        /// <param name="stream">The stream to read from.</param>
         public RaidoProtocolReader(Stream stream) : this(PipeReader.Create(stream)) { }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RaidoProtocolReader"/> class.
+        /// </summary>
+        /// <param name="reader">The pipe reader to read from.</param>
         public RaidoProtocolReader(PipeReader reader) => _reader = reader;
 
+        /// <summary>
+        /// Reads a message from the protocol.
+        /// </summary>
+        /// <typeparam name="TReadMessage">The type of the message to read.</typeparam>
+        /// <param name="reader">The message reader.</param>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> that can be used to cancel the read operation.</param>
+        /// <returns>A <see cref="ValueTask{TResult}"/> that represents the asynchronous read operation.</returns>
         public ValueTask<RaidoProtocolReadResult<TReadMessage>> ReadAsync<TReadMessage>(
             IRaidoMessageReader<TReadMessage> reader,
             CancellationToken cancellationToken = default) =>
             ReadAsync(reader, maximumMessageSize: null, cancellationToken);
 
+        /// <summary>
+        /// Reads a message from the protocol.
+        /// </summary>
+        /// <typeparam name="TReadMessage">The type of the message to read.</typeparam>
+        /// <param name="reader">The message reader.</param>
+        /// <param name="maximumMessageSize">The maximum message size.</param>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> that can be used to cancel the read operation.</param>
+        /// <returns>A <see cref="ValueTask{TResult}"/> that represents the asynchronous read operation.</returns>
         public ValueTask<RaidoProtocolReadResult<TReadMessage>> ReadAsync<TReadMessage>(
             IRaidoMessageReader<TReadMessage> reader,
             long maximumMessageSize,
             CancellationToken cancellationToken = default) =>
             ReadAsync(reader, (long?)maximumMessageSize, cancellationToken);
 
+        /// <summary>
+        /// Reads a message from the protocol.
+        /// </summary>
+        /// <typeparam name="TReadMessage">The type of the message to read.</typeparam>
+        /// <param name="reader">The message reader.</param>
+        /// <param name="maximumMessageSize">The maximum message size.</param>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> that can be used to cancel the read operation.</param>
+        /// <returns>A <see cref="ValueTask{TResult}"/> that represents the asynchronous read operation.</returns>
         public ValueTask<RaidoProtocolReadResult<TReadMessage>> ReadAsync<TReadMessage>(
             IRaidoMessageReader<TReadMessage> reader,
             long? maximumMessageSize,
@@ -269,6 +303,10 @@ namespace Raido.Server
             _hasMessage = false;
         }
 
+        /// <summary>
+        /// Disposes the reader.
+        /// </summary>
+        /// <returns>A <see cref="ValueTask"/> that represents the asynchronous dispose operation.</returns>
         public ValueTask DisposeAsync()
         {
             _disposed = true;

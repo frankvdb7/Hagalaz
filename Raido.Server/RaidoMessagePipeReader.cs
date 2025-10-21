@@ -9,6 +9,9 @@ using Raido.Server.Internal;
 
 namespace Raido.Server
 {
+    /// <summary>
+    /// A <see cref="PipeReader"/> that reads Raido messages.
+    /// </summary>
     public class RaidoMessagePipeReader : PipeReader
     {
         private readonly IRaidoMessageReader<ReadOnlySequence<byte>> _messageReader;
@@ -24,17 +27,24 @@ namespace Raido.Server
         private bool _allExamined;
         private bool _advanced = true;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RaidoMessagePipeReader"/> class.
+        /// </summary>
+        /// <param name="reader">The underlying <see cref="PipeReader"/>.</param>
+        /// <param name="raidoMessageReader">The <see cref="IRaidoMessageReader{T}"/> used to parse messages.</param>
         public RaidoMessagePipeReader(PipeReader reader, IRaidoMessageReader<ReadOnlySequence<byte>> raidoMessageReader)
         {
             _reader = reader ?? throw new ArgumentNullException(nameof(reader));
             _messageReader = raidoMessageReader ?? throw new ArgumentNullException(nameof(raidoMessageReader));
         }
 
+        /// <inheritdoc />
         public override void AdvanceTo(SequencePosition consumed)
         {
             AdvanceTo(consumed, consumed);
         }
 
+        /// <inheritdoc />
         public override void AdvanceTo(SequencePosition consumed, SequencePosition examined)
         {
             if (_isThisCompleted)
@@ -71,11 +81,13 @@ namespace Raido.Server
             }
         }
 
+        /// <inheritdoc />
         public override void CancelPendingRead()
         {
             _reader.CancelPendingRead();
         }
 
+        /// <inheritdoc />
         public override void Complete(Exception? exception = null)
         {
             if (!_advanced)
@@ -87,6 +99,7 @@ namespace Raido.Server
             _backlog.Dispose();
         }
 
+        /// <inheritdoc />
         public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
         {
             if (_isThisCompleted)
@@ -111,6 +124,7 @@ namespace Raido.Server
             }
         }
 
+        /// <inheritdoc />
         public override bool TryRead(out ReadResult readResult)
         {
             if (_isThisCompleted)

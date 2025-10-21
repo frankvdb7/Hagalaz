@@ -16,6 +16,9 @@ using Raido.Server.Internal;
 
 namespace Raido.Server
 {
+    /// <summary>
+    /// Represents a connection to a Raido endpoint.
+    /// </summary>
     public class RaidoConnectionContext
     {
         private static readonly WaitCallback _abortedCallback = AbortConnection;
@@ -91,10 +94,24 @@ namespace Raido.Server
         /// </summary>
         public virtual IDictionary<object, object?> Items => _connection.Items;
 
+        /// <summary>
+        /// Gets the input pipe for the connection.
+        /// </summary>
         public virtual PipeReader Input => _connection.Transport.Input;
+
+        /// <summary>
+        /// Gets the output pipe for the connection.
+        /// </summary>
         public virtual PipeWriter Output => _connection.Transport.Output;
 
+        /// <summary>
+        /// Gets the local endpoint for the connection.
+        /// </summary>
         public virtual IPEndPoint? LocalEndPoint => _localIPEndPoint ??= _connection.LocalEndPoint as IPEndPoint;
+
+        /// <summary>
+        /// Gets the remote endpoint for the connection.
+        /// </summary>
         public virtual IPEndPoint? RemoteEndPoint => _remoteIPEndPoint ??= _connection.RemoteEndPoint as IPEndPoint;
 
 
@@ -103,6 +120,12 @@ namespace Raido.Server
         /// </summary>
         public virtual IRaidoProtocol Protocol { get; internal set; } = default!;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RaidoConnectionContext"/> class.
+        /// </summary>
+        /// <param name="connection">The underlying <see cref="ConnectionContext"/>.</param>
+        /// <param name="contextOptions">The options for the connection context.</param>
+        /// <param name="loggerFactory">The logger factory.</param>
         public RaidoConnectionContext(ConnectionContext connection, RaidoConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
         {
             _connection = connection;
@@ -137,6 +160,13 @@ namespace Raido.Server
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Writes a message to the connection.
+        /// </summary>
+        /// <typeparam name="TMessage">The type of the message.</typeparam>
+        /// <param name="message">The message to write.</param>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> that can be used to cancel the write operation.</param>
+        /// <returns>A <see cref="ValueTask"/> that represents the asynchronous write operation.</returns>
         public virtual ValueTask WriteAsync<TMessage>(TMessage message, CancellationToken cancellationToken = default) where TMessage : RaidoMessage =>
             WriteAsync<TMessage>(message, ignoreAbort: false, cancellationToken);
 
@@ -251,6 +281,9 @@ namespace Raido.Server
             }
         }
 
+        /// <summary>
+        /// Aborts the connection.
+        /// </summary>
         public virtual void Abort()
         {
             _connectionAborted = true;

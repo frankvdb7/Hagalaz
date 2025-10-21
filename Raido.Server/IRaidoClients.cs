@@ -2,10 +2,17 @@ using System.Collections.Generic;
 
 namespace Raido.Server
 {
+    /// <summary>
+    /// A proxy that provides access to connected clients.
+    /// </summary>
     public interface IRaidoClients : IRaidoClients<IRaidoClientProxy>
     {
     }
 
+    /// <summary>
+    /// A proxy that provides access to connected clients.
+    /// </summary>
+    /// <typeparam name="T">The type of the client proxy.</typeparam>
     public interface IRaidoClients<out T>
     {
         /// <summary>

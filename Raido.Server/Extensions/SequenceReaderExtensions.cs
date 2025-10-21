@@ -6,6 +6,9 @@ using Raido.Common;
 
 namespace Raido.Server.Extensions
 {
+    /// <summary>
+    /// Extension methods for <see cref="SequenceReader{T}"/>.
+    /// </summary>
     public static class SequenceReaderExtensions
     {
         /// <summary>
@@ -32,6 +35,12 @@ namespace Raido.Server.Extensions
             return false;
         }
 
+        /// <summary>
+        /// Tries to read a boolean from the sequence.
+        /// </summary>
+        /// <param name="reader">The sequence reader.</param>
+        /// <param name="value">When this method returns, contains the boolean value, if the read operation succeeded; otherwise, the default value for the type of the <paramref name="value"/> parameter.</param>
+        /// <returns><c>true</c> if the read operation succeeded; otherwise, <c>false</c>.</returns>
         public static bool TryRead(ref this SequenceReader<byte> reader, out bool value)
         {
             if (!reader.TryRead(out byte val))

@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 
 namespace Raido.Common.Buffers
 {
+    /// <summary>
+    /// A <see cref="Stream"/> that writes to a buffer.
+    /// </summary>
     public sealed class MemoryBufferWriter : Stream, IBufferWriter<byte>, IByteBufferWriter
     {
         [ThreadStatic] private static MemoryBufferWriter? _cachedInstance;
@@ -26,17 +29,29 @@ namespace Raido.Common.Buffers
 
         private MemoryBufferWriter(int minimumSegmentSize = 4096) => _minimumSegmentSize = minimumSegmentSize;
 
+        /// <inheritdoc />
         public override long Length => _bytesWritten;
+
+        /// <inheritdoc />
         public override bool CanRead => false;
+
+        /// <inheritdoc />
         public override bool CanSeek => false;
+
+        /// <inheritdoc />
         public override bool CanWrite => true;
 
+        /// <inheritdoc />
         public override long Position
         {
             get => throw new NotSupportedException();
             set => throw new NotSupportedException();
         }
 
+        /// <summary>
+        /// Gets a <see cref="MemoryBufferWriter"/> from the cache.
+        /// </summary>
+        /// <returns>A <see cref="MemoryBufferWriter"/>.</returns>
         public static MemoryBufferWriter Get()
         {
             var writer = _cachedInstance;
@@ -61,6 +76,10 @@ namespace Raido.Common.Buffers
             return writer;
         }
 
+        /// <summary>
+        /// Returns a <see cref="MemoryBufferWriter"/> to the cache.
+        /// </summary>
+        /// <param name="writer">The <see cref="MemoryBufferWriter"/> to return.</param>
         public static void Return(MemoryBufferWriter writer)
         {
             _cachedInstance = writer;
@@ -70,6 +89,9 @@ namespace Raido.Common.Buffers
             writer.Reset();
         }
 
+        /// <summary>
+        /// Resets the writer.
+        /// </summary>
         public void Reset()
         {
             if (_completedSegments != null)
@@ -92,12 +114,14 @@ namespace Raido.Common.Buffers
             _position = 0;
         }
 
+        /// <inheritdoc />
         public void Advance(int count)
         {
             _bytesWritten += count;
             _position += count;
         }
 
+        /// <inheritdoc />
         public Memory<byte> GetMemory(int sizeHint = 0)
         {
             EnsureCapacity(sizeHint);
@@ -105,6 +129,7 @@ namespace Raido.Common.Buffers
             return _currentSegment?.AsMemory(_position, _currentSegment.Length - _position) ?? Memory<byte>.Empty;
         }
 
+        /// <inheritdoc />
         public Span<byte> GetSpan(int sizeHint = 0)
         {
             EnsureCapacity(sizeHint);
@@ -112,6 +137,10 @@ namespace Raido.Common.Buffers
             return _currentSegment != null ? _currentSegment.AsSpan(_position, _currentSegment.Length - _position) : Span<byte>.Empty;
         }
 
+        /// <summary>
+        /// Copies the contents of the writer to a <see cref="IBufferWriter{T}"/>.
+        /// </summary>
+        /// <param name="destination">The destination <see cref="IBufferWriter{T}"/>.</param>
         public void CopyTo(IBufferWriter<byte> destination)
         {
             if (_completedSegments != null)
@@ -127,6 +156,7 @@ namespace Raido.Common.Buffers
             destination.Write(_currentSegment.AsSpan(0, _position));
         }
 
+        /// <inheritdoc />
         public override Task CopyToAsync(Stream destination, int bufferSize, CancellationToken cancellationToken)
         {
             if (_completedSegments == null && _currentSegment is not null)
@@ -207,6 +237,10 @@ namespace Raido.Common.Buffers
             }
         }
 
+        /// <summary>
+        /// Converts the contents of the writer to a byte array.
+        /// </summary>
+        /// <returns>A byte array.</returns>
         public byte[] ToArray()
         {
             if (_currentSegment == null)
@@ -236,6 +270,10 @@ namespace Raido.Common.Buffers
             return result;
         }
 
+        /// <summary>
+        /// Copies the contents of the writer to a <see cref="Span{T}"/>.
+        /// </summary>
+        /// <param name="span">The destination <see cref="Span{T}"/>.</param>
         public void CopyTo(Span<byte> span)
         {
             Debug.Assert(span.Length >= _bytesWritten);
@@ -265,10 +303,19 @@ namespace Raido.Common.Buffers
             Debug.Assert(_bytesWritten == totalWritten + _position);
         }
 
+        /// <inheritdoc />
         public override void Flush() { }
+
+        /// <inheritdoc />
         public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        /// <inheritdoc />
         public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        /// <inheritdoc />
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        /// <inheritdoc />
         public override void SetLength(long value) => throw new NotSupportedException();
 
         IByteBufferWriter IByteBufferWriter.WriteByte(byte value)
@@ -277,6 +324,7 @@ namespace Raido.Common.Buffers
             return this;
         }
 
+        /// <inheritdoc />
         public override void WriteByte(byte value)
         {
             if (_currentSegment != null && (uint)_position < (uint)_currentSegment.Length)
@@ -292,6 +340,8 @@ namespace Raido.Common.Buffers
             _position++;
             _bytesWritten++;
         }
+
+        /// <inheritdoc />
         public override void Write(byte[] buffer, int offset, int count)
         {
             var position = _position;
@@ -315,6 +365,7 @@ namespace Raido.Common.Buffers
             return this;
         }
 
+        /// <inheritdoc />
         public override void Write(ReadOnlySpan<byte> span)
         {
             if (_currentSegment != null && span.TryCopyTo(_currentSegment.AsSpan(_position)))
@@ -329,6 +380,7 @@ namespace Raido.Common.Buffers
         }
 #endif
 
+        /// <inheritdoc />
         protected override void Dispose(bool disposing)
         {
             if (disposing)

@@ -9,6 +9,9 @@ using Raido.Common.Buffers;
 
 namespace Raido.Common.Protocol
 {
+    /// <summary>
+    /// A binary writer for Raido messages.
+    /// </summary>
     public sealed class RaidoMessageBinaryWriter : IRaidoMessageBinaryWriter, IRaidoMessageBitWriter
     {
         private static readonly int[] _bitMasks =
@@ -28,33 +31,65 @@ namespace Raido.Common.Protocol
         private int _bitPosition;
         private int _initializedBytes;
 
+        /// <summary>
+        /// Gets the opcode of the message.
+        /// </summary>
         public int Opcode { get; private set; }
+
+        /// <summary>
+        /// Gets the size of the message.
+        /// </summary>
         public RaidoMessageSize Size { get; private set; }
+
+        /// <summary>
+        /// Gets the length of the writer.
+        /// </summary>
         public long Length => _buffer.Length;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RaidoMessageBinaryWriter"/> class.
+        /// </summary>
+        /// <param name="buffer">The buffer to write to.</param>
         public RaidoMessageBinaryWriter(IByteBufferWriter buffer) => _buffer = buffer;
 
+        /// <inheritdoc />
         public IRaidoMessageBinaryWriter SetOpcode(int opcode)
         {
             Opcode = opcode;
             return this;
         }
+
+        /// <inheritdoc />
         public IRaidoMessageBinaryWriter SetSize(RaidoMessageSize size)
         {
             Size = size;
             return this;
         }
+
+        /// <inheritdoc />
         public void Advance(int count) => _buffer.Advance(count);
+
+        /// <inheritdoc />
         public Memory<byte> GetMemory(int sizeHint = 0) => _buffer.GetMemory(sizeHint);
+
+        /// <inheritdoc />
         public Span<byte> GetSpan(int sizeHint = 0) => _buffer.GetSpan(sizeHint);
+
+        /// <inheritdoc />
         public IByteBufferWriter Write(ReadOnlySpan<byte> span) => _buffer.Write(span);
+
+        /// <inheritdoc />
         public IByteBufferWriter WriteByte(byte value) => _buffer.WriteByte(value);
+
+        /// <inheritdoc />
         public IRaidoMessageBitWriter BeginBitAccess()
         {
             _bitPosition = (int)(Length * 8);
             _initializedBytes = (int)Length;
             return this;
         }
+
+        /// <inheritdoc />
         public IRaidoMessageBitWriter WriteBits(int bitCount, int value)
         {
             if (bitCount <= 0 || bitCount > 32)
@@ -95,6 +130,8 @@ namespace Raido.Common.Protocol
             Advance(bytePosition);
             return this;
         }
+
+        /// <inheritdoc />
         public IRaidoMessageBinaryWriter EndBitAccess()
         {
             var calcBytePosition = (_bitPosition + 7) / 8;
