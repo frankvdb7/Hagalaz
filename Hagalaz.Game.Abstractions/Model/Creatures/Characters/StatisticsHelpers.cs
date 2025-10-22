@@ -12,20 +12,20 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// </summary>
         /// <param name="level">The target skill level.</param>
         /// <returns>The total experience required for the given level.</returns>
-        public static int ExperienceForLevel(byte level)
+        public static int ExperienceForLevel(int level)
         {
-            double points = 0;
-            double output = 0;
-
-            for (var lvl = 1; lvl <= level; lvl++)
+            if (level <= 1)
             {
-                points += Math.Floor(lvl + 300.0 * Math.Pow(2.0, lvl / 7.0));
-                if (lvl >= level)
-                    return (int)output;
-                output = Math.Floor(points / 4);
+                return 0;
             }
 
-            return 0;
+            double points = 0;
+            for (var lvl = 1; lvl < level; lvl++)
+            {
+                points += Math.Floor(lvl + 300.0 * Math.Pow(2.0, lvl / 7.0));
+            }
+
+            return (int)Math.Floor(points / 4);
         }
 
         /// <summary>
