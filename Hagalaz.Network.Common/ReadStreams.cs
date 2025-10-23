@@ -28,9 +28,9 @@ namespace Hagalaz.Network.Common
         public byte ReadByteA() => (byte)(BaseBuffer.ReadByte() - 128);
 
         /// <summary>
-        /// Reads the signed byte.
+        /// Reads a signed byte from the buffer.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>Returns a 8-bit signed integer.</returns>
         public sbyte ReadSignedByte() => (sbyte)BaseBuffer.ReadByte();
 
         /// <summary>
@@ -159,9 +159,9 @@ namespace Hagalaz.Network.Common
     | ((BaseBuffer.ReadByte() & 0xff) << 24);
 
         /// <summary>
-        /// Reads the smart.
+        /// Reads a "smart" value, which is either a byte or a short, depending on the first byte.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>Returns either a byte or a short, cast to an integer.</returns>
         public int ReadSmart()
         {
             if (Peek() < 128)
@@ -202,9 +202,10 @@ namespace Hagalaz.Network.Common
         }
 
         /// <summary>
-        /// Reads a versioned string.
+        /// Reads a versioned string, which must be prefixed with a 0 byte.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The string read from the buffer.</returns>
+        /// <exception cref="Exception">Thrown if the string is not prefixed with a 0 byte.</exception>
         public string ReadVString()
         {
             if (ReadByte() != 0)

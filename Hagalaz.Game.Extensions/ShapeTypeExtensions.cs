@@ -3,14 +3,17 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 
 namespace Hagalaz.Game.Extensions
 {
+    /// <summary>
+    /// Provides an extension method for the <see cref="ShapeType"/> enum.
+    /// </summary>
     public static class ShapeTypeExtensions
     {
         /// <summary>
-        /// Gets the layer for the shape
+        /// Gets the rendering and interaction layer associated with a given game object shape type.
         /// </summary>
-        /// <param name="shape"></param>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
+        /// <param name="shape">The shape type to get the layer for.</param>
+        /// <returns>The <see cref="LayerType"/> that corresponds to the specified shape.</returns>
+        /// <exception cref="NotImplementedException">Thrown when a mapping for the specified <paramref name="shape"/> has not been defined.</exception>
         public static LayerType GetLayerType(this ShapeType shape) =>
             shape switch
             {

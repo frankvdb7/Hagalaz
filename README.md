@@ -1,6 +1,6 @@
 # Hagalaz
 
-A modern, full-stack RSPS built with a microservice architecture, designed for scalability and maintainability.
+A modern, full-stack recreation of a classic MMORPG, built with a microservice architecture and designed for scalability, maintainability, and a rich developer experience.
 
 Hagalaz means "hail" in Proto-Germanic and represents natural disruption and transformation. Symbolizing the uncontrollable forces of nature, it signifies unexpected challenges that lead to growth and renewal.
 
@@ -8,82 +8,86 @@ Hagalaz means "hail" in Proto-Germanic and represents natural disruption and tra
 
 ## Description
 
-This repository is a comprehensive application built using modern development technologies and best practices. It leverages:
+This repository is a comprehensive application built using modern development technologies and best practices. It leverages a powerful stack to deliver a robust and scalable platform.
 
-### Frameworks
-- **ASP .NET**
-- **.NET Aspire**
-- **Angular**
+### Core Technologies
+- **Backend**: .NET 9, C#, ASP.NET Core
+- **Frontend**: Angular, Electron
+- **Orchestration**: .NET Aspire
+- **Infrastructure**: Docker, MySQL, RabbitMQ, Redis
+- **Communication**: REST APIs, gRPC, WebSockets
 
-### Infrastructure
-- **Docker**
-- **Kubernetes**
-- **RabbitMQ**
-- **MySQL**
-- **Redis**
-- **Grafana**
-- **Prometheus**
-- **YARP**
+### Key Libraries & Standards
+- **Messaging**: MassTransit for reliable, asynchronous communication.
+- **Authentication**: OpenIddict implementing OAuth2 and OpenID Connect.
+- **Resilience**: Polly for transient-fault handling and resilience patterns.
+- **Caching**: FusionCache with Redis for high-performance data caching.
+- **Observability**: OpenTelemetry for standardized logs, metrics, and traces.
+- **API Standards**: OpenAPI for documentation, tested with Scalar.
 
-### Libraries
-- **Masstransit**
-- **OpenIddict**
-- **Scalar**
-- **Scrutor**
-- **Polly**
-- **Refit**
-- **FusionCache**
-- **FluentResults**
+## Project Structure
 
-### Standards
-- **OpenTelemetry**
-- **OpenAPI**
-- **OAuth2**
+The solution is organized into a microservice architecture, with clear separation of concerns between projects.
 
-## Features
+- **`Hagalaz.AppHost`**: The .NET Aspire orchestration project. This is the entry point for running the application locally. It defines all the services, databases, and other resources, and manages their configuration and lifecycle.
 
-- **Scalable Microservices Architecture**: Designed for scalability and fault tolerance.
-- **Authentication & Authorization**: Implemented with OpenIddict/OAuth2.
-- **Distributed Messaging**: Powered by RabbitMQ/Masstransit for reliable communication between services.
-- **API Documentation**: Interactive documentation with Scalar/OpenAPI.
-- **Resilience**: Using Polly for transient-fault handling.
-- **Type-safe APIs**: With Refit for clean HTTP client integration.
-- **Caching**: Optimized with Redis/FusionCache.
-- **Telemetry & Analytics**: Standardized with OpenTelemetry. Exported to Prometheus. Visualized in Grafana.
-- **Containerization**: Fully containerized for portability using Docker and Kubernetes.
-- **Dynamic Proxying**: Achieved through YARP.
-- **Frontend**: Angular SPA with Material Design.
+- **`Hagalaz.ApiService`**: The public-facing API gateway. It acts as a reverse proxy (YARP) and the primary entry point for the Angular client, routing requests to the appropriate backend services and handling cross-cutting concerns like authentication.
 
-## Key Projects
+- **`Services/`**: This directory contains the individual microservices that make up the application's backend logic.
+  - **`Hagalaz.Services.GameWorld`**: Manages core gameplay logic, character state, and interactions within the game world.
+  - **`Hagalaz.Services.Login`**: Handles the player login and character selection process.
+  - **`Hagalaz.Services.Store`**: (Example) Manages in-game shops or other transactional features.
+  - *(Other services follow this pattern)*
 
-### Hagalaz.Game.Abstractions
+- **`Libraries/`**: Contains shared libraries and abstractions used across multiple services to reduce code duplication and enforce consistency.
+  - **`Hagalaz.Game.Abstractions`**: The foundational project for the game's domain model. It defines the core interfaces (`ICharacter`, `IItem`), enums, and data structures that represent all entities and concepts within the game world.
+  - **`Hagalaz.Cache`**: A dedicated library for reading and parsing the game's data cache files.
+  - **`Hagalaz.Network.Common`**: Provides common networking utilities, including packet composition and read/write operations.
+  - **`Hagalaz.Security`**: Implements security-related functionalities like data encryption and hashing.
 
-`Hagalaz.Game.Abstractions` is the foundational project for the game's domain model. It defines the core interfaces, enums, and data structures that represent all entities and concepts within the game world. This project is crucial for ensuring a decoupled and maintainable architecture, as it provides the contracts that all other game-related services and components depend on.
-
-Key namespaces include:
-- **Model**: Contains the core data structures for game entities like `ICharacter`, `INpc`, `IItem`, and `IGameObject`. It also defines fundamental concepts such as `ILocation`, `IAnimation`, and various combat-related enums.
-- **Builders**: Defines fluent builder interfaces for constructing complex game objects and events, such as animations, projectiles, and widgets.
-- **Services**: Contains interfaces for game services that manage different aspects of the game, like `ICharacterService`, `IItemService`, and `IShopService`.
-- **Collections**: Defines interfaces for item containers like `IInventoryContainer` and `IBankContainer`.
-- **Scripts**: Contains interfaces for creating scripted game logic and behaviors.
+- **`Tests/`**: Contains all unit, integration, and end-to-end tests for the solution, ensuring code quality and reliability.
 
 ## Prerequisites
 
-- RSPS Cache (placed in /Cache)
-- RSPS Client
-- [.NET SDK](https://dotnet.microsoft.com/download)
-- [.NET Aspire](https://learn.microsoft.com/en-us/dotnet/aspire/)
-- [Docker](https://www.docker.com/)
-- [Kubernetes](https://kubernetes.io/) or a local cluster (e.g., Minikube or Docker Desktop)
+Before you begin, ensure you have the following installed:
+- **[.NET 9 SDK](https://dotnet.microsoft.com/download)**
+- **[.NET Aspire Workload](https://learn.microsoft.com/en-us/dotnet/aspire/get-started/build-your-first-aspire-app#install-the-net-aspire-workload)**
+- **[Docker Desktop](https://www.docker.com/products/docker-desktop/)**
+- A compatible game client and its corresponding data cache. The cache files should be placed in a `/Cache` directory at the root of the solution.
 
 ## Getting Started
 
-- Run / Debug the Hagalaz.AppHost project to let .NET Aspire start and orchestrate the required services in Docker locally.
-- Deploy the Hagalaz.AppHost project with .NET Aspire and Aspirate to a remote Kubernetes cluster or locally (e.g., Minkube or Docker)
+### 1. Running the Application
+The easiest way to get the entire application running is by using the .NET Aspire AppHost project.
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/your-username/hagalaz.git
+    cd hagalaz
+    ```
+
+2.  **Run the AppHost:**
+    ```bash
+    dotnet run --project Hagalaz.AppHost/Hagalaz.AppHost.csproj
+    ```
+
+3.  **Launch the Aspire Dashboard:**
+    Once the project is running, .NET Aspire will start all the configured services, databases, and containers. You can view the status, logs, and traces of all resources in the Aspire Dashboard, which typically launches automatically in your web browser.
+
+### 2. Configuration
+Most of the service discovery and configuration is handled automatically by .NET Aspire. However, service-specific settings can be found and modified in the `appsettings.json` file of each individual service project (e.g., `Hagalaz.Services.GameWorld/appsettings.json`).
+
+### 3. Development Workflow
+A typical workflow for adding a new feature might look like this:
+1.  **Define Contracts**: Add or update interfaces and models in `Hagalaz.Game.Abstractions`.
+2.  **Implement Service Logic**: Implement the new business logic within the relevant microservice in the `Services/` directory.
+3.  **Add API Endpoints**: Expose the new functionality via an API endpoint in the service.
+4.  **Write Tests**: Add unit and integration tests for the new logic in the corresponding `Tests/` project.
+5.  **Consume in Client**: Update the Angular frontend to consume the new endpoint.
 
 ## Contributing
 
-Contributions are welcome! Please fork the repository and submit a pull request.
+Contributions are welcome! Please fork the repository, create a new branch for your feature or fix, and submit a pull request.
 
 ## License
 
