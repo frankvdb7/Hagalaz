@@ -65,6 +65,12 @@ namespace Hagalaz.Cache.Extensions
             stream.WriteByte((byte)value);
         }
 
+        public static void WriteLong(this MemoryStream stream, long value)
+        {
+            stream.WriteInt((int)(value >> 32));
+            stream.WriteInt((int)value);
+        }
+
         /// <summary>
         /// Writes a 3-byte integer (medium integer) to the stream in big-endian byte order.
         /// </summary>
@@ -248,6 +254,18 @@ namespace Hagalaz.Cache.Extensions
                 return string.Empty;
             stream.Position -= 1;
             return stream.ReadString();
+        }
+
+        public static void WriteCheckedString(this MemoryStream stream, string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                stream.WriteByte(0);
+            }
+            else
+            {
+                stream.WriteString(value);
+            }
         }
         
         /// <summary>
