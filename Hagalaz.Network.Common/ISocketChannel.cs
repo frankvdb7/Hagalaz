@@ -4,61 +4,60 @@ using System.Threading.Tasks;
 namespace Hagalaz.Network.Common
 {
     /// <summary>
-    /// The method that will handle the event raised when data is received via the TCP listener.
+    /// Represents the method that will handle the event raised when data is received from a socket channel.
     /// </summary>
-    /// <param name="data">The data recieved and to be handled.</param>
+    /// <param name="data">The byte array containing the received data.</param>
     public delegate void DataRouteEventHandler(byte[] data);
+
     /// <summary>
-    /// The method that will handle the event raised when the client errors or disconnects.
+    /// Represents the method that will handle the event raised when a socket channel is disconnected.
     /// </summary>
     public delegate void DisconnectEventHandler();
 
     /// <summary>
-    /// 
+    /// Defines the contract for a communication channel over a socket, providing methods for sending and receiving data,
+    /// and managing the connection state.
     /// </summary>
     public interface ISocketChannel : IDisposable
     {
         /// <summary>
-        /// Gets the connection identifier.
+        /// Gets the unique identifier for this connection.
         /// </summary>
-        /// <value>
-        /// The connection identifier.
-        /// </value>
         string ConnectionId { get; }
+
         /// <summary>
-        /// Gets the ip address.
+        /// Gets the IP address of the remote endpoint.
         /// </summary>
-        /// <value>
-        /// The ip address.
-        /// </value>
         string IpAddress { get; }
+
         /// <summary>
-        /// Gets a value indicating whether this <see cref="ISocketChannel"/> is connected.
+        /// Gets a value indicating whether the socket channel is currently connected.
         /// </summary>
-        /// <value>
-        ///   <c>true</c> if connected; otherwise, <c>false</c>.
-        /// </value>
         bool Connected { get; }
+
         /// <summary>
-        /// Starts the specified route data event.
+        /// Starts the channel's data listening loop and associates the specified event handlers for data reception and disconnection.
         /// </summary>
-        /// <param name="routeDataEvent">The route data event.</param>
-        /// <param name="disconnectEvent">The disconnect event.</param>
+        /// <param name="routeDataEvent">The event handler for incoming data.</param>
+        /// <param name="disconnectEvent">The event handler for disconnection events.</param>
         void Start(DataRouteEventHandler routeDataEvent, DisconnectEventHandler disconnectEvent);
+
         /// <summary>
-        /// Switches the events.
+        /// Replaces the existing data and disconnection event handlers with new ones.
         /// </summary>
-        /// <param name="routeDataEvent">The route data event.</param>
-        /// <param name="disconnectEvent">The disconnect event.</param>
+        /// <param name="routeDataEvent">The new event handler for incoming data.</param>
+        /// <param name="disconnectEvent">The new event handler for disconnection events.</param>
         void SwitchEvents(DataRouteEventHandler routeDataEvent, DisconnectEventHandler disconnectEvent);
+
         /// <summary>
-        /// Sends the data asynchronous.
+        /// Asynchronously sends a byte array over the socket channel.
         /// </summary>
-        /// <param name="data">The data.</param>
-        /// <returns></returns>
+        /// <param name="data">The data to be sent.</param>
+        /// <returns>A <see cref="Task"/> that represents the asynchronous send operation.</returns>
         Task SendDataAsync(byte[] data);
+
         /// <summary>
-        /// Disconnects this instance.
+        /// Closes the connection and disconnects the channel.
         /// </summary>
         void Disconnect();
     }

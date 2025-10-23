@@ -3,25 +3,24 @@
 namespace Hagalaz.Game.Extensions
 {
     /// <summary>
-    /// 
+    /// Provides extension methods for the <see cref="Permission"/> enum.
     /// </summary>
     public static class PermissionExtensions
     {
         /// <summary>
-        /// Whether this character has been given a special permission or any
-        /// other same type but higher level permission.
+        /// Checks if a given permission set includes a specific permission level or a higher one.
+        /// Since the permissions are flags and higher levels include lower ones, this is equivalent to <see cref="Enum.HasFlag"/>.
         /// </summary>
-        /// <param name="this">The this.</param>
-        /// <param name="permission">The permission to check for.</param>
-        /// <returns>
-        ///   <c>true</c> if [has at least X permission] [the specified permission]; otherwise, <c>false</c>.
-        /// </returns>
+        /// <param name="this">The permission set to check.</param>
+        /// <param name="permission">The permission level to check for.</param>
+        /// <returns><c>true</c> if the permission set has at least the specified permission level; otherwise, <c>false</c>.</returns>
         public static bool HasAtLeastXPermission(this Permission @this, Permission permission) => @this.HasFlag(permission);
 
         /// <summary>
-        /// Generates title depending on character's rights.
+        /// Converts a permission level to a user-friendly title string.
         /// </summary>
-        /// <returns>System.String.</returns>
+        /// <param name="this">The permission level to convert.</param>
+        /// <returns>A string representing the title associated with the highest permission level (e.g., "SYSTEM ADMINISTRATOR", "PLAYER").</returns>
         public static string ToRightsTitle(this Permission @this)
         {
             if (@this.HasFlag(Permission.SystemAdministrator))
@@ -37,9 +36,10 @@ namespace Hagalaz.Game.Extensions
         }
 
         /// <summary>
-        /// Get's client rights byte depending on character's permissions.
+        /// Converts a permission level to the corresponding integer value used by the game client to display crowns or icons.
         /// </summary>
-        /// <returns>System.Byte.</returns>
+        /// <param name="this">The permission level to convert.</param>
+        /// <returns>An integer representing the client-side rights value.</returns>
         public static int ToClientRights(this Permission @this)
         {
             var b = 0;

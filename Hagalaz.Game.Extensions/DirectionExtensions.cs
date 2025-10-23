@@ -3,13 +3,16 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 
 namespace Hagalaz.Game.Extensions
 {
+    /// <summary>
+    /// Provides extension methods for direction-related enums like <see cref="DirectionFlag"/>.
+    /// </summary>
     public static class DirectionExtensions
     {
         /// <summary>
-        /// Reverses the specified direction.
+        /// Calculates the opposite of a given direction.
         /// </summary>
-        /// <param name="direction">The direction.</param>
-        /// <returns></returns>
+        /// <param name="direction">The direction to reverse.</param>
+        /// <returns>The reversed direction, or <see cref="DirectionFlag.None"/> if the input direction is invalid.</returns>
         public static DirectionFlag Reverse(this DirectionFlag direction) =>
             direction switch
             {
@@ -25,10 +28,10 @@ namespace Hagalaz.Game.Extensions
             };
 
         /// <summary>
-        /// Gets the delta x.
+        /// Gets the change in the X-coordinate for a given direction.
         /// </summary>
-        /// <param name="direction">The flag.</param>
-        /// <returns></returns>
+        /// <param name="direction">The direction of movement.</param>
+        /// <returns>-1 for West, 1 for East, and 0 otherwise.</returns>
         public static int GetDeltaX(this DirectionFlag direction)
         {
             if (direction == DirectionFlag.None)
@@ -43,10 +46,10 @@ namespace Hagalaz.Game.Extensions
         }
 
         /// <summary>
-        /// Gets the delta y.
+        /// Gets the change in the Y-coordinate for a given direction.
         /// </summary>
-        /// <param name="direction">The flag.</param>
-        /// <returns></returns>
+        /// <param name="direction">The direction of movement.</param>
+        /// <returns>-1 for South, 1 for North, and 0 otherwise.</returns>
         public static int GetDeltaY(this DirectionFlag direction)
         {
             if (direction == DirectionFlag.None)
@@ -61,10 +64,10 @@ namespace Hagalaz.Game.Extensions
         }
 
         /// <summary>
-        /// 
+        /// Converts a <see cref="DirectionFlag"/> to its corresponding <see cref="FaceDirection"/>.
         /// </summary>
-        /// <param name="direction"></param>
-        /// <returns></returns>
+        /// <param name="direction">The direction flag to convert.</param>
+        /// <returns>The corresponding face direction.</returns>
         public static FaceDirection ToFaceDirection(this DirectionFlag direction) =>
             direction switch
             {
