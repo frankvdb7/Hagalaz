@@ -61,11 +61,6 @@ namespace Hagalaz.Cache.Types
                 writer.WriteByte((byte)graphicType.Contrast);
             }
 
-            if (graphicType.AByte260 == 3 && graphicType.AnInt265 == 8224)
-            {
-                writer.WriteByte(9);
-            }
-
             if (graphicType.ABoolean267)
             {
                 writer.WriteByte(10);
@@ -75,33 +70,35 @@ namespace Hagalaz.Cache.Types
             {
                 writer.WriteByte(11);
             }
-
-            if (graphicType.AByte260 == 4)
+            else if (graphicType.AByte260 == 4)
             {
                 writer.WriteByte(12);
             }
-
-            if (graphicType.AByte260 == 5)
+            else if (graphicType.AByte260 == 5)
             {
                 writer.WriteByte(13);
             }
-
-            if (graphicType.AByte260 == 2)
+            else if (graphicType.AByte260 == 2)
             {
                 writer.WriteByte(14);
                 writer.WriteByte((byte)(graphicType.AnInt265 / 256));
             }
-
-            if (graphicType.AByte260 == 3 && graphicType.AnInt265 != 8224)
+            else if (graphicType.AByte260 == 3)
             {
-                writer.WriteByte(15);
-                writer.WriteShort(graphicType.AnInt265);
-            }
-
-            if (graphicType.AByte260 == 3)
-            {
-                writer.WriteByte(16);
-                writer.WriteInt(graphicType.AnInt265);
+                if (graphicType.AnInt265 == 8224)
+                {
+                    writer.WriteByte(9);
+                }
+                else if (graphicType.AnInt265 >= 0 && graphicType.AnInt265 <= ushort.MaxValue)
+                {
+                    writer.WriteByte(15);
+                    writer.WriteShort(graphicType.AnInt265);
+                }
+                else
+                {
+                    writer.WriteByte(16);
+                    writer.WriteInt(graphicType.AnInt265);
+                }
             }
 
             if (graphicType.RecolorToFind.Length > 0)
@@ -129,7 +126,6 @@ namespace Hagalaz.Cache.Types
             if (graphicType.AByteArray4428.Length > 0)
             {
                 writer.WriteByte(44);
-                //This is a bit tricky, we need to reconstruct the short value
                 ushort value = 0;
                 for (int i = 0; i < graphicType.AByteArray4428.Length; i++)
                 {
@@ -185,147 +181,123 @@ namespace Hagalaz.Cache.Types
             {
                 graphicType.ResizeY = buffer.ReadUnsignedShort();
             }
-            else if (opcode != 6)
+            else if (opcode == 6)
             {
-                if (opcode == 7)
+                graphicType.Rotation = buffer.ReadUnsignedShort();
+            }
+            else if (opcode == 7)
+            {
+                graphicType.Ambient = buffer.ReadUnsignedByte();
+            }
+            else if (opcode == 8)
+            {
+                graphicType.Contrast = buffer.ReadUnsignedByte();
+            }
+            else if (opcode == 9)
+            {
+                graphicType.AByte260 = 3;
+                graphicType.AnInt265 = 8224;
+            }
+            else if (opcode == 10)
+            {
+                graphicType.ABoolean267 = true;
+            }
+            else if (opcode == 11)
+            {
+                graphicType.AByte260 = 1;
+            }
+            else if (opcode == 12)
+            {
+                graphicType.AByte260 = 4;
+            }
+            else if (opcode == 13)
+            {
+                graphicType.AByte260 = 5;
+            }
+            else if (opcode == 14)
+            {
+                graphicType.AByte260 = 2;
+                graphicType.AnInt265 = buffer.ReadUnsignedByte() * 256;
+            }
+            else if (opcode == 15)
+            {
+                graphicType.AByte260 = 3;
+                graphicType.AnInt265 = buffer.ReadUnsignedShort();
+            }
+            else if (opcode == 16)
+            {
+                graphicType.AByte260 = 3;
+                graphicType.AnInt265 = buffer.ReadInt();
+            }
+            else if (opcode == 40)
+            {
+                var length = buffer.ReadUnsignedByte();
+                graphicType.RecolorToFind = new short[length];
+                graphicType.RecolorToReplace = new short[length];
+                for (var i = 0; i < length; i++)
                 {
-                    graphicType.Ambient = buffer.ReadUnsignedByte();
+                    graphicType.RecolorToReplace[i] = (short)buffer.ReadUnsignedShort();
+                    graphicType.RecolorToFind[i] = (short)buffer.ReadUnsignedShort();
                 }
-                else
+            }
+            else if (opcode == 41)
+            {
+                var length = buffer.ReadUnsignedByte();
+                graphicType.RetextureToFind = new short[length];
+                graphicType.RetextureToReplace = new short[length];
+                for (var i = 0; i < length; i++)
                 {
-                    if (opcode == 8)
-                    {
-                        graphicType.Contrast = buffer.ReadUnsignedByte();
-                    }
-                    else if (opcode == 9)
-                    {
-                        graphicType.AByte260 = 3;
-                        graphicType.AnInt265 = 8224;
-                    }
-                    else if (opcode != 10)
-                    {
-                        if (opcode != 11)
-                        {
-                            if (opcode == 12)
-                            {
-                                graphicType.AByte260 = 4;
-                            }
-                            else
-                            {
-                                if (opcode == 13)
-                                {
-                                    graphicType.AByte260 = 5;
-                                }
-                                else if (opcode == 14)
-                                {
-                                    graphicType.AByte260 = 2;
-                                    graphicType.AnInt265 = buffer.ReadUnsignedByte() * 256;
-                                }
-                                else if (opcode != 15)
-                                {
-                                    if (opcode == 16)
-                                    {
-                                        graphicType.AByte260 = 3;
-                                        graphicType.AnInt265 = buffer.ReadInt();
-                                    }
-                                    else
-                                    {
-                                        if (opcode == 40)
-                                        {
-                                            var length = buffer.ReadUnsignedByte();
-                                            graphicType.RecolorToFind = new short[length];
-                                            graphicType.RecolorToReplace = new short[length];
-                                            for (var i10 = 0; i10 < length; i10++)
-                                            {
-                                                graphicType.RecolorToReplace[i10] = (short)buffer.ReadUnsignedShort();
-                                                graphicType.RecolorToFind[i10] = (short)buffer.ReadUnsignedShort();
-                                            }
-                                        }
-                                        else
-                                        {
-                                            if (opcode == 41)
-                                            {
-                                                var length = buffer.ReadUnsignedByte();
-                                                graphicType.RetextureToFind = new short[length];
-                                                graphicType.RetextureToReplace = new short[length];
-                                                for (var i8 = 0; i8 < length; i8++)
-                                                {
-                                                    graphicType.RetextureToReplace[i8] = (short)buffer.ReadUnsignedShort();
-                                                    graphicType.RetextureToFind[i8] = (short)buffer.ReadUnsignedShort();
-                                                }
-                                            }
-                                            else if (opcode == 44)
-                                            {
-                                                var i17 = buffer.ReadUnsignedShort();
-                                                var i18 = 0;
-                                                for (var i19 = i17; i19 > 0; i19 >>= 1)
-                                                {
-                                                    i18++;
-                                                }
+                    graphicType.RetextureToReplace[i] = (short)buffer.ReadUnsignedShort();
+                    graphicType.RetextureToFind[i] = (short)buffer.ReadUnsignedShort();
+                }
+            }
+            else if (opcode == 44)
+            {
+                var i17 = buffer.ReadUnsignedShort();
+                var i18 = 0;
+                for (var i19 = i17; i19 > 0; i19 >>= 1)
+                {
+                    i18++;
+                }
 
-                                                graphicType.AByteArray4428 = new byte[i18];
-                                                byte i20 = 0;
-                                                for (var i21 = 0; i21 < i18; i21++)
-                                                {
-                                                    if ((i17 & (1 << i21)) > 0)
-                                                    {
-                                                        graphicType.AByteArray4428[i21] = i20;
-                                                        i20++;
-                                                    }
-                                                    else
-                                                    {
-                                                        graphicType.AByteArray4428[i21] = unchecked((byte)-1);
-                                                    }
-                                                }
-                                            }
-                                            else if (opcode == 45)
-                                            {
-                                                var i22 = buffer.ReadUnsignedShort();
-                                                var i23 = 0;
-                                                for (var i24 = i22; i24 > 0; i24 >>= 1)
-                                                {
-                                                    i23++;
-                                                }
-
-                                                graphicType.AByteArray4433 = new byte[i23];
-                                                byte i25 = 0;
-                                                for (var i26 = 0; i26 < i23; i26++)
-                                                {
-                                                    if ((i22 & (1 << i26)) > 0)
-                                                    {
-                                                        graphicType.AByteArray4433[i26] = i25;
-                                                        i25++;
-                                                    }
-                                                    else
-                                                    {
-                                                        graphicType.AByteArray4433[i26] = unchecked((byte)-1);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    graphicType.AByte260 = 3;
-                                    graphicType.AnInt265 = buffer.ReadUnsignedShort();
-                                }
-                            }
-                        }
-                        else
-                        {
-                            graphicType.AByte260 = 1;
-                        }
+                graphicType.AByteArray4428 = new byte[i18];
+                byte i20 = 0;
+                for (var i21 = 0; i21 < i18; i21++)
+                {
+                    if ((i17 & (1 << i21)) > 0)
+                    {
+                        graphicType.AByteArray4428[i21] = i20;
+                        i20++;
                     }
                     else
                     {
-                        graphicType.ABoolean267 = true;
+                        graphicType.AByteArray4428[i21] = unchecked((byte)-1);
                     }
                 }
             }
-            else
+            else if (opcode == 45)
             {
-                graphicType.Rotation = buffer.ReadUnsignedShort();
+                var i22 = buffer.ReadUnsignedShort();
+                var i23 = 0;
+                for (var i24 = i22; i24 > 0; i24 >>= 1)
+                {
+                    i23++;
+                }
+
+                graphicType.AByteArray4433 = new byte[i23];
+                byte i25 = 0;
+                for (var i26 = 0; i26 < i23; i26++)
+                {
+                    if ((i22 & (1 << i26)) > 0)
+                    {
+                        graphicType.AByteArray4433[i26] = i25;
+                        i25++;
+                    }
+                    else
+                    {
+                        graphicType.AByteArray4433[i26] = unchecked((byte)-1);
+                    }
+                }
             }
         }
     }

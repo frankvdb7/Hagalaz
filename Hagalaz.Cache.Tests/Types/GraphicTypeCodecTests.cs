@@ -65,7 +65,49 @@ namespace Hagalaz.Cache.Tests.Types
             var original = new GraphicType(123)
             {
                 AByte260 = 3,
-                AnInt265 = 12345,
+                AnInt265 = 65536,
+            };
+            var codec = new GraphicTypeCodec();
+
+            // Act
+            var encodedStream = codec.Encode(original);
+            encodedStream.Position = 0;
+            var decoded = (GraphicType)codec.Decode(original.Id, encodedStream);
+
+            // Assert
+            Assert.Equal(original.AByte260, decoded.AByte260);
+            Assert.Equal(original.AnInt265, decoded.AnInt265);
+        }
+
+        [Fact]
+        public void RoundTrip_Opcode15_ShouldSucceed()
+        {
+            // Arrange
+            var original = new GraphicType(123)
+            {
+                AByte260 = 3,
+                AnInt265 = 65535,
+            };
+            var codec = new GraphicTypeCodec();
+
+            // Act
+            var encodedStream = codec.Encode(original);
+            encodedStream.Position = 0;
+            var decoded = (GraphicType)codec.Decode(original.Id, encodedStream);
+
+            // Assert
+            Assert.Equal(original.AByte260, decoded.AByte260);
+            Assert.Equal(original.AnInt265, decoded.AnInt265);
+        }
+
+        [Fact]
+        public void RoundTrip_Opcode9_ShouldSucceed()
+        {
+            // Arrange
+            var original = new GraphicType(123)
+            {
+                AByte260 = 3,
+                AnInt265 = 8224,
             };
             var codec = new GraphicTypeCodec();
 
