@@ -95,6 +95,10 @@ namespace Hagalaz.Cache.Extensions
                     provider.GetRequiredService<IGraphicTypeCodec>(),
                     provider.GetService<ITypeEventHook<IGraphicType>>()));
             services.TryAddTransient<ITypeFactory<IGraphicType>, GraphicTypeFactory>();
+            services.TryAddTransient<ICs2DefinitionCodec, Cs2DefinitionCodec>();
+            services.TryAddTransient<ITypeProvider<ICs2Definition>, Cs2DefinitionProvider>();
+            services.TryAddTransient<ITypeFactory<ICs2Definition>, Cs2DefinitionFactory>();
+
             return services;
         }
     }
