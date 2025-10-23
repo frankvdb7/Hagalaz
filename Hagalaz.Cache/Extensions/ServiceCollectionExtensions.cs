@@ -87,6 +87,14 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ITypeEventHook<IItemType>, ItemTypeEventHook>();
             services.TryAddTransient<ITypeEventHook<IObjectType>, ObjectTypeEventHook>();
             services.TryAddTransient<ITypeEventHook<IAnimationType>, AnimationTypeEventHook>();
+            services.TryAddTransient<IGraphicTypeCodec, GraphicTypeCodec>();
+            services.TryAddTransient<ITypeProvider<IGraphicType>>(provider =>
+                new TypeProvider<IGraphicType, GraphicTypeData>(
+                    provider.GetRequiredService<ICacheAPI>(),
+                    provider.GetRequiredService<ITypeFactory<IGraphicType>>(),
+                    provider.GetRequiredService<IGraphicTypeCodec>(),
+                    provider.GetService<ITypeEventHook<IGraphicType>>()));
+            services.TryAddTransient<ITypeFactory<IGraphicType>, GraphicTypeFactory>();
             return services;
         }
     }
