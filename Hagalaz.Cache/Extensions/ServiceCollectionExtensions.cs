@@ -98,6 +98,13 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ICs2DefinitionCodec, Cs2DefinitionCodec>();
             services.TryAddTransient<ITypeProvider<ICs2Definition>, Cs2DefinitionProvider>();
             services.TryAddTransient<ITypeFactory<ICs2Definition>, Cs2DefinitionFactory>();
+            services.TryAddTransient<ICs2IntDefinitionCodec, Cs2IntDefinitionCodec>();
+            services.TryAddTransient<ITypeFactory<ICs2IntDefinition>, Cs2IntDefinitionFactory>();
+            services.TryAddTransient<ICs2IntDefinitionProvider>(provider =>
+                new Cs2IntDefinitionProvider(
+                    provider.GetRequiredService<ICacheAPI>(),
+                    provider.GetRequiredService<ITypeFactory<ICs2IntDefinition>>(),
+                    provider.GetRequiredService<ICs2IntDefinitionCodec>()));
 
             return services;
         }
