@@ -101,28 +101,35 @@ namespace Hagalaz.Cache.Types
                 }
             }
 
-            var switchBlockStream = new MemoryStream();
-            switchBlockStream.WriteByte((byte)instance.Switches.Length);
-            foreach (var switchh in instance.Switches)
+            long switchBlockLength;
+            using (var switchBlockStream = new MemoryStream())
             {
-                switchBlockStream.WriteShort(switchh.Count);
-                foreach (var (key, value) in switchh)
+                switchBlockStream.WriteByte((byte)instance.Switches.Length);
+                foreach (var switchh in instance.Switches)
                 {
-                    switchBlockStream.WriteInt(key);
-                    switchBlockStream.WriteInt(value);
+                    switchBlockStream.WriteShort(switchh.Count);
+                    foreach (var (key, value) in switchh)
+                    {
+                        switchBlockStream.WriteInt(key);
+                        switchBlockStream.WriteInt(value);
+                    }
                 }
+
+                switchBlockLength = switchBlockStream.Length;
+                switchBlockStream.Position = 0;
+
+                stream.WriteInt(instance.Opcodes.Count);
+                stream.WriteShort(instance.IntLocalsCount);
+                stream.WriteShort(instance.StringLocalsCount);
+                stream.WriteShort(instance.LongLocalsCount);
+                stream.WriteShort(instance.IntArgsCount);
+                stream.WriteShort(instance.StringArgsCount);
+                stream.WriteShort(instance.LongArgsCount);
+
+                switchBlockStream.WriteTo(stream);
             }
 
-            stream.WriteInt(instance.Opcodes.Count);
-            stream.WriteShort(instance.IntLocalsCount);
-            stream.WriteShort(instance.StringLocalsCount);
-            stream.WriteShort(instance.LongLocalsCount);
-            stream.WriteShort(instance.IntArgsCount);
-            stream.WriteShort(instance.StringArgsCount);
-            stream.WriteShort(instance.LongArgsCount);
-
-            stream.Write(switchBlockStream.ToArray());
-            stream.WriteShort((int)switchBlockStream.Length);
+            stream.WriteShort((int)switchBlockLength);
 
             return stream;
         }
