@@ -1,6 +1,5 @@
-using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Types;
-using System.IO;
+using Hagalaz.Cache.Types.Data;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests.Types
@@ -14,7 +13,7 @@ namespace Hagalaz.Cache.Tests.Types
             var codec = new ConfigDefinitionCodec();
             var original = new ConfigDefinition(1)
             {
-                AChar6673 = 'A',
+                ValueType = 'A',
                 DefaultValue = 123
             };
 
@@ -25,7 +24,7 @@ namespace Hagalaz.Cache.Tests.Types
 
             // Assert
             Assert.Equal(original.Id, decoded.Id);
-            Assert.Equal(original.AChar6673, decoded.AChar6673);
+            Assert.Equal(original.ValueType, decoded.ValueType);
             Assert.Equal(original.DefaultValue, decoded.DefaultValue);
         }
     }

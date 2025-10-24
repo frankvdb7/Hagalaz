@@ -30,10 +30,10 @@ namespace Hagalaz.Cache.Types
         public MemoryStream Encode(IConfigDefinition definition)
         {
             var stream = new MemoryStream();
-            if (definition.AChar6673 != default)
+            if (definition.ValueType != default)
             {
                 stream.WriteByte(1);
-                stream.WriteByte((byte)definition.AChar6673);
+                stream.WriteByte((byte)definition.ValueType);
             }
 
             if (definition.DefaultValue != default)
@@ -56,7 +56,7 @@ namespace Hagalaz.Cache.Types
         {
             if (opcode == 1)
             {
-                definition.AChar6673 = Encoding.ASCII.GetChars(new byte[1] { (byte)(stream.ReadSignedByte() & 0xFF) })[0];
+                definition.ValueType = Encoding.ASCII.GetChars(new byte[1] { (byte)(stream.ReadSignedByte() & 0xFF) })[0];
             }
             else if (opcode == 5)
             {

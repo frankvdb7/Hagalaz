@@ -14,7 +14,7 @@ namespace Hagalaz.Cache.Types
         public int DefaultValue { get; set; }
 
         /// <inheritdoc />
-        public char AChar6673 { get; set; }
+        public char ValueType { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ConfigDefinition"/> class.

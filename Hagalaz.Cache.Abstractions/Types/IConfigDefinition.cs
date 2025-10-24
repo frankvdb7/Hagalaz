@@ -11,8 +11,8 @@ namespace Hagalaz.Cache.Abstractions.Types
         int DefaultValue { get; set; }
 
         /// <summary>
-        /// Gets or sets a character value.
+        /// Gets or sets the character representing the type of the configuration value.
         /// </summary>
-        char AChar6673 { get; set; }
+        char ValueType { get; set; }
     }
 }
