@@ -1,4 +1,4 @@
-﻿using Hagalaz.Cache.Types.Data;
+using Hagalaz.Cache.Types.Data;
 
 namespace Hagalaz.Cache.Types
 {
@@ -40,5 +40,19 @@ namespace Hagalaz.Cache.Types
             var lastFileId = cache.GetFileCount(IndexId) - 1;
             return (lastFileId * ArchiveEntrySize) + cache.GetFileCount(IndexId, lastFileId - 1);
         }
+
+        /// <summary>
+        /// Gets the archive identifier.
+        /// </summary>
+        /// <param name="typeId">The type identifier.</param>
+        /// <returns></returns>
+        public virtual int GetArchiveId(int typeId) => (int)((uint)typeId >> ArchiveEntryOffset);
+
+        /// <summary>
+        /// Gets the archive entry identifier.
+        /// </summary>
+        /// <param name="typeId">The type identifier.</param>
+        /// <returns></returns>
+        public virtual int GetArchiveEntryId(int typeId) => typeId & (1 << ArchiveEntryOffset) - 1;
     }
 }
