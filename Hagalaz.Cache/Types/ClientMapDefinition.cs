@@ -43,7 +43,11 @@ namespace Hagalaz.Cache.Types
         {
             if (Values == null)
             {
-                return ValueMap?[key];
+                if (ValueMap != null && ValueMap.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+                return null;
             }
 
             if (key < 0 || key >= Values.Length)

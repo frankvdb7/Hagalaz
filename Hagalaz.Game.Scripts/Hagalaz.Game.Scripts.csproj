@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -6,6 +6,7 @@
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Cache.Abstractions\Hagalaz.Cache.Abstractions.csproj" />
     <ProjectReference Include="..\Hagalaz.Cache\Hagalaz.Cache.csproj" />
     <ProjectReference Include="..\Hagalaz.Collections.Extensions\Hagalaz.Collections.Extensions.csproj" />
     <ProjectReference Include="..\Hagalaz.Configuration\Hagalaz.Configuration.csproj" />

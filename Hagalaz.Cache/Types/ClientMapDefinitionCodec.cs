@@ -50,8 +50,7 @@ namespace Hagalaz.Cache.Types
 
             if (type.ValueMap != null && type.ValueMap.Count > 0)
             {
-                var firstValue = type.ValueMap.Values.FirstOrDefault();
-                if (firstValue is string)
+                if (type.ValType == 's')
                 {
                     stream.WriteByte(5);
                     stream.WriteShort(type.ValueMap.Count);
@@ -61,7 +60,7 @@ namespace Hagalaz.Cache.Types
                         stream.WriteString((string)kvp.Value);
                     }
                 }
-                else if (firstValue is int)
+                else
                 {
                     stream.WriteByte(6);
                     stream.WriteShort(type.ValueMap.Count);
@@ -74,9 +73,7 @@ namespace Hagalaz.Cache.Types
             }
             else if (type.Values != null && type.Values.Length > 0)
             {
-                object firstValue = type.Values.FirstOrDefault(v => v != null);
-
-                if (firstValue is string)
+                if (type.ValType == 's')
                 {
                     stream.WriteByte(7);
                     stream.WriteShort(type.Values.Length);
@@ -90,7 +87,7 @@ namespace Hagalaz.Cache.Types
                         }
                     }
                 }
-                else if (firstValue is int)
+                else
                 {
                     stream.WriteByte(8);
                     stream.WriteShort(type.Values.Length);

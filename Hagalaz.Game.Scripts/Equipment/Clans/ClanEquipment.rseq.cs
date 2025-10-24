@@ -1,4 +1,5 @@
-﻿using Hagalaz.Cache;
+using Hagalaz.Cache;
+using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Types;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
@@ -9,6 +10,7 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Cache.Abstractions.Providers;
 
 namespace Hagalaz.Game.Scripts.Equipment.Clans
 {
@@ -18,12 +20,14 @@ namespace Hagalaz.Game.Scripts.Equipment.Clans
         private readonly IEventManager _eventManager;
         private readonly ICacheAPI _cache;
         private readonly IItemPartFactory _itemPartFactory;
+        private readonly IClientMapDefinitionProvider _clientMapDefinitionProvider;
 
-        public ClanEquipment(IEventManager eventManager, ICacheAPI cache, IItemPartFactory itemPartFactory)
+        public ClanEquipment(IEventManager eventManager, ICacheAPI cache, IItemPartFactory itemPartFactory, IClientMapDefinitionProvider clientMapDefinitionProvider)
         {
             _eventManager = eventManager;
             _cache = cache;
             _itemPartFactory = itemPartFactory;
+            _clientMapDefinitionProvider = clientMapDefinitionProvider;
         }
 
         /// <summary>
@@ -102,7 +106,11 @@ namespace Hagalaz.Game.Scripts.Equipment.Clans
             var texture1 = character.Clan.Settings.MottifTop;
             var texture2 = character.Clan.Settings.MottifBottom;
 
-            var definition = ClientMapDefinition.GetClientMapDefinition(_cache, 3685);
+            var definition = _clientMapDefinitionProvider.Get(3685);
+            if (definition == null)
+            {
+                return;
+            }
             var newTexture1 = texture1 == 0 ? 0 : definition.GetIntValue(texture1 + 1);
             var newTexture2 = texture2 == 0 ? 0 : definition.GetIntValue(texture2 + 1);
 

@@ -478,6 +478,7 @@
         "type": "Project",
         "dependencies": {
           "Hagalaz.Cache": "[1.0.0, )",
+          "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Collections.Extensions": "[1.0.0, )",
           "Hagalaz.Configuration": "[1.0.0, )",
           "Hagalaz.Game": "[1.0.0, )",
