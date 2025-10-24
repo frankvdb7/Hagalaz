@@ -1,8 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Cache;
-using Hagalaz.Cache.Types;
+using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
@@ -35,6 +34,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// The owner.
         /// </summary>
         private readonly ICharacter _owner;
+
+        private readonly IClientMapDefinitionProvider _clientMapDefinitionProvider;
 
         /// <summary>
         /// The unlocked music.
@@ -84,11 +85,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private int _currentPlayListIndex = 0;
 
         /// <summary>
-        /// The cache manager
-        /// </summary>
-        private readonly ICacheAPI _cache;
-
-        /// <summary>
         /// contains the index of the playing music.
         /// </summary>
         public int PlayingMusicIndex { get; private set; }
@@ -111,7 +107,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner = owner;
             PlayingMusicIndex = -1;
-            _cache = owner.ServiceProvider.GetRequiredService<ICacheAPI>();
+            _clientMapDefinitionProvider = owner.ServiceProvider.GetRequiredService<IClientMapDefinitionProvider>();
         }
 
         /// <summary>
@@ -124,7 +120,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var musicID = -1;
             if (_unlockedMusic.Contains(musicIndex))
             {
-                musicID = ClientMapDefinition.GetClientMapDefinition(_cache, 1351).GetIntValue(musicIndex);
+                var def = _clientMapDefinitionProvider.Get(1351);
+                if (def != null)
+                {
+                    musicID = def.GetIntValue(musicIndex);
+                }
+
                 if (_owner.Permissions.HasAtLeastXPermission(Permission.GameAdministrator))
                     _owner.SendChatMessage("music[index=" + musicIndex + ",id=" + musicID + "]", ChatMessageType.ConsoleText);
             }
@@ -218,7 +219,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (musicIndex == -1)
                 return string.Empty;
-            var definition = ClientMapDefinition.GetClientMapDefinition(_cache, 1345);
+            var definition = _clientMapDefinitionProvider.Get(1345);
             return definition?.GetStringValue(musicIndex) ?? string.Empty;
         }
 

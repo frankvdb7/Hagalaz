@@ -1,6 +1,5 @@
-﻿using System;
-using Hagalaz.Cache;
-using Hagalaz.Cache.Types;
+using System;
+using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Features.Clans;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Features.Clans;
@@ -22,17 +21,18 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
         /// </summary>
         private readonly string _planter;
 
-        /// <summary>
-        ///     The cache
-        /// </summary>
-        private readonly ICacheAPI _cache;
+        private readonly IClientMapDefinitionProvider _clientMapDefinitionProvider;
 
-        public ClanDetails(ICharacterContextAccessor characterContextAccessor, ICacheAPI cache) : base(characterContextAccessor) => _cache = cache;
+        public ClanDetails(ICharacterContextAccessor characterContextAccessor, IClientMapDefinitionProvider clientMapDefinitionProvider) : base(characterContextAccessor)
+        {
+            _clientMapDefinitionProvider = clientMapDefinitionProvider;
+        }
 
-        public ClanDetails(ICharacterContextAccessor characterContextAccessor, Clan clan, string planter) : base(characterContextAccessor)
+        public ClanDetails(ICharacterContextAccessor characterContextAccessor, Clan clan, string planter, IClientMapDefinitionProvider clientMapDefinitionProvider) : base(characterContextAccessor)
         {
             _clan = clan;
             _planter = planter;
+            _clientMapDefinitionProvider = clientMapDefinitionProvider;
         }
 
         /// <summary>
@@ -54,7 +54,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
 
             //this.interfaceInstance.DrawString(88, string.IsNullOrEmpty(this.clan.Settings.Motto) ? "Not set." : this.clan.Settings.Motto);
 
-            var clientMap = ClientMapDefinition.GetClientMapDefinition(_cache, 3686);
+            var clientMap = _clientMapDefinitionProvider.Get(3686);
             /*if (this.clan.Settings.MottifTop != 0)
                 this.interfaceInstance.DrawSprite(96, (short)clientMap.GetIntValue(this.clan.Settings.MottifTop + 1)); // right
             if (this.clan.Settings.MottifBottom != 0)

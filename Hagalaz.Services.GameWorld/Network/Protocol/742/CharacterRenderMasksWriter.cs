@@ -1,6 +1,5 @@
-﻿using System;
-using Hagalaz.Cache;
-using Hagalaz.Cache.Types;
+using System;
+using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -20,14 +19,14 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
         private readonly ItemStore _itemStore;
         private readonly IHitSplatRenderTypeProvider _hitRenderMasks;
         private readonly IBodyDataRepository _bodyDataRepository;
-        private readonly ICacheAPI _cacheApi;
+        private readonly IClientMapDefinitionProvider _clientMapDefinitionProvider;
 
-        public CharacterRenderMasksWriter(ItemStore itemStore, IHitSplatRenderTypeProvider hitRenderMasks, IBodyDataRepository bodyDataRepository, ICacheAPI cacheApi)
+        public CharacterRenderMasksWriter(ItemStore itemStore, IHitSplatRenderTypeProvider hitRenderMasks, IBodyDataRepository bodyDataRepository, IClientMapDefinitionProvider clientMapDefinitionProvider)
         {
             _itemStore = itemStore;
             _hitRenderMasks = hitRenderMasks;
             _bodyDataRepository = bodyDataRepository;
-            _cacheApi = cacheApi;
+            _clientMapDefinitionProvider = clientMapDefinitionProvider;
         }
 
         public void WriteAppearance(ICharacter character, IByteBufferWriter output, bool forceSynchronize)
@@ -52,13 +51,19 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
 
             if (title > 0 && title < 32)
             {
-                var def = ClientMapDefinition.GetClientMapDefinition(_cacheApi, character.Appearance.Female ? 3872 : 1093);
-                output.WriteString(def.GetStringValue(title), true);
+                var def = _clientMapDefinitionProvider.Get(character.Appearance.Female ? 3872 : 1093);
+                if (def != null)
+                {
+                    output.WriteString(def.GetStringValue(title), true);
+                }
             }
             if (title >= 32 && title <= 38)
             {
-                var def = ClientMapDefinition.GetClientMapDefinition(_cacheApi, character.Appearance.Female ? 3872 : 1093);
-                output.WriteString(def.GetStringValue(title), true);
+                var def = _clientMapDefinitionProvider.Get(character.Appearance.Female ? 3872 : 1093);
+                if (def != null)
+                {
+                    output.WriteString(def.GetStringValue(title), true);
+                }
             }
 
             if (character.Appearance.IsTransformedToNpc())
