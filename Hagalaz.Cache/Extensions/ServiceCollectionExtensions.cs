@@ -1,4 +1,4 @@
-﻿using Hagalaz.Cache.Abstractions.Logic.Codecs;
+using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
@@ -101,6 +101,10 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ICs2IntDefinitionCodec, Cs2IntDefinitionCodec>();
             services.TryAddTransient<ITypeFactory<ICs2IntDefinition>, Cs2IntDefinitionFactory>();
             services.TryAddTransient<ICs2IntDefinitionProvider, Cs2IntDefinitionProvider>();
+
+            services.TryAddTransient<ITypeCodec<IClientMapDefinition>, ClientMapDefinitionCodec>();
+            services.TryAddTransient<ITypeFactory<IClientMapDefinition>, ClientMapDefinitionFactory>();
+            services.TryAddTransient<IClientMapDefinitionProvider, ClientMapDefinitionProvider>();
 
             return services;
         }
