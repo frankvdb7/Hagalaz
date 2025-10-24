@@ -1,4 +1,4 @@
-﻿namespace Hagalaz.Cache.Types.Data
+namespace Hagalaz.Cache.Types.Data
 {
     /// <summary>
     /// 
@@ -33,26 +33,19 @@
         /// <param name="cache">The cache.</param>
         /// <returns></returns>
         int GetArchiveSize(ICacheAPI cache);
-    }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    public static class TypeDataHelper
-    {
         /// <summary>
         /// Gets the archive identifier.
         /// </summary>
-        /// <param name="typeData">The type data.</param>
         /// <param name="typeId">The type identifier.</param>
         /// <returns></returns>
-        public static int GetArchiveId(this ITypeData typeData, int typeId) => (int)((uint)typeId >> typeData.ArchiveEntryOffset);
+        int GetArchiveId(int typeId);
+
         /// <summary>
-        /// Gets the archive identifier.
+        /// Gets the archive entry identifier.
         /// </summary>
-        /// <param name="typeData">The type data.</param>
         /// <param name="typeId">The type identifier.</param>
         /// <returns></returns>
-        public static int GetArchiveEntryId(this ITypeData typeData, int typeId) => typeId & (1 << typeData.ArchiveEntryOffset) - 1;
+        int GetArchiveEntryId(int typeId);
     }
 }

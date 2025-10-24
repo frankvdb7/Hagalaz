@@ -106,6 +106,10 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ITypeFactory<IClientMapDefinition>, ClientMapDefinitionFactory>();
             services.TryAddTransient<IClientMapDefinitionProvider, ClientMapDefinitionProvider>();
 
+            services.TryAddTransient<ITypeCodec<IConfigDefinition>, ConfigDefinitionCodec>();
+            services.TryAddTransient<ITypeFactory<IConfigDefinition>, ConfigDefinitionFactory>();
+            services.TryAddTransient<IConfigDefinitionProvider, ConfigDefinitionProvider>();
+
             return services;
         }
     }
