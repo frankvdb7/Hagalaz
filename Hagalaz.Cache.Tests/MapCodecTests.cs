@@ -1,6 +1,5 @@
+using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
 using Xunit;
@@ -39,6 +38,42 @@ namespace Hagalaz.Cache.Tests
                 Assert.Equal(expected.ShapeType, actual.ShapeType);
                 Assert.Equal(expected.Rotation, actual.Rotation);
             }
+        }
+
+        [Fact]
+        public void DecodeTerrainData_ValidStream_DecodesCorrectly()
+        {
+            // Arrange
+            var stream = new MemoryStream(new byte[] { 81, 0, 0, 0, 0 });
+            var terrainData = new sbyte[4, 64, 64];
+
+            // Act
+            MapCodec.DecodeTerrainData(terrainData, stream);
+
+            // Assert
+            Assert.Equal(32, terrainData[0, 0, 0]);
+        }
+
+        [Fact]
+        public void DecodeObjectData_ValidStream_DecodesCorrectly()
+        {
+            // Arrange
+            var stream = new MemoryStream(new byte[] { 0x80, 0x01, 0x40, 0x01, 0x1C, 0x80, 0x00 });
+            var objects = new List<MapObject>();
+            var terrainData = new sbyte[4, 64, 64];
+
+            // Act
+            MapCodec.DecodeObjectData(objects, terrainData, stream);
+
+            // Assert
+            Assert.Single(objects);
+            var obj = objects[0];
+            Assert.Equal(1, obj.Id);
+            Assert.Equal(1, obj.X);
+            Assert.Equal(0, obj.Y);
+            Assert.Equal(0, obj.Z);
+            Assert.Equal(7, obj.ShapeType);
+            Assert.Equal(0, obj.Rotation);
         }
     }
 }

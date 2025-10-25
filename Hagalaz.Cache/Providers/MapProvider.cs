@@ -1,28 +1,23 @@
+using System;
 using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Extensions;
+using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Factories;
 using Microsoft.Extensions.Logging;
-using System;
-using Hagalaz.Cache.Extensions;
 
 namespace Hagalaz.Cache.Providers
 {
-    /// <summary>
-    /// A provider for decoding map data from the cache.
-    /// </summary>
     public class MapProvider : IMapProvider
     {
         private readonly ICacheAPI _cache;
         private readonly IMapCodec _codec;
         private readonly ITypeFactory<IMapType> _typeFactory;
         private readonly ILogger<MapProvider> _logger;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="MapProvider"/> class.
-        /// </summary>
         public MapProvider(ICacheAPI cache, IMapCodec codec, ITypeFactory<IMapType> typeFactory, ILogger<MapProvider> logger)
         {
             _cache = cache;
@@ -30,14 +25,8 @@ namespace Hagalaz.Cache.Providers
             _typeFactory = typeFactory;
             _logger = logger;
         }
-
-        /// <inheritdoc />
         public int ArchiveSize => 0;
-
-        /// <inheritdoc />
         public IMapType Get(int typeId) => Get(typeId, null);
-
-        /// <inheritdoc />
         public IMapType Get(int typeId, int[]? xteaKeys = null)
         {
             var terrainData = ReadTerrainData(typeId);
@@ -50,7 +39,7 @@ namespace Hagalaz.Cache.Providers
 
             var combinedStream = new MemoryStream();
             var terrainBytes = terrainData?.ToArray() ?? Array.Empty<byte>();
-            combinedStream.Write(BitConverter.GetBytes(terrainBytes.Length), 0, sizeof(int));
+            combinedStream.WriteInt(terrainBytes.Length);
             combinedStream.Write(terrainBytes, 0, terrainBytes.Length);
 
             if (objectData != null)
@@ -61,8 +50,6 @@ namespace Hagalaz.Cache.Providers
 
             return _codec.Decode(typeId, combinedStream);
         }
-
-        /// <inheritdoc />
         public IMapType[] GetRange(int startTypeId, int endTypeId)
         {
             var types = new IMapType[endTypeId - startTypeId];
@@ -72,42 +59,16 @@ namespace Hagalaz.Cache.Providers
             }
             return types;
         }
-
-        /// <inheritdoc />
-        public IMapType[] GetAll()
+        public IMapType[] GetAll() => throw new NotSupportedException("Cannot get all maps at once.");
+        public void DecodePart(DecodePartRequest request)
         {
-            throw new NotSupportedException("Cannot get all maps at once.");
-        }
+            var terrainDataStream = ReadTerrainData(request.RegionID);
+            var objectDataStream = ReadObjectData(request.RegionID, request.XteaKeys);
 
-        /// <inheritdoc />
-        public void DecodePart(int regionID, int[] xteaKeys, int minX, int minY, int maxX, int maxY, int partZ, int partRotation, CalculateObjectPartRotation partRotationCallback, ObjectDecoded callback, ImpassibleTerrainDecoded groundCallback)
-        {
-            var terrainData = ReadTerrainData(regionID);
-            var objectData = ReadObjectData(regionID, xteaKeys);
-
-            sbyte[,,] dataArray = new sbyte[4, 64, 64];
-            if (terrainData != null && terrainData.Length > 0)
+            var terrainData = new sbyte[4, 64, 64];
+            if (terrainDataStream != null && terrainDataStream.Length > 0)
             {
-                using (var mapFormatReader = terrainData)
-                {
-                    for (int z = 0; z < 4; z++)
-                    {
-                        for (int localX = 0; localX < 64; localX++)
-                        {
-                            for (int localY = 0; localY < 64; localY++)
-                            {
-                                while (true)
-                                {
-                                    int v = mapFormatReader.ReadUnsignedByte();
-                                    if (v == 0) break;
-                                    else if (v == 1) { mapFormatReader.ReadUnsignedByte(); break; }
-                                    else if (v <= 49) { mapFormatReader.ReadSignedByte(); }
-                                    else if (v <= 81) { dataArray[z, localX, localY] = (sbyte)(v - 49); }
-                                }
-                            }
-                        }
-                    }
-                }
+                MapCodec.DecodeTerrainData(terrainData, terrainDataStream);
             }
 
             for (var z = 0; z < 4; z++)
@@ -116,51 +77,35 @@ namespace Hagalaz.Cache.Providers
                 {
                     for (var localY = 0; localY < 64; localY++)
                     {
-                        if ((dataArray[z, localX, localY] & 0x1) != 0)
+                        if ((terrainData[z, localX, localY] & 0x1) != 0)
                         {
                             int height = z;
-                            if ((dataArray[1, localX, localY] & 0x2) != 0) height--;
-                            if (height >= 0) groundCallback.Invoke(localX, localY, height);
+                            if ((terrainData[1, localX, localY] & 0x2) != 0) height--;
+                            if (height >= 0) request.GroundCallback.Invoke(localX, localY, height);
                         }
                     }
                 }
             }
 
-            if (objectData != null && objectData.Length > 0)
+            if (objectDataStream != null && objectDataStream.Length > 0)
             {
-                using (var landscapeDataReader = objectData)
+                var objects = new System.Collections.Generic.List<MapObject>();
+                MapCodec.DecodeObjectData(objects, terrainData, objectDataStream);
+
+                foreach (var obj in objects)
                 {
-                    var objectId = -1;
-                    int incr;
-                    while ((incr = landscapeDataReader.ReadHugeSmart()) != 0)
+                    if (request.PartZ == obj.Z && obj.X >= request.MinX && obj.X <= request.MaxX && obj.Y >= request.MinY && obj.Y <= request.MaxY)
                     {
-                        objectId += incr;
-                        var location = 0;
-                        int incr2;
-                        while ((incr2 = landscapeDataReader.ReadSmart()) != 0)
-                        {
-                            location += incr2 - 1;
-                            var localX = location >> 6 & 0x3f;
-                            var localY = location & 0x3f;
-                            var z = location >> 12;
-                            var objectFlags = landscapeDataReader.ReadUnsignedByte();
-                            var type = objectFlags >> 2;
-                            var rotation = objectFlags & 0x3;
-                            if (partZ == z && localX >= minX && localX <= maxX && localY >= minY && localY <= maxY)
-                            {
-                                int rotatedLocalX = minX + partRotationCallback.Invoke(objectId, rotation, localX & 0x7, localY & 0x7, partRotation, false);
-                                int rotatedLocalY = minY + partRotationCallback.Invoke(objectId, rotation, localX & 0x7, localY & 0x7, partRotation, true);
-                                int height = z;
-                                if (rotatedLocalX < 0 || rotatedLocalX >= 64 || rotatedLocalY < 0 || rotatedLocalY >= 64) continue;
-                                if ((dataArray[1, rotatedLocalX, rotatedLocalY] & 0x2) != 0) height--;
-                                if (height >= 0) callback.Invoke(objectId, type, partRotation + rotation & 0x3, rotatedLocalX, rotatedLocalY, height);
-                            }
-                        }
+                        int rotatedLocalX = request.MinX + request.PartRotationCallback.Invoke(obj.Id, obj.Rotation, obj.X & 0x7, obj.Y & 0x7, request.PartRotation, false);
+                        int rotatedLocalY = request.MinY + request.PartRotationCallback.Invoke(obj.Id, obj.Rotation, obj.X & 0x7, obj.Y & 0x7, request.PartRotation, true);
+                        int height = obj.Z;
+                        if (rotatedLocalX < 0 || rotatedLocalX >= 64 || rotatedLocalY < 0 || rotatedLocalY >= 64) continue;
+                        if ((terrainData[1, rotatedLocalX, rotatedLocalY] & 0x2) != 0) height--;
+                        if (height >= 0) request.Callback.Invoke(obj.Id, obj.ShapeType, request.PartRotation + obj.Rotation & 0x3, rotatedLocalX, rotatedLocalY, height);
                     }
                 }
             }
         }
-
         private MemoryStream? ReadObjectData(int regionId, int[]? xteaKeys)
         {
             try
@@ -174,7 +119,6 @@ namespace Hagalaz.Cache.Providers
                 return null;
             }
         }
-
         private MemoryStream? ReadTerrainData(int regionId)
         {
             try

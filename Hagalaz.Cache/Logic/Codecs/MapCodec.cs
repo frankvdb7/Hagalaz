@@ -5,11 +5,27 @@ using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Types;
+using System.Collections.Generic;
 
 namespace Hagalaz.Cache.Logic.Codecs
 {
     public class MapCodec : IMapCodec
     {
+        private const int MAP_PLANES = 4;
+        private const int MAP_DIMENSION = 64;
+
+        private const int TERRAIN_OPCODE_OFFSET = 49;
+        private const int TERRAIN_OPCODE_TERMINATOR = 81;
+
+        private const int LOCATION_Z_SHIFT = 12;
+        private const int LOCATION_X_SHIFT = 6;
+        private const int LOCATION_MASK = 0x3F;
+
+        private const int OBJECT_SHAPE_SHIFT = 2;
+        private const int OBJECT_ROTATION_MASK = 0x3;
+
+        private const int TERRAIN_FLAG_BRIDGE = 0x2;
+
         public IMapType Decode(int id, MemoryStream stream)
         {
             var mapType = new MapType { Id = id };
@@ -21,48 +37,13 @@ namespace Hagalaz.Cache.Logic.Codecs
                 stream.Read(terrainData, 0, terrainDataLength);
                 using (var terrainStream = new MemoryStream(terrainData))
                 {
-                    for (var z = 0; z < 4; z++)
-                    for (var x = 0; x < 64; x++)
-                    for (var y = 0; y < 64; y++)
-                    {
-                        while (true)
-                        {
-                            var value = terrainStream.ReadUnsignedByte();
-                            if (value == 0) break;
-                            if (value == 1) { terrainStream.ReadUnsignedByte(); break; }
-                            if (value <= 49) { terrainStream.ReadSignedByte(); }
-                            else if (value <= 81) { mapType.TerrainData[z, x, y] = (sbyte)(value - 49); }
-                        }
-                    }
+                    DecodeTerrainData(mapType.TerrainData, terrainStream);
                 }
             }
 
             if (stream.Position < stream.Length)
             {
-                var objectId = -1;
-                int idOffset;
-                while (stream.Position < stream.Length && (idOffset = stream.ReadHugeSmart()) != 0)
-                {
-                    objectId += idOffset;
-                    var location = 0;
-                    int locationOffset;
-                    while (stream.Position < stream.Length && (locationOffset = stream.ReadSmart()) != 0)
-                    {
-                        location += locationOffset - 1;
-                        var x = location >> 6 & 0x3F;
-                        var y = location & 0x3F;
-                        var z = location >> 12;
-                        var flags = stream.ReadUnsignedByte();
-                        var type = flags >> 2;
-                        var rotation = flags & 0x3;
-
-                        if (x < 0 || x >= 64 || y < 0 || y >= 64) continue;
-                        if ((mapType.TerrainData[1, x, y] & 0x2) != 0) z--;
-                        if (z < 0 || z >= 4) continue;
-
-                        mapType.InternalObjects.Add(new MapObject { Id = objectId, X = x, Y = y, Z = z, ShapeType = type, Rotation = rotation });
-                    }
-                }
+                DecodeObjectData(mapType.InternalObjects, mapType.TerrainData, stream);
             }
             return mapType;
         }
@@ -72,20 +53,20 @@ namespace Hagalaz.Cache.Logic.Codecs
             var stream = new MemoryStream();
             var terrainStream = new MemoryStream();
 
-            for (var z = 0; z < 4; z++)
-            for (var x = 0; x < 64; x++)
-            for (var y = 0; y < 64; y++)
+            for (var z = 0; z < MAP_PLANES; z++)
+            for (var x = 0; x < MAP_DIMENSION; x++)
+            for (var y = 0; y < MAP_DIMENSION; y++)
             {
                 var value = instance.TerrainData[z, x, y];
                 if (value != 0)
                 {
-                    terrainStream.WriteByte((byte)(value + 49));
+                    terrainStream.WriteByte((byte)(value + TERRAIN_OPCODE_OFFSET));
                 }
                 terrainStream.WriteByte(0);
             }
 
             var terrainBytes = terrainStream.ToArray();
-            stream.Write(BitConverter.GetBytes(terrainBytes.Length), 0, sizeof(int));
+            stream.WriteInt(terrainBytes.Length);
             stream.Write(terrainBytes, 0, terrainBytes.Length);
 
             var groupedObjects = instance.Objects.GroupBy(o => o.Id).OrderBy(g => g.Key);
@@ -99,10 +80,10 @@ namespace Hagalaz.Cache.Logic.Codecs
                 var lastLocation = 0;
                 foreach (var obj in group)
                 {
-                    var location = (obj.Z << 12) | (obj.X << 6) | obj.Y;
+                    var location = (obj.Z << LOCATION_Z_SHIFT) | (obj.X << LOCATION_X_SHIFT) | obj.Y;
                     stream.WriteSmart(location - lastLocation + 1);
                     lastLocation = location;
-                    stream.WriteByte((byte)((obj.ShapeType << 2) | obj.Rotation));
+                    stream.WriteByte((byte)((obj.ShapeType << OBJECT_SHAPE_SHIFT) | obj.Rotation));
                 }
                 stream.WriteSmart(0);
             }
@@ -110,6 +91,51 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             stream.Position = 0;
             return stream;
+        }
+
+        public static void DecodeTerrainData(sbyte[,,] terrainData, MemoryStream stream)
+        {
+            for (var z = 0; z < MAP_PLANES; z++)
+            for (var x = 0; x < MAP_DIMENSION; x++)
+            for (var y = 0; y < MAP_DIMENSION; y++)
+            {
+                while (true)
+                {
+                    var value = stream.ReadUnsignedByte();
+                    if (value == 0) break;
+                    if (value == 1) { stream.ReadUnsignedByte(); break; }
+                    if (value <= TERRAIN_OPCODE_OFFSET) { stream.ReadSignedByte(); }
+                    else if (value <= TERRAIN_OPCODE_TERMINATOR) { terrainData[z, x, y] = (sbyte)(value - TERRAIN_OPCODE_OFFSET); }
+                }
+            }
+        }
+
+        public static void DecodeObjectData(List<MapObject> objects, sbyte[,,] terrainData, MemoryStream stream)
+        {
+            var objectId = -1;
+            int idOffset;
+            while (stream.Position < stream.Length && (idOffset = stream.ReadHugeSmart()) != 0)
+            {
+                objectId += idOffset;
+                var location = 0;
+                int locationOffset;
+                while (stream.Position < stream.Length && (locationOffset = stream.ReadSmart()) != 0)
+                {
+                    location += locationOffset - 1;
+                    var x = location >> LOCATION_X_SHIFT & LOCATION_MASK;
+                    var y = location & LOCATION_MASK;
+                    var z = location >> LOCATION_Z_SHIFT;
+                    var flags = stream.ReadUnsignedByte();
+                    var type = flags >> OBJECT_SHAPE_SHIFT;
+                    var rotation = flags & OBJECT_ROTATION_MASK;
+
+                    if (x < 0 || x >= MAP_DIMENSION || y < 0 || y >= MAP_DIMENSION) continue;
+                    if ((terrainData[1, x, y] & TERRAIN_FLAG_BRIDGE) != 0) z--;
+                    if (z < 0 || z >= MAP_PLANES) continue;
+
+                    objects.Add(new MapObject { Id = objectId, X = x, Y = y, Z = z, ShapeType = type, Rotation = rotation });
+                }
+            }
         }
     }
 }

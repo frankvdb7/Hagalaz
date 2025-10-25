@@ -60,9 +60,23 @@ namespace Hagalaz.Cache.Tests
             var impassibleTerrainDecoded = new Mock<ImpassibleTerrainDecoded>();
             var calcRotation = new Mock<CalculateObjectPartRotation>();
 
+            var request = new DecodePartRequest
+            {
+                RegionID = 257,
+                XteaKeys = System.Array.Empty<int>(),
+                MinX = 0,
+                MinY = 0,
+                MaxX = 63,
+                MaxY = 63,
+                PartZ = 0,
+                PartRotation = 0,
+                PartRotationCallback = calcRotation.Object,
+                Callback = objectDecoded.Object,
+                GroundCallback = impassibleTerrainDecoded.Object
+            };
+
             // Act
-            _provider.DecodePart(257, System.Array.Empty<int>(), 0, 0, 63, 63, 0, 0,
-                calcRotation.Object, objectDecoded.Object, impassibleTerrainDecoded.Object);
+            _provider.DecodePart(request);
 
             // Assert
             objectDecoded.Verify(x => x(1, 7, 0, It.IsAny<int>(), It.IsAny<int>(), 0), Times.Once);
