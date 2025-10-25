@@ -14,6 +14,10 @@ namespace Hagalaz.Cache.Providers
 {
     public class MapProvider : IMapProvider
     {
+        private const int ROTATION_MASK = 0x3;
+        private const int CHUNK_COORDINATE_MASK = 0x7;
+        private const int BRIDGE_FLAG = 0x2;
+
         private readonly ICacheAPI _cache;
         private readonly IMapCodec _codec;
         private readonly ITypeFactory<IMapType> _typeFactory;
@@ -80,7 +84,7 @@ namespace Hagalaz.Cache.Providers
                         if ((terrainData[z, localX, localY] & 0x1) != 0)
                         {
                             int height = z;
-                            if ((terrainData[1, localX, localY] & 0x2) != 0) height--;
+                            if ((terrainData[1, localX, localY] & BRIDGE_FLAG) != 0) height--;
                             if (height >= 0) request.GroundCallback.Invoke(localX, localY, height);
                         }
                     }
@@ -96,12 +100,12 @@ namespace Hagalaz.Cache.Providers
                 {
                     if (request.PartZ == obj.Z && obj.X >= request.MinX && obj.X <= request.MaxX && obj.Y >= request.MinY && obj.Y <= request.MaxY)
                     {
-                        int rotatedLocalX = request.MinX + request.PartRotationCallback.Invoke(obj.Id, obj.Rotation, obj.X & 0x7, obj.Y & 0x7, request.PartRotation, false);
-                        int rotatedLocalY = request.MinY + request.PartRotationCallback.Invoke(obj.Id, obj.Rotation, obj.X & 0x7, obj.Y & 0x7, request.PartRotation, true);
+                        int rotatedLocalX = request.MinX + request.PartRotationCallback.Invoke(obj.Id, obj.Rotation, obj.X & CHUNK_COORDINATE_MASK, obj.Y & CHUNK_COORDINATE_MASK, request.PartRotation, false);
+                        int rotatedLocalY = request.MinY + request.PartRotationCallback.Invoke(obj.Id, obj.Rotation, obj.X & CHUNK_COORDINATE_MASK, obj.Y & CHUNK_COORDINATE_MASK, request.PartRotation, true);
                         int height = obj.Z;
                         if (rotatedLocalX < 0 || rotatedLocalX >= 64 || rotatedLocalY < 0 || rotatedLocalY >= 64) continue;
-                        if ((terrainData[1, rotatedLocalX, rotatedLocalY] & 0x2) != 0) height--;
-                        if (height >= 0) request.Callback.Invoke(obj.Id, obj.ShapeType, request.PartRotation + obj.Rotation & 0x3, rotatedLocalX, rotatedLocalY, height);
+                        if ((terrainData[1, rotatedLocalX, rotatedLocalY] & BRIDGE_FLAG) != 0) height--;
+                        if (height >= 0) request.Callback.Invoke(obj.Id, obj.ShapeType, (request.PartRotation + obj.Rotation) & ROTATION_MASK, rotatedLocalX, rotatedLocalY, height);
                     }
                 }
             }

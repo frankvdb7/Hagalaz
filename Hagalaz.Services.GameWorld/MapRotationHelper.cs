@@ -5,6 +5,8 @@ namespace Hagalaz.Services.GameWorld
 {
     public static class MapRotationHelper
     {
+        private const int ROTATION_AXIS_SWAP_FLAG = 0x1;
+
         public static int CalculateObjectPartRotation(ITypeProvider<IObjectType> objectTypeProvider, int objectId, int objectRotation, int xIndex, int yIndex, int partRotation, bool calculateRotationY)
         {
             var objectType = objectTypeProvider.Get(objectId);
@@ -13,8 +15,8 @@ namespace Hagalaz.Services.GameWorld
                 return calculateRotationY ? yIndex : xIndex;
             }
 
-            int sizeX = (objectRotation & 0x1) != 1 ? objectType.SizeX : objectType.SizeY;
-            int sizeY = (objectRotation & 0x1) != 1 ? objectType.SizeY : objectType.SizeX;
+            int sizeX = (objectRotation & ROTATION_AXIS_SWAP_FLAG) != 1 ? objectType.SizeX : objectType.SizeY;
+            int sizeY = (objectRotation & ROTATION_AXIS_SWAP_FLAG) != 1 ? objectType.SizeY : objectType.SizeX;
 
             if (partRotation == 1)
             {
