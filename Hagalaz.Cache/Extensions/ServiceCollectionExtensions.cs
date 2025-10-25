@@ -53,7 +53,6 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddSingleton<ISectorCodec, SectorCodec>();
             services.TryAddSingleton<ICacheAPI, CacheApi>();
             services.TryAddSingleton<IHuffmanCodeProvider, HuffmanCodeProvider>();
-            services.TryAddTransient<IMapDecoder, MapDecoder>();
             services.TryAddTransient<IHuffmanDecoder, HuffmanCodec>();
             services.TryAddTransient<IHuffmanEncoder, HuffmanCodec>();
             services.TryAddTransient<IItemTypeCodec, ItemTypeCodec>();
@@ -113,6 +112,10 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ITypeCodec<IVarpBitDefinition>, VarpBitDefinitionCodec>();
             services.TryAddTransient<ITypeFactory<IVarpBitDefinition>, VarpBitDefinitionFactory>();
             services.TryAddTransient<IVarpBitDefinitionProvider, VarpBitDefinitionProvider>();
+
+            services.TryAddTransient<IMapCodec, MapCodec>();
+            services.TryAddTransient<ITypeFactory<IMapType>, MapTypeFactory>();
+            services.TryAddTransient<IMapProvider, MapProvider>();
 
             return services;
         }
