@@ -52,7 +52,7 @@ namespace Hagalaz.Cache.Extensions.Tests
             var serviceProvider = _services.BuildServiceProvider();
 
             // Assert
-            Assert.Equal(ServiceLifetime.Transient, _services.GetLifetime<IMapDecoder>());
+            Assert.Equal(ServiceLifetime.Transient, _services.GetLifetime<IMapProvider>());
             Assert.Equal(ServiceLifetime.Transient, _services.GetLifetime<IHuffmanDecoder>());
             Assert.Equal(ServiceLifetime.Transient, _services.GetLifetime<IHuffmanEncoder>());
             Assert.Equal(ServiceLifetime.Transient, _services.GetLifetime<IItemTypeCodec>());

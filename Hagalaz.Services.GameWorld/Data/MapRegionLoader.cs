@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
+using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -26,7 +27,8 @@ namespace Hagalaz.Services.GameWorld.Data
         private readonly INpcSpawnRepository _npcSpawnRepository;
         private readonly IGroundItemSpawnRepository _itemSpawnRepository;
         private readonly IGameObjectSpawnRepository _objectSpawnRepository;
-        private readonly IMapDecoder _mapDecoder;
+        private readonly IMapProvider _mapProvider;
+        private readonly ITypeProvider<IObjectType> _objectTypeProvider;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
@@ -39,7 +41,8 @@ namespace Hagalaz.Services.GameWorld.Data
             INpcSpawnRepository npcSpawnRepository,
             IGroundItemSpawnRepository itemSpawnRepository,
             IGameObjectSpawnRepository objectSpawnRepository,
-            IMapDecoder mapDecoder,
+            IMapProvider mapProvider,
+            ITypeProvider<IObjectType> objectTypeProvider,
             ILocationBuilder locationBuilder,
             IGroundItemBuilder groundItemBuilder,
             IGameObjectBuilder gameObjectBuilder,
@@ -51,7 +54,8 @@ namespace Hagalaz.Services.GameWorld.Data
             _npcSpawnRepository = npcSpawnRepository;
             _itemSpawnRepository = itemSpawnRepository;
             _objectSpawnRepository = objectSpawnRepository;
-            _mapDecoder = mapDecoder;
+            _mapProvider = mapProvider;
+            _objectTypeProvider = objectTypeProvider;
             _locationBuilder = locationBuilder;
             _groundItemBuilder = groundItemBuilder;
             _gameObjectBuilder = gameObjectBuilder;
@@ -162,9 +166,19 @@ namespace Hagalaz.Services.GameWorld.Data
         private async Task LoadAllStaticGameObjectsAsync(IMapRegion region)
         {
             await Task.CompletedTask;
-            _mapDecoder.Decode(region.Id,
-                region.XteaKeys,
-                (objectId, shapeType, rotation, localX, localY, z) =>
+            var request = new DecodePartRequest
+            {
+                RegionID = region.Id,
+                XteaKeys = region.XteaKeys,
+                MinX = 0,
+                MinY = 0,
+                MaxX = region.Size.X - 1,
+                MaxY = region.Size.Y - 1,
+                PartZ = 0,
+                PartRotation = 0,
+                PartRotationCallback = (objectId, objectRotation, xIndex, yIndex, partRotation, calculateRotationY) =>
+                    MapRotationHelper.CalculateObjectPartRotation(_objectTypeProvider, objectId, objectRotation, xIndex, yIndex, partRotation, calculateRotationY),
+                Callback = (objectId, shapeType, rotation, localX, localY, z) =>
                 {
                     var location = _locationBuilder.Create()
                         .FromLocation(region.BaseLocation)
@@ -181,7 +195,9 @@ namespace Hagalaz.Services.GameWorld.Data
                         .Build();
                     region.Add(gameObject);
                 },
-                (localX, localY, z) => region.FlagCollision(localX, localY, z, CollisionFlag.FloorBlock));
+                GroundCallback = (localX, localY, z) => region.FlagCollision(localX, localY, z, CollisionFlag.FloorBlock)
+            };
+            _mapProvider.DecodePart(request);
         }
     }
 }
