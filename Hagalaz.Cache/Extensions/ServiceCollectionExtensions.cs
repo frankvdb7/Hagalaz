@@ -110,6 +110,10 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ITypeFactory<IConfigDefinition>, ConfigDefinitionFactory>();
             services.TryAddTransient<IConfigDefinitionProvider, ConfigDefinitionProvider>();
 
+            services.TryAddTransient<ITypeCodec<IVarpBitDefinition>, VarpBitDefinitionCodec>();
+            services.TryAddTransient<ITypeFactory<IVarpBitDefinition>, VarpBitDefinitionFactory>();
+            services.TryAddTransient<IVarpBitDefinitionProvider, VarpBitDefinitionProvider>();
+
             return services;
         }
     }
