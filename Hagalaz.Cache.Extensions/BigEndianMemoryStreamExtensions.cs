@@ -327,5 +327,24 @@ namespace Hagalaz.Cache.Extensions
             total += value;
             return total;
         }
+
+        public static void WriteHugeSmart(this MemoryStream stream, int value)
+        {
+            if (value < 32767)
+            {
+                stream.WriteSmart(value);
+            }
+            else
+            {
+                var val = 32767;
+                var total = 0;
+                while(value > total)
+                {
+                    stream.WriteSmart(val);
+                    total += val;
+                }
+                stream.WriteSmart(value - total);
+            }
+        }
     }
 }
