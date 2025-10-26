@@ -2,6 +2,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Extensions;
 using System;
+using System.Linq;
 
 namespace Hagalaz.Game.Extensions.Tests
 {
@@ -22,6 +23,7 @@ namespace Hagalaz.Game.Extensions.Tests
         [DataRow(ShapeType.ComplexGroundDecoration, LayerType.StandardObjects)]
         [DataRow(ShapeType.GroundDefault, LayerType.StandardObjects)]
         [DataRow(ShapeType.RoofTopSide, LayerType.StandardObjects)]
+        [DataRow(ShapeType.RoofTopCornerFlat, LayerType.StandardObjects)]
         [DataRow(ShapeType.RoofTopFlatDownwardCrease, LayerType.StandardObjects)]
         [DataRow(ShapeType.RoofTopSlantedUpwardCrease, LayerType.StandardObjects)]
         [DataRow(ShapeType.RoofTopSlantedDownwardCrease, LayerType.StandardObjects)]
@@ -40,7 +42,8 @@ namespace Hagalaz.Game.Extensions.Tests
         [TestMethod]
         public void GetLayerType_WithInvalidShape_ThrowsNotImplementedException()
         {
-            Assert.ThrowsException<NotImplementedException>(() => ((ShapeType)255).GetLayerType());
+            var invalidShapeType = Enum.GetValues(typeof(ShapeType)).Cast<ShapeType>().Max() + 1;
+            Assert.ThrowsException<NotImplementedException>(() => invalidShapeType.GetLayerType());
         }
     }
 }

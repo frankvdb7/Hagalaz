@@ -163,5 +163,46 @@ namespace Hagalaz.Security.Tests
             // Arrange & Act & Assert
             Assert.Throws<ArgumentNullException>(() => new ISAAC(null!));
         }
+
+        [Theory]
+        [InlineData(new uint[] { 1, 2, 3, 4, 5, 6, 7, 8 })]
+        [InlineData(new uint[] { 0xFFFFFFFF, 0xEEEEEEEE, 0xDDDDDDDD, 0xCCCCCCCC, 0xBBBBBBBB, 0xAAAAAAAA, 0x99999999, 0x88888888 })]
+        public void KeyGeneration_AcrossKeySetBoundary_ShouldRemainConsistent(uint[] seed)
+        {
+            // Arrange
+            var isaac = new ISAAC(seed);
+            var keys = new uint[512];
+
+            // Act
+            for (int i = 0; i < keys.Length; i++)
+            {
+                keys[i] = isaac.ReadKey();
+            }
+
+            // Assert
+            // Re-initialize to get the sequence again for comparison
+            isaac = new ISAAC(seed);
+            for (int i = 0; i < keys.Length; i++)
+            {
+                Assert.Equal(keys[i], isaac.ReadKey());
+            }
+        }
+
+        [Fact]
+        public void KeyGeneration_WithDifferentSeedLengths_ShouldProduceUniqueSequences()
+        {
+            // Arrange
+            var seed1 = new uint[] { 1, 2, 3, 4 };
+            var seed2 = new uint[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+            var isaac1 = new ISAAC(seed1);
+            var isaac2 = new ISAAC(seed2);
+
+            // Act
+            var key1 = isaac1.ReadKey();
+            var key2 = isaac2.ReadKey();
+
+            // Assert
+            Assert.NotEqual(key1, key2);
+        }
     }
 }
