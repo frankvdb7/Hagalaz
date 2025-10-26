@@ -589,6 +589,11 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="toSlot">The destination slot.</param>
         public void Move(int fromSlot, int toSlot)
         {
+             if ((uint)fromSlot >= (uint)Items.Length || (uint)toSlot >= (uint)Items.Length)
+            {
+                return;
+            }
+
             var fromItem = Items[fromSlot];
             if (fromItem == null) return;
 
