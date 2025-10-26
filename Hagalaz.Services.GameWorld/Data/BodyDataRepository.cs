@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
-using Hagalaz.Cache;
-using Hagalaz.Cache.Types.Defaults;
+using Hagalaz.Cache.Abstractions.Providers;
+using Hagalaz.Cache.Abstractions.Types.Defaults;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
@@ -12,7 +12,7 @@ namespace Hagalaz.Services.GameWorld.Data
     /// </summary>
     public class BodyDataRepository : IBodyDataRepository
     {
-        private readonly Lazy<EquipmentDefaults> _equipmentDefaults;
+        private readonly Lazy<IEquipmentDefaults> _equipmentDefaults;
 
         /// <summary>
         /// 
@@ -20,10 +20,10 @@ namespace Hagalaz.Services.GameWorld.Data
         public int BodySlotCount => _equipmentDefaults.Value.BodySlotData.Length;
 
         /// <summary>
-        /// 
+        /// Initializes a new instance of the <see cref="BodyDataRepository"/> class.
         /// </summary>
-        /// <param name="cacheApi"></param>
-        public BodyDataRepository(ICacheAPI cacheApi) => _equipmentDefaults = new Lazy<EquipmentDefaults>(() => EquipmentDefaults.Read(cacheApi), LazyThreadSafetyMode.ExecutionAndPublication);
+        /// <param name="equipmentDefaultsProvider">The equipment defaults provider.</param>
+        public BodyDataRepository(IEquipmentDefaultsProvider equipmentDefaultsProvider) => _equipmentDefaults = new Lazy<IEquipmentDefaults>(equipmentDefaultsProvider.Get, LazyThreadSafetyMode.ExecutionAndPublication);
 
         /// <summary>
         /// Determines whether [is disabled slot] [the specified part].
