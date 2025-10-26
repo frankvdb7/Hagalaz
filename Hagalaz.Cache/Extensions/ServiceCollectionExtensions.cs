@@ -1,10 +1,13 @@
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Abstractions.Types.Defaults;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Providers;
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
+using Hagalaz.Cache.Types.Defaults;
+using Hagalaz.Cache.Types.Defaults.Codecs;
 using Hagalaz.Cache.Types.Factories;
 using Hagalaz.Cache.Types.Hooks;
 using Microsoft.Extensions.DependencyInjection;
@@ -116,6 +119,9 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<IMapCodec, MapCodec>();
             services.TryAddTransient<ITypeFactory<IMapType>, MapTypeFactory>();
             services.TryAddTransient<IMapProvider, MapProvider>();
+
+            services.TryAddTransient<ITypeCodec<IEquipmentDefaults>, EquipmentDefaultsCodec>();
+            services.TryAddTransient<IEquipmentDefaultsProvider, EquipmentDefaultsProvider>();
 
             return services;
         }
