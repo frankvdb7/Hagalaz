@@ -101,5 +101,35 @@ namespace Hagalaz.Security.Tests
                 Assert.Fail($"Test failed with exception: {e}");
             }
         }
+
+        [Fact]
+        public void Encode_Then_Decode_WithRepetitiveString_ShouldReturnOriginalString()
+        {
+            // Arrange
+            var originalString = new string('a', 1000);
+
+            // Act
+            var encodedBytes = Huffman.Encode(originalString, out var messageLength);
+            using var stream = new MemoryStream(encodedBytes);
+            var decodedString = Huffman.Decode(stream, messageLength);
+
+            // Assert
+            Assert.Equal(originalString, decodedString);
+        }
+
+        [Fact]
+        public void Encode_Then_Decode_WithSingleCharacter_ShouldReturnOriginalString()
+        {
+            // Arrange
+            var originalString = "a";
+
+            // Act
+            var encodedBytes = Huffman.Encode(originalString, out var messageLength);
+            using var stream = new MemoryStream(encodedBytes);
+            var decodedString = Huffman.Decode(stream, messageLength);
+
+            // Assert
+            Assert.Equal(originalString, decodedString);
+        }
     }
 }
