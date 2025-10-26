@@ -18,6 +18,10 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             {
             }
 
+            public TestableItemContainer(StorageType type, IEnumerable<IItem> items, int capacity) : base(type, items, capacity)
+            {
+            }
+
             public override void OnUpdate(HashSet<int>? slots = null)
             {
                 // No-op for testing
@@ -854,6 +858,172 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             // Assert
             Assert.AreEqual(1, container.TakenSlots);
             Assert.AreEqual(1, container[0]!.Count);
+        }
+
+        [TestMethod]
+        public void Constructor_WithIEnumerable_InitializesCorrectly()
+        {
+            // Arrange
+            var items = new List<IItem> { CreateItem(1, 1), CreateItem(2, 1) };
+
+            // Act
+            var container = new TestableItemContainer(StorageType.Normal, items, 10);
+
+            // Assert
+            Assert.AreEqual(2, container.TakenSlots);
+            Assert.AreEqual(8, container.FreeSlots);
+        }
+
+        [TestMethod]
+        public void GetById_ItemExists_ReturnsItem()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(123, 1);
+            container.Add(item);
+
+            // Act
+            var foundItem = container.GetById(123);
+
+            // Assert
+            Assert.IsNotNull(foundItem);
+            Assert.AreEqual(123, foundItem.Id);
+        }
+
+        [TestMethod]
+        public void GetById_ItemDoesNotExist_ReturnsNull()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+
+            // Act
+            var foundItem = container.GetById(123);
+
+            // Assert
+            Assert.IsNull(foundItem);
+        }
+
+        [TestMethod]
+        public void GetCount_ItemExists_ReturnsCorrectCount()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            container.Add(CreateItem(1, 5, stackable: true));
+            container.Add(CreateItem(1, 1, stackable: false)); // Different item, same ID
+
+            // Act
+            var count = container.GetCount(CreateItem(1, 1, stackable: true));
+
+            // Assert
+            Assert.AreEqual(6, count);
+        }
+
+        [TestMethod]
+        public void Contains_ItemExists_ReturnsTrue()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            container.Add(CreateItem(1, 1));
+
+            // Act
+            var result = container.Contains(CreateItem(1, 1));
+
+            // Assert
+            Assert.IsTrue(result);
+        }
+
+        [TestMethod]
+        public void GetInstanceSlot_ItemExists_ReturnsCorrectSlot()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(1, 1);
+            container.Add(0, item);
+
+            // Act
+            var slot = container.GetInstanceSlot(item);
+
+            // Assert
+            Assert.AreEqual(0, slot);
+        }
+
+        [TestMethod]
+        public void ToArray_ReturnsCopyOfItems()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(1, 1);
+            container.Add(item);
+
+            // Act
+            var array = container.ToArray();
+
+            // Assert
+            Assert.AreEqual(10, array.Length);
+            Assert.IsNotNull(array[0]);
+            Assert.AreEqual(1, array[0].Id);
+        }
+
+        [TestMethod]
+        public void AddRange_WhenNotEnoughSpace_AddsNoItems()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var items = new[] { CreateItem(1, 1), CreateItem(2, 1), CreateItem(3, 1) };
+
+            // Act
+            var result = container.AddRange(items);
+
+            // Assert
+            Assert.IsFalse(result);
+            Assert.AreEqual(0, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void AddAndRemoveFrom_IntegerOverflow_DoesNotRemoveFromSource()
+        {
+            // Arrange
+            var source = new TestableItemContainer(StorageType.Normal, 5);
+            source.Add(CreateItem(1, 10, stackable: true));
+
+            var destination = new TestableItemContainer(StorageType.Normal, 5);
+            destination.Add(CreateItem(1, int.MaxValue - 5, stackable: true));
+
+            // Act
+            destination.AddAndRemoveFrom(source);
+
+            // Assert
+            Assert.AreEqual(1, source.TakenSlots);
+            Assert.AreEqual(10, source[0].Count);
+            Assert.AreEqual(int.MaxValue - 5, destination[0].Count);
+        }
+
+        [TestMethod]
+        public void Clear_EmptyContainer_DoesNothing()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+
+            // Act
+            container.Clear(true);
+
+            // Assert
+            Assert.AreEqual(0, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void Move_InvalidSlot_DoesNothing()
+        {
+            // Arrange
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var item = CreateItem(1, 1);
+            container.Add(item);
+
+            // Act
+            container.Move(0, 10); // 10 is out of bounds
+
+            // Assert
+            Assert.IsNotNull(container[0]);
         }
     }
 }
