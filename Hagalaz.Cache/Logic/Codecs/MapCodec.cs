@@ -99,7 +99,7 @@ namespace Hagalaz.Cache.Logic.Codecs
             for (var x = 0; x < MAP_DIMENSION; x++)
             for (var y = 0; y < MAP_DIMENSION; y++)
             {
-                while (true)
+                while (stream.Position < stream.Length)
                 {
                     var value = stream.ReadUnsignedByte();
                     if (value == 0) break;
