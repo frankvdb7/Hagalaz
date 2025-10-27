@@ -13,6 +13,11 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("programming", 79330059267400463L)]
         [DataRow("a", 1L)]
         [DataRow(" ", 0L)]
+        [DataRow("123456789012", 1000000000000000000L)]
+        [DataRow("abcdefghijkl", 65535L)]
+        [DataRow("____", 0L)]
+        [DataRow("999999999999", 2383999999999999999L)]
+        [DataRow("____________", 0L)]
         public void StringToLong_ConvertsCorrectly(string s, long expected)
         {
             // Arrange
@@ -32,6 +37,11 @@ namespace Hagalaz.Utilities.Tests
         [DataRow(0L, null)]
         [DataRow(-1L, null)]
         [DataRow(65535L, "aj5h")]
+        [DataRow(1000000000000000000L, "123456789012")]
+        [DataRow(long.MaxValue, "1y2p4a5a5y1y2p4a5")]
+        [DataRow(37L, "aa")]
+        [DataRow(1L, "a")]
+        [DataRow(36L, "9")]
         public void LongToString_ConvertsCorrectly(long value, string expected)
         {
             // Arrange
@@ -54,6 +64,11 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("test+alias@example.com", true)]
         [DataRow("test@example.museum", true)]
         [DataRow("test@192.168.1.1", false)]
+        [DataRow("test@sub.domain.com", true)]
+        [DataRow("test@domain.io", true)]
+        [DataRow("test@domain..com", false)]
+        [DataRow("test@.com", false)]
+        [DataRow("test@", false)]
         public void IsValidEmail_ValidatesCorrectly(string email, bool expected)
         {
             // Arrange
@@ -72,6 +87,11 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("invalid#name", false)]
         [DataRow("", false)]
         [DataRow("a", true)]
+        [DataRow("123456789012", true)]
+        [DataRow(" name", false)]
+        [DataRow("name ", false)]
+        [DataRow("some--name", false)]
+        [DataRow("some  name", false)]
         public void IsValidName_ValidatesCorrectly(string name, bool expected)
         {
             // Arrange
@@ -355,6 +375,21 @@ namespace Hagalaz.Utilities.Tests
 
             // Assert
             Assert.AreEqual(expected, result[0]);
+        }
+
+        [TestMethod]
+        [DataRow(0, "0")]
+        [DataRow(123, "123")]
+        [DataRow(1234, "1,234")]
+        [DataRow(1234567, "1,234,567")]
+        [DataRow(-1234567, "-1,234,567")]
+        public void FormatNumber_VariousInputs_FormatsCorrectly(int value, string expected)
+        {
+            // Act
+            var actual = StringUtilities.FormatNumber(value);
+
+            // Assert
+            Assert.AreEqual(expected, actual);
         }
     }
 }
