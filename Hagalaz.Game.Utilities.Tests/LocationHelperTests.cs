@@ -30,6 +30,16 @@ namespace Hagalaz.Game.Utilities.Tests
         [DataRow(10, 63, 1, 8138)]
         [DataRow(10, 20, 3, 13578)]
         [DataRow(63, 63, 1, 8191)]
+        [DataRow(1, 0, 0, 1)]
+        [DataRow(0, 1, 0, 64)]
+        [DataRow(0, 0, 1, 4096)]
+        [DataRow(31, 31, 1, 6111)]
+        [DataRow(32, 32, 2, 10272)]
+        [DataRow(62, 62, 2, 12222)]
+        [DataRow(15, 47, 3, 15311)]
+        [DataRow(47, 15, 1, 5087)]
+        [DataRow(0, 63, 0, 4032)]
+        [DataRow(63, 0, 0, 63)]
         public void GetRegionLocalHash_ReturnsCorrectHash(int x, int y, int z, int expectedHash)
         {
             var result = LocationHelper.GetRegionLocalHash(x, y, z);
@@ -45,6 +55,16 @@ namespace Hagalaz.Game.Utilities.Tests
         [DataRow(10, 2047, 1, 4193290)]
         [DataRow(10, 20, 3, 6311946)]
         [DataRow(1023, 2047, 1, 4194303)]
+        [DataRow(1, 0, 0, 1)]
+        [DataRow(0, 1, 0, 1024)]
+        [DataRow(0, 0, 1, 2097152)]
+        [DataRow(511, 1023, 1, 3144191)]
+        [DataRow(512, 1024, 2, 5243392)]
+        [DataRow(1022, 2046, 2, 6290430)]
+        [DataRow(255, 1279, 3, 7601407)]
+        [DataRow(1279, 255, 1, 2358271)]
+        [DataRow(0, 2047, 0, 2096128)]
+        [DataRow(1023, 0, 0, 1023)]
         public void GetRegionPartHash_ReturnsCorrectHash(int partX, int partY, int z, int expectedHash)
         {
             var result = LocationHelper.GetRegionPartHash(partX, partY, z);

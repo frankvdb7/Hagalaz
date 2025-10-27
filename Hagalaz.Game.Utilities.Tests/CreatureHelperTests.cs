@@ -16,6 +16,11 @@ namespace Hagalaz.Game.Utilities.Tests
                 new object[] { new[] { 10, -5, 5, 0 }, 15 },
                 new object[] { new[] { 10, 15, 5 }, 30 },
                 new object[] { new[] { -10, -5, 0 }, -1 },
+                new object[] { new[] { int.MaxValue }, int.MaxValue },
+                new object[] { new[] { 1000000000, 1000000000, 147483647 }, int.MaxValue },
+                new object[] { new[] { int.MaxValue, -100, 50 }, int.MaxValue },
+                new object[] { new[] { int.MinValue }, -1 },
+                new object[] { new[] { -10, int.MinValue }, -1 },
             };
 
         [DataTestMethod]

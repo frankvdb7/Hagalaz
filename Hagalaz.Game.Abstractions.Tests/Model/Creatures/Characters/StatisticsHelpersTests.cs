@@ -79,5 +79,37 @@ namespace Hagalaz.Game.Abstractions.Tests.Model.Creatures.Characters
         {
             Assert.AreEqual(100, StatisticsHelpers.GetStatisticsNormalizeRate());
         }
+
+        [DataTestMethod]
+        [DataRow(10, 1154)]
+        [DataRow(20, 7376)]
+        [DataRow(30, 27374)]
+        [DataRow(40, 76292)]
+        [DataRow(50, 188884)]
+        [DataRow(60, 429192)]
+        [DataRow(70, 917202)]
+        [DataRow(80, 1868358)]
+        [DataRow(90, 3685994)]
+        [DataRow(99, 13034431)]
+        public void ExperienceForLevel_AdditionalLevels_CalculatesCorrectly(int level, int expectedExperience)
+        {
+            Assert.AreEqual(expectedExperience, StatisticsHelpers.ExperienceForLevel(level));
+        }
+
+        [DataTestMethod]
+        [DataRow(0, 1)]
+        [DataRow(100, 2)]
+        [DataRow(1000, 9)]
+        [DataRow(10000, 22)]
+        [DataRow(100000, 49)]
+        [DataRow(1000000, 71)]
+        [DataRow(5000000, 91)]
+        [DataRow(10000000, 96)]
+        [DataRow(13034430, 98)]
+        [DataRow(13034431, 99)]
+        public void LevelForExperience_AdditionalExperience_CalculatesCorrectly(int experience, int expectedLevel)
+        {
+            Assert.AreEqual((byte)expectedLevel, StatisticsHelpers.LevelForExperience(StatisticsConstants.Attack, experience));
+        }
     }
 }

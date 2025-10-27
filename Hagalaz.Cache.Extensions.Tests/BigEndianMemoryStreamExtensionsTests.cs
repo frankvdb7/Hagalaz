@@ -38,6 +38,8 @@ namespace Hagalaz.Cache.Extensions.Tests
         [InlineData(short.MaxValue)]
         [InlineData(short.MaxValue - 1)]
         [InlineData(40000)]
+        [InlineData(0)]
+        [InlineData(int.MaxValue)]
         public void WriteAndReadBigSmart(int valueToWrite)
         {
             using var stream = new MemoryStream();
@@ -64,6 +66,20 @@ namespace Hagalaz.Cache.Extensions.Tests
             stream.WriteInt(0x12345678);
             stream.Position = 0;
             Assert.Equal(0x12345678, stream.ReadInt());
+        }
+
+        [Theory]
+        [InlineData(0L)]
+        [InlineData(1234567890123456789L)]
+        [InlineData(-1234567890123456789L)]
+        [InlineData(long.MaxValue)]
+        [InlineData(long.MinValue)]
+        public void WriteAndReadLong(long value)
+        {
+            using var stream = new MemoryStream();
+            stream.WriteLong(value);
+            stream.Position = 0;
+            Assert.Equal(value, stream.ReadLong());
         }
 
         [Fact]
@@ -107,6 +123,8 @@ namespace Hagalaz.Cache.Extensions.Tests
         [InlineData(200)]
         [InlineData(127)]
         [InlineData(128)]
+        [InlineData(0)]
+        [InlineData(32767)]
         public void WriteAndReadSmart(int value)
         {
             using var stream = new MemoryStream();
@@ -172,6 +190,18 @@ namespace Hagalaz.Cache.Extensions.Tests
             Assert.Equal(string.Empty, stream.ReadVString());
         }
 
+        [Theory]
+        [InlineData("")]
+        [InlineData("Hello, World!")]
+        [InlineData("`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?")]
+        public void WriteAndReadVString(string value)
+        {
+            using var stream = new MemoryStream();
+            stream.WriteVString(value);
+            stream.Position = 0;
+            Assert.Equal(value, stream.ReadVString());
+        }
+
         [Fact]
         public void ReadCheckedString_NonEmpty_ReturnsString()
         {
@@ -189,6 +219,18 @@ namespace Hagalaz.Cache.Extensions.Tests
             stream.WriteByte(0);
             stream.Position = 0;
             Assert.Equal(string.Empty, stream.ReadCheckedString());
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("Hello, World!")]
+        [InlineData("`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?")]
+        public void WriteAndReadCheckedString(string value)
+        {
+            using var stream = new MemoryStream();
+            stream.WriteCheckedString(value);
+            stream.Position = 0;
+            Assert.Equal(value, stream.ReadCheckedString());
         }
 
         [Fact]
@@ -209,6 +251,20 @@ namespace Hagalaz.Cache.Extensions.Tests
             stream.WriteSmart(100);
             stream.Position = 0;
             Assert.Equal(32767 + 32767 + 100, stream.ReadHugeSmart());
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(100)]
+        [InlineData(32766)]
+        [InlineData(32767)]
+        [InlineData(65534)]
+        public void WriteAndReadHugeSmart(int value)
+        {
+            using var stream = new MemoryStream();
+            stream.WriteHugeSmart(value);
+            stream.Position = 0;
+            Assert.Equal(value, stream.ReadHugeSmart());
         }
     }
 }
