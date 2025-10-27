@@ -7,15 +7,18 @@ namespace Hagalaz.Game.Utilities.Tests
     public class GameObjectHelperTests
     {
         [DataTestMethod]
-        [DataRow(10, 20, 1, 0, 5386)]
+        [DataRow(10, 20, 1, 5, 169226)]
         [DataRow(0, 0, 0, 0, 0)]
-        [DataRow(63, 63, 3, 3, 114687)]
-        [DataRow(32, 16, 2, 1, 42016)]
+        [DataRow(63, 63, 3, 31, 1032191)]
         [DataRow(-1, -1, -1, -1, -1)]
+        [DataRow(1, 0, 0, 0, 1)]
+        [DataRow(0, 1, 0, 0, 64)]
+        [DataRow(0, 0, 1, 0, 4096)]
+        [DataRow(0, 0, 0, 1, 32768)]
         public void GetRegionLocalHash_ReturnsCorrectHash(int x, int y, int z, int layer, int expectedHash)
         {
             var result = GameObjectHelper.GetRegionLocalHash(x, y, z, layer);
-            Assert.AreEqual(expectedHash, result, "The calculated hash is incorrect.");
+            Assert.AreEqual(expectedHash, result, "The calculated region local hash is incorrect.");
         }
     }
 }

@@ -30,45 +30,24 @@ namespace Hagalaz.Game.Utilities.Tests
             Assert.AreEqual(expected, CreatureHelper.CalculatePredictedDamage(hits));
         }
 
-        [TestMethod]
-        public void CalculateTicksForClientTicks_ZeroClientTicks_ReturnsZero()
+        [DataTestMethod]
+        [DataRow(0, 0)]
+        [DataRow(29, 1)]
+        [DataRow(30, 1)]
+        [DataRow(31, 2)]
+        [DataRow(60, 2)]
+        [DataRow(61, 3)]
+        public void CalculateTicksForClientTicks_VariousInputs_CalculatesCorrectly(int clientTicks, int expected)
         {
-            Assert.AreEqual(0, CreatureHelper.CalculateTicksForClientTicks(0));
+            Assert.AreEqual(expected, CreatureHelper.CalculateTicksForClientTicks(clientTicks));
         }
 
         [TestMethod]
-        public void CalculateTicksForClientTicks_BoundaryValueJustBelowTick_ReturnsOne()
+        public void CalculatePredictedDamage_WithValuesThatOverflowInt_ReturnsIntMaxValue()
         {
-            // (29 * 20 + 599) / 600 = 1179 / 600 = 1
-            Assert.AreEqual(1, CreatureHelper.CalculateTicksForClientTicks(29));
-        }
-
-        [TestMethod]
-        public void CalculateTicksForClientTicks_BoundaryValueAtTick_ReturnsOne()
-        {
-            // (30 * 20 + 599) / 600 = 1199 / 600 = 1
-            Assert.AreEqual(1, CreatureHelper.CalculateTicksForClientTicks(30));
-        }
-
-        [TestMethod]
-        public void CalculateTicksForClientTicks_BoundaryValueJustAboveTick_ReturnsTwo()
-        {
-            // (31 * 20 + 599) / 600 = 1219 / 600 = 2
-            Assert.AreEqual(2, CreatureHelper.CalculateTicksForClientTicks(31));
-        }
-
-        [TestMethod]
-        public void CalculateTicksForClientTicks_BoundaryValueAtTwoTicks_ReturnsTwo()
-        {
-            // (60 * 20 + 599) / 600 = 1799 / 600 = 2
-            Assert.AreEqual(2, CreatureHelper.CalculateTicksForClientTicks(60));
-        }
-
-        [TestMethod]
-        public void CalculateTicksForClientTicks_BoundaryValueJustAboveTwoTicks_ReturnsThree()
-        {
-            // (61 * 20 + 599) / 600 = 1819 / 600 = 3
-            Assert.AreEqual(3, CreatureHelper.CalculateTicksForClientTicks(61));
+            var hits = new[] { int.MaxValue - 50, 100, 200 }; // Sum > int.MaxValue
+            var result = CreatureHelper.CalculatePredictedDamage(hits);
+            Assert.AreEqual(int.MaxValue, result, "The method should cap the damage at int.MaxValue on overflow.");
         }
     }
 }

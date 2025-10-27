@@ -21,8 +21,10 @@ namespace Hagalaz.Game.Utilities
                 return 0;
             }
 
-            var actualHits = hits.Where(h => h > 0).ToArray();
-            return actualHits.Any() ? actualHits.Sum() : -1;
+            var actualHits = hits.Where(h => h > 0).Select(h => (long)h).ToArray();
+            var sum = actualHits.Sum();
+
+            return sum > 0 ? (int)Math.Min(sum, int.MaxValue) : -1;
         }
 
         /// <summary>
