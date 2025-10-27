@@ -79,7 +79,8 @@ namespace Hagalaz.Cache.Tests
             _provider.DecodePart(request);
 
             // Assert
-            objectDecoded.Verify(x => x(1, 7, 0, It.IsAny<int>(), It.IsAny<int>(), 0), Times.Once);
+            objectDecoded.Verify(x => x(0, 0, 1, It.IsAny<int>(), It.IsAny<int>(), 0), Times.Once);
+            objectDecoded.Verify(x => x(0, 32, 0, It.IsAny<int>(), It.IsAny<int>(), 0), Times.Once);
         }
     }
 }

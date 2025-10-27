@@ -66,14 +66,25 @@ namespace Hagalaz.Cache.Tests
             MapCodec.DecodeObjectData(objects, terrainData, stream);
 
             // Assert
-            Assert.Single(objects);
-            var obj = objects[0];
-            Assert.Equal(1, obj.Id);
-            Assert.Equal(1, obj.X);
-            Assert.Equal(0, obj.Y);
-            Assert.Equal(0, obj.Z);
-            Assert.Equal(7, obj.ShapeType);
-            Assert.Equal(0, obj.Rotation);
+            Assert.Collection(objects,
+                obj1 =>
+                {
+                    Assert.Equal(0, obj1.Id);
+                    Assert.Equal(0, obj1.X);
+                    Assert.Equal(63, obj1.Y);
+                    Assert.Equal(0, obj1.Z);
+                    Assert.Equal(0, obj1.ShapeType);
+                    Assert.Equal(1, obj1.Rotation);
+                },
+                obj2 =>
+                {
+                    Assert.Equal(0, obj2.Id);
+                    Assert.Equal(1, obj2.X);
+                    Assert.Equal(26, obj2.Y);
+                    Assert.Equal(0, obj2.Z);
+                    Assert.Equal(32, obj2.ShapeType);
+                    Assert.Equal(0, obj2.Rotation);
+                });
         }
     }
 }
