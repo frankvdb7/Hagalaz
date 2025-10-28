@@ -78,7 +78,7 @@ namespace Hagalaz.Game.Abstractions.Tasks
         /// <summary>
         /// The remaining delay in ticks before the task executes.
         /// </summary>
-        protected int ExecuteDelay { get; set; }
+        public int ExecuteDelay { get; protected set; }
 
         /// <inheritdoc />
         public bool IsCancelled { get; private set; }
