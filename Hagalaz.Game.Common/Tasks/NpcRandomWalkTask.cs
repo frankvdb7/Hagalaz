@@ -1,50 +1,42 @@
 using System;
+using Hagalaz.Game.Abstractions.Logic.Random;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Hagalaz.Game.Abstractions.Model.Maps;
 
 namespace Hagalaz.Game.Common.Tasks
 {
-    /// <summary>
-    /// 
-    /// </summary>
     public class NpcRandomWalkTask : RsTickTask
     {
         private readonly INpc _npc;
         private readonly IPathFinder _pathFinder;
+        private readonly IRandomProvider _randomProvider;
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="npc"></param>
         public NpcRandomWalkTask(INpc npc)
         {
             _npc = npc;
             _pathFinder = npc.ServiceProvider.GetRequiredService<IPathFinderProvider>().Simple;
+            _randomProvider = npc.ServiceProvider.GetRequiredService<IRandomProvider>();
             TickActionMethod = PerformTickImpl;
         }
 
-        /// <summary>
-        /// Implementation of superclass method callback.
-        /// </summary>
-        /// <returns></returns>
         private void PerformTickImpl()
         {
             if (_npc.Movement.Locked || _npc.Movement.Moving || _npc.Combat.IsInCombat())
             {
                 return;
             }
-            if (RandomStatic.Generator.NextDouble() * 1000.0 > 10.0)
+            if (_randomProvider.NextDouble() * 1000.0 > 10.0)
             {
                 return;
             }
-            int rndX = (int)Math.Round(RandomStatic.Generator.NextDouble() * 10.0 - 5.0);
-            int rndY = (int)Math.Round(RandomStatic.Generator.NextDouble() * 10.0 - 5.0);
+            int rndX = (int)Math.Round(_randomProvider.NextDouble() * 10.0 - 5.0);
+            int rndY = (int)Math.Round(_randomProvider.NextDouble() * 10.0 - 5.0);
             if (rndX == 0 && rndY == 0)
             {
                 return;
