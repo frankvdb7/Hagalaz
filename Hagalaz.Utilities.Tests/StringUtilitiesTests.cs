@@ -391,5 +391,18 @@ namespace Hagalaz.Utilities.Tests
             // Assert
             Assert.AreEqual(expected, actual);
         }
+
+        [TestMethod]
+        public void DecodeValues_EmptyString_ReturnsEmptyBoolArray()
+        {
+            // Arrange
+            var data = "";
+
+            // Act
+            var actual = StringUtilities.DecodeValues(data);
+
+            // Assert
+            Assert.AreEqual(0, actual.Length);
+        }
     }
 }
