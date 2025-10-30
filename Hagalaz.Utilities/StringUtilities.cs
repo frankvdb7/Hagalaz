@@ -189,6 +189,10 @@ namespace Hagalaz.Utilities
         /// <returns>A boolean array representing the decoded data.</returns>
         public static bool[] DecodeValues(string data)
         {
+            if (string.IsNullOrEmpty(data))
+            {
+                return [];
+            }
             var split = data.Split(',');
             var values = new bool[split.Length];
             for (int i = 0; i < split.Length; i++)
