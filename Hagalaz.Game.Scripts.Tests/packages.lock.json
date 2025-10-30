@@ -55,6 +55,26 @@
           "Castle.Core": "5.1.1"
         }
       },
+      "MSTest": {
+        "type": "Direct",
+        "requested": "[3.10.4, )",
+        "resolved": "3.10.4",
+        "contentHash": "wfMgvkM56pDGn9JTtUzWhOqCC9SUInvTeA6N1U88flLX4nSwNd55Y9T0VlF8hI5F4IfBASB0X9OL0zZ6c8cUVw==",
+        "dependencies": {
+          "MSTest.Analyzers": "3.10.4",
+          "MSTest.TestAdapter": "3.10.4",
+          "MSTest.TestFramework": "3.10.4",
+          "Microsoft.NET.Test.Sdk": "17.13.0",
+          "Microsoft.Testing.Extensions.CodeCoverage": "17.14.2",
+          "Microsoft.Testing.Extensions.TrxReport": "1.8.4"
+        }
+      },
+      "MSTest.Analyzers": {
+        "type": "Direct",
+        "requested": "[3.10.4, )",
+        "resolved": "3.10.4",
+        "contentHash": "a3IHTsbd+iS0pZUI7KC6nCCQgTOhjPyqDwPOtKLGCwjRifQ9N4K40qTqCaQlPOxwKaIxVwDLRYFvdY9NTDVi0w=="
+      },
       "MSTest.TestAdapter": {
         "type": "Direct",
         "requested": "[3.10.4, )",
@@ -222,11 +242,6 @@
           "Microsoft.TestPlatform.ObjectModel": "17.13.0",
           "Newtonsoft.Json": "13.0.1"
         }
-      },
-      "MSTest.Analyzers": {
-        "type": "Transitive",
-        "resolved": "3.10.4",
-        "contentHash": "a3IHTsbd+iS0pZUI7KC6nCCQgTOhjPyqDwPOtKLGCwjRifQ9N4K40qTqCaQlPOxwKaIxVwDLRYFvdY9NTDVi0w=="
       },
       "Newtonsoft.Json": {
         "type": "Transitive",
