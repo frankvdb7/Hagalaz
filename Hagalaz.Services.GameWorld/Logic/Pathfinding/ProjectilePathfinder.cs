@@ -166,8 +166,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         private bool IsTraversable(int x, int y, int z, CollisionFlag flag)
         {
             var clippingFlag = GetClippingFlag(x, y, z);
-            return (clippingFlag & flag) == 0 || (clippingFlag & CollisionFlag.ObjectBlock) == 0 && (clippingFlag & CollisionFlag.ObjectAllowRange) != 0 ||
-                   (clippingFlag & CollisionFlag.FloorBlock) != 0;
+            return (clippingFlag & flag) == 0 || ((clippingFlag & CollisionFlag.ObjectBlock) != 0 && (clippingFlag & CollisionFlag.ObjectAllowRange) != 0) || (clippingFlag & CollisionFlag.FloorBlock) == 0;
         }
     }
 }

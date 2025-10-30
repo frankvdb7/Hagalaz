@@ -8,7 +8,7 @@ using Path = Hagalaz.Services.GameWorld.Logic.Pathfinding.Path;
 namespace Hagalaz.Services.GameWorld.Tests
 {
     [TestClass]
-    public class PathfinderTests
+    public class DumbPathfinderTests
     {
         private DumbPathFinder _pathfinder;
         private IMapRegionService _mapRegionService;
@@ -59,8 +59,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var to = Location.Create(3, 1, 0);
 
             // Mock getClippingFlag
-            _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
-                .Returns(CollisionFlag.TraversableEastBlocked);
+            _mapRegionService.GetClippingFlag(2, 1, 0).Returns(CollisionFlag.FloorBlock);
 
             // Act
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
@@ -69,20 +68,58 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsFalse(path.Successful);
         }
 
-        [TestMethod]
-        public void Find_LargeEntity_UsesVariableTraversal()
+        [DataTestMethod]
+        [DataRow(1)]
+        [DataRow(2)]
+        [DataRow(3)]
+        public void Find_PathForDifferentSizes_ReturnsSuccessfulPath(int size)
         {
             // Arrange
             var from = Location.Create(1, 1, 0);
             var to = Location.Create(5, 5, 0);
-            var selfSize = 3;
 
             // Act
-            var path = _pathfinder.Find(from, selfSize, to, 1, 1, 0, 0, 0, false);
+            var path = _pathfinder.Find(from, size, to, 1, 1, 0, 0, 0, false);
 
             // Assert
             Assert.IsTrue(path.Successful);
             Assert.IsTrue(path.Any());
+            Assert.AreEqual(to, path.Last());
+        }
+
+        [TestMethod]
+        public void DumbPathfinder_Find_BlockedPath_MoveNear_ReturnsPartialPath()
+        {
+            // Arrange
+            var from = Location.Create(1, 1, 0);
+            var to = Location.Create(5, 1, 0);
+
+            // Block a tile on the path
+            _mapRegionService.GetClippingFlag(3, 1, 0).Returns(CollisionFlag.FloorBlock);
+
+            // Act
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, true);
+
+            // Assert
+            Assert.IsFalse(path.Successful);
+            Assert.IsTrue(path.MovedNear);
+            Assert.AreEqual(Location.Create(2, 1, 0), path.LastOrDefault());
+        }
+
+        [TestMethod]
+        public void Find_SimpleDiagonalPath_ReturnsSuccessfulPath()
+        {
+            // Arrange
+            var from = Location.Create(1, 1, 0);
+            var to = Location.Create(3, 3, 0);
+
+            // Act
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+
+            // Assert
+            Assert.IsTrue(path.Successful);
+            Assert.IsTrue(path.Any());
+            Assert.AreEqual(to, path.Last());
         }
 
         [TestMethod]
