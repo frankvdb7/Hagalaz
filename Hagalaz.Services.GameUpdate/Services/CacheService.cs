@@ -2,6 +2,10 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Hagalaz.Cache;
+using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Logic;
+using Hagalaz.Cache.Abstractions.Logic.Codecs;
+using Hagalaz.Cache.Models;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameUpdate.Services
@@ -23,14 +27,12 @@ namespace Hagalaz.Services.GameUpdate.Services
 
         private byte[] EncodeChecksumTable()
         {
-            using (var table = _cacheApi.CreateChecksumTable())
+            var table = _cacheApi.CreateChecksumTable();
+            var rsa = _rsaOptions.Value;
+            var encodedTable = _checksumTableCodec.Encode(table, true, rsa.ModulusKey, rsa.PrivateKey);
+            using (var container = new Container(encodedTable))
             {
-                var rsa = _rsaOptions.Value;
-                var encodedTable = _checksumTableCodec.Encode(table, true, rsa.ModulusKey, rsa.PrivateKey);
-                using (var container = new Container(encodedTable))
-                {
-                    return container.Encode();
-                }
+                return container.Encode();
             }
         }
 
@@ -40,6 +42,7 @@ namespace Hagalaz.Services.GameUpdate.Services
             {
                 return new ValueTask<MemoryStream>(new MemoryStream(_encodedChecksumTable.Value));
             }
+
             return ValueTask.FromResult<MemoryStream>(_cacheApi.Read(indexId, fileId));
         }
 
@@ -47,10 +50,8 @@ namespace Hagalaz.Services.GameUpdate.Services
         {
             if (indexId == 255 && fileId == 255) // ukeys
                 return true;
-            if (indexId >= _cacheApi.GetFileCount(255) && indexId != 255)
-                return false;
-            if (fileId < 0 || fileId >= _cacheApi.GetFileCount(indexId))
-                return false;
+            if (indexId >= _cacheApi.GetFileCount(255) && indexId != 255) return false;
+            if (fileId < 0 || fileId >= _cacheApi.GetFileCount(indexId)) return false;
             return true;
         }
     }

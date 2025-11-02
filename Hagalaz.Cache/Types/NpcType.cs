@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.Collections.Generic;
 using Hagalaz.Cache.Abstractions.Types;
-using Hagalaz.Cache.Extensions;
 
 namespace Hagalaz.Cache.Types
 {
@@ -401,8 +398,8 @@ namespace Hagalaz.Cache.Types
             AnInt1510 = -1;
             ExtraData = null;
             Speed = 0;
-            AByteArray1446 = Array.Empty<sbyte>();
-            AnIntArrayArray1449 = Array.Empty<int[]>();
+            AByteArray1446 = [];
+            AnIntArrayArray1449 = [];
         }
     }
 }

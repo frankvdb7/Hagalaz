@@ -1,5 +1,7 @@
-using Hagalaz.Cache;
+using Hagalaz.Cache.Abstractions.Logic.Codecs;
+using Hagalaz.Cache.Logic.Codecs;
 using Xunit;
+using Index = Hagalaz.Cache.Models.Index;
 
 namespace Hagalaz.Cache.Tests
 {

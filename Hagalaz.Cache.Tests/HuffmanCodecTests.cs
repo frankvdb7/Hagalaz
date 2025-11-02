@@ -1,10 +1,8 @@
-using System;
 using System.Buffers;
-using System.Linq;
 using System.Reflection;
-using Hagalaz.Cache.Abstractions.Providers;
-using Hagalaz.Cache.Abstractions.Providers.Model;
-using Hagalaz.Cache.Types;
+using Hagalaz.Cache.Abstractions.Types.Providers;
+using Hagalaz.Cache.Abstractions.Types.Providers.Model;
+using Hagalaz.Cache.Logic.Codecs;
 using Moq;
 using Xunit;
 

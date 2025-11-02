@@ -1,4 +1,5 @@
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Abstractions.Types.Factories;
 
 namespace Hagalaz.Cache.Types.Factories
 {

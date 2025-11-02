@@ -1,5 +1,3 @@
-using Hagalaz.Cache.Types;
-
 namespace Hagalaz.Cache.Types.Data
 {
     public class Cs2DefinitionData : TypeData

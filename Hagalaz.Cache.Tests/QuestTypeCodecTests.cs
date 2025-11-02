@@ -1,7 +1,6 @@
-using System.Collections.Generic;
 using Hagalaz.Cache.Types;
 using Xunit;
-using System.Linq;
+using Hagalaz.Cache.Logic.Codecs;
 
 namespace Hagalaz.Cache.Tests;
 

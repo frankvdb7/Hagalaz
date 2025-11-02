@@ -1,4 +1,5 @@
-using Hagalaz.Cache.Types.Data;
+using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Types.Data;
 
 namespace Hagalaz.Cache.Types
 {

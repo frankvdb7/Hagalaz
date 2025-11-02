@@ -1,19 +1,18 @@
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Cache.Abstractions.Types;
-using Hagalaz.Cache.Abstractions.Types.Defaults;
 using Hagalaz.Cache.Logic.Codecs;
-using Hagalaz.Cache.Providers;
-using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
-using Hagalaz.Cache.Types.Defaults;
-using Hagalaz.Cache.Types.Defaults.Codecs;
 using Hagalaz.Cache.Types.Factories;
 using Hagalaz.Cache.Types.Hooks;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Logic;
+using Hagalaz.Cache.Abstractions.Types.Factories;
+using Hagalaz.Cache.Abstractions.Types.Providers;
+using Hagalaz.Cache.Logic;
+using Hagalaz.Cache.Types.Providers;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Cache.Extensions

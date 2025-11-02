@@ -1,3 +1,6 @@
+using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Models;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests

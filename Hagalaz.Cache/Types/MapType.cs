@@ -20,7 +20,7 @@ namespace Hagalaz.Cache.Types
         /// <summary>
         /// Gets the internal list of map objects.
         /// </summary>
-        internal List<MapObject> InternalObjects { get; } = new List<MapObject>();
+        internal List<MapObject> InternalObjects { get; } = [];
     }
 
     /// <summary>

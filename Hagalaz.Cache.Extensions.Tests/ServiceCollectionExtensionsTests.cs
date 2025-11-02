@@ -1,14 +1,17 @@
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
-using Hagalaz.Cache.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Moq;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Types;
 using System.Linq;
+using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Logic;
+using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Abstractions.Types.Factories;
+using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Cache.Types.Factories;
 
 namespace Hagalaz.Cache.Extensions.Tests

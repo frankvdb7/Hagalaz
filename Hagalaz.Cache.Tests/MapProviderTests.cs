@@ -1,12 +1,12 @@
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Abstractions.Providers;
-using Hagalaz.Cache.Providers;
 using Hagalaz.Cache.Types.Factories;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
-using System.IO;
+using Hagalaz.Cache.Abstractions.Types.Providers;
+using Hagalaz.Cache.Models;
+using Hagalaz.Cache.Types.Providers;
 
 namespace Hagalaz.Cache.Tests
 {

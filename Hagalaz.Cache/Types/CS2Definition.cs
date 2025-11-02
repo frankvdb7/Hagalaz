@@ -23,11 +23,11 @@ namespace Hagalaz.Cache.Types
         {
             Id = id;
             Name = string.Empty;
-            Switches = System.Array.Empty<IReadOnlyDictionary<int, int>>();
-            Opcodes = System.Array.Empty<int>();
-            IntPool = System.Array.Empty<int>();
-            StringPool = System.Array.Empty<string>();
-            LongPool = System.Array.Empty<long>();
+            Switches = [];
+            Opcodes = [];
+            IntPool = [];
+            StringPool = [];
+            LongPool = [];
         }
     }
 }

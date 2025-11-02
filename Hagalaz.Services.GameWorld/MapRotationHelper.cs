@@ -1,4 +1,3 @@
-using Hagalaz.Cache.Abstractions.Providers;
 using Hagalaz.Cache.Abstractions.Types;
 
 namespace Hagalaz.Services.GameWorld

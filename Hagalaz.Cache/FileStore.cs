@@ -1,10 +1,9 @@
-﻿using System;
-using System.Buffers;
-using System.Collections.Generic;
+﻿using System.Buffers;
 using System.IO;
+using System.Threading;
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Abstractions.Model;
-using Microsoft.Extensions.Logging;
+using Hagalaz.Cache.Models;
 
 namespace Hagalaz.Cache
 {
@@ -17,7 +16,7 @@ namespace Hagalaz.Cache
         /// <summary>
         /// A lock object to ensure thread-safe access to the file streams.
         /// </summary>
-        private readonly object _lockObj = new object();
+        private readonly Lock _lockObj = new();
 
         /// <summary>
         /// The stream for the main data file (`main_file_cache.dat2`).

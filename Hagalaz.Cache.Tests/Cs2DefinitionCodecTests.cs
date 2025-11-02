@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
 using Xunit;
 

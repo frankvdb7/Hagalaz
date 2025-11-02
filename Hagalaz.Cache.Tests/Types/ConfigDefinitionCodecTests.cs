@@ -1,5 +1,5 @@
+using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
-using Hagalaz.Cache.Types.Data;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests.Types

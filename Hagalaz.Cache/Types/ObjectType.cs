@@ -1,7 +1,5 @@
 ﻿using Hagalaz.Cache.Abstractions.Types;
-using System;
 using System.Collections.Generic;
-using System.IO;
 
 namespace Hagalaz.Cache.Types
 {
@@ -405,7 +403,7 @@ namespace Hagalaz.Cache.Types
         public ObjectType(int id)
         {
             Id = id;
-            Actions = new string?[] { null, null, null, null, null, "Examine" };
+            Actions = [null, null, null, null, null, "Examine"];
             ScaleY = 128;
             ABoolean781 = false;
             MapSpriteRotation = 0;
@@ -464,8 +462,8 @@ namespace Hagalaz.Cache.Types
             ABoolean838 = true;
             VarpFileId = -1;
             ScaleZ = 128;
-            ModelIDs = Array.Empty<int[]>();
-            AByteArray816 = Array.Empty<sbyte>();
+            ModelIDs = [];
+            AByteArray816 = [];
         }
 
         /// <summary>

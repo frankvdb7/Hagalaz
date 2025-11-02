@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Cache;
+using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Services.Abstractions;

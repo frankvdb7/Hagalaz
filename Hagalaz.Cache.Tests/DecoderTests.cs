@@ -1,6 +1,4 @@
-using System;
-using System.IO;
-using Hagalaz.Cache;
+using Hagalaz.Cache.Logic.Codecs;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests

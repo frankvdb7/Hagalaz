@@ -1,4 +1,4 @@
-using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
 using Xunit;
 
