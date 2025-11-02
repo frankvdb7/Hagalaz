@@ -30,7 +30,7 @@
         "@angular/material": "^20.1.2",
         "@angular/platform-browser": "^20.1.2",
         "@angular/platform-browser-dynamic": "^20.1.2",
-        "@angular/platform-server": "^20.1.2",
+        "@angular/platform-server": "^20.3.0",
         "@angular/router": "^20.1.2",
         "@angular/service-worker": "^20.1.2",
         "@ngrx/operators": "^19.2.1",
