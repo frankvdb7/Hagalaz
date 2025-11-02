@@ -1,9 +1,7 @@
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Xunit;
-using Hagalaz.Cache;
-using System;
-using System.Linq;
+using Hagalaz.Cache.Models;
 
 namespace Hagalaz.Cache.Tests
 {

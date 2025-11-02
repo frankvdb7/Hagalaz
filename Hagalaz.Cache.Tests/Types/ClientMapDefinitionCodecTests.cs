@@ -1,6 +1,5 @@
-using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Types;
-using System.Collections.Generic;
+using Hagalaz.Cache.Logic.Codecs;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests.Types

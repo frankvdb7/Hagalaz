@@ -1,3 +1,5 @@
+using Hagalaz.Cache.Abstractions;
+
 namespace Hagalaz.Cache.Types.Data
 {
     /// <summary>

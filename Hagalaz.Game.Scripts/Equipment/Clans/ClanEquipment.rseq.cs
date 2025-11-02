@@ -1,5 +1,8 @@
 using Hagalaz.Cache;
+using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Cache.Types;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
@@ -10,7 +13,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Items;
-using Hagalaz.Cache.Abstractions.Providers;
 
 namespace Hagalaz.Game.Scripts.Equipment.Clans
 {

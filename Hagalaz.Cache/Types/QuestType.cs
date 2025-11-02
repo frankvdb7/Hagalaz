@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.Collections.Generic;
 using Hagalaz.Cache.Abstractions.Types;
-using Hagalaz.Cache.Extensions;
 
 namespace Hagalaz.Cache.Types
 {
@@ -182,20 +179,20 @@ namespace Hagalaz.Cache.Types
             Id = id;
             Name = string.Empty;
             ExtraData = new Dictionary<int, object>();
-            MinVarBitValue = Array.Empty<int>();
+            MinVarBitValue = [];
             ProgressVarBits = new int[0, 0];
-            QuestRequirements = Array.Empty<int>();
+            QuestRequirements = [];
             SortName = string.Empty;
-            AnIntArray4092 = Array.Empty<int>();
-            VarBitRequirements = Array.Empty<int>();
+            AnIntArray4092 = [];
+            VarBitRequirements = [];
             StatRequirements = new int[0, 0];
-            VarpRequirements = Array.Empty<int>();
-            MaxVarpValue = Array.Empty<int>();
-            VarpRequirementNames = Array.Empty<string>();
+            VarpRequirements = [];
+            MaxVarpValue = [];
+            VarpRequirementNames = [];
             ProgressVarps = new int[0, 0];
-            MaxVarBitValue = Array.Empty<int>();
-            VarbitRequirementNames = Array.Empty<string>();
-            MinVarpValue = Array.Empty<int>();
+            MaxVarBitValue = [];
+            VarbitRequirementNames = [];
+            MinVarpValue = [];
         }
 
     }

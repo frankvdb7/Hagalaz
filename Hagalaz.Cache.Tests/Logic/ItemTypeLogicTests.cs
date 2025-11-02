@@ -2,7 +2,6 @@ using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic;
 using Moq;
-using System.Collections.Generic;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests.Logic

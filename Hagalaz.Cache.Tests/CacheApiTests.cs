@@ -1,5 +1,8 @@
 using Moq;
-using System.IO;
+using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Logic;
+using Hagalaz.Cache.Abstractions.Logic.Codecs;
+using Hagalaz.Cache.Abstractions.Model;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests

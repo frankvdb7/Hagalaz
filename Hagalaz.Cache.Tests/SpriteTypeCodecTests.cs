@@ -2,7 +2,6 @@ using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-using System.IO;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests

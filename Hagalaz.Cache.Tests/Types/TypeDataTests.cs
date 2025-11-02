@@ -1,3 +1,4 @@
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
 using Xunit;

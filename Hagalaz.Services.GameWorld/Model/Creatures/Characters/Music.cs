@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Cache.Abstractions.Providers;
+using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;

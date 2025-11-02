@@ -1,3 +1,4 @@
+using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Types.Factories;
 using Hagalaz.Services.GameWorld.Data.Model;
 

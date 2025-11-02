@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
-using Hagalaz.Cache.Abstractions.Providers;
-using Hagalaz.Cache.Abstractions.Types.Defaults;
+using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 

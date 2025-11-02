@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
+﻿using System.Collections.Generic;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic;
@@ -92,8 +90,8 @@ namespace Hagalaz.Cache.Types
         public ItemType(int id)
         {
             Id = id;
-            GroundOptions = new string?[] { null, null, "take", null, null };
-            InventoryOptions = new string?[] { null, null, null, null, "drop" };
+            GroundOptions = [null, null, "take", null, null];
+            InventoryOptions = [null, null, null, null, "drop"];
             Name = "null";
             MaleWornModelId1 = -1;
             FemaleWornModelId1 = -1;

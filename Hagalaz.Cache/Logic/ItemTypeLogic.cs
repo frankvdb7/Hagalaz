@@ -396,30 +396,30 @@ namespace Hagalaz.Cache.Logic
             int weaponType = itemType.GetWeaponType();
             switch (weaponType)
             {
-                case 1: return new int[] { 3, 3, 3, -1 };
-                case 2: return new int[] { 2, 2, 3, 2 };
-                case 3: return new int[] { 3, 3, 3, -1 };
-                case 4: return new int[] { 1, 1, 3, 1 };
-                case 5: return new int[] { 1, 1, 2, 1 };
-                case 6: return new int[] { 2, 2, 1, 2 };
-                case 7: return new int[] { 2, 2, 3, 2 };
-                case 8: return new int[] { 3, 3, 1, 3 };
-                case 9: return new int[] { 2, 2, 1, 2 };
-                case 10: return new int[] { 3, 3, 3, -1 };
-                case 11: return new int[] { 2, 2, 2, -1 };
-                case 12: return new int[] { 3, 3, 3, -1 };
-                case 13: return new int[] { 4, 4, 4, -1 };
-                case 14: return new int[] { 1, 2, 3, 1 };
-                case 15: return new int[] { 1, 2, 1, -1 };
-                case 16: case 17: case 18: case 19: return new int[] { 4, 4, 4, -1 };
-                case 20: return new int[] { 3, 3, -1, -1 };
-                case 21: return new int[] { 2, 4, 5, -1 };
-                case 22: return new int[] { 2, 1, 3, 2 };
-                case 23: return new int[] { 2, 3, 2, -1 };
-                case 24: return new int[] { 4, 4, 4, -1 };
-                case 25: case 26: return new int[] { 1, 2, 3, -1 };
-                case 27: return new int[] { 2, 1, 3, -1 };
-                default: return new int[] { 3, 3, 3, -1 };
+                case 1: return [3, 3, 3, -1];
+                case 2: return [2, 2, 3, 2];
+                case 3: return [3, 3, 3, -1];
+                case 4: return [1, 1, 3, 1];
+                case 5: return [1, 1, 2, 1];
+                case 6: return [2, 2, 1, 2];
+                case 7: return [2, 2, 3, 2];
+                case 8: return [3, 3, 1, 3];
+                case 9: return [2, 2, 1, 2];
+                case 10: return [3, 3, 3, -1];
+                case 11: return [2, 2, 2, -1];
+                case 12: return [3, 3, 3, -1];
+                case 13: return [4, 4, 4, -1];
+                case 14: return [1, 2, 3, 1];
+                case 15: return [1, 2, 1, -1];
+                case 16: case 17: case 18: case 19: return [4, 4, 4, -1];
+                case 20: return [3, 3, -1, -1];
+                case 21: return [2, 4, 5, -1];
+                case 22: return [2, 1, 3, 2];
+                case 23: return [2, 3, 2, -1];
+                case 24: return [4, 4, 4, -1];
+                case 25: case 26: return [1, 2, 3, -1];
+                case 27: return [2, 1, 3, -1];
+                default: return [3, 3, 3, -1];
             }
         }
 
@@ -433,30 +433,30 @@ namespace Hagalaz.Cache.Logic
             int weaponType = itemType.GetWeaponType();
             switch (weaponType)
             {
-                case 1: return new int[] { 1, 2, 3, -1 };
-                case 2: return new int[] { 1, 2, 2, 3 };
-                case 3: return new int[] { 1, 2, 3, -1 };
-                case 4: return new int[] { 1, 2, 2, 3 };
-                case 5: return new int[] { 1, 2, 2, 3 };
-                case 6: return new int[] { 1, 2, 4, 3 };
-                case 7: return new int[] { 1, 2, 2, 3 };
-                case 8: return new int[] { 1, 2, 4, 3 };
-                case 9: return new int[] { 1, 2, 4, 3 };
-                case 10: return new int[] { 1, 2, 3, -1 };
-                case 11: return new int[] { 1, 4, 3, -1 };
-                case 12: return new int[] { 1, 2, 3, -1 };
-                case 13: return new int[] { 5, 6, 7, -1 };
-                case 14: return new int[] { 4, 4, 4, 3 };
-                case 15: return new int[] { 4, 2, 3, -1 };
-                case 16: case 17: case 18: case 19: return new int[] { 5, 6, 7, -1 };
-                case 20: return new int[] { 2, 2, -1, -1 };
-                case 21: return new int[] { 2, 5, 9, -1 };
-                case 22: return new int[] { 1, 2, 2, 3 };
-                case 23: return new int[] { 1, 2, 3, -1 };
-                case 24: return new int[] { 5, 6, 7, -1 };
-                case 25: case 26: return new int[] { 1, 2, 3, -1 };
-                case 27: return new int[] { 4, 4, 4, -1 };
-                default: return new int[] { 1, 2, 3, -1 };
+                case 1: return [1, 2, 3, -1];
+                case 2: return [1, 2, 2, 3];
+                case 3: return [1, 2, 3, -1];
+                case 4: return [1, 2, 2, 3];
+                case 5: return [1, 2, 2, 3];
+                case 6: return [1, 2, 4, 3];
+                case 7: return [1, 2, 2, 3];
+                case 8: return [1, 2, 4, 3];
+                case 9: return [1, 2, 4, 3];
+                case 10: return [1, 2, 3, -1];
+                case 11: return [1, 4, 3, -1];
+                case 12: return [1, 2, 3, -1];
+                case 13: return [5, 6, 7, -1];
+                case 14: return [4, 4, 4, 3];
+                case 15: return [4, 2, 3, -1];
+                case 16: case 17: case 18: case 19: return [5, 6, 7, -1];
+                case 20: return [2, 2, -1, -1];
+                case 21: return [2, 5, 9, -1];
+                case 22: return [1, 2, 2, 3];
+                case 23: return [1, 2, 3, -1];
+                case 24: return [5, 6, 7, -1];
+                case 25: case 26: return [1, 2, 3, -1];
+                case 27: return [4, 4, 4, -1];
+                default: return [1, 2, 3, -1];
             }
         }
 

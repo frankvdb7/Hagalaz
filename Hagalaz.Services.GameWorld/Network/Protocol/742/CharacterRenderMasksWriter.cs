@@ -1,5 +1,5 @@
 using System;
-using Hagalaz.Cache.Abstractions.Providers;
+using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;

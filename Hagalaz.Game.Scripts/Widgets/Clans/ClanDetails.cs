@@ -1,5 +1,5 @@
 using System;
-using Hagalaz.Cache.Abstractions.Providers;
+using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Features.Clans;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Features.Clans;

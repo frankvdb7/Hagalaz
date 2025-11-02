@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Microsoft.Extensions.Logging;
 
@@ -33,31 +34,70 @@ namespace Hagalaz.Cache
         /// <exception cref="FileNotFoundException">Thrown if no cache index files are found in the specified directory.</exception>
         public IFileStore Open(string rootPath)
         {
-            _logger.LogInformation("Cache file store path: {0}", Path.GetFullPath(rootPath));
+            _logger.LogInformation("Opening cache file store path: {path}", Path.GetFullPath(rootPath));
 
-            /* open the main data file stream */
-            var dataFile = File.Open(rootPath + @"/main_file_cache.dat2", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-
-            /* open all the index file streams */
+            FileStream? dataFile = null;
             var indexFiles = new List<FileStream>();
-            for (int i = 0; ; i++)
+            FileStream? mainIndexFile = null;
+
+            try
             {
-                var path = rootPath + @"/main_file_cache.idx" + i;
-                if (File.Exists(path))
-                    indexFiles.Add(File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite));
-                else
-                    break;
+                // Open required files
+                dataFile = OpenDataFile(rootPath);
+                indexFiles = OpenIndexFiles(rootPath);
+                mainIndexFile = OpenMainIndexFile(rootPath);
+
+                ValidateIndexFiles(indexFiles, rootPath);
+
+                // Initialize and return the file store
+                return new FileStore(dataFile, indexFiles.ToArray(), mainIndexFile, _indexCodec, _sectorCodec);
+            }
+            catch
+            {
+                // Clean up resources if initialization fails
+                dataFile?.Dispose();
+                foreach (var indexFile in indexFiles)
+                {
+                    indexFile.Dispose();
+                }
+
+                mainIndexFile?.Dispose();
+                throw;
+            }
+        }
+
+        private static FileStream OpenDataFile(string rootPath) =>
+            File.Open(Path.Combine(rootPath, "main_file_cache.dat2"),
+                FileMode.Open,
+                FileAccess.ReadWrite,
+                FileShare.ReadWrite);
+
+        private static List<FileStream> OpenIndexFiles(string rootPath)
+        {
+            var indexFiles = new List<FileStream>();
+            for (var i = 0;; i++)
+            {
+                var path = Path.Combine(rootPath, $"main_file_cache.idx{i}");
+                if (!File.Exists(path)) break;
+
+                indexFiles.Add(File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite));
             }
 
-            if (indexFiles.Count == 0) throw new FileNotFoundException("No cache found in directory: " + rootPath);
+            return indexFiles;
+        }
 
-            /* open the main index file stream */
-            var mainIndexFile = File.Open(rootPath + @"/main_file_cache.idx255", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+        private static FileStream OpenMainIndexFile(string rootPath) =>
+            File.Open(Path.Combine(rootPath, "main_file_cache.idx255"),
+                FileMode.Open,
+                FileAccess.ReadWrite,
+                FileShare.ReadWrite);
 
-            /* initialize the store */
-            var store = new FileStore(dataFile, indexFiles.ToArray(), mainIndexFile, _indexCodec, _sectorCodec);
-
-            return store;
+        private static void ValidateIndexFiles(List<FileStream> indexFiles, string rootPath)
+        {
+            if (indexFiles.Count == 0)
+            {
+                throw new FileNotFoundException($"No cache found in directory: {rootPath}");
+            }
         }
     }
 }

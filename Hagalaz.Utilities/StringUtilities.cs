@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -8,7 +9,7 @@ namespace Hagalaz.Utilities
     /// <summary>
     /// Provides a collection of static utility methods for string manipulation, validation, and conversion.
     /// </summary>
-    public static class StringUtilities
+    public static partial class StringUtilities
     {
         /// <summary>
         /// Defines a delegate for parsing a string into a specific type.
@@ -21,12 +22,12 @@ namespace Hagalaz.Utilities
         /// <summary>
         /// A regular expression for validating standard email address formats.
         /// </summary>
-        private static readonly Regex _validMail = new Regex(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", RegexOptions.IgnoreCase);
+        private static readonly Regex _validMail = MyRegex();
 
         /// <summary>
         /// A regular expression for validating names, likely usernames, allowing for simple or multi-part names.
         /// </summary>
-        private static readonly Regex _validName = new Regex(@"(^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)");
+        private static readonly Regex _validName = MyRegex1();
 
         /// <summary>
         /// An array of characters that are considered valid for specific contexts, such as client-side communication or base-37 encoding.
@@ -71,7 +72,7 @@ namespace Hagalaz.Utilities
             {
                 bld.Append(values[i]);
                 if ((i + 1) < values.Length)
-                    bld.Append(",");
+                    bld.Append(',');
             }
             return bld.ToString();
         }
@@ -88,7 +89,7 @@ namespace Hagalaz.Utilities
             {
                 bld.Append(values[i] ? 1 : 0);
                 if ((i + 1) < values.Length)
-                    bld.Append(",");
+                    bld.Append(',');
             }
             return bld.ToString();
         }
@@ -258,7 +259,7 @@ namespace Hagalaz.Utilities
         /// <returns>A string array where the first element is the extracted substring and the second element is the remainder of the source string.</returns>
         public static string[] GetStringInBetween(string strBegin, string strEnd, string strSource, bool includeBegin, bool includeEnd)
         {
-            string[] result = { "", "" };
+            string[] result = ["", ""];
             int iIndexOfBegin = strSource.IndexOf(strBegin, StringComparison.Ordinal);
             if (iIndexOfBegin != -1)
             {
@@ -291,6 +292,10 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="value">The integer value to format.</param>
         /// <returns>A formatted string representation of the number (e.g., "1,234,567").</returns>
-        public static string FormatNumber(int value) => value.ToString("#,###,##0");
+        public static string FormatNumber(int value) => value.ToString("#,###,##0", CultureInfo.InvariantCulture);
+        [GeneratedRegex(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", RegexOptions.IgnoreCase, "nl-NL")]
+        private static partial Regex MyRegex();
+        [GeneratedRegex(@"(^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)")]
+        private static partial Regex MyRegex1();
     }
 }

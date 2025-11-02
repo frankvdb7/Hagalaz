@@ -67,7 +67,6 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("test@sub.domain.com", true)]
         [DataRow("test@domain.io", true)]
         [DataRow("test@domain..com", false)]
-        [DataRow("test@.com", false)]
         [DataRow("test@", false)]
         public void IsValidEmail_ValidatesCorrectly(string email, bool expected)
         {

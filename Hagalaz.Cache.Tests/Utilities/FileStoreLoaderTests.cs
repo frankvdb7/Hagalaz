@@ -2,7 +2,7 @@ using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
-using System.IO;
+using Hagalaz.Cache.Abstractions;
 
 namespace Hagalaz.Cache.Tests.Utilities
 {

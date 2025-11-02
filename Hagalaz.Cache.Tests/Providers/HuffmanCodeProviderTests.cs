@@ -1,9 +1,9 @@
-using Hagalaz.Cache.Abstractions.Providers.Model;
-using Hagalaz.Cache.Abstractions.Providers;
-using Hagalaz.Cache.Providers;
+using Hagalaz.Cache.Abstractions;
 using NSubstitute;
 using Xunit;
-using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Abstractions.Types.Providers.Model;
+using Hagalaz.Cache.Models;
+using Hagalaz.Cache.Types.Providers;
 
 namespace Hagalaz.Cache.Tests.Providers
 {

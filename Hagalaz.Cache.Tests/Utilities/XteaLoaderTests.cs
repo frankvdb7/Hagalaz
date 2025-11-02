@@ -1,7 +1,5 @@
 using Hagalaz.Cache.Utilities;
 using Xunit;
-using System.IO;
-using System.Collections.Generic;
 
 namespace Hagalaz.Cache.Tests.Utilities
 {

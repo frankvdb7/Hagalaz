@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using Hagalaz.Cache.Abstractions.Model;
 
 namespace Hagalaz.Cache.Utilities
 {
@@ -10,7 +11,7 @@ namespace Hagalaz.Cache.Utilities
         /// <summary>
         /// The archives
         /// </summary>
-        private readonly Archive?[] _archives;
+        private readonly IArchive?[] _archives;
         /// <summary>
         /// The cache
         /// </summary>
@@ -34,7 +35,7 @@ namespace Hagalaz.Cache.Utilities
             _cache = cache;
             _indexId = indexId;
             _table = cache.ReadReferenceTable(indexId);
-            _archives = new Archive[_cache.GetFileCount(indexId)];
+            _archives = new IArchive[_cache.GetFileCount(indexId)];
         }
 
         /// <summary>

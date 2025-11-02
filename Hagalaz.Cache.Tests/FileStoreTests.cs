@@ -1,11 +1,9 @@
-using System;
-using System.IO;
-using System.Linq;
 using System.Text;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Models;
 using Xunit;
+using Index = Hagalaz.Cache.Models.Index;
 
 namespace Hagalaz.Cache.Tests
 {

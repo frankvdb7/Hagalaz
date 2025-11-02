@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.IO;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
 using Xunit;
