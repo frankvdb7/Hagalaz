@@ -18,6 +18,10 @@ const routes: Routes = [
                 loadComponent: () => import("./overview/overview.component").then((c) => c.OverviewComponent),
             },
             {
+                path: "equipment",
+                loadComponent: () => import("./equipment/equipment.component").then((c) => c.EquipmentComponent),
+            },
+            {
                 path: "pvp",
                 loadComponent: () => import("./pvp/pvp.component").then((c) => c.PvpComponent),
             },

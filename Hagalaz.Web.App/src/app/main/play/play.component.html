@@ -1,10 +1,15 @@
-<main>
-    <div class="container pb-4 pt-4">
-        <div class="card bg-dark text-white">
-            <div class="card-body">
-                <h4>Play</h4>
-                <br />
-            </div>
-        </div>
-    </div>
-</main>
+<div class="container m-auto flex flex-col gap-4 py-4">
+    <app-card-title>
+        <ng-container title>Play Hagalaz</ng-container>
+        <ng-container content>
+            <span>Download the game client to start your adventure!</span>
+        </ng-container>
+    </app-card-title>
+    <mat-card class="xl:mx-auto xl:w-2/3">
+        <mat-card-content class="flex flex-col items-center justify-center gap-4 p-4">
+            <p class="text-center">To begin your journey in Hagalaz, please download our game client. Once downloaded, run the executable and follow the on-screen instructions to install the game.</p>
+            <p class="text-center">After installation, launch the client, log in with your account, and dive into the world of Hagalaz!</p>
+            <a href="/launcher/Hagalaz.exe" mat-raised-button color="primary">Download Game Client</a>
+        </mat-card-content>
+    </mat-card>
+</div>

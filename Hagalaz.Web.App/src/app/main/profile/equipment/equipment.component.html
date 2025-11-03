@@ -1,0 +1,20 @@
+<app-card-title>
+    <ng-container title>Equipment</ng-container>
+</app-card-title>
+<div class="grid grid-cols-3 gap-4">
+    @for (slot of equipmentStore.equippedItems(); track slot) {
+        <mat-card class="p-4">
+            <h2 class="text-lg font-bold">{{ slot.slot }}</h2>
+            @if (slot.item) {
+                <div class="flex flex-col items-center">
+                    <img src="https://static.runelite.net/cache/item/icon/{{ slot.item.id }}.png" alt="{{ slot.item.name }}" />
+                    <span>{{ slot.item.name }}</span>
+                </div>
+            } @else {
+                <div class="flex flex-col items-center">
+                    <span>Empty</span>
+                </div>
+            }
+        </mat-card>
+    }
+</div>

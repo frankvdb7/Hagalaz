@@ -21,6 +21,10 @@ export class HeaderNavComponent {
             url: "/highscores",
         },
         {
+            label: "Shop",
+            url: "/shop",
+        },
+        {
             label: "Play",
             url: "/play",
         },

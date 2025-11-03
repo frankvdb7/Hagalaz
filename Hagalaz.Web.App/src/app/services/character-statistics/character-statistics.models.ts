@@ -46,6 +46,10 @@ export interface GetAllCharacterStatisticsRequest {
     filter?: PagingModel & { type: CharacterStatType };
 }
 
+export interface GetCharacterStatisticsByDisplayNameRequest {
+    displayName: string;
+}
+
 export interface GetAllCharacterStatisticsResult extends MultiValueResult<CharacterStatisticsDto> {
     metaData: PagingMetaDataModel;
 }

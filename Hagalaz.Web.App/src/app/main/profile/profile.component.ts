@@ -22,6 +22,10 @@ export class ProfileComponent {
             url: "/profile/overview",
         },
         {
+            label: "Equipment",
+            url: "/profile/equipment",
+        },
+        {
             label: "Player vs Player",
             url: "/profile/pvp",
         },

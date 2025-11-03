@@ -1,4 +1,28 @@
 <app-card-title class="text-left">
-    <ng-container title>Overview</ng-container>
+    <ng-container title>{{ profileStore.displayName() }}'s Profile</ng-container>
 </app-card-title>
-<mat-card>Overview works</mat-card>
+<mat-card>
+    <div class="grid grid-cols-3 gap-4">
+        <div>
+            <h2 class="text-lg font-bold">Skills</h2>
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-b">
+                        <th class="p-2">Skill</th>
+                        <th class="p-2">Level</th>
+                        <th class="p-2">Experience</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (stat of profileStore.stats(); track stat.type) {
+                        <tr class="border-b">
+                            <td class="p-2">{{ stat.type }}</td>
+                            <td class="p-2">{{ stat.level }}</td>
+                            <td class="p-2">{{ stat.experience }}</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</mat-card>

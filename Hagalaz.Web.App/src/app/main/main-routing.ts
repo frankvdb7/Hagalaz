@@ -22,6 +22,11 @@ export const mainRoutes: Routes = [
         loadChildren: () => import("@app/main/play/play-routing.module").then((m) => m.PlayRoutingModule),
     },
     {
+        path: "shop",
+        title: "Shop",
+        loadComponent: () => import("@app/main/shop/shop.component").then((c) => c.ShopComponent),
+    },
+    {
         path: "login",
         title: "Login",
         loadChildren: () => import("@app/main/login/login-routing.module").then((m) => m.LoginRoutingModule),

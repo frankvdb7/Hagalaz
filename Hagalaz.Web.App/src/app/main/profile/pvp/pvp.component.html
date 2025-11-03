@@ -1,4 +1,34 @@
 <app-card-title>
     <ng-container title>Player vs Player</ng-container>
 </app-card-title>
-<mat-card appearance="outlined"> pvp works</mat-card>
+<div class="grid grid-cols-3 gap-4">
+    <mat-card class="p-4">
+        <h2 class="text-lg font-bold">Statistics</h2>
+        <div class="flex flex-col">
+            <span>Kills: {{ pvpStore.kills() }}</span>
+            <span>Deaths: {{ pvpStore.deaths() }}</span>
+            <span>K/D Ratio: {{ pvpStore.killDeathRatio() }}</span>
+        </div>
+    </mat-card>
+    <mat-card class="col-span-2 p-4">
+        <h2 class="text-lg font-bold">Match History</h2>
+        <table class="w-full text-left">
+            <thead>
+                <tr class="border-b">
+                    <th class="p-2">Outcome</th>
+                    <th class="p-2">Opponent</th>
+                    <th class="p-2">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (match of pvpStore.recentMatches(); track match) {
+                    <tr class="border-b">
+                        <td class="p-2">{{ match.outcome }}</td>
+                        <td class="p-2">{{ match.opponent }}</td>
+                        <td class="p-2">{{ toDate(match.date) | dateAgo }}</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </mat-card>
+</div>

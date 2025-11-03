@@ -14,7 +14,7 @@ import { AuthStore } from "@app/core/auth/auth.store";
     styleUrls: ["./login.component.scss"],
     imports: [MatCard, MatCardContent, RouterLink, ErrorPipe, LoginFormComponent, LoadingComponent, CardTitleComponent],
     host: { class: "flex flex-auto" },
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoginComponent {
     readonly store = inject(AuthStore);

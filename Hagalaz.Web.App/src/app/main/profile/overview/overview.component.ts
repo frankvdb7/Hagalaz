@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
 import { MatCard } from "@angular/material/card";
 import { CardTitleComponent } from "@app/common/components/card-title/card-title.component";
 import { UserStore } from "@app/core/user/user.store";
+import { ProfileStore } from "../profile.store";
 
 @Component({
     selector: "app-overview",
@@ -12,4 +13,9 @@ import { UserStore } from "@app/core/user/user.store";
 })
 export class OverviewComponent {
     store = inject(UserStore);
+    profileStore = inject(ProfileStore);
+
+    constructor() {
+        this.profileStore.loadStatistics();
+    }
 }

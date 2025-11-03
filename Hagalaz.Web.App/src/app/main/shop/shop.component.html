@@ -1,0 +1,24 @@
+<div class="container m-auto flex flex-col gap-4 py-4">
+    <app-card-title>
+        <ng-container title>Cosmetic Shop</ng-container>
+        <ng-container content>
+            <span>Browse and purchase unique cosmetic items for your character!</span>
+            <span class="font-bold">Your Hagalaz Coins: {{ userStore.hagalazCoins() }}</span>
+        </ng-container>
+    </app-card-title>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        @for (item of shopStore.shopItems(); track item.id) {
+            <mat-card class="flex flex-col">
+                <img mat-card-image [src]="item.imageUrl" [alt]="item.name" />
+                <mat-card-title class="text-center">{{ item.name }}</mat-card-title>
+                <mat-card-content class="flex-grow text-center">
+                    <p>{{ item.description }}</p>
+                    <p class="font-bold">Price: {{ item.price }} Hagalaz Coins</p>
+                </mat-card-content>
+                <mat-card-actions class="flex justify-center">
+                    <button mat-button color="primary" (click)="buyItem(item)">Buy Now</button>
+                </mat-card-actions>
+            </mat-card>
+        }
+    </div>
+</div>

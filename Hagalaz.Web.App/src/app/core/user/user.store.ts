@@ -25,6 +25,7 @@ export const UserStore = signalStore(
     withComputed(({ info }) => ({
         username: computed(() => info()?.username || "Unknown"),
         displayName: computed(() => info()?.preferred_username || "Unknown"),
+        hagalazCoins: computed(() => info()?.hagalazCoins || 0),
     })),
     withMethods((store, userService = inject(UserService)) => ({
         loadUser: rxMethod<void>(
@@ -41,6 +42,7 @@ export const UserStore = signalStore(
                 )
             )
         ),
+        setHagalazCoins: (hagalazCoins: number) => patchState(store, (state) => ({ info: { ...state.info!, hagalazCoins } })),
     })),
     withHooks({
         onInit: (store, authStore = inject(AuthStore)) => {

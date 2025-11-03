@@ -1,6 +1,6 @@
 import { Injectable, inject } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
-import { GetAllCharacterStatisticsRequest, GetAllCharacterStatisticsResult } from "./character-statistics.models";
+import { GetAllCharacterStatisticsRequest, GetAllCharacterStatisticsResult, GetCharacterStatisticsByDisplayNameRequest, CharacterStatisticsDto } from "./character-statistics.models";
 import { Observable } from "rxjs";
 import { environment } from "@environment/environment";
 
@@ -12,5 +12,9 @@ export class CharacterStatisticsService {
 
     getAllStatistics(request: GetAllCharacterStatisticsRequest): Observable<GetAllCharacterStatisticsResult> {
         return this.http.post<GetAllCharacterStatisticsResult>(`${environment.characterApiUrl}characters/stats`, request);
+    }
+
+    getStatisticsByDisplayName(request: GetCharacterStatisticsByDisplayNameRequest): Observable<CharacterStatisticsDto> {
+        return this.http.get<CharacterStatisticsDto>(`${environment.characterApiUrl}characters/${request.displayName}/stats`);
     }
 }
