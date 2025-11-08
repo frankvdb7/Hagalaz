@@ -147,7 +147,7 @@ namespace Hagalaz.Collections.Tests
             });
             var list = new LazyList<int>(source);
             var tasks = new List<Task>();
-            var allElements = new List<List<int>>();
+            var allElements = new System.Collections.Concurrent.ConcurrentBag<List<int>>();
 
             // Act
             for (int i = 0; i < 10; i++)
@@ -161,6 +161,7 @@ namespace Hagalaz.Collections.Tests
 
             // Assert
             Assert.AreEqual(100, enumerationCount, "The source should be enumerated exactly once, even with multiple threads.");
+            Assert.AreEqual(10, allElements.Count, "All tasks should complete and add their element lists.");
             foreach (var elements in allElements)
             {
                 Assert.AreEqual(100, elements.Count, "Each thread should get all the elements.");
