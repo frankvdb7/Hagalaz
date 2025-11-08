@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Data;
@@ -7,9 +7,9 @@ using Hagalaz.Game.Abstractions.Model.Events;
 namespace Hagalaz.Services.GameWorld.Data
 {
     /// <summary>
-    /// Class for managing events.
+    /// An in-memory implementation of the <see cref="IEventBus"/>.
     /// </summary>
-    public class EventManager : IEventManager
+    public class InMemoryEventBus : IEventBus, IEventManager
     {
         /// <summary>
         /// Contains binded event handlers.

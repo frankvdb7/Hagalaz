@@ -135,7 +135,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 Volume = 255,
                 Delay = 100
             });
-            new MusicPlayEvent(_owner, musicIndex).Send();
+            _owner.EventManager.SendEvent(new MusicPlayEvent(_owner, musicIndex));
         }
 
         /// <summary>

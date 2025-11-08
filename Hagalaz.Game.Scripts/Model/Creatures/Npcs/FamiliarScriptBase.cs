@@ -168,7 +168,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         public override void OnSpawn()
         {
             ResetTimer();
-            new FamiliarSpawnedEvent(Summoner, Owner).Send();
+            Summoner.EventManager.SendEvent(new FamiliarSpawnedEvent(Summoner, Owner));
         }
 
         /// <summary>
@@ -518,7 +518,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             _despawnTicks--;
             if (_despawnTicks <= 0)
             {
-                new FamiliarDismissEvent(Summoner).Send();
+                Summoner.EventManager.SendEvent(new FamiliarDismissEvent(Summoner));
                 return;
             }
 

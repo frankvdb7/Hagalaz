@@ -20,7 +20,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Martin
             switch (clickType)
             {
                 case NpcClickType.Option3Click:
-                    new OpenShopEvent(clicker, 14).Send();
+                    clicker.EventManager.SendEvent(new OpenShopEvent(clicker, 14));
                     break;
                 case NpcClickType.Option1Click:
                     var dialogue = clicker.ServiceProvider.GetRequiredService<MartinThwaitDialogue>();

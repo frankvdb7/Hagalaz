@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         public async Task Execute_WithValidArguments_SendsBitConfig()
         {
             // Arrange
-            var configurationsMock = Substitute.For<ICharacterConfigurations>();
+            var configurationsMock = Substitute.For<IConfigurations>();
             var characterMock = Substitute.For<ICharacter>();
             characterMock.Configurations.Returns(configurationsMock);
 

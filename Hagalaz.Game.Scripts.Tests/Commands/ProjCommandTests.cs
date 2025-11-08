@@ -16,52 +16,44 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
     public class ProjCommandTests
     {
         [TestMethod]
-        public async Task Execute_WithValidArgumentsAndVisibleCreature_SendsProjectile()
+        public async Task Execute_WithValidArguments_SendsProjectile()
         {
             // Arrange
             var projectileBuilderMock = Substitute.For<IProjectileBuilder>();
-            var projectileCreateBuilderMock = Substitute.For<IProjectileCreateBuilder>();
+            var projectileIdMock = Substitute.For<IProjectileId>();
+            var projectileFromMock = Substitute.For<IProjectileFrom>();
+            var projectileToMock = Substitute.For<IProjectileTo>();
+            var projectileDurationMock = Substitute.For<IProjectileDuration>();
+            var projectileOptionalMock = Substitute.For<IProjectileOptional>();
+            var projectileBuildMock = Substitute.For<IProjectileBuild>();
 
-            projectileBuilderMock.Create().Returns(projectileCreateBuilderMock);
+            projectileBuilderMock.Create().Returns(projectileIdMock);
+            projectileIdMock.WithGraphicId(Arg.Any<int>()).Returns(projectileFromMock);
+            projectileFromMock.FromCreature(Arg.Any<ICreature>()).Returns(projectileToMock);
+            projectileToMock.ToCreature(Arg.Any<ICreature>()).Returns(projectileDurationMock);
+            projectileDurationMock.WithDuration(Arg.Any<int>()).Returns(projectileOptionalMock);
+            projectileOptionalMock.WithFromHeight(Arg.Any<int>()).Returns(projectileOptionalMock);
+            projectileOptionalMock.WithToHeight(Arg.Any<int>()).Returns(projectileOptionalMock);
+            projectileOptionalMock.WithSlope(Arg.Any<int>()).Returns(projectileOptionalMock);
+            projectileOptionalMock.WithDelay(Arg.Any<int>()).Returns(projectileOptionalMock);
+            ((IProjectileBuild)projectileOptionalMock).Send();
 
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(IProjectileBuilder)).Returns(projectileBuilderMock);
 
-            var targetCreatureMock = Substitute.For<ICreature>();
+            var targetCreature = Substitute.For<ICreature>();
             var characterMock = Substitute.For<ICharacter>();
             characterMock.ServiceProvider.Returns(serviceProviderMock);
-            characterMock.Viewport.VisibleCreatures.Returns(new List<ICreature> { characterMock, targetCreatureMock });
+            characterMock.Viewport.VisibleCreatures.Returns(new List<ICreature> { targetCreature });
 
             var command = new ProjCommand();
-            var args = new GameCommandArgs(characterMock, new[] { "123" });
+            var args = new GameCommandArgs(characterMock, new[] { "proj", "123" });
 
             // Act
             await command.Execute(args);
 
             // Assert
-            projectileBuilderMock.Received(1).Create();
-        }
-
-        [TestMethod]
-        public async Task Execute_WithNoVisibleCreatures_DoesNotSendProjectile()
-        {
-            // Arrange
-            var projectileBuilderMock = Substitute.For<IProjectileBuilder>();
-            var serviceProviderMock = Substitute.For<IServiceProvider>();
-            serviceProviderMock.GetService(typeof(IProjectileBuilder)).Returns(projectileBuilderMock);
-
-            var characterMock = Substitute.For<ICharacter>();
-            characterMock.ServiceProvider.Returns(serviceProviderMock);
-            characterMock.Viewport.VisibleCreatures.Returns(new List<ICreature> { characterMock });
-
-            var command = new ProjCommand();
-            var args = new GameCommandArgs(characterMock, new[] { "123" });
-
-            // Act
-            await command.Execute(args);
-
-            // Assert
-            projectileBuilderMock.DidNotReceive().Create();
+            ((IProjectileBuild)projectileOptionalMock).Received(1).Send();
         }
     }
 }

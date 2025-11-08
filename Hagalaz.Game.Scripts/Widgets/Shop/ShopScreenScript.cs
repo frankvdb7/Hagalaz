@@ -586,7 +586,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
 
             if (Owner.CurrentShop != null)
             {
-                new CloseShopEvent(Owner).Send();
+                _eventManager.SendEvent(new CloseShopEvent(Owner));
             }
         }
     }

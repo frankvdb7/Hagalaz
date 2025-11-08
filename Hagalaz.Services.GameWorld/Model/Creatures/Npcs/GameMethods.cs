@@ -15,7 +15,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         public override void OnSpawn()
         {
-            new CreatureSpawnedEvent(this).Send();
+            EventManager.SendEvent(new CreatureSpawnedEvent(this));
             Script.OnSpawn();
             Combat.OnSpawn();
         }
@@ -27,7 +27,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         {
             if (!Combat.IsDead)
             {
-                new CreatureDiedEvent(this).Send();
+                EventManager.SendEvent(new CreatureDiedEvent(this));
                 Movement.Lock(true); // reset movement and prevent further actions
                 Script.OnDeath();
                 Combat.OnDeath();
@@ -38,7 +38,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// Happens when npc location changes.
         /// </summary>
         /// <param name="oldLocation">Old location.</param>
-        protected override void OnLocationChange(ILocation? oldLocation) => new CreatureLocationChangedEvent(this, oldLocation).Send();
+        protected override void OnLocationChange(ILocation? oldLocation) => EventManager.SendEvent(new CreatureLocationChangedEvent(this, oldLocation));
 
         /// <summary>
         /// This method gets executed when creature kills the target.
@@ -46,7 +46,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <param name="target">The target.</param>
         public override void OnTargetKilled(ICreature target)
         {
-            new CreatureKillEvent(this, target).Send();
+            EventManager.SendEvent(new CreatureKillEvent(this, target));
             Script.OnTargetKilled(target);
             Combat.OnTargetKilled(target);
         }
@@ -57,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <param name="killer">The creature.</param>
         public override void OnKilledBy(ICreature killer)
         {
-            new CreatureKillEvent(killer, this).Send();
+            EventManager.SendEvent(new CreatureKillEvent(killer, this));
             Script.OnKilledBy(killer);
             Combat.OnKilledBy(killer);
         }
@@ -84,7 +84,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <returns>If something was interupted.</returns>
         public override void Interrupt(object source)
         {
-            new CreatureInterruptedEvent(this, source).Send();
+            EventManager.SendEvent(new CreatureInterruptedEvent(this, source));
             if (!(source is CreatureCombat))
                 Combat.CancelTarget();
             Script.OnInterrupt(source);

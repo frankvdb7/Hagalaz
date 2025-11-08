@@ -218,7 +218,7 @@ namespace Hagalaz.Game.Scripts.Model.Items
         /// <returns><c>true</c> if this instance [can equip item] the specified item; otherwise, <c>false</c>.</returns>
         public virtual bool CanEquipItem(IItem item, ICharacter character)
         {
-            if (new EquipAllowEvent(character, item).Send())
+            if (character.EventManager.SendEvent(new EquipAllowEvent(character, item)))
             {
                 var allow = true;
                 foreach (var skillId in item.EquipmentDefinition.Requirements.Keys)
@@ -260,6 +260,6 @@ namespace Hagalaz.Game.Scripts.Model.Items
         /// <param name="item">Item in character equipment.</param>
         /// <param name="character">Character which wants to unequip item.</param>
         /// <returns><c>true</c> if this instance [can un equip item] the specified item; otherwise, <c>false</c>.</returns>
-        public virtual bool CanUnEquipItem(IItem item, ICharacter character) => new UnEquipAllowEvent(character, item).Send();
+        public virtual bool CanUnEquipItem(IItem item, ICharacter character) => character.EventManager.SendEvent(new UnEquipAllowEvent(character, item));
     }
 }

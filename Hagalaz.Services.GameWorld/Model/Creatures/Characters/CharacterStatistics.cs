@@ -1043,7 +1043,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (currentLevel > previousLevel)
             {
                 if (GetSkillLevel(skillID) < currentLevel) HealSkill(skillID, currentLevel - previousLevel);
-                new SkillLevelUpEvent(_owner, skillID, previousLevel, currentLevel).Send();
+                _owner.EventManager.SendEvent(new SkillLevelUpEvent(_owner, skillID, previousLevel, currentLevel));
             }
 
             return previousLevel != currentLevel;
@@ -1145,7 +1145,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (PrayerBonuses.GetBonus(type) >= max) return false;
             PrayerBonuses.SetBonus(type, PrayerBonuses.GetBonus(type) + 1);
             _owner.Prayers.RefreshDynamicBonuses();
-            new CreaturePrayerBonusChangedEvent(_owner).Send();
+            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
             return true;
         }
 
@@ -1162,7 +1162,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (PrayerBonuses.GetBonus(type) <= max) return false;
             PrayerBonuses.SetBonus(type, PrayerBonuses.GetBonus(type) - 1);
             _owner.Prayers.RefreshDynamicBonuses();
-            new CreaturePrayerBonusChangedEvent(_owner).Send();
+            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
             return true;
         }
 
@@ -1175,7 +1175,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             PrayerBonuses.SetBonus(BonusPrayerType.TurmoilStrength, 0);
             PrayerBonuses.SetBonus(BonusPrayerType.TurmoilDefence, 0);
             _owner.Prayers.RefreshDynamicBonuses();
-            new CreaturePrayerBonusChangedEvent(_owner).Send();
+            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
         }
 
         /// <summary>
@@ -1187,7 +1187,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             PrayerBonuses.SetBonus(type, value);
             _owner.Prayers.RefreshDynamicBonuses();
-            new CreaturePrayerBonusChangedEvent(_owner).Send();
+            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
         }
 
         /// <summary>
@@ -1201,7 +1201,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             PrayerBonuses.SetBonus(BonusPrayerType.CurseInstantRanged, 0);
             PrayerBonuses.SetBonus(BonusPrayerType.CurseInstantMagic, 0);
             _owner.Prayers.RefreshDynamicBonuses();
-            new CreaturePrayerBonusChangedEvent(_owner).Send();
+            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
         }
 
         /// <summary>
@@ -1226,7 +1226,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             PrayerBonuses.SetBonus(BonusPrayerType.TurmoilStrength, percentStrength);
             PrayerBonuses.SetBonus(BonusPrayerType.TurmoilDefence, percentDefence);
             _owner.Prayers.RefreshDynamicBonuses();
-            new CreaturePrayerBonusChangedEvent(_owner).Send();
+            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
         }
 
         /// <summary>
@@ -1241,7 +1241,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             PrayerBonuses.SetBonus(BonusPrayerType.CurseRanged, 0);
             PrayerBonuses.SetBonus(BonusPrayerType.CurseMagic, 0);
             _owner.Prayers.RefreshDynamicBonuses();
-            new CreaturePrayerBonusChangedEvent(_owner).Send();
+            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
         }
 
         /// <summary>

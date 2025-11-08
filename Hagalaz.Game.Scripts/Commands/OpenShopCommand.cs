@@ -13,7 +13,7 @@ namespace Hagalaz.Game.Scripts.Commands
         {
             args.Handled = true;
             var shopID = int.Parse(args.Arguments[0]);
-            new OpenShopEvent(args.Character, shopID).Send();
+            args.Character.EventManager.SendEvent(new OpenShopEvent(args.Character, shopID));
             return Task.CompletedTask;
         }
     }

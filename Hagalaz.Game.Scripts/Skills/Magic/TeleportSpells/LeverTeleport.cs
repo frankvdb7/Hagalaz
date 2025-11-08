@@ -55,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells
                 return;
             }
 
-            if (!new TeleportAllowEvent(caster, Destination).Send())
+            if (!caster.EventManager.SendEvent(new TeleportAllowEvent(caster, Destination)))
             {
                 return;
             }

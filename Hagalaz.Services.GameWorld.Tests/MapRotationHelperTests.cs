@@ -1,5 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
+using NSubstitute;
 using Hagalaz.Cache.Abstractions.Types;
 
 namespace Hagalaz.Services.GameWorld.Tests
@@ -19,14 +19,14 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void CalculateObjectPartRotation_RotatesCorrectly(int sizeX, int sizeY, int objectRotation, int xIndex, int yIndex, int partRotation, bool calculateRotationY, int expected)
         {
             // Arrange
-            var objectTypeProviderMock = new Mock<ITypeProvider<IObjectType>>();
-            var objectTypeMock = new Mock<IObjectType>();
-            objectTypeMock.SetupGet(o => o.SizeX).Returns(sizeX);
-            objectTypeMock.SetupGet(o => o.SizeY).Returns(sizeY);
-            objectTypeProviderMock.Setup(p => p.Get(It.IsAny<int>())).Returns(objectTypeMock.Object);
+            var objectTypeProviderMock = Substitute.For<ITypeProvider<IObjectType>>();
+            var objectTypeMock = Substitute.For<IObjectType>();
+            objectTypeMock.SizeX.Returns(sizeX);
+            objectTypeMock.SizeY.Returns(sizeY);
+            objectTypeProviderMock.Get(Arg.Any<int>()).Returns(objectTypeMock);
 
             // Act
-            var result = MapRotationHelper.CalculateObjectPartRotation(objectTypeProviderMock.Object, 1, objectRotation, xIndex, yIndex, partRotation, calculateRotationY);
+            var result = MapRotationHelper.CalculateObjectPartRotation(objectTypeProviderMock, 1, objectRotation, xIndex, yIndex, partRotation, calculateRotationY);
 
             // Assert
             Assert.AreEqual(expected, result);

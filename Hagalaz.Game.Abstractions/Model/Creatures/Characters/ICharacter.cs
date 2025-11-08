@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.Clans;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Model.Items;
 
@@ -18,6 +19,11 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// Gets the game session associated with this character.
         /// </summary>
         IGameSession Session { get; }
+
+        /// <summary>
+        /// Gets the event manager for dispatching game events.
+        /// </summary>
+        IEventManager EventManager { get; }
         /// <summary>
         /// Gets the unique display name of the character.
         /// </summary>

@@ -195,7 +195,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void ActivatePrayer(NormalPrayer prayer)
         {
             var book = _owner.Profile.GetValue<PrayerBook>(ProfileConstants.PrayerSettingsBook);
-            if (!new PrayerAllowEvent(_owner, prayer).Send() || book != PrayerBook.StandardBook || IsPraying(prayer))
+            if (!_owner.EventManager.SendEvent(new PrayerAllowEvent(_owner, prayer)) || book != PrayerBook.StandardBook || IsPraying(prayer))
                 return;
             if (!CheckRequirements(prayer))
             {
@@ -220,85 +220,85 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 case NormalPrayer.ThickSkin:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticDefence, 5);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.BurstOfStrength:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticStrength, 5);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.ClarityOfThought:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticAttack, 5);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.SharpEye:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticRanged, 5);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.MysticWill:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticMagic, 5);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.RockSkin:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticDefence, 10);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.SuperhumanStrength:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticStrength, 10);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.ImprovedReflexes:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticAttack, 10);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.HawkEye:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticRanged, 10);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.MysticLore:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticMagic, 10);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.SteelSkin:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticDefence, 15);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.UltimateStrength:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticStrength, 15);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.IncredibleReflexes:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticAttack, 15);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.EagleEye:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticRanged, 15);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.MysticMight:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticMagic, 15);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.Chivalry:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticAttack, 15);
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticStrength, 18);
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticDefence, 20);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.Piety:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticAttack, 20);
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticStrength, 23);
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticDefence, 25);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.Rigour:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticRanged, 20);
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticDefence, 25);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.Augury:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticMagic, 20);
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticDefence, 25);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.ProtectFromSummoning when _owner.Appearance.PrayerIcon == PrayerIcon.None:
                     _owner.Appearance.PrayerIcon = PrayerIcon.Summoning;
@@ -374,7 +374,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void ActivatePrayer(AncientCurses prayer)
         {
             var book = _owner.Profile.GetValue<PrayerBook>(ProfileConstants.PrayerSettingsBook);
-            if (!new PrayerAllowEvent(_owner, prayer).Send() || book != PrayerBook.CursesBook || IsPraying(prayer))
+            if (!_owner.EventManager.SendEvent(new PrayerAllowEvent(_owner, prayer)) || book != PrayerBook.CursesBook || IsPraying(prayer))
                 return;
             if (!CheckRequirements(prayer))
             {
@@ -445,7 +445,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticAttack, 15);
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticDefence, 15);
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticStrength, 23);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     _owner.AddState(new State(StateType.Turmoil, int.MaxValue));
                     _owner.QueueAnimation(_animationBuilder.Create().WithId(12565).Build());
                     _owner.QueueGraphic(_graphicBuilder.Create().WithId(2256).Build());
@@ -516,85 +516,85 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 case NormalPrayer.ThickSkin:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticDefence, 5);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.BurstOfStrength:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticStrength, 5);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.ClarityOfThought:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticAttack, 5);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.SharpEye:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticRanged, 5);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.MysticWill:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticMagic, 5);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.RockSkin:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticDefence, 10);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.SuperhumanStrength:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticStrength, 10);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.ImprovedReflexes:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticAttack, 10);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.HawkEye:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticRanged, 10);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.MysticLore:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticMagic, 10);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.SteelSkin:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticDefence, 15);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.UltimateStrength:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticStrength, 15);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.IncredibleReflexes:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticAttack, 15);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.EagleEye:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticRanged, 15);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.MysticMight:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticMagic, 15);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.Chivalry:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticAttack, 15);
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticStrength, 18);
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticDefence, 20);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.Piety:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticAttack, 20);
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticStrength, 23);
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticDefence, 25);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.Rigour:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticRanged, 20);
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticDefence, 25);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.Augury:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticMagic, 20);
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticDefence, 25);
-                    new CreaturePrayerBonusChangedEvent(_owner).Send();
+                    _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
                     break;
                 case NormalPrayer.ProtectFromSummoning when _owner.Appearance.PrayerIcon == PrayerIcon.Summoning:
                     _owner.Appearance.PrayerIcon = PrayerIcon.None;

@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Richard
         {
             if (clickType == NpcClickType.Option3Click)
             {
-                new OpenShopEvent(clicker, 26).Send();
+                clicker.EventManager.SendEvent(new OpenShopEvent(clicker, 26));
                 return;
             }
 

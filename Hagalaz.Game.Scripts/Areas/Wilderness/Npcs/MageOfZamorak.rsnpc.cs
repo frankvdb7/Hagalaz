@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.Npcs
 
             if (clickType == NpcClickType.Option3Click)
             {
-                new OpenShopEvent(clicker, 16).Send();
+                clicker.EventManager.SendEvent(new OpenShopEvent(clicker, 16));
                 return;
             }
 

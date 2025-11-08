@@ -47,7 +47,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public override void OnUpdate(HashSet<int>? slots = null) => new BankChangedEvent(_owner, slots).Send();
+        public override void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new BankChangedEvent(_owner, slots));
 
         /// <summary>
         /// Attempts to find a free slot in the container.

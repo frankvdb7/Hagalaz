@@ -10,6 +10,7 @@
     <ItemGroup>
       <ProjectReference Include="..\Hagalaz.Game.Scripts\Hagalaz.Game.Scripts.csproj" />
       <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
+      <ProjectReference Include="..\Hagalaz.Services.GameWorld\Hagalaz.Services.GameWorld.csproj" />
     </ItemGroup>
 
     <ItemGroup>

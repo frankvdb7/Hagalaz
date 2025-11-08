@@ -86,7 +86,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                new FamiliarDismissEvent(Owner).Send();
+                Owner.EventManager.SendEvent(new FamiliarDismissEvent(Owner));
                 return true;
             });
 

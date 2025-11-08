@@ -142,7 +142,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                new FamiliarDismissEvent(Owner).Send();
+                Owner.EventManager.SendEvent(new FamiliarDismissEvent(Owner));
                 return true;
             });
 
@@ -274,7 +274,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                     return false;
                 }
 
-                new FamiliarDismissEvent(Owner).Send();
+                Owner.EventManager.SendEvent(new FamiliarDismissEvent(Owner));
                 return true;
             });
 

@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Commands
             var count = itemRepository.GetTotalItemCount();
             var found = new int[8 * 35];
             var foundCount = 0;
-            _ = Task.Run(() =>
+            await Task.Run(() =>
             {
                 for (var i = 0; i < count; i++)
                 {

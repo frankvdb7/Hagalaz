@@ -146,7 +146,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 (extraData1, extraData2) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
-                    new OpenShopEvent(Owner, 11).Send();
+                    Owner.EventManager.SendEvent(new OpenShopEvent(Owner, 11));
                     return true;
                 });
         }

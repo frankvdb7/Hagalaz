@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Areas.Catherby.Npcs
         {
             if (clickType == NpcClickType.Option3Click)
             {
-                new OpenShopEvent(clicker, 24).Send();
+                clicker.EventManager.SendEvent(new OpenShopEvent(clicker, 24));
                 return;
             }
 

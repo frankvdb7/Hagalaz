@@ -12,6 +12,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
     public class AdminHub : RaidoHub
     {
         [RaidoMessageHandler(typeof(ConsoleCommandMessage))]
-        public void OnCommand(ConsoleCommandMessage message) => _ = new ConsoleCommandEvent(Context.GetCharacter(), message.Command).Send();
+        public void OnCommand(ConsoleCommandMessage message) => Context.GetCharacter().EventManager.SendEvent(new ConsoleCommandEvent(Context.GetCharacter(), message.Command));
     }
 }

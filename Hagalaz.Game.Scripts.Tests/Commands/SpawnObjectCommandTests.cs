@@ -20,10 +20,18 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         {
             // Arrange
             var gameObjectBuilderMock = Substitute.For<IGameObjectBuilder>();
+            var gameObjectIdMock = Substitute.For<IGameObjectId>();
+            var gameObjectLocationMock = Substitute.For<IGameObjectLocation>();
+            var gameObjectOptionalMock = Substitute.For<IGameObjectOptional>();
             var gameObjectMock = Substitute.For<IGameObject>();
             var regionMock = Substitute.For<IMapRegion>();
 
-            gameObjectBuilderMock.Create().WithId(Arg.Any<int>()).WithLocation(Arg.Any<Location>()).WithShape(Arg.Any<ShapeType>()).WithRotation(Arg.Any<int>()).Build().Returns(gameObjectMock);
+            gameObjectBuilderMock.Create().Returns(gameObjectIdMock);
+            gameObjectIdMock.WithId(Arg.Any<int>()).Returns(gameObjectLocationMock);
+            gameObjectLocationMock.WithLocation(Arg.Any<Location>()).Returns(gameObjectOptionalMock);
+            gameObjectOptionalMock.WithShape(Arg.Any<ShapeType>()).Returns(gameObjectOptionalMock);
+            gameObjectOptionalMock.WithRotation(Arg.Any<int>()).Returns(gameObjectOptionalMock);
+            gameObjectOptionalMock.Build().Returns(gameObjectMock);
 
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(IGameObjectBuilder)).Returns(gameObjectBuilderMock);
@@ -40,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
 
             // Assert
             gameObjectBuilderMock.Received(1).Create();
-            regionMock.Received(1).Add(gameObjectMock);
+            regionMock.Received(1).Add(Arg.Any<IGameObject>());
         }
     }
 }

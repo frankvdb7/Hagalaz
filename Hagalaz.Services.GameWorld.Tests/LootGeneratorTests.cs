@@ -1,4 +1,3 @@
-using AwesomeAssertions;
 using Hagalaz.Services.GameWorld.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Random;
@@ -32,7 +31,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
 
             // Assert
-            result.Should().BeEmpty();
+            Assert.IsFalse(result.Any());
         }
 
         [TestMethod]
@@ -46,7 +45,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
 
             // Assert
-            result.Should().BeEmpty();
+            Assert.IsFalse(result.Any());
         }
 
         [TestMethod]
@@ -62,8 +61,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
 
             // Assert
-            result.Should().HaveCount(1);
-            result.First().Item.Should().Be(item);
+            Assert.AreEqual(1, result.Count());
+            Assert.AreEqual(item, result.First().Item);
         }
 
         [TestMethod]
@@ -81,7 +80,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
 
             // Assert
-            result.Should().HaveCount(2);
+            Assert.AreEqual(2, result.Count());
         }
 
         [TestMethod]
@@ -99,9 +98,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
 
             // Assert
-            result.Should().HaveCount(2);
-            result.Should().Contain(r => r.Item.Id == mainItem.Id);
-            result.Should().Contain(r => r.Item.Id == nestedItem.Id);
+            Assert.AreEqual(2, result.Count());
+            Assert.IsTrue(result.Any(r => r.Item.Id == mainItem.Id));
+            Assert.IsTrue(result.Any(r => r.Item.Id == nestedItem.Id));
         }
 
         [TestMethod]
@@ -120,7 +119,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
 
             // Assert
-            result.Should().HaveCount(2);
+            Assert.AreEqual(2, result.Count());
         }
 
         [TestMethod]
@@ -163,8 +162,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = _generator.GenerateLoot<TestLootItem>(lootParams);
 
             // Assert
-            result.Should().HaveCount(1);
-            result.First().Count.Should().Be(5);
+            Assert.AreEqual(1, result.Count());
+            Assert.AreEqual(5, result.First().Count);
         }
 
         private class TestLootItem : ILootItem

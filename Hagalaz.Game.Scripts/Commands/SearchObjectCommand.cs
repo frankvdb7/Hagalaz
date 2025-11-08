@@ -14,13 +14,12 @@ namespace Hagalaz.Game.Scripts.Commands
 
         public SearchObjectCommand(IGameObjectService gameObjectService) => _gameObjectService = gameObjectService;
 
-        public Task Execute(GameCommandArgs args)
+        public async Task Execute(GameCommandArgs args)
         {
             args.Handled = true;
             var name = string.Join(" ", args.Arguments).ToLower();
-            Task.Run(async () =>
+            await Task.Run(async () =>
             {
-                await Task.CompletedTask;
                 for (var i = 0; i < _gameObjectService.GetObjectsCount(); i++)
                 {
                     var def = await _gameObjectService.FindGameObjectDefinitionById(i);
@@ -30,7 +29,6 @@ namespace Hagalaz.Game.Scripts.Commands
                     }
                 }
             });
-            return Task.CompletedTask;
         }
     }
 }

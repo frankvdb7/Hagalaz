@@ -55,7 +55,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
         public void OnPublicChat(PublicChatMessage message)
         {
             var character = Context.GetCharacter();
-            if (!new ChatAllowEvent(character, message.Text).Send())
+            if (!character.EventManager.SendEvent(new ChatAllowEvent(character, message.Text)))
             {
                 return;
             }
@@ -93,7 +93,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
 
-            if (new WalkAllowEvent(character, target, message.ForceRun, false).Send())
+            if (character.EventManager.SendEvent(new WalkAllowEvent(character, target, message.ForceRun, false)))
             {
                 character.Interrupt(this);
                 character.Movement.MovementType = message.ForceRun ? MovementType.Run : character.Movement.MovementType;

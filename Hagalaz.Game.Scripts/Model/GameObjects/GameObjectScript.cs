@@ -146,7 +146,7 @@ namespace Hagalaz.Game.Scripts.Model.GameObjects
             }
             else
             {
-                if (new WalkAllowEvent(clicker, Owner.Location, forceRun, false).Send())
+                if (clicker.EventManager.SendEvent(new WalkAllowEvent(clicker, Owner.Location, forceRun, false)))
                 {
                     clicker.Movement.MovementType = clicker.Movement.MovementType == MovementType.Run || forceRun ? MovementType.Run : MovementType.Walk;
                     clicker.QueueTask(new GameObjectReachTask(clicker, Owner, (success) => OnCharacterClickReached(clicker, clickType, success)));
@@ -165,7 +165,7 @@ namespace Hagalaz.Game.Scripts.Model.GameObjects
         /// <returns></returns>
         public virtual void OnCharacterClickPerform(ICharacter clicker, GameObjectClickType clickType)
         {
-            new GameObjectClickPerformEvent(clicker, Owner, clickType).Send();
+            clicker.EventManager.SendEvent(new GameObjectClickPerformEvent(clicker, Owner, clickType));
             if (clicker.Permissions.HasAtLeastXPermission(Permission.GameAdministrator))
                 clicker.SendChatMessage("obj[id=" + Owner.Id + ",loc=(" + Owner.Location + "),type=" + clickType + "]", ChatMessageType.ConsoleText);
             else

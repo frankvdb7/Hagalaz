@@ -22,4 +22,10 @@
     <ProjectReference Include="..\Hagalaz.Cache.Abstractions\Hagalaz.Cache.Abstractions.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="experience_table.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

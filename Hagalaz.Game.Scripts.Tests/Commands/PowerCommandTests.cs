@@ -1,10 +1,12 @@
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
+using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Collections;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
 {
@@ -15,9 +17,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         public async Task Execute_SetsPowerBonuses()
         {
             // Arrange
-            var bonusesMock = Substitute.For<ICharacterBonuses>();
             var statisticsMock = Substitute.For<ICharacterStatistics>();
-            statisticsMock.Bonuses.Returns(bonusesMock);
             var characterMock = Substitute.For<ICharacter>();
             characterMock.Statistics.Returns(statisticsMock);
 
@@ -28,9 +28,10 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             await command.Execute(args);
 
             // Assert
-            bonusesMock.Received(1).SetBonus(BonusType.Strength, 2000);
-            bonusesMock.Received(1).SetBonus(BonusType.RangedStrength, 2000);
-            bonusesMock.Received(1).SetBonus(BonusType.MagicDamage, 2000);
+            var bonusContainer = statisticsMock.Bonuses;
+            bonusContainer.Received(1).SetBonus(BonusType.Strength, 2000);
+            bonusContainer.Received(1).SetBonus(BonusType.RangedStrength, 2000);
+            bonusContainer.Received(1).SetBonus(BonusType.MagicDamage, 2000);
         }
     }
 }

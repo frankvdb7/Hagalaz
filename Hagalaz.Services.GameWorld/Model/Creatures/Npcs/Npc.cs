@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Services.GameWorld.Model.Maps;
@@ -17,6 +18,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
     /// </summary>
     public partial class Npc : Creature, INpc
     {
+        /// <summary>
+        /// The event manager
+        /// </summary>
+        public IEventManager EventManager { get; }
+
         /// <summary>
         /// The NPC's owner definitions.
         /// </summary>
@@ -76,6 +82,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             DirectionFlag? spawnFaceDirection, INpcDefinition definition)
             : base(serviceScope)
         {
+            EventManager = ServiceProvider.GetRequiredService<IEventManager>();
             Viewport = new Viewport(this, ServiceProvider.GetRequiredService<IMapRegionService>(), MapSize.Small);
             Movement = new Movement(this);
 
@@ -138,7 +145,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         protected override void OnDestroy()
         {
-            new CreatureDestroyedEvent(this).Send();
+            EventManager.SendEvent(new CreatureDestroyedEvent(this));
             Script.OnDestroy();
             UnregisterEventHandlers();
         }

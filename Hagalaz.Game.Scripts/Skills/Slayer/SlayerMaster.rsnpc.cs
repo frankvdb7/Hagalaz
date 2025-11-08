@@ -23,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
         {
             if (clickType == NpcClickType.Option4Click)
             {
-                new OpenShopEvent(clicker, 11).Send();
+                clicker.EventManager.SendEvent(new OpenShopEvent(clicker, 11));
             }
             else if (clickType == NpcClickType.Option3Click)
             {

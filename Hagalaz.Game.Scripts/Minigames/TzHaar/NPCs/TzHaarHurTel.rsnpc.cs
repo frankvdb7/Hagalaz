@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.NPCs
         {
             if (clickType == NpcClickType.Option3Click)
             {
-                new OpenShopEvent(clicker, 17).Send();
+                clicker.EventManager.SendEvent(new OpenShopEvent(clicker, 17));
                 return;
             }
 

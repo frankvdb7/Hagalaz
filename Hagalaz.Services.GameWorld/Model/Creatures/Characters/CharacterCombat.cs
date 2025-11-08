@@ -205,7 +205,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             CheckSkullConditions(target);
             Target = target;
             Owner.FaceCreature(target);
-            new CreatureSetCombatTargetEvent(Owner, target).Send();
+            _character.EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
             return true;
         }
 
@@ -242,7 +242,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override bool CanAttack(ICreature target)
         {
             if (target.IsDestroyed || target.Combat.IsDead || IsDead || !Owner.Viewport.VisibleCreatures.Contains(target)) return false;
-            if (!new AttackAllowEvent(_character, GetAttackStyle()).Send()) return false;
+            if (!_character.EventManager.SendEvent(new AttackAllowEvent(_character, GetAttackStyle()))) return false;
             var scripts = _character.GetScripts();
             return scripts.All(script => script.CanAttack(target));
         }

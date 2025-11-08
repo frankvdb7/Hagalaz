@@ -2,6 +2,7 @@
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -64,14 +65,15 @@ namespace Hagalaz.Services.GameWorld.Services.Model
         /// <param name="generalStore">if set to <c>true</c> [general store].</param>
         /// <param name="itemRepository"></param>
         /// <param name="itemBuilder"></param>
+        /// <param name="eventManager"></param>
         public Shop(
             string name, int capacity, int currencyId, bool generalStore, IEnumerable<IItem> mainStock, IEnumerable<IItem> sampleStock,
-            IItemService itemRepository, IItemBuilder itemBuilder)
+            IItemService itemRepository, IItemBuilder itemBuilder, IEventManager eventManager)
         {
             Name = name;
             CurrencyId = currencyId;
-            MainStockContainer = new ShopStockContainer(this, itemRepository, itemBuilder, false, StorageType.AlwaysStack, capacity, mainStock.ToList());
-            SampleStockContainer = new ShopStockContainer(this, itemRepository, itemBuilder, true, StorageType.AlwaysStack, capacity, sampleStock.ToList());
+            MainStockContainer = new ShopStockContainer(this, itemRepository, itemBuilder, false, StorageType.AlwaysStack, capacity, mainStock.ToList(), eventManager);
+            SampleStockContainer = new ShopStockContainer(this, itemRepository, itemBuilder, true, StorageType.AlwaysStack, capacity, sampleStock.ToList(), eventManager);
             GeneralStore = generalStore;
         }
 

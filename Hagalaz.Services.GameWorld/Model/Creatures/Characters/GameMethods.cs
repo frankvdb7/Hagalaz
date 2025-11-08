@@ -128,7 +128,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            if (!new LogoutAllowEvent(this).Send())
+            if (!EventManager.SendEvent(new LogoutAllowEvent(this)))
             {
                 return false;
             }
@@ -141,7 +141,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Trie's force logout on disconnection.
         /// </summary>
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
-        public bool TryForceLogout() => !Combat.IsInCombat() && new LogoutAllowEvent(this).Send();
+        public bool TryForceLogout() => !Combat.IsInCombat() && EventManager.SendEvent(new LogoutAllowEvent(this));
 
         /// <summary>
         /// Get's called when character dies.
@@ -157,7 +157,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var sound = soundBuilder.Create().AsMusicEffect().WithId(90).Build(); // death music effect
             Session.SendMessage(sound.ToMessage());
-            new CreatureDiedEvent(this).Send();
+            EventManager.SendEvent(new CreatureDiedEvent(this));
             Movement.Lock(true); // reset the movement and lock the character
             foreach (var item in Equipment)
             {
@@ -174,7 +174,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public override void OnSpawn()
         {
-            new CreatureSpawnedEvent(this).Send();
+            EventManager.SendEvent(new CreatureSpawnedEvent(this));
             foreach (var script in _scripts.Values) script.OnSpawn();
             if (Appearance.IsTransformedToNpc()) Appearance.PnpcScript.OnSpawn();
             Combat.OnSpawn();
@@ -184,7 +184,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Notifies character that it's location have been changed.
         /// </summary>
         /// <param name="oldLocation">The old location.</param>
-        protected override void OnLocationChange(ILocation? oldLocation) => new CreatureLocationChangedEvent(this, oldLocation).Send();
+        protected override void OnLocationChange(ILocation? oldLocation) => EventManager.SendEvent(new CreatureLocationChangedEvent(this, oldLocation));
 
         /// <summary>
         /// Get's called when the target creature is killed.
@@ -192,7 +192,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="target">The target.</param>
         public override void OnTargetKilled(ICreature target)
         {
-            new CreatureKillEvent(this, target).Send();
+            EventManager.SendEvent(new CreatureKillEvent(this, target));
             foreach (var script in _scripts.Values) script.OnTargetKilled(target);
             if (Appearance.IsTransformedToNpc()) Appearance.PnpcScript.OnTargetKilled(target);
             Combat.OnTargetKilled(target);
@@ -204,7 +204,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="creature">The creature.</param>
         public override void OnKilledBy(ICreature creature)
         {
-            new CreatureKillEvent(creature, this).Send();
+            EventManager.SendEvent(new CreatureKillEvent(creature, this));
             foreach (var script in _scripts.Values) script.OnKilledBy(creature);
             if (Appearance.IsTransformedToNpc()) Appearance.PnpcScript.OnDeathBy(creature);
             Combat.OnKilledBy(creature);
@@ -346,7 +346,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns>If something was interupted.</returns>
         public override void Interrupt(object source)
         {
-            new CreatureInterruptedEvent(this, source).Send();
+            EventManager.SendEvent(new CreatureInterruptedEvent(this, source));
             if (source is not CreatureCombat) Combat.CancelTarget();
             foreach (var script in _scripts.Values) script.OnInterrupt(source);
             var currentFrame = Widgets.CurrentFrame;

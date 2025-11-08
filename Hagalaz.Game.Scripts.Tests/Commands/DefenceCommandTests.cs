@@ -1,10 +1,12 @@
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
+using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Collections;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
 {
@@ -15,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         public async Task Execute_SetsDefenceBonuses()
         {
             // Arrange
-            var bonusesMock = Substitute.For<ICharacterBonuses>();
+            var bonusesMock = Substitute.For<IBonuses>();
             var statisticsMock = Substitute.For<ICharacterStatistics>();
             statisticsMock.Bonuses.Returns(bonusesMock);
             var characterMock = Substitute.For<ICharacter>();

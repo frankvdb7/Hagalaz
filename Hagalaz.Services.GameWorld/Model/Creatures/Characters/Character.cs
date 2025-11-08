@@ -11,6 +11,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Model;
 using Hagalaz.Services.GameWorld.Model.Maps;
@@ -44,6 +45,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// The path finder
         /// </summary>
         private readonly IPathFinder _pathFinder;
+
+        /// <summary>
+        /// The event manager
+        /// </summary>
+        public IEventManager EventManager { get; }
 
         /// <summary>
         /// A permanent id given uniquely to this user 
@@ -239,6 +245,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             Session = session;
             var contextProvider = serviceScope.ServiceProvider.GetRequiredService<ICharacterContextProvider>();
             contextProvider.Context = new CharacterContext(this);
+            EventManager = ServiceProvider.GetRequiredService<IEventManager>();
             _pathFinder = ServiceProvider.GetRequiredService<ISmartPathFinder>();
             Configurations = new Configurations(this);
             Widgets = new WidgetContainer(this);
@@ -291,7 +298,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns></returns>
         protected override void OnDestroy()
         {
-            new CreatureDestroyedEvent(this).Send();
+            EventManager.SendEvent(new CreatureDestroyedEvent(this));
             foreach (var characterScript in _scripts.Values)
             {
                 characterScript.OnDestroy();

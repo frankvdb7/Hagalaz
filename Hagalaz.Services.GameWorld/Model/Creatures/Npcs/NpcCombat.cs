@@ -210,7 +210,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             Target = target;
             Owner.FaceCreature(target);
             _npc.Script.OnSetTarget(target);
-            new CreatureSetCombatTargetEvent(Owner, target).Send();
+            ((Npc)Owner).EventManager.SendEvent(new CreatureSetCombatTargetEvent(Owner, target));
             return true;
         }
 

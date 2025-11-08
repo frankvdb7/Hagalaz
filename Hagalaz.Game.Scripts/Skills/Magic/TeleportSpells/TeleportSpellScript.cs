@@ -89,7 +89,7 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells
         {
             if (caster.HasState(StateType.Teleporting)) return false;
             if (!caster.Area.Script.CanDoStandardTeleport(caster)) return false;
-            if (!new TeleportAllowEvent(caster, Destination).Send()) return false;
+            if (!caster.EventManager.SendEvent(new TeleportAllowEvent(caster, Destination))) return false;
             return true;
         }
 

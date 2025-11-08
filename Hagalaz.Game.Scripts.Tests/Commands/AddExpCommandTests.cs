@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             await command.Execute(args);
 
             // Assert
-            statisticsMock.DidNotReceive().AddExperience(Arg.Any<byte>(), Arg.Any<double>());
+            statisticsMock.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
         }
 
         [TestMethod]
@@ -61,7 +61,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             await command.Execute(args);
 
             // Assert
-            statisticsMock.DidNotReceive().AddExperience(Arg.Any<byte>(), Arg.Any<double>());
+            statisticsMock.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
         }
 
         [TestMethod]
@@ -79,7 +79,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             await command.Execute(args);
 
             // Assert
-            statisticsMock.DidNotReceive().AddExperience(Arg.Any<byte>(), Arg.Any<double>());
+            statisticsMock.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
             characterMock.Received(1).SendChatMessage("Invalid syntax. Use: addexp [skillId] [experience]");
         }
     }

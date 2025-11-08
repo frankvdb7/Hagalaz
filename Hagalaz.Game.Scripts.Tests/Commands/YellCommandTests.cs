@@ -14,8 +14,9 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         public async Task Execute_DoesNotThrowException()
         {
             // Arrange
+            var gameMessagingMock = Substitute.For<Hagalaz.Game.Abstractions.Services.IGameMessageService>();
             var characterMock = Substitute.For<ICharacter>();
-            var command = new YellCommand();
+            var command = new YellCommand(gameMessagingMock);
             var args = new GameCommandArgs(characterMock, []);
 
             // Act

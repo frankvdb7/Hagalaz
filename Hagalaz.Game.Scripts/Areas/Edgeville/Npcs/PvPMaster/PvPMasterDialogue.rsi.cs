@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.PvPMaster
             AttachDialogueOptionClickHandler("Trade", (extraData1, extraData2) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
-                new OpenShopEvent(Owner, 25).Send();
+                Owner.EventManager.SendEvent(new OpenShopEvent(Owner, 25));
                 return true;
             });
         }

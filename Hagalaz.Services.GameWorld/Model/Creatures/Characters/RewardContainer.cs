@@ -104,7 +104,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public override void OnUpdate(HashSet<int>? slots = null) => new RewardsChangedEvent(_owner, slots).Send();
+        public override void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new RewardsChangedEvent(_owner, slots));
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> rewards)
         {

@@ -169,7 +169,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
         public void OnColorInput(InterfaceComponentColorInputMessage message)
         {
             var character = Context.GetCharacter();
-            new ColorSelectedEvent(character, message.Value).Send();
+            character.EventManager.SendEvent(new ColorSelectedEvent(character, message.Value));
         }
     }
 }
