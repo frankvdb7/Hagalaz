@@ -51,7 +51,7 @@ namespace Hagalaz.Game.Scripts.Model.Maps
             }
 
             if (character.HasFamiliar())
-                new FamiliarDismissEvent(character).Send();
+                character.EventManager.SendEvent(new FamiliarDismissEvent(character));
         }
 
         /// <summary>

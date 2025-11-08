@@ -29,7 +29,6 @@
     <ProjectReference Include="..\Hagalaz.Data\Hagalaz.Data.csproj" />
     <ProjectReference Include="..\Hagalaz.Exceptions\Hagalaz.Exceptions.csproj" />
     <ProjectReference Include="..\Hagalaz.Extensions\Hagalaz.Extensions.csproj" />
-    <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Common\Hagalaz.Game.Common.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Configuration\Hagalaz.Game.Configuration.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Extensions\Hagalaz.Game.Extensions.csproj" />
@@ -44,6 +43,7 @@
     <ProjectReference Include="..\Hagalaz.Tasks.Extensions\Hagalaz.Tasks.Extensions.csproj" />
     <ProjectReference Include="..\Hagalaz.Text.Json\Hagalaz.Text.Json.csproj" />
     <ProjectReference Include="..\Hagalaz.Workers\Hagalaz.Workers.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Model\Creatures\Combat\Experimental\" />

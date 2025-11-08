@@ -14,7 +14,13 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         public async Task Execute_DoesNotThrowException()
         {
             // Arrange
+            var serviceProviderMock = Substitute.For<IServiceProvider>();
             var characterMock = Substitute.For<ICharacter>();
+            characterMock.ServiceProvider.Returns(serviceProviderMock);
+
+            var bankScreen = Substitute.For<Hagalaz.Game.Scripts.Widgets.Bank.BankScreen>(Substitute.For<Hagalaz.Game.Abstractions.Providers.ICharacterContextAccessor>(), Substitute.For<Hagalaz.Game.Abstractions.Mediator.IScopedGameMediator>());
+            serviceProviderMock.GetService(typeof(Hagalaz.Game.Scripts.Widgets.Bank.BankScreen)).Returns(bankScreen);
+
             var command = new BankCommand();
             var args = new GameCommandArgs(characterMock, []);
 

@@ -196,7 +196,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="slots">The slots.</param>
         public override void OnUpdate(HashSet<int>? slots = null)
         {
-            if (_previousCount != Count) new MoneyPouchChangedEvent(_owner, _previousCount, Count).Send();
+            if (_previousCount != Count) _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, _previousCount, Count));
         }
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch)

@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 
 namespace Hagalaz.Game.Scripts.Commands
 {

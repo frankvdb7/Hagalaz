@@ -2,28 +2,24 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Hagalaz.Services.GameWorld\Hagalaz.Services.GameWorld.csproj" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="MSTest" Version="3.6.4" />
+    <PackageReference Include="NSubstitute" Version="5.3.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="MSTest" Version="3.10.4" />
-    <PackageReference Include="AwesomeAssertions" Version="9.1.0" />
-    <PackageReference Include="NSubstitute" Version="5.3.0" />
-    <PackageReference Include="Moq" Version="4.20.70" />
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 
-  <Target Name="PublishPlugins" BeforeTargets="Build">
-    <ItemGroup>
-      <PluginProject Include="..\Hagalaz.Game.Scripts\Hagalaz.Game.Scripts.csproj" />
-    </ItemGroup>
-    <MSBuild Projects="@(PluginProject)" Targets="Publish" Properties="PublishDir=$(TargetDir)plugins\%(FileName)\" />
-  </Target>
+  <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Services.GameWorld\Hagalaz.Services.GameWorld.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
+  </ItemGroup>
 
 </Project>

@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 }
 
-                if (!new SpecialAllowEvent(Owner).Send())
+                if (!Owner.EventManager.SendEvent(new SpecialAllowEvent(Owner)))
                 {
                     return false;
                 }

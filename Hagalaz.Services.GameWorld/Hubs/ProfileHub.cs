@@ -38,7 +38,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             character.GameClient.DisplayMode = message.Mode;
             character.GameClient.ScreenSizeX = message.SizeX;
             character.GameClient.ScreenSizeY = message.SizeY;
-            new ScreenChangedEvent(character, message.Mode, message.SizeX, message.SizeY).Send();
+            character.EventManager.SendEvent(new ScreenChangedEvent(character, message.Mode, message.SizeX, message.SizeY));
         }
     }
 }

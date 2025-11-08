@@ -367,7 +367,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             toOpen.OnOpen();
-            new InterfaceOpenedEvent(_owner, toOpen).Send();
+            _owner.EventManager.SendEvent(new InterfaceOpenedEvent(_owner, toOpen));
         }
 
         /// <summary>
@@ -414,7 +414,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             toClose.OnClose();
-            new InterfaceClosedEvent(_owner, toClose).Send();
+            _owner.EventManager.SendEvent(new InterfaceClosedEvent(_owner, toClose));
         }
 
         /// <summary>

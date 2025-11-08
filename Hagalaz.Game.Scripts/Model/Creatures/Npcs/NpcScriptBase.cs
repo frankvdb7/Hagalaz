@@ -431,7 +431,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             }
             else
             {
-                if (new WalkAllowEvent(clicker, Owner.Location, forceRun, false).Send())
+                if (clicker.EventManager.SendEvent(new WalkAllowEvent(clicker, Owner.Location, forceRun, false)))
                 {
                     clicker.Movement.MovementType = clicker.Movement.MovementType == MovementType.Run || forceRun ? MovementType.Run : MovementType.Walk;
                     clicker.QueueTask(new CreatureReachTask(clicker, Owner, (success) => OnCharacterClickReached(clicker, clickType, success)));

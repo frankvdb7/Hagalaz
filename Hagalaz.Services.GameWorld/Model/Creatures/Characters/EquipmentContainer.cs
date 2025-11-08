@@ -255,7 +255,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner.Appearance.DrawCharacter();
             _owner.Statistics.CalculateBonuses();
-            new EquipmentChangedEvent(_owner, slots).Send();
+            _owner.EventManager.SendEvent(new EquipmentChangedEvent(_owner, slots));
         }
 
         /// <summary>

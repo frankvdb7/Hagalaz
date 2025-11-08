@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
                 return false;
             }
 
-            if (!new TeleportAllowEvent(caster, Destination).Send())
+            if (!caster.EventManager.SendEvent(new TeleportAllowEvent(caster, Destination)))
             {
                 return false;
             }

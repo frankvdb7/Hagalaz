@@ -48,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
             });
             AttachDialogueOptionClickHandler("Dismiss", (extraData1, extraData2) =>
             {
-                new FamiliarDismissEvent(Owner).Send();
+                Owner.EventManager.SendEvent(new FamiliarDismissEvent(Owner));
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });

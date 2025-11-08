@@ -13,7 +13,7 @@ namespace Hagalaz.Game.Scripts.Commands
         public Task Execute(GameCommandArgs args)
         {
             if (args.Arguments.Length >= 2
-                && short.TryParse(args.Arguments[0], out var id)
+                && int.TryParse(args.Arguments[0], out var id)
                 && short.TryParse(args.Arguments[1], out var childId))
             {
                 var inter = args.Character.Widgets.GetOpenWidget(id);

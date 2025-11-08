@@ -17,8 +17,10 @@ namespace Hagalaz.Game.Scripts.Commands
         public Task Execute(GameCommandArgs args)
         {
             args.Handled = true;
-            var ticks = Convert.ToInt16(args.Arguments[0]);
-            _scheduler.ScheduleUpdate(ticks);
+            if (args.Arguments.Length > 1 && short.TryParse(args.Arguments[1], out var ticks))
+            {
+                _scheduler.ScheduleUpdate(ticks);
+            }
             return Task.CompletedTask;
         }
     }

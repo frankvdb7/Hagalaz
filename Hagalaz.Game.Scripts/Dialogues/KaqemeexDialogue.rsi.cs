@@ -37,7 +37,7 @@ namespace Hagalaz.Game.Scripts.Dialogues
                 (extraData1, extraData2) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
-                    new OpenShopEvent(Owner, 2).Send();
+                    Owner.EventManager.SendEvent(new OpenShopEvent(Owner, 2));
                     return true;
                 });
         }

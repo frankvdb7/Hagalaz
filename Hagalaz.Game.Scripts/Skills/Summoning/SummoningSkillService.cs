@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 return;
             }
 
-            if (!new SummoningAllowEvent(character).Send())
+            if (!character.EventManager.SendEvent(new SummoningAllowEvent(character)))
             {
                 return;
             }

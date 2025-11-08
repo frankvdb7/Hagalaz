@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 
@@ -31,6 +32,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         private readonly IItemService _itemRepository;
 
         private readonly IItemBuilder _itemBuilder;
+        private readonly IEventManager _eventManager;
 
         /// <summary>
         /// The original stock of the shop.
@@ -48,15 +50,17 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         /// <param name="type">The type of container.</param>
         /// <param name="capacity">The capacity of the container.</param>
         /// <param name="stock"></param>
+        /// <param name="eventManager"></param>
         public ShopStockContainer(
             IShop shop, IItemService itemRepository, IItemBuilder itemBuilder, bool sampleContainer, StorageType type, int capacity,
-            IList<IItem> stock) : base(type, stock, capacity)
+            IList<IItem> stock, IEventManager eventManager) : base(type, stock, capacity)
         {
             _shop = shop;
             _sampleContainer = sampleContainer;
             CountToResetTo = 0;
             _itemRepository = itemRepository;
             _itemBuilder = itemBuilder;
+            _eventManager = eventManager;
             _originalStock = stock.ToArray();
         }
 
@@ -67,9 +71,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         public override void OnUpdate(HashSet<int>? slots = null)
         {
             if (_sampleContainer)
-                new ShopSampleStockChangedEvent(_shop, slots).Send();
+                _eventManager.SendEvent(new ShopSampleStockChangedEvent(_shop, slots));
             else
-                new ShopStockChangedEvent(_shop, slots).Send();
+                _eventManager.SendEvent(new ShopStockChangedEvent(_shop, slots));
         }
 
         /// <summary>
@@ -225,7 +229,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             }
 
             viewer.Inventory.Add(toRemove);
-            new ShopItemBoughtEvent(viewer, _shop, toRemove).Send();
+            _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove));
             return true;
         }
 

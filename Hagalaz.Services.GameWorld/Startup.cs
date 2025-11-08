@@ -35,6 +35,7 @@ using Hagalaz.Game.Abstractions.Builders.Request;
 using Hagalaz.Game.Abstractions.Builders.Teleport;
 using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Data;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Features.Clans;
 using Hagalaz.Game.Abstractions.Features.States;
@@ -132,7 +133,9 @@ namespace Hagalaz.Services.GameWorld
             services.AddHostedService<QueuedHostedService>();
             services.AddHostedService<GameWorkerService>();
             services.AddHostedService<CharacterDehydrationWorkerService>();
-            services.AddSingleton<IEventManager, EventManager>();
+            services.AddSingleton<InMemoryEventBus>();
+            services.AddSingleton<IEventBus>(provider => provider.GetRequiredService<InMemoryEventBus>());
+            services.AddSingleton<IEventManager>(provider => provider.GetRequiredService<InMemoryEventBus>());
             services.AddSingleton<ISystemUpdateService, SystemUpdateService>();
             services.AddSingleton<IRsTaskService, RsTaskService>();
             services.AddTransient<ICreatureTaskService, RsTaskService>();

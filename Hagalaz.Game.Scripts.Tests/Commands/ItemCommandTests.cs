@@ -1,10 +1,12 @@
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Scripts.Commands;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
+using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
 {
@@ -15,18 +17,30 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         public async Task Execute_WithValidArguments_AddsItemToInventory()
         {
             // Arrange
-            var inventoryMock = Substitute.For<IItemContainer>();
+            var itemBuilderMock = Substitute.For<IItemBuilder>();
+            var itemIdMock = Substitute.For<IItemId>();
+            var itemOptionalMock = Substitute.For<IItemOptional>();
+            var itemBuildMock = Substitute.For<IItemBuild>();
+            var itemMock = Substitute.For<IItem>();
+
+            itemBuilderMock.Create().Returns(itemIdMock);
+            itemIdMock.WithId(123).Returns(itemOptionalMock);
+            itemOptionalMock.WithCount(456).Returns(itemOptionalMock);
+            ((IItemBuild)itemOptionalMock).Build().Returns(itemMock);
+
+            var inventoryMock = Substitute.For<IInventoryContainer>();
+
             var characterMock = Substitute.For<ICharacter>();
             characterMock.Inventory.Returns(inventoryMock);
 
-            var command = new ItemCommand();
-            var args = new GameCommandArgs(characterMock, new[] { "1", "2" });
+            var command = new ItemCommand(itemBuilderMock);
+            var args = new GameCommandArgs(characterMock, new[] { "item", "123", "456" });
 
             // Act
             await command.Execute(args);
 
             // Assert
-            inventoryMock.Received(1).Add(Arg.Is<IItem>(i => i.Id == 1 && i.Count == 2));
+            inventoryMock.Received(1).Add(itemMock);
         }
     }
 }

@@ -37,7 +37,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
         /// <param name="slots">The slots.</param>
-        public override void OnUpdate(HashSet<int>? slots = null) => new InventoryChangedEvent(_owner, slots).Send();
+        public override void OnUpdate(HashSet<int>? slots = null) => _owner.EventManager.SendEvent(new InventoryChangedEvent(_owner, slots));
 
         /// <summary>
         /// Drop's specific item.

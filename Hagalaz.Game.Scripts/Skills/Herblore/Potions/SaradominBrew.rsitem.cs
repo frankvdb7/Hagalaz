@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
         {
             if (clickType == ComponentClickType.LeftClick)
             {
-                if (new DrinkAllowEvent(character, item).Send())
+                if (character.EventManager.SendEvent(new DrinkAllowEvent(character, item)))
                 {
                     if (character.HasState(StateType.Stun) || character.HasState(StateType.Drinking))
                     {

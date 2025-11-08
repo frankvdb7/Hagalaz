@@ -37,7 +37,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 return;
             }
 
-            if (new EatAllowEvent(character, item).Send())
+            if (character.EventManager.SendEvent(new EatAllowEvent(character, item)))
             {
                 if (character.HasState(StateType.Stun) || character.HasState(StateType.Eating))
                 {

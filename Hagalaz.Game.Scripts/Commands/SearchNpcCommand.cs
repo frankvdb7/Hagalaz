@@ -16,23 +16,22 @@ namespace Hagalaz.Game.Scripts.Commands
 
         public SearchNpcCommand(INpcService service) => _service = service;
 
-        public Task Execute(GameCommandArgs args)
+        public async Task Execute(GameCommandArgs args)
         {
             args.Handled = true;
             var name = string.Join(" ", args.Arguments).ToLower();
-            Task.Run(async () =>
+
+            await Task.Run(() =>
             {
-                await Task.CompletedTask;
                 for (var i = 0; i < _service.GetNpcDefinitionCount(); i++)
                 {
                     var def = _service.FindNpcDefinitionById(i);
                     if (def != null && def.Name.Contains(name, System.StringComparison.CurrentCultureIgnoreCase))
                     {
-                        args.Character.SendChatMessage($"[{i}]: {def}", ChatMessageType.ConsoleText);
+                        args.Character.SendChatMessage($"[{i}]: {def.Name}", ChatMessageType.ConsoleText);
                     }
                 }
             });
-            return Task.CompletedTask;
         }
     }
 }

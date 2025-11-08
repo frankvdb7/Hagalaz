@@ -14,11 +14,11 @@ namespace Hagalaz.Game.Scripts.Commands
 
         public SearchItemCommand(IItemService itemService) => _itemService = itemService;
 
-        public Task Execute(GameCommandArgs args)
+        public async Task Execute(GameCommandArgs args)
         {
             args.Handled = true;
             var name = string.Join(" ", args.Arguments).ToLower();
-            Task.Run(() =>
+            await Task.Run(() =>
             {
                 for (var i = 0; i < _itemService.GetTotalItemCount(); i++)
                 {
@@ -29,7 +29,6 @@ namespace Hagalaz.Game.Scripts.Commands
                     }
                 }
             });
-            return Task.CompletedTask;
         }
     }
 }

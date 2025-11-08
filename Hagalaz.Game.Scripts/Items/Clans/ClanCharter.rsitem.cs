@@ -71,7 +71,7 @@ namespace Hagalaz.Game.Scripts.Items.Clans
                 return true;
             }
 
-            if (new AllowClanInviteEvent(usedOn).Send())
+            if (character.EventManager.SendEvent(new AllowClanInviteEvent(usedOn)))
             {
                 if (usedOn.Inventory.Contains(20707))
                 {

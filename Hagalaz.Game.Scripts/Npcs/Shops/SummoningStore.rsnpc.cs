@@ -21,7 +21,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
         {
             if (clickType == NpcClickType.Option3Click)
             {
-                new OpenShopEvent(clicker, 8).Send();
+                clicker.EventManager.SendEvent(new OpenShopEvent(clicker, 8));
                 return;
             }
 

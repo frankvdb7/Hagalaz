@@ -35,7 +35,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                if (!new WalkAllowEvent(clicker, Owner.Location, forceRun, false).Send())
+                if (!clicker.EventManager.SendEvent(new WalkAllowEvent(clicker, Owner.Location, forceRun, false)))
                 {
                     return;
                 }

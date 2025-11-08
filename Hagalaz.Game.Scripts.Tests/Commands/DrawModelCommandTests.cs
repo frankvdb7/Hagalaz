@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             // Arrange
             var widgetMock = Substitute.For<IWidget>();
             var widgetsMock = Substitute.For<IWidgetContainer>();
-            widgetsMock.GetOpenWidget(Arg.Any<short>()).Returns(widgetMock);
+            widgetsMock.GetOpenWidget(Arg.Any<int>()).Returns(widgetMock);
             var characterMock = Substitute.For<ICharacter>();
             characterMock.Widgets.Returns(widgetsMock);
 

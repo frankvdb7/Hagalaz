@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Model.Items
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
         /// <returns></returns>
-        public virtual bool CanSellItem(IItem item, ICharacter character) => CanTradeItem(item, character) && new SellAllowEvent(character, item).Send();
+        public virtual bool CanSellItem(IItem item, ICharacter character) => CanTradeItem(item, character) && character.EventManager.SendEvent(new SellAllowEvent(character, item));
 
         /// <summary>
         /// Get's if specific item can be bought from the specified shop.
@@ -41,7 +41,7 @@ namespace Hagalaz.Game.Scripts.Model.Items
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
         /// <returns></returns>
-        public virtual bool CanBuyItem(IItem item, ICharacter character) => new BuyAllowEvent(character, item).Send();
+        public virtual bool CanBuyItem(IItem item, ICharacter character) => character.EventManager.SendEvent(new BuyAllowEvent(character, item));
 
         /// <summary>
         /// Get's if specific character can drop specific item.
@@ -52,7 +52,7 @@ namespace Hagalaz.Game.Scripts.Model.Items
         /// <returns>
         ///   <c>true</c> if this instance [can drop item] the specified item; otherwise, <c>false</c>.
         /// </returns>
-        public virtual bool CanDropItem(IItem item, ICharacter character) => !item.ItemDefinition.HasDestroyOption && new DropAllowEvent(character, item).Send();
+        public virtual bool CanDropItem(IItem item, ICharacter character) => !item.ItemDefinition.HasDestroyOption && character.EventManager.SendEvent(new DropAllowEvent(character, item));
 
         /// <summary>
         /// Get's if specific character can trade specific item.
@@ -267,7 +267,7 @@ namespace Hagalaz.Game.Scripts.Model.Items
         /// <param name="character">Character which clicked on the item.</param>
         public virtual void ItemClickedOnGround(GroundItemClickType clickType, IGroundItem item, bool forceRun, ICharacter character)
         {
-            if (new WalkAllowEvent(character, item.Location, forceRun, false).Send())
+            if (character.EventManager.SendEvent(new WalkAllowEvent(character, item.Location, forceRun, false)))
             {
                 character.Interrupt(this);
                 character.Movement.MovementType = character.Movement.MovementType == MovementType.Run || forceRun ? MovementType.Run : MovementType.Walk;

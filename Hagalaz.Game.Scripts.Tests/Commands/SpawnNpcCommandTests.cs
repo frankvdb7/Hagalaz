@@ -18,14 +18,20 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         {
             // Arrange
             var npcBuilderMock = Substitute.For<INpcBuilder>();
-            var npcBuildMock = Substitute.For<INpcBuild>();
-            npcBuilderMock.Create().WithId(Arg.Any<int>()).WithLocation(Arg.Any<Location>()).Returns(npcBuildMock);
+            var npcIdMock = Substitute.For<INpcId>();
+            var npcLocationMock = Substitute.For<INpcLocation>();
+            var npcOptionalMock = Substitute.For<INpcOptional>();
+
+            npcBuilderMock.Create().Returns(npcIdMock);
+            npcIdMock.WithId(Arg.Any<int>()).Returns(npcLocationMock);
+            npcLocationMock.WithLocation(Arg.Any<Location>()).Returns(npcOptionalMock);
 
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(INpcBuilder)).Returns(npcBuilderMock);
 
             var characterMock = Substitute.For<ICharacter>();
             characterMock.ServiceProvider.Returns(serviceProviderMock);
+            characterMock.Location.Returns(default(Location));
 
             var command = new SpawnNpcCommand();
             var args = new GameCommandArgs(characterMock, new[] { "1" });
@@ -35,7 +41,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
 
             // Assert
             npcBuilderMock.Received(1).Create();
-            npcBuildMock.Received(1).Spawn();
+            npcOptionalMock.Received(1).Spawn();
         }
     }
 }

@@ -36,7 +36,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
                 return;
             }
 
-            if (!new DrinkAllowEvent(character, item).Send())
+            if (!character.EventManager.SendEvent(new DrinkAllowEvent(character, item)))
             {
                 return;
             }

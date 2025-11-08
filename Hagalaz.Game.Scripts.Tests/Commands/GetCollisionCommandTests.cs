@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         {
             // Arrange
             var mapRegionMock = Substitute.For<IMapRegion>();
-            mapRegionMock.GetCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(123);
+            mapRegionMock.GetCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns((CollisionFlag)123);
 
             var mapRegionServiceMock = Substitute.For<IMapRegionService>();
             mapRegionServiceMock.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>()).Returns(mapRegionMock);
@@ -38,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             await command.Execute(args);
 
             // Assert
-            characterMock.Received(1).SendChatMessage("Collision:123", ChatMessageType.ConsoleText);
+            characterMock.Received(1).SendChatMessage(Arg.Is<string>(s => s.Contains(((CollisionFlag)123).ToString())), messageType: ChatMessageType.ConsoleText);
         }
     }
 }
