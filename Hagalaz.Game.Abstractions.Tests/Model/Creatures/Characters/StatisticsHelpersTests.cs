@@ -93,7 +93,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Model.Creatures.Characters
         [DataRow(99, 13034431)]
         public void ExperienceForLevel_AdditionalLevels_CalculatesCorrectly(int level, int expectedExperience)
         {
-            Assert.AreEqual(expectedExperience, StatisticsHelpers.ExperienceForLevel(level));
+            Assert.AreEqual(expectedExperience, (int)StatisticsHelpers.ExperienceForLevel(level));
         }
 
         [DataTestMethod]

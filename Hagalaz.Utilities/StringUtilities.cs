@@ -108,7 +108,7 @@ namespace Hagalaz.Utilities
 
             foreach (var str in input.Split(','))
             {
-                if (double.TryParse(str, out double parsedValue))
+                if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedValue))
                 {
                     yield return parsedValue;
                 }
@@ -134,7 +134,7 @@ namespace Hagalaz.Utilities
 
             foreach (var str in input.Split(','))
             {
-                if (int.TryParse(str, out int parsedValue))
+                if (int.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out int parsedValue))
                 {
                     yield return parsedValue;
                 }
@@ -197,7 +197,7 @@ namespace Hagalaz.Utilities
             var split = data.Split(',');
             var values = new bool[split.Length];
             for (int i = 0; i < split.Length; i++)
-                values[i] = int.Parse(split[i]) == 1;
+                values[i] = int.Parse(split[i], NumberStyles.Any, CultureInfo.InvariantCulture) == 1;
             return values;
         }
 
@@ -208,9 +208,8 @@ namespace Hagalaz.Utilities
         /// <returns>A base-37 encoded string, or <c>null</c> if the value is out of the valid range.</returns>
         public static string? LongToString(this long value)
         {
-            if (value <= 0L || value >= 0x5B5B57F8A98A5DD1L)
-                return null;
-            if (value % 37L == 0L)
+            const long aLong2320 = 0x5b5b57f8a98a5dd1L;
+            if (value <= 0L || value >= aLong2320)
                 return null;
 
             int i = 0;
@@ -236,13 +235,19 @@ namespace Hagalaz.Utilities
             {
                 char c = s[i];
                 l *= 37L;
-
-                if (c >= 'A' && c <= 'Z')
-                    l += (1 + c) - 65;
-                else if (c >= 'a' && c <= 'z')
-                    l += (1 + c) - 97;
+                if (c >= 'a' && c <= 'z')
+                {
+                    l += (c - 'a') + 1;
+                }
+                else if (c >= 'A' && c <= 'Z')
+                {
+                    l += (c - 'A') + 1;
+                }
                 else if (c >= '0' && c <= '9')
-                    l += (27 + c) - 48;
+                {
+                    l += (c - '0') + 27;
+                }
+
             }
             while (l % 37L == 0L && l != 0L) l /= 37L;
             return l;
@@ -293,7 +298,7 @@ namespace Hagalaz.Utilities
         /// <param name="value">The integer value to format.</param>
         /// <returns>A formatted string representation of the number (e.g., "1,234,567").</returns>
         public static string FormatNumber(int value) => value.ToString("#,###,##0", CultureInfo.InvariantCulture);
-        [GeneratedRegex(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", RegexOptions.IgnoreCase, "nl-NL")]
+        [GeneratedRegex("^(([^<>()[\\]\\\\.,;:\\s@\"]+(\\.[^<>()[\\]\\\\.,;:\\s@\"]+)*)|(\".+\"))@((\\[[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\])|(([a-zA-Z\\-0-9]+\\.)+[a-zA-Z]{2,}))$", RegexOptions.IgnoreCase, "nl-NL")]
         private static partial Regex MyRegex();
         [GeneratedRegex(@"(^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)")]
         private static partial Regex MyRegex1();

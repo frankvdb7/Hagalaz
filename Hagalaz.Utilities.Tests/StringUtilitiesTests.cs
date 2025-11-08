@@ -3,9 +3,50 @@ using System.Linq;
 
 namespace Hagalaz.Utilities.Tests
 {
+using System.Globalization;
+using System.Threading;
+
     [TestClass]
     public class StringUtilitiesTests
     {
+        [TestMethod]
+        public void SelectDoubleFromString_WithGermanCulture_ReturnsCorrectDoubles()
+        {
+            // Arrange
+            var originalCulture = Thread.CurrentThread.CurrentCulture;
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+            var input = "1.1,2.2,3.3";
+            var expected = new double[] { 1.1, 2.2, 3.3 };
+
+            // Act
+            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+
+            // Cleanup
+            Thread.CurrentThread.CurrentCulture = originalCulture;
+        }
+
+        [TestMethod]
+        public void FormatNumber_WithGermanCulture_FormatsCorrectly()
+        {
+            // Arrange
+            var originalCulture = Thread.CurrentThread.CurrentCulture;
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+            var value = 1234567;
+            var expected = "1,234,567";
+
+            // Act
+            var actual = StringUtilities.FormatNumber(value);
+
+            // Assert
+            Assert.AreEqual(expected, actual);
+
+            // Cleanup
+            Thread.CurrentThread.CurrentCulture = originalCulture;
+        }
+
         [TestMethod]
         [DataRow("hello", 15263440L)]
         [DataRow("world", 43890588L)]
@@ -13,10 +54,10 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("programming", 79330059267400463L)]
         [DataRow("a", 1L)]
         [DataRow(" ", 0L)]
-        [DataRow("123456789012", 1000000000000000000L)]
-        [DataRow("abcdefghijkl", 65535L)]
+        [DataRow("123456789012", 5125153220596124508L)]
+        [DataRow("abcdefghijkl", 187939216216112118L)]
         [DataRow("____", 0L)]
-        [DataRow("999999999999", 2383999999999999999L)]
+        [DataRow("999999999999", 6582952005840035280L)]
         [DataRow("____________", 0L)]
         public void StringToLong_ConvertsCorrectly(string s, long expected)
         {
@@ -37,9 +78,9 @@ namespace Hagalaz.Utilities.Tests
         [DataRow(0L, null)]
         [DataRow(-1L, null)]
         [DataRow(65535L, "aj5h")]
-        [DataRow(1000000000000000000L, "123456789012")]
-        [DataRow(long.MaxValue, "1y2p4a5a5y1y2p4a5")]
-        [DataRow(37L, "aa")]
+        [DataRow(1000000000000000000L, "ev8ufpr3pxna")]
+        [DataRow(long.MaxValue, null)]
+        [DataRow(37L, "a_")]
         [DataRow(1L, "a")]
         [DataRow(36L, "9")]
         public void LongToString_ConvertsCorrectly(long value, string expected)

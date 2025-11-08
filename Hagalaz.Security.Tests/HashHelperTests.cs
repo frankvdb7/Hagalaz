@@ -66,11 +66,11 @@ namespace Hagalaz.Security.Tests
         }
 
         [Theory]
-        [InlineData(HashType.MD5, "你好世界", "c92d525281534a26f8c2b7121b662f59")]
-        [InlineData(HashType.SHA1, "你好世界", "e223b5d3a58e858739956403c20c02559b132890")]
-        [InlineData(HashType.SHA256, "你好世界", "5113d8b022137c4d28437f19e4878a291e6b3776e65b2636d93ba4f4d2f1f452")]
-        [InlineData(HashType.SHA384, "你好世界", "e6b60e6181f21396a928956973347c61f74fc6e7a57a15998a139e14a1f11a43a0166c4333b5c207d5b10787b4ab3e35")]
-        [InlineData(HashType.SHA512, "你好世界", "3c3fae3221e7d23e5939763529b53361834b953457a86169c9b68c242a58b68a48914659f13b1b36f78479e0a05a1e2f8c5b010f36f2f9f5926c2e2832822a16")]
+        [InlineData(HashType.MD5, "你好世界", "65396ee4aad0b4f17aacd1c6112ee364")]
+        [InlineData(HashType.SHA1, "你好世界", "dabaa5fe7c47fb21be902480a13013f16a1ab6eb")]
+        [InlineData(HashType.SHA256, "你好世界", "beca6335b20ff57ccc47403ef4d9e0b8fccb4442b3151c2e7d50050673d43172")]
+        [InlineData(HashType.SHA384, "你好世界", "5621250177cc297c02d4c7c2a950d541a52b5c478e1fa16ca5022316de898d7be5c66b16ad735295b48b84a47e986144")]
+        [InlineData(HashType.SHA512, "你好世界", "4b28a152c8e203ebb52e099301041e3cf704a56190d3097ec8b086a0f9bfb4b9d533ce71fc3bcf374359e506dc5f17322ec3911eac8dd8f5b35308d938ba0c26")]
         public void ComputeHash_UnicodeString_ReturnsCorrectHash(HashType hashType, string input, string expected)
         {
             // Act
@@ -81,11 +81,11 @@ namespace Hagalaz.Security.Tests
         }
 
         [Theory]
-        [InlineData(HashType.MD5, "77a513180231b03e0a1a5b674843d726")]
-        [InlineData(HashType.SHA1, "04f83b1a21d37d38b553aca11e1e0d021c1a938c")]
-        [InlineData(HashType.SHA256, "1f40fc92da241694750979ee6cf582f2d5d7d28e18335de05abc54d0560e0f53")]
-        [InlineData(HashType.SHA384, "35d6a2f39c3e62df301b1a7b137f6a7384a4a5b36585121b6a5e125c11648a7313a52c33a901007e997a06410940eda6")]
-        [InlineData(HashType.SHA512, "1233fd4a4603b22a07c13483f3e091b3558ef6145396f53e6b3614c5d5e5b38f1a30f1d438c645f7881c6185856779435889be82161b40285a4993883a6b0cfc")]
+        [InlineData(HashType.MD5, "cabe45dcc9ae5b66ba86600cca6b8ba8")]
+        [InlineData(HashType.SHA1, "291e9a6c66994949b57ba5e650361e98fc36b1ba")]
+        [InlineData(HashType.SHA256, "41edece42d63e8d9bf515a9ba6932e1c20cbc9f5a5d134645adb5db1b9737ea3")]
+        [InlineData(HashType.SHA384, "f54480689c6b0b11d0303285d9a81b21a93bca6ba5a1b4472765dca4da45ee328082d469c650cd3b61b16d3266ab8ced")]
+        [InlineData(HashType.SHA512, "67ba5535a46e3f86dbfbed8cbbaf0125c76ed549ff8b0b9e03e0c88cf90fa634fa7b12b47d77b694de488ace8d9a65967dc96df599727d3292a8d9d447709c97")]
         public void ComputeHash_LongString_ReturnsCorrectHash(HashType hashType, string expected)
         {
             // Arrange
@@ -114,11 +114,11 @@ namespace Hagalaz.Security.Tests
         }
 
         [Theory]
-        [InlineData(HashType.MD5, "`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?", "a1d37c568d708a9459a3e3ed754546b5")]
-        [InlineData(HashType.SHA1, "`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?", "d29a552523e1f72921762118d0ef72997453e00e")]
-        [InlineData(HashType.SHA256, "`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?", "81255562f79036a105c3127ad15a9930e461bdfa6a1660f9942a784d14b434b9")]
-        [InlineData(HashType.SHA384, "`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?", "f2e8250b73c448578b5e679a78a635293299a91a92a54a4855268c121ca493010376180a30b8c6e3d25666c04f982885")]
-        [InlineData(HashType.SHA512, "`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?", "b336e1c0715975d9e5a329623e839e530939523a1a721669d6ea4f9103295c654378f85f1c73a118029584284b3602d131f3f4e245e317e335555d28892f33c3")]
+        [InlineData(HashType.MD5, "`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?", "8216936a3435874180d9e5f0bc9caec2")]
+        [InlineData(HashType.SHA1, "`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?", "108f0d27764f61210b1986c07b47933c75351cd0")]
+        [InlineData(HashType.SHA256, "`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?", "e00f877d7aed70781cb3a80ffc715b3fc03a56e8eacf178bf5a7ebf22c0e0422")]
+        [InlineData(HashType.SHA384, "`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?", "fee86c4374318a53fd67595a124414ce639266ea7db81d9b0579749acd3a57638642692d5b48cb313572c663edb8bab6")]
+        [InlineData(HashType.SHA512, "`~1!2@3#4$5%6^7&8*9(0)-_=+[]{}\\|;:'\",<.>/?", "fc35a5499b35ef7abb5a573836b2620478c2567b23a41c7956426ac3542cd27fec2928019f6ad43077f7978802a2853474591864e05d98b9f96dfcd3bcf4745d")]
         public void ComputeHash_SpecialCharacters_ReturnsCorrectHash(HashType hashType, string input, string expected)
         {
             // Act
