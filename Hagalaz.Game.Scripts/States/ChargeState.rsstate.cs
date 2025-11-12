@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -8,7 +9,7 @@ namespace Hagalaz.Game.Scripts.States
 {
     /// <summary>
     /// </summary>
-    [StateScriptMetaData([StateType.Charge])]
+    [StateScriptMetaData(typeof(ChargeState))]
     public class ChargeState : StateScriptBase
     {
         /// <summary>

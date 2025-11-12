@@ -1,6 +1,7 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -55,15 +56,15 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
             }
 
             var pickupChance = 0.0;
-            if (character.HasState(StateType.AvasAttractorEquiped))
+            if (character.HasState<AvasAttractorEquipedState>())
             {
                 pickupChance = 0.85;
             }
-            else if (character.HasState(StateType.AvasAccumulatorEquiped))
+            else if (character.HasState<AvasAccumulatorEquipedState>())
             {
                 pickupChance = 0.95;
             }
-            else if (character.HasState(StateType.AvasAlerterEquiped))
+            else if (character.HasState<AvasAlerterEquipedState>())
             {
                 pickupChance = 0.98;
             }

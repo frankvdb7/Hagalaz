@@ -1,5 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -24,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                if (clicker.HasState(StateType.HasSaradominLastRockRope))
+                if (clicker.HasState<HasSaradominLastRockRopeState>())
                 {
                     clicker.Movement.Lock(true);
                     clicker.SendChatMessage("You climb up the rope...");

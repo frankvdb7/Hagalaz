@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,11 +13,11 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Model.Maps;
 using Hagalaz.Services.GameWorld.Providers;
 using Microsoft.Extensions.DependencyInjection;
-using Hagalaz.Game.Extensions;
+using Hagalaz.Game.Scripts.Features.States.Lodestone;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -330,8 +330,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             foreach (var state in States.Values.ToList())
                 state.Script.OnStateAdded(state, this);
 
-            if (!HasState(StateType.LodestoneEdgeville))
-                AddState(new State(StateType.LodestoneEdgeville, int.MaxValue));
+            if (!HasState<LodestoneEdgevilleState>())
+                AddState(new LodestoneEdgevilleState());
 
             OnInit();
         }

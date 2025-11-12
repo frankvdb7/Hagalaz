@@ -16,7 +16,7 @@ namespace Hagalaz.Services.GameWorld.Factories
 
         public StateScriptMetaDataFactory(IServiceDescriptorProvider serviceDescriptorProvider) => _serviceDescriptorProvider = serviceDescriptorProvider;
 
-        public async IAsyncEnumerable<(StateType stateType, Type scriptType)> GetScripts()
+        public async IAsyncEnumerable<(Type stateType, Type scriptType)> GetScripts()
         {
             await Task.CompletedTask;
             var type = typeof(IStateScript);
@@ -31,10 +31,7 @@ namespace Hagalaz.Services.GameWorld.Factories
                     continue;
                 }
 
-                foreach (var stateType in metaData.StateTypes)
-                {
-                    yield return (stateType, scriptType);
-                }
+                yield return (metaData.StateType, scriptType);
             }
         }
     }

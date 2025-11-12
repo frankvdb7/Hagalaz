@@ -13,7 +13,7 @@ namespace Hagalaz.Services.GameWorld.Providers
 {
     public class StateScriptProvider : IStateScriptProvider, IStartupService
     {
-        private readonly Dictionary<StateType, Type> _scripts = new();
+        private readonly Dictionary<Type, Type> _scripts = new();
         private readonly IServiceProvider _serviceProvider;
         private readonly IDefaultStateScriptProvider _defaultStateScriptProvider;
         private readonly ILogger<StateScriptProvider> _logger;
@@ -26,8 +26,10 @@ namespace Hagalaz.Services.GameWorld.Providers
             _logger = logger;
         }
 
-        public Type FindByType(StateType stateType) =>
+        public Type FindByType(Type stateType) =>
             _scripts.TryGetValue(stateType, out var scriptType) ? scriptType : _defaultStateScriptProvider.GetScriptType();
+
+        public IEnumerable<Type> GetAllStateTypes() => _scripts.Keys;
 
         public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
@@ -39,11 +41,11 @@ namespace Hagalaz.Services.GameWorld.Providers
                 {
                     if (_scripts.TryAdd(stateType, scriptType))
                     {
-                        _logger.LogTrace("Added state script '{StateType}' '{Type}'", stateType, scriptType.FullName);
+                        _logger.LogTrace("Added state script '{StateType}' '{Type}'", stateType.FullName, scriptType.FullName);
                     }
                     else
                     {
-                        _logger.LogWarning("Duplicate state script '{StateType}' '{Type}'", stateType, scriptType.FullName);
+                        _logger.LogWarning("Duplicate state script '{StateType}' '{Type}'", stateType.FullName, scriptType.FullName);
                     }
                 }
             }

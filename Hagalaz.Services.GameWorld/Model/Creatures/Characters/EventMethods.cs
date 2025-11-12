@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data;
 using System.Linq;
 using System.Text;
@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Movement;
 using Hagalaz.Game.Abstractions.Builders.Npc;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Features;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -22,12 +23,9 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events.Character.Packet;
-using Hagalaz.Game.Model;
+using Hagalaz.Game.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Hagalaz.DependencyInjection.Extensions;
-using Hagalaz.Game.Abstractions.Builders.Projectile;
-using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {

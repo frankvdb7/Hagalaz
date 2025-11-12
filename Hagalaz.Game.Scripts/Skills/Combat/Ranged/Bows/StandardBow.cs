@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 using Hagalaz.Game.Utilities;
 
@@ -87,7 +86,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.BowEquiped, int.MaxValue));
+        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new BowEquipedState());
 
         /// <summary>
         ///     Happens when this item is unequiped by specific character.
@@ -95,6 +94,6 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.BowEquiped);
+        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<BowEquipedState>();
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -7,7 +8,7 @@ using Hagalaz.Game.Scripts.Model.States;
 
 namespace Hagalaz.Game.Scripts.States
 {
-    [StateScriptMetaData([StateType.AntiDragonfirePotion])]
+    [StateScriptMetaData(typeof(AntiDragonfirePotionState))]
     public class AntiDragonfirePotion : StateScriptBase
     {
         /// <summary>

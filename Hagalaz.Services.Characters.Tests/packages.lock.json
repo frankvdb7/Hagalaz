@@ -1305,6 +1305,7 @@
       "hagalaz.game.abstractions": {
         "type": "Project",
         "dependencies": {
+          "FluentResults": "[3.15.2, )",
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Utilities": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection": "[9.0.8, )",

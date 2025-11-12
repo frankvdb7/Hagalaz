@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Model;
@@ -69,7 +70,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
                 return;
             }
 
-            character.AddState(new State(StateType.AhrimBlight, int.MaxValue));
+            character.AddState(new AhrimBlightState());
         }
 
         /// <summary>
@@ -77,7 +78,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.AhrimBlight);
+        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<AhrimBlightState>();
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.

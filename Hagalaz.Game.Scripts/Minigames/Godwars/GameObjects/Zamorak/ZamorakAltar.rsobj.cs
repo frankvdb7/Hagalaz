@@ -1,5 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Model;
@@ -28,7 +29,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Zamorak
                 // pray
                 case GameObjectClickType.Option1Click:
                 {
-                    if (!clicker.HasState(StateType.ZamorakAltarPrayed))
+                    if (!clicker.HasState<ZamorakAltarPrayedState>())
                     {
                         if (clicker.Combat.IsInCombat())
                         {

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Builders.Audio;
@@ -14,9 +14,13 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Messages.Protocol;
-using Hagalaz.Game.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Game.Scripts.Features.States.Combat;
+using Hagalaz.Game.Scripts.Features.States.Potions;
+using Hagalaz.Game.Scripts.Features.States.Prayer;
+using Hagalaz.Game.Scripts.Features.States.General;
+using Hagalaz.Game.Scripts.Features.States.Stun;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -255,8 +259,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 if (ix.ItemDefinition.TradeValue < iy.ItemDefinition.TradeValue) return 1;
                 return 0;
             }));
-            var amountOfKeptItems = HasState(StateType.DefaultSkulled) ? HasState(StateType.ProtectOneItem) ? 1 : 0 :
-                HasState(StateType.ProtectOneItem) ? 4 : 3;
+            var amountOfKeptItems = HasState<DefaultSkulledState>() ? HasState<ProtectOneItemState>() ? 1 : 0 :
+                HasState<ProtectOneItemState>() ? 4 : 3;
 
             if (droppedItems.Count < amountOfKeptItems) amountOfKeptItems = droppedItems.Count;
 
@@ -380,16 +384,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override void Respawn()
         {
             // remove states that should not remain on death.
-            RemoveState(StateType.DefaultSkulled);
-            RemoveState(StateType.ResistFreeze);
-            RemoveState(StateType.ResistPoison);
-            RemoveState(StateType.Stun);
-            RemoveState(StateType.SuperAntiDragonfirePotion);
-            RemoveState(StateType.TeleBlocked);
-            RemoveState(StateType.Vengeance);
-            RemoveState(StateType.Injured);
-            RemoveState(StateType.Frozen);
-            RemoveState(StateType.CantCastVengeance);
+            RemoveState<DefaultSkulledState>();
+            RemoveState<ResistFreezeState>();
+            RemoveState<ResistPoisonState>();
+            RemoveState<StunState>();
+            RemoveState<SuperAntiDragonfirePotionState>();
+            RemoveState<TeleBlockedState>();
+            RemoveState<VengeanceState>();
+            RemoveState<InjuredState>();
+            RemoveState<FrozenState>();
+            RemoveState<CantCastVengeanceState>();
 
             Prayers.DeactivateAllPrayers();
             Statistics.Normalise();
@@ -427,7 +431,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns>If character was poisoned sucessfully.</returns>
         public override bool Poison(short amount)
         {
-            if (HasState(StateType.ResistPoison)) return false;
+            if (HasState<ResistPoisonState>()) return false;
             Statistics.SetPoisonAmount(amount);
             return true;
         }
@@ -436,7 +440,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Injurt's this character for given amount of ticks.
         /// </summary>
         /// <param name="ticks">Amount of ticks character will be injured.</param>
-        public void Injure(int ticks) => AddState(new State(StateType.Injured, ticks));
+        public void Injure(int ticks) => AddState(new InjuredState(ticks));
 
         /// <summary>
         /// Renders the skull.
@@ -457,7 +461,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            AddState(new State(StateType.DefaultSkulled, ticks));
+            AddState(new DefaultSkulledState(ticks));
             return true;
         }
 

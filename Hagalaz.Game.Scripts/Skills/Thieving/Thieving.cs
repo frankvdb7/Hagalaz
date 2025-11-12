@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Resources;
 
 namespace Hagalaz.Game.Scripts.Skills.Thieving
@@ -131,7 +130,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         /// <param name="stall">The stall.</param>
         public static async Task Steal(ICharacter clicker, IGameObject obj, Stall stall)
         {
-            if (clicker.HasState(StateType.ThievingStall))
+            if (clicker.HasState<ThievingStallState>())
             {
                 return;
             }
@@ -162,7 +161,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
                 return;
             }
 
-            clicker.AddState(new State(StateType.ThievingStall, int.MaxValue));
+            clicker.AddState(new ThievingStallState());
             clicker.QueueTask(new StandardStealTask(clicker, obj, stall, 2));
         }
 
@@ -174,7 +173,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         /// <param name="definition">The definition.</param>
         public static async Task PickPocket(ICharacter clicker, INpc npc, PickPocketDefinition definition)
         {
-            if (clicker.HasState(StateType.ThievingNpc))
+            if (clicker.HasState<ThievingNpcState>())
             {
                 return;
             }
@@ -201,7 +200,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
 					return;
 				}
 			}*/
-            clicker.AddState(new State(StateType.ThievingNpc, int.MaxValue));
+            clicker.AddState(new ThievingNpcState());
             clicker.QueueTask(new StandardPickPocketTask(clicker, npc, definition, maximumLootCount, 2));
         }
     }

@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Resources;
 
 namespace Hagalaz.Game.Scripts.Skills.Magic.MiscSpells
@@ -38,7 +37,7 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.MiscSpells
         /// <returns></returns>
         public bool Cast(IItem item)
         {
-            if (_caster.HasState(StateType.Alching))
+            if (_caster.HasState<AlchingState>())
             {
                 return false;
             }
@@ -77,7 +76,7 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.MiscSpells
             _caster.QueueGraphic(Graphic.Create(112));
             _caster.Statistics.AddExperience(StatisticsConstants.Magic, 31);
             _caster.Configurations.SendGlobalCs2Int(168, 7); // set active tab.
-            _caster.AddState(new State(StateType.Alching, 2));
+            _caster.AddState(new AlchingState { TicksLeft = 2 });
             return true;
         }
 

@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Utilities;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
@@ -253,7 +252,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         public override void OnEquiped(IItem item, ICharacter character)
         {
             base.OnEquiped(item, character);
-            character.AddState(new State(StateType.DarkBowEquiped, int.MaxValue));
+            character.AddState(new DarkBowEquipedState());
         }
 
         /// <summary>
@@ -262,7 +261,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         public override void OnUnequiped(IItem item, ICharacter character)
         {
             base.OnUnequiped(item, character);
-            character.RemoveState(StateType.DarkBowEquiped);
+            character.RemoveState<DarkBowEquipedState>();
         }
     }
 }

@@ -1,5 +1,3 @@
-using Hagalaz.Game.Abstractions.Features.States;
-
 namespace Hagalaz.Game.Abstractions.Services.Model
 {
     /// <summary>
@@ -20,7 +18,7 @@ namespace Hagalaz.Game.Abstractions.Services.Model
         /// <summary>
         /// Gets the state that represents the activation of this lodestone.
         /// </summary>
-        public required StateType State { get; init; }
+        public required string StateId { get; init; }
 
         /// <summary>
         /// Gets the X-coordinate of the teleport destination.

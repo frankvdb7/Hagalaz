@@ -2,6 +2,7 @@
 using System;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -400,7 +401,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 OnCharacterClickPerform(clicker, clickType);
             else
             {
-                if (clicker.HasState(StateType.Frozen))
+                if (clicker.HasState<FrozenState>())
                     clicker.SendChatMessage(GameStrings.MagicalForceMovement);
                 else
                     clicker.SendChatMessage(GameStrings.YouCantReachThat);

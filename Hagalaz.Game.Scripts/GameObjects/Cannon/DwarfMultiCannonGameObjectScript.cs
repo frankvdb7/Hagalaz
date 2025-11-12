@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -295,7 +296,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                     return;
                 }
 
-                if (_cannonOwner.IsDestroyed || !_cannonOwner.HasState(StateType.CannonPlaced))
+                if (_cannonOwner.IsDestroyed || !_cannonOwner.HasState<CannonPlacedState>())
                 {
                     Owner.Region.Remove(Owner);
                     task.Cancel();
@@ -320,7 +321,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
 
         public void PickupCannon(ICharacter character, IGameObject cannon, IItem cannonBalls)
         {
-            if (!character.HasState(StateType.CannonPlaced))
+            if (!character.HasState<CannonPlacedState>())
             {
                 return;
             }

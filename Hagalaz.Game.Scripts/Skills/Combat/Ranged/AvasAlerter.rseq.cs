@@ -2,7 +2,6 @@
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
@@ -35,7 +34,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.AvasAlerterEquiped, int.MaxValue));
+        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new AvasAlerterEquipedState());
 
         /// <summary>
         ///     Happens when this item is unequiped by specific character.
@@ -43,6 +42,6 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.AvasAlerterEquiped);
+        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<AvasAlerterEquipedState>();
     }
 }

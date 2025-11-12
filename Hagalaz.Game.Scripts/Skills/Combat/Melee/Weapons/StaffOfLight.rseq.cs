@@ -1,14 +1,15 @@
-﻿using System;
+using System;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Resources;
+using Hagalaz.Game.Scripts.Features.States.Effects;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
@@ -44,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             character.QueueAnimation(Animation.Create(12804));
             character.QueueGraphic(Graphic.Create(2319)); // 2320
             character.QueueGraphic(Graphic.Create(2321));
-            character.AddState(new State(StateType.StaffOfLightSpecialEffect, 100, () =>
+            character.AddState(new StaffOfLightSpecialEffectState(100, () =>
             {
                 character.SendChatMessage("The power of the light fades. Your resistance to melee attacks returns to normal.");
             }));
@@ -66,7 +67,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         /// </returns>
         public override void OnAttack(IItem item, ICharacter victim, ICreature attacker, DamageType damageType, ref int damage)
         {
-            if ((damageType == DamageType.FullMelee || damageType == DamageType.StandardMelee) && victim.HasState(StateType.StaffOfLightSpecialEffect))
+            if ((damageType == DamageType.FullMelee || damageType == DamageType.StandardMelee) && victim.HasState<StaffOfLightSpecialEffectState>())
             {
                 damage *= (int)Math.Truncate(damage * 0.5);
             }

@@ -2,6 +2,7 @@
 using System.Linq;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Model;
@@ -69,15 +70,15 @@ namespace Hagalaz.Game.Scripts.Equipment.Void
 
             if (hat.Id == Voidmagehelm)
             {
-                character.AddState(new State(StateType.VoidMagicEquiped, int.MaxValue));
+                character.AddState(new VoidMagicEquipedState());
             }
             else if (hat.Id == Voidrangerhelm)
             {
-                character.AddState(new State(StateType.VoidRangedEquiped, int.MaxValue));
+                character.AddState(new VoidRangedEquipedState());
             }
             else if (hat.Id == Voidmeleehelm)
             {
-                character.AddState(new State(StateType.VoidMeleeEquiped, int.MaxValue));
+                character.AddState(new VoidMeleeEquipedState());
             }
         }
 
@@ -90,15 +91,15 @@ namespace Hagalaz.Game.Scripts.Equipment.Void
         {
             if (item.Id == Voidmagehelm)
             {
-                character.RemoveState(StateType.VoidMagicEquiped);
+                character.RemoveState<VoidMagicEquipedState>();
             }
             else if (item.Id == Voidrangerhelm)
             {
-                character.RemoveState(StateType.VoidRangedEquiped);
+                character.RemoveState<VoidRangedEquipedState>();
             }
             else if (item.Id == Voidmeleehelm)
             {
-                character.RemoveState(StateType.VoidMeleeEquiped);
+                character.RemoveState<VoidMeleeEquipedState>();
             }
         }
     }
