@@ -2,7 +2,6 @@
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Equipment.Barrows;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
@@ -36,7 +35,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
         public override void OnEquiped(IItem item, ICharacter character)
         {
             base.OnEquiped(item, character);
-            character.AddState(new State(StateType.CrossbowEquiped, int.MaxValue));
+            character.AddState(new CrossbowEquipedState());
         }
 
         /// <summary>
@@ -47,7 +46,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
         public override void OnUnequiped(IItem item, ICharacter character)
         {
             base.OnUnequiped(item, character);
-            character.RemoveState(StateType.CrossbowEquiped);
+            character.RemoveState<CrossbowEquipedState>();
         }
     }
 }

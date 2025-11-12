@@ -135,13 +135,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <param name="creature">The creature to face.</param>
         void FaceCreature(ICreature creature);
         /// <summary>
-        /// Applies a standard state (e.g., poison, stun) to the creature, checking for immunity.
-        /// </summary>
-        /// <param name="state">The state to apply.</param>
-        /// <param name="immunityType">The type of state to check for immunity against.</param>
-        /// <returns><c>true</c> if the state was successfully applied; otherwise, <c>false</c>.</returns>
-        bool ApplyStandardState(IState state, StateType immunityType);
-        /// <summary>
         /// Determines if this creature should be visible to a specific player character.
         /// </summary>
         /// <param name="viewer">The character viewing this creature.</param>
@@ -164,9 +157,9 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <summary>
         /// Checks if the creature currently has a specific state active.
         /// </summary>
-        /// <param name="type">The type of the state to check for.</param>
+        /// <typeparam name="T">The type of the state to check for.</typeparam>
         /// <returns><c>true</c> if a state of the specified type is active; otherwise, <c>false</c>.</returns>
-        bool HasState(StateType type);
+        bool HasState<T>() where T : IState;
         /// <summary>
         /// Performs the main update logic for the creature's client-side representation, such as movement and animation.
         /// </summary>
@@ -201,8 +194,8 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <summary>
         /// Removes a state of a specific type from the creature.
         /// </summary>
-        /// <param name="type">The type of the state to remove.</param>
-        void RemoveState(StateType type);
+        /// <typeparam name="T">The type of the state to remove.</typeparam>
+        void RemoveState<T>() where T : IState;
         /// <summary>
         /// Makes the creature display a line of text above its head.
         /// </summary>

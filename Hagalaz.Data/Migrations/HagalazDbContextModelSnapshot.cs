@@ -18,7 +18,7 @@ namespace Hagalaz.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .UseCollation("utf8mb4_0900_ai_ci")
-                .HasAnnotation("ProductVersion", "9.0.7")
+                .HasAnnotation("ProductVersion", "9.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.HasCharSet(modelBuilder, "utf8mb4", DelegationModes.ApplyToAll);

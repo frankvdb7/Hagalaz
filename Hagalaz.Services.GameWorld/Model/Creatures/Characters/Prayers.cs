@@ -1,13 +1,15 @@
-﻿using System.Linq;
+using System.Linq;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Animation;
 using Hagalaz.Game.Abstractions.Builders.Graphic;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model;
+using Hagalaz.Game.Scripts.Features.States.Prayer;
+using Hagalaz.Game.Scripts.Features.States.Combat;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -335,26 +337,26 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     break;
                 case NormalPrayer.Redemption:
                     _owner.Appearance.PrayerIcon = PrayerIcon.Redemption;
-                    _owner.AddState(new State(StateType.Redemption, int.MaxValue));
+                    _owner.AddState(new RedemptionState());
                     break;
                 case NormalPrayer.Retribution:
                     _owner.Appearance.PrayerIcon = PrayerIcon.Retribution;
-                    _owner.AddState(new State(StateType.Retribution, int.MaxValue));
+                    _owner.AddState(new RetributionState());
                     break;
                 case NormalPrayer.Smite:
                     _owner.Appearance.PrayerIcon = PrayerIcon.Smite;
                     break;
                 case NormalPrayer.RapidRestore:
-                    _owner.AddState(new State(StateType.RapidRestore, int.MaxValue));
+                    _owner.AddState(new RapidRestoreState());
                     break;
                 case NormalPrayer.RapidHeal:
-                    _owner.AddState(new State(StateType.RapidHeal, int.MaxValue));
+                    _owner.AddState(new RapidHealState());
                     break;
                 case NormalPrayer.RapidRenewal:
-                    _owner.AddState(new State(StateType.RapidRenewal, int.MaxValue));
+                    _owner.AddState(new RapidRenewalState());
                     break;
                 case NormalPrayer.ProtectItem:
-                    _owner.AddState(new State(StateType.ProtectOneItem, int.MaxValue));
+                    _owner.AddState(new ProtectOneItemState());
                     break;
                 default:
                     _owner.SendChatMessage("Prayer " + prayer + " is not implemented yet.");
@@ -401,7 +403,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             switch (prayer)
             {
                 case AncientCurses.ProtectItem:
-                    _owner.AddState(new State(StateType.ProtectOneItem, int.MaxValue));
+                    _owner.AddState(new ProtectOneItemState());
                     _owner.QueueAnimation(_animationBuilder.Create().WithId(12567).Build());
                     _owner.QueueGraphic(_graphicBuilder.Create().WithId(2213).Build());
                     break;
@@ -446,52 +448,52 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticDefence, 15);
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticStrength, 23);
                     _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
-                    _owner.AddState(new State(StateType.Turmoil, int.MaxValue));
+                    _owner.AddState(new TurmoilState());
                     _owner.QueueAnimation(_animationBuilder.Create().WithId(12565).Build());
                     _owner.QueueGraphic(_graphicBuilder.Create().WithId(2256).Build());
                     break;
                 case AncientCurses.Berserker:
-                    _owner.AddState(new State(StateType.Berserker, int.MaxValue));
+                    _owner.AddState(new BerserkerState());
                     _owner.QueueAnimation(_animationBuilder.Create().WithId(12589).Build());
                     _owner.QueueGraphic(_graphicBuilder.Create().WithId(2266).Build());
                     break;
                 case AncientCurses.SapWarrior:
-                    _owner.AddState(new State(StateType.SapWarrior, int.MaxValue));
+                    _owner.AddState(new SapWarriorState());
                     break;
                 case AncientCurses.SapRanger:
-                    _owner.AddState(new State(StateType.SapRanger, int.MaxValue));
+                    _owner.AddState(new SapRangerState());
                     break;
                 case AncientCurses.SapMage:
-                    _owner.AddState(new State(StateType.SapMager, int.MaxValue));
+                    _owner.AddState(new SapMagerState());
                     break;
                 case AncientCurses.SapSpirit:
-                    _owner.AddState(new State(StateType.SapSpirit, int.MaxValue));
+                    _owner.AddState(new SapSpiritState());
                     break;
                 case AncientCurses.LeechAttack:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticAttack, 5);
-                    _owner.AddState(new State(StateType.LeechAttack, int.MaxValue));
+                    _owner.AddState(new LeechAttackState());
                     break;
                 case AncientCurses.LeechStrength:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticStrength, 5);
-                    _owner.AddState(new State(StateType.LeechStrength, int.MaxValue));
+                    _owner.AddState(new LeechStrengthState());
                     break;
                 case AncientCurses.LeechDefence:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticDefence, 5);
-                    _owner.AddState(new State(StateType.LeechDefence, int.MaxValue));
+                    _owner.AddState(new LeechDefenceState());
                     break;
                 case AncientCurses.LeechRanged:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticRanged, 5);
-                    _owner.AddState(new State(StateType.LeechRanged, int.MaxValue));
+                    _owner.AddState(new LeechRangedState());
                     break;
                 case AncientCurses.LeechMagic:
                     _owner.Statistics.PrayerBonuses.AddToBonus(BonusPrayerType.StaticMagic, 5);
-                    _owner.AddState(new State(StateType.LeechMagic, int.MaxValue));
+                    _owner.AddState(new LeechMagicState());
                     break;
                 case AncientCurses.LeechEnergy:
-                    _owner.AddState(new State(StateType.LeechEnergy, int.MaxValue));
+                    _owner.AddState(new LeechEnergyState());
                     break;
                 case AncientCurses.LeechSpecialAttack:
-                    _owner.AddState(new State(StateType.LeechSpecial, int.MaxValue));
+                    _owner.AddState(new LeechSpecialState());
                     break;
                 default:
                     _owner.SendChatMessage("Curse " + prayer + " is not implemented yet.");
@@ -631,26 +633,26 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     break;
                 case NormalPrayer.Redemption:
                     _owner.Appearance.PrayerIcon = PrayerIcon.None;
-                    _owner.RemoveState(StateType.Redemption);
+                    _owner.RemoveState<RedemptionState>();
                     break;
                 case NormalPrayer.Retribution:
                     _owner.Appearance.PrayerIcon = PrayerIcon.None;
-                    _owner.RemoveState(StateType.Retribution);
+                    _owner.RemoveState<RetributionState>();
                     break;
                 case NormalPrayer.Smite:
                     _owner.Appearance.PrayerIcon = PrayerIcon.None;
                     break;
                 case NormalPrayer.RapidRestore:
-                    _owner.RemoveState(StateType.RapidRestore);
+                    _owner.RemoveState<RapidRestoreState>();
                     break;
                 case NormalPrayer.RapidHeal:
-                    _owner.RemoveState(StateType.RapidHeal);
+                    _owner.RemoveState<RapidHealState>();
                     break;
                 case NormalPrayer.RapidRenewal:
-                    _owner.RemoveState(StateType.RapidRenewal);
+                    _owner.RemoveState<RapidRenewalState>();
                     break;
                 case NormalPrayer.ProtectItem:
-                    _owner.RemoveState(StateType.ProtectOneItem);
+                    _owner.RemoveState<ProtectOneItemState>();
                     break;
                 default:
                     _owner.SendChatMessage("Prayer " + prayer + " is not implemented yet.");
@@ -675,7 +677,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             switch (prayer)
             {
                 case AncientCurses.ProtectItem:
-                    _owner.RemoveState(StateType.ProtectOneItem);
+                    _owner.RemoveState<ProtectOneItemState>();
                     break;
                 case AncientCurses.DeflectSummoning when _owner.Appearance.PrayerIcon == PrayerIcon.DeflectSummoning:
                     _owner.Appearance.PrayerIcon = PrayerIcon.None;
@@ -712,52 +714,52 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     _owner.Appearance.PrayerIcon = PrayerIcon.None;
                     break;
                 case AncientCurses.Turmoil:
-                    _owner.RemoveState(StateType.Turmoil);
+                    _owner.RemoveState<TurmoilState>();
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticAttack, 15);
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticDefence, 15);
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticStrength, 23);
                     _owner.Statistics.ResetTurmoilBonuses();
                     break;
                 case AncientCurses.Berserker:
-                    _owner.RemoveState(StateType.Berserker);
+                    _owner.RemoveState<BerserkerState>();
                     break;
                 case AncientCurses.SapWarrior:
-                    _owner.RemoveState(StateType.SapWarrior);
+                    _owner.RemoveState<SapWarriorState>();
                     break;
                 case AncientCurses.SapRanger:
-                    _owner.RemoveState(StateType.SapRanger);
+                    _owner.RemoveState<SapRangerState>();
                     break;
                 case AncientCurses.SapMage:
-                    _owner.RemoveState(StateType.SapMager);
+                    _owner.RemoveState<SapMagerState>();
                     break;
                 case AncientCurses.SapSpirit:
-                    _owner.RemoveState(StateType.SapSpirit);
+                    _owner.RemoveState<SapSpiritState>();
                     break;
                 case AncientCurses.LeechAttack:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticAttack, 5);
-                    _owner.RemoveState(StateType.LeechAttack);
+                    _owner.RemoveState<LeechAttackState>();
                     break;
                 case AncientCurses.LeechStrength:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticStrength, 5);
-                    _owner.RemoveState(StateType.LeechStrength);
+                    _owner.RemoveState<LeechStrengthState>();
                     break;
                 case AncientCurses.LeechDefence:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticDefence, 5);
-                    _owner.RemoveState(StateType.LeechDefence);
+                    _owner.RemoveState<LeechDefenceState>();
                     break;
                 case AncientCurses.LeechRanged:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticRanged, 5);
-                    _owner.RemoveState(StateType.LeechRanged);
+                    _owner.RemoveState<LeechRangedState>();
                     break;
                 case AncientCurses.LeechMagic:
                     _owner.Statistics.PrayerBonuses.RemoveFromBonus(BonusPrayerType.StaticMagic, 5);
-                    _owner.RemoveState(StateType.LeechMagic);
+                    _owner.RemoveState<LeechMagicState>();
                     break;
                 case AncientCurses.LeechEnergy:
-                    _owner.RemoveState(StateType.LeechEnergy);
+                    _owner.RemoveState<LeechEnergyState>();
                     break;
                 case AncientCurses.LeechSpecialAttack:
-                    _owner.RemoveState(StateType.LeechSpecial);
+                    _owner.RemoveState<LeechSpecialState>();
                     break;
                 default:
                     _owner.SendChatMessage("Curse " + prayer + " is not implemented yet.");

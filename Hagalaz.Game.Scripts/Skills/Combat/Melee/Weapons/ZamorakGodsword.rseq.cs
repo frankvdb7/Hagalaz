@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
@@ -63,11 +62,11 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         /// <summary>
         ///     Happens when this item is equiped.
         /// </summary>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.ZamorakGodswordEquipped, int.MaxValue));
+        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new ZamorakGodswordEquippedState());
 
         /// <summary>
         ///     Happens when this item is unequiped.
         /// </summary>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.ZamorakGodswordEquipped);
+        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<ZamorakGodswordEquippedState>();
     }
 }

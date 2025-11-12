@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Cooking
@@ -39,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
 
             if (character.EventManager.SendEvent(new EatAllowEvent(character, item)))
             {
-                if (character.HasState(StateType.Stun) || character.HasState(StateType.Eating))
+                if (character.HasState<StunState>() || character.HasState<EatingState>())
                 {
                     return;
                 }
@@ -77,7 +76,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 character.Inventory.Remove(item, slot);
             }
 
-            character.AddState(new State(StateType.Eating, definition.EatingTime - 1, () => character.SendChatMessage("It restores some life points.")));
+            character.AddState(new EatingState { TicksLeft = definition.EatingTime - 1, OnRemovedCallback = () => character.SendChatMessage("It restores some life points.") });
             character.QueueAnimation(Animation.Create(829));
             character.SendChatMessage("You eat the " + item.ItemDefinition.Name + ".");
             var maxAmount = character.Statistics.GetMaximumLifePoints();

@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells;
@@ -22,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
         /// <returns></returns>
         public override bool CanPerformTeleport(ICharacter caster)
         {
-            if (caster.HasState(StateType.Teleporting))
+            if (caster.HasState<TeleportingState>())
             {
                 return false;
             }

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Model;
@@ -20,7 +21,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Arrows
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.MithGrappleEquiped, int.MaxValue));
+        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new MithGrappleEquipedState());
 
         /// <summary>
         ///     Happens when this item is unequiped by specific character.
@@ -28,6 +29,6 @@ namespace Hagalaz.Game.Scripts.Equipment.Arrows
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.MithGrappleEquiped);
+        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<MithGrappleEquipedState>();
     }
 }

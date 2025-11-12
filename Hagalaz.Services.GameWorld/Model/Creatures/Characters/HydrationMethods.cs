@@ -1,14 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Model;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
-using Hagalaz.Services.GameWorld.Services.Model;
+using Hagalaz.Game.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -282,15 +280,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(HydratedStateDto hydration)
         {
+            var stateService = ServiceProvider.GetRequiredService<IStateService>();
             foreach (var state in hydration.StatesEx)
             {
-                States.Add((StateType)state.Id, new State((StateType)state.Id, state.TicksLeft));
+                var result = stateService.GetStateAsync(state.Id.ToString()).Result;
+                if(result.IsSuccess)
+                {
+                    var stateObject = result.Value;
+                    stateObject.TicksLeft = state.TicksLeft;
+                    AddState(stateObject);
+                }
             }
         }
 
         HydratedStateDto IDehydratable<HydratedStateDto>.Dehydrate() => new HydratedStateDto
         {
-            StatesEx = States.Select(s => new HydratedStateDto.HydratedStateExDto { Id = (int)s.Key, TicksLeft = s.Value.RemoveDelay }).ToList()
+            StatesEx = States.Values.Select(s => new HydratedStateDto.HydratedStateExDto { Id = s.GetType().GetCustomAttribute<StateIdAttribute>()!.Id, TicksLeft = s.TicksLeft }).ToList()
         };
     }
 }

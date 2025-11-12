@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
@@ -7,8 +7,8 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Resources;
+using Hagalaz.Game.Scripts.Features.States.Items;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
@@ -102,11 +102,11 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         /// <summary>
         ///     Happens when this item is equiped.
         /// </summary>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.GraniteMaulEquiped, int.MaxValue));
+        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new GraniteMaulEquipedState());
 
         /// <summary>
         ///     Happens when this item is unequiped.
         /// </summary>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.GraniteMaulEquiped);
+        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<GraniteMaulEquipedState>();
     }
 }

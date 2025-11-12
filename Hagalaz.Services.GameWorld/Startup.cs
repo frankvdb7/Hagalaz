@@ -142,6 +142,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IGameMessageService, GameMessageService>();
             services.AddSingleton<IHitSplatRenderTypeProvider, HitSplatRenderTypeProvider>();
             services.AddScoped<IRatesService, RatesService>();
+            services.AddScoped<IStateService, StateService>();
 
             services.AddScoped<IGameSessionService, GameSessionService>();
             services.AddScoped<IGameConnectionService, GameConnectionService>();

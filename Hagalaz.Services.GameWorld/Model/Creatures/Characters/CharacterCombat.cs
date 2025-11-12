@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Animation;
@@ -17,11 +18,15 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
+using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.Extensions.DependencyInjection;
-using Hagalaz.Game.Extensions;
+using Hagalaz.Game.Scripts.Features.States.Combat;
+using Hagalaz.Game.Scripts.Features.States.Potions;
+using Hagalaz.Game.Scripts.Features.States.Items;
+using Hagalaz.Game.Scripts.Features.States.Effects;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -353,7 +358,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             // the else ifs may cause bugs?
             if (damageType == DamageType.FullMelee || damageType == DamageType.StandardMelee)
             {
-                if (Owner.HasState(StateType.MeleeImmunity))
+                if (Owner.HasState<MeleeImmunityState>())
                     protectFully = true;
                 else if (_character.Prayers.IsPraying(AncientCurses.DeflectMelee) || _character.Prayers.IsPraying(NormalPrayer.ProtectFromMelee))
                 {
@@ -416,8 +421,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 case DamageType.DragonFire:
                     {
                         string message;
-                        if (Owner.HasState(StateType.SuperAntiDragonfirePotion) ||
-                            Owner.HasState(StateType.AntiDragonfirePotion) && Owner.HasState(StateType.AntiDragonfireShield))
+                        if (Owner.HasState<SuperAntiDragonfirePotionState>() ||
+                            Owner.HasState<AntiDragonfirePotionState>() && Owner.HasState<AntiDragonfireShieldState>())
                         {
                             damage = -1;
                             message = GameStrings.DragonFireFully;
@@ -427,7 +432,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                             damage /= 5;
                             message = GameStrings.DragonFirePrayer;
                         }
-                        else if (Owner.HasState(StateType.AntiDragonfirePotion) || Owner.HasState(StateType.AntiDragonfireShield))
+                        else if (Owner.HasState<AntiDragonfirePotionState>() || Owner.HasState<AntiDragonfireShieldState>())
                         {
                             damage /= 2;
                             message = GameStrings.DragonFireSome;
@@ -665,7 +670,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="target">The target.</param>
         public override void OnAttackPerformed(ICreature target)
         {
-            if (_character.HasState(StateType.Turmoil)) _character.Statistics.SetTurmoilBonuses(target);
+            if (_character.HasState<TurmoilState>()) _character.Statistics.SetTurmoilBonuses(target);
 
             foreach (var item in _character.Equipment)
             {
@@ -678,7 +683,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         protected override void OnLastAttackedFade()
         {
-            if (Owner.HasState(StateType.Turmoil)) _character.Statistics.ResetTurmoilBonuses();
+            if (Owner.HasState<TurmoilState>()) _character.Statistics.ResetTurmoilBonuses();
         }
 
         /// <summary>
@@ -692,23 +697,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             foreach (var attacker in attackers)
             {
                 var att = attacker.Attacker;
-                if (att.HasState(StateType.SapWarrior) || att.HasState(StateType.LeechAttack)) attack = true;
-                if (att.HasState(StateType.SapWarrior) || att.HasState(StateType.LeechStrength)) strength = true;
-                if (att.HasState(StateType.SapWarrior) || att.HasState(StateType.SapRanger) || att.HasState(StateType.SapMager)
-                    || att.HasState(StateType.LeechDefence))
+                if (att.HasState<SapWarriorState>() || att.HasState<LeechAttackState>()) attack = true;
+                if (att.HasState<SapWarriorState>() || att.HasState<LeechStrengthState>()) strength = true;
+                if (att.HasState<SapWarriorState>() || att.HasState<SapRangerState>() || att.HasState<SapMagerState>()
+                    || att.HasState<LeechDefenceState>())
                     defence = true;
-                if (att.HasState(StateType.SapRanger) || att.HasState(StateType.LeechRanged)) ranged = true;
-                if (att.HasState(StateType.SapMager) || att.HasState(StateType.LeechMagic)) magic = true;
+                if (att.HasState<SapRangerState>() || att.HasState<LeechRangedState>()) ranged = true;
+                if (att.HasState<SapMagerState>() || att.HasState<LeechMagicState>()) magic = true;
             }
 
             {
-                if (Owner.HasState(StateType.SapWarrior) || Owner.HasState(StateType.LeechAttack)) self[0] = true;
-                if (Owner.HasState(StateType.SapWarrior) || Owner.HasState(StateType.LeechStrength)) self[1] = true;
-                if (Owner.HasState(StateType.SapWarrior) || Owner.HasState(StateType.SapRanger) || Owner.HasState(StateType.SapMager)
-                    || Owner.HasState(StateType.LeechDefence))
+                if (Owner.HasState<SapWarriorState>() || Owner.HasState<LeechAttackState>()) self[0] = true;
+                if (Owner.HasState<SapWarriorState>() || Owner.HasState<LeechStrengthState>()) self[1] = true;
+                if (Owner.HasState<SapWarriorState>() || Owner.HasState<SapRangerState>() || Owner.HasState<SapMagerState>()
+                    || Owner.HasState<LeechDefenceState>())
                     self[2] = true;
-                if (Owner.HasState(StateType.SapRanger) || Owner.HasState(StateType.LeechRanged)) self[3] = true;
-                if (Owner.HasState(StateType.SapMager) || Owner.HasState(StateType.LeechMagic)) self[4] = true;
+                if (Owner.HasState<SapRangerState>() || Owner.HasState<LeechRangedState>()) self[3] = true;
+                if (Owner.HasState<SapMagerState>() || Owner.HasState<LeechMagicState>()) self[4] = true;
             }
 
             if (!attack && GetPrayerBonus(BonusPrayerType.CurseInstantAttack) != 0)
@@ -745,25 +750,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             {
-                var types = new int[7 + 4];
-                var typesCount = 0;
-                foreach (var state in Owner.GetStates())
-                {
-                    var type = (int)state.StateType;
-                    if (type >= 14 && type <= 24) types[typesCount++] = type - 14;
-                }
+                var activeCurses = Owner.States.Values.Select(s => s.GetType()).Where(t => typeof(SapState).IsAssignableFrom(t) || typeof(LeechState).IsAssignableFrom(t)).ToList();
 
-                if (typesCount > 0 && DelayTick - 1 == RandomStatic.Generator.Next(0, maxLuckTick) && RandomStatic.Generator.NextDouble() >= 0.80)
+                if (activeCurses.Count > 0 && DelayTick - 1 == RandomStatic.Generator.Next(0, maxLuckTick) && RandomStatic.Generator.NextDouble() >= 0.80)
                 {
-                    var type = types[RandomStatic.Generator.Next(0, typesCount)];
-                    if (type < 4) // sap
+                    var curseType = activeCurses[RandomStatic.Generator.Next(0, activeCurses.Count)];
+
+                    if (typeof(SapState).IsAssignableFrom(curseType))
                     {
                         BonusPrayerType[]? drainTypes = null;
                         int shootGraphicID;
                         int projectileGraphicID;
                         int destinationGraphicID;
 
-                        if (type == 0)
+                        if (curseType == typeof(SapWarriorState))
                         {
                             drainTypes =
                             [
@@ -773,7 +773,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                             projectileGraphicID = 2215;
                             destinationGraphicID = 2216;
                         }
-                        else if (type == 1)
+                        else if (curseType == typeof(SapRangerState))
                         {
                             drainTypes =
                             [
@@ -783,7 +783,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                             projectileGraphicID = 2218;
                             destinationGraphicID = 2219;
                         }
-                        else if (type == 2)
+                        else if (curseType == typeof(SapMagerState))
                         {
                             drainTypes =
                             [
@@ -835,49 +835,51 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                         else
                             _character.SendChatMessage("Your sap curse doesn't affect your enemy. It should be used against other players instead.");
                     }
-                    else
+                    else // Leech
                     {
-                        var drainType = -1;
+                        var drainType = BonusPrayerType.StaticAttack;
                         int projectileGraphicID;
                         int destinationGraphicID;
 
-                        switch (type)
+                        if (curseType == typeof(LeechAttackState))
                         {
-                            case 4:
-                                drainType = (int)BonusPrayerType.CurseAttack;
-                                projectileGraphicID = 2231;
-                                destinationGraphicID = 2232;
-                                break;
-                            case 5:
-                                drainType = (int)BonusPrayerType.CurseStrength;
-                                projectileGraphicID = 2248;
-                                destinationGraphicID = 2250;
-                                break;
-                            case 6:
-                                drainType = (int)BonusPrayerType.CurseDefence;
-                                projectileGraphicID = 2244;
-                                destinationGraphicID = 2246;
-                                break;
-                            case 7:
-                                drainType = (int)BonusPrayerType.CurseRanged;
-                                projectileGraphicID = 2236;
-                                destinationGraphicID = 2238;
-                                break;
-                            case 8:
-                                drainType = (int)BonusPrayerType.CurseMagic;
-                                projectileGraphicID = 2240;
-                                destinationGraphicID = 2242;
-                                break;
-                            case 9:
-                                drainType = -1;
-                                projectileGraphicID = 2252;
-                                destinationGraphicID = 2254;
-                                break;
-                            default:
-                                drainType = -1;
-                                projectileGraphicID = 2256;
-                                destinationGraphicID = 2258;
-                                break;
+                            drainType = BonusPrayerType.CurseAttack;
+                            projectileGraphicID = 2231;
+                            destinationGraphicID = 2232;
+                        }
+                        else if (curseType == typeof(LeechStrengthState))
+                        {
+                            drainType = BonusPrayerType.CurseStrength;
+                            projectileGraphicID = 2248;
+                            destinationGraphicID = 2250;
+                        }
+                        else if (curseType == typeof(LeechDefenceState))
+                        {
+                            drainType = BonusPrayerType.CurseDefence;
+                            projectileGraphicID = 2244;
+                            destinationGraphicID = 2246;
+                        }
+                        else if (curseType == typeof(LeechRangedState))
+                        {
+                            drainType = BonusPrayerType.CurseRanged;
+                            projectileGraphicID = 2236;
+                            destinationGraphicID = 2238;
+                        }
+                        else if (curseType == typeof(LeechMagicState))
+                        {
+                            drainType = BonusPrayerType.CurseMagic;
+                            projectileGraphicID = 2240;
+                            destinationGraphicID = 2242;
+                        }
+                        else if (curseType == typeof(LeechEnergyState))
+                        {
+                            projectileGraphicID = 2252;
+                            destinationGraphicID = 2254;
+                        }
+                        else // LeechSpecialState
+                        {
+                            projectileGraphicID = 2256;
+                            destinationGraphicID = 2258;
                         }
 
                         Owner.QueueAnimation(_animationBuilder.Create().WithId(12575).Build());
@@ -892,27 +894,27 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                             .WithToHeight(30)
                             .Send();
 
-                        if (drainType != -1)
+                        if (curseType != typeof(LeechEnergyState) && curseType != typeof(LeechSpecialState))
                         {
                             var drained = false;
                             if (LastAttacked is ICharacter character)
-                                drained = character.Statistics.DecreaseCursePrayerBonus((BonusPrayerType)drainType, -15);
-                            else if (LastAttacked is INpc npc) drained = npc.Statistics.DecreaseCursePrayerBonus((BonusPrayerType)drainType, -15);
+                                drained = character.Statistics.DecreaseCursePrayerBonus(drainType, -15);
+                            else if (LastAttacked is INpc npc) drained = npc.Statistics.DecreaseCursePrayerBonus(drainType, -15);
 
                             if (drained)
                             {
-                                if (_character.Statistics.IncreaseCursePrayerBonus((BonusPrayerType)drainType, 10))
-                                    _character.SendChatMessage("Your curse drains " + CreatureHelperTwo.GetCurseSkillName((BonusPrayerType)drainType) +
+                                if (_character.Statistics.IncreaseCursePrayerBonus(drainType, 10))
+                                    _character.SendChatMessage("Your curse drains " + CreatureHelperTwo.GetCurseSkillName(drainType) +
                                                                " from the enemy, boosting your " +
-                                                               CreatureHelperTwo.GetCurseSkillName((BonusPrayerType)drainType) + ".");
+                                                               CreatureHelperTwo.GetCurseSkillName(drainType) + ".");
                                 else
-                                    _character.SendChatMessage("Your curse drains " + CreatureHelperTwo.GetCurseSkillName((BonusPrayerType)drainType) +
+                                    _character.SendChatMessage("Your curse drains " + CreatureHelperTwo.GetCurseSkillName(drainType) +
                                                                " from the enemy, but has already made you so strong that it can improve you no further.");
                             }
                             else
                                 _character.SendChatMessage("Your opponent has been weakened so much that your leech curse has no effect.");
                         }
-                        else if (type == 9)
+                        else if (curseType == typeof(LeechEnergyState))
                         {
                             if (LastAttacked is ICharacter character)
                             {
@@ -927,7 +929,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                             else
                                 _character.SendChatMessage("Your leech curse doesn't affect your enemy. It should be used against other players instead.");
                         }
-                        else if (type == 10)
+                        else if (curseType == typeof(LeechSpecialState))
                         {
                             if (LastAttacked is ICharacter character)
                             {
@@ -965,7 +967,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 enemyDefenceLevel += 3;
             else if (target.Combat.GetAttackStyle() == AttackStyle.MeleeControlled) enemyDefenceLevel += 1;
 
-            if (Owner.HasState(StateType.VoidRangedEquiped)) myAttackLevel *= 1.1;
+            if (Owner.HasState<VoidRangedEquippedState>()) myAttackLevel *= 1.1;
 
             var effectiveAttack = myAttackLevel;
             effectiveAttack += 8.0;
@@ -984,7 +986,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (specialAttack)
             {
-                if (Owner.HasState(StateType.MagicShortBowEquiped)) attackersRoll *= 1.1;
+                if (Owner.HasState<MagicShortbowEquippedState>()) attackersRoll *= 1.1;
             }
 
             var accuracy = 0.5;
@@ -994,9 +996,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (specialAttack)
             {
-                if (Owner.HasState(StateType.CrossbowEquiped))
+                if (Owner.HasState<CrossbowEquippedState>())
                 {
-                    if (Owner.HasState(StateType.EnchantedDragonstoneBoltsEquiped)) accuracy = 3.0; // very high power to damage calculation
+                    if (Owner.HasState<EnchantedDragonstoneBoltsEquippedState>()) accuracy = 3.0; // very high power to damage calculation
                 }
             }
 
@@ -1029,21 +1031,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (usingSpecial)
             {
-                if (owner.HasState(StateType.CrossbowEquiped))
+                if (owner.HasState<CrossbowEquippedState>())
                 {
-                    if (owner.HasState(StateType.EnchantedOpalBoltsEquipped)) specialBonus = 1.25;
-                    if (owner.HasState(StateType.EnchantedDiamondBoltsEquipped)) specialBonus = 1.15;
-                    if (owner.HasState(StateType.EnchantedDragonstoneBoltsEquiped)) specialBonus = 1.45;
-                    if (owner.HasState(StateType.EnchantedOnyxBoltsEquiped)) specialBonus = 1.15;
+                    if (owner.HasState<EnchantedOpalBoltsEquippedState>()) specialBonus = 1.25;
+                    if (owner.HasState<EnchantedDiamondBoltsEquippedState>()) specialBonus = 1.15;
+                    if (owner.HasState<EnchantedDragonstoneBoltsEquippedState>()) specialBonus = 1.45;
+                    if (owner.HasState<EnchantedOnyxBoltsEquippedState>()) specialBonus = 1.15;
                 }
 
-                if (owner.HasState(StateType.MorrigansThrownAxeEquiped)) specialBonus = 1.2;
-                if (owner.HasState(StateType.DarkBowEquiped)) specialBonus = owner.HasState(StateType.DragonArrowsEquiped) ? 1.5 : 1.3;
+                if (owner.HasState<MorrigansThrownAxeEquippedState>()) specialBonus = 1.2;
+                if (owner.HasState<DarkBowEquippedState>()) specialBonus = owner.HasState<DragonArrowsEquippedState>() ? 1.5 : 1.3;
             }
 
-            if (owner.HasState(StateType.VoidRangedEquiped)) baseDamage *= 1.1;
+            if (owner.HasState<VoidRangedEquippedState>()) baseDamage *= 1.1;
 
-            if (usingSpecial && owner.HasState(StateType.ZanikCrossbowEquiped))
+            if (usingSpecial && owner.HasState<ZanikCrossbowEquippedState>())
                 return (int)Math.Floor(baseDamage) + 150;
             else if (usingSpecial)
                 return (int)Math.Floor(baseDamage * specialBonus);
@@ -1073,7 +1075,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 enemyDefenceLevel += 3;
             else if (target.Combat.GetAttackStyle() == AttackStyle.MeleeControlled) enemyDefenceLevel += 1;
 
-            if (owner.HasState(StateType.VoidMeleeEquiped)) myAttackLevel *= 1.1;
+            if (owner.HasState<VoidMeleeEquippedState>()) myAttackLevel *= 1.1;
 
             var effectiveAttack = myAttackLevel;
             effectiveAttack += 8.0;
@@ -1092,8 +1094,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (specialAttack)
             {
-                if (owner.HasState(StateType.DragonDaggerEquipped)) attackersRoll *= 1.1;
-                if (owner.HasState(StateType.AbyssalWhipEquipped)) attackersRoll *= 1.1;
+                if (owner.HasState<DragonDaggerEquippedState>()) attackersRoll *= 1.1;
+                if (owner.HasState<AbyssalWhipEquippedState>()) attackersRoll *= 1.1;
             }
 
             var accuracy = 0.5;
@@ -1103,7 +1105,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (specialAttack)
             {
-                if (owner.HasState(StateType.KorasiEquipped)) accuracy = 1.0; // 100%
+                if (owner.HasState<KorasiEquippedState>()) accuracy = 1.0; // 100%
             }
 
             if (RandomStatic.Generator.NextDouble() > accuracy) return -1;
@@ -1135,18 +1137,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (usingSpecial)
             {
-                if (owner.HasState(StateType.DragonDaggerEquipped)) maxHitModifier = 1.15;
-                if (owner.HasState(StateType.ArmadylGodswordEquipped)) maxHitModifier = 1.25;
-                if (owner.HasState(StateType.BandosGodswordEquipped)) maxHitModifier = 1.10;
-                if (owner.HasState(StateType.SaradominGodswordEquipped)) maxHitModifier = 1.10;
-                if (owner.HasState(StateType.VestaLongswordEquipped)) maxHitModifier = 1.2;
-                if (owner.HasState(StateType.StatiusWarhammerEquipped)) maxHitModifier = 1.25;
-                if (owner.HasState(StateType.KorasiEquipped)) maxHitModifier = 1.5;
+                if (owner.HasState<DragonDaggerEquippedState>()) maxHitModifier = 1.15;
+                if (owner.HasState<ArmadylGodswordEquippedState>()) maxHitModifier = 1.25;
+                if (owner.HasState<BandosGodswordEquippedState>()) maxHitModifier = 1.10;
+                if (owner.HasState<SaradominGodswordEquippedState>()) maxHitModifier = 1.10;
+                if (owner.HasState<VestaLongswordEquippedState>()) maxHitModifier = 1.2;
+                if (owner.HasState<StatiusWarhammerEquippedState>()) maxHitModifier = 1.25;
+                if (owner.HasState<KorasiEquippedState>()) maxHitModifier = 1.5;
             }
 
-            if (owner.HasState(StateType.VoidMeleeEquiped))
+            if (owner.HasState<VoidMeleeEquippedState>())
                 baseDamage *= 1.1;
-            else if (owner.HasState(StateType.DharokWretchedStrength))
+            else if (owner.HasState<DharokWretchedStrengthState>())
             {
                 if (RandomStatic.Generator.NextDouble() >= 0.50)
                 {
@@ -1201,7 +1203,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 enemyDefenceLevel += 3;
             else if (target.Combat.GetAttackStyle() == AttackStyle.MeleeControlled) enemyDefenceLevel += 3;
 
-            if (owner.HasState(StateType.VoidMagicEquiped)) myAttackLevel *= 1.3;
+            if (owner.HasState<VoidMagicEquippedState>()) myAttackLevel *= 1.3;
 
             var effectiveAttack = myAttackLevel;
             effectiveAttack += 8.0;
@@ -1343,7 +1345,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             if (damage <= 0) damage = -1;
 
-            if (damage == -1 || !_character.HasState(StateType.Vengeance) || attacker.HasState(StateType.VengeanceImmunity) ||
+            if (damage == -1 || !_character.HasState<VengeanceState>() || attacker.HasState<VengeanceImmunityState>() ||
                 damageType == DamageType.Reflected || damageType == DamageType.Standard || damageType == DamageType.DragonFire)
             {
                 return damage;
@@ -1357,7 +1359,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             _character.Speak("Taste Vengeance!");
-            _character.RemoveState(StateType.Vengeance);
+            _character.RemoveState<VengeanceState>();
             var reflectSplat = _character.ServiceProvider.GetRequiredService<IHitSplatBuilder>()
                 .Create()
                 .AddSprite(builder => builder.WithDamage(reflectBack).WithSplatType(HitSplatType.HitSimpleDamage))
@@ -1406,7 +1408,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 speed = weapon.EquipmentScript.GetAttackSpeed(weapon);
 
             if (GetAttackStyle() == AttackStyle.RangedRapid) speed -= 1;
-            if (spell == null && Owner.HasState(StateType.MiasmicSlow)) speed *= 2;
+            if (spell == null && Owner.HasState<MiasmicSlowState>()) speed *= 2;
             return speed;
         }
 

@@ -2,6 +2,7 @@
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -409,7 +410,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         /// <param name="obj">The object.</param>
         public void LootChest(IGameObject obj)
         {
-            if (obj.IsDestroyed || Character.Combat.IsInCombat() || !Character.HasState(StateType.BarrowsOpenedChest))
+            if (obj.IsDestroyed || Character.Combat.IsInCombat() || !Character.HasState<BarrowsOpenedChestState>())
             {
                 return;
             }
@@ -496,7 +497,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             }
 
             config = (_killCount << 1 << 16) | config;
-            config = ((Character.HasState(StateType.BarrowsOpenedChest) ? 1 : 0) << 1 << 16) | config;
+            config = ((Character.HasState<BarrowsOpenedChestState>() ? 1 : 0) << 1 << 16) | config;
             Character.Configurations.SendStandardConfiguration(453, config);
         }
 

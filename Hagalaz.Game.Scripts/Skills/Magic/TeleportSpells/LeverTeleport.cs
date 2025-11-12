@@ -6,7 +6,6 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells
 {
@@ -45,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells
         /// <param name="caster"></param>
         public override void PerformTeleport(ICharacter caster)
         {
-            if (caster.HasState(StateType.Teleporting))
+            if (caster.HasState<TeleportingState>())
             {
                 return;
             }
@@ -65,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells
             caster.QueueAnimation(Animation.Create(2140));
             caster.QueueTask(new RsTask(() =>
                 {
-                    caster.AddState(new State(StateType.Teleporting, TeleportDelay + 1));
+                    caster.AddState(new TeleportingState { TicksLeft = TeleportDelay + 1 });
                     caster.Interrupt(this);
                     caster.Movement.Lock(true);
                     var teleport = Destination.Clone();

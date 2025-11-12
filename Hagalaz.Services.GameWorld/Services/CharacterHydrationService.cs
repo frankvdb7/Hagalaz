@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Logic.Hydrators;
 using Hagalaz.Services.GameWorld.Services.Model;
@@ -14,11 +15,11 @@ namespace Hagalaz.Services.GameWorld.Services
             _hydrators = hydrators;
         }
 
-        public bool Hydrate(ICharacter character, CharacterModel model)
+        public async Task<bool> HydrateAsync(ICharacter character, CharacterModel model)
         {
             foreach (var hydrator in _hydrators)
             {
-                hydrator.Hydrate(character, model);
+                await hydrator.HydrateAsync(character, model);
             }
             return true;
         }

@@ -2,7 +2,6 @@
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
@@ -34,13 +33,13 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.CrossbowEquiped, int.MaxValue));
+        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new CrossbowEquipedState());
 
         /// <summary>
         ///     Happens when crossbow is unequiped for this character.
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.CrossbowEquiped);
+        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<CrossbowEquipedState>();
     }
 }

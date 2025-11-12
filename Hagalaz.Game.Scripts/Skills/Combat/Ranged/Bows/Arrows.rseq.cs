@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
@@ -452,10 +451,10 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         {
             if (Lookup(item.Id, Dragon))
             {
-                character.AddState(new State(StateType.DragonArrowsEquiped, int.MaxValue));
+                character.AddState(new DragonArrowsEquipedState());
             }
 
-            character.AddState(new State(StateType.ArrowsEquiped, int.MaxValue));
+            character.AddState(new ArrowsEquipedState());
         }
 
         /// <summary>
@@ -467,10 +466,10 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         {
             if (Lookup(item.Id, Dragon))
             {
-                character.RemoveState(StateType.DragonArrowsEquiped);
+                character.RemoveState<DragonArrowsEquipedState>();
             }
 
-            character.RemoveState(StateType.ArrowsEquiped);
+            character.RemoveState<ArrowsEquipedState>();
         }
 
         /// <summary>

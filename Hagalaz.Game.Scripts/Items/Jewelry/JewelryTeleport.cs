@@ -1,5 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -46,7 +47,7 @@ namespace Hagalaz.Game.Scripts.Items.Jewelry
         /// <param name="caster"></param>
         public override void PerformTeleport(ICharacter caster)
         {
-            if (caster.HasState(StateType.Teleporting))
+            if (caster.HasState<TeleportingState>())
             {
                 return;
             }

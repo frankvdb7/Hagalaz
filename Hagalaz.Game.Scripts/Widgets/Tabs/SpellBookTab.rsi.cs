@@ -15,7 +15,6 @@ using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Skills.Combat.Magic;
 using Hagalaz.Game.Scripts.Skills.Magic.MiscSpells;
@@ -572,7 +571,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                     return false;
                                 }
 
-                                if (Owner.HasState(StateType.CantCastCharge))
+                                if (Owner.HasState<CantCastChargeState>())
                                 {
                                     Owner.SendChatMessage("You can only cast charge once every minute.");
                                 }
@@ -584,8 +583,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                         Owner.Statistics.AddExperience(StatisticsConstants.Magic, 180);
                                         Owner.QueueAnimation(Animation.Create(811));
                                         //this.owner.QueueGraphic(Graphic.Create(726)); // TODO graphic id
-                                        Owner.AddState(new State(StateType.CantCastCharge, 100)); // 1 minute
-                                        Owner.AddState(new State(StateType.Charge, 700)); // 7 minutes
+                                        Owner.AddState(new CantCastChargeState { TicksLeft = 100 }); // 1 minute
+                                        Owner.AddState(new ChargeState { TicksLeft = 700 }); // 7 minutes
                                     }
                                 }
 
@@ -740,7 +739,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
                             if (componentID == 37) // vengeance
                             {
-                                if (Owner.HasState(StateType.CantCastVengeance))
+                                if (Owner.HasState<CantCastVengeanceState>())
                                 {
                                     Owner.SendChatMessage("You can only cast vengeance spells once every 30 seconds.");
                                 }
@@ -752,8 +751,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                         Owner.Statistics.AddExperience(StatisticsConstants.Magic, 112.0);
                                         Owner.QueueAnimation(Animation.Create(4410));
                                         Owner.QueueGraphic(Graphic.Create(726));
-                                        Owner.AddState(new State(StateType.CantCastVengeance, 50));
-                                        Owner.AddState(new State(StateType.Vengeance, 500));
+                                        Owner.AddState(new CantCastVengeanceState { TicksLeft = 50 });
+                                        Owner.AddState(new VengeanceState { TicksLeft = 500 });
                                     }
                                 }
                             }

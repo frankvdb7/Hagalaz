@@ -1,9 +1,9 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
+using Hagalaz.Game.Scripts.Features.States.Agility;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
@@ -31,7 +31,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                         clicker.SendChatMessage("...you land on the ground.");
                         clicker.Movement.Teleport(Teleport.Create(Location.Create(2487, 3421, 0, clicker.Location.Dimension)));
                         clicker.Statistics.AddExperience(StatisticsConstants.Agility, 5);
-                        clicker.AddState(new State(StateType.GnomeCourseTreeBranchDown, int.MaxValue));
+                        clicker.AddState(new GnomeCourseTreeBranchDownState());
                         clicker.Movement.Unlock(false);
                     }, 2));
             }

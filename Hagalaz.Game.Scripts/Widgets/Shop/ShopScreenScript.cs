@@ -9,7 +9,6 @@ using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Utilities;
 
@@ -275,7 +274,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
                 return true;
             }
 
-            InterfaceInstance.AttachClickHandler(20, Owner.HasState(StateType.ShopSellScreen) ? SellScreenHandler : BuyScreenHandler); // default handler
+            InterfaceInstance.AttachClickHandler(20, Owner.HasState<ShopSellScreenState>() ? SellScreenHandler : BuyScreenHandler); // default handler
 
             InterfaceInstance.AttachClickHandler(21,
                 (componentID, type, itemID, slot) =>
@@ -433,7 +432,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         private void RefreshItemInfo(IItem item, int slot, bool sampleItem)
         {
             _selectedItem = item;
-            SetActiveScreen((byte)(Owner.HasState(StateType.ShopSellScreen) ? 2 : sampleItem ? 1 : 0));
+            SetActiveScreen((byte)(Owner.HasState<ShopSellScreenState>() ? 2 : sampleItem ? 1 : 0));
             Owner.Configurations.SendStandardConfiguration(2562, item.Id);
             Owner.Configurations.SendStandardConfiguration(2563, slot);
             Owner.Configurations.SendGlobalCs2Int(1876, (int)item.EquipmentDefinition.Slot);
@@ -445,7 +444,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
             else
             {
                 Owner.SendChatMessage(item.Name + ": currently costs " +
-                                      StringUtilities.FormatNumber(Owner.HasState(StateType.ShopSellScreen)
+                                      StringUtilities.FormatNumber(Owner.HasState<ShopSellScreenState>()
                                           ? Owner.CurrentShop!.GetSellValue(item)
                                           : Owner.CurrentShop!.GetBuyValue(item)) +
                                       " " + _itemRepository.FindItemDefinitionById(Owner.CurrentShop.CurrencyId).Name.ToLower() + ".");
@@ -508,11 +507,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
 
             if (newScreen == 0 || newScreen == 1)
             {
-                Owner.RemoveState(StateType.ShopSellScreen);
+                Owner.RemoveState<ShopSellScreenState>();
             }
             else
             {
-                Owner.AddState(new State(StateType.ShopSellScreen, int.MaxValue));
+                Owner.AddState(new ShopSellScreenState());
             }
 
             SetCount(1);
@@ -524,7 +523,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         ///     Refreshes the active screen.
         /// </summary>
         private void RefreshActiveScreen(bool sampleScreen) =>
-            Owner.Configurations.SendStandardConfiguration(2561, Owner.HasState(StateType.ShopSellScreen) ? 93 : sampleScreen ? 553 : 3);
+            Owner.Configurations.SendStandardConfiguration(2561, Owner.HasState<ShopSellScreenState>() ? 93 : sampleScreen ? 553 : 3);
 
         /// <summary>
         ///     Refreshes the amount.

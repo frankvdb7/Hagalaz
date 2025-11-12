@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.Orbs
@@ -51,9 +50,9 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
                 }
                 else if (clickType == ComponentClickType.Option2Click)
                 {
-                    if (Owner.HasState(StateType.Resting))
+                    if (Owner.HasState<RestingState>())
                     {
-                        Owner.RemoveState(StateType.Resting);
+                        Owner.RemoveState<RestingState>();
                     }
                     else
                     {
@@ -76,12 +75,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             var index = RandomStatic.Generator.Next(0, _restInfo.GetLength(0));
             Owner.QueueAnimation(Animation.Create(_restInfo[index, 0]));
             Owner.Appearance.RenderId = _restInfo[index, 1];
-            Owner.AddState(new State(StateType.Resting, int.MaxValue, () =>
+            Owner.AddState(new RestingState { OnRemovedCallback = () =>
             {
                 Owner.QueueAnimation(Animation.Create(_restInfo[index, 2]));
                 Owner.Appearance.ResetRenderID();
                 RefreshOrbState();
-            }));
+            } });
             RefreshOrbState();
         }
 
@@ -94,7 +93,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             RefreshOrbState();
         }
 
-        public void RefreshOrbState() => Owner.Configurations.SendStandardConfiguration(173, Owner.HasState(StateType.ListeningToMusician) ? 4 : Owner.HasState(StateType.Resting) ? 3 : (Owner.Profile.GetValue<bool>(ProfileConstants.RunSettingsToggled) ? 1 : 0));
+        public void RefreshOrbState() => Owner.Configurations.SendStandardConfiguration(173, Owner.HasState<ListeningToMusicianState>() ? 4 : Owner.HasState<RestingState>() ? 3 : (Owner.Profile.GetValue<bool>(ProfileConstants.RunSettingsToggled) ? 1 : 0));
 
         /// <summary>
         ///     Happens when interface is closed for character.

@@ -1,7 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
@@ -119,16 +118,16 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
             switch (item.Id)
             {
                 // OPAL
-                case 9236: character.AddState(new State(StateType.EnchantedOpalBoltsEquipped, int.MaxValue)); break;
+                case 9236: character.AddState(new EnchantedOpalBoltsEquippedState()); break;
                 // DIAMOND
-                case 9243: character.AddState(new State(StateType.EnchantedDiamondBoltsEquipped, int.MaxValue)); break;
+                case 9243: character.AddState(new EnchantedDiamondBoltsEquippedState()); break;
                 // DRAGON
-                case 9244: character.AddState(new State(StateType.EnchantedDragonstoneBoltsEquiped, int.MaxValue)); break;
+                case 9244: character.AddState(new EnchantedDragonstoneBoltsEquipedState()); break;
                 // ONYX
-                case 9245: character.AddState(new State(StateType.EnchantedOnyxBoltsEquiped, int.MaxValue)); break;
+                case 9245: character.AddState(new EnchantedOnyxBoltsEquipedState()); break;
             }
 
-            character.AddState(new State(StateType.BoltsEquiped, int.MaxValue));
+            character.AddState(new BoltsEquipedState());
         }
 
         /// <summary>
@@ -141,16 +140,16 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
             switch (item.Id)
             {
                 // OPAL
-                case 9236: character.RemoveState(StateType.EnchantedOpalBoltsEquipped); break;
+                case 9236: character.RemoveState<EnchantedOpalBoltsEquippedState>(); break;
                 // DIAMOND
-                case 9243: character.RemoveState(StateType.EnchantedDiamondBoltsEquipped); break;
+                case 9243: character.RemoveState<EnchantedDiamondBoltsEquippedState>(); break;
                 // DRAGON
-                case 9244: character.RemoveState(StateType.EnchantedDragonstoneBoltsEquiped); break;
+                case 9244: character.RemoveState<EnchantedDragonstoneBoltsEquipedState>(); break;
                 // ONYX
-                case 9245: character.RemoveState(StateType.EnchantedOnyxBoltsEquiped); break;
+                case 9245: character.RemoveState<EnchantedOnyxBoltsEquippedState>(); break;
             }
 
-            character.RemoveState(StateType.BoltsEquiped);
+            character.RemoveState<BoltsEquipedState>();
         }
     }
 }

@@ -1,10 +1,10 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Model;
+using Hagalaz.Game.Scripts.Features.States.Combat;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 {
@@ -204,7 +204,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                         }
                         if (c is ICharacter)
                         {
-                            c.ApplyStandardState(new State(StateType.MiasmicSlow, (SpellType + 1) * 12000 / 600), StateType.MiasmicSlowImmunity);
+                            c.ApplyStandardState(new MiasmicSlowState((SpellType + 1) * 12000 / 600), typeof(MiasmicSlowImmunityState));
                         }
                     }
                     else

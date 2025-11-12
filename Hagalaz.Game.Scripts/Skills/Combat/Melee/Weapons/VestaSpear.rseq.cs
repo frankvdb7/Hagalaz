@@ -1,11 +1,11 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Equipment.Ancient;
+using Hagalaz.Game.Scripts.Features.States.Combat;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 {
@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         public override void PerformSpecialAttack(IItem item, ICharacter attacker, ICreature victim)
         {
             RenderAttack(item, attacker, true);
-            attacker.AddState(new State(StateType.MeleeImmunity, 8));
+            attacker.AddState(new MeleeImmunityState(8));
             //if (!attacker.Area.MultiCombat)
             //{
 

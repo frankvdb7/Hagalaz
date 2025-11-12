@@ -1,9 +1,9 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
+using Hagalaz.Game.Scripts.Features.States;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 {
@@ -42,7 +42,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 
             character.Inventory.Replace(slot, next);
 
-            character.AddState(new State(StateType.Drinking, drinkingTicks));
+            character.AddState(new DrinkingState(drinkingTicks));
             character.QueueAnimation(Animation.Create(829));
 
             var nameArray = current.Name.Split('(');

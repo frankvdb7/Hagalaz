@@ -1,32 +1,28 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 
 namespace Hagalaz.Game.Abstractions.Features.States
 {
     /// <summary>
-    /// Defines the contract for a temporary state or effect that can be applied to a character, such as poison, stun, or a temporary boost.
-    /// States are processed on each game tick and can expire after a certain duration.
+    /// Defines the contract for a temporary state or effect that can be applied to a creature.
     /// </summary>
-    public interface IState : ITickItem, IDisposable
+    public interface IState
     {
         /// <summary>
-        /// Gets the delay in game ticks before the state is automatically removed.
+        /// Called when the state is applied to a creature.
         /// </summary>
-        int RemoveDelay { get; }
+        /// <param name="creature">The creature the state is being applied to.</param>
+        void OnApply(ICreature creature);
 
         /// <summary>
-        /// Gets the type of the state, which categorizes its general effect (e.g., Skull, Vengeance).
+        /// Called when the state is removed from a creature.
         /// </summary>
-        StateType StateType { get; }
+        /// <param name="creature">The creature the state is being removed from.</param>
+        void OnRemove(ICreature creature);
 
         /// <summary>
-        /// Gets the script that defines the behavior and logic of this state.
+        /// Called on each game tick while the state is active.
         /// </summary>
-        IStateScript Script { get; }
-
-        /// <summary>
-        /// Gets a value indicating whether this state has been marked for removal.
-        /// </summary>
-        bool Removed { get; }
+        /// <param name="creature">The creature the state is applied to.</param>
+        void OnTick(ICreature creature);
     }
 }

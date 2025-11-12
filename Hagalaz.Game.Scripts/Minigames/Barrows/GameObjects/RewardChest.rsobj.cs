@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Scripts.Model.GameObjects;
@@ -21,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
             if (clickType == GameObjectClickType.Option1Click)
             {
                 var script = clicker.GetOrAddScript<BarrowsScript>();
-                if (clicker.HasState(StateType.BarrowsOpenedChest)) // search
+                if (clicker.HasState<BarrowsOpenedChestState>()) // search
                 {
                     script.LootChest(Owner);
                 }

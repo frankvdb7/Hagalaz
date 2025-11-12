@@ -1,6 +1,7 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -36,7 +37,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
                 case GameObjectClickType.Option1Click:
                 {
                     clicker.Interrupt(this);
-                    if (!clicker.HasState(StateType.HasSaradominFirstRockRope))
+                    if (!clicker.HasState<HasSaradominFirstRockRopeState>())
                     {
                         if (!clicker.Inventory.Contains(954))
                         {
@@ -53,7 +54,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
 
                     break;
                 }
-                case GameObjectClickType.Option2Click when clicker.HasState(StateType.HasSaradominFirstRockRope):
+                case GameObjectClickType.Option2Click when clicker.HasState<HasSaradominFirstRockRopeState>():
                     clicker.Movement.Lock(true);
                     clicker.SendChatMessage("You climb down the rope...");
                     clicker.QueueAnimation(Animation.Create(827));
@@ -75,7 +76,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
         /// <param name="character">The character.</param>
         public override void OnRenderedFor(ICharacter character)
         {
-            if (character.HasState(StateType.HasSaradominFirstRockRope))
+            if (character.HasState<HasSaradominFirstRockRopeState>())
             {
                 ShowRope(character);
             }

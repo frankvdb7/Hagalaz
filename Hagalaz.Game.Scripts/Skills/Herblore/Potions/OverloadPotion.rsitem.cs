@@ -5,7 +5,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Tasks;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
@@ -41,7 +40,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
                 return;
             }
 
-            if (character.HasState(StateType.Stun) || character.HasState(StateType.Drinking))
+            if (character.HasState<StunState>() || character.HasState<DrinkingState>())
             {
                 return;
             }
@@ -52,7 +51,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
                 return;
             }
 
-            if (character.HasState(StateType.OverloadEffect))
+            if (character.HasState<OverloadEffectState>())
             {
                 character.SendChatMessage("You cannot drink another overload dose yet.");
                 return;
@@ -85,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
         protected override void ApplyEffect(ICharacter character)
         {
             character.QueueTask(new OverloadBoostTask(character));
-            character.AddState(new State(StateType.OverloadEffect, 500));
+            character.AddState(new OverloadEffectState { TicksLeft = 500 });
         }
     }
 }
