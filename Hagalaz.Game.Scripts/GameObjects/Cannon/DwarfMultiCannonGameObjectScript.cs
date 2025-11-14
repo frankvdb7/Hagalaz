@@ -3,7 +3,6 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -364,7 +363,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
 
                     character.Region.Remove(cannon);
 
-                    character.RemoveState(StateType.CannonPlaced);
+                    character.RemoveState<CannonPlacedState>();
 
                     character.Movement.Unlock(false);
                     task.Cancel();

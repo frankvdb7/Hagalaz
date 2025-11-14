@@ -24,5 +24,30 @@ namespace Hagalaz.Game.Abstractions.Features.States
         /// </summary>
         /// <param name="creature">The creature the state is applied to.</param>
         void OnTick(ICreature creature);
+
+        /// <summary>
+        /// Gets or sets the number of ticks remaining for the state.
+        /// </summary>
+        int TicksLeft { get; set; }
+
+        /// <summary>
+        /// Gets the script associated with this state.
+        /// </summary>
+        IStateScript Script { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether this state has been removed.
+        /// </summary>
+        bool Removed { get; }
+
+        /// <summary>
+        /// Gets the delay before this state is removed.
+        /// </summary>
+        int RemoveDelay { get; }
+
+        /// <summary>
+        /// Performs a tick update for the state.
+        /// </summary>
+        void Tick();
     }
 }

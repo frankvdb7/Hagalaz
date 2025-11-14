@@ -20,7 +20,7 @@ namespace Hagalaz.Services.GameWorld.Services
             var model = new CharacterModel();
             foreach (var dehydrator in _dehydrators)
             {
-                model = await dehydrator.DehydrateAsync(character, model);
+                model = dehydrator.Dehydrate(character, model);
             }
             return model;
         }

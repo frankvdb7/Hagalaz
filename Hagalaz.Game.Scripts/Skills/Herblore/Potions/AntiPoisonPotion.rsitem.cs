@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;

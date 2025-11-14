@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Sap Ranger" curse state.
     /// </summary>
     [StateId("45db19d4-706f-4d4d-8e5e-4f030366c7d5")]
-    public class SapRangerState : State
+    public class SapRangerState : ScriptedState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SapRangerState"/> class.

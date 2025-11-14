@@ -5,7 +5,6 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
@@ -46,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
                         }
 
                         clicker.QueueAnimation(Animation.Create(827));
-                        clicker.AddState(new State(StateType.HasSaradominLastRockRope, int.MaxValue));
+                        clicker.AddState(new HasSaradominLastRockRopeState { TicksLeft = int.MaxValue });
                         clicker.Inventory.Remove(_itemBuilder.Create().WithId(954).Build());
                         ShowRope(clicker);
                         return;

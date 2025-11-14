@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Lodestone Taverley" state.
     /// </summary>
     [StateId("45db19d4-706f-4d4d-8e5e-4f03f255c7d5")]
-    public class LodestoneTaverleyState : State
+    public class LodestoneTaverleyState : ScriptedState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="LodestoneTaverleyState"/> class.

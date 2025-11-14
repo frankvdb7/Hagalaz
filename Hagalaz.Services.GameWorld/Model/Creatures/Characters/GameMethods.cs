@@ -3,7 +3,7 @@ using System.Linq;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -16,11 +16,6 @@ using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Messages.Protocol;
 using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
-using Hagalaz.Game.Scripts.Features.States.Combat;
-using Hagalaz.Game.Scripts.Features.States.Potions;
-using Hagalaz.Game.Scripts.Features.States.Prayer;
-using Hagalaz.Game.Scripts.Features.States.General;
-using Hagalaz.Game.Scripts.Features.States.Stun;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -440,7 +435,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Injurt's this character for given amount of ticks.
         /// </summary>
         /// <param name="ticks">Amount of ticks character will be injured.</param>
-        public void Injure(int ticks) => AddState(new InjuredState(ticks));
+        public void Injure(int ticks) => AddState(new InjuredState { TicksLeft = ticks });
 
         /// <summary>
         /// Renders the skull.
@@ -461,7 +456,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return false;
             }
 
-            AddState(new DefaultSkulledState(ticks));
+            AddState(new DefaultSkulledState { TicksLeft = ticks});
             return true;
         }
 

@@ -1,6 +1,5 @@
 using System;
 using Hagalaz.Configuration;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -9,8 +8,8 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Resources;
-using Hagalaz.Game.Scripts.Features.States.Effects;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 {
@@ -45,10 +44,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             character.QueueAnimation(Animation.Create(12804));
             character.QueueGraphic(Graphic.Create(2319)); // 2320
             character.QueueGraphic(Graphic.Create(2321));
-            character.AddState(new StaffOfLightSpecialEffectState(100, () =>
-            {
-                character.SendChatMessage("The power of the light fades. Your resistance to melee attacks returns to normal.");
-            }));
+            character.AddState(new StaffOfLightSpecialEffectStateWithCallback { TicksLeft = 100, OnRemovedCallback = () => { character.SendChatMessage("The power of the light fades. Your resistance to melee attacks returns to normal."); } });
             character.SendChatMessage("The power of the light courses through your veins...");
             return false;
         }

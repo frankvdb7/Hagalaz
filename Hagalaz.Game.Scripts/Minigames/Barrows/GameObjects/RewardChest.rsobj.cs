@@ -1,5 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Features.States.Effects;
+﻿using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Scripts.Model.GameObjects;
@@ -37,7 +36,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
             else if (clickType == GameObjectClickType.Option2Click) // close
             {
                 clicker.Configurations.SendBitConfiguration(Owner.Definition.VarpBitFileId, 0);
-                clicker.RemoveState(StateType.BarrowsOpenedChest);
+                clicker.RemoveState<BarrowsOpenedChestState>();
             }
             else
             {

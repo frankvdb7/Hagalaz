@@ -1,6 +1,5 @@
 ﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Authorization;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;

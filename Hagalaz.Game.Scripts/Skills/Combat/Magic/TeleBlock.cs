@@ -1,4 +1,3 @@
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -62,7 +61,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 ticks = 250; // 2:30 minutes
             }
 
-            target.AddState(new TeleBlockedState(ticks));
+            target.AddState(new TeleBlockedState { TicksLeft = ticks });
         }
     }
 }

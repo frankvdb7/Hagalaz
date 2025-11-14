@@ -1,5 +1,4 @@
 using Hagalaz.Game.Abstractions.Logic.Random;
-using System;
 
 namespace Hagalaz.Services.GameWorld.Logic.Random
 {

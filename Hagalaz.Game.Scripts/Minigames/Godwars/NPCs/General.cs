@@ -1,7 +1,7 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
 {
@@ -67,6 +67,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
         /// <summary>
         ///     Get's called when owner is found.
         /// </summary>
-        protected override void Initialize() => Owner.AddState(new State(StateType.VengeanceImmunity, int.MaxValue));
+        protected override void Initialize() => Owner.AddState(new VengeanceImmunityState { TicksLeft = int.MaxValue });
     }
 }

@@ -1,5 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -49,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
         /// <param name="character">The character.</param>
         public override void OnRenderedFor(ICharacter character)
         {
-            if (character.HasState(StateType.HasSaradominLastRockRope))
+            if (character.HasState<HasSaradominLastRockRopeState>())
             {
                 ShowRope(character);
             }

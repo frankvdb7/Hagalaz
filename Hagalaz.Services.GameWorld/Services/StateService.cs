@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using FluentResults;
 using Hagalaz.Game.Abstractions.Features.States;
@@ -22,7 +21,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public Task<Result<IState>> GetStateAsync(string stateId)
         {
-            var stateType = _stateScriptProvider.GetAllStateTypes().FirstOrDefault(t => t.GetCustomAttribute<StateIdAttribute>()?.Id == stateId);
+            var stateType = _stateScriptProvider.GetAllStateTypes().FirstOrDefault(t => t.Name == stateId);
             if (stateType == null)
             {
                 _logger.LogError("Could not find state type with ID {stateId}", stateId);

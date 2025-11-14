@@ -1,10 +1,9 @@
 using Hagalaz.Game.Abstractions.Builders.Projectile;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Scripts.Features.States.Combat;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 {
@@ -58,7 +57,12 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     The BAS e_ DAMAGE
         /// </summary>
-        private static readonly int[] _baseDamage = [180, 240, 280, 352];
+        private static int[] _baseDamage;
+
+        static AncientMiasmicCombatSpell()
+        {
+            _baseDamage = new int[] { 180, 240, 280, 352 };
+        }
 
         /// <summary>
         ///     The STAF f_ IDS
@@ -204,7 +208,8 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                         }
                         if (c is ICharacter)
                         {
-                            c.ApplyStandardState(new MiasmicSlowState((SpellType + 1) * 12000 / 600), typeof(MiasmicSlowImmunityState));
+                            c.AddState(new MiasmicSlowState { TicksLeft = (SpellType + 1) * 12000 / 600 });
+                            c.AddState(new MiasmicSlowImmunityState { TicksLeft = (SpellType + 1) * 12000 / 600 });
                         }
                     }
                     else

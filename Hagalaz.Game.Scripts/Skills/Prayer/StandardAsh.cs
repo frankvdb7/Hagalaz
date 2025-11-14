@@ -1,5 +1,4 @@
 ﻿using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -8,6 +7,7 @@ using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Prayer
 {

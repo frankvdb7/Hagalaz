@@ -31,5 +31,30 @@ namespace Hagalaz.Game.Abstractions.Features.States
         {
             // Default implementation does nothing.
         }
+
+        /// <inheritdoc />
+        public virtual int TicksLeft { get; set; }
+
+        /// <inheritdoc />
+        public abstract IStateScript Script { get; }
+
+        /// <inheritdoc />
+        public virtual bool Removed { get; protected set; } = false;
+
+        /// <inheritdoc />
+        public virtual int RemoveDelay { get; protected set; }
+
+        /// <inheritdoc />
+        public virtual void Tick()
+        {
+            if (TicksLeft > 0)
+            {
+                TicksLeft--;
+            }
+            if (TicksLeft <= 0)
+            {
+                Removed = true;
+            }
+        }
     }
 }

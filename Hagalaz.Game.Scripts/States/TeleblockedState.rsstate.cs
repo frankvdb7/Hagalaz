@@ -31,7 +31,7 @@ namespace Hagalaz.Game.Scripts.States
             EventHappened? happ = null;
             happ = creature.RegisterEventHandler(new EventHappened<TeleportAllowEvent>(e =>
             {
-                if (creature.HasState(StateType.TeleBlocked))
+                if (creature.HasState<TeleBlockedState>())
                 {
                     if (creature is ICharacter)
                     {

@@ -6,7 +6,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells;
 
 namespace Hagalaz.Game.Scripts.Items.Tabs
@@ -58,7 +57,7 @@ namespace Hagalaz.Game.Scripts.Items.Tabs
             }
 
             var regionService = caster.ServiceProvider.GetRequiredService<IMapRegionService>();
-            caster.AddState(new State(StateType.Teleporting, 2));
+            caster.AddState(new TeleportingState { TicksLeft = 2 });
             caster.Interrupt(this);
             caster.Movement.Lock(true);
             var teleport = Destination.Clone();

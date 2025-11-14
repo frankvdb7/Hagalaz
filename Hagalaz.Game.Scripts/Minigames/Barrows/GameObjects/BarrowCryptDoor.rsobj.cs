@@ -5,7 +5,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
@@ -117,11 +116,11 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
                         clicker.Movement.Unlock(false);
                         if (Owner.Location.Equals(clicker.Location))
                         {
-                            clicker.AddState(new State(StateType.BarrowsBetweenDoors, int.MaxValue));
+                            clicker.AddState(new BarrowsBetweenDoorsState { TicksLeft = int.MaxValue });
                         }
                         else
                         {
-                            clicker.RemoveState(StateType.BarrowsBetweenDoors);
+                            clicker.RemoveState<BarrowsBetweenDoorsState>();
                         }
 
                         clicker.Configurations.SendStandardConfiguration(1270,

@@ -1,11 +1,11 @@
 ﻿using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 {
@@ -34,7 +34,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
             {
                 if (character.EventManager.SendEvent(new DrinkAllowEvent(character, item)))
                 {
-                    if (character.HasState(StateType.Stun) || character.HasState(StateType.Drinking))
+                    if (character.HasState<StunState>() || character.HasState<DrinkingState>())
                     {
                         return;
                     }

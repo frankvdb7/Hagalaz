@@ -11,15 +11,12 @@ namespace Hagalaz.Game.Abstractions.Features.States
         /// <summary>
         /// Gets the unique identifier for the state.
         /// </summary>
-        public Guid Id { get; }
+        public string Id { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="StateIdAttribute"/> class.
         /// </summary>
         /// <param name="id">The unique identifier for the state, as a string.</param>
-        public StateIdAttribute(string id)
-        {
-            Id = Guid.Parse(id);
-        }
+        public StateIdAttribute(string id) => Id = id;
     }
 }

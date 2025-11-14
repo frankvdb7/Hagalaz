@@ -2,11 +2,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Services.GameWorld.Logic.Characters.Model;
+using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -283,13 +286,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var stateService = ServiceProvider.GetRequiredService<IStateService>();
             foreach (var state in hydration.StatesEx)
             {
-                var result = stateService.GetStateAsync(state.Id.ToString()).Result;
-                if(result.IsSuccess)
+                var result = stateService.GetStateAsync(state.Id).Result;
+                if (!result.IsSuccess)
                 {
-                    var stateObject = result.Value;
-                    stateObject.TicksLeft = state.TicksLeft;
-                    AddState(stateObject);
+                    continue;
                 }
+
+                var stateObject = result.Value;
+                stateObject.TicksLeft = state.TicksLeft;
+                AddState(stateObject);
             }
         }
 

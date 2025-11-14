@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -16,8 +17,6 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Scripts.Features.States.General;
-using Hagalaz.Game.Scripts.Features.States.Stun;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
@@ -487,8 +486,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         {
             if (HasState<ResistFreezeState>())
                 return false;
-            AddState(new FrozenState(ticks));
-            AddState(new ResistFreezeState(immunityTicks));
+            AddState(new FrozenState { TicksLeft = ticks });
+            AddState(new ResistFreezeState { TicksLeft = immunityTicks });
             return true;
         }
 
@@ -496,7 +495,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Stun's this creature.
         /// </summary>
         /// <param name="ticks">Amount of ticks creature will remain stunned.</param>
-        public void Stun(int ticks) => AddState(new StunState(ticks));
+        public void Stun(int ticks) => AddState(new StunState { TicksLeft = ticks });
 
         /// <summary>
         ///     Applies standard state with immunity type argument.
@@ -782,7 +781,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         public void AddState(IState state)
         {
             var type = state.GetType();
-            if (States.ContainsKey(type))
+            if (!States.TryAdd(type, state))
             {
                 var other = States[type];
                 if (state.RemoveDelay <= other.RemoveDelay)
@@ -795,7 +794,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
             else
             {
-                States.Add(type, state);
                 state.Script.OnStateAdded(state, this);
             }
         }

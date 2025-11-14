@@ -2,7 +2,6 @@
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -11,6 +10,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Utilities;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
 {
@@ -453,9 +453,9 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
                     victim.QueueGraphic(Graphic.Create(758, 0, 1));
                     return true;
                 // dragon
-                case 9244 when victim.HasState(StateType.NpcTypeDragon) ||
-                               victim.HasState(StateType.AntiDragonfirePotion) && victim.HasState(StateType.AntiDragonfireShield) ||
-                               victim.HasState(StateType.SuperAntiDragonfirePotion):
+                case 9244 when victim.HasState<NpcTypeDragonState>() ||
+                               victim.HasState<AntiDragonfirePotionState>() && victim.HasState<AntiDragonfireShieldState>() ||
+                               victim.HasState<SuperAntiDragonfirePotionState>():
                     return false;
                 case 9244:
                     victim.QueueGraphic(Graphic.Create(756, 0, 2));
@@ -466,7 +466,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
                     victim.QueueGraphic(Graphic.Create(753, 0, 2));
                     return true;
                 // bolt rack
-                case 9740 when victim is not ICharacter || !attacker.HasState(StateType.KarilTaint): return false;
+                case 9740 when victim is not ICharacter || !attacker.HasState<KarilTaintState>(): return false;
                 case 9740:
                     {
                         victim.QueueGraphic(Graphic.Create(401));

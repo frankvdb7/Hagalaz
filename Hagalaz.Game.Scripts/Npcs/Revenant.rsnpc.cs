@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Features.States;
@@ -6,8 +6,8 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Npcs
 {
@@ -271,6 +271,6 @@ namespace Hagalaz.Game.Scripts.Npcs
         /// <summary>
         ///     Get's called when owner is found.
         /// </summary>
-        protected override void Initialize() => Owner.AddState(new State(StateType.NpcTypeUndead, int.MaxValue));
+        protected override void Initialize() => Owner.AddState(new NpcTypeUndeadState { TicksLeft = int.MaxValue });
     }
 }

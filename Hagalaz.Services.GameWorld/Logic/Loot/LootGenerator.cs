@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Random;
-using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Random;
 
 namespace Hagalaz.Services.GameWorld.Logic.Loot

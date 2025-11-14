@@ -1,4 +1,3 @@
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -7,8 +6,8 @@ using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Scripts.Features.States.Items;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 {
@@ -96,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new DragonScimitarEquipedState());
+        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new DragonScimitarEquippedState());
 
         /// <summary>
         ///     Happens when this item is unequiped.

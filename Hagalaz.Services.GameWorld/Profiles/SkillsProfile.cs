@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using AutoMapper;
 using Hagalaz.Data.Entities;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Logic.Random;
-using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;

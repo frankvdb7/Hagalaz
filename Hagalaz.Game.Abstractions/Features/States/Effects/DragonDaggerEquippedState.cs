@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the state of having a Dragon Dagger equipped.
     /// </summary>
     [StateId("a2e7a1b1-2a13-4c9b-8e10-14e42721a308")]
-    public class DragonDaggerEquippedState : State
+    public class DragonDaggerEquippedState : ScriptedState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DragonDaggerEquippedState"/> class.

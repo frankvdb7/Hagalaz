@@ -260,7 +260,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             public IGameMediator Mediator => throw new NotImplementedException();
 
             public void AddState(IState state) => throw new NotImplementedException();
-            public bool ApplyStandardState(IState state, StateType immunityType) => throw new NotImplementedException();
+            public void RemoveState<T>() where T : IState => throw new NotImplementedException();
             public bool CanDestroy() => throw new NotImplementedException();
             public bool CanSuspend() => throw new NotImplementedException();
             public void Destroy() => throw new NotImplementedException();
@@ -271,10 +271,10 @@ namespace Hagalaz.Services.GameWorld.Tests
             public bool Freeze(int ticks, int immunityTicks) => throw new NotImplementedException();
             public IEnumerable<IState> GetStates() => throw new NotImplementedException();
             public bool HasEventHandler<TEventType>() where TEventType : ICreatureEvent => throw new NotImplementedException();
-            public bool HasState(StateType type) => throw new NotImplementedException();
             public void Interrupt(object source) => throw new NotImplementedException();
             public Task MajorClientPrepareUpdateTickAsync() => throw new NotImplementedException();
             public Task MajorClientUpdateResetTickAsync() => throw new NotImplementedException();
+            public bool HasState<T>() where T : IState => throw new NotImplementedException();
             public Task MajorClientUpdateTickAsync() => throw new NotImplementedException();
             public void MajorUpdateTick() => throw new NotImplementedException();
             public void OnDeath() => throw new NotImplementedException();
@@ -291,7 +291,6 @@ namespace Hagalaz.Services.GameWorld.Tests
             public IRsTaskHandle QueueTask(ITaskItem task) => throw new NotImplementedException();
             public void QueueTask(Func<Task> task) => throw new NotImplementedException();
             public EventHappened? RegisterEventHandler<TEventType>(EventHappened<TEventType> handler) where TEventType : ICreatureEvent => throw new NotImplementedException();
-            public void RemoveState(StateType type) => throw new NotImplementedException();
             public void ResetFacing() => throw new NotImplementedException();
             public void Respawn() => throw new NotImplementedException();
             public bool ShouldBeRenderedFor(ICharacter viewer) => throw new NotImplementedException();

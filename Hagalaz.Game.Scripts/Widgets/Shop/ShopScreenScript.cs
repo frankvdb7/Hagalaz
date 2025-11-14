@@ -2,7 +2,6 @@
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Data;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -11,6 +10,7 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Utilities;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Widgets.Shop
 {

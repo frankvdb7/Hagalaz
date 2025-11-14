@@ -1,7 +1,7 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
 {
@@ -122,12 +122,12 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
                 // DIAMOND
                 case 9243: character.AddState(new EnchantedDiamondBoltsEquippedState()); break;
                 // DRAGON
-                case 9244: character.AddState(new EnchantedDragonstoneBoltsEquipedState()); break;
+                case 9244: character.AddState(new EnchantedDragonstoneBoltsEquippedState()); break;
                 // ONYX
-                case 9245: character.AddState(new EnchantedOnyxBoltsEquipedState()); break;
+                case 9245: character.AddState(new EnchantedOnyxBoltsEquippedState()); break;
             }
 
-            character.AddState(new BoltsEquipedState());
+            character.AddState(new BoltsEquippedState());
         }
 
         /// <summary>
@@ -144,12 +144,12 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
                 // DIAMOND
                 case 9243: character.RemoveState<EnchantedDiamondBoltsEquippedState>(); break;
                 // DRAGON
-                case 9244: character.RemoveState<EnchantedDragonstoneBoltsEquipedState>(); break;
+                case 9244: character.RemoveState<EnchantedDragonstoneBoltsEquippedState>(); break;
                 // ONYX
                 case 9245: character.RemoveState<EnchantedOnyxBoltsEquippedState>(); break;
             }
 
-            character.RemoveState<BoltsEquipedState>();
+            character.RemoveState<BoltsEquippedState>();
         }
     }
 }

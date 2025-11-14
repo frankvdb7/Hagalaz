@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -13,7 +12,7 @@ namespace Hagalaz.Game.Scripts.States
     /// <summary>
     /// </summary>
     [StateScriptMetaData(typeof(FrozenState))]
-    public class FrozenState : StateScriptBase
+    public class FrozenState : ScriptedState
     {
         /// <summary>
         ///     Determines whether this instance is serializable.
@@ -39,7 +38,7 @@ namespace Hagalaz.Game.Scripts.States
             EventHappened? happ = null;
             happ = creature.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e =>
             {
-                if (creature.HasState(StateType.Frozen))
+                if (creature.HasState<FrozenState>())
                 {
                     if (creature is ICharacter character)
                     {

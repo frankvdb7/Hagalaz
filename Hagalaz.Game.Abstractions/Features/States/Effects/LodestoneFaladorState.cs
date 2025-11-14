@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Lodestone Falador" state.
     /// </summary>
     [StateId("f086c48f-2b1a-48f8-9909-fabead007280")]
-    public class LodestoneFaladorState : State
+    public class LodestoneFaladorState : ScriptedState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="LodestoneFaladorState"/> class.

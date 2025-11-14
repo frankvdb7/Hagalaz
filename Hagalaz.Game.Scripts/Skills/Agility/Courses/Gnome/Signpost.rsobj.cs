@@ -1,5 +1,5 @@
 using Hagalaz.Game.Abstractions.Builders.Movement;
-using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -8,8 +8,6 @@ using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
-using Hagalaz.Game.Scripts.Features.States;
-using Hagalaz.Game.Scripts.Features.States.Agility;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome

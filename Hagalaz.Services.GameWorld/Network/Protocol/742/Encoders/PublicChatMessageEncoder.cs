@@ -1,5 +1,4 @@
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Messages.Protocol;
 using Raido.Common.Protocol;
 using Raido.Server.Extensions;

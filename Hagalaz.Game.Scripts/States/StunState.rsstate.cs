@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -13,21 +12,29 @@ namespace Hagalaz.Game.Scripts.States
     /// <summary>
     /// </summary>
     [StateScriptMetaData(typeof(StunState))]
-    public class StunState : StateScriptBase
+    public class StunState : State, IStateScript
     {
+        public StunState(int ticks)
+        {
+            TicksLeft = ticks;
+            RemoveDelay = ticks; // Assuming RemoveDelay is the same as TicksLeft for StunState
+        }
+
+        public override IStateScript Script => this;
+
         /// <summary>
         ///     Gets called when the state is added.
         ///     By default, this method does nothing.
         /// </summary>
         /// <param name="state">The state.</param>
         /// <param name="creature">The creature.</param>
-        public override void OnStateAdded(IState state, ICreature creature)
+        public void OnStateAdded(IState state, ICreature creature)
         {
             creature.Movement.Lock(true);
             EventHappened? happ = null;
             happ = creature.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e =>
             {
-                if (creature.HasState(StateType.Stun))
+                if (creature.HasState<IState>())
                 {
                     if (creature is ICharacter character)
                     {
@@ -48,6 +55,8 @@ namespace Hagalaz.Game.Scripts.States
         /// </summary>
         /// <param name="state">The state.</param>
         /// <param name="creature">The creature.</param>
-        public override void OnStateRemoved(IState state, ICreature creature) => creature.Movement.Unlock(false);
+        public void OnStateRemoved(IState state, ICreature creature) => creature.Movement.Unlock(false);
+
+        public bool IsSerializable() => false; // Default implementation from StateScriptBase
     }
 }

@@ -1,7 +1,7 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Model;
 
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 {
@@ -11,7 +11,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
         /// <summary>
         ///     Get's called when owner is found.
         /// </summary>
-        protected override void Initialize() => Owner.AddState(new State(StateType.DharokWretchedStrength, int.MaxValue));
+        protected override void Initialize() => Owner.AddState(new DharokWretchedStrengthState());
 
         /// <summary>
         ///     Get's attack bonus type of this npc.

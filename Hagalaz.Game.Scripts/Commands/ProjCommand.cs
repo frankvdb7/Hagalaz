@@ -3,8 +3,6 @@ using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Creatures;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Commands
 {

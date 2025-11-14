@@ -14,7 +14,6 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 
 namespace Hagalaz.Game.Scripts.Minigames.Barrows
@@ -398,7 +397,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 return false;
             }
 
-            Character.AddState(new State(StateType.BarrowsOpenedChest, int.MaxValue));
+            Character.AddState(new BarrowsOpenedChestState { TicksLeft = int.MaxValue });
             Character.SendChatMessage("You lift open the massive chest...");
             UpdateBarrowsProfile();
             return true;
@@ -517,7 +516,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             }
 
             Character.Configurations.SendStandardConfiguration(453, 0); // reset the interface
-            Character.RemoveState(StateType.BarrowsBetweenDoors);
+            Character.RemoveState<BarrowsBetweenDoorsState>();
         }
 
         /// <summary>

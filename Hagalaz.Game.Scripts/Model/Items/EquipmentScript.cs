@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;

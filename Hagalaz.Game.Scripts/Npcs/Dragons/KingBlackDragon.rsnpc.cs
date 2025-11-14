@@ -9,8 +9,8 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Npcs.Dragons
 {
@@ -67,7 +67,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
         /// <summary>
         ///     Initializes this script.
         /// </summary>
-        protected override void Initialize() => Owner.AddState(new State(StateType.NpcTypeDragon, int.MaxValue));
+        protected override void Initialize() => Owner.AddState(new NpcTypeDragonState { TicksLeft = int.MaxValue });
 
         /// <summary>
         ///     Perform's attack on specific target.

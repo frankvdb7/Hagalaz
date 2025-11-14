@@ -1,11 +1,12 @@
 ﻿using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Region;
+using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.GameObjects
 {
@@ -53,7 +54,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
             {
                 return;
             }
-            character.AddState(new State(lodeStone.State, int.MaxValue));
+            character.AddState(new TeleportingState { TicksLeft = int.MaxValue });
             var update = _regionUpdateBuilder.Create().WithLocation(Owner.Location).WithGraphic(Graphic.Create(3019)).Build();
             Owner.Region.QueueUpdate(update);
             // TODO - Show cutscene

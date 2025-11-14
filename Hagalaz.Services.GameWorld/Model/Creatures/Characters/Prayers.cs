@@ -2,14 +2,11 @@ using System.Linq;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Animation;
 using Hagalaz.Game.Abstractions.Builders.Graphic;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Scripts.Features.States.Prayer;
-using Hagalaz.Game.Scripts.Features.States.Combat;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters

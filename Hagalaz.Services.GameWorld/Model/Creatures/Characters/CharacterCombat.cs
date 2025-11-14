@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Animation;
@@ -8,7 +7,7 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -21,12 +20,7 @@ using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
-using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.Extensions.DependencyInjection;
-using Hagalaz.Game.Scripts.Features.States.Combat;
-using Hagalaz.Game.Scripts.Features.States.Potions;
-using Hagalaz.Game.Scripts.Features.States.Items;
-using Hagalaz.Game.Scripts.Features.States.Effects;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -750,7 +744,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             {
-                var activeCurses = Owner.States.Values.Select(s => s.GetType()).Where(t => typeof(SapState).IsAssignableFrom(t) || typeof(LeechState).IsAssignableFrom(t)).ToList();
+                var activeCurses = Owner.GetStates()
+                    .Select(s => s.GetType())
+                    .Where(t => typeof(SapWarriorState).IsAssignableFrom(t) || typeof(SapRangerState).IsAssignableFrom(t) ||
+                                typeof(SapMagerState).IsAssignableFrom(t) || typeof(LeechAttackState).IsAssignableFrom(t) ||
+                                typeof(LeechDefenceState).IsAssignableFrom(t) || typeof(LeechEnergyState).IsAssignableFrom(t) ||
+                                typeof(LeechMagicState).IsAssignableFrom(t) || typeof(LeechRangedState).IsAssignableFrom(t) ||
+                                typeof(LeechSpecialState).IsAssignableFrom(t) || typeof(LeechStrengthState).IsAssignableFrom(t))
+                    .ToList();
 
                 if (activeCurses.Count > 0 && DelayTick - 1 == RandomStatic.Generator.Next(0, maxLuckTick) && RandomStatic.Generator.NextDouble() >= 0.80)
                 {

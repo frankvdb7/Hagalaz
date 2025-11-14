@@ -19,7 +19,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             foreach (var hydrator in _hydrators)
             {
-                await hydrator.HydrateAsync(character, model);
+                hydrator.Hydrate(character, model);
             }
             return true;
         }

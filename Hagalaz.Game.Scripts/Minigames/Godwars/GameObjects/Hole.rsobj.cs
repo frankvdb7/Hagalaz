@@ -5,7 +5,6 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
@@ -45,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
                     }
 
                     clicker.QueueAnimation(Animation.Create(827));
-                    clicker.AddState(new State(StateType.HasGodWarsHoleRope, int.MaxValue));
+                    clicker.AddState(new HasGodWarsHoleRopeState { TicksLeft = int.MaxValue });
                     clicker.Inventory.Remove(_itemBuilder.Create().WithId(954).Build());
                     ShowRope(clicker);
                 }
@@ -75,7 +74,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
         /// <param name="character">The character.</param>
         public override void OnRenderedFor(ICharacter character)
         {
-            if (character.HasState(StateType.HasSaradominFirstRockRope))
+            if (character.HasState<HasSaradominFirstRockRopeState>())
             {
                 ShowRope(character);
             }
