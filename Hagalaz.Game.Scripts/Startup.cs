@@ -56,8 +56,7 @@ namespace Hagalaz.Game.Scripts
             services.AddScoped<DefaultEquipmentScript>();
             services.AddSingleton<IDefaultItemScriptProvider, DefaultItemScriptProvider>();
             services.AddScoped<DefaultItemScript>();
-                    services.AddSingleton<IDefaultStateProvider, DefaultStateProvider>();
-                    services.AddScoped<DefaultState>();            services.AddSingleton<IDefaultWidgetScriptProvider, DefaultWidgetScriptProvider>();
+                                services.AddSingleton<IDefaultWidgetScriptProvider, DefaultWidgetScriptProvider>();
             services.AddScoped<DefaultWidgetScript>();
 
             services.AddSingleton<IHerbloreSkillService, HerbloreSkillService>();

@@ -264,7 +264,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             SetLocation(Location, true, true);
 
             foreach (var state in States.Values)
-                state.Script.OnStateAdded(state, this);
+                state.OnStateAdded(state, this);
 
             OnInit();
             return Task.CompletedTask;
@@ -747,7 +747,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         {
             if (States.Remove(type, out var state))
             {
-                state.Script.OnStateRemoved(state, this);
+                state.OnStateRemoved(state, this);
             }
         }
 
@@ -789,7 +789,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
 
             States.Add(type, state);
-            state.Script.OnStateAdded(state, this);
+            state.OnStateAdded(state, this);
         }
 
         /// <summary>

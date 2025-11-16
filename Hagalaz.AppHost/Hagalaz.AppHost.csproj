@@ -14,8 +14,8 @@
 
   <ItemGroup>
     <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
-    <PackageReference Include="Aspire.Dashboard.Sdk.linux-x64" Version="9.4.2" />
-    <PackageReference Include="Aspire.Hosting.Orchestration.linux-x64" Version="9.4.2" />
+    <PackageReference Include="Aspire.Dashboard.Sdk.win-x64" Version="9.4.2" />
+    <PackageReference Include="Aspire.Hosting.Orchestration.win-x64" Version="9.4.2" />
     <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
     
     <PackageReference Include="Aspire.Hosting.AppHost" Version="9.4.2" />
