@@ -1,8 +1,6 @@
 using Hagalaz.Services.GameWorld.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Random;
-using System.Collections.Generic;
-using System.Linq;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests

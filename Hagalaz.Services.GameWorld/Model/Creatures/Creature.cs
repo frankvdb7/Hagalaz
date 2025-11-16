@@ -730,7 +730,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             foreach (var state in States.Values.ToList())
             {
                 state.Tick();
-                if (state.Removed)
+                if (state.TicksLeft <= 0)
                 {
                     States.Remove(state.GetType());
                 }
@@ -740,24 +740,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         ///     Get's if this creature has specific state.
         /// </summary>
-        /// <param name="type">Type of the state.</param>
         /// <returns><c>true</c> if the specified type has state; otherwise, <c>false</c>.</returns>
         public bool HasState<T>() where T : IState => States.ContainsKey(typeof(T));
 
         /// <summary>
         ///     Remove's specific state from creature.
         /// </summary>
-        /// <param name="type">The type.</param>
         public void RemoveState<T>() where T : IState
         {
             var type = typeof(T);
-            if (!States.ContainsKey(type))
+            if (!States.Remove(type, out var state))
             {
                 return;
             }
 
-            var state = States[type];
-            States.Remove(type);
             state.Script.OnStateRemoved(state, this);
         }
 
@@ -784,7 +780,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             if (!States.TryAdd(type, state))
             {
                 var other = States[type];
-                if (state.RemoveDelay <= other.RemoveDelay)
+                if (state.TicksLeft <= other.TicksLeft)
                 {
                     return;
                 }

@@ -29,7 +29,7 @@ namespace Hagalaz.Game.Scripts.States
         {
             if (creature is ICharacter character)
             {
-                character.QueueTask(new OverloadTask(character, state.RemoveDelay));
+                character.QueueTask(new OverloadTask(character, state.TicksLeft));
             }
         }
 

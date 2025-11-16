@@ -14,12 +14,6 @@ namespace Hagalaz.Game.Scripts.States
     [StateScriptMetaData(typeof(StunState))]
     public class StunState : State, IStateScript
     {
-        public StunState(int ticks)
-        {
-            TicksLeft = ticks;
-            RemoveDelay = ticks; // Assuming RemoveDelay is the same as TicksLeft for StunState
-        }
-
         public override IStateScript Script => this;
 
         /// <summary>

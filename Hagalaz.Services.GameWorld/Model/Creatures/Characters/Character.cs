@@ -326,8 +326,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             foreach (var script in _scripts.Values)
                 script.OnRegistered();
 
-            foreach (var state in States.Values.ToList())
-                state.OnApply(this);
+            foreach (var state in States.Values.ToList()) { }
 
             if (!HasState<LodestoneEdgevilleState>())
                 AddState(new LodestoneEdgevilleState());

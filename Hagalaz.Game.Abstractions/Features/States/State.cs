@@ -1,5 +1,3 @@
-using Hagalaz.Game.Abstractions.Model.Creatures;
-
 namespace Hagalaz.Game.Abstractions.Features.States
 {
     /// <summary>
@@ -15,34 +13,10 @@ namespace Hagalaz.Game.Abstractions.Features.States
         }
 
         /// <inheritdoc />
-        public virtual void OnApply(ICreature creature)
-        {
-            // Default implementation does nothing.
-        }
-
-        /// <inheritdoc />
-        public virtual void OnRemove(ICreature creature)
-        {
-            // Default implementation does nothing.
-        }
-
-        /// <inheritdoc />
-        public virtual void OnTick(ICreature creature)
-        {
-            // Default implementation does nothing.
-        }
-
-        /// <inheritdoc />
         public virtual int TicksLeft { get; set; }
 
         /// <inheritdoc />
         public abstract IStateScript Script { get; }
-
-        /// <inheritdoc />
-        public virtual bool Removed { get; protected set; } = false;
-
-        /// <inheritdoc />
-        public virtual int RemoveDelay { get; protected set; }
 
         /// <inheritdoc />
         public virtual void Tick()
@@ -50,10 +24,6 @@ namespace Hagalaz.Game.Abstractions.Features.States
             if (TicksLeft > 0)
             {
                 TicksLeft--;
-            }
-            if (TicksLeft <= 0)
-            {
-                Removed = true;
             }
         }
     }
