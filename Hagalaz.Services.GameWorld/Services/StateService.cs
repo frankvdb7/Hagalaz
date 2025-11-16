@@ -19,17 +19,17 @@ namespace Hagalaz.Services.GameWorld.Services
             _logger = logger;
         }
 
-        public Task<Result<IState>> GetStateAsync(string stateId)
+        public IState? GetState(string stateId)
         {
             var stateType = _stateScriptProvider.GetAllStateTypes().FirstOrDefault(t => t.Name == stateId);
             if (stateType == null)
             {
                 _logger.LogError("Could not find state type with ID {stateId}", stateId);
-                return Task.FromResult(Result.Fail<IState>($"Could not find state type with ID {stateId}"));
+                return null;
             }
 
             var state = (IState)Activator.CreateInstance(stateType);
-            return Task.FromResult(Result.Ok(state));
+            return state;
         }
     }
 }

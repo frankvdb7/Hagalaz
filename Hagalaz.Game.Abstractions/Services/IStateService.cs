@@ -14,6 +14,6 @@ namespace Hagalaz.Game.Abstractions.Services
         /// </summary>
         /// <param name="stateId">The ID of the state.</param>
         /// <returns>The type of the state.</returns>
-        Task<Result<IState>> GetStateAsync(string stateId);
+        IState? GetState(string stateId);
     }
 }
