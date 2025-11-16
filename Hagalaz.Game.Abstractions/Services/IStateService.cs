@@ -1,5 +1,3 @@
-using System.Threading.Tasks;
-using FluentResults;
 using Hagalaz.Game.Abstractions.Features.States;
 
 namespace Hagalaz.Game.Abstractions.Services
@@ -10,10 +8,10 @@ namespace Hagalaz.Game.Abstractions.Services
     public interface IStateService
     {
         /// <summary>
-        /// Gets the state type for a given state ID.
+        /// Gets the state for a given state ID.
         /// </summary>
         /// <param name="stateId">The ID of the state.</param>
-        /// <returns>The type of the state.</returns>
+        /// <returns>The state instance if found; otherwise, <c>null</c>.</returns>
         IState? GetState(string stateId);
     }
 }

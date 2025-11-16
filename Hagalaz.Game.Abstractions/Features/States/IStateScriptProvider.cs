@@ -16,6 +16,13 @@ namespace Hagalaz.Game.Abstractions.Features.States
         Type FindByType(Type stateType);
 
         /// <summary>
+        /// Finds the state type by its unique identifier.
+        /// </summary>
+        /// <param name="stateId">The unique identifier of the state.</param>
+        /// <returns>The <see cref="Type"/> of the state if found; otherwise, <c>null</c>.</returns>
+        Type? FindByStateId(string stateId);
+
+        /// <summary>
         /// Gets all of the available state types.
         /// </summary>
         /// <returns>A collection of all of the state types.</returns>

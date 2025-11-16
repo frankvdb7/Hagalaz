@@ -1528,6 +1528,7 @@
           "Microsoft.Extensions.Caching.StackExchangeRedis": "[9.0.8, )",
           "Polly.RateLimiting": "[8.6.3, )",
           "Raido.Server": "[1.0.0, )",
+          "Scrutor": "[4.2.2, )",
           "System.Linq.Async": "[6.0.3, )",
           "ZiggyCreatures.FusionCache": "[2.4.0, )",
           "ZiggyCreatures.FusionCache.Serialization.SystemTextJson": "[2.4.0, )",

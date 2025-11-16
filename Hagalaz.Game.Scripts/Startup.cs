@@ -11,6 +11,7 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Scripts;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Commands;
+using Hagalaz.Game.Scripts.Extensions;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -86,6 +87,8 @@ namespace Hagalaz.Game.Scripts
             services.AddTransient<SilverTask>();
             services.AddTransient<SpinTask>();
             services.AddTransient<CleanHerbTask>();
+            
+            services.AddScriptStates();
 
             // commands
             services.AddSingleton<IGameCommandPrompt, GameCommandPrompt>();

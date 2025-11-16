@@ -732,7 +732,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 state.Tick();
                 if (state.TicksLeft <= 0)
                 {
-                    States.Remove(state.GetType());
+                    RemoveState(state.GetType());
                 }
             }
         }
@@ -743,18 +743,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <returns><c>true</c> if the specified type has state; otherwise, <c>false</c>.</returns>
         public bool HasState<T>() where T : IState => States.ContainsKey(typeof(T));
 
+        private void RemoveState(Type type)
+        {
+            if (States.Remove(type, out var state))
+            {
+                state.Script.OnStateRemoved(state, this);
+            }
+        }
+
         /// <summary>
         ///     Remove's specific state from creature.
         /// </summary>
         public void RemoveState<T>() where T : IState
         {
-            var type = typeof(T);
-            if (!States.Remove(type, out var state))
-            {
-                return;
-            }
-
-            state.Script.OnStateRemoved(state, this);
+            RemoveState(typeof(T));
         }
 
         /// <summary>
@@ -777,21 +779,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         public void AddState(IState state)
         {
             var type = state.GetType();
-            if (!States.TryAdd(type, state))
+            if (States.TryGetValue(type, out var existingState))
             {
-                var other = States[type];
-                if (state.TicksLeft <= other.TicksLeft)
+                if (state.TicksLeft <= existingState.TicksLeft)
                 {
                     return;
                 }
+                RemoveState(type);
+            }
 
-                States.Remove(type);
-                States.Add(type, state);
-            }
-            else
-            {
-                state.Script.OnStateAdded(state, this);
-            }
+            States.Add(type, state);
+            state.Script.OnStateAdded(state, this);
         }
 
         /// <summary>

@@ -17,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Methods for character serialization.
     /// </summary>
-    public partial class Character : Creature,
+    public partial class Character :
         IHydratable<HydratedClaims>,
         IHydratable<HydratedAppearanceDto>,
         IHydratable<HydratedDetailsDto>,
@@ -317,14 +317,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var stateService = ServiceProvider.GetRequiredService<IStateService>();
             foreach (var state in hydration.StatesEx)
             {
-                var result = stateService.GetState(state.Id);
-                if (result is null)
+                var stateObject = stateService.GetState(state.Id);
+                if (stateObject == null)
                 {
                     continue;
                 }
 
-                result.TicksLeft = state.TicksLeft;
-                AddState(result);
+                stateObject.TicksLeft = state.TicksLeft;
+                AddState(stateObject);
             }
         }
 

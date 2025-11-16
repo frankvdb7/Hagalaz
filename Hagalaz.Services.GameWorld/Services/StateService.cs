@@ -1,9 +1,7 @@
 using System;
-using System.Linq;
-using System.Threading.Tasks;
-using FluentResults;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Services.GameWorld.Services
@@ -11,25 +9,26 @@ namespace Hagalaz.Services.GameWorld.Services
     public class StateService : IStateService
     {
         private readonly IStateScriptProvider _stateScriptProvider;
+        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<StateService> _logger;
 
-        public StateService(IStateScriptProvider stateScriptProvider, ILogger<StateService> logger)
+        public StateService(IStateScriptProvider stateScriptProvider, IServiceProvider serviceProvider, ILogger<StateService> logger)
         {
             _stateScriptProvider = stateScriptProvider;
+            _serviceProvider = serviceProvider;
             _logger = logger;
         }
 
         public IState? GetState(string stateId)
         {
-            var stateType = _stateScriptProvider.GetAllStateTypes().FirstOrDefault(t => t.Name == stateId);
+            var stateType = _stateScriptProvider.FindByStateId(stateId);
             if (stateType == null)
             {
-                _logger.LogError("Could not find state type with ID {stateId}", stateId);
+                _logger.LogWarning("Could not find state type with ID {stateId}", stateId);
                 return null;
             }
 
-            var state = (IState)Activator.CreateInstance(stateType);
-            return state;
+            return (IState?)_serviceProvider.GetService(stateType);
         }
     }
 }

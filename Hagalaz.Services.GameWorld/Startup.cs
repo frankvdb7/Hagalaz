@@ -81,6 +81,7 @@ using Microsoft.AspNetCore.Identity;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using Hagalaz.Services.Extensions;
 using Hagalaz.Services.GameWorld.Data.Model;
+using Hagalaz.Services.GameWorld.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Loot;
 using Hagalaz.Services.GameWorld.Logic.Skills;
 using Hagalaz.Services.GameWorld.Services.Cache;
@@ -148,6 +149,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<StateScriptProvider>();
             services.AddSingleton<IStateScriptProvider>(provider => provider.GetRequiredService<StateScriptProvider>());
             services.AddScoped<IStateScriptFactory, StateScriptMetaDataFactory>();
+            services.AddStates();
 
             // character
             services.AddScoped<ICharacterFactory, CharacterFactory>();
