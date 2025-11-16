@@ -146,10 +146,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<GameSessionStore>();
 
             // misc
-            services.AddSingleton<StateScriptProvider>();
-            services.AddSingleton<IStateScriptProvider>(provider => provider.GetRequiredService<StateScriptProvider>());
-            services.AddScoped<IStateScriptFactory, StateScriptMetaDataFactory>();
-            services.AddStates();
+                                
 
             // character
             services.AddScoped<ICharacterFactory, CharacterFactory>();
@@ -689,7 +686,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AreaScriptProvider>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<CharacterNpcScriptProvider>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<FamiliarScriptProvider>());
-            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<StateScriptProvider>());
+
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<WidgetScriptProvider>());
 
             // policies

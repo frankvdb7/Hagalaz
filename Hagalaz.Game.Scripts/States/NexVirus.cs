@@ -1,6 +1,5 @@
 ﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -12,8 +11,8 @@ namespace Hagalaz.Game.Scripts.States
 {
     /// <summary>
     /// </summary>
-    [StateScriptMetaData(typeof(NexVirusState))]
-    public class NexVirus : StateScriptBase
+    [StateId("nex-virus")]
+    public class NexVirus : StateBase
     {
         /// <summary>
         ///     Gets called when the state is added.
@@ -29,7 +28,7 @@ namespace Hagalaz.Game.Scripts.States
             {
                 if (RandomStatic.Generator.Next(0, 20) == 0)
                 {
-                    creature.RemoveState<NexVirusState>();
+                    creature.RemoveState<NexVirus>();
                     virusTick?.Cancel();
                     return;
                 }
@@ -41,9 +40,9 @@ namespace Hagalaz.Game.Scripts.States
                     var characters = character.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => c.WithinRange(creature, 3));
                     foreach (var target in characters)
                     {
-                        if (!target.HasState<NexVirusState>())
+                        if (!target.HasState<NexVirus>())
                         {
-                            target.AddState(new NexVirusState()); // spread the virus
+                            target.AddState(new NexVirus()); // spread the virus
                         }
                     }
                 }

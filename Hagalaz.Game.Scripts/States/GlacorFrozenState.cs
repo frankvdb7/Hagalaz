@@ -6,6 +6,7 @@ namespace Hagalaz.Game.Scripts.States
 {
     /// <summary>
     /// </summary>
+    [StateId("glacor-frozen")]
     public class GlacorFrozenState : ScriptedState
     { }
 }

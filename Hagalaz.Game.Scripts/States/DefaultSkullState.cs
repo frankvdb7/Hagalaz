@@ -1,22 +1,36 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.States;
 
 namespace Hagalaz.Game.Scripts.States
 {
-    [StateScriptMetaData(typeof(AntiDragonfirePotionState))]
-    public class AntiDragonfirePotion : StateScriptBase
+    /// <summary>
+    /// </summary>
+    [StateId("default-skull")]
+    public class DefaultSkullState : StateBase
     {
         /// <summary>
         ///     Determines whether this instance is serializable.
         ///     By default, the state is not serializable.
         /// </summary>
         /// <returns></returns>
-        public override bool IsSerializable() => true;
+        public override bool IsSerializable() => true; // yes we want it to save.
+
+        /// <summary>
+        ///     Gets called when the state is added.
+        ///     By default, this method does nothing.
+        /// </summary>
+        /// <param name="state">The state.</param>
+        /// <param name="creature">The creature.</param>
+        public override void OnStateAdded(IState state, ICreature creature)
+        {
+            if (creature is ICharacter character)
+            {
+                character.Appearance.SkullIcon = SkullIcon.DefaultSkull;
+            }
+        }
 
         /// <summary>
         ///     Gets called when the state is removed.
@@ -28,7 +42,7 @@ namespace Hagalaz.Game.Scripts.States
         {
             if (creature is ICharacter character)
             {
-                character.SendChatMessage(GameStrings.DragonFirePotionEffect);
+                character.Appearance.SkullIcon = SkullIcon.None;
             }
         }
     }

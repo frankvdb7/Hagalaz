@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -12,8 +11,8 @@ namespace Hagalaz.Game.Scripts.States
 {
     /// <summary>
     /// </summary>
-    [StateScriptMetaData(typeof(TeleBlockedState))]
-    public class TeleblockedState : StateScriptBase
+    [StateId("teleblocked")]
+    public class TeleblockedState : StateBase
     {
         /// <summary>
         ///     Gets called when the state is added.
@@ -31,7 +30,7 @@ namespace Hagalaz.Game.Scripts.States
             EventHappened? happ = null;
             happ = creature.RegisterEventHandler(new EventHappened<TeleportAllowEvent>(e =>
             {
-                if (creature.HasState<TeleBlockedState>())
+                if (creature.HasState<TeleblockedState>())
                 {
                     if (creature is ICharacter)
                     {

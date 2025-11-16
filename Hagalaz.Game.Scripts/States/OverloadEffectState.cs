@@ -9,8 +9,8 @@ namespace Hagalaz.Game.Scripts.States
 {
     /// <summary>
     /// </summary>
-    [StateScriptMetaData(typeof(OverloadEffectState))]
-    public class OverloadEffectState : StateScriptBase
+    [StateId("overload-effect")]
+    public class OverloadEffectState : StateBase
     {
         /// <summary>
         ///     Determines whether this instance is serializable.

@@ -1,23 +1,25 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Common.Events.Character;
+using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.States;
 
 namespace Hagalaz.Game.Scripts.States
 {
     /// <summary>
     /// </summary>
-    [StateScriptMetaData(typeof(DefaultSkulledState))]
-    public class DefaultSkullState : StateScriptBase
+    [StateId("frozen")]
+    public class FrozenState : ScriptedState
     {
         /// <summary>
         ///     Determines whether this instance is serializable.
         ///     By default, the state is not serializable.
         /// </summary>
         /// <returns></returns>
-        public override bool IsSerializable() => true; // yes we want it to save.
+        public override bool IsSerializable() => true;
 
         /// <summary>
         ///     Gets called when the state is added.
@@ -27,10 +29,28 @@ namespace Hagalaz.Game.Scripts.States
         /// <param name="creature">The creature.</param>
         public override void OnStateAdded(IState state, ICreature creature)
         {
-            if (creature is ICharacter character)
+            if (creature is ICharacter character1)
             {
-                character.Appearance.SkullIcon = SkullIcon.DefaultSkull;
+                character1.SendChatMessage(GameStrings.Frozen);
             }
+
+            creature.Movement.Lock(true);
+            EventHappened? happ = null;
+            happ = creature.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e =>
+            {
+                if (creature.HasState<FrozenState>())
+                {
+                    if (creature is ICharacter character)
+                    {
+                        character.SendChatMessage(GameStrings.MagicalForceMovement);
+                    }
+
+                    return true;
+                }
+
+                creature.UnregisterEventHandler<WalkAllowEvent>(happ!);
+                return false;
+            }));
         }
 
         /// <summary>
@@ -39,12 +59,6 @@ namespace Hagalaz.Game.Scripts.States
         /// </summary>
         /// <param name="state">The state.</param>
         /// <param name="creature">The creature.</param>
-        public override void OnStateRemoved(IState state, ICreature creature)
-        {
-            if (creature is ICharacter character)
-            {
-                character.Appearance.SkullIcon = SkullIcon.None;
-            }
-        }
+        public override void OnStateRemoved(IState state, ICreature creature) => creature.Movement.Unlock(false);
     }
 }

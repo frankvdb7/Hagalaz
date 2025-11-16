@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -8,10 +7,8 @@ using Hagalaz.Game.Scripts.Model.States;
 
 namespace Hagalaz.Game.Scripts.States
 {
-    /// <summary>
-    /// </summary>
-    [StateScriptMetaData(typeof(AntiDragonfirePotionWarningState))]
-    public class AntiDragonfirePotionWarning : StateScriptBase
+    [StateId("anti-dragonfire-potion")]
+    public class AntiDragonfirePotion : StateBase
     {
         /// <summary>
         ///     Determines whether this instance is serializable.
@@ -30,7 +27,7 @@ namespace Hagalaz.Game.Scripts.States
         {
             if (creature is ICharacter character)
             {
-                character.SendChatMessage(GameStrings.DragonFirePotionEffectWarning);
+                character.SendChatMessage(GameStrings.DragonFirePotionEffect);
             }
         }
     }

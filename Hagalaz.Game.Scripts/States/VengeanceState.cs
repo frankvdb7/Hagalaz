@@ -8,8 +8,8 @@ namespace Hagalaz.Game.Scripts.States
 {
     /// <summary>
     /// </summary>
-    [StateScriptMetaData(typeof(VengeanceState))]
-    public class VengeanceState : StateScriptBase
+    [StateId("vengeance")]
+    public class VengeanceState : StateBase
     {
         /// <summary>
         ///     Gets called when the state is removed.

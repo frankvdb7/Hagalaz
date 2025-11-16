@@ -56,9 +56,8 @@ namespace Hagalaz.Game.Scripts
             services.AddScoped<DefaultEquipmentScript>();
             services.AddSingleton<IDefaultItemScriptProvider, DefaultItemScriptProvider>();
             services.AddScoped<DefaultItemScript>();
-            services.AddSingleton<IDefaultStateScriptProvider, DefaultStateScriptProvider>();
-            services.AddScoped<DefaultStateScript>();
-            services.AddSingleton<IDefaultWidgetScriptProvider, DefaultWidgetScriptProvider>();
+                    services.AddSingleton<IDefaultStateProvider, DefaultStateProvider>();
+                    services.AddScoped<DefaultState>();            services.AddSingleton<IDefaultWidgetScriptProvider, DefaultWidgetScriptProvider>();
             services.AddScoped<DefaultWidgetScript>();
 
             services.AddSingleton<IHerbloreSkillService, HerbloreSkillService>();
@@ -179,12 +178,7 @@ namespace Hagalaz.Game.Scripts
 
             // state
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
-                .AddClasses(classes => classes.AssignableTo<IStateScript>().Where(type => !type.IsAssignableFrom(typeof(DefaultStateScript))))
-                .AsSelfWithInterfaces()
-                .WithTransientLifetime());
-
-            services.Scan(scan => scan.FromAssemblyOf<Startup>()
-                .AddClasses(classes => classes.AssignableTo<IStateScriptFactory>())
+                .AddClasses(classes => classes.AssignableTo<IState>().Where(type => !type.IsAssignableFrom(typeof(DefaultState))))
                 .AsSelfWithInterfaces()
                 .WithScopedLifetime());
 

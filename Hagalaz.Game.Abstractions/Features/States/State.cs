@@ -1,3 +1,5 @@
+using Hagalaz.Game.Abstractions.Model.Creatures;
+
 namespace Hagalaz.Game.Abstractions.Features.States
 {
     /// <summary>
@@ -16,15 +18,25 @@ namespace Hagalaz.Game.Abstractions.Features.States
         public virtual int TicksLeft { get; set; }
 
         /// <inheritdoc />
-        public abstract IStateScript Script { get; }
-
-        /// <inheritdoc />
         public virtual void Tick()
         {
             if (TicksLeft > 0)
             {
                 TicksLeft--;
             }
+        }
+
+        /// <inheritdoc />
+        public virtual bool IsSerializable() => false;
+
+        /// <inheritdoc />
+        public virtual void OnStateRemoved(IState state, ICreature creature)
+        {
+        }
+
+        /// <inheritdoc />
+        public virtual void OnStateAdded(IState state, ICreature creature)
+        {
         }
     }
 }

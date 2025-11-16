@@ -8,8 +8,8 @@ namespace Hagalaz.Game.Scripts.States
 {
     /// <summary>
     /// </summary>
-    [StateScriptMetaData(typeof(ChargeState))]
-    public class ChargeState : StateScriptBase
+    [StateId("charge")]
+    public class ChargeState : StateBase
     {
         /// <summary>
         ///     Called when [state added].

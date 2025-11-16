@@ -7,8 +7,8 @@ using Hagalaz.Game.Scripts.Model.States;
 
 namespace Hagalaz.Game.Scripts.States
 {
-    [StateScriptMetaData(typeof(InjuredState))]
-    public class InjuredState : StateScriptBase
+    [StateId("injured")]
+    public class InjuredState : StateBase
     {
         /// <summary>
         ///     Gets called when the state is added.

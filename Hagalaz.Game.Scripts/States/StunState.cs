@@ -5,22 +5,14 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Resources;
-using Hagalaz.Game.Scripts.Model.States;
 
 namespace Hagalaz.Game.Scripts.States
 {
     /// <summary>
     /// </summary>
-    [StateScriptMetaData(typeof(FrozenState))]
-    public class FrozenState : ScriptedState
+    [StateId("stun")]
+    public class StunState : State
     {
-        /// <summary>
-        ///     Determines whether this instance is serializable.
-        ///     By default, the state is not serializable.
-        /// </summary>
-        /// <returns></returns>
-        public override bool IsSerializable() => true;
-
         /// <summary>
         ///     Gets called when the state is added.
         ///     By default, this method does nothing.
@@ -29,20 +21,15 @@ namespace Hagalaz.Game.Scripts.States
         /// <param name="creature">The creature.</param>
         public override void OnStateAdded(IState state, ICreature creature)
         {
-            if (creature is ICharacter character1)
-            {
-                character1.SendChatMessage(GameStrings.Frozen);
-            }
-
             creature.Movement.Lock(true);
             EventHappened? happ = null;
             happ = creature.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e =>
             {
-                if (creature.HasState<FrozenState>())
+                if (creature.HasState<IState>())
                 {
                     if (creature is ICharacter character)
                     {
-                        character.SendChatMessage(GameStrings.MagicalForceMovement);
+                        character.SendChatMessage(GameStrings.Stunned);
                     }
 
                     return true;
