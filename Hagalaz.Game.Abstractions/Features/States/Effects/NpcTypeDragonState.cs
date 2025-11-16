@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the NpcTypeDragonState.
     /// </summary>
-    public class NpcTypeDragonState : ScriptedState
+    public class NpcTypeDragonState : State
     {
     }
 }

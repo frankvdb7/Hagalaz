@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Torag's Corrupt" state.
     /// </summary>
     [StateId("9a206e29-c5b4-4292-93a3-945858bb1c2a")]
-    public class ToragCorruptState : ScriptedState
+    public class ToragCorruptState : State
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ToragCorruptState"/> class.

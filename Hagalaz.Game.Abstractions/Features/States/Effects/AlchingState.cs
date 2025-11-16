@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the AlchingState.
     /// </summary>
-    public class AlchingState : ScriptedState
+    public class AlchingState : State
     {
     }
 }

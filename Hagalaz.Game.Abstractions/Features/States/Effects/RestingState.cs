@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the RestingState.
     /// </summary>
-    public class RestingState : ScriptedState
+    public class RestingState : State
     {
     }
 }

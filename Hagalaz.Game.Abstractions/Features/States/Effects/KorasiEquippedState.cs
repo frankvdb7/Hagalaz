@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the KorasiEquippedState.
     /// </summary>
-    public class KorasiEquippedState : ScriptedState
+    public class KorasiEquippedState : State
     {
     }
 }

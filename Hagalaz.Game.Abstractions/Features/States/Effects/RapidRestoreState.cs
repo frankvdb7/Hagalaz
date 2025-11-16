@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Rapid Restore" prayer state.
     /// </summary>
     [StateId("cd53915c-f8e7-45c5-96d6-c78b7add4f5d")]
-    public class RapidRestoreState : ScriptedState
+    public class RapidRestoreState : State
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="RapidRestoreState"/> class.

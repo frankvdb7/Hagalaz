@@ -18,7 +18,7 @@ using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Scripts.Model.Items;
 using Hagalaz.Game.Scripts.Model.Maps;
-using Hagalaz.Game.Scripts.Model.States;
+
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Providers;
 using Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows;
@@ -177,7 +177,7 @@ namespace Hagalaz.Game.Scripts
 
             // state
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
-                .AddClasses(classes => classes.AssignableTo<IState>().Where(type => !type.IsAssignableFrom(typeof(DefaultState))))
+                .AddClasses(classes => classes.AssignableTo<IState>())
                 .AsSelfWithInterfaces()
                 .WithScopedLifetime());
 

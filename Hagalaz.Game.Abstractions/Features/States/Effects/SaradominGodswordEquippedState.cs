@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the SaradominGodswordEquippedState.
     /// </summary>
-    public class SaradominGodswordEquippedState : ScriptedState
+    public class SaradominGodswordEquippedState : State
     {
     }
 }

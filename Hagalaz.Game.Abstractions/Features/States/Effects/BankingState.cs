@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the BankingState.
     /// </summary>
-    public class BankingState : ScriptedState
+    public class BankingState : State
     {
     }
 }

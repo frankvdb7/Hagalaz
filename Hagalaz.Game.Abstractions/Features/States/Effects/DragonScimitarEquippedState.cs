@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the DragonScimitarEquippedState.
     /// </summary>
-    public class DragonScimitarEquippedState : ScriptedState
+    public class DragonScimitarEquippedState : State
     {
     }
 }

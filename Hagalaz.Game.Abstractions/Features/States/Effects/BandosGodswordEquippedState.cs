@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the BandosGodswordEquippedState.
     /// </summary>
-    public class BandosGodswordEquippedState : ScriptedState
+    public class BandosGodswordEquippedState : State
     {
     }
 }

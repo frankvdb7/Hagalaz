@@ -1,6 +1,6 @@
 namespace Hagalaz.Game.Abstractions.Features.States.Effects
 {
-    public class EnchantedOnyxBoltsEquippedState : ScriptedState
+    public class EnchantedOnyxBoltsEquippedState : State
     {
     }
 }

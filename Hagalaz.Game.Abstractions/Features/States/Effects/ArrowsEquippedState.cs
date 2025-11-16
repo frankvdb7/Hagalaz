@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the ArrowsEquippedState.
     /// </summary>
-    public class ArrowsEquippedState : ScriptedState
+    public class ArrowsEquippedState : State
     {
     }
 }

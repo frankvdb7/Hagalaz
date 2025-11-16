@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the DragonLongswordEquippedState.
     /// </summary>
-    public class DragonLongswordEquippedState : ScriptedState
+    public class DragonLongswordEquippedState : State
     {
     }
 }

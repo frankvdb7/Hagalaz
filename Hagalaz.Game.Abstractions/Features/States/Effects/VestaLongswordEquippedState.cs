@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the VestaLongswordEquippedState.
     /// </summary>
-    public class VestaLongswordEquippedState : ScriptedState
+    public class VestaLongswordEquippedState : State
     {
     }
 }

@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     ///     Contains the ListeningToMusicianState.
     /// </summary>
-    public class ListeningToMusicianState : ScriptedState
+    public class ListeningToMusicianState : State
     {
     }
 }
