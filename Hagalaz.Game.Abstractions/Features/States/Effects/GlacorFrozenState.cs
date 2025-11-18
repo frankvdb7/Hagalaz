@@ -1,6 +1,3 @@
-using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Scripts.States; // For GlacorFrozenStateScript
-
 namespace Hagalaz.Game.Abstractions.Features.States.Effects
 {
     /// <summary>
@@ -14,7 +11,5 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
         public GlacorFrozenState()
         {
         }
-
-        public override IStateScript Script => new GlacorFrozenStateScript();
     }
 }

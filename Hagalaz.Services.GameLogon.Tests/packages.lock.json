@@ -34,23 +34,23 @@
       },
       "Aspire.Pomelo.EntityFrameworkCore.MySql": {
         "type": "Transitive",
-        "resolved": "9.4.2",
-        "contentHash": "DbysB3Y0u3eU7mmjessnwtCnGN2MNlYMm6ggP7sNePlEyAb1bvrR1Dc3Y+uCd7csoX/uwO2wMyCP5pJRnXydHA==",
+        "resolved": "9.5.2",
+        "contentHash": "ED9HiwTz1FJ/N55GNmqEjdOIY2mKcPK3sPLC9vErw1MgnuVJAga+W/Qc8rkKzo4zXXQb5YKIq1trLZ4jZnutjQ==",
         "dependencies": {
           "Microsoft.Extensions.Caching.Memory": "8.0.1",
           "Microsoft.Extensions.Configuration.Abstractions": "8.0.0",
           "Microsoft.Extensions.Configuration.Binder": "8.0.2",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2",
-          "Microsoft.Extensions.Diagnostics.HealthChecks": "8.0.18",
-          "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "8.0.18",
+          "Microsoft.Extensions.Diagnostics.HealthChecks": "8.0.20",
+          "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "8.0.20",
           "Microsoft.Extensions.Hosting.Abstractions": "8.0.1",
           "Microsoft.Extensions.Logging.Abstractions": "8.0.3",
           "Microsoft.Extensions.Options": "8.0.2",
           "Microsoft.Extensions.Primitives": "8.0.0",
           "MySqlConnector.Logging.Microsoft.Extensions.Logging": "2.1.0",
           "OpenTelemetry.Extensions.Hosting": "1.9.0",
-          "Polly.Core": "8.6.2",
-          "Polly.Extensions": "8.6.2",
+          "Polly.Core": "8.6.3",
+          "Polly.Extensions": "8.6.3",
           "Pomelo.EntityFrameworkCore.MySql": "8.0.3"
         }
       },
@@ -314,12 +314,12 @@
       },
       "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": {
         "type": "Transitive",
-        "resolved": "8.0.18",
-        "contentHash": "0b52X9iYVMhNsW3zYqCK+2kHNvMlYUoGwQFqfdoaqLX3Bue+uZCk6a9STca7VPDPEm6F7d2knMLElnaH3a37+g==",
+        "resolved": "8.0.20",
+        "contentHash": "fknjL/bd6+GBgqUTNktn0CRjTHiA54E/oXHRdOvcIcVx9t+MiJHP6rRyOnGqgHZDJTs5bZX/3MY+odmIjHAttQ==",
         "dependencies": {
-          "Microsoft.EntityFrameworkCore.Relational": "8.0.18",
-          "Microsoft.Extensions.Diagnostics.HealthChecks": "8.0.18",
-          "Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions": "8.0.18"
+          "Microsoft.EntityFrameworkCore.Relational": "8.0.20",
+          "Microsoft.Extensions.Diagnostics.HealthChecks": "8.0.20",
+          "Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions": "8.0.20"
         }
       },
       "Microsoft.Extensions.FileProviders.Abstractions": {
@@ -551,8 +551,8 @@
       },
       "MySqlConnector": {
         "type": "Transitive",
-        "resolved": "2.4.0",
-        "contentHash": "78M+gVOjbdZEDIyXQqcA7EYlCGS3tpbUELHvn6638A2w0pkPI625ixnzsa5staAd3N9/xFmPJtkKDYwsXpFi/w==",
+        "resolved": "2.5.0",
+        "contentHash": "hoAwfHHF8DlRRqwHOhN3u1KLi+XbX/4LPS7Anfa+SYC97vRyIfdEOEEfj1L50q01Ik8aDNvmDrNmu/VPFiAiaQ==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2",
           "Microsoft.Extensions.Logging.Abstractions": "8.0.2"
@@ -646,17 +646,17 @@
       },
       "Polly.Core": {
         "type": "Transitive",
-        "resolved": "8.6.2",
-        "contentHash": "ImAKLH6qVDjj0vzw+QxMYxxT/NhQrHK+sZE4GT5JbIfDBOrMDbE4we3BR6SqUQCJuKdjOKf3smUjxIgOUUfNVw=="
+        "resolved": "8.6.3",
+        "contentHash": "xRlcE+1FidqIfZ7zxBT6klSblJ/7MAJq1x5yvYoLnwNhs8Xc2gp3Srf8wHG2NpFxVBqrldc3svhkMPJjSzTmzw=="
       },
       "Polly.Extensions": {
         "type": "Transitive",
-        "resolved": "8.6.2",
-        "contentHash": "M6JVo3cA/d24YGRNct/wPDCCYGHlK15aH1czbHluNCqjobHkedLiM3w3313+Id/XGG/yF5s7lqhKTReUeLVoDw==",
+        "resolved": "8.6.3",
+        "contentHash": "eBUOAYcByI5oqZgq8+5XoVG+l5pWq6V2Iis32QMjQGoevFImovRgpgRALmLQOcLa3NIahzjqVHo3sYC8ND1Deg==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
           "Microsoft.Extensions.Options": "8.0.0",
-          "Polly.Core": "8.6.2"
+          "Polly.Core": "8.6.3"
         }
       },
       "Pomelo.EntityFrameworkCore.MySql": {
@@ -774,13 +774,13 @@
       "hagalaz.data": {
         "type": "Project",
         "dependencies": {
-          "Aspire.Pomelo.EntityFrameworkCore.MySql": "[9.4.2, )",
+          "Aspire.Pomelo.EntityFrameworkCore.MySql": "[9.5.2, )",
           "Hagalaz.Security": "[1.0.0, )",
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "[9.0.8, )",
           "Microsoft.EntityFrameworkCore": "[9.0.8, )",
           "Microsoft.EntityFrameworkCore.Proxies": "[9.0.8, )",
           "Microsoft.EntityFrameworkCore.Relational": "[9.0.8, )",
-          "MySqlConnector": "[2.4.0, )",
+          "MySqlConnector": "[2.5.0, )",
           "OpenIddict.EntityFrameworkCore": "[7.0.0, )",
           "Pomelo.EntityFrameworkCore.MySql": "[9.0.0, )",
           "coverlet.collector": "[6.0.0, )"
@@ -789,7 +789,7 @@
       "hagalaz.data.extensions": {
         "type": "Project",
         "dependencies": {
-          "Aspire.Pomelo.EntityFrameworkCore.MySql": "[9.4.2, )",
+          "Aspire.Pomelo.EntityFrameworkCore.MySql": "[9.5.2, )",
           "Hagalaz.Data": "[1.0.0, )",
           "coverlet.collector": "[6.0.0, )"
         }

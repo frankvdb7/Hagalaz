@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <UserSecretsId>8d1ef059-56fd-42f2-bf2c-67b07c0d381f</UserSecretsId>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <NoWarn>1701;1702;NU1605</NoWarn>
@@ -12,13 +13,13 @@
     <WarningsAsErrors>$(WarningsAsErrors)</WarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="9.4.2" />
+    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="9.5.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.8">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+    <PackageReference Include="MySqlConnector" Version="2.5.0" />
     <PackageReference Include="OpenIddict.EntityFrameworkCore" Version="7.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.8" />
