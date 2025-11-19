@@ -1010,7 +1010,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").HasColumnName("master_id");
 
-                entity.Property(e => e.StateId).HasColumnType("int(11)").HasColumnName("state_id");
+                entity.Property(e => e.StateId).HasColumnType("varchar(255)").HasColumnName("state_id");
 
                 entity.Property(e => e.TicksLeft).HasColumnType("int(11)").HasColumnName("ticks_left");
 
