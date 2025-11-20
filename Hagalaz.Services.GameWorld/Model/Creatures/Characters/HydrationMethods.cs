@@ -333,7 +333,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 StatesEx = States.Values.Select(s => new HydratedStateDto.HydratedStateExDto
                     {
-                        Id = s.GetType().GetCustomAttribute<StateIdAttribute>()!.Id, TicksLeft = s.TicksLeft
+                        Id = s.GetType().GetCustomAttribute<StateMetaDataAttribute>()!.Id, TicksLeft = s.TicksLeft
                     })
                     .ToList()
             };

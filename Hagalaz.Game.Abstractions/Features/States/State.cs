@@ -27,9 +27,6 @@ namespace Hagalaz.Game.Abstractions.Features.States
         }
 
         /// <inheritdoc />
-        public virtual bool IsSerializable() => false;
-
-        /// <inheritdoc />
         public virtual void OnStateRemoved(IState state, ICreature creature)
         {
         }

@@ -40,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Providers
             var factories = _serviceScope.ServiceProvider.GetRequiredService<IEnumerable<IAreaScriptFactory>>();
             foreach (var factory in factories)
             {
-                await foreach (var (id, type) in factory.GetScripts())
+                await foreach (var (id, type) in factory.GetScripts().WithCancellation(cancellationToken))
                 {
                     if (_scripts.TryAdd(id, type))
                     {

@@ -18,12 +18,6 @@ namespace Hagalaz.Game.Abstractions.Features.States
         void Tick();
 
         /// <summary>
-        /// Determines whether the state associated with this script should be saved when the character logs out.
-        /// </summary>
-        /// <returns><c>true</c> if the state is serializable and should persist; otherwise, <c>false</c>.</returns>
-        bool IsSerializable();
-
-        /// <summary>
         /// A callback method that is executed when the state is removed from a creature (e.g., when it expires or is cured).
         /// </summary>
         /// <param name="state">The state instance that is being removed.</param>

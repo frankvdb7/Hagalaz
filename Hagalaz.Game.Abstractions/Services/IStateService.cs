@@ -12,6 +12,6 @@ namespace Hagalaz.Game.Abstractions.Services
         /// </summary>
         /// <param name="stateId">The ID of the state.</param>
         /// <returns>The state instance if found; otherwise, <c>null</c>.</returns>
-        IState? GetState(string stateId);
+        IState GetState(string stateId);
     }
 }

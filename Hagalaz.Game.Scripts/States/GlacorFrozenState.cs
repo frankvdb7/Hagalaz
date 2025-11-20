@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Scripts.States
 {
     /// <summary>
     /// </summary>
-    [StateId("glacor-frozen")]
+    [StateMetaData("glacor-frozen")]
     public class GlacorFrozenState : State
     { }
 }

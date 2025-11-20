@@ -140,13 +140,12 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IHitSplatRenderTypeProvider, HitSplatRenderTypeProvider>();
             services.AddScoped<IRatesService, RatesService>();
             services.AddScoped<IStateService, StateService>();
+            services.AddSingleton<IStateProvider, StateProvider>();
+            services.AddScoped<IStateFactory, StateMetaDataFactory>();
 
             services.AddScoped<IGameSessionService, GameSessionService>();
             services.AddScoped<IGameConnectionService, GameConnectionService>();
             services.AddSingleton<GameSessionStore>();
-
-            // misc
-                                
 
             // character
             services.AddScoped<ICharacterFactory, CharacterFactory>();
