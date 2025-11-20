@@ -6,6 +6,7 @@ using System;
 
 namespace Hagalaz.Game.Scripts.Widgets.Orbs
 {
+    [StateMetaData("run-energy-orb-resting-state")]
     public class RunEnergyOrbRestingState : RestingState
     {
         public Action? OnRemovedCallback { get; set; }

@@ -3,6 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Dharok's Wretched Strength" state.
     /// </summary>
+    [StateMetaData("dharok-wretched-strength-state")]
     public class DharokWretchedStrengthState : State
     {
         /// <summary>

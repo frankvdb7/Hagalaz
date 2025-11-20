@@ -3,6 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the state of having Void Knight magic equipment.
     /// </summary>
+    [StateMetaData("void-magic-equiped-state")]
     public class VoidMagicEquipedState : State
     {
         /// <summary>

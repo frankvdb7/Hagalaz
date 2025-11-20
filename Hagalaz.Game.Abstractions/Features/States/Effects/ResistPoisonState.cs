@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Resist Poison" state.
     /// </summary>
-    [StateMetaData("0197d590-3c2b-4909-9a1a-0bcfcf228391")]
+    [StateMetaData("resist-poison-state")]
     public class ResistPoisonState : State
     {
         /// <summary>

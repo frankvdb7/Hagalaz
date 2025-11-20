@@ -3,6 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Berserker" prayer state.
     /// </summary>
+    [StateMetaData("berserker-state")]
     public class BerserkerState : State
     {
         /// <summary>

@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Sap Warrior" curse state.
     /// </summary>
-    [StateMetaData("67fd3bf6-9281-4f6f-9070-61252588e9f7")]
+    [StateMetaData("sap-warrior-state")]
     public class SapWarriorState : State
     {
         /// <summary>

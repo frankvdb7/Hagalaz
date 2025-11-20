@@ -15,7 +15,7 @@ namespace Hagalaz.Game.Abstractions.Features.States
         }
 
         /// <inheritdoc />
-        public virtual int TicksLeft { get; set; }
+        public int TicksLeft { get; set; }
 
         /// <inheritdoc />
         public virtual void Tick()

@@ -43,7 +43,7 @@ namespace Hagalaz.Services.GameWorld.Providers
             var scriptFactories = scope.ServiceProvider.GetServices<IWidgetScriptFactory>();
             foreach (var factory in scriptFactories)
             {
-                await foreach (var (scriptId, scriptType) in factory.GetScripts())
+                await foreach (var (scriptId, scriptType) in factory.GetScripts().WithCancellation(cancellationToken))
                 {
                     if (_scripts.TryAdd(scriptId, scriptType))
                     {

@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Sap Spirit" curse state.
     /// </summary>
-    [StateMetaData("56ec2ae5-8170-4e5e-8f6f-50141477d8e6")]
+    [StateMetaData("sap-spirit-state")]
     public class SapSpiritState : State
     {
         /// <summary>

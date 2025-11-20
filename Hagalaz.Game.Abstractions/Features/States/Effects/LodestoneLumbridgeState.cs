@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Lodestone Lumbridge" state.
     /// </summary>
-    [StateMetaData("0197d590-3c2b-4909-9a1a-0bcfbe118391")]
+    [StateMetaData("lodestone-lumbridge-state")]
     public class LodestoneLumbridgeState : State
     {
         /// <summary>

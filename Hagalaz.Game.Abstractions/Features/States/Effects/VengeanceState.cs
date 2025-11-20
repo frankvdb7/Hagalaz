@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Vengeance" state.
     /// </summary>
-    [StateMetaData("ab317f3a-d6c5-43a3-94b4-a56969cc2d3b")]
+    [StateMetaData("vengeance-state")]
     public class VengeanceState : State
     {
         /// <summary>

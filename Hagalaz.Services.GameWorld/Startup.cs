@@ -685,8 +685,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AreaScriptProvider>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<CharacterNpcScriptProvider>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<FamiliarScriptProvider>());
-
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<WidgetScriptProvider>());
+            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<StateProvider>());
 
             // policies
             services.AddResiliencePipeline(Constants.Pipeline.AuthSignInPipeline,

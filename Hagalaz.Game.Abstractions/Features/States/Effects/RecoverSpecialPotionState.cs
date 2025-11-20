@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Recover Special Potion" state.
     /// </summary>
-    [StateMetaData("de64a26d-09f8-46d6-97e7-d89c8bee506e")]
+    [StateMetaData("recover-special-potion-state")]
     public class RecoverSpecialPotionState : State
     {
         /// <summary>

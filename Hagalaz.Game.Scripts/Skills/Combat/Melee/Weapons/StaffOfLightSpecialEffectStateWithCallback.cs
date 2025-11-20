@@ -6,6 +6,7 @@ using System;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 {
+    [StateMetaData("staff-of-light-special-effect-state-with-callback")]
     public class StaffOfLightSpecialEffectStateWithCallback : StaffOfLightSpecialEffectState
     {
         public Action? OnRemovedCallback { get; set; }

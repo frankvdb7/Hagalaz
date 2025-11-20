@@ -3,6 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Can't Cast Vengeance" state.
     /// </summary>
+    [StateMetaData("cant-cast-vengeance-state")]
     public class CantCastVengeanceState : State
     {
         /// <summary>

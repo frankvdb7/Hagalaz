@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the state of having prayed at the Bandos altar.
     /// </summary>
-    [StateMetaData("a2e7a1b1-2a13-4c9b-8e10-14e42721a315")]
+    [StateMetaData("bandos-altar-prayed-state")]
     public class BandosAltarPrayedState : State
     {
         /// <summary>

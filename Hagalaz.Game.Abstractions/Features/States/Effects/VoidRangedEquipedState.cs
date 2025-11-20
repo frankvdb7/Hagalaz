@@ -3,6 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the state of having Void Knight ranged equipment.
     /// </summary>
+    [StateMetaData("void-ranged-equiped-state")]
     public class VoidRangedEquipedState : State
     {
         /// <summary>

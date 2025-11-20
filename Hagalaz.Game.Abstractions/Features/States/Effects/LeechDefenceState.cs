@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Leech Defence" curse state.
     /// </summary>
-    [StateMetaData("13b9f7c2-5e4d-4b2b-8c3c-2e11a1d3a5b3")]
+    [StateMetaData("leech-defence-state")]
     public class LeechDefenceState : State
     {
         /// <summary>

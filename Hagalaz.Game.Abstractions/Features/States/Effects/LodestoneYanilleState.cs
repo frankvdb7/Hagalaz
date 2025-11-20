@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Lodestone Yanille" state.
     /// </summary>
-    [StateMetaData("67fd3bf6-9281-4f6f-9070-61251477e9f7")]
+    [StateMetaData("lodestone-yanille-state")]
     public class LodestoneYanilleState : State
     {
         /// <summary>

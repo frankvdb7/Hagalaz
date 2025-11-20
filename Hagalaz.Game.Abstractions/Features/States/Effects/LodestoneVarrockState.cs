@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// <summary>
     /// Represents the "Lodestone Varrock" state.
     /// </summary>
-    [StateMetaData("56ec2ae5-8170-4e5e-8f6f-50140366d8e6")]
+    [StateMetaData("lodestone-varrock-state")]
     public class LodestoneVarrockState : State
     {
         /// <summary>
