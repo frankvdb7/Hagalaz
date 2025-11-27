@@ -12,9 +12,7 @@ using Hagalaz.Cache;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Extensions;
-using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
-using Hagalaz.Cache.Types.Factories;
 using Hagalaz.Cache.Types.Hooks;
 using Hagalaz.Cache.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.Animation;
@@ -82,10 +80,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Identity;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using Hagalaz.Services.Extensions;
-using Hagalaz.Game.Abstractions.Logic;
 using Hagalaz.Services.GameWorld.Data.Model;
+using Hagalaz.Services.GameWorld.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Loot;
-using Hagalaz.Services.GameWorld.Logic.Random;
 using Hagalaz.Services.GameWorld.Logic.Skills;
 using Hagalaz.Services.GameWorld.Services.Cache;
 using Microsoft.Extensions.Caching.Hybrid;
@@ -142,15 +139,13 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IGameMessageService, GameMessageService>();
             services.AddSingleton<IHitSplatRenderTypeProvider, HitSplatRenderTypeProvider>();
             services.AddScoped<IRatesService, RatesService>();
+            services.AddScoped<IStateService, StateService>();
+            services.AddSingleton<IStateProvider, StateProvider>();
+            services.AddScoped<IStateFactory, StateMetaDataFactory>();
 
             services.AddScoped<IGameSessionService, GameSessionService>();
             services.AddScoped<IGameConnectionService, GameConnectionService>();
             services.AddSingleton<GameSessionStore>();
-
-            // misc
-            services.AddSingleton<StateScriptProvider>();
-            services.AddSingleton<IStateScriptProvider>(provider => provider.GetRequiredService<StateScriptProvider>());
-            services.AddScoped<IStateScriptFactory, StateScriptMetaDataFactory>();
 
             // character
             services.AddScoped<ICharacterFactory, CharacterFactory>();
@@ -690,8 +685,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AreaScriptProvider>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<CharacterNpcScriptProvider>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<FamiliarScriptProvider>());
-            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<StateScriptProvider>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<WidgetScriptProvider>());
+            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<StateProvider>());
 
             // policies
             services.AddResiliencePipeline(Constants.Pipeline.AuthSignInPipeline,

@@ -1,4 +1,3 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -7,8 +6,8 @@ using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 {
@@ -92,17 +91,17 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         public override int GetRequiredSpecialEnergyAmount(IItem item, ICharacter attacker) => 550;
 
         /// <summary>
-        ///     Happens when this item is equiped.
+        ///     Happens when this item is equipped.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.DragonScimitarEquiped, int.MaxValue));
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnEquipped(IItem item, ICharacter character) => character.AddState(new DragonScimitarEquippedState());
 
         /// <summary>
-        ///     Happens when this item is unequiped.
+        ///     Happens when this item is unequipped.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.DragonScimitarEquiped);
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnUnequipped(IItem item, ICharacter character) => character.RemoveState<DragonScimitarEquippedState>();
     }
 }

@@ -1,12 +1,9 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
-using Hagalaz.Utilities;
 
 namespace Hagalaz.Game.Scripts.Equipment.Void
 {
@@ -47,11 +44,11 @@ namespace Hagalaz.Game.Scripts.Equipment.Void
         public static readonly int[] Voidrobe = [8840, 19786];
 
         /// <summary>
-        ///     Called when [equiped].
+        ///     Called when [equipped].
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
-        public override void OnEquiped(IItem item, ICharacter character)
+        public override void OnEquipped(IItem item, ICharacter character)
         {
             var legs = character.Equipment[EquipmentSlot.Legs];
             var chest = character.Equipment[EquipmentSlot.Chest];
@@ -69,36 +66,36 @@ namespace Hagalaz.Game.Scripts.Equipment.Void
 
             if (hat.Id == Voidmagehelm)
             {
-                character.AddState(new State(StateType.VoidMagicEquiped, int.MaxValue));
+                character.AddState(new VoidMagicEquippedState());
             }
             else if (hat.Id == Voidrangerhelm)
             {
-                character.AddState(new State(StateType.VoidRangedEquiped, int.MaxValue));
+                character.AddState(new VoidRangedEquippedState());
             }
             else if (hat.Id == Voidmeleehelm)
             {
-                character.AddState(new State(StateType.VoidMeleeEquiped, int.MaxValue));
+                character.AddState(new VoidMeleeEquippedState());
             }
         }
 
         /// <summary>
-        ///     Called when [unequiped].
+        ///     Called when [unequipped].
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
-        public override void OnUnequiped(IItem item, ICharacter character)
+        public override void OnUnequipped(IItem item, ICharacter character)
         {
             if (item.Id == Voidmagehelm)
             {
-                character.RemoveState(StateType.VoidMagicEquiped);
+                character.RemoveState<VoidMagicEquippedState>();
             }
             else if (item.Id == Voidrangerhelm)
             {
-                character.RemoveState(StateType.VoidRangedEquiped);
+                character.RemoveState<VoidRangedEquippedState>();
             }
             else if (item.Id == Voidmeleehelm)
             {
-                character.RemoveState(StateType.VoidMeleeEquiped);
+                character.RemoveState<VoidMeleeEquippedState>();
             }
         }
     }

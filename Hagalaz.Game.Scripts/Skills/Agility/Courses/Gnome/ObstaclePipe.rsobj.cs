@@ -1,10 +1,9 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
@@ -60,7 +59,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                         clicker.Movement.Unlock(false);
                         clicker.Statistics.AddExperience(StatisticsConstants.Agility, 7.5);
                         clicker.ResetMovementType();
-                        clicker.AddState(new State(StateType.GnomeCourseObstaclePipe, int.MaxValue));
+                        clicker.AddState(new GnomeCourseObstaclePipeState());
                         Agility.CheckGnomeCourseCompletion(clicker);
                         task.Cancel();
                     }

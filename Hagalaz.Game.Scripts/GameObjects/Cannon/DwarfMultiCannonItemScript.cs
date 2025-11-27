@@ -2,6 +2,7 @@
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
@@ -9,7 +10,6 @@ using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.GameObjects.Cannon
@@ -41,7 +41,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
         {
             if (clickType == ComponentClickType.LeftClick)
             {
-                if (character.HasState(StateType.CannonPlaced))
+                if (character.HasState<CannonPlacedState>())
                 {
                     character.SendChatMessage("You have already placed a cannon base.");
                     return;
@@ -79,7 +79,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
                 character.Movement.Lock(true);
                 character.QueueAnimation(Animation.Create(827));
 
-                character.AddState(new State(StateType.CannonPlaced, int.MaxValue));
+                character.AddState(new CannonPlacedState());
 
                 var tick = 0;
 

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Logic.Dehydrators;
 using Hagalaz.Services.GameWorld.Services.Model;
@@ -14,7 +15,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _dehydrators = dehydrators;
         }
 
-        public CharacterModel Dehydrate(ICharacter character)
+        public async Task<CharacterModel> DehydrateAsync(ICharacter character)
         {
             var model = new CharacterModel();
             foreach (var dehydrator in _dehydrators)

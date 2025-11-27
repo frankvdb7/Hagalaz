@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -38,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 
             handle.RegisterResultHandler(result =>
             {
-                if (!attacker.HasState(StateType.GuthanInfestation) || !result.DamageLifePoints.Succeeded)
+                if (!attacker.HasState<GuthanInfestationState>() || !result.DamageLifePoints.Succeeded)
                 {
                     return;
                 }

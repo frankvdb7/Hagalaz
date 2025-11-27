@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.HitSplat;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -8,6 +7,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Thieving
 {
@@ -122,7 +122,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         /// </summary>
         public virtual void OnPerform()
         {
-            _performer.RemoveState(StateType.ThievingNpc); //always remove the state, otherwise the character can not steal again.
+            _performer.RemoveState<ThievingNpcState>(); //always remove the state, otherwise the character can not steal again.
             if (_npc.Combat.IsDead)
             {
                 _performer.SendChatMessage("Too late; they are dead.");

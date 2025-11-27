@@ -7,6 +7,7 @@ using Hagalaz.Characters.Messages.Model;
 using Hagalaz.Services.Characters.Services;
 using Hagalaz.Services.Characters.Services.Model;
 using MassTransit;
+using State = Hagalaz.Services.Characters.Services.Model.State;
 
 namespace Hagalaz.Services.Characters.Consumers
 {
@@ -57,7 +58,7 @@ namespace Hagalaz.Services.Characters.Consumers
             Result<Notes> notes,
             Result<ProfileModel> profile,
             Result<IReadOnlyList<ItemAppearance>> itemAppearances,
-            Result<Services.Model.State> state)> GetCharacterAsync(uint masterId)
+            Result<State> state)> GetCharacterAsync(uint masterId)
         {
             var appearanceResult = await _characterService.GetAppearanceAsync(masterId);
             var statisticsResult = await _characterService.GetStatisticsAsync(masterId);

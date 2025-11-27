@@ -18,7 +18,7 @@ namespace Hagalaz.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .UseCollation("utf8mb4_0900_ai_ci")
-                .HasAnnotation("ProductVersion", "9.0.7")
+                .HasAnnotation("ProductVersion", "9.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.HasCharSet(modelBuilder, "utf8mb4", DelegationModes.ApplyToAll);
@@ -1360,8 +1360,8 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11) unsigned")
                         .HasColumnName("master_id");
 
-                    b.Property<int>("StateId")
-                        .HasColumnType("int(11)")
+                    b.Property<string>("StateId")
+                        .HasColumnType("varchar(255)")
                         .HasColumnName("state_id");
 
                     b.Property<int>("TicksLeft")
@@ -2320,8 +2320,8 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("tinyint(3) unsigned")
                         .HasColumnName("coord_z");
 
-                    b.Property<uint>("StateId")
-                        .HasColumnType("int(11) unsigned")
+                    b.Property<string>("StateId")
+                        .HasColumnType("varchar(255)")
                         .HasColumnName("state_id");
 
                     b.HasKey("GameobjectId")

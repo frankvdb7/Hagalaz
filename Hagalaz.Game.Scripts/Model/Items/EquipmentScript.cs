@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -153,20 +152,20 @@ namespace Hagalaz.Game.Scripts.Model.Items
         public virtual bool SpecialBarEnableClicked(IItem item, ICharacter character) => item.EquipmentDefinition.SpecialWeapon;
 
         /// <summary>
-        /// Happens when this item is equiped by specific character.
+        /// Happens when this item is equipped by specific character.
         /// By default , this method does nothing.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public virtual void OnEquiped(IItem item, ICharacter character) { }
+        /// <param name="character">Character which equipped the item.</param>
+        public virtual void OnEquipped(IItem item, ICharacter character) { }
 
         /// <summary>
-        /// Happens when this item is unequiped by specific character.
+        /// Happens when this item is unequipped by specific character.
         /// By default , this method does nothing.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public virtual void OnUnequiped(IItem item, ICharacter character) { }
+        /// <param name="character">Character which equipped the item.</param>
+        public virtual void OnUnequipped(IItem item, ICharacter character) { }
 
         /// <summary>
         /// Happens when incomming attack is performed to victim from attacker.
@@ -238,20 +237,20 @@ namespace Hagalaz.Game.Scripts.Model.Items
         }
 
         /// <summary>
-        /// Get's called when specific item is about to be equiped.
+        /// Get's called when specific item is about to be equipped.
         /// </summary>
-        /// <param name="item">Item in character's inventory which should be equiped.</param>
+        /// <param name="item">Item in character's inventory which should be equipped.</param>
         /// <param name="character">Character which should equip the item.</param>
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
         public virtual bool EquipItem(IItem item, ICharacter character) => character.Equipment.EquipItem(item);
 
         /// <summary>
-        /// Get's called when specific item is about to be unequiped.
+        /// Get's called when specific item is about to be unequipped.
         /// </summary>
         /// <param name="item">Item in character equipment.</param>
         /// <param name="character">Character which should unequip the item.</param>
         /// <param name="toInventorySlot">To inventory slot.</param>
-        /// <returns><c>true</c> if unequiped, <c>false</c> otherwise</returns>
+        /// <returns><c>true</c> if unequipped, <c>false</c> otherwise</returns>
         public virtual bool UnEquipItem(IItem item, ICharacter character, int toInventorySlot = -1) => character.Equipment.UnEquipItem(item, toInventorySlot);
 
         /// <summary>

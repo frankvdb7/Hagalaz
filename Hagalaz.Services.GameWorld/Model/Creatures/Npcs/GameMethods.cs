@@ -1,7 +1,7 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Common.Events;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
 {
@@ -99,7 +99,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <param name="amount">Amount of poison strength.</param>
         public override bool Poison(short amount)
         {
-            if (HasState(StateType.ResistPoison) && !Script.CanPoison())
+            if (HasState<ResistPoisonState>() && !Script.CanPoison())
                 return false;
             Statistics.SetPoisonAmount(amount);
             return true;

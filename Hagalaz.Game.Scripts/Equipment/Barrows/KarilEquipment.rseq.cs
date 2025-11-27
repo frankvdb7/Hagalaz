@@ -1,9 +1,7 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 
 namespace Hagalaz.Game.Scripts.Equipment.Barrows
 {
@@ -24,12 +22,12 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
         ];
 
         /// <summary>
-        ///     Happens when this item is equiped by specific character.
+        ///     Happens when this item is equipped by specific character.
         ///     By default , this method does nothing.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character)
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnEquipped(IItem item, ICharacter character)
         {
             var legs = character.Equipment[EquipmentSlot.Legs];
             var chest = character.Equipment[EquipmentSlot.Chest];
@@ -69,15 +67,15 @@ namespace Hagalaz.Game.Scripts.Equipment.Barrows
                 return;
             }
 
-            character.AddState(new State(StateType.KarilTaint, int.MaxValue));
+            character.AddState(new KarilTaintState());
         }
 
         /// <summary>
-        ///     Called when [unequiped].
+        ///     Called when [unequipped].
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.KarilTaint);
+        public override void OnUnequipped(IItem item, ICharacter character) => character.RemoveState<KarilTaintState>();
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.

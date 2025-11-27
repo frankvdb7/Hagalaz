@@ -1,9 +1,9 @@
 ﻿using System;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Tasks
 {
@@ -122,7 +122,7 @@ namespace Hagalaz.Game.Scripts.Tasks
             }
             else if (TickCount == _ticks)
             {
-                _drinker.RemoveState(StateType.OverloadEffect);
+                _drinker.RemoveState<OverloadEffectState>();
                 Cancel();
             }
         }

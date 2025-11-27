@@ -23,9 +23,9 @@
     <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.4.2" />
     <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="9.4.2" />
     <PackageReference Include="Aspire.Hosting.Redis" Version="9.4.2" />
-    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="9.4.2" />
+    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="9.5.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.8" />
-    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+    <PackageReference Include="MySqlConnector" Version="2.5.0" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
   </ItemGroup>
 

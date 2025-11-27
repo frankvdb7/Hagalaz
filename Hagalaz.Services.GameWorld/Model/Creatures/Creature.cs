@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -16,7 +17,6 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
@@ -28,7 +28,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly List<IHitBar> _renderedHitBars = new(sbyte.MaxValue);
         private readonly Queue<IAnimation> _queuedAnimations = new();
         private readonly Queue<IGraphic> _queuedGraphics = new();
-        protected readonly Dictionary<StateType, IState> States = new();
+        protected readonly Dictionary<Type, IState> States = new();
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
         private CreatureUpdateState _updateState = CreatureUpdateState.Initializing;
         private readonly IServiceScope _serviceScope = default!;
@@ -264,7 +264,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             SetLocation(Location, true, true);
 
             foreach (var state in States.Values)
-                state.Script.OnStateAdded(state, this);
+                state.OnStateAdded(state, this);
 
             OnInit();
             return Task.CompletedTask;
@@ -484,10 +484,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
         public bool Freeze(int ticks, int immunityTicks)
         {
-            if (HasState(StateType.ResistFreeze))
+            if (HasState<ResistFreezeState>())
                 return false;
-            AddState(new State(StateType.Frozen, ticks));
-            AddState(new State(StateType.ResistFreeze, immunityTicks));
+            AddState(new FrozenState { TicksLeft = ticks });
+            AddState(new ResistFreezeState { TicksLeft = immunityTicks });
             return true;
         }
 
@@ -495,7 +495,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Stun's this creature.
         /// </summary>
         /// <param name="ticks">Amount of ticks creature will remain stunned.</param>
-        public void Stun(int ticks) => AddState(new State(StateType.Stun, ticks));
+        public void Stun(int ticks) => AddState(new StunState { TicksLeft = ticks });
 
         /// <summary>
         ///     Applies standard state with immunity type argument.
@@ -505,9 +505,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <param name="state">State which should be applied.</param>
         /// <param name="immunityType">Type of the immunity.</param>
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
-        public bool ApplyStandardState(IState state, StateType immunityType)
+        public bool ApplyStandardState(IState state, Type immunityStateType)
         {
-            if (HasState(immunityType))
+            if (States.ContainsKey(immunityStateType))
                 return false;
             AddState(state);
             return true;
@@ -730,9 +730,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             foreach (var state in States.Values.ToList())
             {
                 state.Tick();
-                if (state.Removed)
+                if (state.TicksLeft <= 0)
                 {
-                    States.Remove(state.StateType);
+                    RemoveState(state.GetType());
                 }
             }
         }
@@ -740,24 +740,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         ///     Get's if this creature has specific state.
         /// </summary>
-        /// <param name="type">Type of the state.</param>
         /// <returns><c>true</c> if the specified type has state; otherwise, <c>false</c>.</returns>
-        public bool HasState(StateType type) => States.ContainsKey(type);
+        public bool HasState<T>() where T : IState => States.ContainsKey(typeof(T));
+
+        private void RemoveState(Type type)
+        {
+            if (States.Remove(type, out var state))
+            {
+                state.OnStateRemoved(state, this);
+            }
+        }
 
         /// <summary>
         ///     Remove's specific state from creature.
         /// </summary>
-        /// <param name="type">The type.</param>
-        public void RemoveState(StateType type)
+        public void RemoveState<T>() where T : IState
         {
-            if (!States.ContainsKey(type))
-            {
-                return;
-            }
-
-            var state = States[type];
-            States.Remove(type);
-            state.Script.OnStateRemoved(state, this);
+            RemoveState(typeof(T));
         }
 
         /// <summary>
@@ -770,14 +769,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Gets the states.
         /// </summary>
         /// <returns></returns>
-        public Dictionary<StateType, IState> GetDictionaryStates() => States;
-
-        /// <summary>
-        ///     Gets the state.
-        /// </summary>
-        /// <param name="type">The type.</param>
-        /// <returns>State.</returns>
-        public IState? GetState(StateType type) => States.ContainsKey(type) ? States[type] : null;
 
         /// <summary>
         ///     Add's specific state to creature.
@@ -787,22 +778,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <param name="state">The state.</param>
         public void AddState(IState state)
         {
-            if (States.ContainsKey(state.StateType))
+            var type = state.GetType();
+            if (States.TryGetValue(type, out var existingState))
             {
-                var other = States[state.StateType];
-                if (state.RemoveDelay <= other.RemoveDelay)
+                if (state.TicksLeft <= existingState.TicksLeft)
                 {
                     return;
                 }
+                RemoveState(type);
+            }
 
-                States.Remove(state.StateType);
-                States.Add(state.StateType, state);
-            }
-            else
-            {
-                States.Add(state.StateType, state);
-                state.Script.OnStateAdded(state, this);
-            }
+            States.Add(type, state);
+            state.OnStateAdded(state, this);
         }
 
         /// <summary>

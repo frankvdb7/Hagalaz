@@ -1,11 +1,10 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells
 {
@@ -32,7 +31,7 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells
         {
             if (!CanPerformTeleport(caster)) return;
             var regionService = caster.ServiceProvider.GetRequiredService<IMapRegionService>();
-            caster.AddState(new State(StateType.Teleporting, TeleportDelay + 1));
+            caster.AddState(new TeleportingState { TicksLeft = TeleportDelay + 1 });
             caster.Interrupt(this);
             caster.Movement.Lock(true);
             var teleport = Destination.Clone();
@@ -87,7 +86,7 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells
         /// <returns></returns>
         public virtual bool CanPerformTeleport(ICharacter caster)
         {
-            if (caster.HasState(StateType.Teleporting)) return false;
+            if (caster.HasState<TeleportingState>()) return false;
             if (!caster.Area.Script.CanDoStandardTeleport(caster)) return false;
             if (!caster.EventManager.SendEvent(new TeleportAllowEvent(caster, Destination))) return false;
             return true;

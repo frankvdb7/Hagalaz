@@ -52,7 +52,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Equips item to this character.
         /// </summary>
         /// <param name="item">Item in inventory.</param>
-        /// <returns>True if item was equiped sucessfully.</returns>
+        /// <returns>True if item was equipped sucessfully.</returns>
         public bool EquipItem(IItem item)
         {
             var slot = _owner.Inventory.GetInstanceSlot(item);
@@ -101,7 +101,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
 
                 Add(equipSlot, item);
-                item.EquipmentScript.OnEquiped(item, _owner);
+                item.EquipmentScript.OnEquipped(item, _owner);
                 return true;
             }
 
@@ -115,7 +115,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 }
 
                 Add(equipSlot, item);
-                item.EquipmentScript.OnEquiped(item, _owner);
+                item.EquipmentScript.OnEquipped(item, _owner);
                 return true;
             }
 
@@ -205,7 +205,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             Add(equipSlot, item);
-            item.EquipmentScript.OnEquiped(item, _owner);
+            item.EquipmentScript.OnEquipped(item, _owner);
             return true;
         }
 
@@ -216,8 +216,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var itemSlot = (int)slot;
             var oldItem = Items[itemSlot];
             base.Replace(itemSlot, item);
-            oldItem?.EquipmentScript.OnUnequiped(oldItem, _owner);
-            item.EquipmentScript.OnEquiped(item, _owner);
+            oldItem?.EquipmentScript.OnUnequipped(oldItem, _owner);
+            item.EquipmentScript.OnEquipped(item, _owner);
         }
 
         public int Remove(IItem item, EquipmentSlot preferredSlot = EquipmentSlot.NoSlot, bool update = true)
@@ -238,7 +238,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return removed;
             }
 
-            item.EquipmentScript.OnUnequiped(item, _owner);
+            item.EquipmentScript.OnUnequipped(item, _owner);
             return removed;
         }
 
@@ -246,7 +246,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             foreach (var item in Items)
             {
-                item?.EquipmentScript.OnUnequiped(item, _owner);
+                item?.EquipmentScript.OnUnequipped(item, _owner);
             }
             base.Clear(update);
         }
@@ -263,7 +263,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="toInventorySlot">To inventory slot.</param>
-        /// <returns>True if item was unequiped sucessfully.</returns>
+        /// <returns>True if item was unequipped sucessfully.</returns>
         public bool UnEquipItem(IItem item, int toInventorySlot = -1)
         {
             var slot = GetInstanceSlot(item);
@@ -286,7 +286,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 return false;
             }
-            item.EquipmentScript.OnUnequiped(item, _owner);
+            item.EquipmentScript.OnUnequipped(item, _owner);
             if (toInventorySlot != -1)
             {
                 if (_owner.Inventory[toInventorySlot] == null)
@@ -319,7 +319,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _owner.Statistics.CalculateBonuses();
             foreach (var item in items.Where(i => i != null))
             {
-                item.EquipmentScript.OnEquiped(item, _owner);
+                item.EquipmentScript.OnEquipped(item, _owner);
             }
         }
 

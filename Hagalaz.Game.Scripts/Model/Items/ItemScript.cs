@@ -1,6 +1,6 @@
 ﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Authorization;
-using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -251,7 +251,7 @@ namespace Hagalaz.Game.Scripts.Model.Items
                 ItemClickedOnGroundPerform(item, clickType, character);
             else
             {
-                if (character.HasState(StateType.Frozen))
+                if (character.HasState<FrozenState>())
                     character.SendChatMessage(GameStrings.MagicalForceMovement);
                 else
                     character.SendChatMessage(GameStrings.YouCantReachThat);

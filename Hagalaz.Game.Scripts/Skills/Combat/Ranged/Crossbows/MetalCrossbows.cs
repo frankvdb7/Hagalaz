@@ -1,8 +1,7 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
@@ -30,17 +29,17 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
             _crossbowLogicService.PerformCrossbowAttack(item, attacker, victim);
 
         /// <summary>
-        ///     Happens when crossbow is equiped for this character.
+        ///     Happens when crossbow is equipped for this character.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.CrossbowEquiped, int.MaxValue));
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnEquipped(IItem item, ICharacter character) => character.AddState(new CrossbowEquippedState());
 
         /// <summary>
-        ///     Happens when crossbow is unequiped for this character.
+        ///     Happens when crossbow is unequipped for this character.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.CrossbowEquiped);
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnUnequipped(IItem item, ICharacter character) => character.RemoveState<CrossbowEquippedState>();
     }
 }

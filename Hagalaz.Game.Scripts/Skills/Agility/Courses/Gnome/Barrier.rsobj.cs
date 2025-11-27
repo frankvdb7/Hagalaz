@@ -1,10 +1,9 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Movement;
-using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Builders.Movement;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
@@ -81,7 +80,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     else if (task.TickCount == 7)
                     {
                         clicker.Movement.Unlock(false);
-                        clicker.AddState(new State(StateType.GnomeCourseBarrier, int.MaxValue));
+                        clicker.AddState(new GnomeCourseBarrierState());
                         clicker.Statistics.AddExperience(StatisticsConstants.Agility, 25);
                         Agility.CheckGnomeCourseCompletion(clicker);
                     } 

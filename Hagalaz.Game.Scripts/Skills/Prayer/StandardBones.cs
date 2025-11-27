@@ -1,5 +1,4 @@
 ﻿using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -7,8 +6,8 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Prayer
 {
@@ -55,7 +54,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
         /// <param name="item">The item.</param>
         private async Task Bury(ICharacter character, IItem item)
         {
-            if (character.HasState(StateType.BuryingBones))
+            if (character.HasState<BuryingBonesState>())
             {
                 return;
             }
@@ -75,7 +74,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
 
             character.SendChatMessage("You dig a hole in the ground.");
             character.QueueAnimation(Animation.Create(827));
-            character.AddState(new State(StateType.BuryingBones, 2, () => OnRemovedCallBack(character, item, definition, slot)));
+            character.AddState(new BuryingBonesState { TicksLeft = 2, OnRemovedCallback = () => OnRemovedCallBack(character, item, definition, slot) });
         }
 
         /// <summary>

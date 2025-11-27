@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Configuration;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Events;
@@ -9,6 +8,7 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
 {
@@ -289,9 +289,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         {
             if (Moving)
             {
-                if (_owner.HasState(StateType.Resting))
+                if (_owner.HasState<RestingState>())
                 {
-                    _owner.RemoveState(StateType.Resting);
+                    _owner.RemoveState<RestingState>();
                     return;
                 }
 

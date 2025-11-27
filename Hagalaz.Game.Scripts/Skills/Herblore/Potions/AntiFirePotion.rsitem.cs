@@ -1,8 +1,7 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 {
@@ -21,8 +20,8 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
         /// <param name="character">The character.</param>
         protected override void ApplyEffect(ICharacter character)
         {
-            character.AddState(new State(StateType.AntiDragonfirePotionWarning, 585));
-            character.AddState(new State(StateType.AntiDragonfirePotion, 600));
+            character.AddState(new AntiDragonfirePotionWarningState { TicksLeft = 585 });
+            character.AddState(new AntiDragonfirePotionState { TicksLeft = 600 });
         }
     }
 }

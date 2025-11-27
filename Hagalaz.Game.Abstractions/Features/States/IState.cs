@@ -1,32 +1,34 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 
 namespace Hagalaz.Game.Abstractions.Features.States
 {
     /// <summary>
-    /// Defines the contract for a temporary state or effect that can be applied to a character, such as poison, stun, or a temporary boost.
-    /// States are processed on each game tick and can expire after a certain duration.
+    /// Defines the contract for a temporary state or effect that can be applied to a creature.
     /// </summary>
-    public interface IState : ITickItem, IDisposable
+    public interface IState
     {
         /// <summary>
-        /// Gets the delay in game ticks before the state is automatically removed.
+        /// Gets or sets the number of ticks remaining for the state.
         /// </summary>
-        int RemoveDelay { get; }
+        int TicksLeft { get; set; }
 
         /// <summary>
-        /// Gets the type of the state, which categorizes its general effect (e.g., Skull, Vengeance).
+        /// Performs a tick update for the state.
         /// </summary>
-        StateType StateType { get; }
+        void Tick();
 
         /// <summary>
-        /// Gets the script that defines the behavior and logic of this state.
+        /// A callback method that is executed when the state is removed from a creature (e.g., when it expires or is cured).
         /// </summary>
-        IStateScript Script { get; }
+        /// <param name="state">The state instance that is being removed.</param>
+        /// <param name="creature">The creature from which the state is being removed.</param>
+        void OnStateRemoved(IState state, ICreature creature);
 
         /// <summary>
-        /// Gets a value indicating whether this state has been marked for removal.
+        /// A callback method that is executed when the state is first added to a creature.
         /// </summary>
-        bool Removed { get; }
+        /// <param name="state">The state instance that has been added.</param>
+        /// <param name="creature">The creature to which the state has been added.</param>
+        void OnStateAdded(IState state, ICreature creature);
     }
 }

@@ -1,33 +1,38 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Microsoft.Extensions.DependencyInjection;
+using Hagalaz.Services.GameWorld.Providers;
 
 namespace Hagalaz.Services.GameWorld.Factories
 {
     public class GameObjectScriptMetaDataFactory : IGameObjectScriptFactory
     {
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceDescriptorProvider _serviceDescriptorProvider;
 
-        public GameObjectScriptMetaDataFactory(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
+        public GameObjectScriptMetaDataFactory(IServiceDescriptorProvider serviceDescriptorProvider) => _serviceDescriptorProvider = serviceDescriptorProvider;
 
         public async IAsyncEnumerable<(int objectId, Type scriptType)> GetScripts()
         {
             await Task.CompletedTask;
-            var objectScripts = _serviceProvider.GetServices<IGameObjectScript>();
-            foreach (var script in objectScripts)
+            var type = typeof(IGameObjectScript);
+            var scriptTypes = _serviceDescriptorProvider.GetServiceDescriptors()
+                .Where(x => x.ServiceType.IsAssignableTo(type))
+                .Select(x => (ScriptType: x.ImplementationType, MetaData: x.ImplementationType?.GetCustomAttribute<GameObjectScriptMetaDataAttribute>()));
+
+            foreach (var (scriptType, metaData) in scriptTypes)
             {
-                var scriptType = script.GetType();
-                var metaData = scriptType.GetCustomAttribute<GameObjectScriptMetaDataAttribute>();
-                if (metaData != null)
+                if (scriptType is null || metaData is null)
                 {
-                    foreach (var objectId in metaData.ObjectIds)
-                    {
-                        yield return (objectId, scriptType);
-                    }
+                    continue;
+                }
+
+                foreach (var objectId in metaData.ObjectIds)
+                {
+                    yield return (objectId, scriptType);
                 }
             }
         }

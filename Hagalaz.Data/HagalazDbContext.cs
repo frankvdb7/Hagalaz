@@ -5,11 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Hagalaz.Data
 {
-    public partial class HagalazDbContext : IdentityDbContext<Character, Aspnetrole, uint, Aspnetuserclaim, Aspnetuserrole, Aspnetuserlogin, Aspnetroleclaim,
+    public class HagalazDbContext : IdentityDbContext<Character, Aspnetrole, uint, Aspnetuserclaim, Aspnetuserrole, Aspnetuserlogin, Aspnetroleclaim,
         Aspnetusertoken>
     {
-        public HagalazDbContext() { }
-
         public HagalazDbContext(DbContextOptions<HagalazDbContext> options) : base(options) { }
 
         public virtual DbSet<Area> Areas { get; set; } = null!;
@@ -121,12 +119,6 @@ namespace Hagalaz.Data
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            if (!optionsBuilder.IsConfigured)
-            {
-                optionsBuilder.UseMySql(MySqlServerVersion.LatestSupportedServerVersion,
-                        options => { options.TranslateParameterizedCollectionsToConstants(); })
-                    .UseOpenIddict();
-            }
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -1018,7 +1010,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").HasColumnName("master_id");
 
-                entity.Property(e => e.StateId).HasColumnType("int(11)").HasColumnName("state_id");
+                entity.Property(e => e.StateId).HasColumnType("varchar(255)").HasColumnName("state_id");
 
                 entity.Property(e => e.TicksLeft).HasColumnType("int(11)").HasColumnName("ticks_left");
 
@@ -1554,7 +1546,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.CoordZ).HasColumnType("tinyint(3) unsigned").HasColumnName("coord_z");
 
-                entity.Property(e => e.StateId).HasColumnType("int(11) unsigned").HasColumnName("state_id");
+                entity.Property(e => e.StateId).HasColumnType("varchar(255)").HasColumnName("state_id");
             });
 
             modelBuilder.Entity<GameobjectLoot>(entity =>
@@ -3408,10 +3400,6 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.Value).HasColumnName("value");
             });
-
-            OnModelCreatingPartial(modelBuilder);
         }
-
-        partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
     }
 }

@@ -1,11 +1,10 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 {
@@ -65,17 +64,17 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         public override int GetRequiredSpecialEnergyAmount(IItem item, ICharacter attacker) => 250;
 
         /// <summary>
-        ///     Happens when this item is equiped.
+        ///     Happens when this item is equipped.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.DragonMaceEquiped, int.MaxValue));
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnEquipped(IItem item, ICharacter character) => character.AddState(new DragonMaceEquippedState());
 
         /// <summary>
-        ///     Happens when this item is unequiped.
+        ///     Happens when this item is unequipped.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.DragonMaceEquiped);
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnUnequipped(IItem item, ICharacter character) => character.RemoveState<DragonMaceEquippedState>();
     }
 }

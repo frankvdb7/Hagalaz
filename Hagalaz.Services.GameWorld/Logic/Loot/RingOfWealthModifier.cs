@@ -1,8 +1,7 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Logic.Loot;
+﻿using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Random;
 using Hagalaz.Game.Resources;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Services.GameWorld.Logic.Loot
 {
@@ -22,7 +21,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Loot
                 return;
             }
 
-            if (!lootContext.Character.HasState(StateType.RingOfWealthEquiped))
+            if (!lootContext.Character.HasState<RingOfWealthEquippedState>())
             {
                 return;
             }

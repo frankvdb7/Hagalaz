@@ -1,8 +1,8 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.Movement;
 using Hagalaz.Game.Abstractions.Builders.Region;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -36,9 +36,9 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                if (clicker.HasState(StateType.CrossbowEquiped))
+                if (clicker.HasState<CrossbowEquippedState>())
                 {
-                    if (clicker.HasState(StateType.MithGrappleEquiped))
+                    if (clicker.HasState<MithGrappleEquippedState>())
                     {
                         clicker.Interrupt(this);
                         clicker.Movement.Lock(true);
@@ -88,12 +88,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
                     }
                     else
                     {
-                        clicker.SendChatMessage("You need to have a Mith grapple equiped.");
+                        clicker.SendChatMessage("You need to have a Mith grapple equipped.");
                     }
                 }
                 else
                 {
-                    clicker.SendChatMessage("You need to have a crossbow equiped.");
+                    clicker.SendChatMessage("You need to have a crossbow equipped.");
                 }
 
                 return;

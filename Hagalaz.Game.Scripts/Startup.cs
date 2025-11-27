@@ -11,13 +11,14 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Scripts;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Commands;
+using Hagalaz.Game.Scripts.Extensions;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Scripts.Model.Items;
 using Hagalaz.Game.Scripts.Model.Maps;
-using Hagalaz.Game.Scripts.Model.States;
+
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Providers;
 using Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows;
@@ -55,9 +56,7 @@ namespace Hagalaz.Game.Scripts
             services.AddScoped<DefaultEquipmentScript>();
             services.AddSingleton<IDefaultItemScriptProvider, DefaultItemScriptProvider>();
             services.AddScoped<DefaultItemScript>();
-            services.AddSingleton<IDefaultStateScriptProvider, DefaultStateScriptProvider>();
-            services.AddScoped<DefaultStateScript>();
-            services.AddSingleton<IDefaultWidgetScriptProvider, DefaultWidgetScriptProvider>();
+                                services.AddSingleton<IDefaultWidgetScriptProvider, DefaultWidgetScriptProvider>();
             services.AddScoped<DefaultWidgetScript>();
 
             services.AddSingleton<IHerbloreSkillService, HerbloreSkillService>();
@@ -86,6 +85,8 @@ namespace Hagalaz.Game.Scripts
             services.AddTransient<SilverTask>();
             services.AddTransient<SpinTask>();
             services.AddTransient<CleanHerbTask>();
+            
+            services.AddScriptStates();
 
             // commands
             services.AddSingleton<IGameCommandPrompt, GameCommandPrompt>();
@@ -176,12 +177,7 @@ namespace Hagalaz.Game.Scripts
 
             // state
             services.Scan(scan => scan.FromAssemblyOf<Startup>()
-                .AddClasses(classes => classes.AssignableTo<IStateScript>().Where(type => !type.IsAssignableFrom(typeof(DefaultStateScript))))
-                .AsSelfWithInterfaces()
-                .WithTransientLifetime());
-
-            services.Scan(scan => scan.FromAssemblyOf<Startup>()
-                .AddClasses(classes => classes.AssignableTo<IStateScriptFactory>())
+                .AddClasses(classes => classes.AssignableTo<IState>())
                 .AsSelfWithInterfaces()
                 .WithScopedLifetime());
 

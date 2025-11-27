@@ -48,11 +48,11 @@ namespace Hagalaz.Game.Scripts.Equipment.Auras
         }
 
         /// <summary>
-        ///     Called when [equiped].
+        ///     Called when [equipped].
         /// </summary>
         /// <param name="aura">The aura.</param>
         /// <param name="character">The character.</param>
-        public override void OnEquiped(IItem aura, ICharacter character)
+        public override void OnEquipped(IItem aura, ICharacter character)
         {
             if (aura.ItemScript is not AuraItemScript script)
             {
@@ -66,11 +66,11 @@ namespace Hagalaz.Game.Scripts.Equipment.Auras
         }
 
         /// <summary>
-        ///     Called when [unequiped].
+        ///     Called when [unequipped].
         /// </summary>
         /// <param name="aura">The aura.</param>
         /// <param name="character">The character.</param>
-        public override void OnUnequiped(IItem aura, ICharacter character)
+        public override void OnUnequipped(IItem aura, ICharacter character)
         {
             if (aura.ItemScript is not AuraItemScript script)
             {

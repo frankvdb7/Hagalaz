@@ -6,6 +6,7 @@ using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Builders.Region;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -15,7 +16,6 @@ using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Utilities;
 
@@ -581,7 +581,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                         base.PerformAttack(target);
                         if (RandomStatic.Generator.Next(0, 25) == 10)
                         {
-                            target.AddState(new State(StateType.GlacorFrozen, int.MaxValue));
+                            target.AddState(new GlacorFrozenState());
                         }
 
                         break;

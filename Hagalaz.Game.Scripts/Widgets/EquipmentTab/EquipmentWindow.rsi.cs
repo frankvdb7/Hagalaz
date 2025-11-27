@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -7,6 +6,7 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Widgets.Bank;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
 {
@@ -34,7 +34,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
         /// </summary>
         public override void OnOpen()
         {
-            InterfaceInstance.SetVisible(87, !Owner.HasState(StateType.Banking)); // disable close button when banking
+            InterfaceInstance.SetVisible(87, !Owner.HasState<BankingState>()); // disable close button when banking
             var script = Owner.ServiceProvider.GetRequiredService<DefaultWidgetScript>();
             if (!Owner.Widgets.OpenInventoryOverlay(670, 1, script))
             {
@@ -49,7 +49,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
                 return;
             }
 
-            Owner.Configurations.SendBitConfiguration(4894, Owner.HasState(StateType.Banking) ? 1 : 0);
+            Owner.Configurations.SendBitConfiguration(4894, Owner.HasState<BankingState>() ? 1 : 0);
 
             InterfaceInstance.SetOptions(9, 0, 14, 1026);
             _inventoryInterface.SetOptions(0, 0, 27, 1026);
@@ -120,7 +120,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
             {
                 if (type == ComponentClickType.LeftClick)
                 {
-                    Owner.RemoveState(StateType.Banking);
+                    Owner.RemoveState<BankingState>();
                     var bankScript = Owner.ServiceProvider.GetRequiredService<BankScreen>();
                     Owner.Widgets.OpenWidget(667, 0, bankScript, false);
                     return true;

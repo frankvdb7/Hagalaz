@@ -1,8 +1,8 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Model.Items;
+﻿using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Widgets.Shop
 {
@@ -138,7 +138,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
 
             InterfaceInstance.AttachClickHandler(21, (componentID, type, button1, button2) =>
             {
-                if (Owner.HasState(StateType.ShopSellScreen))
+                if (Owner.HasState<ShopSellScreenState>())
                 {
                     Owner.CurrentShop.MainStockContainer.SellFromInventory(Owner, SelectedItem, 1);
                 }
@@ -148,7 +148,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
                     {
                         Owner.CurrentShop.SampleStockContainer.BuyFromShop(Owner, SelectedItem, 1);
                     }
-                    else if (!Owner.HasState(StateType.ShopSellScreen))
+                    else if (!Owner.HasState<ShopSellScreenState>())
                     {
                         Owner.CurrentShop.MainStockContainer.BuyFromShop(Owner, SelectedItem, 1);
                     }

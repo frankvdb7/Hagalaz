@@ -1,10 +1,9 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
@@ -66,13 +65,13 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         public override int GetRequiredSpecialEnergyAmount(IItem item, ICharacter attacker) => 250;
 
         /// <summary>
-        ///     Happens when this item is equiped.
+        ///     Happens when this item is equipped.
         /// </summary>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new State(StateType.DragonDaggerEquipped, int.MaxValue));
+        public override void OnEquipped(IItem item, ICharacter character) => character.AddState(new DragonDaggerEquippedState());
 
         /// <summary>
-        ///     Happens when this item is unequiped.
+        ///     Happens when this item is unequipped.
         /// </summary>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState(StateType.DragonDaggerEquipped);
+        public override void OnUnequipped(IItem item, ICharacter character) => character.RemoveState<DragonDaggerEquippedState>();
     }
 }

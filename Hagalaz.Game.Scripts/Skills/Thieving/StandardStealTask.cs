@@ -1,6 +1,5 @@
 ﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -11,6 +10,7 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Tasks;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Thieving
 {
@@ -65,7 +65,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         /// </summary>
         public virtual void OnPerform()
         {
-            _performer.RemoveState(StateType.ThievingStall); //always remove the state, otherwise the character can not steal again.
+            _performer.RemoveState<ThievingStallState>(); //always remove the state, otherwise the character can not steal again.
             if (_gameObject.IsDestroyed)
             {
                 return;

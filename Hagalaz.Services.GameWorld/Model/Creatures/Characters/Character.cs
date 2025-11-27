@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,18 +6,17 @@ using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.Clans;
 using Hagalaz.Game.Abstractions.Features.Shops;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Data;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Model;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Model.Maps;
 using Hagalaz.Services.GameWorld.Providers;
 using Microsoft.Extensions.DependencyInjection;
-using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -327,11 +326,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             foreach (var script in _scripts.Values)
                 script.OnRegistered();
 
-            foreach (var state in States.Values.ToList())
-                state.Script.OnStateAdded(state, this);
+            foreach (var state in States.Values.ToList()) { }
 
-            if (!HasState(StateType.LodestoneEdgeville))
-                AddState(new State(StateType.LodestoneEdgeville, int.MaxValue));
+            if (!HasState<LodestoneEdgevilleState>())
+                AddState(new LodestoneEdgevilleState());
 
             OnInit();
         }

@@ -2,7 +2,6 @@
 using System.Linq;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -20,6 +19,7 @@ using Hagalaz.Services.GameWorld.Model.Creatures.Combat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using static Hagalaz.Game.Abstractions.Model.Creatures.Characters.StatisticsConstants;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -1251,10 +1251,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public int GetLifePointsRestoreValue()
         {
             byte bonus = 0;
-            if (_owner.HasState(StateType.Resting)) bonus += 1;
-            if (_owner.HasState(StateType.RapidHeal)) bonus += 1;
-            if (_owner.HasState(StateType.ListeningToMusician)) bonus += 2;
-            if (_owner.HasState(StateType.RapidRenewal)) bonus += 5;
+            if (_owner.HasState<RestingState>()) bonus += 1;
+            if (_owner.HasState<RapidHealState>()) bonus += 1;
+            if (_owner.HasState<ListeningToMusicianState>()) bonus += 2;
+            if (_owner.HasState<RapidRenewalState>()) bonus += 5;
             return 1 * (1 + bonus);
         }
 
@@ -1264,7 +1264,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns>System.Int32.</returns>
         public int GetStatisticsRestoreRate()
         {
-            if (_owner.HasState(StateType.RapidRestore))
+            if (_owner.HasState<RapidRestoreState>())
             {
                 return 50;
             }
@@ -1280,8 +1280,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public int GetRunEnergyRestoreRate()
         {
             if (_owner.Movement.Moving && _owner.Movement.MovementType == MovementType.Run) return 0; // No restoration.
-            if (_owner.HasState(StateType.Resting)) return 350;
-            if (_owner.HasState(StateType.ListeningToMusician)) return 250;
+            if (_owner.HasState<RestingState>()) return 350;
+            if (_owner.HasState<ListeningToMusicianState>()) return 250;
             return 2260 - GetSkillLevel(Agility) * 10; // 1 energy recovers every 2.25 sec with 1 Agility
         }
 

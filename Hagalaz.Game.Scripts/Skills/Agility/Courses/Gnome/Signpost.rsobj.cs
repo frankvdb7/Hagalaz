@@ -1,5 +1,5 @@
-﻿using Hagalaz.Game.Abstractions.Builders.Movement;
-using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Builders.Movement;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
@@ -50,7 +49,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     }
                     else
                     {
-                        clicker.SendChatMessage(clicker.HasState(StateType.Frozen) ? GameStrings.MagicalForceMovement : GameStrings.YouCantReachThat);
+                        clicker.SendChatMessage(clicker.HasState<FrozenState>() ? GameStrings.MagicalForceMovement : GameStrings.YouCantReachThat);
                     }
                 });
                 clicker.QueueTask(task);
@@ -85,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     {
                         clicker.Movement.Teleport(Teleport.Create(Location.Create(2484, 3418, 3, clicker.Location.Dimension)));
                         clicker.Statistics.AddExperience(StatisticsConstants.Agility, 25);
-                        clicker.AddState(new State(StateType.GnomeCourseSignpost, int.MaxValue));
+                        clicker.AddState(new GnomeCourseSignpostState());
                         clicker.Movement.Unlock(false);
                     }, 4));
                 Agility.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);

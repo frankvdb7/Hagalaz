@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Movement;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Common;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Commands
 {

@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System;
-using System.Collections.Concurrent;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Services;

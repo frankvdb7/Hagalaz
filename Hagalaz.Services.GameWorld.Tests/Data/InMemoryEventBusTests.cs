@@ -1,6 +1,5 @@
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Services.GameWorld.Data;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests

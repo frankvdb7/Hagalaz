@@ -1,8 +1,7 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 {
@@ -22,7 +21,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
         protected override void ApplyEffect(ICharacter character)
         {
             character.Poison(0);
-            character.AddState(new State(StateType.ResistPoison, 575)); // 346 seconds
+            character.AddState(new ResistPoisonState { TicksLeft = 575 }); // 346 seconds
         }
     }
 }

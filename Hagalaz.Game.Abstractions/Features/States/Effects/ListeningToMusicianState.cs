@@ -1,0 +1,12 @@
+using Hagalaz.Game.Abstractions.Features.States;
+
+namespace Hagalaz.Game.Abstractions.Features.States.Effects
+{
+    /// <summary>
+    ///     Contains the ListeningToMusicianState.
+    /// </summary>
+    [StateMetaData("listening-to-musician-state")]
+    public class ListeningToMusicianState : State
+    {
+    }
+}

@@ -1,5 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services.Model;
@@ -63,7 +63,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         public override int GetBaseDamage(ICharacter caster)
         {
             var cape = caster.Equipment[EquipmentSlot.Cape];
-            if (cape != null && cape.Id == 2413 && caster.HasState(StateType.Charge))
+            if (cape != null && cape.Id == 2413 && caster.HasState<ChargeState>())
             {
                 return base.GetBaseDamage(caster) + 100;
             }

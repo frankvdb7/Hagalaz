@@ -1,8 +1,7 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
 {
@@ -112,45 +111,45 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
         public static readonly int[] Wallasalkibane = [21665, 21694, 21695, 21696];
 
         /// <summary>
-        ///     Happens when bolts are equiped for this character.
+        ///     Happens when bolts are equipped for this character.
         /// </summary>
-        public override void OnEquiped(IItem item, ICharacter character)
+        public override void OnEquipped(IItem item, ICharacter character)
         {
             switch (item.Id)
             {
                 // OPAL
-                case 9236: character.AddState(new State(StateType.EnchantedOpalBoltsEquipped, int.MaxValue)); break;
+                case 9236: character.AddState(new EnchantedOpalBoltsEquippedState()); break;
                 // DIAMOND
-                case 9243: character.AddState(new State(StateType.EnchantedDiamondBoltsEquipped, int.MaxValue)); break;
+                case 9243: character.AddState(new EnchantedDiamondBoltsEquippedState()); break;
                 // DRAGON
-                case 9244: character.AddState(new State(StateType.EnchantedDragonstoneBoltsEquiped, int.MaxValue)); break;
+                case 9244: character.AddState(new EnchantedDragonstoneBoltsEquippedState()); break;
                 // ONYX
-                case 9245: character.AddState(new State(StateType.EnchantedOnyxBoltsEquiped, int.MaxValue)); break;
+                case 9245: character.AddState(new EnchantedOnyxBoltsEquippedState()); break;
             }
 
-            character.AddState(new State(StateType.BoltsEquiped, int.MaxValue));
+            character.AddState(new BoltsEquippedState());
         }
 
         /// <summary>
-        ///     Happens when bolts are unequiped for this character.
+        ///     Happens when bolts are unequipped for this character.
         /// </summary>
         /// <param name="item"></param>
         /// <param name="character"></param>
-        public override void OnUnequiped(IItem item, ICharacter character)
+        public override void OnUnequipped(IItem item, ICharacter character)
         {
             switch (item.Id)
             {
                 // OPAL
-                case 9236: character.RemoveState(StateType.EnchantedOpalBoltsEquipped); break;
+                case 9236: character.RemoveState<EnchantedOpalBoltsEquippedState>(); break;
                 // DIAMOND
-                case 9243: character.RemoveState(StateType.EnchantedDiamondBoltsEquipped); break;
+                case 9243: character.RemoveState<EnchantedDiamondBoltsEquippedState>(); break;
                 // DRAGON
-                case 9244: character.RemoveState(StateType.EnchantedDragonstoneBoltsEquiped); break;
+                case 9244: character.RemoveState<EnchantedDragonstoneBoltsEquippedState>(); break;
                 // ONYX
-                case 9245: character.RemoveState(StateType.EnchantedOnyxBoltsEquiped); break;
+                case 9245: character.RemoveState<EnchantedOnyxBoltsEquippedState>(); break;
             }
 
-            character.RemoveState(StateType.BoltsEquiped);
+            character.RemoveState<BoltsEquippedState>();
         }
     }
 }

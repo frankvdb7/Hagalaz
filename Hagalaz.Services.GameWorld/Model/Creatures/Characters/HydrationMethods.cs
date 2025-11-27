@@ -1,12 +1,13 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Model;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Methods for character serialization.
     /// </summary>
-    public partial class Character : Creature,
+    public partial class Character :
         IHydratable<HydratedClaims>,
         IHydratable<HydratedAppearanceDto>,
         IHydratable<HydratedDetailsDto>,
@@ -49,7 +50,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
         }
 
-        public void Hydrate(HydratedDetailsDto hydration) => Location = Game.Abstractions.Model.Location.Create(hydration.CoordX, hydration.CoordY, hydration.CoordZ, 0);
+        public void Hydrate(HydratedDetailsDto hydration) =>
+            Location = Game.Abstractions.Model.Location.Create(hydration.CoordX, hydration.CoordY, hydration.CoordZ, 0);
 
         public void Hydrate(HydratedItemCollectionDto hydration)
         {
@@ -57,25 +59,31 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 bank.Hydrate(hydration.Bank);
             }
+
             if (Inventory is IHydratable<IReadOnlyList<HydratedItemDto>> inventory)
             {
                 inventory.Hydrate(hydration.Inventory);
             }
+
             if (Equipment is IHydratable<IReadOnlyList<HydratedItemDto>> equipment)
             {
                 equipment.Hydrate(hydration.Equipment);
             }
+
             if (Rewards is IHydratable<IReadOnlyList<HydratedItemDto>> rewards)
             {
                 rewards.Hydrate(hydration.Rewards);
             }
+
             if (MoneyPouch is IHydratable<IReadOnlyList<HydratedItemDto>> moneyPouch)
             {
                 moneyPouch.Hydrate(hydration.MoneyPouch);
             }
+
             if (FamiliarScript is IHydratable<IReadOnlyList<HydratedItem>> familiarInventory)
             {
-                familiarInventory.Hydrate(hydration.FamiliarInventory.Select(item => new HydratedItem(item.ItemId, item.Count, item.SlotId, item.ExtraData)).ToList());
+                familiarInventory.Hydrate(hydration.FamiliarInventory.Select(item => new HydratedItem(item.ItemId, item.Count, item.SlotId, item.ExtraData))
+                    .ToList());
             }
         }
 
@@ -93,10 +101,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 return dehydratable.Dehydrate();
             }
+
             return new HydratedAppearanceDto();
         }
 
-        HydratedDetailsDto IDehydratable<HydratedDetailsDto>.Dehydrate() => new() { CoordX = Location.X, CoordY = Location.Y, CoordZ = Location.Z };
+        HydratedDetailsDto IDehydratable<HydratedDetailsDto>.Dehydrate() =>
+            new()
+            {
+                CoordX = Location.X, CoordY = Location.Y, CoordZ = Location.Z
+            };
 
         public HydratedItemCollectionDto Dehydrate()
         {
@@ -108,6 +121,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     Bank = bank.Dehydrate()
                 };
             }
+
             if (Inventory is IDehydratable<IReadOnlyList<HydratedItemDto>> inventory)
             {
                 items = items with
@@ -115,6 +129,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     Inventory = inventory.Dehydrate()
                 };
             }
+
             if (Equipment is IDehydratable<IReadOnlyList<HydratedItemDto>> equipment)
             {
                 items = items with
@@ -122,6 +137,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     Equipment = equipment.Dehydrate()
                 };
             }
+
             if (Rewards is IDehydratable<IReadOnlyList<HydratedItemDto>> rewards)
             {
                 items = items with
@@ -129,6 +145,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     Rewards = rewards.Dehydrate()
                 };
             }
+
             if (MoneyPouch is IDehydratable<IReadOnlyList<HydratedItemDto>> moneyPouch)
             {
                 items = items with
@@ -136,13 +153,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     MoneyPouch = moneyPouch.Dehydrate()
                 };
             }
+
             if (FamiliarScript is IDehydratable<IReadOnlyList<HydratedItem>> familiarInventory)
             {
                 items = items with
                 {
-                    FamiliarInventory = familiarInventory.Dehydrate().Select(item => new HydratedItemDto(item.ItemId, item.Count, item.SlotId, item.ExtraData)).ToList()
+                    FamiliarInventory = familiarInventory.Dehydrate()
+                        .Select(item => new HydratedItemDto(item.ItemId, item.Count, item.SlotId, item.ExtraData))
+                        .ToList()
                 };
             }
+
             return items;
         }
 
@@ -152,6 +173,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 return dehydratable.Dehydrate();
             }
+
             return new HydratedStatisticsDto();
         }
 
@@ -184,6 +206,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     SpecialMovePoints = dehydration.SpecialMovePoints
                 };
             }
+
             return new HydratedFamiliarDto();
         }
 
@@ -210,11 +233,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 return dehydratable.Dehydrate();
             }
+
             return new HydratedMusicDto([], [], false, false);
         }
 
-        public void Hydrate(HydratedSlayerDto hydration) 
-        { 
+        public void Hydrate(HydratedSlayerDto hydration)
+        {
             if (Slayer is IHydratable<HydratedSlayerDto> hydratable)
             {
                 hydratable.Hydrate(hydration);
@@ -227,6 +251,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 return dehydratable.Dehydrate();
             }
+
             return new HydratedSlayerDto();
         }
 
@@ -237,12 +262,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 hydratable.Hydrate(hydration);
             }
         }
+
         HydratedFarmingDto IDehydratable<HydratedFarmingDto>.Dehydrate()
         {
             if (Farming is IDehydratable<HydratedFarmingDto> dehydratable)
             {
                 return dehydratable.Dehydrate();
             }
+
             return new HydratedFarmingDto();
         }
 
@@ -260,6 +287,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 return dehydratable.Dehydrate();
             }
+
             return new HydratedNotesDto();
         }
 
@@ -277,20 +305,37 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 return dehydratable.Dehydrate();
             }
-            return new HydratedProfileDto { JsonData = string.Empty };
+
+            return new HydratedProfileDto
+            {
+                JsonData = string.Empty
+            };
         }
 
         public void Hydrate(HydratedStateDto hydration)
         {
+            var stateService = ServiceProvider.GetRequiredService<IStateService>();
             foreach (var state in hydration.StatesEx)
             {
-                States.Add((StateType)state.Id, new State((StateType)state.Id, state.TicksLeft));
+                var stateObject = stateService.GetState(state.Id);
+                if (stateObject == null)
+                {
+                    continue;
+                }
+
+                stateObject.TicksLeft = state.TicksLeft;
+                AddState(stateObject);
             }
         }
 
-        HydratedStateDto IDehydratable<HydratedStateDto>.Dehydrate() => new HydratedStateDto
-        {
-            StatesEx = States.Select(s => new HydratedStateDto.HydratedStateExDto { Id = (int)s.Key, TicksLeft = s.Value.RemoveDelay }).ToList()
-        };
+        HydratedStateDto IDehydratable<HydratedStateDto>.Dehydrate() =>
+            new()
+            {
+                StatesEx = States.Values.Select(s => new HydratedStateDto.HydratedStateExDto
+                    {
+                        Id = s.GetType().GetCustomAttribute<StateMetaDataAttribute>()!.Id, TicksLeft = s.TicksLeft
+                    })
+                    .ToList()
+            };
     }
 }

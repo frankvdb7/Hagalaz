@@ -1,8 +1,7 @@
-﻿using Hagalaz.Game.Abstractions.Features.States;
+﻿using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Equipment.Barrows;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
@@ -29,25 +28,25 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
             _crossbowLogicService.PerformCrossbowAttack(item, attacker, victim);
 
         /// <summary>
-        ///     Happens when crossbow is equiped for this character.
+        ///     Happens when crossbow is equipped for this character.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character)
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnEquipped(IItem item, ICharacter character)
         {
-            base.OnEquiped(item, character);
-            character.AddState(new State(StateType.CrossbowEquiped, int.MaxValue));
+            base.OnEquipped(item, character);
+            character.AddState(new CrossbowEquippedState());
         }
 
         /// <summary>
-        ///     Happens when crossbow is unequiped for this character.
+        ///     Happens when crossbow is unequipped for this character.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character)
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnUnequipped(IItem item, ICharacter character)
         {
-            base.OnUnequiped(item, character);
-            character.RemoveState(StateType.CrossbowEquiped);
+            base.OnUnequipped(item, character);
+            character.RemoveState<CrossbowEquippedState>();
         }
     }
 }

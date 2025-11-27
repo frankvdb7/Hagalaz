@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Widgets.Lodestone
 {
@@ -26,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Lodestone
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
-                        if (!Owner.HasState(def.State))
+                        if (!Owner.HasState<LodestoneActivatedState>())
                         {
                             Owner.SendChatMessage("You must activate this lodestone to teleport to it.");
                             return false;

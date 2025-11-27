@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Configuration;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Events;
@@ -10,10 +9,10 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Widgets.EquipmentTab;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Widgets.Bank
 {
@@ -422,7 +421,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             InterfaceInstance.AttachClickHandler(119,
                 (componentID, type, extra1, extra2) =>
                 {
-                    Owner.AddState(new State(StateType.Banking, int.MaxValue));
+                    Owner.AddState(new BankingState());
                     var script = Owner.ServiceProvider.GetRequiredService<EquipmentWindow>();
                     Owner.Widgets.OpenWidget(667, 0, script, false);
                     return true;

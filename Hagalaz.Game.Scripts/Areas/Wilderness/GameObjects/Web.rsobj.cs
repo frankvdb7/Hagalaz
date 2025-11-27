@@ -48,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
 
                 if (slashOptionId == -1)
                 {
-                    clicker.SendChatMessage("You need to have a weapon equiped that is able to slash this web!");
+                    clicker.SendChatMessage("You need to have a weapon equipped that is able to slash this web!");
                     return;
                 }
 

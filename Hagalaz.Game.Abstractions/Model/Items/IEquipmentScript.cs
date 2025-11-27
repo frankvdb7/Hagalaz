@@ -45,14 +45,14 @@ namespace Hagalaz.Game.Abstractions.Model.Items
         /// </summary>
         /// <param name="item">The item instance.</param>
         /// <param name="character">The character who equipped the item.</param>
-        void OnEquiped(IItem item, ICharacter character);
+        void OnEquipped(IItem item, ICharacter character);
 
         /// <summary>
         /// A callback executed when this item is unequipped by a character.
         /// </summary>
         /// <param name="item">The item instance.</param>
         /// <param name="character">The character who unequipped the item.</param>
-        void OnUnequiped(IItem item, ICharacter character);
+        void OnUnequipped(IItem item, ICharacter character);
 
         /// <summary>
         /// A callback executed after a character dies while wearing this item.

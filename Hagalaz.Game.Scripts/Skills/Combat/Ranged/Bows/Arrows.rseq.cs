@@ -1,11 +1,9 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
 {
@@ -446,31 +444,31 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         }
 
         /// <summary>
-        ///     Happens when arrows are equiped for this character.
+        ///     Happens when arrows are equipped for this character.
         /// </summary>
-        public override void OnEquiped(IItem item, ICharacter character)
+        public override void OnEquipped(IItem item, ICharacter character)
         {
             if (Lookup(item.Id, Dragon))
             {
-                character.AddState(new State(StateType.DragonArrowsEquiped, int.MaxValue));
+                character.AddState(new DragonArrowsEquippedState());
             }
 
-            character.AddState(new State(StateType.ArrowsEquiped, int.MaxValue));
+            character.AddState(new ArrowsEquippedState());
         }
 
         /// <summary>
-        ///     Happens when arrows are unequiped for this character.
+        ///     Happens when arrows are unequipped for this character.
         /// </summary>
         /// <param name="item"></param>
         /// <param name="character"></param>
-        public override void OnUnequiped(IItem item, ICharacter character)
+        public override void OnUnequipped(IItem item, ICharacter character)
         {
             if (Lookup(item.Id, Dragon))
             {
-                character.RemoveState(StateType.DragonArrowsEquiped);
+                character.RemoveState<DragonArrowsEquippedState>();
             }
 
-            character.RemoveState(StateType.ArrowsEquiped);
+            character.RemoveState<ArrowsEquippedState>();
         }
 
         /// <summary>

@@ -56,7 +56,7 @@ namespace Hagalaz.Services.GameWorld.Services
                             var watch = Stopwatch.StartNew();
                             await Parallel.ForEachAsync(_characterStore.FindAllAsync(), options, async (character, token) =>
                             {
-                                var model = dehydrationService.Dehydrate(character);
+                                var model = await dehydrationService.DehydrateAsync(character);
                                 var request = _mapper.Map<DehydrateCharacter>(model) with { MasterId = character.MasterId, CorrelationId = correlationId };
                                 var response = await requestClient.GetResponse<CharacterDehydrated>(request, token);
                             });

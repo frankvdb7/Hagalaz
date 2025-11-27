@@ -1,6 +1,5 @@
 ﻿using System;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -12,6 +11,7 @@ using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
 using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
 {
@@ -140,13 +140,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             foreach (var attacker in attackers)
             {
                 var att = attacker.Attacker;
-                if (att.HasState(StateType.SapWarrior) || att.HasState(StateType.LeechAttack)) attack = true;
-                if (att.HasState(StateType.SapWarrior) || att.HasState(StateType.LeechStrength)) strength = true;
-                if (att.HasState(StateType.SapWarrior) || att.HasState(StateType.SapRanger) || att.HasState(StateType.SapMager)
-                    || att.HasState(StateType.LeechDefence))
+                if (att.HasState<SapWarriorState>() || att.HasState<LeechAttackState>()) attack = true;
+                if (att.HasState<SapWarriorState>() || att.HasState<LeechStrengthState>()) strength = true;
+                if (att.HasState<SapWarriorState>() || att.HasState<SapRangerState>() || att.HasState<SapMagerState>()
+                    || att.HasState<LeechDefenceState>())
                     defence = true;
-                if (att.HasState(StateType.SapRanger) || att.HasState(StateType.LeechRanged)) ranged = true;
-                if (att.HasState(StateType.SapMager) || att.HasState(StateType.LeechMagic)) magic = true;
+                if (att.HasState<SapRangerState>() || att.HasState<LeechRangedState>()) ranged = true;
+                if (att.HasState<SapMagerState>() || att.HasState<LeechMagicState>()) magic = true;
             }
 
             if (!attack && GetPrayerBonus(BonusPrayerType.CurseInstantAttack) != 0)
@@ -185,7 +185,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <param name="target"></param>
         public override void OnAttackPerformed(ICreature target)
         {
-            if (Owner.HasState(StateType.Turmoil)) _npc.Statistics.SetTurmoilBonuses(target);
+            if (Owner.HasState<TurmoilState>()) _npc.Statistics.SetTurmoilBonuses(target);
             _npc.Script.OnAttackPerformed(target);
         }
 
@@ -194,7 +194,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// </summary>
         protected override void OnLastAttackedFade()
         {
-            if (Owner.HasState(StateType.Turmoil)) _npc.Statistics.ResetTurmoilBonuses();
+            if (Owner.HasState<TurmoilState>()) _npc.Statistics.ResetTurmoilBonuses();
         }
 
         /// <summary>
@@ -523,7 +523,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             }
 
             var maxHitModifier = 1.0;
-            if (Owner.HasState(StateType.DharokWretchedStrength))
+            if (Owner.HasState<DharokWretchedStrengthState>())
             {
                 if (RandomStatic.Generator.NextDouble() >= 0.50)
                 {

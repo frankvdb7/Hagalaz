@@ -175,7 +175,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 var session = await _gameSessionService.AddSession(masterId, context.ConnectionId);
                 var character = _characterFactory.Create(session, signInRequest.GameClient);
-                if (!_characterHydrationService.Hydrate(character, characterModel))
+                if (!await _characterHydrationService.HydrateAsync(character, characterModel))
                 {
                     _logger.LogWarning("Unable to hydrate character '{character}'", character);
                     return SignInResult.Fail;

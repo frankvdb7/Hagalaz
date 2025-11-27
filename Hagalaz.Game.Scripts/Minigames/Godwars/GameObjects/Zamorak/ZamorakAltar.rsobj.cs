@@ -1,8 +1,8 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells;
 
@@ -28,7 +28,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Zamorak
                 // pray
                 case GameObjectClickType.Option1Click:
                 {
-                    if (!clicker.HasState(StateType.ZamorakAltarPrayed))
+                    if (!clicker.HasState<ZamorakAltarPrayedState>())
                     {
                         if (clicker.Combat.IsInCombat())
                         {
@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Zamorak
                         {
                             clicker.QueueAnimation(Animation.Create(645));
                             clicker.SendChatMessage("You prayed to the gods and they restored your prayer points.");
-                            clicker.AddState(new State(StateType.ZamorakAltarPrayed, 1000));
+                            clicker.AddState(new ZamorakAltarPrayedState { TicksLeft = 1000 });
                         }
                         else
                         {

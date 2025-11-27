@@ -1,10 +1,10 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Model;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
@@ -116,15 +116,15 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
                         clicker.Movement.Unlock(false);
                         if (Owner.Location.Equals(clicker.Location))
                         {
-                            clicker.AddState(new State(StateType.BarrowsBetweenDoors, int.MaxValue));
+                            clicker.AddState(new BarrowsBetweenDoorsState { TicksLeft = int.MaxValue });
                         }
                         else
                         {
-                            clicker.RemoveState(StateType.BarrowsBetweenDoors);
+                            clicker.RemoveState<BarrowsBetweenDoorsState>();
                         }
 
                         clicker.Configurations.SendStandardConfiguration(1270,
-                            clicker.HasState(StateType.BarrowsBetweenDoors) ? 1 : 0); // hide or show the black 'roof'
+                            clicker.HasState<BarrowsBetweenDoorsState>() ? 1 : 0); // hide or show the black 'roof'
                         clicker.GetOrAddScript<BarrowsScript>().CryptGameObjectClickPerformed(); // spawn barrow brother if available
                     },
                     1));

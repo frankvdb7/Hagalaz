@@ -6,7 +6,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters.Model
     {
         public record HydratedStateExDto
         {
-            public required int Id { get; init; }
+            public required string Id { get; init; }
             public required int TicksLeft { get; init; }
         }
 

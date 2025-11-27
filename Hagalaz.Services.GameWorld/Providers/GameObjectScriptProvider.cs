@@ -34,7 +34,7 @@ namespace Hagalaz.Services.GameWorld.Providers
             var scriptFactories = scope.ServiceProvider.GetRequiredService<IEnumerable<IGameObjectScriptFactory>>();
             foreach (var factory in scriptFactories)
             {
-                await foreach (var (id, type) in factory.GetScripts())
+                await foreach (var (id, type) in factory.GetScripts().WithCancellation(cancellationToken))
                 {
                     if (_scripts.TryAdd(id, type))
                     {

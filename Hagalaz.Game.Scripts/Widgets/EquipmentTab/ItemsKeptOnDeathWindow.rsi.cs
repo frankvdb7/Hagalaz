@@ -1,13 +1,13 @@
 ﻿using System.Linq;
 using System.Text;
 using Hagalaz.Game.Abstractions.Builders.Widget;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Utilities;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
 {
@@ -129,7 +129,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
                 Owner.Configurations.SendBitConfiguration(9227, i);
 
                 Owner.Configurations.SendBitConfiguration(9226, wilderniss ? 1 : 0);
-                Owner.Configurations.SendBitConfiguration(9229, Owner.HasState(StateType.DefaultSkulled) ? 1 : 0);
+                Owner.Configurations.SendBitConfiguration(9229, Owner.HasState<DefaultSkulledState>() ? 1 : 0);
 
                 var carriedWealth = droppedItems.Aggregate(0UL, (current, item) => current + ((ulong)item.ItemDefinition.TradeValue * (ulong)item.Count));
                 var riskedWealth = keptItems.Aggregate(0UL, (current, item) => current + ((ulong)item.ItemDefinition.TradeValue * (ulong)item.Count));
