@@ -1,3 +1,6 @@
+using Hagalaz.Game.Abstractions.Model.Creatures;
+using System;
+
 namespace Hagalaz.Game.Abstractions.Features.States.Effects
 {
     /// <summary>
@@ -11,6 +14,18 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
         /// </summary>
         public StaffOfLightSpecialEffectState()
         {
+        }
+
+        /// <summary>
+        /// Gets or sets the callback to be invoked when the state is removed.
+        /// </summary>
+        public Action? OnRemovedCallback { get; set; }
+
+        /// <inheritdoc />
+        public override void OnStateRemoved(IState state, ICreature creature)
+        {
+            base.OnStateRemoved(state, creature);
+            OnRemovedCallback?.Invoke();
         }
     }
 }
