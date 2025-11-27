@@ -35,7 +35,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
         public override void OnEquiped(IItem item, ICharacter character)
         {
             base.OnEquiped(item, character);
-            character.AddState(new CrossbowEquipedState());
+            character.AddState(new CrossbowEquippedState());
         }
 
         /// <summary>
@@ -46,7 +46,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
         public override void OnUnequiped(IItem item, ICharacter character)
         {
             base.OnUnequiped(item, character);
-            character.RemoveState<CrossbowEquipedState>();
+            character.RemoveState<CrossbowEquippedState>();
         }
     }
 }

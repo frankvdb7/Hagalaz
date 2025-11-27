@@ -66,15 +66,15 @@ namespace Hagalaz.Game.Scripts.Equipment.Void
 
             if (hat.Id == Voidmagehelm)
             {
-                character.AddState(new VoidMagicEquipedState());
+                character.AddState(new VoidMagicEquippedState());
             }
             else if (hat.Id == Voidrangerhelm)
             {
-                character.AddState(new VoidRangedEquipedState());
+                character.AddState(new VoidRangedEquippedState());
             }
             else if (hat.Id == Voidmeleehelm)
             {
-                character.AddState(new VoidMeleeEquipedState());
+                character.AddState(new VoidMeleeEquippedState());
             }
         }
 
@@ -87,15 +87,15 @@ namespace Hagalaz.Game.Scripts.Equipment.Void
         {
             if (item.Id == Voidmagehelm)
             {
-                character.RemoveState<VoidMagicEquipedState>();
+                character.RemoveState<VoidMagicEquippedState>();
             }
             else if (item.Id == Voidrangerhelm)
             {
-                character.RemoveState<VoidRangedEquipedState>();
+                character.RemoveState<VoidRangedEquippedState>();
             }
             else if (item.Id == Voidmeleehelm)
             {
-                character.RemoveState<VoidMeleeEquipedState>();
+                character.RemoveState<VoidMeleeEquippedState>();
             }
         }
     }

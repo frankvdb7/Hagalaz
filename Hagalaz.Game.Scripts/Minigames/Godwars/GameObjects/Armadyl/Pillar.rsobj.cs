@@ -36,7 +36,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                if (clicker.HasState<CrossbowEquipedState>())
+                if (clicker.HasState<CrossbowEquippedState>())
                 {
                     if (clicker.HasState<MithGrappleEquipedState>())
                     {

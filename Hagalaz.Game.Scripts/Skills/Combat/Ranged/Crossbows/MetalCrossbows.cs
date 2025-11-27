@@ -33,13 +33,13 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new CrossbowEquipedState());
+        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new CrossbowEquippedState());
 
         /// <summary>
         ///     Happens when crossbow is unequiped for this character.
         /// </summary>
         /// <param name="item">Item instance.</param>
         /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<CrossbowEquipedState>();
+        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<CrossbowEquippedState>();
     }
 }
