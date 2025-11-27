@@ -59,14 +59,14 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         public override int GetRequiredSpecialEnergyAmount(IItem item, ICharacter attacker) => 250;
 
         /// <summary>
-        ///     Happens when this item is equiped.
+        ///     Happens when this item is equipped.
         /// </summary>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new VestaLongswordEquippedState());
+        public override void OnEquipped(IItem item, ICharacter character) => character.AddState(new VestaLongswordEquippedState());
 
         /// <summary>
-        ///     Happens when this item is unequiped.
+        ///     Happens when this item is unequipped.
         /// </summary>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<VestaLongswordEquippedState>();
+        public override void OnUnequipped(IItem item, ICharacter character) => character.RemoveState<VestaLongswordEquippedState>();
 
         /// <summary>
         ///     Gets the degration ticks for one degradable item.

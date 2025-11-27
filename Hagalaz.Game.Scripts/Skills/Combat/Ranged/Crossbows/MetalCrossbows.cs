@@ -29,17 +29,17 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
             _crossbowLogicService.PerformCrossbowAttack(item, attacker, victim);
 
         /// <summary>
-        ///     Happens when crossbow is equiped for this character.
+        ///     Happens when crossbow is equipped for this character.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new CrossbowEquippedState());
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnEquipped(IItem item, ICharacter character) => character.AddState(new CrossbowEquippedState());
 
         /// <summary>
-        ///     Happens when crossbow is unequiped for this character.
+        ///     Happens when crossbow is unequipped for this character.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<CrossbowEquippedState>();
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnUnequipped(IItem item, ICharacter character) => character.RemoveState<CrossbowEquippedState>();
     }
 }

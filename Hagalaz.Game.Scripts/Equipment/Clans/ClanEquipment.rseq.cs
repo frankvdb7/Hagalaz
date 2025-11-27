@@ -29,12 +29,12 @@ namespace Hagalaz.Game.Scripts.Equipment.Clans
         }
 
         /// <summary>
-        ///     Happens when this item is equiped by specific character.
+        ///     Happens when this item is equipped by specific character.
         ///     By default , this method does nothing.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character)
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnEquipped(IItem item, ICharacter character)
         {
             EventHappened clanUpdate = null;
             clanUpdate = _eventManager.Listen<ClanSettingsUpdatedEvent>(e =>

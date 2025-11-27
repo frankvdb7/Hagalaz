@@ -55,15 +55,15 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged
             }
 
             var pickupChance = 0.0;
-            if (character.HasState<AvasAttractorEquipedState>())
+            if (character.HasState<AvasAttractorEquippedState>())
             {
                 pickupChance = 0.85;
             }
-            else if (character.HasState<AvasAccumulatorEquipedState>())
+            else if (character.HasState<AvasAccumulatorEquippedState>())
             {
                 pickupChance = 0.95;
             }
-            else if (character.HasState<AvasAlerterEquipedState>())
+            else if (character.HasState<AvasAlerterEquippedState>())
             {
                 pickupChance = 0.98;
             }

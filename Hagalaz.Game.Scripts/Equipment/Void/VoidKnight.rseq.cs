@@ -44,11 +44,11 @@ namespace Hagalaz.Game.Scripts.Equipment.Void
         public static readonly int[] Voidrobe = [8840, 19786];
 
         /// <summary>
-        ///     Called when [equiped].
+        ///     Called when [equipped].
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
-        public override void OnEquiped(IItem item, ICharacter character)
+        public override void OnEquipped(IItem item, ICharacter character)
         {
             var legs = character.Equipment[EquipmentSlot.Legs];
             var chest = character.Equipment[EquipmentSlot.Chest];
@@ -79,11 +79,11 @@ namespace Hagalaz.Game.Scripts.Equipment.Void
         }
 
         /// <summary>
-        ///     Called when [unequiped].
+        ///     Called when [unequipped].
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
-        public override void OnUnequiped(IItem item, ICharacter character)
+        public override void OnUnequipped(IItem item, ICharacter character)
         {
             if (item.Id == Voidmagehelm)
             {

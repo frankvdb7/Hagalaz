@@ -21,7 +21,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Loot
                 return;
             }
 
-            if (!lootContext.Character.HasState<RingOfWealthEquipedState>())
+            if (!lootContext.Character.HasState<RingOfWealthEquippedState>())
             {
                 return;
             }

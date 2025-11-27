@@ -246,7 +246,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 
             if (!hasStaff)
             {
-                caster.SendChatMessage("You must have Zuriel's staff equiped to cast this spell.");
+                caster.SendChatMessage("You must have Zuriel's staff equipped to cast this spell.");
                 return false;
             }
 

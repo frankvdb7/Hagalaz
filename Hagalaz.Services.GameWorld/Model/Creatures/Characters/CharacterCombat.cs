@@ -115,7 +115,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             var itemsOnDeath = _character.GetItemsOnDeathData();
             foreach (var equipment in _character.Equipment)
             {
-                equipment?.EquipmentScript.OnUnequiped(equipment, _character); // make sure that any effects 'onequip', are removed by 'unequiping' them.
+                equipment?.EquipmentScript.OnUnequipped(equipment, _character); // make sure that any effects 'onequip', are removed by 'unequiping' them.
             }
 
             _character.Inventory.Clear(false);

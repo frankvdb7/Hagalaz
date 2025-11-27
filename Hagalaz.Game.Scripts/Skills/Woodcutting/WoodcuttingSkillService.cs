@@ -56,7 +56,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         }
 
         /// <summary>
-        ///     Attempts to find a hatchet in the specified character's inventory or equiped items.
+        ///     Attempts to find a hatchet in the specified character's inventory or equipped items.
         /// </summary>
         /// <param name="character">The character to find hatchet for.</param>
         /// <returns>Returns the hatchet type if found; Returns Hatchet.Undefined otherwise.</returns>

@@ -116,20 +116,20 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         public override int GetRequiredSpecialEnergyAmount(IItem item, ICharacter attacker) => 550;
 
         /// <summary>
-        ///     Happens when this item is equiped.
+        ///     Happens when this item is equipped.
         /// </summary>
-        public override void OnEquiped(IItem item, ICharacter character)
+        public override void OnEquipped(IItem item, ICharacter character)
         {
-            base.OnEquiped(item, character);
+            base.OnEquipped(item, character);
             character.AddState(new MagicShortbowEquippedState());
         }
 
         /// <summary>
-        ///     Happens when this item is unequiped.
+        ///     Happens when this item is unequipped.
         /// </summary>
-        public override void OnUnequiped(IItem item, ICharacter character)
+        public override void OnUnequipped(IItem item, ICharacter character)
         {
-            base.OnUnequiped(item, character);
+            base.OnUnequipped(item, character);
             character.RemoveState<MagicShortbowEquippedState>();
         }
     }

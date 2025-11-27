@@ -91,17 +91,17 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
         public override int GetRequiredSpecialEnergyAmount(IItem item, ICharacter attacker) => 550;
 
         /// <summary>
-        ///     Happens when this item is equiped.
+        ///     Happens when this item is equipped.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new DragonScimitarEquippedState());
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnEquipped(IItem item, ICharacter character) => character.AddState(new DragonScimitarEquippedState());
 
         /// <summary>
-        ///     Happens when this item is unequiped.
+        ///     Happens when this item is unequipped.
         /// </summary>
         /// <param name="item">Item instance.</param>
-        /// <param name="character">Character which equiped the item.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<DragonScimitarEquippedState>();
+        /// <param name="character">Character which equipped the item.</param>
+        public override void OnUnequipped(IItem item, ICharacter character) => character.RemoveState<DragonScimitarEquippedState>();
     }
 }

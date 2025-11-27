@@ -11,17 +11,17 @@ namespace Hagalaz.Game.Scripts.Equipment.Shields
     public class AntiDragonShield : EquipmentScript
     {
         /// <summary>
-        ///     Called when [equiped].
+        ///     Called when [equipped].
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
-        public override void OnEquiped(IItem item, ICharacter character) => character.AddState(new AntiDragonfireShieldState());
+        public override void OnEquipped(IItem item, ICharacter character) => character.AddState(new AntiDragonfireShieldState());
 
         /// <summary>
-        ///     Called when [unequiped].
+        ///     Called when [unequipped].
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="character">The character.</param>
-        public override void OnUnequiped(IItem item, ICharacter character) => character.RemoveState<AntiDragonfireShieldState>();
+        public override void OnUnequipped(IItem item, ICharacter character) => character.RemoveState<AntiDragonfireShieldState>();
     }
 }

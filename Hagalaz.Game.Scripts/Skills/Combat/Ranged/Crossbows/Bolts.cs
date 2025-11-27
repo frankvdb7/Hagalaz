@@ -111,9 +111,9 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
         public static readonly int[] Wallasalkibane = [21665, 21694, 21695, 21696];
 
         /// <summary>
-        ///     Happens when bolts are equiped for this character.
+        ///     Happens when bolts are equipped for this character.
         /// </summary>
-        public override void OnEquiped(IItem item, ICharacter character)
+        public override void OnEquipped(IItem item, ICharacter character)
         {
             switch (item.Id)
             {
@@ -131,11 +131,11 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
         }
 
         /// <summary>
-        ///     Happens when bolts are unequiped for this character.
+        ///     Happens when bolts are unequipped for this character.
         /// </summary>
         /// <param name="item"></param>
         /// <param name="character"></param>
-        public override void OnUnequiped(IItem item, ICharacter character)
+        public override void OnUnequipped(IItem item, ICharacter character)
         {
             switch (item.Id)
             {

@@ -12,7 +12,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
     {
 
         /// <summary>
-        ///     Attempts to find a pickaxe in the specified character's inventory or equiped items.
+        ///     Attempts to find a pickaxe in the specified character's inventory or equipped items.
         /// </summary>
         /// <param name="character">The character to find pickaxe for.</param>
         /// <returns>

@@ -10,9 +10,9 @@ namespace Hagalaz.Game.Scripts.Equipment.Corrupted
     public class CorruptedItem : EquipmentScript
     {
         /// <summary>
-        ///     Get's called when specific item is about to be equiped.
+        ///     Get's called when specific item is about to be equipped.
         /// </summary>
-        /// <param name="item">Item in character's inventory which should be equiped.</param>
+        /// <param name="item">Item in character's inventory which should be equipped.</param>
         /// <param name="character">Character which should equip the item.</param>
         /// <returns>
         ///     <c>true</c> if XXXX, <c>false</c> otherwise

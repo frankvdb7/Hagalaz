@@ -38,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
             {
                 if (clicker.HasState<CrossbowEquippedState>())
                 {
-                    if (clicker.HasState<MithGrappleEquipedState>())
+                    if (clicker.HasState<MithGrappleEquippedState>())
                     {
                         clicker.Interrupt(this);
                         clicker.Movement.Lock(true);
@@ -88,12 +88,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
                     }
                     else
                     {
-                        clicker.SendChatMessage("You need to have a Mith grapple equiped.");
+                        clicker.SendChatMessage("You need to have a Mith grapple equipped.");
                     }
                 }
                 else
                 {
-                    clicker.SendChatMessage("You need to have a crossbow equiped.");
+                    clicker.SendChatMessage("You need to have a crossbow equipped.");
                 }
 
                 return;
