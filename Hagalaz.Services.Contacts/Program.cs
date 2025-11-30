@@ -55,7 +55,7 @@ namespace Hagalaz.Services.Contacts
             builder.Services.AddScoped<ICharacterService, CharacterService>();
             builder.Services.AddScoped<IContactSessionService, ContactSessionService>();
 
-            builder.Services.AddAutoMapper(typeof(Program));
+            builder.Services.AddAutoMapper(_ => { }, typeof(Program));
 
             var app = builder.Build();
 

@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Characters.Tests
@@ -9,7 +10,7 @@ namespace Hagalaz.Services.Characters.Tests
         [TestMethod]
         public void AutoMapper_Configuration_IsValid()
         {
-            var config = new MapperConfiguration(action => action.AddMaps(typeof(Program)));
+            var config = new MapperConfiguration(action => action.AddMaps(typeof(Program)), LoggerFactory.Create(_ => { }));
             config.AssertConfigurationIsValid();
         }
     }

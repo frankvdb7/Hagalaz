@@ -677,7 +677,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             container.Add(CreateItem(1, 1));
 
             // Act & Assert
-            Assert.ThrowsException<InvalidOperationException>(() =>
+            Assert.ThrowsExactly<InvalidOperationException>(() =>
             {
                 foreach (var item in container)
                 {

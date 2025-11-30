@@ -1,91 +1,80 @@
 {
   "version": 1,
   "dependencies": {
-    "net9.0": {
-      "coverlet.collector": {
-        "type": "Direct",
-        "requested": "[6.0.0, )",
-        "resolved": "6.0.0",
-        "contentHash": "tW3lsNS+dAEII6YGUX/VMoJjBS1QvsxqJeqLaJXub08y1FSjasFPtQ4UBUsudE9PNrzLjooClMsPtY2cZLdXpQ=="
-      },
+    "net10.0": {
       "JetBrains.Annotations": {
         "type": "Direct",
-        "requested": "[2025.2.2, )",
-        "resolved": "2025.2.2",
-        "contentHash": "0X56ZRizuHdrnPpgXjWV7f2tQO1FlQg5O1967OGKnI/4ZRNOK642J8L7brM1nYvrxTTU5TP1yRyXLRLaXLPQ8A=="
+        "requested": "[2025.2.4, )",
+        "resolved": "2025.2.4",
+        "contentHash": "TwbgxAkXxY+vNEhNVx/QXjJ4vqxmepOjsgRvvImQPbHkHMMb4W+ahL3laMsxXKtNT7iMy+E1B3xkqao2hf1n3A=="
       },
       "Scrutor": {
         "type": "Direct",
-        "requested": "[6.1.0, )",
-        "resolved": "6.1.0",
-        "contentHash": "m4+0RdgnX+jeiaqteq9x5SwEtuCjWG0KTw1jBjCzn7V8mCanXKoeF8+59E0fcoRbAjdEq6YqHFCmxZ49Kvqp3g==",
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "wHWaroody48jnlLoq/REwUltIFLxplXyHTP+sttrc8P7+jkiVqf38afDidJNv4qgD/6zz2NKOYg06xLZ1bG7wQ==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.1",
-          "Microsoft.Extensions.DependencyModel": "8.0.2"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+          "Microsoft.Extensions.DependencyModel": "10.0.0"
         }
       },
       "System.Linq.Async": {
         "type": "Direct",
-        "requested": "[6.0.1, )",
-        "resolved": "6.0.1",
-        "contentHash": "0YhHcaroWpQ9UCot3Pizah7ryAzQhNvobLMSxeDIGmnXfkQn8u5owvpOH0K6EVB+z9L7u6Cc4W17Br/+jyttEQ==",
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "A2Wci92Oyuodi8YLMQCJJ0vHqzgRFgEUG1K6tQNcoxHd3w05B1LvGzXvxQnGYPIL4Cr4hicHytpk2F2Jx8TZHg==",
         "dependencies": {
-          "Microsoft.Bcl.AsyncInterfaces": "6.0.0"
+          "System.Interactive.Async": "7.0.0"
         }
       },
       "FluentResults": {
         "type": "Transitive",
-        "resolved": "3.15.2",
-        "contentHash": "yR3PD1SWKirYNpQ/t9TjJrsp1adazMmozLDPeamvSIljLAIjS0EQyyGvoupWsbZEryqW9SHbKXVL8YaJwURk8w==",
+        "resolved": "4.0.0",
+        "contentHash": "wKfdLvDnDVhXlSreU7u/NFNHH6EfoOhAloEID4ePAyk+ZliowKZJvX+aCL4hxhFc9Jj74t62amS4LyOYTjXGCg==",
         "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "6.0.1",
+          "Microsoft.Extensions.Logging.Abstractions": "2.1.1",
           "System.Threading.Tasks.Extensions": "4.5.4"
         }
       },
-      "Microsoft.Bcl.AsyncInterfaces": {
-        "type": "Transitive",
-        "resolved": "6.0.0",
-        "contentHash": "UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg=="
-      },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Transitive",
-        "resolved": "9.0.8",
-        "contentHash": "JJjI2Fa+QtZcUyuNjbKn04OjIUX5IgFGFu/Xc+qvzh1rXdZHLcnqqVXhR4093bGirTwacRlHiVg1XYI9xum6QQ==",
+        "resolved": "10.0.0",
+        "contentHash": "f0RBabswJq+gRu5a+hWIobrLWiUYPKMhCD9WO3sYBAdSy3FFH14LMvLVFZc2kPSCimBLxSuitUhsd6tb0TAY6A==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.8"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
         }
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
-        "resolved": "9.0.8",
-        "contentHash": "xY3lTjj4+ZYmiKIkyWitddrp1uL5uYiweQjqo4BKBw01ZC4HhcfgLghDpPZcUlppgWAFqFy9SgkiYWOMx365pw=="
+        "resolved": "10.0.0",
+        "contentHash": "L3AdmZ1WOK4XXT5YFPEwyt0ep6l8lGIPs7F5OOBZc77Zqeo01Of7XXICy47628sdVl0v/owxYJTe86DTgFwKCA=="
       },
       "Microsoft.Extensions.DependencyModel": {
         "type": "Transitive",
-        "resolved": "8.0.2",
-        "contentHash": "mUBDZZRgZrSyFOsJ2qJJ9fXfqd/kXJwf3AiDoqLD9m6TjY5OO/vLNOb9fb4juC0487eq4hcGN/M2Rh/CKS7QYw=="
+        "resolved": "10.0.0",
+        "contentHash": "RFYJR7APio/BiqdQunRq6DB+nDB6nc2qhHr77mlvZ0q0BT8PubMXN7XicmfzCbrDE/dzhBnUKBRXLTcqUiZDGg=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Transitive",
-        "resolved": "9.0.8",
-        "contentHash": "pYnAffJL7ARD/HCnnPvnFKSIHnTSmWz84WIlT9tPeQ4lHNiu0Az7N/8itihWvcF8sT+VVD5lq8V+ckMzu4SbOw==",
+        "resolved": "10.0.0",
+        "contentHash": "FU/IfjDfwaMuKr414SSQNTIti/69bHEMb+QKrskRb26oVqpx3lNFXMjs/RC9ZUuhBhcwDM2BwOgoMw+PZ+beqQ==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.8"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
         }
       },
       "Microsoft.Extensions.Options": {
         "type": "Transitive",
-        "resolved": "9.0.8",
-        "contentHash": "OmTaQ0v4gxGQkehpwWIqPoEiwsPuG/u4HUsbOFoWGx4DKET2AXzopnFe/fE608FIhzc/kcg2p8JdyMRCCUzitQ==",
+        "resolved": "10.0.0",
+        "contentHash": "8oCAgXOow5XDrY9HaXX1QmH3ORsyZO/ANVHBlhLyCeWTH5Sg4UuqZeOTWJi6484M+LqSx0RqQXDJtdYy2BNiLQ==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.8",
-          "Microsoft.Extensions.Primitives": "9.0.8"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Primitives": "10.0.0"
         }
       },
       "Microsoft.Extensions.Primitives": {
         "type": "Transitive",
-        "resolved": "9.0.8",
-        "contentHash": "tizSIOEsIgSNSSh+hKeUVPK7xmTIjR8s+mJWOu1KXV3htvNQiPMFRMO17OdI1y/4ZApdBVk49u/08QGC9yvLug=="
+        "resolved": "10.0.0",
+        "contentHash": "inRnbpCS0nwO/RuoZIAqxQUuyjaknOOnCEZB55KSMMjRhl0RQDttSmLSGsUJN3RQ3ocf5NDLFd2mOQViHqMK5w=="
       },
       "Nito.AsyncEx": {
         "type": "Transitive",
@@ -174,18 +163,23 @@
       },
       "SixLabors.ImageSharp": {
         "type": "Transitive",
-        "resolved": "3.1.11",
-        "contentHash": "JfPLyigLthuE50yi6tMt7Amrenr/fA31t2CvJyhy/kQmfulIBAqo5T/YFUSRHtuYPXRSaUHygFeh6Qd933EoSw=="
+        "resolved": "3.1.12",
+        "contentHash": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A=="
       },
       "System.Collections.Immutable": {
         "type": "Transitive",
         "resolved": "1.7.1",
         "contentHash": "B43Zsz5EfMwyEbnObwRxW5u85fzJma3lrDeGcSAV1qkhSRTNY5uXAByTn9h9ddNdhM+4/YoLc/CI43umjwIl9Q=="
       },
+      "System.Interactive.Async": {
+        "type": "Transitive",
+        "resolved": "7.0.0",
+        "contentHash": "Ckj+tg2BVOZ0oLp7FAbjfvRyA/BMkUhVxROLd+x22zncRR6KD7CdFzAYp+9Mo2cedxAMo2X9ZNyhZu68jdDITw=="
+      },
       "System.Reactive": {
         "type": "Transitive",
-        "resolved": "6.0.2",
-        "contentHash": "jEK6E66wojW/dPPnLyOHuAQwa7WKvXwPd5vXcMNNi1igvFyzHQVRNlpmnBb3I1URBsK5PGJcJYRykERZJr0l4g=="
+        "resolved": "6.1.0",
+        "contentHash": "M5cCC1ZMkZr9jbSQGTHnVkb5TDN67qWCV7AP8TAHdGkvDlu0puT5NzemESNn9+HkYIDpWpocP68/i+/ame2/2w=="
       },
       "System.Threading.Tasks.Extensions": {
         "type": "Transitive",
@@ -198,45 +192,35 @@
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Cache.Extensions": "[1.0.0, )",
           "Hagalaz.Security": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.8, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[9.0.8, )",
-          "Microsoft.Extensions.Options": "[9.0.8, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.0, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.0, )",
+          "Microsoft.Extensions.Options": "[10.0.0, )",
           "SharpZipLib": "[1.4.2, )",
-          "SixLabors.ImageSharp": "[3.1.11, )",
-          "coverlet.collector": "[6.0.0, )"
+          "SixLabors.ImageSharp": "[3.1.12, )"
         }
       },
       "hagalaz.cache.abstractions": {
         "type": "Project",
         "dependencies": {
-          "SixLabors.ImageSharp": "[3.1.11, )",
-          "coverlet.collector": "[6.0.0, )"
+          "SixLabors.ImageSharp": "[3.1.12, )"
         }
       },
       "hagalaz.cache.extensions": {
         "type": "Project",
         "dependencies": {
-          "Hagalaz.Cache.Abstractions": "[1.0.0, )",
-          "coverlet.collector": "[6.0.0, )"
+          "Hagalaz.Cache.Abstractions": "[1.0.0, )"
         }
       },
       "hagalaz.collections.extensions": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       },
       "hagalaz.configuration": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       },
       "hagalaz.dependencyinjection.extensions": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.8, )",
-          "coverlet.collector": "[6.0.0, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.0, )"
         }
       },
       "hagalaz.game": {
@@ -244,36 +228,30 @@
         "dependencies": {
           "Hagalaz.DependencyInjection.Extensions": "[1.0.0, )",
           "Hagalaz.Game.Abstractions": "[1.0.0, )",
-          "Microsoft.Extensions.Options": "[9.0.8, )",
+          "Microsoft.Extensions.Options": "[10.0.0, )",
           "Nito.AsyncEx": "[5.1.2, )",
-          "QuadTrees.Core": "[1.0.0, )",
-          "coverlet.collector": "[6.0.0, )"
+          "QuadTrees.Core": "[1.0.0, )"
         }
       },
       "hagalaz.game.abstractions": {
         "type": "Project",
         "dependencies": {
-          "FluentResults": "[3.15.2, )",
+          "FluentResults": "[4.0.0, )",
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Utilities": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection": "[9.0.8, )",
-          "Raido.Common": "[1.0.0, )",
-          "coverlet.collector": "[6.0.0, )"
+          "Microsoft.Extensions.DependencyInjection": "[10.0.0, )",
+          "Raido.Common": "[1.0.0, )"
         }
       },
       "hagalaz.game.common": {
         "type": "Project",
         "dependencies": {
           "Hagalaz.DependencyInjection.Extensions": "[1.0.0, )",
-          "Hagalaz.Game.Abstractions": "[1.0.0, )",
-          "coverlet.collector": "[6.0.0, )"
+          "Hagalaz.Game.Abstractions": "[1.0.0, )"
         }
       },
       "hagalaz.game.configuration": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       },
       "hagalaz.game.extensions": {
         "type": "Project",
@@ -281,50 +259,33 @@
           "Hagalaz.Configuration": "[1.0.0, )",
           "Hagalaz.Game.Abstractions": "[1.0.0, )",
           "Hagalaz.Game.Utilities": "[1.0.0, )",
-          "System.Reactive": "[6.0.2, )",
-          "coverlet.collector": "[6.0.0, )"
+          "System.Reactive": "[6.1.0, )"
         }
       },
       "hagalaz.game.features": {
         "type": "Project",
         "dependencies": {
           "Hagalaz.Game.Abstractions": "[1.0.0, )",
-          "Hagalaz.Utilities": "[1.0.0, )",
-          "coverlet.collector": "[6.0.0, )"
+          "Hagalaz.Utilities": "[1.0.0, )"
         }
       },
       "hagalaz.game.resources": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       },
       "hagalaz.game.utilities": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       },
       "hagalaz.security": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       },
       "hagalaz.utilities": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       },
       "raido.common": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       }
     },
-    "net9.0/linux-x64": {},
-    "net9.0/win-x64": {}
+    "net10.0/linux-x64": {},
+    "net10.0/win-x64": {}
   }
 }

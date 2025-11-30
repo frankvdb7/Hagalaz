@@ -6,7 +6,7 @@ This document provides guidance for AI agents working on the Hagalaz codebase.
 
 Hagalaz is a modern, open-source recreation of a classic MMORPG. It features a microservices architecture for the backend and an Angular/Electron application for the frontend.
 
-- **Backend**: .NET 9 with ASP.NET Core and .NET Aspire for orchestration. The backend is composed of multiple microservices, as can be seen in the `Hagalaz.sln` solution file.
+- **Backend**: .NET 10 with ASP.NET Core and .NET Aspire for orchestration. The backend is composed of multiple microservices, as can be seen in the `Hagalaz.sln` solution file.
 - **Frontend**: Angular with Angular Material and Tailwind CSS. The frontend is located in the `Hagalaz.Web.App` directory and is also an Electron application.
 - **Database**: The `README.md` mentions MySQL. It is safe to assume a SQL database is used with Entity Framework.
 - **Infrastructure**: The project uses Docker for containerization, RabbitMQ for messaging, and Redis for caching.
@@ -41,9 +41,11 @@ The frontend is an Angular application. To run the frontend:
     pnpm install
     ```
 3.  Start the development server:
+
     ```bash
     pnpm start
     ```
+
     This will run the web application, which can be accessed in a browser.
 
 4.  To run the Electron application:
@@ -70,6 +72,7 @@ pnpm run build
 ```
 
 For a production build of the launcher, use:
+
 ```bash
 pnpm run launcher:build
 ```

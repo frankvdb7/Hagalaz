@@ -1,50 +1,44 @@
 {
   "version": 1,
   "dependencies": {
-    "net9.0": {
-      "coverlet.collector": {
-        "type": "Direct",
-        "requested": "[6.0.0, )",
-        "resolved": "6.0.0",
-        "contentHash": "tW3lsNS+dAEII6YGUX/VMoJjBS1QvsxqJeqLaJXub08y1FSjasFPtQ4UBUsudE9PNrzLjooClMsPtY2cZLdXpQ=="
-      },
+    "net10.0": {
       "System.Reactive": {
         "type": "Direct",
-        "requested": "[6.0.2, )",
-        "resolved": "6.0.2",
-        "contentHash": "jEK6E66wojW/dPPnLyOHuAQwa7WKvXwPd5vXcMNNi1igvFyzHQVRNlpmnBb3I1URBsK5PGJcJYRykERZJr0l4g=="
+        "requested": "[6.1.0, )",
+        "resolved": "6.1.0",
+        "contentHash": "M5cCC1ZMkZr9jbSQGTHnVkb5TDN67qWCV7AP8TAHdGkvDlu0puT5NzemESNn9+HkYIDpWpocP68/i+/ame2/2w=="
       },
       "FluentResults": {
         "type": "Transitive",
-        "resolved": "3.15.2",
-        "contentHash": "yR3PD1SWKirYNpQ/t9TjJrsp1adazMmozLDPeamvSIljLAIjS0EQyyGvoupWsbZEryqW9SHbKXVL8YaJwURk8w==",
+        "resolved": "4.0.0",
+        "contentHash": "wKfdLvDnDVhXlSreU7u/NFNHH6EfoOhAloEID4ePAyk+ZliowKZJvX+aCL4hxhFc9Jj74t62amS4LyOYTjXGCg==",
         "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "6.0.1",
+          "Microsoft.Extensions.Logging.Abstractions": "2.1.1",
           "System.Threading.Tasks.Extensions": "4.5.4"
         }
       },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Transitive",
-        "resolved": "9.0.8",
-        "contentHash": "JJjI2Fa+QtZcUyuNjbKn04OjIUX5IgFGFu/Xc+qvzh1rXdZHLcnqqVXhR4093bGirTwacRlHiVg1XYI9xum6QQ==",
+        "resolved": "10.0.0",
+        "contentHash": "f0RBabswJq+gRu5a+hWIobrLWiUYPKMhCD9WO3sYBAdSy3FFH14LMvLVFZc2kPSCimBLxSuitUhsd6tb0TAY6A==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.8"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
         }
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
-        "resolved": "9.0.8",
-        "contentHash": "xY3lTjj4+ZYmiKIkyWitddrp1uL5uYiweQjqo4BKBw01ZC4HhcfgLghDpPZcUlppgWAFqFy9SgkiYWOMx365pw=="
+        "resolved": "10.0.0",
+        "contentHash": "L3AdmZ1WOK4XXT5YFPEwyt0ep6l8lGIPs7F5OOBZc77Zqeo01Of7XXICy47628sdVl0v/owxYJTe86DTgFwKCA=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Transitive",
-        "resolved": "6.0.1",
-        "contentHash": "dzB2Cgg+JmrouhjkcQGzSFjjvpwlq353i8oBQO2GWNjCXSzhbtBRUf28HSauWe7eib3wYOdb3tItdjRwAdwCSg=="
+        "resolved": "2.1.1",
+        "contentHash": "XRzK7ZF+O6FzdfWrlFTi1Rgj2080ZDsd46vzOjadHUB0Cz5kOvDG8vI7caa5YFrsHQpcfn0DxtjS4E46N4FZsA=="
       },
       "SixLabors.ImageSharp": {
         "type": "Transitive",
-        "resolved": "3.1.11",
-        "contentHash": "JfPLyigLthuE50yi6tMt7Amrenr/fA31t2CvJyhy/kQmfulIBAqo5T/YFUSRHtuYPXRSaUHygFeh6Qd933EoSw=="
+        "resolved": "3.1.12",
+        "contentHash": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A=="
       },
       "System.Threading.Tasks.Extensions": {
         "type": "Transitive",
@@ -54,44 +48,30 @@
       "hagalaz.cache.abstractions": {
         "type": "Project",
         "dependencies": {
-          "SixLabors.ImageSharp": "[3.1.11, )",
-          "coverlet.collector": "[6.0.0, )"
+          "SixLabors.ImageSharp": "[3.1.12, )"
         }
       },
       "hagalaz.configuration": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       },
       "hagalaz.game.abstractions": {
         "type": "Project",
         "dependencies": {
-          "FluentResults": "[3.15.2, )",
+          "FluentResults": "[4.0.0, )",
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Utilities": "[1.0.0, )",
-          "Microsoft.Extensions.DependencyInjection": "[9.0.8, )",
-          "Raido.Common": "[1.0.0, )",
-          "coverlet.collector": "[6.0.0, )"
+          "Microsoft.Extensions.DependencyInjection": "[10.0.0, )",
+          "Raido.Common": "[1.0.0, )"
         }
       },
       "hagalaz.game.utilities": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       },
       "hagalaz.utilities": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       },
       "raido.common": {
-        "type": "Project",
-        "dependencies": {
-          "coverlet.collector": "[6.0.0, )"
-        }
+        "type": "Project"
       }
     }
   }

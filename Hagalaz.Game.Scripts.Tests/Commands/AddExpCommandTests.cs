@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             characterMock.Statistics.Returns(statisticsMock);
 
             var command = new AddExpCommand();
-            var args = new GameCommandArgs(characterMock, new[] { "1", "100.5" });
+            var args = new GameCommandArgs(characterMock, ["1", "100.5"]);
 
             // Act
             await command.Execute(args);

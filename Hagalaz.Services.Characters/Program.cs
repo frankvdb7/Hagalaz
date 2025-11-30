@@ -82,7 +82,7 @@ namespace Hagalaz.Services.Characters
                 c.AddConsumer<GetAllCharacterStatisticsQueryConsumer>();
             });
 
-            builder.Services.AddAutoMapper(typeof(Program));
+            builder.Services.AddAutoMapper(_ => { }, typeof(Program));
 
             var app = builder.Build();
 

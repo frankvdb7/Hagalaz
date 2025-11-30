@@ -8,6 +8,7 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Services.GameWorld.Model.Items;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests
@@ -21,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var regionService = Substitute.For<IMapRegionService>();
             var gameObjectBuilder = Substitute.For<IGameObjectBuilder>();
             var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks);
-            var mapper = new MapperConfiguration(cfg => { }).CreateMapper();
+            var mapper = new MapperConfiguration(cfg => { }, LoggerFactory.Create(_ => { })).CreateMapper();
             var location = Location.Create(0, 0);
             return new MapRegion(
                 location,

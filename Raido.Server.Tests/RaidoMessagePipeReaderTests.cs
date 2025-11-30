@@ -15,14 +15,14 @@ namespace Raido.Server.Tests
         public void Constructor_NullReader_ThrowsArgumentNullException()
         {
             // Assert
-            Assert.ThrowsException<ArgumentNullException>(() => new RaidoMessagePipeReader(null, Substitute.For<IRaidoMessageReader<ReadOnlySequence<byte>>>()));
+            Assert.ThrowsExactly<ArgumentNullException>(() => new RaidoMessagePipeReader(null, Substitute.For<IRaidoMessageReader<ReadOnlySequence<byte>>>()));
         }
 
         [TestMethod]
         public void Constructor_NullMessageReader_ThrowsArgumentNullException()
         {
             // Assert
-            Assert.ThrowsException<ArgumentNullException>(() => new RaidoMessagePipeReader(Substitute.For<PipeReader>(), null));
+            Assert.ThrowsExactly<ArgumentNullException>(() => new RaidoMessagePipeReader(Substitute.For<PipeReader>(), null));
         }
 
         [TestMethod]
@@ -52,7 +52,7 @@ namespace Raido.Server.Tests
             var pipeReader = Substitute.For<PipeReader>();
             var messageReader = Substitute.For<IRaidoMessageReader<ReadOnlySequence<byte>>>();
             var reader = new RaidoMessagePipeReader(pipeReader, messageReader);
-            var buffer = new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 });
+            var buffer = new ReadOnlySequence<byte>([1, 2, 3]);
             var readResult = new ReadResult(buffer, false, false);
             pipeReader.TryRead(out Arg.Any<ReadResult>()).Returns(x => { x[0] = readResult; return true; });
             messageReader.TryParseMessage(Arg.Any<ReadOnlySequence<byte>>(), ref Arg.Any<SequencePosition>(), ref Arg.Any<SequencePosition>(), out Arg.Any<ReadOnlySequence<byte>>()).Returns(false);

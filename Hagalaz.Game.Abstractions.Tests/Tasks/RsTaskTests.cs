@@ -129,7 +129,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
             var task = new TestableRsTask(() => throw exception, 1);
 
             // Act & Assert
-            var thrownException = Assert.ThrowsException<InvalidOperationException>(() => task.Tick());
+            var thrownException = Assert.ThrowsExactly<InvalidOperationException>(() => task.Tick());
             Assert.IsTrue(task.IsFaulted);
             Assert.IsFalse(task.IsCompleted);
             Assert.AreSame(exception, thrownException);

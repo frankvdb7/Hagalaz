@@ -9,7 +9,7 @@ namespace Hagalaz.Game.Extensions.Tests
     [TestClass]
     public class ShapeTypeExtensionsTests
     {
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(ShapeType.Wall, LayerType.Walls)]
         [DataRow(ShapeType.WallCornerDiagonal, LayerType.Walls)]
         [DataRow(ShapeType.UnfinishedWall, LayerType.Walls)]
@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Extensions.Tests
         public void GetLayerType_WithInvalidShape_ThrowsNotImplementedException()
         {
             var invalidShapeType = Enum.GetValues(typeof(ShapeType)).Cast<ShapeType>().Max() + 1;
-            Assert.ThrowsException<NotImplementedException>(() => invalidShapeType.GetLayerType());
+            Assert.ThrowsExactly<NotImplementedException>(() => invalidShapeType.GetLayerType());
         }
     }
 }

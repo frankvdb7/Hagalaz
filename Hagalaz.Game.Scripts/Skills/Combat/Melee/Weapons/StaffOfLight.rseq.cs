@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             character.QueueAnimation(Animation.Create(12804));
             character.QueueGraphic(Graphic.Create(2319)); // 2320
             character.QueueGraphic(Graphic.Create(2321));
-            character.AddState(new StaffOfLightSpecialEffectStateWithCallback { TicksLeft = 100, OnRemovedCallback = () => { character.SendChatMessage("The power of the light fades. Your resistance to melee attacks returns to normal."); } });
+            character.AddState(new StaffOfLightSpecialEffectState { TicksLeft = 100, OnRemovedCallback = () => { character.SendChatMessage("The power of the light fades. Your resistance to melee attacks returns to normal."); } });
             character.SendChatMessage("The power of the light courses through your veins...");
             return false;
         }

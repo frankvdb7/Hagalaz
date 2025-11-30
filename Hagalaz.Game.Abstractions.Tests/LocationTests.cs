@@ -261,7 +261,7 @@ public class LocationTests
         Assert.AreEqual(20, location[1]);
         Assert.AreEqual(5, location[2]);
         Assert.AreEqual(1, location[3]);
-        Assert.ThrowsException<IndexOutOfRangeException>(() => location[4]);
+        Assert.ThrowsExactly<IndexOutOfRangeException>(() => location[4]);
     }
 
     [TestMethod]
