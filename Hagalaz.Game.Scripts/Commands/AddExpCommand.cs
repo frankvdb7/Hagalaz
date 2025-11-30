@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model;
@@ -14,7 +15,7 @@ namespace Hagalaz.Game.Scripts.Commands
         {
             if (args.Arguments.Length >= 2
                 && byte.TryParse(args.Arguments[0], out var skillId)
-                && double.TryParse(args.Arguments[1], out var exp))
+                && double.TryParse(args.Arguments[1], NumberStyles.Any, CultureInfo.InvariantCulture, out var exp))
             {
                 try
                 {

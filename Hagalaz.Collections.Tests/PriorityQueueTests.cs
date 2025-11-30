@@ -91,28 +91,25 @@ namespace Hagalaz.Collections.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Remove_NonExistentItem_ShouldThrowException()
         {
             var queue = new PriorityQueue<string, int>();
             queue.Enqueue("one", 1);
-            queue.Remove("two");
+            Assert.ThrowsExactly<InvalidOperationException>(() => queue.Remove("two"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Dequeue_FromEmptyQueue_ShouldThrowException()
         {
             var queue = new PriorityQueue<string, int>();
-            queue.Dequeue();
+            Assert.ThrowsExactly<InvalidOperationException>(() => queue.Dequeue());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void First_FromEmptyQueue_ShouldThrowException()
         {
             var queue = new PriorityQueue<string, int>();
-            var _ = queue.First;
+            Assert.ThrowsExactly<InvalidOperationException>(() => queue.First);
         }
     }
 }

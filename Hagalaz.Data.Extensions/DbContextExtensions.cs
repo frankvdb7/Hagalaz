@@ -38,8 +38,7 @@ namespace Hagalaz.Data.Extensions
                     var extension = options.Options.FindExtension<MySqlOptionsExtension>();
                     if (extension != null)
                     {
-                        ((IDbContextOptionsBuilderInfrastructure)options).AddOrUpdateExtension(extension.WithPrimitiveCollectionsSupport(enable: true)
-                            .WithParameterizedCollectionTranslationMode(ParameterizedCollectionTranslationMode.Constantize));
+                        ((IDbContextOptionsBuilderInfrastructure)options).AddOrUpdateExtension(extension.WithPrimitiveCollectionsSupport(enable: true));
                     }
 
                     options.UseLazyLoadingProxies();

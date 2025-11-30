@@ -14,16 +14,16 @@
 
   <ItemGroup>
     <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
-    <PackageReference Include="Aspire.Dashboard.Sdk.linux-x64" Version="9.4.2" />
-    <PackageReference Include="Aspire.Hosting.Orchestration.linux-x64" Version="9.4.2" />
+    <PackageReference Include="Aspire.Dashboard.Sdk.linux-x64" Version="13.0.1" />
+    <PackageReference Include="Aspire.Hosting.Orchestration.linux-x64" Version="13.0.1" />
     <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
     
-    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.4.2" />
-    <PackageReference Include="Aspire.Hosting.MySql" Version="9.4.2" />
-    <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.4.2" />
-    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="9.4.2" />
-    <PackageReference Include="Aspire.Hosting.Redis" Version="9.4.2" />
-    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="9.5.2" />
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="13.0.1" />
+    <PackageReference Include="Aspire.Hosting.MySql" Version="13.0.1" />
+    <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="13.0.1" />
+    <PackageReference Include="Aspire.Hosting.Redis" Version="13.0.1" />
+    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="13.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.8" />
     <PackageReference Include="MySqlConnector" Version="2.5.0" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />

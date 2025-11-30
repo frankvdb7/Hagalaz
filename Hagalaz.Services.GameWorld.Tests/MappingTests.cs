@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {
@@ -8,7 +9,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public void AutoMapper_Configuration_IsValid()
         {
-            var config = new MapperConfiguration(action => action.AddMaps(typeof(Startup)));
+            var config = new MapperConfiguration(action => action.AddMaps(typeof(Program)), LoggerFactory.Create(_ => { }));
             config.AssertConfigurationIsValid();
         }
     }

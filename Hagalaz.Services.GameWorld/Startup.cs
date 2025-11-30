@@ -721,7 +721,7 @@ namespace Hagalaz.Services.GameWorld
                         });
                 });
 
-            services.AddAutoMapper(typeof(Startup));
+            services.AddAutoMapper(_ => { },typeof(Startup));
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IMapper mapper)

@@ -25,8 +25,8 @@ namespace Raido.Server.Tests
 
             // Assert
             Assert.IsTrue(hub.DisposedCalled);
-            Assert.ThrowsException<ObjectDisposedException>(() => hub.Clients);
-            Assert.ThrowsException<ObjectDisposedException>(() => hub.Context);
+            Assert.ThrowsExactly<ObjectDisposedException>(() => hub.Clients);
+            Assert.ThrowsExactly<ObjectDisposedException>(() => hub.Context);
         }
     }
 }

@@ -50,7 +50,7 @@ namespace Hagalaz.Services.GameLogon
 
             var connectionString = "";
             
-            services.AddAutoMapper(typeof(Startup));
+            services.AddAutoMapper(_ => { },typeof(Startup));
 
             // rabbitmq
             services.AddAuthorization();
