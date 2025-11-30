@@ -11,13 +11,15 @@ Hagalaz means "hail" in Proto-Germanic and represents natural disruption and tra
 This repository is a comprehensive application built using modern development technologies and best practices. It leverages a powerful stack to deliver a robust and scalable platform.
 
 ### Core Technologies
-- **Backend**: .NET 9, C#, ASP.NET Core
+
+- **Backend**: .NET 10, C#, ASP.NET Core
 - **Frontend**: Angular, Electron
 - **Orchestration**: .NET Aspire
 - **Infrastructure**: Docker, MySQL, RabbitMQ, Redis
 - **Communication**: REST APIs, gRPC, WebSockets
 
 ### Key Libraries & Standards
+
 - **Messaging**: MassTransit for reliable, asynchronous communication.
 - **Authentication**: OpenIddict implementing OAuth2 and OpenID Connect.
 - **Resilience**: Polly for transient-fault handling and resilience patterns.
@@ -34,12 +36,14 @@ The solution is organized into a microservice architecture, with clear separatio
 - **`Hagalaz.ApiService`**: The public-facing API gateway. It acts as a reverse proxy (YARP) and the primary entry point for the Angular client, routing requests to the appropriate backend services and handling cross-cutting concerns like authentication.
 
 - **`Services/`**: This directory contains the individual microservices that make up the application's backend logic.
+
   - **`Hagalaz.Services.GameWorld`**: Manages core gameplay logic, character state, and interactions within the game world.
   - **`Hagalaz.Services.Login`**: Handles the player login and character selection process.
   - **`Hagalaz.Services.Store`**: (Example) Manages in-game shops or other transactional features.
-  - *(Other services follow this pattern)*
+  - _(Other services follow this pattern)_
 
 - **`Libraries/`**: Contains shared libraries and abstractions used across multiple services to reduce code duplication and enforce consistency.
+
   - **`Hagalaz.Game.Abstractions`**: The foundational project for the game's domain model. It defines the core interfaces (`ICharacter`, `IItem`), enums, and data structures that represent all entities and concepts within the game world.
   - **`Hagalaz.Cache`**: A dedicated library for reading and parsing the game's data cache files.
   - **`Hagalaz.Network.Common`**: Provides common networking utilities, including packet composition and read/write operations.
@@ -50,7 +54,8 @@ The solution is organized into a microservice architecture, with clear separatio
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
-- **[.NET 9 SDK](https://dotnet.microsoft.com/download)**
+
+- **[.NET 10 SDK](https://dotnet.microsoft.com/download)**
 - **[.NET Aspire Workload](https://learn.microsoft.com/en-us/dotnet/aspire/get-started/build-your-first-aspire-app#install-the-net-aspire-workload)**
 - **[Docker Desktop](https://www.docker.com/products/docker-desktop/)**
 - A compatible game client and its corresponding data cache. The cache files should be placed in a `/Cache` directory at the root of the solution.
@@ -58,15 +63,18 @@ Before you begin, ensure you have the following installed:
 ## Getting Started
 
 ### 1. Running the Application
+
 The easiest way to get the entire application running is by using the .NET Aspire AppHost project.
 
 1.  **Clone the repository:**
+
     ```bash
     git clone https://github.com/your-username/hagalaz.git
     cd hagalaz
     ```
 
 2.  **Run the AppHost:**
+
     ```bash
     dotnet run --project Hagalaz.AppHost/Hagalaz.AppHost.csproj
     ```
@@ -75,10 +83,13 @@ The easiest way to get the entire application running is by using the .NET Aspir
     Once the project is running, .NET Aspire will start all the configured services, databases, and containers. You can view the status, logs, and traces of all resources in the Aspire Dashboard, which typically launches automatically in your web browser.
 
 ### 2. Configuration
+
 Most of the service discovery and configuration is handled automatically by .NET Aspire. However, service-specific settings can be found and modified in the `appsettings.json` file of each individual service project (e.g., `Hagalaz.Services.GameWorld/appsettings.json`).
 
 ### 3. Development Workflow
+
 A typical workflow for adding a new feature might look like this:
+
 1.  **Define Contracts**: Add or update interfaces and models in `Hagalaz.Game.Abstractions`.
 2.  **Implement Service Logic**: Implement the new business logic within the relevant microservice in the `Services/` directory.
 3.  **Add API Endpoints**: Expose the new functionality via an API endpoint in the service.
