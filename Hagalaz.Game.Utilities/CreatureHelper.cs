@@ -32,6 +32,6 @@ namespace Hagalaz.Game.Utilities
         /// </summary>
         /// <param name="clientTicks">The client ticks.</param>
         /// <returns>System.Int32.</returns>
-        public static int CalculateTicksForClientTicks(int clientTicks) => (clientTicks * 20 + 599) / 600;
+        public static int CalculateTicksForClientTicks(int clientTicks) => (int)((clientTicks * 20L + 599) / 600);
     }
 }
