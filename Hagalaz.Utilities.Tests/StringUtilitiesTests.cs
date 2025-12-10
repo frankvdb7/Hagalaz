@@ -444,5 +444,19 @@ using System.Threading;
             // Assert
             Assert.AreEqual(0, actual.Length);
         }
+
+        [TestMethod]
+        public void DecodeValues_MalformedString_DoesNotThrowException()
+        {
+            // Arrange
+            var data = "1,bar,0";
+            var expected = new bool[] { true, false, false };
+
+            // Act
+            var actual = StringUtilities.DecodeValues(data);
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
     }
 }

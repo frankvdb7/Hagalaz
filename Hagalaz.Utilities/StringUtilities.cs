@@ -197,7 +197,10 @@ namespace Hagalaz.Utilities
             var split = data.Split(',');
             var values = new bool[split.Length];
             for (int i = 0; i < split.Length; i++)
-                values[i] = int.Parse(split[i], NumberStyles.Any, CultureInfo.InvariantCulture) == 1;
+            {
+                int.TryParse(split[i], NumberStyles.Any, CultureInfo.InvariantCulture, out int result);
+                values[i] = result == 1;
+            }
             return values;
         }
 
