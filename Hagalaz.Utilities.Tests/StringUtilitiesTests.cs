@@ -132,6 +132,7 @@ using System.Threading;
         [DataRow("name ", false)]
         [DataRow("some--name", false)]
         [DataRow("some  name", false)]
+        [DataRow(null, false)]
         public void IsValidName_ValidatesCorrectly(string name, bool expected)
         {
             // Arrange
