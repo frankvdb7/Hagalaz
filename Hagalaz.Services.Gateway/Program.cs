@@ -20,6 +20,13 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    await next();
+});
+
 // Configure the HTTP request pipeline.
 app.UseHttpsRedirection();
 app.MapReverseProxy();
