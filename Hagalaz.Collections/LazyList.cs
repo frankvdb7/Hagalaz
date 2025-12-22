@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using JetBrains.Annotations;
 
 namespace Hagalaz.Collections
@@ -37,6 +36,7 @@ namespace Hagalaz.Collections
         private readonly IList<T> _cache;
         private IEnumerator<T> _sourceEnumerator;
         private bool _allElementsAreCached;
+        private readonly object _lock = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="LazyList{T}"/> class with the specified source sequence.
@@ -115,7 +115,6 @@ namespace Hagalaz.Collections
         private class LazyListEnumerator : IEnumerator<T>
         {
             private readonly LazyList<T> _lazyList;
-            private readonly Lock _lock = new();
             private const int _startIndex = -1;
             private int _index = _startIndex;
 
@@ -139,7 +138,7 @@ namespace Hagalaz.Collections
                 }
                 else
                 {
-                    lock (_lock)
+                    lock (_lazyList._lock)
                     {
                         if (IndexItemIsInCache)
                         {
