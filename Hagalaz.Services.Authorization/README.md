@@ -6,7 +6,7 @@ This service handles user authentication and authorization for the Hagalaz platf
 
 ### Captcha Secrets (Development)
 
-For local development, the Captcha secrets (`SiteKey` and `Secret`) must be configured using the .NET user secrets manager. This prevents sensitive information from being checked into source control. The non-secret `ApiBaseUrl` is already configured in `appsettings.json`.
+For local development, the Captcha secrets (`SiteKey` and `Secret`) are included in `appsettings.json` as empty strings. These are placeholders and **must** be overridden using the .NET user secrets manager to provide actual values. This prevents sensitive information from being checked into source control.
 
 1.  **Initialize User Secrets:**
     Open a terminal in the `Hagalaz.Services.Authorization` directory and run the following command:
@@ -15,7 +15,7 @@ For local development, the Captcha secrets (`SiteKey` and `Secret`) must be conf
     ```
 
 2.  **Set Captcha Secrets:**
-    Use the following commands to set the required captcha secrets. Replace the placeholder values with your actual development keys.
+    Use the following commands to set the required captcha secrets, which will override the empty values in `appsettings.json`. Replace the placeholder values with your actual development keys.
 
     ```bash
     dotnet user-secrets set "Captcha:SiteKey" "your-development-site-key"
