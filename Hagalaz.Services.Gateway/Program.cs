@@ -43,7 +43,7 @@ if (app.Environment.IsDevelopment())
 } 
 else
 {
-    app.UseHsts();
+    app.UseHsts(options => options.IncludeSubDomains = true);
     app.UseResponseCaching();
     app.UseResponseCompression();
 }
