@@ -43,7 +43,12 @@ if (app.Environment.IsDevelopment())
 } 
 else
 {
-    app.UseHsts();
+    app.UseHsts(hsts =>
+    {
+        hsts.Preload = true;
+        hsts.IncludeSubDomains = true;
+        hsts.MaxAge = TimeSpan.FromDays(365);
+    });
     app.UseResponseCaching();
     app.UseResponseCompression();
 }
