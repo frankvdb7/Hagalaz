@@ -15,10 +15,6 @@ builder.Services
 
 builder.Services.AddResponseCaching();
 builder.Services.AddResponseCompression();
-builder.Services.AddHsts(options =>
-{
-    options.IncludeSubDomains = true;
-});
 
 var app = builder.Build();
 
@@ -47,7 +43,11 @@ if (app.Environment.IsDevelopment())
 } 
 else
 {
-    app.UseHsts();
+    app.Use(async (context, next) =>
+    {
+        context.Response.Headers.Append("Strict-Transport-Security", "max-age=2592000; includeSubDomains");
+        await next();
+    });
     app.UseResponseCaching();
     app.UseResponseCompression();
 }
