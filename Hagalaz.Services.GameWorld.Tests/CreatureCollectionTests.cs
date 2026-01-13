@@ -23,7 +23,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var collection = new CreatureCollection<CreatureMock>(2000);
             Assert.AreEqual(2000, collection.Capacity);
             Assert.AreEqual(0, collection.Count);
-            Assert.AreEqual(collection[1000], null);
+            Assert.AreEqual(null, collection[1000]);
         }
 
         [TestMethod]
@@ -72,7 +72,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             };
             Assert.AreEqual(1, collection.Count);
             Assert.AreEqual(creature, collection[1]);
-            Assert.AreEqual(creature.Index, 1);
+            Assert.AreEqual(1, creature.Index);
         }
 
         [TestMethod]
@@ -89,11 +89,11 @@ namespace Hagalaz.Services.GameWorld.Tests
             };
             Assert.AreEqual(3, collection.Count);
             Assert.AreEqual(creature1, collection[1]);
-            Assert.AreEqual(creature1.Index, 1);
+            Assert.AreEqual(1, creature1.Index);
             Assert.AreEqual(creature2, collection[2]);
-            Assert.AreEqual(creature2.Index, 2);
+            Assert.AreEqual(2, creature2.Index);
             Assert.AreEqual(creature3, collection[3]);
-            Assert.AreEqual(creature3.Index, 3);
+            Assert.AreEqual(3, creature3.Index);
         }
 
         [TestMethod]
