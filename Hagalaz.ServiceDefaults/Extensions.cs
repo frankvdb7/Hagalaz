@@ -175,7 +175,6 @@ public static class Extensions
             app.UseForwardedHeaders();
             app.UseHsts();
             app.UseCors();
-            app.AddSecurityHeaders();
         }
 
         app.UseAuthentication();
@@ -226,13 +225,4 @@ public static class Extensions
         var val = configuration.GetValue<string>($"services:{serviceName}:{key}:0");
         return val ?? configuration.GetValue<string>($"services:{serviceName}:{fallbackKey}:0");
     }
-
-    private static void AddSecurityHeaders(this IApplicationBuilder app) =>
-        app.Use(async (context, next) =>
-        {
-            context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-            context.Response.Headers["X-Frame-Options"] = "DENY";
-            context.Response.Headers["Referrer-Policy"] = "no-referrer";
-            await next();
-        });
 }
