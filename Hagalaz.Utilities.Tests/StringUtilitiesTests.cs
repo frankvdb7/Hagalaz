@@ -29,6 +29,20 @@ using System.Threading;
         }
 
         [TestMethod]
+        public void DecodeValues_MalformedString_ReturnsDefaultValueForInvalid()
+        {
+            // Arrange
+            var data = "1,abc,0";
+            var expected = new bool[] { true, false, false };
+
+            // Act
+            var actual = StringUtilities.DecodeValues(data);
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
         public void FormatNumber_WithGermanCulture_FormatsCorrectly()
         {
             // Arrange

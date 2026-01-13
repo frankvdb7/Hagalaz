@@ -197,7 +197,11 @@ namespace Hagalaz.Utilities
             var split = data.Split(',');
             var values = new bool[split.Length];
             for (int i = 0; i < split.Length; i++)
-                values[i] = int.Parse(split[i], NumberStyles.Any, CultureInfo.InvariantCulture) == 1;
+            {
+                // Use TryParse to gracefully handle invalid integer formats.
+                // If parsing fails, the result will be false, which is a safe default.
+                values[i] = int.TryParse(split[i], NumberStyles.Any, CultureInfo.InvariantCulture, out var parsedValue) && parsedValue == 1;
+            }
             return values;
         }
 
