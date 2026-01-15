@@ -174,7 +174,7 @@ namespace Hagalaz.Utilities
         /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
         public static T[] DecodeValues<T>(string data, ValueParser<T> parser, char separator = ',')
         {
-            if (string.IsNullOrEmpty(data))
+            if (string.IsNullOrWhiteSpace(data))
                 return [];
             var split = data.Split(separator);
             T[] values = new T[split.Length];
@@ -190,7 +190,7 @@ namespace Hagalaz.Utilities
         /// <returns>A boolean array representing the decoded data.</returns>
         public static bool[] DecodeValues(string data)
         {
-            if (string.IsNullOrEmpty(data))
+            if (string.IsNullOrWhiteSpace(data))
             {
                 return [];
             }

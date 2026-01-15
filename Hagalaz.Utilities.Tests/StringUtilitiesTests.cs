@@ -459,5 +459,31 @@ using System.Threading;
             // Assert
             Assert.AreEqual(0, actual.Length);
         }
+
+        [TestMethod]
+        public void DecodeValues_WhitespaceString_ReturnsEmptyIntArray()
+        {
+            // Arrange
+            var data = " ";
+
+            // Act
+            var actual = StringUtilities.DecodeValues(data, int.Parse);
+
+            // Assert
+            Assert.AreEqual(0, actual.Length);
+        }
+
+        [TestMethod]
+        public void DecodeValues_WhitespaceString_ReturnsEmptyBoolArray()
+        {
+            // Arrange
+            var data = " ";
+
+            // Act
+            var actual = StringUtilities.DecodeValues(data);
+
+            // Assert
+            Assert.AreEqual(0, actual.Length);
+        }
     }
 }
