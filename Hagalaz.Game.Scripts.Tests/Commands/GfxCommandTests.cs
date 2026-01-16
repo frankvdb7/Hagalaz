@@ -14,12 +14,12 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
     [TestClass]
     public class GfxCommandTests
     {
-        private Mock<IRegionUpdateBuilder> _regionUpdateBuilderMock;
-        private Mock<IRegionUpdateLocation> _regionUpdateLocationMock;
-        private Mock<IRegionUpdateOptional> _regionUpdateOptionalMock;
-        private Mock<IRegionUpdateBuild> _regionUpdateBuildMock;
-        private Mock<IRegionPartUpdate> _regionPartUpdateMock;
-        private GfxCommand _gfxCommand;
+        private Mock<IRegionUpdateBuilder> _regionUpdateBuilderMock = null!;
+        private Mock<IRegionUpdateLocation> _regionUpdateLocationMock = null!;
+        private Mock<IRegionUpdateOptional> _regionUpdateOptionalMock = null!;
+        private Mock<IRegionUpdateBuild> _regionUpdateBuildMock = null!;
+        private Mock<IRegionPartUpdate> _regionPartUpdateMock = null!;
+        private GfxCommand _gfxCommand = null!;
 
         [TestInitialize]
         public void Setup()

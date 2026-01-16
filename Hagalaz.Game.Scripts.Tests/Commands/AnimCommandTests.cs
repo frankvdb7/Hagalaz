@@ -12,11 +12,11 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
     [TestClass]
     public class AnimCommandTests
     {
-        private Mock<IAnimationBuilder> _animationBuilderMock;
-        private Mock<IAnimationId> _animationIdMock;
-        private Mock<IAnimationOptional> _animationOptionalMock;
-        private Mock<IAnimation> _animationMock;
-        private AnimCommand _animCommand;
+        private Mock<IAnimationBuilder> _animationBuilderMock = null!;
+        private Mock<IAnimationId> _animationIdMock = null!;
+        private Mock<IAnimationOptional> _animationOptionalMock = null!;
+        private Mock<IAnimation> _animationMock = null!;
+        private AnimCommand _animCommand = null!;
 
         [TestInitialize]
         public void Setup()
