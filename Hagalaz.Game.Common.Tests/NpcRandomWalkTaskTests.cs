@@ -17,14 +17,14 @@ namespace Hagalaz.Game.Common.Tests.Tasks
     [TestClass]
     public class NpcRandomWalkTaskTests
     {
-        private INpc _npc;
-        private ISimplePathFinder _pathFinder;
-        private IRandomProvider _randomProvider;
-        private IServiceProvider _serviceProvider;
-        private IPathFinderProvider _pathFinderProvider;
-        private ICreatureCombat _combat;
-        private IMovement _movement;
-        private IBounds _bounds;
+        private INpc _npc = null!;
+        private ISimplePathFinder _pathFinder = null!;
+        private IRandomProvider _randomProvider = null!;
+        private IServiceProvider _serviceProvider = null!;
+        private IPathFinderProvider _pathFinderProvider = null!;
+        private ICreatureCombat _combat = null!;
+        private IMovement _movement = null!;
+        private IBounds _bounds = null!;
 
         [TestInitialize]
         public void Initialize()
