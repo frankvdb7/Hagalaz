@@ -15,7 +15,9 @@ namespace Hagalaz.Game.Scripts.Commands
         {
             if (args.Arguments.Length >= 2
                 && byte.TryParse(args.Arguments[0], out var skillId)
-                && double.TryParse(args.Arguments[1], NumberStyles.Any, CultureInfo.InvariantCulture, out var exp))
+                && double.TryParse(args.Arguments[1], NumberStyles.Any, CultureInfo.InvariantCulture, out var exp)
+                && skillId >= 0
+                && skillId <= 24)
             {
                 try
                 {
