@@ -15,8 +15,8 @@ namespace Hagalaz.Game.Scripts.Commands
             if (args.Arguments.Length >= 2
                 && byte.TryParse(args.Arguments[0], out var skillId)
                 && byte.TryParse(args.Arguments[1], out var level)
-                && skillId >= 0
-                && skillId <= 24)
+                && skillId >= StatisticsConstants.MinimumSkillId
+                && skillId <= StatisticsConstants.Dungeoneering)
             {
                 args.Character.Statistics.SetSkillExperience(skillId, StatisticsHelpers.ExperienceForLevel(level));
             }
