@@ -118,6 +118,10 @@
         /// </summary>
         public const int Summoning = 23;
         /// <summary>
+        /// The minimum skill ID value.
+        /// </summary>
+        public const int MinimumSkillId = 0;
+        /// <summary>
         /// The skill ID for Dungeoneering.
         /// </summary>
         public const int Dungeoneering = 24;
