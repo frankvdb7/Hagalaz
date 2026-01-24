@@ -27,10 +27,6 @@
           "./src/testing/*"
         ]
       },
-      "lib": [
-        "es2022",
-        "dom"
-      ],
       "module": "es2022"
     },
     "angularCompilerOptions": {
