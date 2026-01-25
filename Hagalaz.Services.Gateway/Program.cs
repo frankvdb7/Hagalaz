@@ -3,6 +3,11 @@ using Yarp.ReverseProxy.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.AddServerHeader = false;
+});
+
 builder.AddDefaultHealthChecks().ConfigureOpenTelemetry();
 builder.Services.AddServiceDiscovery();
 builder.Configuration.AddEnvironmentVariables(EnvironmentVariables.Prefix);
