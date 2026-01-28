@@ -54,8 +54,11 @@ namespace Hagalaz.Utilities
         /// <returns><c>true</c> if the name is valid; otherwise, <c>false</c>.</returns>
         public static bool IsValidName(string name)
         {
-            if (string.IsNullOrEmpty(name) || name.Length < 1 || name.Length > 12)
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 12)
+            {
                 return false;
+            }
+
             return _validName.Match(name).Success;
         }
 
