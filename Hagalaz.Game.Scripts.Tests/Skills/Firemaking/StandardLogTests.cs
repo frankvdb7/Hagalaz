@@ -28,14 +28,14 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
     [TestClass]
     public class StandardLogTests
     {
-        private IFiremakingService _firemakingService;
-        private IFletchingSkillService _fletchingSkillService;
-        private IRsTaskService _taskService;
-        private IPathFinderProvider _pathFinderProvider;
-        private IGroundItemBuilder _groundItemBuilder;
-        private IGameObjectBuilder _gameObjectBuilder;
-        private IMapRegionService _mapRegionService;
-        private StandardLog _standardLog;
+        private IFiremakingService _firemakingService = null!;
+        private IFletchingSkillService _fletchingSkillService = null!;
+        private IRsTaskService _taskService = null!;
+        private IPathFinderProvider _pathFinderProvider = null!;
+        private IGroundItemBuilder _groundItemBuilder = null!;
+        private IGameObjectBuilder _gameObjectBuilder = null!;
+        private IMapRegionService _mapRegionService = null!;
+        private StandardLog _standardLog = null!;
 
         [TestInitialize]
         public void TestInitialize()
