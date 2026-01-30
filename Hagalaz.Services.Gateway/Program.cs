@@ -34,6 +34,8 @@ app.Use(async (context, next) =>
     context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
     context.Response.Headers.Append("Permissions-Policy", "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()");
     context.Response.Headers.Append("X-DNS-Prefetch-Control", "off");
+    context.Response.Headers.Append("X-Permitted-Cross-Domain-Policies", "none");
+    context.Response.Headers.Append("X-Download-Options", "noopen");
     await next();
 });
 
@@ -52,7 +54,7 @@ else
 {
     app.Use(async (context, next) =>
     {
-        context.Response.Headers.Append("Strict-Transport-Security", "max-age=2592000; includeSubDomains");
+        context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
         await next();
     });
     app.UseResponseCaching();
