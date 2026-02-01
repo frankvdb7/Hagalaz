@@ -434,6 +434,38 @@ using System.Threading;
         }
 
         [TestMethod]
+        public void GetStringInBetween_IncludeEnd_RemainderIsCorrect()
+        {
+            // Arrange
+            var source = "[World]!!!";
+            var expectedResult = "[World]";
+            var expectedRemainder = "!!!";
+
+            // Act
+            var result = StringUtilities.GetStringInBetween("[", "]", source, true, true);
+
+            // Assert
+            Assert.AreEqual(expectedResult, result[0], "Result part 0 is incorrect");
+            Assert.AreEqual(expectedRemainder, result[1], "Result part 1 (remainder) is incorrect");
+        }
+
+        [TestMethod]
+        public void GetStringInBetween_ExcludeEnd_RemainderIsCorrect()
+        {
+            // Arrange
+            var source = "[World]!!!";
+            var expectedResult = "[World";
+            var expectedRemainder = "!!!";
+
+            // Act
+            var result = StringUtilities.GetStringInBetween("[", "]", source, true, false);
+
+            // Assert
+            Assert.AreEqual(expectedResult, result[0], "Result part 0 is incorrect");
+            Assert.AreEqual(expectedRemainder, result[1], "Result part 1 (remainder) is incorrect");
+        }
+
+        [TestMethod]
         [DataRow(0, "0")]
         [DataRow(123, "123")]
         [DataRow(1234, "1,234")]

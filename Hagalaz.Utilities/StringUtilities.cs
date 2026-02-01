@@ -272,30 +272,32 @@ namespace Hagalaz.Utilities
         public static string[] GetStringInBetween(string strBegin, string strEnd, string strSource, bool includeBegin, bool includeEnd)
         {
             string[] result = ["", ""];
-            int iIndexOfBegin = strSource.IndexOf(strBegin, StringComparison.Ordinal);
-            if (iIndexOfBegin != -1)
+            int beginIndex = strSource.IndexOf(strBegin, StringComparison.Ordinal);
+            if (beginIndex != -1)
             {
-                // include the Begin string if desired
-                if (includeBegin)
-                    iIndexOfBegin -= strBegin.Length;
-                strSource = strSource.Substring(iIndexOfBegin
-                    + strBegin.Length);
-                int iEnd = strSource.IndexOf(strEnd, StringComparison.Ordinal);
-                if (iEnd != -1)
+                int substringStart = includeBegin ? beginIndex : beginIndex + strBegin.Length;
+                strSource = strSource.Substring(substringStart);
+
+                int endIndex = strSource.IndexOf(strEnd, StringComparison.Ordinal);
+                if (endIndex != -1)
                 {
-                    // include the End string if desired
-                    if (includeEnd)
-                        iEnd += strEnd.Length;
-                    result[0] = strSource.Substring(0, iEnd);
-                    // advance beyond this segment
-                    if (iEnd + strEnd.Length < strSource.Length)
-                        result[1] = strSource.Substring(iEnd
-                            + strEnd.Length);
+                    int result0Length = includeEnd ? endIndex + strEnd.Length : endIndex;
+                    result[0] = strSource.Substring(0, result0Length);
+
+                    // The remainder should start exactly after the end marker.
+                    int remainderStartIndex = endIndex + strEnd.Length;
+                    if (remainderStartIndex < strSource.Length)
+                    {
+                        result[1] = strSource.Substring(remainderStartIndex);
+                    }
                 }
             }
             else
+            {
                 // stay where we are
                 result[1] = strSource;
+            }
+
             return result;
         }
 
