@@ -9,6 +9,14 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 });
 
 builder.AddDefaultHealthChecks().ConfigureOpenTelemetry();
+
+builder.Services.AddHsts(options =>
+{
+    options.Preload = true;
+    options.IncludeSubDomains = true;
+    options.MaxAge = TimeSpan.FromDays(365);
+});
+
 builder.Services.AddServiceDiscovery();
 builder.Configuration.AddEnvironmentVariables(EnvironmentVariables.Prefix);
 
@@ -52,11 +60,7 @@ if (app.Environment.IsDevelopment())
 } 
 else
 {
-    app.Use(async (context, next) =>
-    {
-        context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-        await next();
-    });
+    app.UseHsts();
     app.UseResponseCaching();
     app.UseResponseCompression();
 }
