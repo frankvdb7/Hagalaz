@@ -12,7 +12,7 @@ namespace Hagalaz.Data.Users
 
         public PasswordVerificationResult VerifyHashedPassword(Character user, string hashedPassword, string providedPassword)
         {
-            if (string.IsNullOrWhiteSpace(hashedPassword))
+            if (string.IsNullOrWhiteSpace(hashedPassword) || providedPassword == null)
             {
                 return PasswordVerificationResult.Failed;
             }

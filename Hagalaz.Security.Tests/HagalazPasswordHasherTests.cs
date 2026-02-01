@@ -70,5 +70,26 @@ namespace Hagalaz.Security.Tests
 
             Assert.Equal(PasswordVerificationResult.Failed, result);
         }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void VerifyHashedPassword_InvalidHashedPassword_ShouldFail(string? invalidHash)
+        {
+            var result = _hasher.VerifyHashedPassword(_user, invalidHash!, "anyPassword");
+
+            Assert.Equal(PasswordVerificationResult.Failed, result);
+        }
+
+        [Fact]
+        public void VerifyHashedPassword_NullProvidedPassword_ShouldFail()
+        {
+            var hash = _hasher.HashPassword(_user, "validPassword");
+
+            var result = _hasher.VerifyHashedPassword(_user, hash, null!);
+
+            Assert.Equal(PasswordVerificationResult.Failed, result);
+        }
     }
 }
