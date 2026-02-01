@@ -291,6 +291,11 @@ namespace Hagalaz.Utilities
                         result[1] = strSource.Substring(remainderStartIndex);
                     }
                 }
+                else
+                {
+                    // If strEnd is not found, the rest of the string is the remainder.
+                    result[1] = strSource;
+                }
             }
             else
             {

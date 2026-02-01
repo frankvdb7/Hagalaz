@@ -29,6 +29,22 @@ using System.Threading;
         }
 
         [TestMethod]
+        public void GetStringInBetween_NoEndMarker_ReturnsRestOfSourceAsRemainder()
+        {
+            // Arrange
+            var source = "[World!!!";
+            var expectedResult = "";
+            var expectedRemainder = "World!!!";
+
+            // Act
+            var result = StringUtilities.GetStringInBetween("[", "]", source, false, false);
+
+            // Assert
+            Assert.AreEqual(expectedResult, result[0]);
+            Assert.AreEqual(expectedRemainder, result[1]);
+        }
+
+        [TestMethod]
         public void DecodeValues_MalformedString_ReturnsDefaultValueForInvalid()
         {
             // Arrange
