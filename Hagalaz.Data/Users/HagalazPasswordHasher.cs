@@ -6,17 +6,24 @@ namespace Hagalaz.Data.Users
 {
     public class HagalazPasswordHasher : IPasswordHasher<Character>
     {
-        public string HashPassword(Character user, string password) => HashHelper.ComputeHash(user.Email + password, HashType.SHA256);
+        private readonly PasswordHasher<Character> _baseHasher = new();
+
+        public string HashPassword(Character user, string password) => _baseHasher.HashPassword(user, password);
 
         public PasswordVerificationResult VerifyHashedPassword(Character user, string hashedPassword, string providedPassword)
         {
-            if (hashedPassword == providedPassword)
+            if (string.IsNullOrWhiteSpace(hashedPassword) || string.IsNullOrWhiteSpace(providedPassword))
             {
-                return PasswordVerificationResult.Success;
+                return PasswordVerificationResult.Failed;
+            }
+
+            if (hashedPassword.StartsWith("AQAAAA"))
+            {
+                return _baseHasher.VerifyHashedPassword(user, hashedPassword, providedPassword);
             }
 
             var checkHash = HashHelper.ComputeHash(user.Email + providedPassword, HashType.SHA256);
-            return checkHash == hashedPassword ? PasswordVerificationResult.Success : PasswordVerificationResult.Failed;
+            return checkHash == hashedPassword ? PasswordVerificationResult.SuccessRehashNeeded : PasswordVerificationResult.Failed;
         }
     }
 }
