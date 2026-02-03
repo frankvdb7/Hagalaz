@@ -284,13 +284,13 @@ namespace Hagalaz.Utilities
                 if (iEnd != -1)
                 {
                     // include the End string if desired
-                    if (includeEnd)
-                        iEnd += strEnd.Length;
-                    result[0] = strSource.Substring(0, iEnd);
+                    int resultLength = includeEnd ? iEnd + strEnd.Length : iEnd;
+                    result[0] = strSource.Substring(0, resultLength);
+
                     // advance beyond this segment
-                    if (iEnd + strEnd.Length < strSource.Length)
-                        result[1] = strSource.Substring(iEnd
-                            + strEnd.Length);
+                    int remainderIndex = iEnd + strEnd.Length;
+                    if (remainderIndex < strSource.Length)
+                        result[1] = strSource.Substring(remainderIndex);
                 }
             }
             else

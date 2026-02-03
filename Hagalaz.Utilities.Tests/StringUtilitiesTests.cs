@@ -423,14 +423,32 @@ using System.Threading;
         public void GetStringInBetween_IncludesBeginAndEnd()
         {
             // Arrange
-            var source = "begin THE_STRING end";
-            var expected = "begin THE_STRING end";
+            var source = "begin THE_STRING end REST";
+            var expectedResult = "begin THE_STRING end";
+            var expectedRemainder = " REST";
 
             // Act
             var result = StringUtilities.GetStringInBetween("begin ", " end", source, true, true);
 
             // Assert
-            Assert.AreEqual(expected, result[0]);
+            Assert.AreEqual(expectedResult, result[0]);
+            Assert.AreEqual(expectedRemainder, result[1]);
+        }
+
+        [TestMethod]
+        public void GetStringInBetween_ExcludeEnd_RemainderIsCorrect()
+        {
+            // Arrange
+            var source = "begin THE_STRING end REST";
+            var expectedResult = "THE_STRING";
+            var expectedRemainder = " REST";
+
+            // Act
+            var result = StringUtilities.GetStringInBetween("begin ", " end", source, false, false);
+
+            // Assert
+            Assert.AreEqual(expectedResult, result[0]);
+            Assert.AreEqual(expectedRemainder, result[1]);
         }
 
         [TestMethod]
