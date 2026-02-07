@@ -339,18 +339,21 @@ using System.Threading;
         }
 
         [TestMethod]
-        public void GetStringInBetween_FindsString()
+        [DataRow("begin ", " end", "begin THE_STRING end", false, false, "THE_STRING", "")]
+        [DataRow("begin ", " end", "begin THE_STRING end REST", true, true, "begin THE_STRING end", " REST")]
+        [DataRow("begin ", " end", "begin THE_STRING end REST", false, false, "THE_STRING", " REST")]
+        [DataRow("A", "B", "A123B456", false, false, "123", "456")]
+        [DataRow("A", "B", "A123B456", true, true, "A123B", "456")]
+        public void GetStringInBetween_VariousScenarios_ReturnsExpected(
+            string begin, string end, string source, bool includeBegin, bool includeEnd,
+            string expectedResult, string expectedRemainder)
         {
-            // Arrange
-            var source = "begin THE_STRING end";
-            var expected = "THE_STRING";
-
             // Act
-            var result = StringUtilities.GetStringInBetween("begin ", " end", source, false, false);
+            var result = StringUtilities.GetStringInBetween(begin, end, source, includeBegin, includeEnd);
 
             // Assert
-            Assert.AreEqual(expected, result[0]);
-            Assert.AreEqual("", result[1]);
+            Assert.AreEqual(expectedResult, result[0]);
+            Assert.AreEqual(expectedRemainder, result[1]);
         }
 
         [TestMethod]
@@ -419,19 +422,6 @@ using System.Threading;
             Assert.AreEqual(expected, actual);
         }
 
-        [TestMethod]
-        public void GetStringInBetween_IncludesBeginAndEnd()
-        {
-            // Arrange
-            var source = "begin THE_STRING end";
-            var expected = "begin THE_STRING end";
-
-            // Act
-            var result = StringUtilities.GetStringInBetween("begin ", " end", source, true, true);
-
-            // Assert
-            Assert.AreEqual(expected, result[0]);
-        }
 
         [TestMethod]
         [DataRow(0, "0")]
