@@ -33,6 +33,8 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
+app.UseForwardedHeaders();
+
 app.Use(async (context, next) =>
 {
     context.Response.Headers.Append("Content-Security-Policy", "default-src 'self'");
