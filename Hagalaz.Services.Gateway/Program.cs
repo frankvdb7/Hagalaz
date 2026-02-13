@@ -21,8 +21,8 @@ builder.Services.AddHsts(options =>
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
+    // KnownNetworks and KnownProxies should be configured in production (e.g., via appsettings.json or environment variables)
+    // to include the IP addresses of trusted proxies, preventing IP spoofing vulnerabilities.
 });
 
 builder.Services.AddServiceDiscovery();
