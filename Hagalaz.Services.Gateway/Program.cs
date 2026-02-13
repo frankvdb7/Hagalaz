@@ -52,7 +52,7 @@ else
 {
     app.Use(async (context, next) =>
     {
-        context.Response.Headers.Append("Strict-Transport-Security", "max-age=2592000; includeSubDomains");
+        context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
         await next();
     });
     app.UseResponseCaching();
