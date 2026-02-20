@@ -152,7 +152,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 Character = _owner,
                 IsLargeSceneView = LargeSceneView,
                 LocalNpcs = LocalNpcs,
-                VisibleNpcs = _owner.Viewport.VisibleCreatures.OfType<INpc>().ToList()
+                VisibleNpcs = _owner.Viewport.VisibleCreatures.OfType<INpc>().ToHashSet()
             });
         }
 
