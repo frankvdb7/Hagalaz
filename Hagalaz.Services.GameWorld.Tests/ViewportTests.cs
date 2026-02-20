@@ -135,5 +135,73 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.AreEqual(0, _viewport.VisibleCreatures.Count);
             Assert.IsFalse(_viewport.VisibleCreatures.Contains(character));
         }
+
+        [TestMethod]
+        public void InBounds_ReturnsTrue_WhenLocationIsWithinBounds()
+        {
+            // Arrange
+            var location = new Location(100, 100, 0, 0);
+
+            _owner.Location.Returns(new Location(100, 100, 0, 0));
+            _viewport.RebuildView();
+
+            // Act & Assert
+            Assert.IsTrue(_viewport.InBounds(location));
+        }
+
+        [TestMethod]
+        public void InBounds_ReturnsFalse_WhenLocationIsOutsideBounds()
+        {
+            // Arrange
+            _owner.Location.Returns(new Location(100, 100, 0, 0));
+            _viewport.RebuildView();
+
+            var location = new Location(200, 200, 0, 0);
+
+            // Act & Assert
+            Assert.IsFalse(_viewport.InBounds(location));
+        }
+
+        [TestMethod]
+        public void ShouldRebuild_ReturnsTrue_WhenDimensionChanges()
+        {
+            // Arrange
+            _owner.Location.Returns(new Location(100, 100, 0, 0));
+            _viewport.RebuildView();
+
+            _owner.Location.Returns(new Location(100, 100, 0, 1)); // Changed dimension
+
+            // Act & Assert
+            Assert.IsTrue(_viewport.ShouldRebuild());
+        }
+
+        [TestMethod]
+        public void ShouldRebuild_ReturnsFalse_WhenOwnerHasNotMovedMuch()
+        {
+            // Arrange
+            _owner.Location.Returns(new Location(100, 100, 0, 0));
+            _viewport.RebuildView();
+
+            _owner.Location.Returns(new Location(104, 104, 0, 0)); // Small move
+
+            // Act & Assert
+            Assert.IsFalse(_viewport.ShouldRebuild());
+        }
+
+        [TestMethod]
+        public void InPreviousMapBounds_ReturnsCorrectValue_AfterRebuild()
+        {
+            // Arrange
+            var location = new Location(100, 100, 0, 0);
+            _owner.Location.Returns(new Location(100, 100, 0, 0));
+            _viewport.RebuildView(); // Original bounds are around 100,100
+
+            _owner.Location.Returns(new Location(500, 500, 0, 0));
+            _viewport.RebuildView(); // New bounds are around 500,500, previous are 100,100
+
+            // Act & Assert
+            Assert.IsTrue(_viewport.InPreviousMapBounds(location));
+            Assert.IsFalse(_viewport.InPreviousMapBounds(new Location(500, 500, 0, 0)));
+        }
     }
 }
