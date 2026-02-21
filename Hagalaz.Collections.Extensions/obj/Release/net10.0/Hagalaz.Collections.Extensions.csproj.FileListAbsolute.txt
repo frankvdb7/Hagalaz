@@ -1,0 +1,12 @@
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/bin/Release/net10.0/Hagalaz.Collections.Extensions.deps.json
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/bin/Release/net10.0/Hagalaz.Collections.Extensions.dll
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/bin/Release/net10.0/Hagalaz.Collections.Extensions.pdb
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/obj/Release/net10.0/Hagalaz.Collections.Extensions.GeneratedMSBuildEditorConfig.editorconfig
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/obj/Release/net10.0/Hagalaz.Collections.Extensions.AssemblyInfoInputs.cache
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/obj/Release/net10.0/Hagalaz.Collections.Extensions.AssemblyInfo.cs
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/obj/Release/net10.0/Hagalaz.Collections.Extensions.csproj.CoreCompileInputs.cache
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/obj/Release/net10.0/Hagalaz.Collections.Extensions.sourcelink.json
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/obj/Release/net10.0/Hagalaz.Collections.Extensions.dll
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/obj/Release/net10.0/refint/Hagalaz.Collections.Extensions.dll
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/obj/Release/net10.0/Hagalaz.Collections.Extensions.pdb
+/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections.Extensions/obj/Release/net10.0/ref/Hagalaz.Collections.Extensions.dll

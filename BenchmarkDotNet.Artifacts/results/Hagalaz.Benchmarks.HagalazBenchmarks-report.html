@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Hagalaz.Benchmarks.HagalazBenchmarks-20260221-190131</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.14.0, Ubuntu 24.04.3 LTS (Noble Numbat)
+AMD EPYC 9V74, 1 CPU, 4 logical and 2 physical cores
+.NET SDK 10.0.103
+  [Host]     : .NET 10.0.3 (10.0.326.7603), X64 RyuJIT AVX2
+  DefaultJob : .NET 10.0.3 (10.0.326.7603), X64 RyuJIT AVX2
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method            </th><th>N</th><th>Mean  </th><th>Error</th><th>StdDev</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>ListContains</td><td>100</td><td>9.475 ns</td><td>0.0137 ns</td><td>0.0107 ns</td><td>-</td>
+</tr><tr><td>ListHashSetContains</td><td>100</td><td>4.434 ns</td><td>0.0029 ns</td><td>0.0025 ns</td><td>-</td>
+</tr><tr><td>Viewport_Old_List</td><td>100</td><td>2,409.476 ns</td><td>11.3857 ns</td><td>10.6502 ns</td><td>-</td>
+</tr><tr><td>Viewport_New_ListHashSet</td><td>100</td><td>941.638 ns</td><td>0.9242 ns</td><td>0.7717 ns</td><td>-</td>
+</tr><tr><td>ListContains</td><td>1000</td><td>57.126 ns</td><td>1.1240 ns</td><td>1.2494 ns</td><td>-</td>
+</tr><tr><td>ListHashSetContains</td><td>1000</td><td>3.676 ns</td><td>0.0029 ns</td><td>0.0026 ns</td><td>-</td>
+</tr><tr><td>Viewport_Old_List</td><td>1000</td><td>9,857.797 ns</td><td>61.9023 ns</td><td>54.8748 ns</td><td>-</td>
+</tr><tr><td>Viewport_New_ListHashSet</td><td>1000</td><td>1,130.422 ns</td><td>1.0466 ns</td><td>0.9278 ns</td><td>-</td>
+</tr></tbody></table>
+</body>
+</html>

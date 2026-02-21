@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "aJWyJ/J1BgE=",
+  "success": true,
+  "projectFilePath": "/home/runner/work/Hagalaz/Hagalaz/Hagalaz.Collections/Hagalaz.Collections.csproj",
+  "expectedPackageFiles": [
+    "/home/runner/.nuget/packages/jetbrains.annotations/2025.2.4/jetbrains.annotations.2025.2.4.nupkg.sha512"
+  ],
+  "logs": []
+}
