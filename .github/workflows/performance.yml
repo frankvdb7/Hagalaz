@@ -31,18 +31,21 @@ jobs:
 
       - name: Initialize Benchmark Branch if missing
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           if ! git ls-remote --exit-code --heads origin gh-pages; then
             echo "gh-pages branch not found. Initializing..."
+            git clone --depth=1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git temp-init
+            cd temp-init
             git checkout --orphan gh-pages
             git rm -rf .
             mkdir -p dev/bench
             touch dev/bench/.keep
             git add .
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
             git commit -m "Initialize gh-pages for benchmarks"
             git push origin gh-pages
-            git checkout ${{ github.event.pull_request.head.ref || github.ref_name }}
+            cd ..
+            rm -rf temp-init
           fi
 
       - name: Store and compare benchmark results
@@ -57,5 +60,5 @@ jobs:
           alert-threshold: '120%'
           comment-on-alert: true
           fail-on-alert: false
-          # Only save data on main branch pushes
+          # For PRs, don't push to gh-pages but still fetch it
           save-data-file: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
