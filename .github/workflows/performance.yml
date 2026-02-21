@@ -29,6 +29,22 @@ jobs:
         run: |
           dotnet run -c Release --project Hagalaz.Benchmarks -- --job dry --toolchain inprocess --filter "*" --exporter json
 
+      - name: Initialize Benchmark Branch if missing
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git ls-remote --exit-code --heads origin gh-pages; then
+            echo "gh-pages branch not found. Initializing..."
+            git checkout --orphan gh-pages
+            git rm -rf .
+            mkdir -p dev/bench
+            touch dev/bench/.keep
+            git add .
+            git commit -m "Initialize gh-pages for benchmarks"
+            git push origin gh-pages
+            git checkout ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fi
+
       - name: Store and compare benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         with:
@@ -36,11 +52,10 @@ jobs:
           tool: 'benchmarkdotnet'
           output-file-path: BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks.HagalazBenchmarks-report-full.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Disable auto-push and gh-pages fetch until the branch is manually created
-          auto-push: false
-          skip-fetch-gh-pages: true
+          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           # Show alert on PR if performance regresses by more than 20%
           alert-threshold: '120%'
           comment-on-alert: true
           fail-on-alert: false
-          save-data-file: false
+          # Only save data on main branch pushes
+          save-data-file: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
