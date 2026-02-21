@@ -10,7 +10,7 @@ namespace Hagalaz.Game.Network.Model
         /// <summary>
         /// The member's name.
         /// </summary>
-        public string DisplayName { get; init; }
+        public required string DisplayName { get; init; }
         /// <summary>
         /// The member's previous name.
         /// </summary>

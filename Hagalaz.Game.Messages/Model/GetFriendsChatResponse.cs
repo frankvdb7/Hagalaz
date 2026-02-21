@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Messages.Model
             public string DisplayName { get; init; } = default!;
             public string? PreviousDisplayName { get; init; }
             public int WorldId { get; init; }
-            public object Rank { get; init; }
+            public object Rank { get; init; } = default!;
         }
         
         public uint CharacterId { get; init; }

@@ -8,7 +8,7 @@ namespace Hagalaz.Services.Authorization.Model
         public bool Success { get; init;  }
         [JsonPropertyName("challenge_ts")]
         public DateTimeOffset Timestamp { get; init; }
-        public string HostName { get; init; }
+        public required string HostName { get; init; }
         public bool Credit { get; init; }
         [JsonPropertyName("error-codes")]
         public string[]? ErrorCodes { get; init; }

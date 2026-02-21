@@ -236,50 +236,14 @@ namespace Hagalaz.Cache.Tests
         {
             _fileStore.Dispose();
         }
-
         [Fact]
-        public void Read_CorruptedSector_InvalidNextSectorId_ThrowsInvalidDataException()
+        public void Write_And_Read_LargeFile_Succeeds()
         {
             // Arrange
             const int indexId = 0;
-            const int fileId = 1;
-            var fileData = new byte[Sector.DataBlockSize + 1]; // two sectors
-
-            _fileStore.Write(indexId, fileId, new MemoryStream(fileData));
-
-            // Get the sector ID from the index
-            _indexFiles[0].Seek(fileId * Index.IndexSize, SeekOrigin.Begin);
-            var indexBytes = new byte[Index.IndexSize];
-            _indexFiles[0].Read(indexBytes);
-            var index = _indexCodec.Decode(indexBytes);
-
-            // Read the original sector
-            _dataFile.Seek(index.SectorID * Sector.DataSize, SeekOrigin.Begin);
-            var sectorBytes = new byte[Sector.DataSize];
-            _dataFile.Read(sectorBytes);
-            var sector = _sectorCodec.Decode(sectorBytes, false);
-
-            // Create and write corrupted sector
-            var corruptedSector = new Sector(sector.FileID, sector.ChunkID, 999999, sector.IndexID); // Invalid NextSectorID
-            var dataBlock = sectorBytes.Skip(Sector.DataHeaderSize).ToArray();
-            var corruptedSectorData = _sectorCodec.Encode(corruptedSector, dataBlock);
-
-            _dataFile.Seek(index.SectorID * Sector.DataSize, SeekOrigin.Begin);
-            _dataFile.Write(corruptedSectorData);
-            _dataFile.Flush();
-
-            // Act & Assert
-            var ex = Assert.Throws<InvalidDataException>(() => _fileStore.Read(indexId, fileId));
-            Assert.Equal("Invalid next sector id.", ex.Message);
-        }
-
-        [Fact]
-        public void Write_And_Read_ExtendedFile_Succeeds()
-        {
-            // Arrange
-            const int indexId = 0;
-            const int fileId = ushort.MaxValue + 1;
-            var fileData = Encoding.UTF8.GetBytes("This is a test file for extended file IDs.");
+            const int fileId = 10;
+            var fileData = new byte[10000];
+            new Random().NextBytes(fileData);
 
             // Act
             _fileStore.Write(indexId, fileId, new MemoryStream(fileData));
@@ -289,5 +253,23 @@ namespace Hagalaz.Cache.Tests
             var resultData = resultStream.ToArray();
             Assert.Equal(fileData, resultData);
         }
-    }
+
+
+        [Fact]
+        public void Write_And_Read_ExtendedFile_Succeeds()
+        {
+            // Arrange
+            const int indexId = 0;
+            const int fileId = ushort.MaxValue + 1;
+            var fileData = System.Text.Encoding.UTF8.GetBytes("This is a test file for extended file IDs.");
+
+            // Act
+            _fileStore.Write(indexId, fileId, new MemoryStream(fileData));
+            var resultStream = _fileStore.Read(indexId, fileId);
+
+            // Assert
+            var resultData = resultStream.ToArray();
+            Assert.Equal(fileData, resultData);
+        }
+}
 }

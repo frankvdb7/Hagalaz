@@ -30,8 +30,8 @@ namespace Hagalaz.Text.Json.Tests
 
         private record JsonDto
         {
-            public ADto A { get; init; }
-            public int[] E { get; init; }
+            public ADto A { get; init; } = default!;
+            public int[] E { get; init; } = default!;
             public int F { get; init; }
             public DtoEnum G { get; init; }
             public DtoEnum I { get; init; }

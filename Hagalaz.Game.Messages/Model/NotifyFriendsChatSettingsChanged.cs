@@ -7,6 +7,6 @@ namespace Hagalaz.Game.Messages.Model
             
         }
         
-        public FriendsChatSettingsDto Settings { get; init; }
+        public required FriendsChatSettingsDto Settings { get; init; }
     }
 }

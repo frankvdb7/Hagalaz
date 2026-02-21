@@ -151,5 +151,19 @@ namespace Hagalaz.Cache.Tests
             // Assert
             Assert.Null(decodedNpc.TransformToIDs);
         }
+        [Fact]
+        public void Encode_WithNullActions_ShouldNotThrow()
+        {
+            // Arrange
+            var codec = new NpcTypeCodec();
+            var npc = new NpcType(10)
+            {
+                Actions = new string?[] { null, "Attack", null, "Trade", null }
+            };
+
+            // Act & Assert
+            codec.Encode(npc);
+        }
+
     }
 }

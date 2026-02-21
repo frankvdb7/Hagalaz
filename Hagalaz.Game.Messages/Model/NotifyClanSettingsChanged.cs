@@ -7,6 +7,6 @@ namespace Hagalaz.Game.Messages.Model
             
         }
         
-        public ClanSettingsDto Settings { get; init; }
+        public required ClanSettingsDto Settings { get; init; }
     }
 }

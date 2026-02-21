@@ -45,10 +45,11 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             for (int i = 0; i < 5; i++)
             {
-                if (npc.Actions[i] != null && npc.Actions[i] != "Attack")
+                var action = npc.Actions[i];
+                if (action != null && action != "Attack")
                 {
                     writer.WriteByte((byte)(NpcTypeOpcodes.Actions + i));
-                    writer.WriteString(npc.Actions[i]);
+                    writer.WriteString(action);
                 }
             }
 
@@ -317,10 +318,11 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             for (int i = 0; i < 5; i++)
             {
-                if (npc.Actions[i] != null && npc.Actions[i] == "Attack")
+                var action = npc.Actions[i];
+                if (action != null && action == "Attack")
                 {
                     writer.WriteByte((byte)(NpcTypeOpcodes.ActionsAttack + i));
-                    writer.WriteString(npc.Actions[i]);
+                    writer.WriteString(action);
                 }
             }
 
