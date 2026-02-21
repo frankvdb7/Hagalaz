@@ -36,10 +36,11 @@ jobs:
           tool: 'benchmarkdotnet'
           output-file-path: BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks.HagalazBenchmarks-report-full.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
+          # Disable auto-push and gh-pages fetch until the branch is manually created
+          auto-push: false
+          skip-fetch-gh-pages: true
           # Show alert on PR if performance regresses by more than 20%
           alert-threshold: '120%'
           comment-on-alert: true
           fail-on-alert: false
-          # For PRs, don't push to gh-pages
-          save-data-file: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          save-data-file: false
