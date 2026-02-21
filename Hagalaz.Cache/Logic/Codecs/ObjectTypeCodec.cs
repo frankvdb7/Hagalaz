@@ -115,10 +115,11 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             for (int i = 0; i < 5; i++)
             {
-                if (obj.Actions[i] != null)
+                var action = obj.Actions[i];
+                if (action != null)
                 {
                     writer.WriteByte((byte)(30 + i));
-                    writer.WriteString(obj.Actions[i]);
+                    writer.WriteString(action);
                 }
             }
 
@@ -373,10 +374,11 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             for (int i = 0; i < 5; i++)
             {
-                if (obj.Actions[i] != null)
+                var action = obj.Actions[i];
+                if (action != null)
                 {
                     writer.WriteByte((byte)(150 + i));
-                    writer.WriteString(obj.Actions[i]);
+                    writer.WriteString(action);
                 }
             }
 

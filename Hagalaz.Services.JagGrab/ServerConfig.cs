@@ -11,7 +11,7 @@
         /// <value>
         /// The local ip.
         /// </value>
-        public string LocalIp { get; set; }
+        public string LocalIp { get; set; } = string.Empty;
         /// <summary>
         /// Gets or sets the local port.
         /// </summary>

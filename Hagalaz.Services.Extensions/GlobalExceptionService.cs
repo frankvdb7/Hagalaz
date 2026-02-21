@@ -12,7 +12,7 @@ namespace Hagalaz.Services.Extensions
         {
             AppDomain.CurrentDomain.UnhandledException += (sender, eventArgs) =>
             {
-                logger.LogCritical("Error while running the application", eventArgs.ExceptionObject);
+                logger.LogCritical(eventArgs.ExceptionObject as Exception, "Error while running the application");
             };
         }
     }
