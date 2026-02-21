@@ -1,0 +1,45 @@
+name: Performance Regression Tracking
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build Hagalaz.Benchmarks/Hagalaz.Benchmarks.csproj -c Release
+
+      - name: Run Benchmarks
+        run: |
+          dotnet run -c Release --project Hagalaz.Benchmarks -- --job dry --toolchain inprocess --filter "*" --exporter json
+
+      - name: Store and compare benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Hagalaz Performance Benchmarks
+          tool: 'benchmarkdotnet'
+          output-file-path: BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks.HagalazBenchmarks-report-full.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          # Show alert on PR if performance regresses by more than 20%
+          alert-threshold: '120%'
+          comment-on-alert: true
+          fail-on-alert: false
+          # For PRs, don't push to gh-pages
+          save-data-file: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
