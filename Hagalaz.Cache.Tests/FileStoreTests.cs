@@ -209,13 +209,13 @@ namespace Hagalaz.Cache.Tests
             // Get the sector ID from the index
             _indexFiles[0].Seek(fileId * Index.IndexSize, SeekOrigin.Begin);
             var indexBytes = new byte[Index.IndexSize];
-            _indexFiles[0].Read(indexBytes);
+            _indexFiles[0].ReadExactly(indexBytes);
             var index = _indexCodec.Decode(indexBytes);
 
             // Read the original sector
             _dataFile.Seek(index.SectorID * Sector.DataSize, SeekOrigin.Begin);
             var sectorBytes = new byte[Sector.DataSize];
-            _dataFile.Read(sectorBytes);
+            _dataFile.ReadExactly(sectorBytes);
             var sector = _sectorCodec.Decode(sectorBytes, false);
 
             // Create and write corrupted sector
@@ -232,10 +232,122 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal("Invalid file id.", ex.Message);
         }
 
+        [Fact]
+        public void Read_CorruptedSector_InvalidChunkId_ThrowsInvalidDataException()
+        {
+            // Arrange
+            const int indexId = 0;
+            const int fileId = 1;
+            const int wrongChunkId = 1;
+            var fileData = Encoding.UTF8.GetBytes("test");
+
+            _fileStore.Write(indexId, fileId, new MemoryStream(fileData));
+
+            // Get the sector ID from the index
+            _indexFiles[0].Seek(fileId * Index.IndexSize, SeekOrigin.Begin);
+            var indexBytes = new byte[Index.IndexSize];
+            _indexFiles[0].ReadExactly(indexBytes);
+            var index = _indexCodec.Decode(indexBytes);
+
+            // Read the original sector
+            _dataFile.Seek(index.SectorID * Sector.DataSize, SeekOrigin.Begin);
+            var sectorBytes = new byte[Sector.DataSize];
+            _dataFile.ReadExactly(sectorBytes);
+            var sector = _sectorCodec.Decode(sectorBytes, false);
+
+            // Create and write corrupted sector
+            var corruptedSector = new Sector(sector.FileID, wrongChunkId, sector.NextSectorID, sector.IndexID);
+            var dataBlock = sectorBytes.Skip(Sector.DataHeaderSize).ToArray();
+            var corruptedSectorData = _sectorCodec.Encode(corruptedSector, dataBlock);
+
+            _dataFile.Seek(index.SectorID * Sector.DataSize, SeekOrigin.Begin);
+            _dataFile.Write(corruptedSectorData);
+            _dataFile.Flush();
+
+            // Act & Assert
+            var ex = Assert.Throws<InvalidDataException>(() => _fileStore.Read(indexId, fileId));
+            Assert.Equal("Invalid chunk id.", ex.Message);
+        }
+
+        [Fact]
+        public void Read_CorruptedSector_InvalidNextSectorId_ThrowsInvalidDataException()
+        {
+            // Arrange
+            const int indexId = 0;
+            const int fileId = 1;
+            const int wrongNextSectorId = 999999;
+            var fileData = Encoding.UTF8.GetBytes("test");
+
+            _fileStore.Write(indexId, fileId, new MemoryStream(fileData));
+
+            // Get the sector ID from the index
+            _indexFiles[0].Seek(fileId * Index.IndexSize, SeekOrigin.Begin);
+            var indexBytes = new byte[Index.IndexSize];
+            _indexFiles[0].ReadExactly(indexBytes);
+            var index = _indexCodec.Decode(indexBytes);
+
+            // Read the original sector
+            _dataFile.Seek(index.SectorID * Sector.DataSize, SeekOrigin.Begin);
+            var sectorBytes = new byte[Sector.DataSize];
+            _dataFile.ReadExactly(sectorBytes);
+            var sector = _sectorCodec.Decode(sectorBytes, false);
+
+            // Create and write corrupted sector
+            var corruptedSector = new Sector(sector.FileID, sector.ChunkID, wrongNextSectorId, sector.IndexID);
+            var dataBlock = sectorBytes.Skip(Sector.DataHeaderSize).ToArray();
+            var corruptedSectorData = _sectorCodec.Encode(corruptedSector, dataBlock);
+
+            _dataFile.Seek(index.SectorID * Sector.DataSize, SeekOrigin.Begin);
+            _dataFile.Write(corruptedSectorData);
+            _dataFile.Flush();
+
+            // Act & Assert
+            var ex = Assert.Throws<InvalidDataException>(() => _fileStore.Read(indexId, fileId));
+            Assert.Equal("Invalid next sector id.", ex.Message);
+        }
+
+        [Fact]
+        public void Read_CorruptedSector_InvalidIndexId_ThrowsInvalidDataException()
+        {
+            // Arrange
+            const int indexId = 0;
+            const int fileId = 1;
+            const int wrongIndexId = 2;
+            var fileData = Encoding.UTF8.GetBytes("test");
+
+            _fileStore.Write(indexId, fileId, new MemoryStream(fileData));
+
+            // Get the sector ID from the index
+            _indexFiles[0].Seek(fileId * Index.IndexSize, SeekOrigin.Begin);
+            var indexBytes = new byte[Index.IndexSize];
+            _indexFiles[0].ReadExactly(indexBytes);
+            var index = _indexCodec.Decode(indexBytes);
+
+            // Read the original sector
+            _dataFile.Seek(index.SectorID * Sector.DataSize, SeekOrigin.Begin);
+            var sectorBytes = new byte[Sector.DataSize];
+            _dataFile.ReadExactly(sectorBytes);
+            var sector = _sectorCodec.Decode(sectorBytes, false);
+
+            // Create and write corrupted sector
+            var corruptedSector = new Sector(sector.FileID, sector.ChunkID, sector.NextSectorID, wrongIndexId);
+            var dataBlock = sectorBytes.Skip(Sector.DataHeaderSize).ToArray();
+            var corruptedSectorData = _sectorCodec.Encode(corruptedSector, dataBlock);
+
+            _dataFile.Seek(index.SectorID * Sector.DataSize, SeekOrigin.Begin);
+            _dataFile.Write(corruptedSectorData);
+            _dataFile.Flush();
+
+            // Act & Assert
+            var ex = Assert.Throws<InvalidDataException>(() => _fileStore.Read(indexId, fileId));
+            Assert.Equal("Invalid index id.", ex.Message);
+        }
+
         public void Dispose()
         {
             _fileStore.Dispose();
         }
+
         [Fact]
         public void Write_And_Read_LargeFile_Succeeds()
         {
@@ -254,7 +366,6 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(fileData, resultData);
         }
 
-
         [Fact]
         public void Write_And_Read_ExtendedFile_Succeeds()
         {
@@ -271,5 +382,5 @@ namespace Hagalaz.Cache.Tests
             var resultData = resultStream.ToArray();
             Assert.Equal(fileData, resultData);
         }
-}
+    }
 }

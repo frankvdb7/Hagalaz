@@ -1,6 +1,7 @@
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
 using Xunit;
+using System.Collections.Generic;
 
 namespace Hagalaz.Cache.Tests
 {
@@ -26,6 +27,10 @@ namespace Hagalaz.Cache.Tests
                 FemaleWornModelId1 = 6000,
                 FemaleWornModelId2 = 6001,
                 FemaleWornModelId3 = 6002,
+                MaleHeadModel = 7000,
+                MaleHeadModel2 = 7001,
+                FemaleHeadModel = 8000,
+                FemaleHeadModel2 = 8001,
                 GroundOptions = new string?[] { null, null, "take", "Test", null },
                 InventoryOptions = new string?[] { "Wear", "Check", null, null, "drop" },
                 OriginalModelColors = new int[] { 1, 2 },
@@ -35,16 +40,19 @@ namespace Hagalaz.Cache.Tests
                 Unnoted = true,
                 NoteId = -1,
                 NoteTemplateId = -1,
-                StackIds = new int[] { 10, 20 },
-                StackAmounts = new int[] { 100, 200 },
-                ScaleX = 128,
-                ScaleY = 128,
-                ScaleZ = 128,
+                StackIds = new int[] { 10, 20, 0, 0, 0, 0, 0, 0, 0, 0 },
+                StackAmounts = new int[] { 100, 200, 0, 0, 0, 0, 0, 0, 0, 0 },
+                ScaleX = 150,
+                ScaleY = 160,
+                ScaleZ = 170,
                 Ambient = 10,
                 Contrast = 20,
                 TeamId = 5,
-                LendId = -1,
-                LendTemplateId = -1
+                LendId = 121,
+                LendTemplateId = -1,
+                Zan2D = 128,
+                UnknownInt6 = 42,
+                ExtraData = new Dictionary<int, object> { { 1, "test" }, { 2, 123 } }
             };
         }
 
@@ -61,41 +69,7 @@ namespace Hagalaz.Cache.Tests
             var decodedItem = (ItemType)codec.Decode(1, ms);
 
             // Assert
-            Assert.Equal(originalItem.Id, decodedItem.Id);
-            Assert.Equal(originalItem.Name, decodedItem.Name);
-            Assert.Equal(originalItem.InterfaceModelId, decodedItem.InterfaceModelId);
-            Assert.Equal(originalItem.ModelZoom, decodedItem.ModelZoom);
-            Assert.Equal(originalItem.ModelRotation1, decodedItem.ModelRotation1);
-            Assert.Equal(originalItem.ModelRotation2, decodedItem.ModelRotation2);
-            Assert.Equal(originalItem.ModelOffset1, decodedItem.ModelOffset1);
-            Assert.Equal(originalItem.ModelOffset2, decodedItem.ModelOffset2);
-            Assert.Equal(originalItem.StackableType, decodedItem.StackableType);
-            Assert.Equal(originalItem.Value, decodedItem.Value);
-            Assert.Equal(originalItem.MembersOnly, decodedItem.MembersOnly);
-            Assert.Equal(originalItem.MaleWornModelId1, decodedItem.MaleWornModelId1);
-            Assert.Equal(originalItem.MaleWornModelId2, decodedItem.MaleWornModelId2);
-            Assert.Equal(originalItem.MaleWornModelId3, decodedItem.MaleWornModelId3);
-            Assert.Equal(originalItem.FemaleWornModelId1, decodedItem.FemaleWornModelId1);
-            Assert.Equal(originalItem.FemaleWornModelId2, decodedItem.FemaleWornModelId2);
-            Assert.Equal(originalItem.FemaleWornModelId3, decodedItem.FemaleWornModelId3);
-
-            for (int i = 0; i < 5; i++)
-            {
-                Assert.Equal(originalItem.GroundOptions[i], decodedItem.GroundOptions[i]);
-                Assert.Equal(originalItem.InventoryOptions[i], decodedItem.InventoryOptions[i]);
-            }
-
-            Assert.Equal(originalItem.OriginalModelColors, decodedItem.OriginalModelColors);
-            Assert.Equal(originalItem.ModifiedModelColors, decodedItem.ModifiedModelColors);
-            Assert.Equal(originalItem.OriginalTextureColors, decodedItem.OriginalTextureColors);
-            Assert.Equal(originalItem.ModifiedTextureColors, decodedItem.ModifiedTextureColors);
-            Assert.Equal(originalItem.Unnoted, decodedItem.Unnoted);
-            Assert.Equal(originalItem.ScaleX, decodedItem.ScaleX);
-            Assert.Equal(originalItem.ScaleY, decodedItem.ScaleY);
-            Assert.Equal(originalItem.ScaleZ, decodedItem.ScaleZ);
-            Assert.Equal(originalItem.Ambient, decodedItem.Ambient);
-            Assert.Equal(originalItem.Contrast, decodedItem.Contrast);
-            Assert.Equal(originalItem.TeamId, decodedItem.TeamId);
+            AssertEqualAllProperties(originalItem, decodedItem);
         }
 
         [Fact]
@@ -111,6 +85,106 @@ namespace Hagalaz.Cache.Tests
 
             // Act & Assert
             codec.Encode(item);
+        }
+
+        [Fact]
+        public void Encode_Decode_RoundTrip_NotedItem_ShouldRestoreCorrectData()
+        {
+            // Arrange
+            var codec = new ItemTypeCodec();
+            var item = CreateFullyPopulatedItem(100);
+            item.NoteId = 101;
+            item.NoteTemplateId = 799;
+
+            // Act
+            var ms = codec.Encode(item);
+            ms.Position = 0;
+            var decoded = (ItemType)codec.Decode(100, ms);
+
+            // Adjust expected item because Noted items skip Name, StackableType, and MembersOnly in Encode
+            var expected = CreateFullyPopulatedItem(100);
+            expected.NoteId = 101;
+            expected.NoteTemplateId = 799;
+            expected.Name = "null"; // Default in constructor
+            expected.StackableType = 0; // Default in constructor
+            expected.MembersOnly = false; // Default in constructor
+
+            // Assert
+            AssertEqualAllProperties(expected, decoded);
+        }
+
+        [Fact]
+        public void Encode_Decode_RoundTrip_LentItem_ShouldRestoreCorrectData()
+        {
+            // Arrange
+            var codec = new ItemTypeCodec();
+            var item = CreateFullyPopulatedItem(200);
+            item.LendId = 201;
+            item.LendTemplateId = 899;
+
+            // Act
+            var ms = codec.Encode(item);
+            ms.Position = 0;
+            var decoded = (ItemType)codec.Decode(200, ms);
+
+            // Adjust expected item because Lent items skip Value in Encode
+            var expected = CreateFullyPopulatedItem(200);
+            expected.LendId = 201;
+            expected.LendTemplateId = 899;
+            expected.Value = 1; // Default in constructor
+
+            // Assert
+            AssertEqualAllProperties(expected, decoded);
+        }
+
+        private void AssertEqualAllProperties(ItemType expected, ItemType actual)
+        {
+            Assert.Equal(expected.Id, actual.Id);
+            Assert.Equal(expected.Name, actual.Name);
+            Assert.Equal(expected.InterfaceModelId, actual.InterfaceModelId);
+            Assert.Equal(expected.ModelZoom, actual.ModelZoom);
+            Assert.Equal(expected.ModelRotation1, actual.ModelRotation1);
+            Assert.Equal(expected.ModelRotation2, actual.ModelRotation2);
+            Assert.Equal(expected.ModelOffset1, actual.ModelOffset1);
+            Assert.Equal(expected.ModelOffset2, actual.ModelOffset2);
+            Assert.Equal(expected.StackableType, actual.StackableType);
+            Assert.Equal(expected.Value, actual.Value);
+            Assert.Equal(expected.MembersOnly, actual.MembersOnly);
+            Assert.Equal(expected.MaleWornModelId1, actual.MaleWornModelId1);
+            Assert.Equal(expected.MaleWornModelId2, actual.MaleWornModelId2);
+            Assert.Equal(expected.MaleWornModelId3, actual.MaleWornModelId3);
+            Assert.Equal(expected.FemaleWornModelId1, actual.FemaleWornModelId1);
+            Assert.Equal(expected.FemaleWornModelId2, actual.FemaleWornModelId2);
+            Assert.Equal(expected.FemaleWornModelId3, actual.FemaleWornModelId3);
+            Assert.Equal(expected.MaleHeadModel, actual.MaleHeadModel);
+            Assert.Equal(expected.FemaleHeadModel, actual.FemaleHeadModel);
+            Assert.Equal(expected.MaleHeadModel2, actual.MaleHeadModel2);
+            Assert.Equal(expected.FemaleHeadModel2, actual.FemaleHeadModel2);
+            Assert.Equal(expected.Zan2D, actual.Zan2D);
+            Assert.Equal(expected.UnknownInt6, actual.UnknownInt6);
+
+            for (int i = 0; i < 5; i++)
+            {
+                Assert.Equal(expected.GroundOptions[i], actual.GroundOptions[i]);
+                Assert.Equal(expected.InventoryOptions[i], actual.InventoryOptions[i]);
+            }
+
+            Assert.Equal(expected.OriginalModelColors, actual.OriginalModelColors);
+            Assert.Equal(expected.ModifiedModelColors, actual.ModifiedModelColors);
+            Assert.Equal(expected.OriginalTextureColors, actual.OriginalTextureColors);
+            Assert.Equal(expected.ModifiedTextureColors, actual.ModifiedTextureColors);
+            Assert.Equal(expected.Unnoted, actual.Unnoted);
+            Assert.Equal(expected.ScaleX, actual.ScaleX);
+            Assert.Equal(expected.ScaleY, actual.ScaleY);
+            Assert.Equal(expected.ScaleZ, actual.ScaleZ);
+            Assert.Equal(expected.Ambient, actual.Ambient);
+            Assert.Equal(expected.Contrast, actual.Contrast);
+            Assert.Equal(expected.TeamId, actual.TeamId);
+            Assert.Equal(expected.LendId, actual.LendId);
+            Assert.Equal(expected.LendTemplateId, actual.LendTemplateId);
+            Assert.Equal(expected.StackIds, actual.StackIds);
+            Assert.Equal(expected.StackAmounts, actual.StackAmounts);
+            Assert.Equal(expected.ExtraData, actual.ExtraData);
         }
     }
 }

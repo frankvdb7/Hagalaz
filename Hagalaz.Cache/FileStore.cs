@@ -85,14 +85,14 @@ namespace Hagalaz.Cache
 
             var indexStream = indexId == 255 ? _mainIndexFile : _indexFiles[indexId];
 
-            if (((Models.Index.IndexSize * fileId) + Models.Index.IndexSize) > indexStream.Length) throw new FileNotFoundException();
+            if (((long)Models.Index.IndexSize * fileId + Models.Index.IndexSize) > indexStream.Length) throw new FileNotFoundException();
 
             lock (_lockObj)
             {
                 var indexData = ArrayPool<byte>.Shared.Rent(Models.Index.IndexSize);
                 try
                 {
-                    indexStream.Seek(Models.Index.IndexSize * fileId, SeekOrigin.Begin);
+                    indexStream.Seek((long)Models.Index.IndexSize * fileId, SeekOrigin.Begin);
                     indexStream.ReadExactly(indexData, 0, Models.Index.IndexSize);
 
                     var index = _indexCodec.Decode(indexData);
@@ -109,7 +109,7 @@ namespace Hagalaz.Cache
                     while (index.Size > readBytesCount)
                     {
                         if (currentSectorId == 0) throw new InvalidDataException("Invalid sector id.");
-                        _dataFile.Seek(Sector.DataSize * currentSectorId, SeekOrigin.Begin);
+                        _dataFile.Seek((long)Sector.DataSize * currentSectorId, SeekOrigin.Begin);
                         var dataSectorSize = index.Size - readBytesCount;
                         if (dataSectorSize > sectorSize) dataSectorSize = sectorSize;
                         _dataFile.ReadExactly(dataBuffer, 0, headerSectorSize + dataSectorSize);
@@ -174,14 +174,14 @@ namespace Hagalaz.Cache
             lock (_lockObj)
             {
                 var nextSectorId = 0;
-                long ptr = fileId * Models.Index.IndexSize;
+                long ptr = (long)fileId * Models.Index.IndexSize;
                 if (overwrite)
                 {
                     if (ptr < 0) throw new IOException();
                     if (ptr >= indexStream.Length) return false;
 
                     byte[] indexData = new byte[Models.Index.IndexSize];
-                    indexStream.Seek(Models.Index.IndexSize * fileId, SeekOrigin.Begin);
+                    indexStream.Seek((long)Models.Index.IndexSize * fileId, SeekOrigin.Begin);
                     indexStream.ReadExactly(indexData, 0, Models.Index.IndexSize);
 
                     nextSectorId = _indexCodec.Decode(indexData).SectorID;
@@ -207,7 +207,7 @@ namespace Hagalaz.Cache
                     var currentSectorId = nextSectorId;
                     if (currentSectorId == 0) throw new InvalidDataException("Invalid sector id.");
 
-                    ptr = Sector.DataSize * currentSectorId;
+                    ptr = (long)Sector.DataSize * currentSectorId;
                     nextSectorId = 0;
 
                     if (overwrite)
