@@ -59,7 +59,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
             );
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(true, "Tinderbox on Log")]
         [DataRow(false, "Log on Tinderbox")]
         public void UseItemOnItem_Success_ShouldReturnTrueAndQueueTask(bool tinderboxFirst, string displayName)

@@ -8,7 +8,7 @@ namespace Hagalaz.Game.Extensions.Tests
     [TestClass]
     public class DirectionExtensionsTests
     {
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DirectionFlag.North, DirectionFlag.South)]
         [DataRow(DirectionFlag.East, DirectionFlag.West)]
         [DataRow(DirectionFlag.South, DirectionFlag.North)]
@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.AreEqual(expected, result, $"The reverse of {original} was not {expected}.");
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DirectionFlag.North, 0)]
         [DataRow(DirectionFlag.East, 1)]
         [DataRow(DirectionFlag.South, 0)]
@@ -40,7 +40,7 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.AreEqual(expectedDeltaX, result, $"The X delta for {direction} was incorrect.");
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DirectionFlag.North, 1)]
         [DataRow(DirectionFlag.East, 0)]
         [DataRow(DirectionFlag.South, -1)]
@@ -56,7 +56,7 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.AreEqual(expectedDeltaY, result, $"The Y delta for {direction} was incorrect.");
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DirectionFlag.North, FaceDirection.North)]
         [DataRow(DirectionFlag.East, FaceDirection.East)]
         [DataRow(DirectionFlag.South, FaceDirection.South)]
