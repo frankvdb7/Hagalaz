@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
+using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -152,7 +153,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 Character = _owner,
                 IsLargeSceneView = LargeSceneView,
                 LocalNpcs = LocalNpcs,
-                VisibleNpcs = _owner.Viewport.VisibleCreatures.OfType<INpc>().ToList()
+                VisibleNpcs = _owner.Viewport.VisibleCreatures.OfType<INpc>().ToListHashSet()
             });
         }
 
