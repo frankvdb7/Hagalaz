@@ -1,0 +1,64 @@
+name: Performance Regression Tracking
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build Hagalaz.Benchmarks/Hagalaz.Benchmarks.csproj -c Release
+
+      - name: Run Benchmarks
+        run: |
+          dotnet run -c Release --project Hagalaz.Benchmarks -- --job dry --toolchain inprocess --filter "*" --exporter json
+
+      - name: Initialize Benchmark Branch if missing
+        run: |
+          if ! git ls-remote --exit-code --heads origin gh-pages; then
+            echo "gh-pages branch not found. Initializing..."
+            git clone --depth=1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git temp-init
+            cd temp-init
+            git checkout --orphan gh-pages
+            git rm -rf .
+            mkdir -p dev/bench
+            touch dev/bench/.keep
+            git add .
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "Initialize gh-pages for benchmarks"
+            git push origin gh-pages
+            cd ..
+            rm -rf temp-init
+          fi
+
+      - name: Store and compare benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Hagalaz Performance Benchmarks
+          tool: 'benchmarkdotnet'
+          output-file-path: BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks.HagalazBenchmarks-report-full.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          # Show alert on PR if performance regresses by more than 20%
+          alert-threshold: '120%'
+          comment-on-alert: true
+          fail-on-alert: false
+          # For PRs, don't push to gh-pages but still fetch it
+          save-data-file: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

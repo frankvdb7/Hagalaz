@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -16,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly ICreature _owner;
         private readonly IMapRegionService _regionService;
         private readonly List<IMapRegion> _visibleRegions = [];
-        private readonly List<ICreature> _visibleCreatures = [];
+        private readonly ListHashSet<ICreature> _visibleCreatures = new();
 
         /// <summary>
         /// Contains size for both X and Y in tiles of this viewport.
