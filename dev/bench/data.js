@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771776704434,
+  "lastUpdate": 1771782335186,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -144,6 +144,78 @@ window.BENCHMARK_DATA = {
             "value": 994.6185911723545,
             "unit": "ns",
             "range": "± 0.9091091809014881"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c987b31ebeb0478aaca24c2fdeaa6f78133cbf6f",
+          "message": "Fix over 100 build and test warnings (#221)\n\n* Fix over 100 MSTest and C# warnings in tests.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* Fix over 100 MSTest and C# warnings, resolving duplicates and obsolete attributes.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n---------\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-22T18:42:08+01:00",
+          "tree_id": "35c095d4a5583f192c5431f6b8a7130949a60709",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/c987b31ebeb0478aaca24c2fdeaa6f78133cbf6f"
+        },
+        "date": 1771782333779,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 8.293531661996475,
+            "unit": "ns",
+            "range": "± 0.031536033380558465"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 3.1726870665947597,
+            "unit": "ns",
+            "range": "± 0.004432785387177878"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 2139.7971357618057,
+            "unit": "ns",
+            "range": "± 7.120113092491038"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 965.4299606595721,
+            "unit": "ns",
+            "range": "± 1.3807070265643338"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 55.228147561733536,
+            "unit": "ns",
+            "range": "± 0.14908973768605924"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 3.1570984021975446,
+            "unit": "ns",
+            "range": "± 0.00523472037273858"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 10438.407603337215,
+            "unit": "ns",
+            "range": "± 80.68131098987203"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 995.8553454535348,
+            "unit": "ns",
+            "range": "± 0.9327442387874466"
           }
         ]
       }
