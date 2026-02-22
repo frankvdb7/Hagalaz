@@ -104,6 +104,8 @@ namespace Hagalaz.Cache.Types
             NoteTemplateId = -1;
             BoughtItemId = -1;
             BoughtTemplateId = -1;
+            ScaleX = 128;
+            ScaleY = 128;
             ScaleZ = 128;
             Value = 1;
             MaleWornModelId3 = -1;

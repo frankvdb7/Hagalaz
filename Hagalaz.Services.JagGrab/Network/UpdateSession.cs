@@ -12,7 +12,7 @@ namespace Hagalaz.Services.JagGrab.Network
         /// <summary>
         /// The file request.
         /// </summary>
-        private Request _request;
+        private Request _request = null!;
         /// <summary>
         /// The logger
         /// </summary>

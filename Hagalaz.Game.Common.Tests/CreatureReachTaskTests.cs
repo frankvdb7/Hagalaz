@@ -16,10 +16,10 @@ namespace Hagalaz.Game.Common.Tests
     [TestClass]
     public class CreatureReachTaskTests
     {
-        private ICreature _reacher;
-        private ICreature _target;
-        private ISmartPathFinder _pathFinder;
-        private IServiceProvider _serviceProvider;
+        private ICreature _reacher = null!;
+        private ICreature _target = null!;
+        private ISmartPathFinder _pathFinder = null!;
+        private IServiceProvider _serviceProvider = null!;
 
         [TestInitialize]
         public void Setup()

@@ -9,6 +9,6 @@
         /// <summary>
         /// The data path
         /// </summary>
-        public string DataPath;
+        public string DataPath = string.Empty;
     }
 }

@@ -263,5 +263,19 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalObject.AnInt813, decodedObject.AnInt813);
             Assert.Equal(originalObject.ExtraData, decodedObject.ExtraData);
         }
+        [Fact]
+        public void Encode_WithNullActions_ShouldNotThrow()
+        {
+            // Arrange
+            var codec = new ObjectTypeCodec();
+            var obj = new ObjectType(20)
+            {
+                Actions = new string?[] { null, "Open", null, "Examine", null }
+            };
+
+            // Act & Assert
+            codec.Encode(obj);
+        }
+
     }
 }

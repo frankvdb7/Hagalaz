@@ -50,7 +50,7 @@ namespace Hagalaz.Text.Json.Tests
                                 """;
             var expected = new Dictionary<string, JsonNode>
             {
-                { "a", JsonNode.Parse("""{ "b":1, "c":{ "d":2 }}""") },
+                { "a", JsonNode.Parse("""{ "b":1, "c":{ "d":2 }}""")! },
                 { "a.b", JsonValue.Create(1) },
                 { "a.c.d", JsonValue.Create(2) },
                 { "e", new JsonArray(JsonValue.Create(3), JsonValue.Create(4)) },
@@ -99,7 +99,7 @@ namespace Hagalaz.Text.Json.Tests
             // Arrange
             var dictionary = new Dictionary<string, JsonNode>
             {
-                { "a", JsonNode.Parse("""{ "b":1, "c":{ "d":2 }}""") },
+                { "a", JsonNode.Parse("""{ "b":1, "c":{ "d":2 }}""")! },
                 { "a.b", JsonValue.Create(1) },
                 { "a.c.d", JsonValue.Create(2) },
                 { "e", new JsonArray(JsonValue.Create(3), JsonValue.Create(4)) },
