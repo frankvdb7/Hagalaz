@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771718821271,
+  "lastUpdate": 1771776704434,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -72,6 +72,78 @@ window.BENCHMARK_DATA = {
             "value": 995.5834091186523,
             "unit": "ns",
             "range": "± 1.0821594798977925"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "353e1c38ab8ac5b1921c637271578aebfc6b36b8",
+          "message": "Solve build warnings and add comprehensive unit tests (#219)\n\n* Solve build warnings and add comprehensive unit tests\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* Solve 1300+ build warnings and add comprehensive unit tests\n\n- Addressed nullability (CS8618), logging (CA2017), and stream read (CA2022) warnings.\n- Fixed ScaleX/ScaleY initialization bug in ItemType constructor.\n- Created Hagalaz.Services.Extensions.Tests, Hagalaz.Services.JagGrab.Tests, and Hagalaz.Models.Tests.\n- Improved FileStoreTests with multi-sector/large file coverage while maintaining all original edge-case tests.\n- Restored detailed round-trip validation in ItemTypeCodecTests for all properties and special item types (Noted/Lent).\n- Cleaned up all temporary fixup scripts.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* Refactor to solve 1300+ build warnings and enhance test coverage.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n---------\n\nSigned-off-by: Frank <5363672+frankvdb7@users.noreply.github.com>\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-22T17:08:17+01:00",
+          "tree_id": "d9ad62188e8bc56ed3923f180bec1be2268e40c4",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/353e1c38ab8ac5b1921c637271578aebfc6b36b8"
+        },
+        "date": 1771776702314,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 8.299241048949105,
+            "unit": "ns",
+            "range": "± 0.026417086788566718"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 3.1734209278455148,
+            "unit": "ns",
+            "range": "± 0.008427001969065612"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 2137.8751981099444,
+            "unit": "ns",
+            "range": "± 4.6778020399604054"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 886.0024087429047,
+            "unit": "ns",
+            "range": "± 0.5291524094531486"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 55.21378855063365,
+            "unit": "ns",
+            "range": "± 0.16958382063338598"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 3.153968974451224,
+            "unit": "ns",
+            "range": "± 0.008650945477289687"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 10454.511009803186,
+            "unit": "ns",
+            "range": "± 36.50648599470017"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 994.6185911723545,
+            "unit": "ns",
+            "range": "± 0.9091091809014881"
           }
         ]
       }
