@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Model.Creatures.Characters
     [TestClass]
     public class StatisticsHelpersTests
     {
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(0, 0.0)]
         [DataRow(1, 0.0)]
         [DataRow(2, 83.0)]
@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Model.Creatures.Characters
             Assert.AreEqual(expectedExperience, result, 1e-9);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow((byte)StatisticsConstants.Attack, 0.0, (byte)1)]
         [DataRow((byte)StatisticsConstants.Attack, 82.0, (byte)1)]
         [DataRow((byte)StatisticsConstants.Attack, 83.0, (byte)2)]
@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Model.Creatures.Characters
             Assert.AreEqual(expectedLevel, result);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(10000000.0, (byte)96)]
         [DataRow(13034431.0, (byte)99)]
         [DataRow(104273167.0, (byte)120)]
@@ -80,7 +80,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Model.Creatures.Characters
             Assert.AreEqual(100, StatisticsHelpers.GetStatisticsNormalizeRate());
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(10, 1154)]
         [DataRow(20, 4470)]
         [DataRow(30, 13363)]
@@ -96,7 +96,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Model.Creatures.Characters
             Assert.AreEqual(expectedExperience, (int)StatisticsHelpers.ExperienceForLevel(level));
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(0, 1)]
         [DataRow(100, 2)]
         [DataRow(1000, 9)]

@@ -7,9 +7,9 @@ namespace Hagalaz.Utilities.Tests
     {
         private class TestClass
         {
-            public string Value { get; set; }
+            public string Value { get; set; } = default!;
 
-            public override bool Equals(object obj)
+            public override bool Equals(object? obj)
             {
                 return obj is TestClass other && Value == other.Value;
             }
@@ -24,7 +24,7 @@ namespace Hagalaz.Utilities.Tests
         {
             public int Value { get; set; }
 
-            public override bool Equals(object obj)
+            public override bool Equals(object? obj)
             {
                 return obj is TestStruct other && Value == other.Value;
             }

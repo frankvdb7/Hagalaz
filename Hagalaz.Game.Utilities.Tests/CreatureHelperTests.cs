@@ -23,14 +23,14 @@ namespace Hagalaz.Game.Utilities.Tests
                 new object[] { new[] { -10, int.MinValue }, -1 },
             };
 
-        [DataTestMethod]
+        [TestMethod]
         [DynamicData(nameof(DamageTestData))]
         public void CalculatePredictedDamage_VariousInputs_CalculatesCorrectly(int[] hits, int expected)
         {
             Assert.AreEqual(expected, CreatureHelper.CalculatePredictedDamage(hits));
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(0, 0)]
         [DataRow(29, 1)]
         [DataRow(30, 1)]

@@ -71,7 +71,7 @@ public class DirectionHelperTests
         CollectionAssert.AreEqual(expected, DirectionHelper.ThreeBitsNpcMovementType);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0, 1, 0)]
     [DataRow(1, 1, 1)]
     [DataRow(1, 0, 2)]
@@ -86,7 +86,7 @@ public class DirectionHelperTests
         Assert.AreEqual(expected, DirectionHelper.GetNpcMovementType(deltaX, deltaY));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0, DirectionFlag.North)]
     [DataRow(1, DirectionFlag.NorthEast)]
     [DataRow(2, DirectionFlag.East)]
@@ -102,7 +102,7 @@ public class DirectionHelperTests
         Assert.AreEqual(expected, DirectionHelper.GetNpcFaceDirection(faceDirection));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0, 0, 0, 1, DirectionFlag.North)]
     [DataRow(0, 0, 0, -1, DirectionFlag.South)]
     [DataRow(0, 0, 1, 0, DirectionFlag.East)]

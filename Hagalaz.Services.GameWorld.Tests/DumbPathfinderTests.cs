@@ -68,7 +68,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsFalse(path.Successful);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(1)]
         [DataRow(2)]
         [DataRow(3)]

@@ -6,7 +6,7 @@ namespace Hagalaz.Services.GameWorld.Tests
     [TestClass]
     public class MapRotationHelperTests
     {
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(1, 1, 0, 0, 0, 0, false, 0)]
         [DataRow(1, 1, 0, 0, 0, 0, true, 0)]
         [DataRow(2, 1, 0, 1, 0, 1, false, 0)]

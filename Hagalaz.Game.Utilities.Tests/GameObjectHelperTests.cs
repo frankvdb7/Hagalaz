@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Utilities.Tests
     [TestClass]
     public class GameObjectHelperTests
     {
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(10, 20, 1, 5, 169226)]
         [DataRow(0, 0, 0, 0, 0)]
         [DataRow(63, 63, 3, 31, 1032191)]
