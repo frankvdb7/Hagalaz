@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771782335186,
+  "lastUpdate": 1772277116972,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -216,6 +216,78 @@ window.BENCHMARK_DATA = {
             "value": 995.8553454535348,
             "unit": "ns",
             "range": "± 0.9327442387874466"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "39a1ccf94df141605144f4bc160fb50f27ea1fd2",
+          "message": "fix(web): improve UserStore loading state and error handling (#223)\n\n* fix(web): improve UserStore loading state and error handling\n\n- Add tap operator to set loading state before getUserInfo request.\n- Move timeout operator before tapResponse to ensure timeout errors are captured.\n- Reset error state when starting a new request.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* fix(web): improve UserStore loading state and error handling\n\n- Add tap operator to set loading state before getUserInfo request.\n- Move timeout operator before tapResponse to ensure timeout errors are captured.\n- Reset error state when starting a new request.\n- Add unit tests for UserStore to verify loading state and error handling.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n---------\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-28T12:08:13+01:00",
+          "tree_id": "c56bbb7f6cefc67f0e121e1071e0d1343cb7fd26",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/39a1ccf94df141605144f4bc160fb50f27ea1fd2"
+        },
+        "date": 1772277114839,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 8.29789285820264,
+            "unit": "ns",
+            "range": "± 0.012372841089064167"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 3.182888856955937,
+            "unit": "ns",
+            "range": "± 0.005752365369150809"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 2140.7284460801343,
+            "unit": "ns",
+            "range": "± 2.3247780173112846"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 886.8590094021389,
+            "unit": "ns",
+            "range": "± 1.5022655298873488"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 60.083943183117725,
+            "unit": "ns",
+            "range": "± 2.407549022539896"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 3.1315642802843024,
+            "unit": "ns",
+            "range": "± 0.004677032288809388"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 10420.452214922223,
+            "unit": "ns",
+            "range": "± 68.8574792616731"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 995.3409649985177,
+            "unit": "ns",
+            "range": "± 0.7263965492949517"
           }
         ]
       }
