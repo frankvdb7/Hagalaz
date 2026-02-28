@@ -476,4 +476,27 @@ using System.Threading;
             Assert.IsEmpty(actual);
         }
     }
+
+    [TestClass]
+    public class StringUtilitiesPerformanceTests
+    {
+        [TestMethod]
+        public void SelectIntFromString_TrailingComma_HandlesCorrectly()
+        {
+            var input = "1,2,";
+            var expected = new int[] { 1, 2, 0 };
+            var actual = StringUtilities.SelectIntFromString(input).ToArray();
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void SelectDoubleFromString_TrailingComma_HandlesCorrectly()
+        {
+            var input = "1.1,2.2,";
+            var expected = new double[] { 1.1, 2.2, 0.0 };
+            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
+            CollectionAssert.AreEqual(expected, actual);
+        }
+    }
+
 }

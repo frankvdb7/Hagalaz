@@ -7,7 +7,12 @@
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Collections\Hagalaz.Collections.csproj" />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Utilities\Hagalaz.Utilities.csproj" />
   </ItemGroup>
 </Project>
