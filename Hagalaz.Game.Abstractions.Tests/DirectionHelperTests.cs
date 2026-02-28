@@ -8,7 +8,7 @@ namespace Hagalaz.Game.Abstractions.Tests;
 [TestClass]
 public class DirectionHelperTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0, 1, 0)]   // North
     [DataRow(1, 1, 1)]   // NorthEast
     [DataRow(1, 0, 2)]   // East
@@ -27,7 +27,7 @@ public class DirectionHelperTests
         Assert.AreEqual(expected, result);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0, DirectionFlag.North)]
     [DataRow(1, DirectionFlag.NorthEast)]
     [DataRow(2, DirectionFlag.East)]
@@ -47,7 +47,7 @@ public class DirectionHelperTests
         Assert.AreEqual(expected, result);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     // Cardinal directions
     [DataRow(10, 10, 10, 11, DirectionFlag.North)]
     [DataRow(10, 10, 11, 10, DirectionFlag.East)]

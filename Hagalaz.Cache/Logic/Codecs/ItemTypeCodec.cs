@@ -171,18 +171,20 @@ namespace Hagalaz.Cache.Logic.Codecs
 
             for (int i = 0; i < itemType.GroundOptions.Length; i++)
             {
-                if(itemType.GroundOptions[i] is null || (i == 2 && itemType.GroundOptions[i].ToLower() == "take"))
+                var option = itemType.GroundOptions[i];
+                if(option is null || (i == 2 && option.ToLower() == "take"))
                     continue;
                 writer.WriteByte((byte)(30 + i));
-                writer.WriteString(itemType.GroundOptions[i]);
+                writer.WriteString(option);
             }
 
             for (int i = 0; i < itemType.InventoryOptions.Length; i++)
             {
-                if(itemType.InventoryOptions[i] is null || (i == 4 && itemType.InventoryOptions[i] == "drop"))
+                var option = itemType.InventoryOptions[i];
+                if(option is null || (i == 4 && option == "drop"))
                     continue;
                 writer.WriteByte((byte)(35 + i));
-                writer.WriteString(itemType.InventoryOptions[i]);
+                writer.WriteString(option);
             }
 
             if (itemType.OriginalModelColors != null && itemType.ModifiedModelColors != null)

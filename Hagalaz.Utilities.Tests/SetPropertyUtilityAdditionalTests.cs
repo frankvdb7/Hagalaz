@@ -7,14 +7,14 @@ namespace Hagalaz.Utilities.Tests
     {
         private class TestClass
         {
-            public string Value { get; set; }
+            public string Value { get; set; } = default!;
         }
 
         private struct TestStruct
         {
             public int Value { get; set; }
 
-            public override bool Equals(object obj)
+            public override bool Equals(object? obj)
             {
                 return obj is TestStruct other && Value == other.Value;
             }
@@ -28,8 +28,8 @@ namespace Hagalaz.Utilities.Tests
         [TestMethod]
         public void SetClass_WhenBothNull_ShouldReturnFalse()
         {
-            TestClass obj = null;
-            TestClass newValue = null;
+            TestClass? obj = null;
+            TestClass? newValue = null;
             Assert.IsFalse(SetPropertyUtility.SetClass(ref obj, newValue));
             Assert.IsNull(obj);
         }

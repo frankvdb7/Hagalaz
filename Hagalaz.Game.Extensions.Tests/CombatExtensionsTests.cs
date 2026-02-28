@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Extensions.Tests;
 [TestClass]
 public class CombatExtensionsTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(DamageType.StandardMelee, HitSplatType.HitMeleeDamage)]
     [DataRow(DamageType.StandardRange, HitSplatType.HitRangeDamage)]
     [DataRow(DamageType.StandardMagic, HitSplatType.HitMagicDamage)]

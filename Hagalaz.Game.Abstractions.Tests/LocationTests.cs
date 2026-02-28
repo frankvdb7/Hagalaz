@@ -82,7 +82,7 @@ public class LocationTests
         Assert.AreEqual(dimension, location.Dimension);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(3250, 3250, 406, 406, 50, 50, 12850)]
     [DataRow(3200, 3200, 400, 400, 0, 0, 12850)]
     public void Region_Properties_ShouldCalculateCorrectly(int x, int y, int expectedRegionPartX, int expectedRegionPartY, int expectedRegionLocalX, int expectedRegionLocalY, int expectedRegionId)
@@ -214,7 +214,7 @@ public class LocationTests
         Assert.AreEqual(expected, result);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(10, 10, 10, 10, 0, true)]
     [DataRow(10, 10, 11, 10, 1, true)]
     [DataRow(10, 10, 10, 11, 1, true)]

@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Utilities.Tests
     [TestClass]
     public class LocationHelperTests
     {
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(10, 5, 8, 50)]
         [DataRow(0, 0, 10, 0)]
         [DataRow(5, 10, 10, 105)]
@@ -21,10 +21,9 @@ namespace Hagalaz.Game.Utilities.Tests
             Assert.AreEqual(expected, result, "The absolute coordinate is incorrect.");
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(0, 0, 0, 0)]
         [DataRow(10, 20, 1, 5386)]
-        [DataRow(0, 0, 0, 0)]
         [DataRow(63, 63, 3, 16383)]
         [DataRow(-1, -1, -1, -1)]
         [DataRow(63, 20, 1, 5439)]
@@ -47,7 +46,7 @@ namespace Hagalaz.Game.Utilities.Tests
             Assert.AreEqual(expectedHash, result, "The calculated region local hash is incorrect.");
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(10, 20, 1, 2117642)]
         [DataRow(0, 0, 0, 0)]
         [DataRow(1023, 2047, 3, 8388607)]

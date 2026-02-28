@@ -95,13 +95,12 @@ using System.Threading;
         [DataRow(1000000000000000000L, "ev8ufpr3pxna")]
         [DataRow(long.MaxValue, null)]
         [DataRow(37L, "a_")]
-        [DataRow(1L, "a")]
         [DataRow(36L, "9")]
-        public void LongToString_ConvertsCorrectly(long value, string expected)
+        public void LongToString_ConvertsCorrectly(long value, string? expected)
         {
             // Arrange
             // Act
-            string actual = StringUtilities.LongToString(value);
+            string? actual = StringUtilities.LongToString(value);
 
             // Assert
             Assert.AreEqual(expected, actual);
@@ -252,7 +251,7 @@ using System.Threading;
             var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -321,7 +320,7 @@ using System.Threading;
             var actual = StringUtilities.DecodeValues(data, int.Parse);
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -380,7 +379,7 @@ using System.Threading;
             var actual = StringUtilities.SelectIntFromString(input).ToArray();
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -407,7 +406,7 @@ using System.Threading;
             var actual = StringUtilities.SelectBoolFromString(input).ToArray();
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -448,7 +447,7 @@ using System.Threading;
             var actual = StringUtilities.DecodeValues(data);
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -461,7 +460,7 @@ using System.Threading;
             var actual = StringUtilities.DecodeValues(data, int.Parse);
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -474,7 +473,7 @@ using System.Threading;
             var actual = StringUtilities.DecodeValues(data);
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
     }
 }

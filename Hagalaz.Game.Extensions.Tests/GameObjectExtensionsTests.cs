@@ -8,7 +8,7 @@ namespace Hagalaz.Game.Extensions.Tests
     [TestClass]
     public class GameObjectExtensionsTests
     {
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(ShapeType.ComplexGroundDecoration, true)]
         [DataRow(ShapeType.GroundDefault, true)]
         [DataRow(ShapeType.GroundDecoration, true)]
@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.AreEqual(expected, result);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(ShapeType.RoofTopSide, true)]
         [DataRow(ShapeType.RoofTopCornerFlat, true)]
         [DataRow(ShapeType.RoofTopFlatDownwardCrease, true)]
@@ -49,7 +49,7 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.AreEqual(expected, result);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(ShapeType.Wall, true)]
         [DataRow(ShapeType.WallCornerDiagonal, true)]
         [DataRow(ShapeType.UnfinishedWall, true)]
@@ -70,7 +70,7 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.AreEqual(expected, result);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(ShapeType.RoofEdge, true)]
         [DataRow(ShapeType.RoofEdgeCornerFlat, true)]
         [DataRow(ShapeType.RoofConnectingEdge, true)]
@@ -90,7 +90,7 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.AreEqual(expected, result);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(ShapeType.WallDecorationStraightXOffset, true)]
         [DataRow(ShapeType.WallDecorationStraightZOffset, true)]
         [DataRow(ShapeType.WallDecorationDiagonalXOffset, true)]

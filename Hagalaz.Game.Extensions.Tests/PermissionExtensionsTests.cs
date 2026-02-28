@@ -7,7 +7,7 @@ namespace Hagalaz.Game.Extensions.Tests
     [TestClass]
     public class PermissionExtensionsTests
     {
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(Permission.SystemAdministrator, Permission.GameAdministrator, true)]
         [DataRow(Permission.SystemAdministrator, Permission.GameModerator, true)]
         [DataRow(Permission.SystemAdministrator, Permission.Donator, true)]
@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.AreEqual(expected, result, $"Checking if {userPermission} has at least {requiredPermission} permission failed.");
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(Permission.SystemAdministrator, "SYSTEM ADMINISTRATOR")]
         [DataRow(Permission.GameAdministrator, "GAME ADMINISTRATOR")]
         [DataRow(Permission.GameModerator, "GAME MODERATOR")]
@@ -34,7 +34,7 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.AreEqual(expectedTitle, result, $"The title for {permission} is incorrect.");
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(Permission.SystemAdministrator, 2)]
         [DataRow(Permission.GameAdministrator, 2)]
         [DataRow(Permission.GameModerator, 1)]

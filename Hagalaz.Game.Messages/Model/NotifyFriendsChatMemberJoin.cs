@@ -8,6 +8,6 @@ namespace Hagalaz.Game.Messages.Model
         public string DisplayName { get; set; } = default!;
         public string? PreviousDisplayName { get; set; }
         public int WorldId { get; set; }
-        public object Rank { get; set; }
+        public object Rank { get; set; } = default!;
     }
 }

@@ -67,8 +67,8 @@ namespace Hagalaz.Cache
         public int GetFileCount(int indexId)
         {
             if (indexId >= IndexFileCount && indexId != 255) throw new FileNotFoundException();
-            if (indexId == 255) return (int)(_mainIndexFile.Length / Index.IndexSize);
-            return (int)(_indexFiles[indexId].Length / Index.IndexSize);
+            if (indexId == 255) return (int)(_mainIndexFile.Length / Models.Index.IndexSize);
+            return (int)(_indexFiles[indexId].Length / Models.Index.IndexSize);
         }
 
         /// <summary>
@@ -85,15 +85,15 @@ namespace Hagalaz.Cache
 
             var indexStream = indexId == 255 ? _mainIndexFile : _indexFiles[indexId];
 
-            if (((Index.IndexSize * fileId) + Index.IndexSize) > indexStream.Length) throw new FileNotFoundException();
+            if (((long)Models.Index.IndexSize * fileId + Models.Index.IndexSize) > indexStream.Length) throw new FileNotFoundException();
 
             lock (_lockObj)
             {
-                var indexData = ArrayPool<byte>.Shared.Rent(Index.IndexSize);
+                var indexData = ArrayPool<byte>.Shared.Rent(Models.Index.IndexSize);
                 try
                 {
-                    indexStream.Seek(Index.IndexSize * fileId, SeekOrigin.Begin);
-                    indexStream.Read(indexData);
+                    indexStream.Seek((long)Models.Index.IndexSize * fileId, SeekOrigin.Begin);
+                    indexStream.ReadExactly(indexData, 0, Models.Index.IndexSize);
 
                     var index = _indexCodec.Decode(indexData);
                     if (index.Size < 0 || index.Size > Sector.MaxFileSize) throw new InvalidDataException("Index size is invalid.");
@@ -109,10 +109,10 @@ namespace Hagalaz.Cache
                     while (index.Size > readBytesCount)
                     {
                         if (currentSectorId == 0) throw new InvalidDataException("Invalid sector id.");
-                        _dataFile.Seek(Sector.DataSize * currentSectorId, SeekOrigin.Begin);
+                        _dataFile.Seek((long)Sector.DataSize * currentSectorId, SeekOrigin.Begin);
                         var dataSectorSize = index.Size - readBytesCount;
                         if (dataSectorSize > sectorSize) dataSectorSize = sectorSize;
-                        _dataFile.Read(dataBuffer, 0, headerSectorSize + dataSectorSize);
+                        _dataFile.ReadExactly(dataBuffer, 0, headerSectorSize + dataSectorSize);
 
                         var sector = _sectorCodec.Decode(dataBuffer, extended);
                         if (fileId != sector.FileID) throw new InvalidDataException("Invalid file id.");
@@ -174,15 +174,15 @@ namespace Hagalaz.Cache
             lock (_lockObj)
             {
                 var nextSectorId = 0;
-                long ptr = fileId * Index.IndexSize;
+                long ptr = (long)fileId * Models.Index.IndexSize;
                 if (overwrite)
                 {
                     if (ptr < 0) throw new IOException();
                     if (ptr >= indexStream.Length) return false;
 
-                    byte[] indexData = new byte[Index.IndexSize];
-                    indexStream.Seek(Index.IndexSize * fileId, SeekOrigin.Begin);
-                    indexStream.Read(indexData, 0, Index.IndexSize);
+                    byte[] indexData = new byte[Models.Index.IndexSize];
+                    indexStream.Seek((long)Models.Index.IndexSize * fileId, SeekOrigin.Begin);
+                    indexStream.ReadExactly(indexData, 0, Models.Index.IndexSize);
 
                     nextSectorId = _indexCodec.Decode(indexData).SectorID;
                     if (nextSectorId <= 0 || nextSectorId > (_dataFile.Length / (long)Sector.DataSize)) return false;
@@ -207,13 +207,13 @@ namespace Hagalaz.Cache
                     var currentSectorId = nextSectorId;
                     if (currentSectorId == 0) throw new InvalidDataException("Invalid sector id.");
 
-                    ptr = Sector.DataSize * currentSectorId;
+                    ptr = (long)Sector.DataSize * currentSectorId;
                     nextSectorId = 0;
 
                     if (overwrite)
                     {
                         _dataFile.Seek(ptr, SeekOrigin.Begin);
-                        _dataFile.Read(dataBuffer, 0, dataBuffer.Length);
+                        _dataFile.ReadExactly(dataBuffer);
 
                         var sector = _sectorCodec.Decode(dataBuffer, extended);
 
