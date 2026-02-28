@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772277116972,
+  "lastUpdate": 1772277132572,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -288,6 +288,78 @@ window.BENCHMARK_DATA = {
             "value": 995.3409649985177,
             "unit": "ns",
             "range": "± 0.7263965492949517"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5500e9f11691ad88ab480be25dc835875622dcd5",
+          "message": "build(deps): Bump the npm_and_yarn group across 1 directory with 2 updates (#220)\n\nBumps the npm_and_yarn group with 2 updates in the /Hagalaz.Web.App directory: [minimatch](https://github.com/isaacs/minimatch) and [qs](https://github.com/ljharb/qs).\n\n\nUpdates `minimatch` from 3.1.2 to 3.1.3\n- [Changelog](https://github.com/isaacs/minimatch/blob/main/changelog.md)\n- [Commits](https://github.com/isaacs/minimatch/compare/v3.1.2...v3.1.3)\n\nUpdates `qs` from 6.14.1 to 6.14.2\n- [Changelog](https://github.com/ljharb/qs/blob/main/CHANGELOG.md)\n- [Commits](https://github.com/ljharb/qs/compare/v6.14.1...v6.14.2)\n\n---\nupdated-dependencies:\n- dependency-name: minimatch\n  dependency-version: 3.1.3\n  dependency-type: indirect\n  dependency-group: npm_and_yarn\n- dependency-name: qs\n  dependency-version: 6.14.2\n  dependency-type: indirect\n  dependency-group: npm_and_yarn\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>\nCo-authored-by: Frank <5363672+frankvdb7@users.noreply.github.com>",
+          "timestamp": "2026-02-28T12:08:57+01:00",
+          "tree_id": "a768c44023aa1d81fa6a55b7c952590359b0db9f",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/5500e9f11691ad88ab480be25dc835875622dcd5"
+        },
+        "date": 1772277130127,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 8.332071124513943,
+            "unit": "ns",
+            "range": "± 0.06549725960447182"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 3.1847973306264197,
+            "unit": "ns",
+            "range": "± 0.0072858194449754105"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 2140.585588773092,
+            "unit": "ns",
+            "range": "± 1.8977810354286981"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 886.2065582275391,
+            "unit": "ns",
+            "range": "± 0.8596891335193944"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 58.570141177911026,
+            "unit": "ns",
+            "range": "± 0.19725634940628767"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 3.5900357529520988,
+            "unit": "ns",
+            "range": "± 0.007658626685790747"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 10468.960580444336,
+            "unit": "ns",
+            "range": "± 14.969704513983151"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 997.2788118634905,
+            "unit": "ns",
+            "range": "± 1.5493275286145225"
           }
         ]
       }
