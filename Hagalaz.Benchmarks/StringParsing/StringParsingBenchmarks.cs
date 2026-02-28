@@ -29,6 +29,9 @@ namespace Hagalaz.Benchmarks.StringParsing
         public bool[] DecodeBoolValues() => StringUtilities.DecodeValues(_csvBools);
 
         [Benchmark]
-        public int[] DecodeIntValues() => StringUtilities.DecodeValues(_csvInts, int.Parse);
+        public int[] DecodeIntValues_StringDelegate() => StringUtilities.DecodeValues(_csvInts, int.Parse);
+
+        [Benchmark]
+        public int[] DecodeIntValues_SpanDelegate() => StringUtilities.DecodeValuesFromSpan(_csvInts, segment => int.Parse(segment));
     }
 }
