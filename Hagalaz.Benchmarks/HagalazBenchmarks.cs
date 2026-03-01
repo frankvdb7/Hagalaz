@@ -31,6 +31,9 @@ namespace Hagalaz.Benchmarks
 
         private string _hashInput = "This is a test string for hashing performance benchmarks. It should be long enough to show some impact.";
 
+        private ConcurrentStore<int, int> _concurrentStore = null!;
+        private List<int> _regionsCharacters = null!;
+
         [Params(100, 1000)]
         public int N;
 
@@ -52,6 +55,13 @@ namespace Hagalaz.Benchmarks
             _csvBools = string.Join(",", Enumerable.Range(0, N).Select(i => i % 2 == 0 ? "1" : "0"));
             _intArray = Enumerable.Range(0, N).ToArray();
             _boolArray = Enumerable.Range(0, N).Select(i => i % 2 == 0).ToArray();
+
+            // ConcurrentStore Setup
+            _concurrentStore = new ConcurrentStore<int, int>();
+            for (int i = 0; i < N; i++) _concurrentStore.TryAdd(i, i);
+
+            // Viewport Update Simulation Data
+            _regionsCharacters = Enumerable.Range(0, N).ToList();
         }
 
         [Benchmark]
@@ -76,6 +86,42 @@ namespace Hagalaz.Benchmarks
             foreach (var entity in _localEntities)
                 if (_visibleCreaturesListHashSet.Contains(entity)) count++;
             return count;
+        }
+
+        [Benchmark]
+        public int ConcurrentStoreIteration()
+        {
+            int sum = 0;
+            foreach (var value in _concurrentStore)
+            {
+                sum += value;
+            }
+            return sum;
+        }
+
+        [Benchmark]
+        public int ViewportUpdateTick_Linq()
+        {
+            var visibleCreatures = new ListHashSet<int>();
+            foreach (var character in _regionsCharacters.Where(c => c % 2 == 0))
+            {
+                visibleCreatures.Add(character);
+            }
+            return visibleCreatures.Count;
+        }
+
+        [Benchmark]
+        public int ViewportUpdateTick_Manual()
+        {
+            var visibleCreatures = new ListHashSet<int>(255);
+            foreach (var character in _regionsCharacters)
+            {
+                if (character % 2 == 0)
+                {
+                    visibleCreatures.Add(character);
+                }
+            }
+            return visibleCreatures.Count;
         }
 
         [Benchmark]

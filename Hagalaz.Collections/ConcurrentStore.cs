@@ -87,20 +87,26 @@ namespace Hagalaz.Collections
         /// Returns an enumerator that iterates through the values in the collection.
         /// </summary>
         /// <returns>An enumerator for the values in the collection.</returns>
-        public IEnumerator<TValue> GetEnumerator() => new Enumerator(this);
+        public Enumerator GetEnumerator() => new Enumerator(this);
 
         /// <summary>
         /// Returns an enumerator that iterates through the values in the collection.
         /// </summary>
         /// <returns>An <see cref="IEnumerator"/> object that can be used to iterate through the collection.</returns>
-        IEnumerator IEnumerable.GetEnumerator() => new Enumerator(this);
+        IEnumerator<TValue> IEnumerable<TValue>.GetEnumerator() => GetEnumerator();
+
+        /// <summary>
+        /// Returns an enumerator that iterates through the values in the collection.
+        /// </summary>
+        /// <returns>An <see cref="IEnumerator"/> object that can be used to iterate through the collection.</returns>
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
         /// A private enumerator for iterating over the values of the ConcurrentStore.
         /// </summary>
-        private readonly struct Enumerator : IEnumerator<TValue>
+        public struct Enumerator : IEnumerator<TValue>
         {
-            private readonly IEnumerator<KeyValuePair<TKey, TValue>> _enumerator;
+            private IEnumerator<KeyValuePair<TKey, TValue>> _enumerator;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="Enumerator"/> struct.
