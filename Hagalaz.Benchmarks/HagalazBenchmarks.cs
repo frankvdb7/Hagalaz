@@ -77,17 +77,17 @@ namespace Hagalaz.Benchmarks
         public bool[] DecodeBoolValues() => StringUtilities.DecodeValues(_csvBools);
 
         [Benchmark]
-        public int[] DecodeIntValues_StringDelegate() => StringUtilities.DecodeValues(_csvInts, int.Parse);
+        public int[] DecodeIntValues_StringDelegate() => StringUtilities.DecodeValues(_csvInts, (string s) => int.Parse(s));
 
         [Benchmark]
-        public int[] DecodeIntValues_SpanDelegate() => StringUtilities.DecodeValuesFromSpan(_csvInts, segment => int.Parse(segment, NumberStyles.Any, CultureInfo.InvariantCulture));
+        public int[] DecodeIntValues_SpanDelegate() => StringUtilities.DecodeValues(_csvInts, (ReadOnlySpan<char> segment) => int.Parse(segment, NumberStyles.Any, CultureInfo.InvariantCulture));
     }
 
     public class Program
     {
         public static void Main(string[] args)
         {
-            BenchmarkRunner.Run<HagalazBenchmarks>();
+            BenchmarkRunner.Run<HagalazBenchmarks>(args: args);
         }
     }
 }

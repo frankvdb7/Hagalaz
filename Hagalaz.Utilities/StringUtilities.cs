@@ -196,10 +196,18 @@ namespace Hagalaz.Utilities
         /// <param name="parser">The delegate function used to parse each string segment span.</param>
         /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
         /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
-        public static T[] DecodeValuesFromSpan<T>(string data, SpanValueParser<T> parser, char separator = ',')
+        /// <summary>
+        /// Decodes a separated string into an array of a specified type using a custom parser that accepts spans.
+        /// </summary>
+        /// <typeparam name="T">The target type for the decoded values.</typeparam>
+        /// <param name="data">The string data to decode.</param>
+        /// <param name="parser">The delegate function used to parse each string segment span.</param>
+        /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
+        /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
+        public static T[] DecodeValues<T>(string data, SpanValueParser<T> parser, char separator = ',')
         {
             if (string.IsNullOrWhiteSpace(data))
-                return Array.Empty<T>();
+                return [];
 
             int count = CountSegments(data.AsSpan(), separator);
             T[] values = new T[count];
@@ -217,25 +225,17 @@ namespace Hagalaz.Utilities
             return values;
         }
 
+        /// <summary>
+        /// Decodes a separated string into an array of a specified type using a custom parser.
+        /// </summary>
+        /// <typeparam name="T">The target type for the decoded values.</typeparam>
+        /// <param name="data">The string data to decode.</param>
+        /// <param name="parser">The delegate function used to parse each string segment.</param>
+        /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
+        /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
         public static T[] DecodeValues<T>(string data, ValueParser<T> parser, char separator = ',')
         {
-            if (string.IsNullOrWhiteSpace(data))
-                return Array.Empty<T>();
-
-            int count = CountSegments(data.AsSpan(), separator);
-            T[] values = new T[count];
-
-            int start = 0;
-            for (int k = 0; k < count; k++)
-            {
-                int end = data.IndexOf(separator, start);
-                if (end == -1) end = data.Length;
-
-                values[k] = parser.Invoke(data.Substring(start, end - start));
-                start = end + 1;
-            }
-
-            return values;
+            return DecodeValues(data, (ReadOnlySpan<char> segment) => parser.Invoke(segment.ToString()), separator);
         }
 
         /// <summary>
@@ -247,7 +247,7 @@ namespace Hagalaz.Utilities
         {
             if (string.IsNullOrWhiteSpace(data))
             {
-                return Array.Empty<bool>();
+                return [];
             }
 
             int count = CountSegments(data.AsSpan(), ',');
