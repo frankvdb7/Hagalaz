@@ -9,8 +9,16 @@ namespace Hagalaz.Collections
     /// </summary>
     public class ListHashSet<T> : IReadOnlyList<T>, ICollection<T> where T : notnull
     {
-        private readonly List<T> _list = new();
-        private readonly HashSet<T> _set = new();
+        private readonly List<T> _list;
+        private readonly HashSet<T> _set;
+
+        public ListHashSet() : this(0) { }
+
+        public ListHashSet(int capacity)
+        {
+            _list = new List<T>(capacity);
+            _set = new HashSet<T>(capacity);
+        }
 
         public T this[int index] => _list[index];
 

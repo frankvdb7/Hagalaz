@@ -6,7 +6,17 @@ namespace Hagalaz.Collections
     {
         public static ListHashSet<T> ToListHashSet<T>(this IEnumerable<T> source) where T : notnull
         {
-            var listHashSet = new ListHashSet<T>();
+            int capacity = 0;
+            if (source is ICollection<T> collection)
+            {
+                capacity = collection.Count;
+            }
+            else if (source is IReadOnlyCollection<T> readOnlyCollection)
+            {
+                capacity = readOnlyCollection.Count;
+            }
+
+            var listHashSet = new ListHashSet<T>(capacity);
             foreach (var item in source)
             {
                 listHashSet.Add(item);
