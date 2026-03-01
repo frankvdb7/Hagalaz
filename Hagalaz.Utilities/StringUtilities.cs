@@ -227,23 +227,7 @@ namespace Hagalaz.Utilities
         /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
         public static T[] DecodeValues<T>(string data, ValueParser<T> parser, char separator = ',')
         {
-            if (string.IsNullOrWhiteSpace(data))
-                return [];
-
-            int count = CountSegments(data.AsSpan(), separator);
-            T[] values = new T[count];
-
-            int start = 0;
-            for (int k = 0; k < count; k++)
-            {
-                int end = data.IndexOf(separator, start);
-                if (end == -1) end = data.Length;
-
-                values[k] = parser.Invoke(data.Substring(start, end - start));
-                start = end + 1;
-            }
-
-            return values;
+            return DecodeValues(data, (ReadOnlySpan<char> segment) => parser.Invoke(segment.ToString()), separator);
         }
 
         /// <summary>
