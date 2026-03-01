@@ -191,6 +191,9 @@
       "hagalaz.collections.extensions": {
         "type": "Project"
       },
+      "hagalaz.security": {
+        "type": "Project"
+      },
       "hagalaz.utilities": {
         "type": "Project"
       }

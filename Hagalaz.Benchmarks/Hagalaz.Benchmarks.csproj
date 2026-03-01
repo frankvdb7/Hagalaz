@@ -14,5 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Utilities\Hagalaz.Utilities.csproj" />
+    <ProjectReference Include="..\Hagalaz.Security\Hagalaz.Security.csproj" />
   </ItemGroup>
 </Project>
