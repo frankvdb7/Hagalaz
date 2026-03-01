@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -181,14 +181,6 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
-        /// Decodes a separated string into an array of a specified type using a custom parser.
-        /// </summary>
-        /// <typeparam name="T">The target type for the decoded values.</typeparam>
-        /// <param name="data">The string data to decode.</param>
-        /// <param name="parser">The delegate function used to parse each string segment.</param>
-        /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
-        /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
-        /// <summary>
         /// Decodes a separated string into an array of a specified type using a custom parser that accepts spans.
         /// </summary>
         /// <typeparam name="T">The target type for the decoded values.</typeparam>
@@ -196,7 +188,7 @@ namespace Hagalaz.Utilities
         /// <param name="parser">The delegate function used to parse each string segment span.</param>
         /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
         /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
-        public static T[] DecodeValues<T>(string data, SpanValueParser<T> parser, char separator = ',')
+        public static T[] DecodeValuesFromSpan<T>(string data, SpanValueParser<T> parser, char separator = ',')
         {
             if (string.IsNullOrWhiteSpace(data))
                 return [];
@@ -227,7 +219,7 @@ namespace Hagalaz.Utilities
         /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
         public static T[] DecodeValues<T>(string data, ValueParser<T> parser, char separator = ',')
         {
-            return DecodeValues(data, (ReadOnlySpan<char> segment) => parser.Invoke(segment.ToString()), separator);
+            return DecodeValuesFromSpan(data, segment => parser.Invoke(segment.ToString()), separator);
         }
 
         /// <summary>

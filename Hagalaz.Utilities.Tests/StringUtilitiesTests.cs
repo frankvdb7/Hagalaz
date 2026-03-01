@@ -1,11 +1,10 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Linq;
-
-namespace Hagalaz.Utilities.Tests
-{
 using System.Globalization;
 using System.Threading;
 
+namespace Hagalaz.Utilities.Tests
+{
     [TestClass]
     public class StringUtilitiesTests
     {
@@ -75,7 +74,6 @@ using System.Threading;
         [DataRow("____________", 0L)]
         public void StringToLong_ConvertsCorrectly(string s, long expected)
         {
-            // Arrange
             // Act
             long actual = StringUtilities.StringToLong(s);
 
@@ -98,7 +96,6 @@ using System.Threading;
         [DataRow(36L, "9")]
         public void LongToString_ConvertsCorrectly(long value, string? expected)
         {
-            // Arrange
             // Act
             string? actual = StringUtilities.LongToString(value);
 
@@ -124,7 +121,6 @@ using System.Threading;
         [DataRow("test@", false)]
         public void IsValidEmail_ValidatesCorrectly(string email, bool expected)
         {
-            // Arrange
             // Act
             bool actual = StringUtilities.IsValidEmail(email);
 
@@ -149,7 +145,6 @@ using System.Threading;
         [DataRow(" ", false)]
         public void IsValidName_ValidatesCorrectly(string name, bool expected)
         {
-            // Arrange
             // Act
             bool actual = StringUtilities.IsValidName(name);
 
@@ -251,7 +246,7 @@ using System.Threading;
             var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
 
             // Assert
-            Assert.IsEmpty(actual);
+            Assert.AreEqual(0, actual.Length);
         }
 
         [TestMethod]
@@ -320,7 +315,7 @@ using System.Threading;
             var actual = StringUtilities.DecodeValues(data, int.Parse);
 
             // Assert
-            Assert.IsEmpty(actual);
+            Assert.AreEqual(0, actual.Length);
         }
 
         [TestMethod]
@@ -360,13 +355,16 @@ using System.Threading;
         {
             // Arrange
             var value = 1234567;
-            var expected = "1,234,567";
+            var expected = "1,2,34,567"; // Wait, format was "#,###,##0"
 
             // Act
             var actual = StringUtilities.FormatNumber(value);
 
             // Assert
-            Assert.AreEqual(expected, actual);
+            // The format string "#,###,##0" is actually used for Dutch locale (nl-NL) in the code via [GeneratedRegex]?
+            // No, the FormatNumber method uses CultureInfo.InvariantCulture.
+            // For 1234567, "#,###,##0" with InvariantCulture should be "1,234,567".
+            Assert.AreEqual("1,234,567", actual);
         }
 
         [TestMethod]
@@ -379,7 +377,7 @@ using System.Threading;
             var actual = StringUtilities.SelectIntFromString(input).ToArray();
 
             // Assert
-            Assert.IsEmpty(actual);
+            Assert.AreEqual(0, actual.Length);
         }
 
         [TestMethod]
@@ -406,14 +404,13 @@ using System.Threading;
             var actual = StringUtilities.SelectBoolFromString(input).ToArray();
 
             // Assert
-            Assert.IsEmpty(actual);
+            Assert.AreEqual(0, actual.Length);
         }
 
         [TestMethod]
         [DataRow("HELLO", 15263440L)]
         public void StringToLong_WithUppercase_ConvertsCorrectly(string s, long expected)
         {
-            // Arrange
             // Act
             long actual = StringUtilities.StringToLong(s);
 
@@ -447,7 +444,7 @@ using System.Threading;
             var actual = StringUtilities.DecodeValues(data);
 
             // Assert
-            Assert.IsEmpty(actual);
+            Assert.AreEqual(0, actual.Length);
         }
 
         [TestMethod]
@@ -460,7 +457,7 @@ using System.Threading;
             var actual = StringUtilities.DecodeValues(data, int.Parse);
 
             // Assert
-            Assert.IsEmpty(actual);
+            Assert.AreEqual(0, actual.Length);
         }
 
         [TestMethod]
@@ -473,7 +470,7 @@ using System.Threading;
             var actual = StringUtilities.DecodeValues(data);
 
             // Assert
-            Assert.IsEmpty(actual);
+            Assert.AreEqual(0, actual.Length);
         }
     }
 
@@ -498,5 +495,4 @@ using System.Threading;
             CollectionAssert.AreEqual(expected, actual);
         }
     }
-
 }
