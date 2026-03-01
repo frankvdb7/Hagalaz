@@ -352,14 +352,8 @@ namespace Hagalaz.Utilities
         private static int CountSegments(ReadOnlySpan<char> span, char separator)
         {
             if (span.IsEmpty) return 0;
-            int count = 1;
-            int index;
-            while ((index = span.IndexOf(separator)) != -1)
-            {
-                count++;
-                span = span[(index + 1)..];
-            }
-            return count;
+            // Use vectorized Count from MemoryExtensions
+            return span.Count(separator) + 1;
         }
 
         public static string FormatNumber(int value) => value.ToString("#,###,##0", CultureInfo.InvariantCulture);

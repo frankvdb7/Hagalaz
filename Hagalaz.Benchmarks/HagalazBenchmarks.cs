@@ -4,6 +4,7 @@ using BenchmarkDotNet.Exporters.Json;
 using BenchmarkDotNet.Running;
 using Hagalaz.Collections;
 using Hagalaz.Utilities;
+using Hagalaz.Security;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -27,6 +28,8 @@ namespace Hagalaz.Benchmarks
         private string _csvBools = string.Empty;
         private int[] _intArray = null!;
         private bool[] _boolArray = null!;
+
+        private string _hashInput = "This is a test string for hashing performance benchmarks. It should be long enough to show some impact.";
 
         [Params(100, 1000)]
         public int N;
@@ -95,6 +98,9 @@ namespace Hagalaz.Benchmarks
 
         [Benchmark]
         public ListHashSet<int> ToListHashSet_Benchmark() => _list.ToListHashSet();
+
+        [Benchmark]
+        public string ComputeHash_Benchmark() => HashHelper.ComputeHash(_hashInput, HashType.SHA256);
     }
 
     public class Program
