@@ -25,6 +25,8 @@ namespace Hagalaz.Benchmarks
 
         private string _csvInts = string.Empty;
         private string _csvBools = string.Empty;
+        private int[] _intArray = null!;
+        private bool[] _boolArray = null!;
 
         [Params(100, 1000)]
         public int N;
@@ -45,6 +47,8 @@ namespace Hagalaz.Benchmarks
             // String Parsing Setup
             _csvInts = string.Join(",", Enumerable.Range(0, N));
             _csvBools = string.Join(",", Enumerable.Range(0, N).Select(i => i % 2 == 0 ? "1" : "0"));
+            _intArray = Enumerable.Range(0, N).ToArray();
+            _boolArray = Enumerable.Range(0, N).Select(i => i % 2 == 0).ToArray();
         }
 
         [Benchmark]
@@ -82,6 +86,12 @@ namespace Hagalaz.Benchmarks
 
         [Benchmark]
         public int[] DecodeIntValues_SpanDelegate() => StringUtilities.DecodeValuesFromSpan<int>(_csvInts, (ReadOnlySpan<char> segment) => int.Parse(segment, NumberStyles.Any, CultureInfo.InvariantCulture));
+
+        [Benchmark]
+        public string EncodeIntValues() => StringUtilities.EncodeValues(_intArray);
+
+        [Benchmark]
+        public string EncodeBoolValues() => StringUtilities.EncodeValues(_boolArray);
     }
 
     public class Program

@@ -77,14 +77,9 @@ namespace Hagalaz.Utilities
         /// <returns>A string containing the comma-separated values.</returns>
         public static string EncodeValues<T>(T[] values)
         {
-            StringBuilder bld = new StringBuilder();
-            for (int i = 0; i < values.Length; i++)
-            {
-                bld.Append(values[i]);
-                if ((i + 1) < values.Length)
-                    bld.Append(',');
-            }
-            return bld.ToString();
+            if (values == null || values.Length == 0) return string.Empty;
+            // string.Join is highly optimized in .NET and preferred over manual StringBuilder for simple joins.
+            return string.Join(',', values);
         }
 
         /// <summary>
@@ -94,14 +89,22 @@ namespace Hagalaz.Utilities
         /// <returns>A string containing the comma-separated numeric representation of the booleans.</returns>
         public static string EncodeValues(bool[] values)
         {
-            var bld = new StringBuilder();
-            for (int i = 0; i < values.Length; i++)
+            if (values == null || values.Length == 0) return string.Empty;
+
+            // Use string.Create for zero-allocation (of intermediate buffers) and exact sizing.
+            int length = values.Length * 2 - 1;
+            return string.Create(length, values, (span, state) =>
             {
-                bld.Append(values[i] ? 1 : 0);
-                if ((i + 1) < values.Length)
-                    bld.Append(',');
-            }
-            return bld.ToString();
+                for (int i = 0; i < state.Length; i++)
+                {
+                    int pos = i * 2;
+                    span[pos] = state[i] ? '1' : '0';
+                    if (pos + 1 < span.Length)
+                    {
+                        span[pos + 1] = ',';
+                    }
+                }
+            });
         }
 
         /// <summary>
