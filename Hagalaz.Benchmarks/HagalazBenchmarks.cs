@@ -87,7 +87,7 @@ namespace Hagalaz.Benchmarks
     {
         public static void Main(string[] args)
         {
-            BenchmarkRunner.Run<HagalazBenchmarks>(args: args);
+            BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
         }
     }
 }
