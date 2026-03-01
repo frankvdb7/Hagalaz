@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Hagalaz.Collections
 {
@@ -7,13 +8,9 @@ namespace Hagalaz.Collections
         public static ListHashSet<T> ToListHashSet<T>(this IEnumerable<T> source) where T : notnull
         {
             int capacity = 0;
-            if (source is ICollection<T> collection)
+            if (source.TryGetNonEnumeratedCount(out int count))
             {
-                capacity = collection.Count;
-            }
-            else if (source is IReadOnlyCollection<T> readOnlyCollection)
-            {
-                capacity = readOnlyCollection.Count;
+                capacity = count;
             }
 
             var listHashSet = new ListHashSet<T>(capacity);
