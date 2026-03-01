@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -18,6 +18,13 @@ namespace Hagalaz.Utilities
         /// <param name="value">The string value to parse.</param>
         /// <returns>The parsed value of type <typeparamref name="T"/>.</returns>
         public delegate T ValueParser<out T>(string value);
+        /// <summary>
+        /// Defines a delegate for parsing a span into a specific type.
+        /// </summary>
+        /// <typeparam name="T">The target type of the parsing operation.</typeparam>
+        /// <param name="value">The span value to parse.</param>
+        /// <returns>The parsed value of type <typeparamref name="T"/>.</returns>
+        public delegate T SpanValueParser<out T>(ReadOnlySpan<char> value);
 
         /// <summary>
         /// A regular expression for validating standard email address formats.
@@ -106,21 +113,24 @@ namespace Hagalaz.Utilities
         {
             if (string.IsNullOrEmpty(input))
             {
-                yield break; // Return an empty enumerable for an empty or null input.
+                yield break;
             }
 
-            foreach (var str in input.Split(','))
+            int start = 0;
+            int end;
+            while ((end = input.IndexOf(',', start)) != -1)
             {
-                if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedValue))
-                {
-                    yield return parsedValue;
-                }
-                else
-                {
-                    // Handle the case where parsing fails (e.g., set a default value).
-                    yield return 0.0;
-                }
+                yield return ParseDouble(input.AsSpan(start, end - start));
+                start = end + 1;
             }
+            yield return ParseDouble(input.AsSpan(start));
+        }
+
+        private static double ParseDouble(ReadOnlySpan<char> segment)
+        {
+            return double.TryParse(segment, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedValue)
+                ? parsedValue
+                : 0.0;
         }
 
         /// <summary>
@@ -132,21 +142,24 @@ namespace Hagalaz.Utilities
         {
             if (string.IsNullOrEmpty(input))
             {
-                yield break; // Return an empty enumerable for an empty or null input.
+                yield break;
             }
 
-            foreach (var str in input.Split(','))
+            int start = 0;
+            int end;
+            while ((end = input.IndexOf(',', start)) != -1)
             {
-                if (int.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out int parsedValue))
-                {
-                    yield return parsedValue;
-                }
-                else
-                {
-                    // Handle the case where parsing fails (e.g., set a default value).
-                    yield return 0;
-                }
+                yield return ParseInt(input.AsSpan(start, end - start));
+                start = end + 1;
             }
+            yield return ParseInt(input.AsSpan(start));
+        }
+
+        private static int ParseInt(ReadOnlySpan<char> segment)
+        {
+            return int.TryParse(segment, NumberStyles.Any, CultureInfo.InvariantCulture, out int parsedValue)
+                ? parsedValue
+                : 0;
         }
 
         /// <summary>
@@ -168,6 +181,35 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
+        /// Decodes a separated string into an array of a specified type using a custom parser that accepts spans.
+        /// </summary>
+        /// <typeparam name="T">The target type for the decoded values.</typeparam>
+        /// <param name="data">The string data to decode.</param>
+        /// <param name="parser">The delegate function used to parse each string segment span.</param>
+        /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
+        /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
+        public static T[] DecodeValuesFromSpan<T>(string data, SpanValueParser<T> parser, char separator = ',')
+        {
+            if (string.IsNullOrWhiteSpace(data))
+                return [];
+
+            int count = CountSegments(data.AsSpan(), separator);
+            T[] values = new T[count];
+
+            int start = 0;
+            for (int k = 0; k < count; k++)
+            {
+                int end = data.IndexOf(separator, start);
+                if (end == -1) end = data.Length;
+
+                values[k] = parser.Invoke(data.AsSpan(start, end - start));
+                start = end + 1;
+            }
+
+            return values;
+        }
+
+        /// <summary>
         /// Decodes a separated string into an array of a specified type using a custom parser.
         /// </summary>
         /// <typeparam name="T">The target type for the decoded values.</typeparam>
@@ -177,13 +219,7 @@ namespace Hagalaz.Utilities
         /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
         public static T[] DecodeValues<T>(string data, ValueParser<T> parser, char separator = ',')
         {
-            if (string.IsNullOrWhiteSpace(data))
-                return [];
-            var split = data.Split(separator);
-            T[] values = new T[split.Length];
-            for (var i = 0; i < split.Length; i++)
-                values[i] = parser.Invoke(split[i]);
-            return values;
+            return DecodeValuesFromSpan(data, segment => parser.Invoke(segment.ToString()), separator);
         }
 
         /// <summary>
@@ -197,14 +233,20 @@ namespace Hagalaz.Utilities
             {
                 return [];
             }
-            var split = data.Split(',');
-            var values = new bool[split.Length];
-            for (int i = 0; i < split.Length; i++)
+
+            int count = CountSegments(data.AsSpan(), ',');
+            bool[] values = new bool[count];
+
+            int start = 0;
+            for (int k = 0; k < count; k++)
             {
-                // Use TryParse to gracefully handle invalid integer formats.
-                // If parsing fails, the result will be false, which is a safe default.
-                values[i] = int.TryParse(split[i], NumberStyles.Any, CultureInfo.InvariantCulture, out var parsedValue) && parsedValue == 1;
+                int end = data.IndexOf(',', start);
+                if (end == -1) end = data.Length;
+
+                values[k] = ParseInt(data.AsSpan(start, end - start)) == 1;
+                start = end + 1;
             }
+
             return values;
         }
 
@@ -304,6 +346,19 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="value">The integer value to format.</param>
         /// <returns>A formatted string representation of the number (e.g., "1,234,567").</returns>
+        private static int CountSegments(ReadOnlySpan<char> span, char separator)
+        {
+            if (span.IsEmpty) return 0;
+            int count = 1;
+            int index;
+            while ((index = span.IndexOf(separator)) != -1)
+            {
+                count++;
+                span = span[(index + 1)..];
+            }
+            return count;
+        }
+
         public static string FormatNumber(int value) => value.ToString("#,###,##0", CultureInfo.InvariantCulture);
         [GeneratedRegex("^(([^<>()[\\]\\\\.,;:\\s@\"]+(\\.[^<>()[\\]\\\\.,;:\\s@\"]+)*)|(\".+\"))@((\\[[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\])|(([a-zA-Z\\-0-9]+\\.)+[a-zA-Z]{2,}))$", RegexOptions.IgnoreCase, "nl-NL")]
         private static partial Regex MyRegex();

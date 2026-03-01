@@ -190,6 +190,9 @@
       },
       "hagalaz.collections.extensions": {
         "type": "Project"
+      },
+      "hagalaz.utilities": {
+        "type": "Project"
       }
     }
   }

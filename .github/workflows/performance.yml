@@ -27,7 +27,7 @@ jobs:
 
       - name: Run Benchmarks
         run: |
-          dotnet run -c Release --project Hagalaz.Benchmarks -- --job dry --toolchain inprocess --filter "*" --exporter json
+          dotnet run -c Release --project Hagalaz.Benchmarks -- --job dry --filter "*" --exporters json
 
       - name: Initialize Benchmark Branch if missing
         run: |
