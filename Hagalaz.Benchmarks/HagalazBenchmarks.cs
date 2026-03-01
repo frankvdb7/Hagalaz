@@ -92,6 +92,9 @@ namespace Hagalaz.Benchmarks
 
         [Benchmark]
         public string EncodeBoolValues() => StringUtilities.EncodeValues(_boolArray);
+
+        [Benchmark]
+        public ListHashSet<int> ToListHashSet_Benchmark() => _list.ToListHashSet();
     }
 
     public class Program
