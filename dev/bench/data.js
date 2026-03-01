@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772277132572,
+  "lastUpdate": 1772381888641,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -360,6 +360,126 @@ window.BENCHMARK_DATA = {
             "value": 997.2788118634905,
             "unit": "ns",
             "range": "± 1.5493275286145225"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f6886a24291c5ff6384f9d2d9f6edfe2fd0076c0",
+          "message": "⚡ Bolt: Optimize string parsing utilities with ReadOnlySpan (#226)\n\n* ⚡ Bolt: Optimize string parsing utilities with ReadOnlySpan\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: Optimize string parsing utilities with ReadOnlySpan\n\n💡 What:\nRefactored common string parsing utilities in `Hagalaz.Utilities/StringUtilities.cs` (`SelectIntFromString`, `SelectDoubleFromString`, `DecodeValues`) to use `ReadOnlySpan<char>` and manual `IndexOf` loops instead of `string.Split` and intermediate substring allocations.\n\n🎯 Why:\nThe previous implementation relied on `string.Split`, which allocates an array of strings even for small inputs. These utilities are frequently used in AutoMapper profiles and core game logic, making them a high-impact target for reducing transient heap pressure and improving cache locality.\n\n📊 Impact:\n- Eliminated `string[]` and `string` allocations for segments in `SelectIntFromString` and `SelectDoubleFromString`.\n- Optimized `DecodeValues` to pre-count segments and allocate the result array exactly once.\n- Maintained lazy evaluation (yield return) compatibility while leveraging span-based parsing.\n- Measurable reduction in Gen 0 GC pressure for CSV parsing scenarios.\n\n🔬 Measurement:\nAdded `StringParsingBenchmarks` to the `Hagalaz.Benchmarks` project (while preserving existing benchmarks).\nResults for N=100:\n- `DecodeBoolValues`: 128 B allocated (down from ~2.5KB+ estimated for Split)\n- `SelectIntFromString`: 1232 B allocated (iterator state machine overhead, but 0 segment string allocations)\n\nVerified with 111 unit tests in `Hagalaz.Utilities.Tests`.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: Zero-allocation string parsing utilities with ReadOnlySpan\n\n💡 What:\nRefactored `Hagalaz.Utilities/StringUtilities.cs` to eliminate transient string allocations during common CSV/separated-value parsing tasks.\n- Introduced `SpanValueParser<T>` delegate and `DecodeValuesFromSpan<T>` overload for truly allocation-free parsing of numeric segments.\n- Optimized `SelectIntFromString` and `SelectDoubleFromString` to use lazy evaluation via `yield return` while leveraging `ReadOnlySpan<char>` and manual `IndexOf` loops to avoid `string.Split` and segment string creation.\n- Enhanced `DecodeValues(string data)` (bool array) to be allocation-free (except for the final result array).\n- Added `CountSegments` helper to pre-allocate result arrays with exact capacity.\n\n🎯 Why:\nThe previous implementation relied on `string.Split`, which creates a `string[]` and a new `string` object for every segment. These utilities are used heavily in AutoMapper profiles for character statistics and world data, creating significant GC pressure on the hot path.\n\n📊 Impact:\n- **Zero segment string allocations** for numeric and boolean parsing.\n- Exact array pre-allocation for eager parsing methods.\n- Maintained lazy evaluation for enumerable parsing.\n\n🔬 Measurement:\nUpdated `StringParsingBenchmarks`.\nFor N=100:\n- `DecodeBoolValues`: 128 B allocated (down from ~2.5KB+ estimated for original)\n- `DecodeIntValues_SpanDelegate`: 456 B allocated (down from ~3.5KB+ for string delegate)\n- `SelectIntFromString`: 1232 B allocated (iterator overhead only, 0 segment strings)\n\nVerified with 111 unit tests in `Hagalaz.Utilities.Tests`.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: Zero-allocation string parsing utilities with ReadOnlySpan\n\n💡 What:\nRefactored `Hagalaz.Utilities/StringUtilities.cs` to eliminate transient string allocations during common CSV/separated-value parsing tasks.\n- Introduced `SpanValueParser<T>` delegate and `DecodeValuesFromSpan<T>` overload for truly allocation-free parsing of numeric segments.\n- Optimized `SelectIntFromString` and `SelectDoubleFromString` to use lazy evaluation via `yield return` while leveraging `ReadOnlySpan<char>` and manual `IndexOf` loops to avoid `string.Split` and segment string creation.\n- Enhanced `DecodeValues(string data)` (bool array) to be allocation-free (except for the final result array).\n- Added `CountSegments` helper to pre-allocate result arrays with exact capacity.\n- Integrated new benchmarks into the existing `HagalazBenchmarks` suite to ensure CI compatibility.\n\n🎯 Why:\nThe previous implementation relied on `string.Split`, which creates a `string[]` and a new `string` object for every segment. These utilities are used heavily in AutoMapper profiles for character statistics and world data, creating significant GC pressure on the hot path.\n\n📊 Impact:\n- **~9x reduction in heap allocations** for eager numeric array parsing (e.g., `DecodeValues`).\n- **Zero segment string allocations** for numeric and boolean parsing.\n- Exact array pre-allocation for eager parsing methods.\n- Maintained lazy evaluation for enumerable parsing.\n\n🔬 Measurement:\nBenchmark results for N=1000:\n- `DecodeIntValues_StringDelegate`: 35.9 KB allocated\n- `DecodeIntValues_SpanDelegate`: 4.0 KB allocated (result array only)\n- `DecodeBoolValues`: 1024 B allocated (result array only)\n\nVerified with 111 unit tests in `Hagalaz.Utilities.Tests`.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: Zero-allocation string parsing with SpanValueParser\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: Zero-allocation string parsing utilities with ReadOnlySpan\n\n💡 What:\nRefactored `Hagalaz.Utilities/StringUtilities.cs` to eliminate transient string allocations during common separated-value parsing tasks.\n- Introduced `SpanValueParser<T>` delegate and `DecodeValues<T>` overload for allocation-free parsing of numeric segments.\n- Optimized `SelectIntFromString` and `SelectDoubleFromString` to use lazy evaluation via `yield return` while leveraging `ReadOnlySpan<char>` to avoid `string.Split` and segment string creation.\n- Enhanced `DecodeValues(string data)` (bool array) to be allocation-free (except for the result array).\n- Integrated all string parsing benchmarks into the existing `HagalazBenchmarks` suite to ensure CI compatibility.\n\n🎯 Why:\nThe previous implementation relied on `string.Split`, which creates a `string[]` and a new `string` object for every segment. This created significant GC pressure on hot paths like character statistics loading.\n\n📊 Impact:\n- **Zero segment string allocations** for common numeric parsing.\n- Optimized result array pre-allocation using a manual delimiter count.\n- Maintained lazy evaluation for Enumerable parsing.\n\n🔬 Measurement:\nBenchmark results for N=1000:\n- `DecodeIntValues_SpanDelegate`: 4.0 KB allocated (result array only).\n- `DecodeIntValues_StringDelegate`: 35.9 KB allocated (original behavior).\n- `DecodeBoolValues`: 1024 B allocated (result array only).\n\nVerified with 111 unit tests.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: Zero-allocation string parsing utilities with ReadOnlySpan\n\n💡 What:\nRefactored `Hagalaz.Utilities/StringUtilities.cs` to eliminate transient string allocations during common separated-value parsing tasks.\n- Introduced `SpanValueParser<T>` delegate and `DecodeValues<T>` overload for allocation-free parsing of numeric segments.\n- Optimized `SelectIntFromString` and `SelectDoubleFromString` to use lazy evaluation via `yield return` while leveraging `ReadOnlySpan<char>` to avoid `string.Split` and segment string creation.\n- Enhanced `DecodeValues(string data)` (bool array) to be allocation-free (except for the final result array).\n- Unified all performance benchmarks into the existing `HagalazBenchmarks` suite to ensure CI compatibility with the performance tracking action.\n\n🎯 Why:\nThe previous implementation relied on `string.Split`, which creates a `string[]` and a new `string` object for every segment. This created significant GC pressure on hot paths like character statistics loading.\n\n📊 Impact:\n- **Zero segment string allocations** for common numeric parsing.\n- Optimized result array pre-allocation using a manual delimiter count.\n- Maintained lazy evaluation for Enumerable parsing.\n\n🔬 Measurement:\nBenchmark results for N=1000:\n- `DecodeIntValues_SpanDelegate`: 4.0 KB allocated (result array only).\n- `DecodeIntValues_StringDelegate`: 35.9 KB allocated (original behavior).\n- `DecodeBoolValues`: 1024 B allocated (result array only).\n\nVerified with 111 unit tests.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: Zero-allocation string parsing utilities with ReadOnlySpan\n\n💡 What:\nRefactored `Hagalaz.Utilities/StringUtilities.cs` to eliminate transient string allocations during common separated-value parsing tasks.\n- Introduced `SpanValueParser<T>` delegate and `DecodeValues<T>` overload for allocation-free parsing of numeric segments.\n- Optimized `SelectIntFromString` and `SelectDoubleFromString` to use lazy evaluation via `yield return` while leveraging `ReadOnlySpan<char>` to avoid `string.Split` and segment string creation.\n- Enhanced `DecodeValues(string data)` (bool array) to be allocation-free (except for the final result array).\n- Unified all performance benchmarks into the existing `HagalazBenchmarks` suite to ensure CI compatibility.\n\n🎯 Why:\nThe previous implementation relied on `string.Split`, which creates a `string[]` and a new `string` object for every segment. This created significant GC pressure on hot paths like character statistics loading.\n\n📊 Impact:\n- **Zero segment string allocations** for common numeric parsing.\n- Optimized result array pre-allocation using a manual delimiter count.\n- Maintained lazy evaluation for Enumerable parsing.\n\n🔬 Measurement:\nBenchmark results for N=1000:\n- `DecodeIntValues_SpanDelegate`: 4.0 KB allocated (result array only).\n- `DecodeIntValues_StringDelegate`: 35.9 KB allocated (original behavior).\n- `DecodeBoolValues`: 1024 B allocated (result array only).\n\nVerified with 111 unit tests.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: Optimize string parsing utilities with ReadOnlySpan<char>\n\n- Refactored `SelectIntFromString`, `SelectDoubleFromString`, and `DecodeValues` to use `ReadOnlySpan<char>` and manual `IndexOf` loops.\n- Eliminated `string.Split` and intermediate substring allocations during CSV/separated-value parsing.\n- Introduced `SpanValueParser<T>` and `DecodeValuesFromSpan<T>` for zero-allocation parsing paths.\n- Maintained lazy evaluation for `IEnumerable` methods while bypassing ref struct yield limitations.\n- Reduced heap allocations by ~9x for numeric CSV parsing (N=1000: ~36KB down to ~4KB).\n- Unified parsing benchmarks in `Hagalaz.Benchmarks` and updated MSTest suite.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: Optimize string parsing utilities and fix CI benchmarks\n\n- Refactored `SelectIntFromString`, `SelectDoubleFromString`, and `DecodeValues` to use `ReadOnlySpan<char>` and manual `IndexOf` loops, eliminating `string.Split` and substring allocations.\n- Introduced `SpanValueParser<T>` and `DecodeValuesFromSpan<T>` for zero-allocation parsing paths.\n- Reduced heap allocations by ~9x for numeric CSV parsing (N=1000: ~36KB down to ~4KB).\n- Unified parsing benchmarks in `Hagalaz.Benchmarks`.\n- Fixed CI benchmark job in `.github/workflows/performance.yml` by removing unsupported `--toolchain` and `--exporter` options and using valid `--exporters json`.\n- Updated MSTest suite in `Hagalaz.Utilities.Tests` to resolve compiler warnings and naming collisions.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n---------\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-03-01T17:17:20+01:00",
+          "tree_id": "f0920beb05580073ad6dd951aff320300697febc",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/f6886a24291c5ff6384f9d2d9f6edfe2fd0076c0"
+        },
+        "date": 1772381887216,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 779195,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 437301,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 899096,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 547916,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 100)",
+            "value": 1657433,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 100)",
+            "value": 1030941,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 100)",
+            "value": 1721391,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 100)",
+            "value": 1159259,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 804883,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 467116,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 929813,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 570387,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 1000)",
+            "value": 1238726,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 1000)",
+            "value": 1084571,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 1000)",
+            "value": 1329425,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 1000)",
+            "value": 1265475,
+            "unit": "ns",
+            "range": "± 0"
           }
         ]
       }
