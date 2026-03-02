@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -17,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly ICreature _owner;
         private readonly IMapRegionService _regionService;
         private readonly List<IMapRegion> _visibleRegions = [];
-        private readonly ListHashSet<ICreature> _visibleCreatures = new();
+        private readonly ListHashSet<ICreature> _visibleCreatures = new(255);
 
         /// <summary>
         /// Contains size for both X and Y in tiles of this viewport.
@@ -155,23 +155,28 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         {
             _visibleCreatures.Clear();
 
+            var ownerLocation = _owner.Location;
             foreach (var region in _visibleRegions)
             {
-                foreach (var character in region.FindAllCharacters()
-                    .Where(character =>
-                        InBounds(character.Location) &&
-                        _owner.Location.WithinDistance(character.Location, CreatureConstants.VisibilityDistance) &&
-                        character.Appearance.Visible))
+                foreach (var character in region.FindAllCharacters())
                 {
-                    _visibleCreatures.Add(character);
+                    var charLocation = character.Location;
+                    if (InBounds(charLocation) &&
+                        ownerLocation.WithinDistance(charLocation, CreatureConstants.VisibilityDistance) &&
+                        character.Appearance.Visible)
+                    {
+                        _visibleCreatures.Add(character);
+                    }
                 }
-                foreach (var npc in region.FindAllNpcs()
-                    .Where(npc =>
-                    InBounds(npc.Location) &&
-                    _owner.Location.WithinDistance(npc.Location, CreatureConstants.VisibilityDistance) &&
-                    npc.Appearance.Visible))
+                foreach (var npc in region.FindAllNpcs())
                 {
-                    _visibleCreatures.Add(npc);
+                    var npcLocation = npc.Location;
+                    if (InBounds(npcLocation) &&
+                        ownerLocation.WithinDistance(npcLocation, CreatureConstants.VisibilityDistance) &&
+                        npc.Appearance.Visible)
+                    {
+                        _visibleCreatures.Add(npc);
+                    }
                 }
             }
         }
