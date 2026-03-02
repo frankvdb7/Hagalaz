@@ -265,7 +265,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             if (!Owner.WithinRange(creature, GetAttackDistance() + 2)) return false;
             if (!creature.Area.MultiCombat)
             {
-                if (Owner.Viewport.VisibleCreatures.OfType<INpc>().Any(npc => npc.Combat.LastAttacked == creature))
+                if (Owner.Viewport.VisibleNpcs.Any(npc => npc.Combat.LastAttacked == creature))
                 {
                     return false;
                 }
@@ -293,7 +293,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 
             if (Owner.Definition.ReactionType == ReactionType.Aggressive || Owner.Definition.ReactionType == ReactionType.CombatAggressive)
             {
-                var characters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>();
+                var characters = Owner.Viewport.VisibleCharacters;
                 if (!characters.Any())
                 {
                     return;

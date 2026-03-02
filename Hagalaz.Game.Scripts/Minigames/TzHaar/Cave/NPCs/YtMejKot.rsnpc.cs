@@ -46,7 +46,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
                     return;
                 }
 
-                var npcs = Owner.Viewport.VisibleCreatures.OfType<INpc>().Where(n => Owner.WithinRange(n, 1));
+                var npcs = Owner.Viewport.VisibleNpcs.Where(n => Owner.WithinRange(n, 1));
                 foreach (var npc in npcs)
                 {
                     HealNpc(npc);

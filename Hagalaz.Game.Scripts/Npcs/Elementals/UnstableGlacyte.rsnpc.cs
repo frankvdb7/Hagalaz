@@ -107,7 +107,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                 .Build();
             Owner.QueueHitSplat(npcSplat);
 
-            var characters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => c.WithinRange(Owner, 1));
+            var characters = Owner.Viewport.VisibleCharacters.Where(c => c.WithinRange(Owner, 1));
             foreach (var character in characters)
             {
                 Owner.Combat.PerformAttack(new AttackParams()

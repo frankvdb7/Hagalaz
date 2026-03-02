@@ -110,7 +110,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Sage
             AttachDialogueContinueClickHandler(14, (extraData1, extraData2) =>
             {
                 var allowWalkingEvent = Owner.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e => true));
-                var npc = Owner.Viewport.VisibleCreatures.OfType<INpc>().FirstOrDefault(n => n.Name.Equals("Mandrith", StringComparison.OrdinalIgnoreCase));
+                var npc = Owner.Viewport.VisibleNpcs.FirstOrDefault(n => n.Name.Equals("Mandrith", StringComparison.OrdinalIgnoreCase));
                 if (npc != null)
                 {
                     //this.owner.Session.SendPacket(new SetCameraPositionPacketComposer())

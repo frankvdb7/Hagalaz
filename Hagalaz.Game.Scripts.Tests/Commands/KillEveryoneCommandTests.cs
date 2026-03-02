@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var npcMock = Substitute.For<INpc>();
             var characterMock = Substitute.For<ICharacter>();
             characterMock.Combat.Returns(combatMock);
-            characterMock.Viewport.VisibleCreatures.Returns(new List<ICreature> { npcMock });
+            characterMock.Viewport.VisibleNpcs.Returns(new List<INpc> { npcMock });
 
             var command = new KillEveryoneCommand();
             var args = new GameCommandArgs(characterMock, []);

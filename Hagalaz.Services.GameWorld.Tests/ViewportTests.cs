@@ -36,6 +36,8 @@ namespace Hagalaz.Services.GameWorld.Tests
         {
             // Assert
             Assert.IsInstanceOfType(_viewport.VisibleCreatures, typeof(ListHashSet<ICreature>));
+            Assert.IsInstanceOfType(_viewport.VisibleCharacters, typeof(IReadOnlyCollection<ICharacter>));
+            Assert.IsInstanceOfType(_viewport.VisibleNpcs, typeof(IReadOnlyCollection<INpc>));
         }
 
         [TestMethod]
