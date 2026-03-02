@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772400753044,
+  "lastUpdate": 1772483377797,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -946,6 +946,210 @@ window.BENCHMARK_DATA = {
           {
             "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 1000)",
             "value": 5509304,
+            "unit": "ns",
+            "range": "± 0"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c014ee0700a58b9ab89d2860b52e7829bac77193",
+          "message": "⚡ Bolt: optimize viewport update and concurrentstore iteration (#230)\n\n* ⚡ Bolt: optimize viewport update and concurrentstore iteration\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: optimize viewport and refactor benchmark suite\n\n💡 What:\n- Optimized \\`Viewport.UpdateTick\\` by replacing Linq with manual loops and utilizing a pre-allocated \\`ListHashSet\\`.\n- Optimized \\`ConcurrentStore<TKey, TValue>\\` by implementing a non-boxing struct enumerator for \\`foreach\\` loops.\n- Refactored the monolithic \\`HagalazBenchmarks\\` class into logical partial classes: \\`Collections\\`, \\`Viewport\\`, \\`StringParsing\\`, and \\`Security\\`.\n\n🎯 Why:\n- \\`Viewport.UpdateTick\\` is a hot path executed every game tick for every player. Linq iterator allocations and delegate overhead were measurable.\n- \\`ConcurrentStore\\` iteration previously suffered from double boxing, increasing GC pressure.\n- \\`HagalazBenchmarks.cs\\` was becoming a monolithic file that was difficult to navigate and maintain.\n\n📊 Impact:\n- Viewport Update: ~42.6% speedup in benchmarks (18.84μs -> 10.81μs).\n- Viewport Update: ~43.5% reduction in initial allocation.\n- Improved code organization and maintainability of the benchmark suite without breaking existing CI reporting.\n\n🔬 Measurement:\n- Verified with BenchmarkDotNet; all 15 benchmarks discovered and functional.\n- All functional tests in \\`Hagalaz.Services.GameWorld.Tests\\` and \\`Hagalaz.Collections.Tests\\` passed.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n* ⚡ Bolt: optimize viewport, refactor benchmarks, and reduce duplication\n\n💡 What:\n- Optimized \\`Viewport.UpdateTick\\` by replacing Linq with manual loops and utilizing a pre-allocated \\`ListHashSet\\`.\n- Optimized \\`ConcurrentStore<TKey, TValue>\\` by implementing a non-boxing struct enumerator for \\`foreach\\` loops.\n- Refactored the monolithic \\`HagalazBenchmarks\\` class into logical partial classes: \\`Collections\\`, \\`Viewport\\`, \\`StringParsing\\`, and \\`Security\\`.\n- Reduced code duplication in \\`MapRegion\\` and \\`Viewport\\` by extracting shared character and NPC processing logic into private helper methods (\\`ForEachCreature\\`, \\`ProcessVisibleCharacters\\`, etc.).\n\n🎯 Why:\n- Performance: \\`Viewport.UpdateTick\\` is a hot path. Linq and enumerator boxing were causing unnecessary allocations and CPU overhead.\n- Maintainability: Duplicated loops for characters and NPCs made the code harder to maintain and update.\n- Organization: \\`HagalazBenchmarks.cs\\` was becoming too large and difficult to navigate.\n\n📊 Impact:\n- Viewport Update: ~42.6% speedup in benchmarks (18.84μs -> 10.81μs).\n- Viewport Update: ~43.5% reduction in initial allocation.\n- Improved code reuse and readability across core game world components.\n\n🔬 Measurement:\n- Verified with BenchmarkDotNet; all 15 benchmarks discovered and functional.\n- All functional tests in \\`Hagalaz.Services.GameWorld.Tests\\` and \\`Hagalaz.Collections.Tests\\` passed.\n\nCo-authored-by: frankvdb7 <5363672+frankvdb7@users.noreply.github.com>\n\n---------\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-03-02T21:28:26+01:00",
+          "tree_id": "49cf85c1703f83ce113b4fcd8f3344a077ccf1a8",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/c014ee0700a58b9ab89d2860b52e7829bac77193"
+        },
+        "date": 1772483373892,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 881374,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 478784,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 100)",
+            "value": 1500980,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 100)",
+            "value": 394937,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 100)",
+            "value": 5425033,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 100)",
+            "value": 1264840,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 100)",
+            "value": 998403,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 100)",
+            "value": 1201281,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 100)",
+            "value": 1130029,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 100)",
+            "value": 741774,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 100)",
+            "value": 865124,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 912954,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 561898,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 100)",
+            "value": 1201753,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 100)",
+            "value": 517796,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 864362,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 465529,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 1000)",
+            "value": 1529844,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 1000)",
+            "value": 439911,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 1000)",
+            "value": 5495154,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 1000)",
+            "value": 1315855,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 1000)",
+            "value": 1554150,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 1000)",
+            "value": 1254080,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 1000)",
+            "value": 1268787,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 1000)",
+            "value": 776519,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 1000)",
+            "value": 868801,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 936718,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 572830,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 1000)",
+            "value": 1250143,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 1000)",
+            "value": 532113,
             "unit": "ns",
             "range": "± 0"
           }
