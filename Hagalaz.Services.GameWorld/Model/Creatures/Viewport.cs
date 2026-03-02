@@ -6,6 +6,7 @@ using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 
@@ -158,25 +159,24 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             var ownerLocation = _owner.Location;
             foreach (var region in _visibleRegions)
             {
-                foreach (var character in region.FindAllCharacters())
+                ProcessVisibleCreatures(region.FindAllCharacters(), ownerLocation, c => c.Appearance.Visible);
+                ProcessVisibleCreatures(region.FindAllNpcs(), ownerLocation, n => n.Appearance.Visible);
+            }
+        }
+
+        /// <summary>
+        /// Processes and adds visible creatures from a collection based on proximity and visibility.
+        /// </summary>
+        private void ProcessVisibleCreatures<T>(IEnumerable<T> creatures, ILocation ownerLocation, Func<T, bool> visibilityCheck) where T : ICreature
+        {
+            foreach (var creature in creatures)
+            {
+                var loc = creature.Location;
+                if (InBounds(loc) &&
+                    ownerLocation.WithinDistance(loc, CreatureConstants.VisibilityDistance) &&
+                    visibilityCheck(creature))
                 {
-                    var charLocation = character.Location;
-                    if (InBounds(charLocation) &&
-                        ownerLocation.WithinDistance(charLocation, CreatureConstants.VisibilityDistance) &&
-                        character.Appearance.Visible)
-                    {
-                        _visibleCreatures.Add(character);
-                    }
-                }
-                foreach (var npc in region.FindAllNpcs())
-                {
-                    var npcLocation = npc.Location;
-                    if (InBounds(npcLocation) &&
-                        ownerLocation.WithinDistance(npcLocation, CreatureConstants.VisibilityDistance) &&
-                        npc.Appearance.Visible)
-                    {
-                        _visibleCreatures.Add(npc);
-                    }
+                    _visibleCreatures.Add(creature);
                 }
             }
         }

@@ -7,6 +7,7 @@ using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -85,6 +86,23 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public IEnumerable<INpc> FindAllNpcs() => _npcs;
 
+        private void ForEachCreature(Action<ICreature> action)
+        {
+            foreach (var character in _characters) action(character);
+            foreach (var npc in _npcs) action(npc);
+        }
+
+        private async Task ForEachCreatureAsync(Func<ICreature, Task> action)
+        {
+            foreach (var character in _characters) await action(character);
+            foreach (var npc in _npcs) await action(npc);
+        }
+
+        private bool AnyCreature(Func<ICreature, bool> predicate)
+        {
+            return _characters.Any(predicate) || _npcs.Any(predicate);
+        }
+
         public void SendFullPartUpdates(ICharacter character)
         {
             foreach (var part in _parts)
@@ -99,15 +117,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public async Task MajorUpdateTick()
         {
             await Task.CompletedTask;
-            foreach (var character in _characters)
-            {
-                character.MajorUpdateTick();
-            }
-
-            foreach (var npc in _npcs)
-            {
-                npc.MajorUpdateTick();
-            }
+            ForEachCreature(c => c.MajorUpdateTick());
         }
 
         /// <summary>
@@ -116,16 +126,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public async Task MajorClientPrepareUpdateTick()
         {
             TickGroundItems();
-
-            foreach (var character in _characters)
-            {
-                await character.MajorClientPrepareUpdateTickAsync();
-            }
-
-            foreach (var npc in _npcs)
-            {
-                await npc.MajorClientPrepareUpdateTickAsync();
-            }
+            await ForEachCreatureAsync(c => c.MajorClientPrepareUpdateTickAsync());
         }
 
         /// <summary>
@@ -141,15 +142,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
             }
 
-            foreach (var character in _characters)
-            {
-                await character.MajorClientUpdateTickAsync();
-            }
-
-            foreach (var npc in _npcs)
-            {
-                await npc.MajorClientUpdateTickAsync();
-            }
+            await ForEachCreatureAsync(c => c.MajorClientUpdateTickAsync());
         }
 
         /// <summary>
@@ -163,25 +156,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 part.ClearUpdates();
             }
 
-            foreach (var character in _characters)
-            {
-                await character.MajorClientUpdateResetTickAsync();
-            }
-
-            foreach (var npc in _npcs)
-            {
-                await npc.MajorClientUpdateResetTickAsync();
-            }
+            await ForEachCreatureAsync(c => c.MajorClientUpdateResetTickAsync());
         }
 
         public bool CanSuspend()
         {
-            if (FindAllCharacters().Any(character => !character.CanSuspend()))
-            {
-                return false;
-            }
-
-            if (FindAllNpcs().Any(npc => !npc.CanSuspend()))
+            if (AnyCreature(c => !c.CanSuspend()))
             {
                 return false;
             }
@@ -211,12 +191,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return false;
             }
 
-            if (FindAllCharacters().Any(character => !character.CanDestroy()))
-            {
-                return false;
-            }
-
-            if (FindAllNpcs().Any(npc => !npc.CanDestroy()))
+            if (AnyCreature(c => !c.CanDestroy()))
             {
                 return false;
             }
