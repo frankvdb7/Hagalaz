@@ -44,7 +44,11 @@ namespace Hagalaz.Collections
 
         public void CopyTo(T[] array, int arrayIndex) => _list.CopyTo(array, arrayIndex);
 
-        public IEnumerator<T> GetEnumerator() => _list.GetEnumerator();
+        /// <summary>
+        /// Returns an enumerator that iterates through the collection.
+        /// </summary>
+        /// <returns>A <see cref="List{T}.Enumerator"/> that can be used to iterate through the collection.</returns>
+        public List<T>.Enumerator GetEnumerator() => _list.GetEnumerator();
 
         public bool Remove(T item)
         {
@@ -54,6 +58,8 @@ namespace Hagalaz.Collections
             }
             return false;
         }
+
+        IEnumerator<T> IEnumerable<T>.GetEnumerator() => GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
