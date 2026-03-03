@@ -1047,7 +1047,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
                 }
             }
 
-            var sss = Owner.Viewport.VisibleCreatures.OfType<INpc>().FirstOrDefault(npc => npc.Name.Contains("sage", StringComparison.OrdinalIgnoreCase));
+            var sss = Owner.Viewport.VisibleNpcs.FirstOrDefault(npc => npc.Name.Contains("sage", StringComparison.OrdinalIgnoreCase));
             if (sss == null)
             {
                 return;

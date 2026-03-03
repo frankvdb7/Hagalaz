@@ -357,7 +357,7 @@
     //                 Owner.Speak("NO ESCAPE!");
     //                 _soundBuilder.Create().AsVoice().WithId(3292).Build().PlayWithinDistance(Owner, 8);
     //
-    //                 var characters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
+    //                 var characters = Owner.Viewport.VisibleCharacters.Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
     //                 foreach (var character in characters)
     //                 {
     //                     //int dir = DirectionUtilities.CalculateBasicFaceDirection(character.Location, center);
@@ -394,7 +394,7 @@
     //         //this.owner.QueueGraphic(Graphic.Create(1215, 0, 100));
     //         Owner.QueueTask(new RsTask(() =>
     //         {
-    //             var characters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
+    //             var characters = Owner.Viewport.VisibleCharacters.Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
     //             foreach (var character in characters)
     //             {
     //                 var magicMaxHit = ((INpcCombat) Owner.Combat).GetMagicMaxHit(character, 250);

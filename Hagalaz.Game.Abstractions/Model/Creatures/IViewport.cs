@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps;
 
@@ -13,6 +15,14 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// Gets a read-only list of the creatures currently visible within this viewport.
         /// </summary>
         IReadOnlyList<ICreature> VisibleCreatures { get; }
+        /// <summary>
+        /// Gets a read-only collection of the characters currently visible within this viewport.
+        /// </summary>
+        IReadOnlyCollection<ICharacter> VisibleCharacters { get; }
+        /// <summary>
+        /// Gets a read-only collection of the NPCs currently visible within this viewport.
+        /// </summary>
+        IReadOnlyCollection<INpc> VisibleNpcs { get; }
         /// <summary>
         /// Gets a read-only list of the map regions currently loaded in this viewport.
         /// </summary>

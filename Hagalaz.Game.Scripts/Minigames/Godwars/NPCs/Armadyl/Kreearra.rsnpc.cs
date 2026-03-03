@@ -136,7 +136,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                     {
                         Owner.QueueAnimation(_animationBuilder.Create().WithId(6976).Build());
 
-                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                        var visibleCharacters = Owner.Viewport.VisibleCharacters
                             .Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
                         foreach (var c in visibleCharacters)
                         {
@@ -182,7 +182,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
                     {
                         Owner.QueueAnimation(_animationBuilder.Create().WithId(6976).Build());
 
-                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                        var visibleCharacters = Owner.Viewport.VisibleCharacters
                             .Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
                         foreach (var c in visibleCharacters)
                         {

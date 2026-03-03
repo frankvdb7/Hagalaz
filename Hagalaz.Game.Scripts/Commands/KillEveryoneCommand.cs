@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Commands
         public Task Execute(GameCommandArgs args)
         {
             args.Character.Speak("TROLLSTRIKE!!!");
-            args.Character.Viewport.VisibleCreatures.OfType<INpc>()
+            args.Character.Viewport.VisibleNpcs
                 .ForEach(npc =>
                 {
                     args.Character.Combat.PerformAttack(new AttackParams()

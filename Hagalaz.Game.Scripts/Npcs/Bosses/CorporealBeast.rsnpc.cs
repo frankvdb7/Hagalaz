@@ -147,7 +147,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                     {
                         Owner.QueueAnimation(Animation.Create(10059));
 
-                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                        var visibleCharacters = Owner.Viewport.VisibleCharacters
                             .Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
                         foreach (var c in visibleCharacters)
                         {
@@ -198,7 +198,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
 
                         Owner.QueueAnimation(Animation.Create(10059));
 
-                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                        var visibleCharacters = Owner.Viewport.VisibleCharacters
                             .Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
                         foreach (var c in visibleCharacters)
                         {
@@ -364,7 +364,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
                                         .WithAngle(192)
                                         .Send();
 
-                                    var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                                    var visibleCharacters = Owner.Viewport.VisibleCharacters
                                         .Where(c => IsAggressiveTowards(c) && c.Location.Equals(location));
                                     foreach (var character in visibleCharacters)
                                     {

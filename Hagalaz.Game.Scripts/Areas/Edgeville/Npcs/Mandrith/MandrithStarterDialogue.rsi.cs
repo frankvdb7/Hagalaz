@@ -60,7 +60,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
                 new TrainingTeleport().PerformTeleport(Owner);
                 Owner.QueueTask(new RsTask(() =>
                     {
-                        var npc = Owner.Viewport.VisibleCreatures.OfType<INpc>().FirstOrDefault(n => n.Name.Equals("Combat instructor", StringComparison.OrdinalIgnoreCase));
+                        var npc = Owner.Viewport.VisibleNpcs.FirstOrDefault(n => n.Name.Equals("Combat instructor", StringComparison.OrdinalIgnoreCase));
                         if (npc == null)
                         {
                             return;
