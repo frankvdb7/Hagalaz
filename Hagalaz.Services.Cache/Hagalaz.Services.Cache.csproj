@@ -11,6 +11,7 @@
     <ProjectReference Include="..\Hagalaz.Cache.Abstractions\Hagalaz.Cache.Abstractions.csproj" />
     <ProjectReference Include="..\Hagalaz.Cache.Extensions\Hagalaz.Cache.Extensions.csproj" />
     <ProjectReference Include="..\Hagalaz.ServiceDefaults\Hagalaz.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Hagalaz.Authorization.Constants\Hagalaz.Authorization.Constants.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Hagalaz.Services.Cache.Tests" />

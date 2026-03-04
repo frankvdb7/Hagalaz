@@ -1,13 +1,14 @@
 using System;
+using Hagalaz.Cache;
+using Hagalaz.Cache.Extensions;
+using Hagalaz.ServiceDefaults;
+using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenIddict.Validation.AspNetCore;
-using Hagalaz.Cache;
-using Hagalaz.Cache.Extensions;
-using Hagalaz.ServiceDefaults;
-using Hagalaz.Services.Cache.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,13 +29,15 @@ builder.Services.AddOpenIddict()
         }
 
         options.SetIssuer(authServiceUri);
-        options.AddAudiences("cache-service-1", "hagalaz-web-app");
+        options.AddAudiences("cache-service-1", "hagalaz-web-app", "hagalaz-web-admin");
 
         var clientSecret = builder.Configuration.GetValue<string>("Security:Introspection:ClientSecret") ?? string.Empty;
         options.UseIntrospection().SetClientId("cache-service-1").SetClientSecret(clientSecret);
         options.UseSystemNetHttp();
         options.UseAspNetCore();
     });
+
+builder.Services.AddCacheAuthorization();
 
 var app = builder.Build();
 

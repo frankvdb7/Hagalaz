@@ -927,6 +927,9 @@
           "System.IO.Hashing": "8.0.0"
         }
       },
+      "hagalaz.authorization.constants": {
+        "type": "Project"
+      },
       "hagalaz.cache": {
         "type": "Project",
         "dependencies": {
@@ -980,6 +983,7 @@
       "hagalaz.services.cache": {
         "type": "Project",
         "dependencies": {
+          "Hagalaz.Authorization.Constants": "[1.0.0, )",
           "Hagalaz.Cache": "[1.0.0, )",
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Cache.Extensions": "[1.0.0, )",

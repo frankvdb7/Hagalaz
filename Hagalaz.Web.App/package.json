@@ -18,7 +18,11 @@
     "launcher:build": "ng build --subresource-integrity --configuration=production,launcher-production",
     "launcher:bundle:main": "esbuild src/launcher/main.ts --bundle --platform=node --target=node22.9 --external:electron* --tsconfig=tsconfig.launcher.json --outdir=dist-launcher",
     "launcher:bundle:preload": "esbuild src/launcher/preload.ts --bundle --platform=node --target=node22.9 --external:electron* --tsconfig=tsconfig.launcher.preload.json --outfile=dist-launcher/preload.js",
-    "launcher:start": "npm run launcher:bundle:main && npm run launcher:bundle:preload && electron-forge start --enable-logging --app-path dist-launcher/main.js"
+    "launcher:start": "npm run launcher:bundle:main && npm run launcher:bundle:preload && electron-forge start --enable-logging --app-path dist-launcher/main.js",
+    "start:aspire:admin": "ng serve Hagalaz.Web.Admin --port %PORT%",
+    "admin:serve": "ng serve Hagalaz.Web.Admin --configuration=development",
+    "admin:build": "ng build Hagalaz.Web.Admin --configuration=production --base-href ./",
+    "admin:test": "ng test Hagalaz.Web.Admin --watch=false"
   },
   "private": true,
   "dependencies": {

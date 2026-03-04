@@ -1,0 +1,12 @@
+:host {
+    display: block;
+}
+
+:host ::ng-deep .mat-toolbar {
+    min-height: 86px;
+}
+
+:host ::ng-deep .mdc-button--filled {
+    --mdc-filled-button-container-color: #f2c44a;
+    --mdc-filled-button-label-text-color: #1f1609;
+}

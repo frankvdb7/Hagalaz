@@ -1,0 +1,72 @@
+<section class="space-y-4">
+    @if (loading()) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
+
+    <mat-card class="panel-card">
+        <mat-card-content class="py-3 text-sm text-amber-100/80">
+            Read sprite metadata, preview decoded PNG frames, then publish image replacements as explicit mutation calls.
+        </mat-card-content>
+    </mat-card>
+
+    <section class="grid gap-4 xl:grid-cols-3">
+        <mat-card class="panel-card">
+            <mat-card-header><mat-card-title>Sprite By Id</mat-card-title></mat-card-header>
+            <mat-card-content>
+                <form class="grid gap-2" [formGroup]="spriteIdForm" (ngSubmit)="loadSprite()">
+                    <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
+                    <button mat-flat-button type="submit" [disabled]="loading()">Fetch</button>
+                </form>
+                @if (spriteInfo()) { <pre>{{ spriteInfo() | json }}</pre> } @else { <p class="placeholder">No sprite loaded yet.</p> }
+            </mat-card-content>
+        </mat-card>
+
+        <mat-card class="panel-card">
+            <mat-card-header><mat-card-title>Search Sprites</mat-card-title></mat-card-header>
+            <mat-card-content>
+                <form class="grid gap-2" [formGroup]="spriteSearchForm" (ngSubmit)="searchSprites()">
+                    <mat-form-field appearance="outline"><mat-label>Query</mat-label><input matInput type="text" formControlName="query" /></mat-form-field>
+                    <div class="grid grid-cols-2 gap-2">
+                        <mat-form-field appearance="outline"><mat-label>Offset</mat-label><input matInput type="number" formControlName="offset" /></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Limit</mat-label><input matInput type="number" formControlName="limit" /></mat-form-field>
+                    </div>
+                    <button mat-flat-button type="submit" [disabled]="loading()">Search</button>
+                </form>
+                @if (searchResult()) { <pre>{{ searchResult() | json }}</pre> } @else { <p class="placeholder">No search results yet.</p> }
+            </mat-card-content>
+        </mat-card>
+
+        <mat-card class="panel-card">
+            <mat-card-header><mat-card-title>PNG Preview</mat-card-title></mat-card-header>
+            <mat-card-content>
+                <form class="grid gap-2" [formGroup]="spriteImageForm" (ngSubmit)="previewSpriteImage()">
+                    <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
+                    <mat-form-field appearance="outline"><mat-label>Frame</mat-label><input matInput type="number" formControlName="frame" /></mat-form-field>
+                    <button mat-flat-button type="submit" [disabled]="loading()">Load PNG</button>
+                </form>
+                @if (imageUrl()) {
+                    <img class="preview-image" [src]="imageUrl()!" alt="sprite preview" />
+                } @else {
+                    <p class="placeholder">Preview not loaded.</p>
+                }
+            </mat-card-content>
+        </mat-card>
+    </section>
+
+    <mat-card class="panel-card">
+        <mat-card-header><mat-card-title>Sprite Mutation Forge</mat-card-title></mat-card-header>
+        <mat-card-content class="space-y-4">
+            <form class="grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-center" [formGroup]="spriteUploadForm" (ngSubmit)="uploadSpriteImage()">
+                <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
+                <input class="file-input" type="file" accept="image/png" (change)="onFileSelected($event)" />
+                <button mat-stroked-button type="submit" [disabled]="loading()">Upload PNG</button>
+            </form>
+            <mat-divider></mat-divider>
+            @if (mutationResult()) { <pre>{{ mutationResult() | json }}</pre> } @else { <p class="placeholder">No sprite mutation executed.</p> }
+        </mat-card-content>
+    </mat-card>
+
+    @if (error()) {
+        <p class="text-rose-300 text-sm">{{ error() }}</p>
+    }
+</section>

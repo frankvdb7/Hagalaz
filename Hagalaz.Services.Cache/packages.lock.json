@@ -519,6 +519,9 @@
           "System.IO.Hashing": "8.0.0"
         }
       },
+      "hagalaz.authorization.constants": {
+        "type": "Project"
+      },
       "hagalaz.cache": {
         "type": "Project",
         "dependencies": {
