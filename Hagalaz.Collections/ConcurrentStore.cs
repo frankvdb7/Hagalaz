@@ -90,6 +90,7 @@ namespace Hagalaz.Collections
         /// <returns><c>true</c> if any elements in the store pass the test in the specified predicate; otherwise, <c>false</c>.</returns>
         public bool Any(Func<TValue, bool> predicate)
         {
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
             foreach (var kvp in _values)
             {
                 if (predicate(kvp.Value)) return true;
@@ -104,6 +105,7 @@ namespace Hagalaz.Collections
         /// <returns>default(<typeparamref name="TValue"/>) if the store is empty or if no element passes the test specified by predicate; otherwise, the first element in the store that passes the test specified by predicate.</returns>
         public TValue? FirstOrDefault(Func<TValue, bool> predicate)
         {
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
             foreach (var kvp in _values)
             {
                 if (predicate(kvp.Value)) return kvp.Value;
