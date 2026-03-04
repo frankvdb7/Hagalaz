@@ -84,6 +84,36 @@ namespace Hagalaz.Collections
         public bool ContainsKey(TKey key) => _values.ContainsKey(key);
 
         /// <summary>
+        /// Determines whether any element of the store satisfies a condition.
+        /// </summary>
+        /// <param name="predicate">A function to test each element for a condition.</param>
+        /// <returns><c>true</c> if any elements in the store pass the test in the specified predicate; otherwise, <c>false</c>.</returns>
+        public bool Any(Func<TValue, bool> predicate)
+        {
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+            foreach (var kvp in _values)
+            {
+                if (predicate(kvp.Value)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Returns the first element of the store that satisfies a specified condition, or a default value if no such element is found.
+        /// </summary>
+        /// <param name="predicate">A function to test each element for a condition.</param>
+        /// <returns>default(<typeparamref name="TValue"/>) if the store is empty or if no element passes the test specified by predicate; otherwise, the first element in the store that passes the test specified by predicate.</returns>
+        public TValue? FirstOrDefault(Func<TValue, bool> predicate)
+        {
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+            foreach (var kvp in _values)
+            {
+                if (predicate(kvp.Value)) return kvp.Value;
+            }
+            return default;
+        }
+
+        /// <summary>
         /// Returns an enumerator that iterates through the values in the collection.
         /// </summary>
         /// <returns>An enumerator for the values in the collection.</returns>

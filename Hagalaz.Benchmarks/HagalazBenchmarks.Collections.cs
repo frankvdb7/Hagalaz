@@ -40,6 +40,17 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark]
+        public int ListHashSetIteration()
+        {
+            int sum = 0;
+            foreach (var value in _listHashSet)
+            {
+                sum += value;
+            }
+            return sum;
+        }
+
+        [Benchmark]
         public ListHashSet<int> ToListHashSet_Benchmark() => _list.ToListHashSet();
     }
 }
