@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Services.Authorization\Hagalaz.Services.Authorization.csproj" />
+    <ProjectReference Include="..\Hagalaz.Services.Cache\Hagalaz.Services.Cache.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.Characters\Hagalaz.Services.Characters.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.Contacts\Hagalaz.Services.Contacts.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.GameUpdate\Hagalaz.Services.GameUpdate.csproj" />
