@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using MassTransit;
 using Microsoft.AspNetCore.Builder;
@@ -93,7 +93,7 @@ namespace Hagalaz.Services.Authorization
                         .SetUserInfoEndpointUris("connect/userinfo")
                         .SetRevocationEndpointUris("connect/revoke");
 
-                    options.RegisterScopes(Scopes.Email, Scopes.Profile, Scopes.Roles, Hagalaz.Authorization.Constants.Scopes.CharactersApi);
+                    options.RegisterScopes(Scopes.Email, Scopes.Profile, Scopes.Roles, Hagalaz.Authorization.Constants.Scopes.CharactersApi, Hagalaz.Authorization.Constants.Scopes.CacheApi);
                     options.RegisterClaims(Claims.Username, Claims.PreferredUsername, Claims.Email, Claims.EmailVerified, Claims.Role);
 
                     // Enable the password and refresh token  flows.

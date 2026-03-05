@@ -1,0 +1,91 @@
+:host {
+    display: block;
+}
+
+.login-frame {
+    border: 1px solid rgba(252, 211, 77, 0.35);
+    background: linear-gradient(145deg, rgba(24, 18, 10, 0.95), rgba(16, 12, 7, 0.94));
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35), 0 0 35px rgba(247, 203, 73, 0.1);
+}
+
+.brand-panel {
+    padding: 2rem;
+    border-bottom: 1px solid rgba(252, 211, 77, 0.2);
+    background:
+        radial-gradient(circle at 20% 20%, rgba(255, 197, 46, 0.12), transparent 55%),
+        linear-gradient(180deg, rgba(44, 32, 17, 0.65), rgba(18, 13, 8, 0.8));
+}
+
+.form-panel {
+    padding: 2rem;
+}
+
+.eyebrow {
+    margin: 0;
+    font-size: 0.73rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(254, 240, 184, 0.76);
+}
+
+h1 {
+    margin: 0.35rem 0 0;
+    font-size: clamp(1.6rem, 2.5vw, 2.3rem);
+    line-height: 1.1;
+    letter-spacing: 0.04em;
+    color: #fde68a;
+}
+
+h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    color: #fde68a;
+}
+
+.intro,
+.subtitle {
+    margin: 0.8rem 0 0;
+    color: rgba(255, 239, 198, 0.82);
+    font-size: 0.9rem;
+}
+
+.access-note {
+    margin-top: 1.4rem;
+    border: 1px solid rgba(252, 211, 77, 0.22);
+    border-radius: 0.7rem;
+    padding: 0.9rem;
+    background: rgba(12, 9, 5, 0.5);
+    color: rgba(255, 240, 200, 0.9);
+    font-size: 0.82rem;
+}
+
+.captcha-wrap {
+    display: grid;
+    justify-content: center;
+    gap: 0.35rem;
+    margin-top: 0.25rem;
+}
+
+.captcha-error {
+    margin: 0;
+    text-align: center;
+    color: #fda4af;
+    font-size: 0.78rem;
+}
+
+:host ::ng-deep .mdc-text-field--outlined {
+    background: rgba(11, 8, 5, 0.74);
+}
+
+:host ::ng-deep .mat-mdc-form-field-error {
+    color: #fda4af;
+}
+
+@media (min-width: 1024px) {
+    .brand-panel {
+        border-bottom: 0;
+        border-right: 1px solid rgba(252, 211, 77, 0.2);
+    }
+}

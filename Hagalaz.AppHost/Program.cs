@@ -97,6 +97,13 @@ var webApp = builder.AddNpmApp("hagalaz-web-app", "../Hagalaz.Web.App", "start:a
     .WithExternalHttpEndpoints()
     .PublishAsDockerFile();
 
+var webAdminApp = builder.AddNpmApp("hagalaz-web-admin", "../Hagalaz.Web.App", "start:aspire:admin")
+    .WithReference(authService)
+    .WithReference(cacheService)
+    .WithHttpsEndpoint(targetPort: 4410, env: "PORT")
+    .WithExternalHttpEndpoints()
+    .PublishAsDockerFile();
+
 var gateway = builder.AddProject<Projects.Hagalaz_Services_Gateway>("hagalaz-services-gateway")
     .WithReference(gameWorldService)
     .WithReference(authService)
@@ -105,6 +112,7 @@ var gateway = builder.AddProject<Projects.Hagalaz_Services_Gateway>("hagalaz-ser
     .WithReference(charactersService)
     .WithReference(gameUpdate)
     .WithReference(webApp)
+    .WithReference(webAdminApp)
     .WithExternalHttpEndpoints()
     .WithHttpsHealthCheck("/health");
 
@@ -112,6 +120,7 @@ if (builder.Environment.IsDevelopment() && builder.Configuration["DOTNET_LAUNCH_
 {
     // Disable TLS certificate validation in development, see https://github.com/dotnet/aspire/issues/3324 for more details.
     webApp.WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0");
+    webAdminApp.WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0");
 }
 
 builder.AddOpenTelemetryCollector("otelcollector", "Configs/otelcollector/config.yaml")

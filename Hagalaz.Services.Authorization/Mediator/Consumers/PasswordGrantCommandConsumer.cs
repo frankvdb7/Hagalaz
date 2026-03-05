@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Hagalaz.Authorization.Constants;
 using Hagalaz.Services.Authorization.Identity;
 using Hagalaz.Services.Authorization.Mediator.Commands;
 using Hagalaz.Services.Authorization.Model;
@@ -58,7 +60,22 @@ namespace Hagalaz.Services.Authorization.Mediator.Consumers
             var scopes = message.Scopes;
 
             principal.SetScopes(scopes);
-            principal.SetResources(await _scopeManager.ListResourcesAsync(scopes, context.CancellationToken).ToListAsync(context.CancellationToken));
+
+            var resources = (await _scopeManager.ListResourcesAsync(scopes, context.CancellationToken).ToListAsync(context.CancellationToken)).ToHashSet();
+
+            if (scopes.Contains(Scopes.CharactersApi))
+            {
+                resources.Add("characters-service-1");
+                resources.Add("hagalaz-web-app");
+            }
+
+            if (scopes.Contains(Scopes.CacheApi))
+            {
+                resources.Add("cache-service-1");
+                resources.Add("hagalaz-web-admin");
+            }
+
+            principal.SetResources(resources);
 
             await context.RespondAsync(new PasswordGrantResult(principal));
         }

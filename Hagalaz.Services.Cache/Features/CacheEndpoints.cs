@@ -1,3 +1,4 @@
+using Hagalaz.Services.Cache.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -10,7 +11,7 @@ public static class CacheEndpoints
     {
         var group = app.MapGroup("/api/v1/cache")
             .WithTags("Cache")
-            .RequireAuthorization();
+            .RequireAuthorization(CacheAuthorization.PolicyName);
 
         group.MapFileCountEndpoints();
         group.MapFileLookupEndpoints();
