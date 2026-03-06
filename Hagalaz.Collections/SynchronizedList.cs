@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
-#pragma warning disable CS9216 // A value of type 'System.Threading.Lock' converted to a different type will use likely unintended monitor-based locking in 'lock' statement
 
 namespace Hagalaz.Collections
 {
@@ -18,6 +17,7 @@ namespace Hagalaz.Collections
     public class SynchronizedList<T> : IList<T>
     {
         private readonly List<T> _list;
+        private readonly object _syncRoot = new object();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SynchronizedList{T}"/> class that is empty and has the default initial capacity.
@@ -27,7 +27,7 @@ namespace Hagalaz.Collections
         /// <summary>
         /// Gets an object that can be used to synchronize access to the <see cref="SynchronizedList{T}"/>.
         /// </summary>
-        public Lock SyncRoot { get; } = new();
+        public object SyncRoot => _syncRoot;
 
         /// <summary>
         /// Gets the number of elements contained in the <see cref="SynchronizedList{T}"/>.
@@ -204,22 +204,22 @@ namespace Hagalaz.Collections
     /// This enumerator acquires a lock on the sync root of the collection when it is created and releases
     /// the lock when it is disposed. This prevents the collection from being modified while it is being enumerated.
     /// </remarks>
-    public readonly struct SynchronizedEnumerator<T> : IEnumerator<T>
+    public sealed class SynchronizedEnumerator<T> : IEnumerator<T>
     {
         private readonly IEnumerator<T> _enumerator;
-        private readonly Lock _root;
+        private readonly object _root;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SynchronizedEnumerator{T}"/> struct.
+        /// Initializes a new instance of the <see cref="SynchronizedEnumerator{T}"/> class.
         /// The constructor acquires a lock on the provided sync root.
         /// </summary>
         /// <param name="enumerator">The underlying enumerator from the collection.</param>
         /// <param name="root">The synchronization lock object.</param>
-        public SynchronizedEnumerator(IEnumerator<T> enumerator, Lock root)
+        public SynchronizedEnumerator(IEnumerator<T> enumerator, object root)
         {
             _enumerator = enumerator;
             _root = root;
-            
+
             // entering lock in constructor
             Monitor.Enter(_root);
         }
