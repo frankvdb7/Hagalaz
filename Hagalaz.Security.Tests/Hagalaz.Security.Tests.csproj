@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Hagalaz.Data\Hagalaz.Data.csproj" />
     <ProjectReference Include="..\Hagalaz.Security\Hagalaz.Security.csproj" />
   </ItemGroup>
   <ItemGroup>

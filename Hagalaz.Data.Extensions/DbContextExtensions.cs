@@ -57,11 +57,11 @@ namespace Hagalaz.Data.Extensions
             services.Configure<IdentityOptions>(options =>
                 {
                     options.User.RequireUniqueEmail = true;
-                    options.Password.RequireDigit = false;
-                    options.Password.RequiredLength = 6;
-                    options.Password.RequireLowercase = false;
-                    options.Password.RequireNonAlphanumeric = false;
-                    options.Password.RequireUppercase = false;
+                    options.Password.RequireDigit = true;
+                    options.Password.RequiredLength = 8;
+                    options.Password.RequireLowercase = true;
+                    options.Password.RequireNonAlphanumeric = true;
+                    options.Password.RequireUppercase = true;
                 })
                 .AddIdentity<Character, Aspnetrole>()
                 .AddEntityFrameworkStores<HagalazDbContext>();
