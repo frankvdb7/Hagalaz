@@ -182,38 +182,40 @@ namespace Hagalaz.Network.Common
                 return SerializeBuffer();
             }
 
-            var data = SerializeBuffer(); // Trim the current buffer.
-            using (MemoryStream buffer = new MemoryStream(data.Length + 3))
+            int headerLength = 1;
+            if (Opcode >= 128) headerLength++;
+            if (SizeType == SizeType.Byte) headerLength++;
+            else if (SizeType == SizeType.Short) headerLength += 2;
+
+            int totalLength = headerLength + Position;
+            byte[] result = new byte[totalLength];
+            int offset = 0;
+
+            if (Opcode >= 128)
+                result[offset++] = 128;
+
+            result[offset++] = (byte)Opcode;
+
+            if (SizeType != SizeType.Fixed)
             {
-                if (Opcode >= 128)
-                    buffer.WriteByte((byte)128);
-                buffer.WriteByte((byte)Opcode);
-                if (SizeType != SizeType.Fixed)
+                switch (SizeType)
                 {
-                    switch (SizeType)
-                    {
-                        // A 8-bit packet type.
-                        // Stack overflow.
-                        case SizeType.Byte when data.Length > 255:
-                            throw new ArgumentOutOfRangeException("Could not send a packet with " + data.Length + " bytes within 8 bits.");
-                        case SizeType.Byte:
-                            buffer.WriteByte((byte)data.Length);
-                            break;
-                        // A 16-bit packet type.
-                        // Stack overflow.
-                        case SizeType.Short when data.Length > 65535:
-                            throw new ArgumentOutOfRangeException("Could not send a packet with " + data.Length + " bytes within 16 bits.");
-                        case SizeType.Short:
-                            buffer.WriteByte((byte)(data.Length >> 8));
-                            buffer.WriteByte((byte)data.Length);
-                            break;
-                        case SizeType.Fixed: break;
-                        default: throw new ArgumentOutOfRangeException();
-                    }
+                    case SizeType.Byte:
+                        if (Position > 255)
+                            throw new ArgumentOutOfRangeException(nameof(Position), "Could not send a packet with " + Position + " bytes within 8 bits.");
+                        result[offset++] = (byte)Position;
+                        break;
+                    case SizeType.Short:
+                        if (Position > 65535)
+                            throw new ArgumentOutOfRangeException(nameof(Position), "Could not send a packet with " + Position + " bytes within 16 bits.");
+                        result[offset++] = (byte)(Position >> 8);
+                        result[offset++] = (byte)Position;
+                        break;
                 }
-                buffer.Write(data, 0, data.Length);
-                return buffer.ToArray();
             }
+
+            Buffer.BlockCopy(_payload, 0, result, offset, Position);
+            return result;
         }
 
         /// <summary>

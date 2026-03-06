@@ -191,6 +191,12 @@
       "hagalaz.collections.extensions": {
         "type": "Project"
       },
+      "hagalaz.network.common": {
+        "type": "Project",
+        "dependencies": {
+          "Hagalaz.Security": "[1.0.0, )"
+        }
+      },
       "hagalaz.security": {
         "type": "Project"
       },

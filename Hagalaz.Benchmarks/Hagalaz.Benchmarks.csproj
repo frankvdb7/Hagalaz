@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Collections\Hagalaz.Collections.csproj" />
+    <ProjectReference Include="..\Hagalaz.Network.Common\Hagalaz.Network.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>

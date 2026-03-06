@@ -295,9 +295,17 @@ namespace Hagalaz.Network.Common
         /// <returns>Returns this instance.</returns>
         public void AppendString(string value)
         {
-            EnsureCapacity(Position + value.Length + 1);
-            AppendBytes(Encoding.ASCII.GetBytes(value));
-            AppendByte(0);
+            if (value == null)
+            {
+                AppendByte(0);
+                return;
+            }
+
+            int byteCount = Encoding.ASCII.GetByteCount(value);
+            EnsureCapacity(Position + byteCount + 1);
+            Encoding.ASCII.GetBytes(value, 0, value.Length, _payload, Position);
+            Position += byteCount;
+            AppendByte(0, false);
         }
 
         /// <summary>

@@ -186,8 +186,22 @@ namespace Hagalaz.Network.Common
         /// <returns>Returns a string.</returns>
         public string ReadString()
         {
-            var sb = new StringBuilder();
+            if (BaseBuffer.TryGetBuffer(out ArraySegment<byte> buffer))
+            {
+                byte[] array = buffer.Array!;
+                int start = (int)BaseBuffer.Position;
+                int index = Array.IndexOf(array, (byte)0, start, (int)RemainingAmount);
 
+                if (index == -1)
+                    throw new InvalidOperationException("Data buffer exhaust.");
+
+                int length = index - start;
+                string result = Encoding.ASCII.GetString(array, start, length);
+                BaseBuffer.Position = index + 1;
+                return result;
+            }
+
+            var sb = new StringBuilder();
             while (true)
             {
                 int i = BaseBuffer.ReadByte();
@@ -219,8 +233,22 @@ namespace Hagalaz.Network.Common
         /// <returns>Returns a string.</returns>
         public string ReadRsString()
         {
-            StringBuilder sb = new StringBuilder();
+            if (BaseBuffer.TryGetBuffer(out ArraySegment<byte> buffer))
+            {
+                byte[] array = buffer.Array!;
+                int start = (int)BaseBuffer.Position;
+                int index = Array.IndexOf(array, (byte)10, start, (int)RemainingAmount);
 
+                if (index == -1)
+                    throw new InvalidOperationException("Data buffer exhaust.");
+
+                int length = index - start;
+                string result = Encoding.ASCII.GetString(array, start, length);
+                BaseBuffer.Position = index + 1;
+                return result;
+            }
+
+            StringBuilder sb = new StringBuilder();
             while (true)
             {
                 int i = BaseBuffer.ReadByte();

@@ -61,7 +61,7 @@ namespace Hagalaz.Network.Common
             Opcode = opcode;
             SizeType = sizeType;
 
-            BaseBuffer = data == null ? new MemoryStream() : new MemoryStream(data);
+            BaseBuffer = data == null ? new MemoryStream() : new MemoryStream(data, 0, data.Length, false, true);
         }
 
         /// <summary>
@@ -102,34 +102,31 @@ namespace Hagalaz.Network.Common
         public override string ToString()
         {
             byte[] data = BaseBuffer.ToArray();
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < Length; i++)
-            {
-                if (sb.Length != 0)
-                {
-                    sb.Append(",");
-                }
-                sb.Append(ByteToHex(data[i], true));
-            }
-            sb.Append("]");
-            sb.Insert(0, "[opcode=" + Opcode + ",length=" + Length + ",data=");
-            return sb.ToString();
-        }
+            string prefix = "[opcode=" + Opcode + ",length=" + Length + ",data=";
 
-        /// <summary>
-        /// Turns a byte into a hex.
-        /// </summary>
-        /// <param name="b">The byte to convert.</param>
-        /// <param name="forceLeadingZero">Whether to add a reading zero.</param>
-        /// <returns>Returns a string containing the hex value of the byte.</returns>
-        private static string ByteToHex(byte b, bool forceLeadingZero)
-        {
-            StringBuilder sb = new StringBuilder();
-            int ub = b & 0xff;
-            if (ub / 16 > 0 || forceLeadingZero)
-                sb.Append(Hex[ub / 16]);
-            sb.Append(Hex[ub % 16]);
-            return sb.ToString();
+            // Each byte becomes 2 hex chars, plus one comma, except the last one.
+            // dataLen * 2 + (dataLen - 1) + 1 (for ']')
+            int dataHexLength = data.Length > 0 ? data.Length * 3 : 1;
+            int totalLength = prefix.Length + dataHexLength;
+
+            return string.Create(totalLength, (prefix, data), (span, state) =>
+            {
+                state.prefix.AsSpan().CopyTo(span);
+                int pos = state.prefix.Length;
+
+                for (int i = 0; i < state.data.Length; i++)
+                {
+                    byte b = state.data[i];
+                    span[pos++] = Hex[(b >> 4) & 0xF];
+                    span[pos++] = Hex[b & 0xF];
+
+                    if (i < state.data.Length - 1)
+                    {
+                        span[pos++] = ',';
+                    }
+                }
+                span[pos] = ']';
+            });
         }
 
         /// <summary>
