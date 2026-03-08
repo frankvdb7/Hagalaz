@@ -11,6 +11,11 @@ namespace Hagalaz.Cache.Abstractions.Types
         sbyte[,,] TerrainData { get; }
 
         /// <summary>
+        /// Gets the height data for the map.
+        /// </summary>
+        short[,,] Heights { get; }
+
+        /// <summary>
         /// Gets the list of objects on the map.
         /// </summary>
         System.Collections.Generic.IReadOnlyList<IMapObject> Objects { get; }

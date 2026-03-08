@@ -36,7 +36,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                 stream.Read(terrainData, 0, terrainDataLength);
                 using (var terrainStream = new MemoryStream(terrainData))
                 {
-                    DecodeTerrainData(mapType.TerrainData, terrainStream);
+                    DecodeTerrainData(mapType, terrainStream);
                 }
             }
 
@@ -61,6 +61,14 @@ namespace Hagalaz.Cache.Logic.Codecs
                 {
                     terrainStream.WriteByte((byte)(value + TERRAIN_OPCODE_OFFSET));
                 }
+                
+                var height = instance.Heights[z, x, y];
+                if (height != 0)
+                {
+                    terrainStream.WriteByte(1);
+                    terrainStream.WriteByte((byte)height);
+                }
+
                 terrainStream.WriteByte(0);
             }
 
@@ -92,7 +100,7 @@ namespace Hagalaz.Cache.Logic.Codecs
             return stream;
         }
 
-        public static void DecodeTerrainData(sbyte[,,] terrainData, MemoryStream stream)
+        public static void DecodeTerrainData(MapType map, MemoryStream stream)
         {
             for (var z = 0; z < MAP_PLANES; z++)
             for (var x = 0; x < MAP_DIMENSION; x++)
@@ -100,11 +108,30 @@ namespace Hagalaz.Cache.Logic.Codecs
             {
                 while (stream.Position < stream.Length)
                 {
-                    var value = stream.ReadUnsignedByte();
-                    if (value == 0) break;
-                    if (value == 1) { stream.ReadUnsignedByte(); break; }
-                    if (value <= TERRAIN_OPCODE_OFFSET) { stream.ReadSignedByte(); }
-                    else if (value <= TERRAIN_OPCODE_TERMINATOR) { terrainData[z, x, y] = (sbyte)(value - TERRAIN_OPCODE_OFFSET); }
+                    var opcode = stream.ReadUnsignedByte();
+                    if (opcode == 0) break;
+                    if (opcode == 1) 
+                    { 
+                        // Height data
+                        map.Heights[z, x, y] = (short)stream.ReadUnsignedByte(); 
+                        break; 
+                    }
+                    
+                    if (opcode <= TERRAIN_OPCODE_OFFSET) 
+                    { 
+                        // Overlay data
+                        stream.ReadUnsignedByte(); 
+                    }
+                    else if (opcode <= TERRAIN_OPCODE_TERMINATOR) 
+                    { 
+                        // Underlay data (standard range)
+                        map.TerrainData[z, x, y] = (sbyte)(opcode - TERRAIN_OPCODE_OFFSET); 
+                    }
+                    else
+                    {
+                        // Underlay data (extended range)
+                        map.TerrainData[z, x, y] = (sbyte)(opcode - 81);
+                    }
                 }
             }
         }

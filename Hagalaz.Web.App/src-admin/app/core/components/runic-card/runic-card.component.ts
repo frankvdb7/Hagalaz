@@ -6,7 +6,7 @@ import { MatCardModule } from "@angular/material/card";
     standalone: true,
     imports: [MatCardModule],
     template: `
-        <mat-card class="h-full border !border-storm-gold/30 !bg-storm-bg-panel !rounded-xl backdrop-blur-xl transition-all duration-300 hover:!border-storm-gold hover:shadow-2xl hover:shadow-black/40">
+        <mat-card class="h-full border !border-storm-gold/30 !bg-storm-bg-panel !rounded-xl backdrop-blur-xl">
             @if (title()) {
                 <mat-card-header class="!pt-3">
                     <div mat-card-title class="!font-serif !font-black !uppercase !tracking-[0.2em] !text-[11px] !text-storm-gold">{{ title() }}</div>

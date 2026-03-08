@@ -49,11 +49,11 @@ export class TypesManagerPageComponent {
     readonly store = inject(CacheTypesStore);
 
     readonly kinds: TypeKind[] = ["items", "npcs", "objects", "sprites", "quests", "animations", "graphics", "maps", "varp-bits", "client-map-definitions", "config-definitions", "cs2", "cs2-int"];
-    readonly searchableKinds: Array<"items" | "npcs" | "objects" | "sprites"> = ["items", "npcs", "objects", "sprites"];
+    readonly searchableKinds: Array<"items" | "npcs" | "objects" | "sprites" | "animations" | "graphics"> = ["items", "npcs", "objects", "sprites", "animations", "graphics"];
 
     readonly searchForm = this.fb.nonNullable.group({ 
-        kind: ["items" as "items" | "npcs" | "objects" | "sprites", Validators.required], 
-        query: ["", Validators.required], 
+        kind: ["items" as "items" | "npcs" | "objects" | "sprites" | "animations" | "graphics", Validators.required], 
+        query: [""], 
         offset: [0, Validators.min(0)], 
         limit: [20, [Validators.min(1), Validators.max(200)]] 
     });
@@ -70,11 +70,20 @@ export class TypesManagerPageComponent {
     readonly tableData = computed(() => {
         const result = this.store.searchResult();
         if (!result) return [];
-        return result.items.map((item: any) => ({
-            id: item.id ?? item.identifier ?? '?',
-            name: item.name ?? item.displayName ?? item.username ?? 'Unknown Entity',
-            raw: item
-        }));
+        const kind = this.searchForm.getRawValue().kind;
+        
+        return result.items.map((item: any) => {
+            const id = item.id ?? item.identifier ?? '?';
+            let name = item.name ?? item.displayName ?? item.username;
+            
+            if (!name) {
+                if (kind === 'animations') name = `Animation #${id}`;
+                else if (kind === 'graphics') name = `Graphic #${id}`;
+                else name = 'Unknown Entity';
+            }
+
+            return { id, name, raw: item };
+        });
     });
 
     async loadArchiveSizes(): Promise<void> {

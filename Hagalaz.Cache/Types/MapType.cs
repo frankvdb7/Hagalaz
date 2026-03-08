@@ -15,6 +15,9 @@ namespace Hagalaz.Cache.Types
         public sbyte[,,] TerrainData { get; internal set; } = new sbyte[4, 64, 64];
 
         /// <inheritdoc />
+        public short[,,] Heights { get; internal set; } = new short[4, 64, 64];
+
+        /// <inheritdoc />
         public IReadOnlyList<IMapObject> Objects => InternalObjects;
 
         /// <summary>

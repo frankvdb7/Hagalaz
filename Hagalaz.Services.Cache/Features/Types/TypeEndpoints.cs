@@ -31,6 +31,7 @@ public static class TypeEndpoints
 
         types.MapGet("/objects/{id:int}", GetObjectType);
         types.MapGet("/objects/range", GetObjectTypeRange);
+        types.MapGet("/objects/search", SearchObjectTypes);
 
         types.MapGet("/sprites/{id:int}", GetSpriteType);
         types.MapGet("/sprites/{id:int}/image", GetSpriteTypeImage);
@@ -42,11 +43,16 @@ public static class TypeEndpoints
 
         types.MapGet("/animations/{id:int}", GetAnimationType);
         types.MapGet("/animations/range", GetAnimationTypeRange);
+        types.MapGet("/animations/search", SearchAnimationTypes);
 
         types.MapGet("/graphics/{id:int}", GetGraphicType);
         types.MapGet("/graphics/range", GetGraphicTypeRange);
+        types.MapGet("/graphics/search", SearchGraphicTypes);
 
         types.MapGet("/maps/{id:int}", GetMapType);
+        types.MapGet("/maps/range", GetMapTypeRange);
+        types.MapGet("/maps/search", SearchMapTypes);
+        types.MapGet("/maps/{id:int}/terrain", GetMapTerrain);
         types.MapPost("/maps/{id:int}/decode", DecodeMapType);
 
         types.MapGet("/varp-bits/{id:int}", GetVarpBitType);
@@ -133,6 +139,16 @@ public static class TypeEndpoints
     private static IResult GetObjectTypeRange(int startId, int endIdExclusive, ITypeProvider<IObjectType> provider)
         => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapObject).ToArray());
 
+    private static IResult SearchObjectTypes(string query, int offset, int limit, ITypeProvider<IObjectType> provider)
+        => ResolveSearch(query, offset, limit, provider.ArchiveSize, () =>
+        {
+            var matches = provider.GetRange(0, provider.ArchiveSize)
+                .Where(type => !string.IsNullOrWhiteSpace(type.Name) && type.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .Select(MapObject)
+                .ToArray();
+            return matches;
+        });
+
     private static IResult GetSpriteType(int id, ITypeProvider<ISpriteType> provider) => Resolve(() => TypedResults.Ok(MapSprite(provider.Get(id))));
 
     private static IResult GetSpriteTypeImage(int id, int? frame, ITypeProvider<ISpriteType> provider)
@@ -181,12 +197,77 @@ public static class TypeEndpoints
     private static IResult GetAnimationTypeRange(int startId, int endIdExclusive, ITypeProvider<IAnimationType> provider)
         => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(a => new AnimationTypeResponse(a.Id, a.Priority)).ToArray());
 
+    private static IResult SearchAnimationTypes(string? query, int offset, int limit, ITypeProvider<IAnimationType> provider)
+        => ResolveIndexSearch(query, offset, limit, provider.ArchiveSize, () =>
+        {
+            var all = provider.GetRange(0, provider.ArchiveSize).Select(a => new AnimationTypeResponse(a.Id, a.Priority));
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return all.ToArray();
+            }
+
+            return all.Where(type => type.Id.ToString().Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
+        });
+
     private static IResult GetGraphicType(int id, ITypeProvider<IGraphicType> provider) => Resolve(() => TypedResults.Ok(MapGraphic(provider.Get(id))));
 
     private static IResult GetGraphicTypeRange(int startId, int endIdExclusive, ITypeProvider<IGraphicType> provider)
         => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapGraphic).ToArray());
 
+    private static IResult SearchGraphicTypes(string? query, int offset, int limit, ITypeProvider<IGraphicType> provider)
+        => ResolveIndexSearch(query, offset, limit, provider.ArchiveSize, () =>
+        {
+            var all = provider.GetRange(0, provider.ArchiveSize).Select(MapGraphic);
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return all.ToArray();
+            }
+
+            return all.Where(type => type.Id.ToString().Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
+        });
+
     private static IResult GetMapType(int id, IMapProvider provider) => Resolve(() => TypedResults.Ok(MapMap(provider.Get(id))));
+
+    private static IResult GetMapTypeRange(int startId, int endIdExclusive, IMapProvider provider)
+        => ResolveRange(startId, endIdExclusive, provider.ArchiveSize, () => provider.GetRange(startId, endIdExclusive).Select(MapMap).ToArray());
+
+    private static IResult SearchMapTypes(string? query, int offset, int limit, IMapProvider provider)
+        => ResolveIndexSearch(query, offset, limit, provider.ArchiveSize, () =>
+        {
+            var all = provider.GetRange(0, provider.ArchiveSize).Select(MapMap);
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return all.ToArray();
+            }
+
+            return all.Where(type => type.Id.ToString().Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
+        });
+
+    private static IResult GetMapTerrain(int id, IMapProvider provider)
+        => Resolve(() =>
+        {
+            var map = provider.Get(id);
+            
+            using var ms = new MemoryStream();
+            using var writer = new BinaryWriter(ms);
+            
+            // 1. Write metadata (Planes, Width, Height)
+            writer.Write(map.TerrainData.GetLength(0)); // Planes
+            writer.Write(map.TerrainData.GetLength(1)); // Width
+            writer.Write(map.TerrainData.GetLength(2)); // Height
+
+            // 2. Write Terrain Flags (sbytes)
+            var terrainData = new sbyte[map.TerrainData.Length];
+            Buffer.BlockCopy(map.TerrainData, 0, terrainData, 0, map.TerrainData.Length);
+            foreach (var b in terrainData) writer.Write((byte)b);
+            
+            // 3. Write Heights (shorts)
+            var heights = new short[map.Heights.Length];
+            Buffer.BlockCopy(map.Heights, 0, heights, 0, map.Heights.Length * sizeof(short));
+            foreach (var h in heights) writer.Write(h);
+
+            return TypedResults.File(ms.ToArray(), "application/octet-stream", $"map-{id}-terrain.dat");
+        });
 
     private static IResult DecodeMapType(int id, MapDecodeRequest request, IMapProvider provider)
     {

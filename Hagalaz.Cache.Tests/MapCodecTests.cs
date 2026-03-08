@@ -43,13 +43,13 @@ namespace Hagalaz.Cache.Tests
         {
             // Arrange
             var stream = new MemoryStream(new byte[] { 81, 0, 0, 0, 0 });
-            var terrainData = new sbyte[4, 64, 64];
+            var map = new MapType();
 
             // Act
-            MapCodec.DecodeTerrainData(terrainData, stream);
+            MapCodec.DecodeTerrainData(map, stream);
 
             // Assert
-            Assert.Equal(32, terrainData[0, 0, 0]);
+            Assert.Equal(32, map.TerrainData[0, 0, 0]);
         }
 
         [Fact]

@@ -15,7 +15,11 @@
             <h1>Maps & Landscapes</h1>
             <p>Inspect and decode the structural foundation of the realm.</p>
         </div>
-        <div class="action-area">
+        <div class="action-area flex gap-2">
+            <button mat-stroked-button class="!border-storm-gold/20 !text-storm-gold/60 !rounded-md" (click)="store.loadMockMap()">
+                <mat-icon class="mr-2">science</mat-icon>
+                Project Test Pattern
+            </button>
             <button mat-stroked-button class="!border-storm-gold/20 !text-storm-gold !rounded-md" (click)="clear()">
                 <mat-icon class="mr-2">cleaning_services</mat-icon>
                 Clear Workspace
@@ -23,142 +27,179 @@
         </div>
     </header>
 
-    <div class="grid gap-6 lg:grid-cols-[450px_1fr]">
+    <div class="grid gap-6 lg:grid-cols-[400px_1fr]">
         
-        <!-- Left: Search & Decoding -->
+        <!-- Left: Infinite Scroll Map List -->
         <div class="space-y-6">
-            <admin-runic-card title="Map Lookup">
-                <form [formGroup]="mapLookupForm" (ngSubmit)="loadMap()" class="space-y-4">
-                    <mat-form-field appearance="outline" class="w-full">
-                        <mat-label>Region / Map ID</mat-label>
-                        <input matInput type="number" formControlName="id" placeholder="e.g. 12850" />
-                        <mat-icon matPrefix class="opacity-40">map</mat-icon>
-                    </mat-form-field>
-                    
-                    <button mat-flat-button color="primary" type="submit" [disabled]="store.loading()" class="w-full h-[56px] !rounded-md">
-                        Retrieve Raw Map
-                    </button>
-                </form>
-            </admin-runic-card>
-
-            <admin-runic-card title="XTEA Decryption">
-                <p class="runic-label mb-4 opacity-60">Required for landscape members</p>
-                <form [formGroup]="xteaForm" (ngSubmit)="decodeMap()" class="space-y-6">
-                    <div class="grid grid-cols-2 gap-4">
-                        <mat-form-field appearance="outline">
-                            <mat-label>Key 1</mat-label>
-                            <input matInput type="number" formControlName="key1" />
-                        </mat-form-field>
-                        <mat-form-field appearance="outline">
-                            <mat-label>Key 2</mat-label>
-                            <input matInput type="number" formControlName="key2" />
-                        </mat-form-field>
-                        <mat-form-field appearance="outline">
-                            <mat-label>Key 3</mat-label>
-                            <input matInput type="number" formControlName="key3" />
-                        </mat-form-field>
-                        <mat-form-field appearance="outline">
-                            <mat-label>Key 4</mat-label>
-                            <input matInput type="number" formControlName="key4" />
-                        </mat-form-field>
+            <admin-runic-card title="Map Registry">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between px-1">
+                        <span class="runic-label !text-storm-text-dim">{{ store.totalMatches() }} Regions Found</span>
+                        @if (store.loading() && store.mapList().length > 0) {
+                            <mat-spinner diameter="16"></mat-spinner>
+                        }
                     </div>
-                    
-                    <button mat-flat-button color="accent" type="submit" [disabled]="store.loading() || mapLookupForm.invalid" class="w-full h-[56px] !rounded-md !bg-storm-gold !text-storm-bg">
-                        <mat-icon class="mr-2">enhanced_encryption</mat-icon>
-                        Decode with Keys
-                    </button>
-                </form>
+
+                    <div class="grid gap-3 overflow-y-auto h-[calc(100vh-300px)] pr-2 custom-scrollbar" (scroll)="onScroll($event)">
+                        @for (map of store.mapList(); track map.id) {
+                            <div class="group relative p-4 rounded-xl border border-storm-gold/10 bg-storm-bg-panel/40 hover:border-storm-gold/30 transition-all cursor-pointer"
+                                 [class.!border-storm-gold/50]="store.mapInfo()?.id === map.id"
+                                 (click)="selectMap(map)">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="m-0 text-[10px] font-mono text-storm-gold/40 uppercase tracking-widest">Region: #{{ map.id }}</p>
+                                        <h4 class="m-0 text-storm-text font-bold truncate">Landscape Fragment</h4>
+                                    </div>
+                                    <mat-icon class="text-sm text-storm-gold/40 group-hover:text-storm-gold">visibility</mat-icon>
+                                </div>
+                                <div class="mt-2 flex items-center gap-4 text-[10px] opacity-40">
+                                    <span>Objects: {{ map.objectCount }}</span>
+                                    <span>Planes: {{ map.terrainPlanes }}</span>
+                                </div>
+                            </div>
+                        }
+
+                        @if (store.loading() && store.mapList().length === 0) {
+                            @for (i of [1,2,3,4,5]; track i) {
+                                <div class="p-4 rounded-xl border border-storm-gold/5 bg-storm-bg-panel/20 animate-pulse h-20"></div>
+                            }
+                        }
+
+                        @if (store.mapList().length < store.totalMatches()) {
+                            <div class="py-4 flex justify-center">
+                                <mat-spinner diameter="24"></mat-spinner>
+                            </div>
+                        }
+                    </div>
+                </div>
             </admin-runic-card>
         </div>
 
-        <!-- Right: Inspector -->
+        <!-- Right: Inspector & Decoding -->
         <div class="space-y-6">
-            <admin-runic-card title="Map Data Inspector">
-                <div class="flex flex-col h-full min-h-[600px]">
-                    @if (store.mapInfo()) {
-                        <div class="space-y-6">
-                            <div class="p-4 rounded bg-storm-gold/5 border border-storm-gold/10 grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div>
-                                    <p class="runic-label !text-storm-gold/40 m-0">Region ID</p>
-                                    <p class="m-0 text-xl font-serif text-storm-gold">#{{ store.mapInfo()?.id }}</p>
+            <div class="grid gap-6 xl:grid-cols-[1fr_350px]">
+                <admin-runic-card title="Visual Inspector" class="h-full">
+                    <div class="flex flex-col h-full min-h-[600px]">
+                        @if (store.mapInfo()) {
+                            <div class="space-y-6">
+                                <div class="p-4 rounded bg-storm-gold/5 border border-storm-gold/10 grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <p class="runic-label !text-storm-gold/40 m-0">Region ID</p>
+                                        <p class="m-0 text-xl font-serif text-storm-gold">#{{ store.mapInfo()?.id }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="runic-label !text-storm-gold/40 m-0">Planes</p>
+                                        <p class="m-0 text-xl font-serif text-storm-text">{{ store.mapInfo()?.terrainPlanes }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="runic-label !text-storm-gold/40 m-0">Dimensions</p>
+                                        <p class="m-0 text-xl font-serif text-storm-text">{{ store.mapInfo()?.terrainWidth }}x{{ store.mapInfo()?.terrainHeight }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="runic-label !text-storm-gold/40 m-0">Objects</p>
+                                        <p class="m-0 text-xl font-serif text-storm-text">{{ store.mapInfo()?.objectCount }}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p class="runic-label !text-storm-gold/40 m-0">Planes</p>
-                                    <p class="m-0 text-xl font-serif text-storm-text">{{ store.mapInfo()?.terrainPlanes }}</p>
-                                </div>
-                                <div>
-                                    <p class="runic-label !text-storm-gold/40 m-0">Dimensions</p>
-                                    <p class="m-0 text-xl font-serif text-storm-text">{{ store.mapInfo()?.terrainWidth }}x{{ store.mapInfo()?.terrainHeight }}</p>
-                                </div>
-                                <div>
-                                    <p class="runic-label !text-storm-gold/40 m-0">Static Objects</p>
-                                    <p class="m-0 text-xl font-serif text-storm-text">{{ store.mapInfo()?.objectCount }}</p>
-                                </div>
-                            </div>
 
-                            @defer (on idle) {
-                                <mat-tab-group class="density-compact">
-                                    <mat-tab>
-                                        <ng-template mat-tab-label>
-                                            <mat-icon class="mr-2 !text-sm">data_object</mat-icon>
-                                            <span>Full Schema</span>
-                                        </ng-template>
-                                        <div class="pt-4 max-h-[500px] overflow-auto">
-                                            <admin-json-viewer [data]="store.mapInfo()"></admin-json-viewer>
-                                        </div>
-                                    </mat-tab>
-                                    <mat-tab>
-                                        <ng-template mat-tab-label>
-                                            <mat-icon class="mr-2 !text-sm">view_in_ar</mat-icon>
-                                            <span>Object Registry</span>
-                                        </ng-template>
-                                        <div class="pt-4">
-                                            <div class="overflow-hidden rounded-lg border border-white/5 bg-black/20">
-                                                <table class="w-full text-left text-xs font-mono">
-                                                    <thead>
-                                                        <tr class="bg-white/5">
-                                                            <th class="p-2 runic-label">ID</th>
-                                                            <th class="p-2 runic-label">Position (X,Y,Z)</th>
-                                                            <th class="p-2 runic-label">Shape</th>
-                                                            <th class="p-2 runic-label">Rot</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @for (obj of store.mapInfo()?.objects?.slice(0, 100); track $index) {
-                                                            <tr class="border-t border-white/5 hover:bg-storm-gold/5 transition-colors">
-                                                                <td class="p-2 text-storm-gold">#{{ obj.id }}</td>
-                                                                <td class="p-2 text-storm-text-muted">{{ obj.x }},{{ obj.y }},{{ obj.z }}</td>
-                                                                <td class="p-2 text-storm-text-dim">{{ obj.shapeType }}</td>
-                                                                <td class="p-2 text-storm-text-dim">{{ obj.rotation }}</td>
-                                                            </tr>
-                                                        }
-                                                        @if ((store.mapInfo()?.objects?.length ?? 0) > 100) {
-                                                            <tr>
-                                                                <td colspan="4" class="p-4 text-center italic text-storm-text-dim">
-                                                                    Truncated: Showing 100 of {{ store.mapInfo()?.objectCount }} objects.
-                                                                </td>
-                                                            </tr>
-                                                        }
-                                                    </tbody>
-                                                </table>
+                                @defer (on idle) {
+                                    <mat-tab-group class="density-compact">
+                                        <mat-tab>
+                                            <ng-template mat-tab-label>
+                                                <mat-icon class="mr-2 !text-sm">3d_rotation</mat-icon>
+                                                <span>3D Projection</span>
+                                            </ng-template>
+                                            <div class="pt-4 h-[500px]">
+                                                <admin-map-viewer-3d 
+                                                    [mapData]="store.mapInfo()" 
+                                                    [terrainFlags]="store.terrainFlags()" 
+                                                    [terrainHeights]="store.terrainHeights()">
+                                                </admin-map-viewer-3d>
                                             </div>
-                                        </div>
-                                    </mat-tab>
-                                </mat-tab-group>
-                            } @placeholder {
-                                <div class="flex justify-center py-12">
-                                    <mat-spinner diameter="40"></mat-spinner>
+                                        </mat-tab>
+                                        <mat-tab>
+                                            <ng-template mat-tab-label>
+                                                <mat-icon class="mr-2 !text-sm">data_object</mat-icon>
+                                                <span>Schema</span>
+                                            </ng-template>
+                                            <div class="pt-4 max-h-[600px] overflow-auto">
+                                                <admin-json-viewer [data]="store.mapInfo()"></admin-json-viewer>
+                                            </div>
+                                        </mat-tab>
+                                        <mat-tab>
+                                            <ng-template mat-tab-label>
+                                                <mat-icon class="mr-2 !text-sm">view_in_ar</mat-icon>
+                                                <span>Object Registry</span>
+                                            </ng-template>
+                                            <div class="pt-4 max-h-[600px] overflow-auto">
+                                                <div class="overflow-hidden rounded-lg border border-white/5 bg-black/20">
+                                                    <table class="w-full text-left text-xs font-mono">
+                                                        <thead>
+                                                            <tr class="bg-white/5">
+                                                                <th class="p-2 runic-label">ID</th>
+                                                                <th class="p-2 runic-label">Pos (X,Y,Z)</th>
+                                                                <th class="p-2 runic-label">Shape</th>
+                                                                <th class="p-2 runic-label">Rot</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @for (obj of store.mapInfo()?.objects?.slice(0, 100); track $index) {
+                                                                <tr class="border-t border-white/5 hover:bg-storm-gold/5 transition-colors">
+                                                                    <td class="p-2 text-storm-gold">#{{ obj.id }}</td>
+                                                                    <td class="p-2 text-storm-text-muted">{{ obj.x }},{{ obj.y }},{{ obj.z }}</td>
+                                                                    <td class="p-2 text-storm-text-dim text-[10px]">{{ obj.shapeType }}</td>
+                                                                    <td class="p-2 text-storm-text-dim">{{ obj.rotation }}</td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </mat-tab>
+                                    </mat-tab-group>
+                                } @placeholder {
+                                    <div class="flex justify-center py-12">
+                                        <mat-spinner diameter="40"></mat-spinner>
+                                    </div>
+                                }
+                            </div>
+                        } @else {
+                            <div class="flex-1 flex flex-col items-center justify-center opacity-20 text-center py-24">
+                                <mat-icon class="text-7xl mb-4 !w-auto !h-auto">landscape</mat-icon>
+                                <p class="m-0 text-lg italic font-serif">Manifest a region to begin.</p>
+                            </div>
+                        }
+                    </div>
+                </admin-runic-card>
+
+                <div class="space-y-6">
+                    @if (store.mapInfo()) {
+                        <admin-runic-card title="XTEA Decryption">
+                            <p class="runic-label mb-4 opacity-60">Authentication keys</p>
+                            <form [formGroup]="xteaForm" (ngSubmit)="decodeMap()" class="space-y-4">
+                                <div class="grid grid-cols-1 gap-3">
+                                    <mat-form-field appearance="outline" class="density-compact">
+                                        <input matInput type="number" formControlName="key1" placeholder="Key 1" />
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" class="density-compact">
+                                        <input matInput type="number" formControlName="key2" placeholder="Key 2" />
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" class="density-compact">
+                                        <input matInput type="number" formControlName="key3" placeholder="Key 3" />
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" class="density-compact">
+                                        <input matInput type="number" formControlName="key4" placeholder="Key 4" />
+                                    </mat-form-field>
                                 </div>
-                            }
-                        </div>
-                    } @else {
-                        <div class="flex-1 flex flex-col items-center justify-center opacity-20 text-center py-24">
-                            <mat-icon class="text-7xl mb-4 !w-auto !h-auto">landscape</mat-icon>
-                            <p class="m-0 text-lg italic font-serif">Enter a Region ID to gaze into<br/> the landscape structure.</p>
-                        </div>
+                                
+                                <button mat-flat-button color="accent" type="submit" [disabled]="store.loading()" class="w-full h-[48px] !rounded-md !bg-storm-gold !text-storm-bg">
+                                    <mat-icon class="mr-2 text-sm">enhanced_encryption</mat-icon>
+                                    Manifest
+                                </button>
+                            </form>
+                        </admin-runic-card>
                     }
                 </div>
-            </admin-runic-card>
+            </div>
         </div>
     </div>
 </section>

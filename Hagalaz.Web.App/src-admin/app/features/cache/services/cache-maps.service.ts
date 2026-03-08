@@ -13,6 +13,10 @@ export class CacheMapsService {
         return this.http.get<MapTypeDto>(`${this.baseUrl}${id}`);
     }
 
+    getTerrain(id: number): Observable<ArrayBuffer> {
+        return this.http.get(`${this.baseUrl}${id}/terrain`, { responseType: "arraybuffer" });
+    }
+
     decode(id: number, request: MapDecodeRequest): Observable<MapTypeDto> {
         return this.http.post<MapTypeDto>(`${this.baseUrl}${id}/decode`, request);
     }

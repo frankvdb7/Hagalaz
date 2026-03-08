@@ -68,11 +68,12 @@ namespace Hagalaz.Cache.Types.Providers
             var terrainDataStream = ReadTerrainData(request.RegionID);
             var objectDataStream = ReadObjectData(request.RegionID, request.XteaKeys);
 
-            var terrainData = new sbyte[4, 64, 64];
+            var map = new MapType();
             if (terrainDataStream != null && terrainDataStream.Length > 0)
             {
-                MapCodec.DecodeTerrainData(terrainData, terrainDataStream);
+                MapCodec.DecodeTerrainData(map, terrainDataStream);
             }
+            var terrainData = map.TerrainData;
 
             for (var z = 0; z < 4; z++)
             {
