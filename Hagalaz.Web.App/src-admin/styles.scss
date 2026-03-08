@@ -4,10 +4,31 @@
 
 @import "../src/tailwind.css";
 
+@theme {
+    /* Core Storm / Runic Theme Colors (Admin Portal) */
+    --color-storm-bg: #0b0704;
+    --color-storm-bg-panel: #120d08;
+    --color-storm-bg-header: #1d160c;
+    
+    --color-storm-gold: #fbbf24;
+    --color-storm-gold-muted: rgba(251, 191, 36, 0.6);
+    --color-storm-gold-dim: rgba(251, 191, 36, 0.1);
+    
+    --color-storm-text: #f7e8b4;
+    --color-storm-text-muted: rgba(247, 232, 180, 0.6);
+    --color-storm-text-dim: rgba(247, 232, 180, 0.3);
+
+    /* Typography */
+    --font-serif: "Cinzel", "Georgia", serif;
+    --font-sans: "Semplicita Pro", "Inter", sans-serif;
+    --font-mono: "JetBrains Mono", "Fira Code", monospace;
+}
+
 html,
 body {
     margin: 0;
     min-height: 100%;
+    @apply bg-storm-bg;
 }
 
 html {
@@ -38,8 +59,37 @@ html {
     @include typography.semplicita-pro();
 }
 
-body {
-    font-family: "Semplicita Pro", "Cinzel", Georgia, serif;
-    background: #0b0704;
-    color: #f7e8b4;
+@layer utilities {
+    .portal-page-header {
+        @apply mb-8 flex flex-col gap-6 rounded-2xl border border-storm-gold/15 bg-storm-bg-panel/30 p-6 backdrop-blur-md md:flex-row md:items-center md:justify-between;
+    }
+
+    .title-area h1 {
+        @apply m-0 font-serif text-3xl leading-tight tracking-tight text-storm-gold;
+    }
+
+    .title-area p {
+        @apply mt-1 text-sm italic text-storm-text-muted;
+    }
+
+    .runic-label {
+        @apply text-[10px] font-black uppercase tracking-widest text-storm-gold/50;
+    }
+
+    .active-row {
+        @apply relative bg-storm-gold/10;
+        &::after {
+            content: '';
+            @apply absolute bottom-0 left-0 top-0 w-1 bg-storm-gold shadow-[0_0_10px_var(--color-storm-gold)];
+        }
+    }
+}
+
+.animate-in {
+    animation: fadeIn 0.7s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }

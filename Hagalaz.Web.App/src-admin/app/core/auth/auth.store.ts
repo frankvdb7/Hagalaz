@@ -1,95 +1,168 @@
-import { computed, Injectable, signal, inject } from "@angular/core";
-import { firstValueFrom } from "rxjs";
-import { AuthService } from "./auth.service";
+import { computed, inject } from "@angular/core";
+import { HttpClient, HttpHeaders, HttpParams } from "@angular/common/http";
+import { pipe, switchMap, tap, catchError, of, EMPTY, firstValueFrom } from "rxjs";
+import { signalStore, withState, withComputed, withMethods, patchState } from "@ngrx/signals";
+import { rxMethod } from "@ngrx/signals/rxjs-interop";
 import { AuthStorageService } from "./auth.storage.service";
-import { AuthToken, UserInfo } from "./auth.models";
+import { AuthToken, UserInfo, ResultDto } from "./auth.models";
+import { environment } from "../../../environments/environment";
+import { Router } from "@angular/router";
 
-@Injectable({ providedIn: "root" })
-export class AuthStore {
-    private readonly authService = inject(AuthService);
-    private readonly authStorage = inject(AuthStorageService);
-
-    readonly loading = signal(false);
-    readonly error = signal<string | null>(null);
-    readonly token = signal<AuthToken | null>(null);
-    readonly user = signal<UserInfo | null>(null);
-
-    readonly authenticated = computed(() => this.token() !== null);
-    readonly hasCacheScope = computed(() => this.token()?.scope.split(" ").includes("cache_api") ?? false);
-    readonly isSystemAdministrator = computed(() => this.user()?.role?.includes("SystemAdministrator") ?? false);
-    readonly isAuthorizedAdmin = computed(() => this.authenticated() && this.hasCacheScope() && this.isSystemAdministrator());
-
-    async initialize(): Promise<void> {
-        const refreshToken = this.authStorage.getRefreshToken();
-        if (!refreshToken) {
-            return;
-        }
-
-        try {
-            this.loading.set(true);
-            const token = await firstValueFrom(this.authService.refreshToken(refreshToken));
-            this.setToken(token);
-            await this.loadUser();
-        } catch {
-            this.clear();
-        } finally {
-            this.loading.set(false);
-        }
-    }
-
-    async login(email: string, password: string, captcha: string): Promise<boolean> {
-        this.error.set(null);
-
-        try {
-            this.loading.set(true);
-            const captchaResult = await firstValueFrom(this.authService.verifyCaptcha(captcha));
-            if (!captchaResult.succeeded) {
-                this.error.set("Captcha verification failed.");
-                return false;
-            }
-
-            const token = await firstValueFrom(this.authService.login(email, password));
-            this.setToken(token);
-            await this.loadUser();
-
-            if (!this.isAuthorizedAdmin()) {
-                this.error.set("User is authenticated but lacks required admin permissions.");
-                return false;
-            }
-
-            return true;
-        } catch {
-            this.error.set("Authentication failed.");
-            this.clear();
-            return false;
-        } finally {
-            this.loading.set(false);
-        }
-    }
-
-    async loadUser(): Promise<void> {
-        const user = await firstValueFrom(this.authService.getUserInfo());
-        this.user.set(user);
-    }
-
-    async logout(): Promise<void> {
-        try {
-            await firstValueFrom(this.authService.logout());
-        } catch {
-            // keep local logout behavior even if server logout fails
-        }
-
-        this.clear();
-    }
-
-    private setToken(token: AuthToken): void {
-        this.authStorage.setRefreshToken(token.refresh_token);
-        this.token.set(token);
-    }
-
-    private clear(): void {
-        this.authStorage.removeRefreshToken();
-        this.token.set(null);
-        this.user.set(null);
-    }
+export interface AuthState {
+    loading: boolean;
+    error: string | null;
+    token: AuthToken | null;
+    user: UserInfo | null;
 }
+
+const initialState: AuthState = {
+    loading: false,
+    error: null,
+    token: null,
+    user: null,
+};
+
+export const AuthStore = signalStore(
+    { providedIn: "root" },
+    withState(initialState),
+    withComputed(({ token, user }) => ({
+        authenticated: computed(() => token() !== null),
+        hasCacheScope: computed(() => token()?.scope.split(" ").includes("cache_api") ?? false),
+        isSystemAdministrator: computed(() => user()?.role?.includes("SystemAdministrator") ?? false),
+        isAuthorizedAdmin: computed(() => {
+            const isAuth = token() !== null;
+            const hasScope = token()?.scope.split(" ").includes("cache_api") ?? false;
+            const isAdmin = user()?.role?.includes("SystemAdministrator") ?? false;
+            return isAuth && hasScope && isAdmin;
+        }),
+    })),
+    withMethods((store, http = inject(HttpClient), authStorage = inject(AuthStorageService), router = inject(Router)) => {
+        const getTokens = (data: any, grantType: string) => {
+            const options = {
+                headers: new HttpHeaders({
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }),
+            };
+
+            const bodyData = {
+                ...data,
+                grant_type: grantType,
+                scope: "openid offline_access email profile roles characters_api cache_api",
+                client_id: "storm-app",
+            };
+
+            const body = Object.entries(bodyData).reduce(
+                (params, [key, value]) => params.set(key, value as string),
+                new HttpParams()
+            );
+
+            return http.post<AuthToken>(`${environment.authApiUrl}connect/token`, body, options);
+        };
+
+        const loadUser = () => http.get<UserInfo>(`${environment.authApiUrl}connect/userinfo`).pipe(
+            tap(user => patchState(store, { user })),
+            catchError(() => {
+                patchState(store, { token: null, user: null });
+                authStorage.removeRefreshToken();
+                return EMPTY;
+            })
+        );
+
+        return {
+            // Needs to be a Promise for provideAppInitializer in main.ts
+            async initialize(): Promise<void> {
+                const refreshToken = authStorage.getRefreshToken();
+                if (!refreshToken) return;
+
+                try {
+                    patchState(store, { loading: true });
+                    const token = await firstValueFrom(getTokens({ refresh_token: refreshToken }, "refresh_token"));
+                    authStorage.setRefreshToken(token.refresh_token);
+                    patchState(store, { token });
+                    await firstValueFrom(loadUser());
+                } catch {
+                    authStorage.removeRefreshToken();
+                    patchState(store, { token: null, user: null });
+                } finally {
+                    patchState(store, { loading: false });
+                }
+            },
+
+            login: rxMethod<{ email: string; password: string; captcha: string }>(
+                pipe(
+                    tap(() => patchState(store, { loading: true, error: null })),
+                    switchMap(({ email, password, captcha }) => 
+                        http.post<ResultDto>(`${environment.authApiUrl}captcha/verify`, { token: captcha }).pipe(
+                            switchMap(captchaResult => {
+                                if (!captchaResult.succeeded) {
+                                    patchState(store, { error: "Captcha verification failed.", loading: false });
+                                    return EMPTY;
+                                }
+                                return getTokens({ username: email, password }, "password").pipe(
+                                    tap(token => {
+                                        authStorage.setRefreshToken(token.refresh_token);
+                                        patchState(store, { token });
+                                    }),
+                                    switchMap(() => loadUser()),
+                                    tap(user => {
+                                        const hasScope = store.token()?.scope.split(" ").includes("cache_api");
+                                        const isAdmin = user.role?.includes("SystemAdministrator");
+                                        if (hasScope && isAdmin) {
+                                            router.navigate(["/portal/dashboard"]);
+                                        } else {
+                                            patchState(store, { error: "Lacks required admin permissions.", loading: false });
+                                        }
+                                    }),
+                                    catchError(() => {
+                                        patchState(store, { error: "Authentication failed.", loading: false });
+                                        return EMPTY;
+                                    })
+                                );
+                            }),
+                            tap(() => patchState(store, { loading: false }))
+                        )
+                    )
+                )
+            ),
+
+            devLogin: () => {
+                if (environment.production) return;
+
+                const token: AuthToken = {
+                    access_token: "dev-token",
+                    refresh_token: "dev-refresh",
+                    id_token: "dev-id-token",
+                    expires_in: 3600,
+                    token_type: "Bearer",
+                    scope: "openid profile email cache_api",
+                };
+
+                const user: UserInfo = {
+                    sub: "dev-sub",
+                    email: "dev@hagalaz.com",
+                    username: "dev@hagalaz.com",
+                    preferred_username: "DevArchivist",
+                    email_verified: true,
+                    role: ["SystemAdministrator"],
+                };
+
+                authStorage.setRefreshToken(token.refresh_token);
+                patchState(store, { token, user });
+                router.navigate(["/portal/dashboard"]);
+            },
+
+            logout: rxMethod<void>(
+                pipe(
+                    switchMap(() => http.get(`${environment.authApiUrl}connect/logout`).pipe(
+                        catchError(() => of(null)) // Ignore error on logout
+                    )),
+                    tap(() => {
+                        authStorage.removeRefreshToken();
+                        patchState(store, { token: null, user: null });
+                        router.navigate(["/login"]);
+                    })
+                )
+            )
+        };
+    })
+);

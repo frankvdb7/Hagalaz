@@ -1,72 +1,176 @@
-<section class="space-y-4">
-    @if (loading()) {
-        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+<section class="space-y-6 animate-in fade-in duration-700">
+    @if (store.loading()) {
+        <mat-progress-bar mode="indeterminate" class="!absolute top-0 left-0 right-0 z-50"></mat-progress-bar>
     }
 
-    <mat-card class="panel-card">
-        <mat-card-content class="py-3 text-sm text-amber-100/80">
-            Read sprite metadata, preview decoded PNG frames, then publish image replacements as explicit mutation calls.
-        </mat-card-content>
-    </mat-card>
-
-    <section class="grid gap-4 xl:grid-cols-3">
-        <mat-card class="panel-card">
-            <mat-card-header><mat-card-title>Sprite By Id</mat-card-title></mat-card-header>
-            <mat-card-content>
-                <form class="grid gap-2" [formGroup]="spriteIdForm" (ngSubmit)="loadSprite()">
-                    <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
-                    <button mat-flat-button type="submit" [disabled]="loading()">Fetch</button>
-                </form>
-                @if (spriteInfo()) { <pre>{{ spriteInfo() | json }}</pre> } @else { <p class="placeholder">No sprite loaded yet.</p> }
-            </mat-card-content>
-        </mat-card>
-
-        <mat-card class="panel-card">
-            <mat-card-header><mat-card-title>Search Sprites</mat-card-title></mat-card-header>
-            <mat-card-content>
-                <form class="grid gap-2" [formGroup]="spriteSearchForm" (ngSubmit)="searchSprites()">
-                    <mat-form-field appearance="outline"><mat-label>Query</mat-label><input matInput type="text" formControlName="query" /></mat-form-field>
-                    <div class="grid grid-cols-2 gap-2">
-                        <mat-form-field appearance="outline"><mat-label>Offset</mat-label><input matInput type="number" formControlName="offset" /></mat-form-field>
-                        <mat-form-field appearance="outline"><mat-label>Limit</mat-label><input matInput type="number" formControlName="limit" /></mat-form-field>
-                    </div>
-                    <button mat-flat-button type="submit" [disabled]="loading()">Search</button>
-                </form>
-                @if (searchResult()) { <pre>{{ searchResult() | json }}</pre> } @else { <p class="placeholder">No search results yet.</p> }
-            </mat-card-content>
-        </mat-card>
-
-        <mat-card class="panel-card">
-            <mat-card-header><mat-card-title>PNG Preview</mat-card-title></mat-card-header>
-            <mat-card-content>
-                <form class="grid gap-2" [formGroup]="spriteImageForm" (ngSubmit)="previewSpriteImage()">
-                    <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
-                    <mat-form-field appearance="outline"><mat-label>Frame</mat-label><input matInput type="number" formControlName="frame" /></mat-form-field>
-                    <button mat-flat-button type="submit" [disabled]="loading()">Load PNG</button>
-                </form>
-                @if (imageUrl()) {
-                    <img class="preview-image" [src]="imageUrl()!" alt="sprite preview" />
-                } @else {
-                    <p class="placeholder">Preview not loaded.</p>
+    <!-- Standardized Header -->
+    <header class="portal-page-header">
+        <div class="title-area">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="runic-label !text-storm-gold/60">Visual System</span>
+                @if (store.error()) {
+                    <span class="text-rose-400 text-xs font-medium animate-pulse">{{ store.error() }}</span>
                 }
-            </mat-card-content>
-        </mat-card>
-    </section>
+            </div>
+            <h1>Sprite Repository</h1>
+            <p>Browse and manage the visual manifestation of game artifacts.</p>
+        </div>
+        <div class="action-area">
+            <button mat-stroked-button class="!border-storm-gold/20 !text-storm-gold !rounded-md" (click)="store.clearImageUrl()">
+                <mat-icon class="mr-2">cleaning_services</mat-icon>
+                Clear Preview
+            </button>
+        </div>
+    </header>
 
-    <mat-card class="panel-card">
-        <mat-card-header><mat-card-title>Sprite Mutation Forge</mat-card-title></mat-card-header>
-        <mat-card-content class="space-y-4">
-            <form class="grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-center" [formGroup]="spriteUploadForm" (ngSubmit)="uploadSpriteImage()">
-                <mat-form-field appearance="outline"><mat-label>Sprite Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
-                <input class="file-input" type="file" accept="image/png" (change)="onFileSelected($event)" />
-                <button mat-stroked-button type="submit" [disabled]="loading()">Upload PNG</button>
-            </form>
-            <mat-divider></mat-divider>
-            @if (mutationResult()) { <pre>{{ mutationResult() | json }}</pre> } @else { <p class="placeholder">No sprite mutation executed.</p> }
-        </mat-card-content>
-    </mat-card>
+    <div class="grid gap-6 lg:grid-cols-[1fr_400px]">
+        
+        <!-- Left: Search & Browser -->
+        <div class="space-y-6">
+            <admin-runic-card title="Query Parameters">
+                <form [formGroup]="spriteSearchForm" (ngSubmit)="searchSprites()" class="flex flex-wrap gap-4 items-end">
+                    <mat-form-field appearance="outline" class="flex-1 min-w-[200px]">
+                        <mat-label>Asset Identifier or Name</mat-label>
+                        <input matInput formControlName="query" placeholder="e.g. inventory_icons" />
+                        <mat-icon matPrefix class="opacity-40">image_search</mat-icon>
+                    </mat-form-field>
+                    
+                    <div class="flex gap-2">
+                        <mat-form-field appearance="outline" class="w-24">
+                            <mat-label>Limit</mat-label>
+                            <input matInput type="number" formControlName="limit" />
+                        </mat-form-field>
+                        <button mat-flat-button color="primary" type="submit" [disabled]="store.loading()" class="h-[56px] !rounded-md !px-8">
+                            Seek Assets
+                        </button>
+                    </div>
+                </form>
+            </admin-runic-card>
 
-    @if (error()) {
-        <p class="text-rose-300 text-sm">{{ error() }}</p>
-    }
+            @if (store.searchResult()?.items?.length || store.loading()) {
+                @defer (on idle) {
+                    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        @for (asset of store.searchResult()?.items; track asset.id) {
+                            <div class="group relative p-4 rounded-xl border border-storm-gold/10 bg-storm-bg-panel/40 hover:border-storm-gold/30 transition-all cursor-pointer"
+                                 (click)="spriteIdForm.patchValue({id: asset.id}); loadSprite()">
+                                <div class="flex justify-between items-start mb-3">
+                                    <div>
+                                        <p class="m-0 text-[10px] font-mono text-storm-gold/40 uppercase tracking-widest">ID: #{{ asset.id }}</p>
+                                        <h4 class="m-0 text-storm-text font-bold truncate pr-4">{{ asset.name || 'Unnamed Asset' }}</h4>
+                                    </div>
+                                    <div class="w-8 h-8 rounded bg-storm-gold/5 flex items-center justify-center group-hover:bg-storm-gold/10 transition-colors">
+                                        <mat-icon class="text-sm text-storm-gold/40 group-hover:text-storm-gold">open_in_new</mat-icon>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-4 py-2 border-t border-white/5">
+                                    <div class="runic-label !text-storm-text/30">
+                                        Frames: <span class="text-storm-text/60">{{ asset.frameCount || '?' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                } @placeholder {
+                    <div class="flex justify-center py-12">
+                        <mat-spinner diameter="40"></mat-spinner>
+                    </div>
+                }
+            } @else if (!store.loading()) {
+                <div class="py-24 text-center rounded-2xl border-2 border-dashed border-storm-gold/10 opacity-30">
+                    <mat-icon class="text-6xl mb-4 !w-auto !h-auto">photo_library</mat-icon>
+                    <p class="m-0 italic font-serif text-lg">No assets projected. Initiate a search.</p>
+                </div>
+            }
+        </div>
+
+        <!-- Right: Inspector & Forge -->
+        <div class="space-y-6">
+            
+            <!-- Metadata & Inspector -->
+            <admin-runic-card title="Visual Inspector">
+                <div class="flex flex-col h-full min-h-[450px]">
+                    @if (store.spriteInfo()) {
+                        <div class="space-y-6">
+                            <div class="p-4 rounded bg-storm-gold/5 border border-storm-gold/10">
+                                <h3 class="m-0 text-storm-text font-serif text-lg truncate">{{ store.spriteInfo().name || 'Artifact metadata' }}</h3>
+                                <div class="flex gap-4 mt-2">
+                                    <span class="runic-label !text-storm-gold/60">ID: #{{ spriteIdForm.get('id')?.value }}</span>
+                                    <span class="runic-label !text-storm-gold/60">Frames: {{ store.spriteInfo().frameCount || '1' }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Preview Projection -->
+                            <div class="relative group aspect-square rounded-lg bg-black/40 border border-white/5 flex items-center justify-center p-8 overflow-hidden shadow-inner shadow-black/50">
+                                @if (store.imageUrl()) {
+                                    <img [src]="store.imageUrl()!" class="max-w-full max-h-full object-contain image-pixelated animate-in zoom-in duration-300" alt="projection" />
+                                    <div class="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/60 backdrop-blur border border-white/10 text-[9px] font-mono text-storm-text/60">
+                                        Frame: {{ spriteImageForm.get('frame')?.value }}
+                                    </div>
+                                } @else {
+                                    <div class="text-center opacity-20">
+                                        <mat-icon class="text-6xl mb-2 !w-auto !h-auto">visibility_off</mat-icon>
+                                        <p class="runic-label">Awaiting Manifestation</p>
+                                    </div>
+                                }
+                            </div>
+
+                            <!-- Frame Selector -->
+                            <form [formGroup]="spriteImageForm" (ngSubmit)="previewSpriteImage()" class="flex gap-2">
+                                <mat-form-field appearance="outline" class="flex-1">
+                                    <mat-label>Target Frame</mat-label>
+                                    <input matInput type="number" formControlName="frame" />
+                                </mat-form-field>
+                                <button mat-flat-button color="primary" type="submit" class="h-[56px] !rounded-md">
+                                    Manifest
+                                </button>
+                            </form>
+
+                            <mat-divider class="!border-white/5"></mat-divider>
+                            <admin-json-viewer [data]="store.spriteInfo()" class="max-h-48 overflow-auto"></admin-json-viewer>
+                        </div>
+                    } @else {
+                        <div class="flex-1 flex flex-col items-center justify-center opacity-20 text-center py-12">
+                            <mat-icon class="text-5xl mb-2">image</mat-icon>
+                            <p class="m-0 text-sm italic">Select an asset to gaze into<br/> its visual properties.</p>
+                        </div>
+                    }
+                </div>
+            </admin-runic-card>
+
+            <!-- Asset Forge -->
+            <admin-runic-card title="Asset Forge">
+                <div class="space-y-6">
+                    <p class="runic-label mb-4">Replacement Protocol</p>
+                    
+                    <form class="grid gap-4" [formGroup]="spriteUploadForm" (ngSubmit)="uploadSpriteImage()">
+                        <div class="p-6 rounded-xl border-2 border-dashed border-storm-gold/10 bg-black/20 hover:border-storm-gold/30 transition-all text-center relative group">
+                            <input type="file" accept="image/png" (change)="onFileSelected($event)" 
+                                   class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            <mat-icon class="text-4xl text-storm-gold/20 group-hover:text-storm-gold/40 transition-colors mb-2 !w-auto !h-auto">upload_file</mat-icon>
+                            <p class="runic-label">
+                                {{ selectedFileName() || 'Drop PNG Vessel' }}
+                            </p>
+                        </div>
+
+                        <mat-form-field appearance="outline">
+                            <mat-label>Target Asset ID</mat-label>
+                            <input matInput type="number" formControlName="id" />
+                        </mat-form-field>
+
+                        <button mat-flat-button color="primary" type="submit" [disabled]="store.loading()" class="h-[56px] !rounded-md">
+                            <mat-icon class="mr-2">auto_fix_high</mat-icon>
+                            Forge Asset
+                        </button>
+                    </form>
+
+                    @if (store.mutationResult()) {
+                        <div class="p-4 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 animate-in fade-in">
+                            <mat-icon class="text-emerald-400">check_circle</mat-icon>
+                            <span class="text-emerald-400 text-xs font-bold uppercase tracking-widest">Visual Etched Successfully</span>
+                        </div>
+                    }
+                </div>
+            </admin-runic-card>
+        </div>
+    </div>
 </section>

@@ -9,6 +9,7 @@ import { MatInputModule } from "@angular/material/input";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { NgHcaptchaModule } from "ng-hcaptcha";
 import { AuthStore } from "../core/auth/auth.store";
+import { environment } from "../../environments/environment";
 
 @Component({
     standalone: true,
@@ -24,6 +25,8 @@ export class LoginPageComponent {
     readonly store = inject(AuthStore);
     private readonly router = inject(Router);
 
+    readonly isDev = !environment.production;
+
     readonly form = this.fb.nonNullable.group({
         email: ["", [Validators.required, Validators.email]],
         password: ["", [Validators.required]],
@@ -33,7 +36,7 @@ export class LoginPageComponent {
     readonly submitted = signal(false);
     readonly hidePassword = signal(true);
 
-    async submit(): Promise<void> {
+    submit(): void {
         this.submitted.set(true);
         if (this.form.invalid) {
             this.form.markAllAsTouched();
@@ -41,12 +44,11 @@ export class LoginPageComponent {
         }
 
         const { email, password, captcha } = this.form.getRawValue();
-        const success = await this.store.login(email, password, captcha);
-        if (!success) {
-            return;
-        }
+        this.store.login({ email, password, captcha });
+    }
 
-        await this.router.navigate(["/cache/types"]);
+    devLogin(): void {
+        this.store.devLogin();
     }
 
     togglePasswordVisibility(): void {

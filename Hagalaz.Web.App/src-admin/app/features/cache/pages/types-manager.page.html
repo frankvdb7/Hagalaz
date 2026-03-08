@@ -1,117 +1,228 @@
-<section class="space-y-4">
-    @if (loading()) {
-        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+<section class="space-y-6 animate-in fade-in duration-700">
+    @if (store.loading()) {
+        <mat-progress-bar mode="indeterminate" class="!absolute top-0 left-0 right-0 z-50"></mat-progress-bar>
     }
 
-    <mat-card class="border border-amber-300/30 bg-[#120d08]/85">
-        <mat-card-content class="flex flex-wrap items-center gap-2 py-3">
-            <mat-chip-set>
-                <mat-chip>Read Types</mat-chip>
-                <mat-chip>Search Archives</mat-chip>
-                <mat-chip>Edit Definitions</mat-chip>
-            </mat-chip-set>
-            <span class="text-sm text-amber-100/75">Use one read card at a time, then apply a mutation in the forge panel.</span>
-        </mat-card-content>
-    </mat-card>
-
-    <section class="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
-        <mat-card class="panel-card">
-            <mat-card-header><mat-card-title>Archive Sizes</mat-card-title></mat-card-header>
-            <mat-card-actions><button mat-flat-button (click)="loadArchiveSizes()" [disabled]="loading()">Load</button></mat-card-actions>
-            <mat-card-content>
-                @if (archiveSizes()) { <pre>{{ archiveSizes() | json }}</pre> } @else { <p class="placeholder">No data loaded yet.</p> }
-            </mat-card-content>
-        </mat-card>
-
-        <mat-card class="panel-card">
-            <mat-card-header><mat-card-title>Get By Id</mat-card-title></mat-card-header>
-            <mat-card-content>
-                <form class="grid gap-2" [formGroup]="byIdForm" (ngSubmit)="loadById()">
-                    <mat-form-field appearance="outline"><mat-label>Type</mat-label><mat-select formControlName="kind">@for (kind of kinds; track kind) { <mat-option [value]="kind">{{ kind }}</mat-option> }</mat-select></mat-form-field>
-                    <mat-form-field appearance="outline"><mat-label>Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
-                    <button mat-flat-button type="submit" [disabled]="loading()">Fetch</button>
-                </form>
-                @if (byIdResult()) { <pre>{{ byIdResult() | json }}</pre> } @else { <p class="placeholder">No result yet.</p> }
-            </mat-card-content>
-        </mat-card>
-
-        <mat-card class="panel-card">
-            <mat-card-header><mat-card-title>Range Query</mat-card-title></mat-card-header>
-            <mat-card-content>
-                <form class="grid gap-2" [formGroup]="rangeForm" (ngSubmit)="loadRange()">
-                    <mat-form-field appearance="outline"><mat-label>Type</mat-label><mat-select formControlName="kind">@for (kind of kinds; track kind) { <mat-option [value]="kind">{{ kind }}</mat-option> }</mat-select></mat-form-field>
-                    <div class="grid grid-cols-2 gap-2">
-                        <mat-form-field appearance="outline"><mat-label>Start</mat-label><input matInput type="number" formControlName="startId" /></mat-form-field>
-                        <mat-form-field appearance="outline"><mat-label>End (exclusive)</mat-label><input matInput type="number" formControlName="endIdExclusive" /></mat-form-field>
-                    </div>
-                    <button mat-flat-button type="submit" [disabled]="loading()">Fetch Range</button>
-                </form>
-                @if (rangeResult()) { <pre>{{ rangeResult() | json }}</pre> } @else { <p class="placeholder">No range loaded.</p> }
-            </mat-card-content>
-        </mat-card>
-
-        <mat-card class="panel-card">
-            <mat-card-header><mat-card-title>Search</mat-card-title></mat-card-header>
-            <mat-card-content>
-                <form class="grid gap-2" [formGroup]="searchForm" (ngSubmit)="search()">
-                    <mat-form-field appearance="outline"><mat-label>Type</mat-label><mat-select formControlName="kind">@for (kind of searchableKinds; track kind) { <mat-option [value]="kind">{{ kind }}</mat-option> }</mat-select></mat-form-field>
-                    <mat-form-field appearance="outline"><mat-label>Query</mat-label><input matInput type="text" formControlName="query" /></mat-form-field>
-                    <div class="grid grid-cols-2 gap-2">
-                        <mat-form-field appearance="outline"><mat-label>Offset</mat-label><input matInput type="number" formControlName="offset" /></mat-form-field>
-                        <mat-form-field appearance="outline"><mat-label>Limit</mat-label><input matInput type="number" formControlName="limit" /></mat-form-field>
-                    </div>
-                    <button mat-flat-button type="submit" [disabled]="loading()">Search</button>
-                </form>
-                @if (searchResult()) { <pre>{{ searchResult() | json }}</pre> } @else { <p class="placeholder">No search yet.</p> }
-            </mat-card-content>
-        </mat-card>
-    </section>
-
-    <mat-card class="panel-card">
-        <mat-card-header><mat-card-title>Mutation Forge</mat-card-title></mat-card-header>
-        <mat-card-content class="space-y-4">
-            <div class="grid gap-4 xl:grid-cols-2">
-                <form class="grid gap-2" [formGroup]="npcMutationForm" (ngSubmit)="setNpcCombatLevel()">
-                    <h3>NPC Combat</h3>
-                    <mat-form-field appearance="outline"><mat-label>Npc Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
-                    <mat-form-field appearance="outline"><mat-label>Combat Level</mat-label><input matInput type="number" formControlName="combatLevel" /></mat-form-field>
-                    <button mat-stroked-button type="submit" [disabled]="loading()">Update NPC</button>
-                </form>
-
-                <form class="grid gap-2" [formGroup]="objectMutationForm" (ngSubmit)="setObjectName()">
-                    <h3>Object Name</h3>
-                    <mat-form-field appearance="outline"><mat-label>Object Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
-                    <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput type="text" formControlName="name" /></mat-form-field>
-                    <button mat-stroked-button type="submit" [disabled]="loading()">Update Object</button>
-                </form>
-
-                <form class="grid gap-2" [formGroup]="varpMutationForm" (ngSubmit)="setVarpBit()">
-                    <h3>Varp Bit</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <mat-form-field appearance="outline"><mat-label>Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
-                        <mat-form-field appearance="outline"><mat-label>Config Id</mat-label><input matInput type="number" formControlName="configId" /></mat-form-field>
-                        <mat-form-field appearance="outline"><mat-label>Bit Length</mat-label><input matInput type="number" formControlName="bitLength" /></mat-form-field>
-                        <mat-form-field appearance="outline"><mat-label>Bit Offset</mat-label><input matInput type="number" formControlName="bitOffset" /></mat-form-field>
-                    </div>
-                    <button mat-stroked-button type="submit" [disabled]="loading()">Update Varp Bit</button>
-                </form>
-
-                <form class="grid gap-2" [formGroup]="configMutationForm" (ngSubmit)="setConfigDefinition()">
-                    <h3>Config Definition</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <mat-form-field appearance="outline"><mat-label>Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
-                        <mat-form-field appearance="outline"><mat-label>Default Value</mat-label><input matInput type="number" formControlName="defaultValue" /></mat-form-field>
-                    </div>
-                    <mat-form-field appearance="outline"><mat-label>Value Type</mat-label><input matInput type="text" formControlName="valueType" /></mat-form-field>
-                    <button mat-stroked-button type="submit" [disabled]="loading()">Update Config</button>
-                </form>
+    <!-- Standardized Header -->
+    <header class="portal-page-header">
+        <div class="title-area">
+            <div class="mb-2 flex items-center gap-3">
+                <mat-chip class="!h-6 !border-storm-gold/20 !bg-storm-gold/10 !text-[10px] !font-bold !tracking-widest uppercase !text-storm-gold">v1.4.2 Registry</mat-chip>
+                @if (store.error()) {
+                    <span class="text-rose-400 text-xs font-medium animate-pulse">{{ store.error() }}</span>
+                }
             </div>
-            <mat-divider></mat-divider>
-            @if (mutationResult()) { <pre>{{ mutationResult() | json }}</pre> } @else { <p class="placeholder">No mutations executed.</p> }
-        </mat-card-content>
-    </mat-card>
+            <h1>Definition Browser</h1>
+            <p>Access and refine game entity definitions from the system registry.</p>
+        </div>
+        <div class="action-area">
+            <button mat-stroked-button (click)="loadArchiveSizes()" [disabled]="store.loading()" class="!border-storm-gold/20 !rounded-md !text-storm-gold">
+                <mat-icon class="mr-2">analytics</mat-icon>
+                Registry Stats
+            </button>
+        </div>
+    </header>
 
-    @if (error()) {
-        <p class="text-rose-300 text-sm">{{ error() }}</p>
-    }
+    <div class="grid gap-6 lg:grid-cols-[1fr_450px]">
+        
+        <!-- Left: Search & Results -->
+        <div class="space-y-6">
+            <admin-runic-card title="Search Parameters">
+                <form [formGroup]="searchForm" (ngSubmit)="search()" class="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-4">
+                    <mat-form-field appearance="outline">
+                        <mat-label>Namespace</mat-label>
+                        <mat-select formControlName="kind">
+                            @for (kind of searchableKinds; track kind) {
+                                <mat-option [value]="kind">{{ kind | titlecase }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                    
+                    <mat-form-field appearance="outline">
+                        <mat-label>Search Query</mat-label>
+                        <input matInput formControlName="query" placeholder="e.g. Bronze Platebody" />
+                        <mat-icon matPrefix class="opacity-40">search</mat-icon>
+                    </mat-form-field>
+
+                    <button mat-flat-button color="primary" type="submit" [disabled]="store.loading()" class="h-[56px] !rounded-md !px-8">
+                        Execute Search
+                    </button>
+                </form>
+            </admin-runic-card>
+
+            @if (tableData().length > 0 || store.loading()) {
+                @defer (on idle) {
+                    <admin-runic-card title="Registry Results">
+                        <div class="overflow-hidden rounded-lg border border-white/5 bg-black/20">
+                            <table mat-table [dataSource]="tableData()" class="!bg-transparent w-full">
+                                <!-- ID Column -->
+                                <ng-container matColumnDef="id">
+                                    <th mat-header-cell *matHeaderCellDef class="runic-label !border-b-storm-gold/10 !py-4">ID</th>
+                                    <td mat-cell *matCellDef="let item" class="!text-storm-text-dim font-mono text-xs">#{{item.id}}</td>
+                                </ng-container>
+
+                                <!-- Name Column -->
+                                <ng-container matColumnDef="name">
+                                    <th mat-header-cell *matHeaderCellDef class="runic-label !border-b-storm-gold/10">Entity Name</th>
+                                    <td mat-cell *matCellDef="let item" class="!text-storm-text font-bold py-3">{{item.name}}</td>
+                                </ng-container>
+
+                                <!-- Actions Column -->
+                                <ng-container matColumnDef="actions">
+                                    <th mat-header-cell *matHeaderCellDef class="runic-label !border-b-storm-gold/10 text-right">Actions</th>
+                                    <td mat-cell *matCellDef="let item" class="text-right">
+                                        <button mat-icon-button (click)="inspect(item)" class="!text-storm-gold/60 transition-colors hover:!text-storm-gold" matTooltip="Inspect Properties">
+                                            <mat-icon>analytics</mat-icon>
+                                        </button>
+                                    </td>
+                                </ng-container>
+
+                                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                <tr mat-row *matRowDef="let row; columns: displayedColumns;" 
+                                    [class.active-row]="selectedEntity() && selectedEntity().id === row.id"
+                                    class="hover:bg-storm-gold/5 transition-colors cursor-pointer"
+                                    (click)="inspect(row)">
+                                </tr>
+                            </table>
+                        </div>
+                    </admin-runic-card>
+                } @placeholder {
+                    <div class="p-12 flex justify-center">
+                        <mat-spinner diameter="40"></mat-spinner>
+                    </div>
+                }
+            } @else if (!store.loading()) {
+                <div class="py-20 text-center rounded-2xl border-2 border-dashed border-storm-gold/10 opacity-30">
+                    <mat-icon class="text-6xl mb-4 !w-auto !h-auto">database_search</mat-icon>
+                    <p class="m-0 italic font-serif">Registry is idle. Enter search parameters to begin.</p>
+                </div>
+            }
+        </div>
+
+        <!-- Right: Inspector & Forge -->
+        <div class="space-y-6">
+            @defer (on idle) {
+                <admin-runic-card title="Property Inspector">
+                    <div class="flex flex-col h-full min-h-[400px]">
+                        @if (selectedEntity()) {
+                            <div class="flex-1 overflow-auto pr-2">
+                                <div class="mb-6 p-4 rounded border border-storm-gold/10 bg-storm-gold/5">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <h3 class="m-0 text-storm-text font-serif text-lg leading-none">{{ selectedEntity().name || 'No Name' }}</h3>
+                                        <span class="text-[10px] font-mono text-storm-gold/60">ID: {{ selectedEntity().id }}</span>
+                                    </div>
+                                    <span class="runic-label">{{ searchForm.get('kind')?.value }} Instance</span>
+                                </div>
+                                <admin-json-viewer [data]="selectedEntity()"></admin-json-viewer>
+                            </div>
+                        } @else {
+                            <div class="flex-1 flex flex-col items-center justify-center opacity-20 text-center py-12">
+                                <mat-icon class="text-5xl mb-2">find_in_page</mat-icon>
+                                <p class="m-0 text-sm italic">Select an entity from the <br/>registry to inspect its properties.</p>
+                            </div>
+                        }
+                    </div>
+                </admin-runic-card>
+
+                <admin-runic-card title="Mutation Forge">
+                    <mat-tab-group class="density-compact">
+                        <!-- NPC Forge -->
+                        <mat-tab>
+                            <ng-template mat-tab-label>
+                                <mat-icon class="mr-2 !text-sm">pets</mat-icon>
+                                <span>NPC</span>
+                            </ng-template>
+                            <div class="pt-6">
+                                <form class="grid gap-4" [formGroup]="npcMutationForm" (ngSubmit)="setNpcCombatLevel()">
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>NPC ID</mat-label>
+                                        <input matInput type="number" formControlName="id" />
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>Combat Level</mat-label>
+                                        <input matInput type="number" formControlName="combatLevel" />
+                                    </mat-form-field>
+                                    <button mat-flat-button color="primary" type="submit" [disabled]="store.loading()" class="h-[44px] !rounded-md">
+                                        Update Combat Level
+                                    </button>
+                                </form>
+                            </div>
+                        </mat-tab>
+
+                        <!-- Object Forge -->
+                        <mat-tab>
+                            <ng-template mat-tab-label>
+                                <mat-icon class="mr-2 !text-sm">shrine</mat-icon>
+                                <span>Object</span>
+                            </ng-template>
+                            <div class="pt-6">
+                                <form class="grid gap-4" [formGroup]="objectMutationForm" (ngSubmit)="setObjectName()">
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>Object ID</mat-label>
+                                        <input matInput type="number" formControlName="id" />
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>New Name</mat-label>
+                                        <input matInput type="text" formControlName="name" />
+                                    </mat-form-field>
+                                    <button mat-flat-button color="primary" type="submit" [disabled]="store.loading()" class="h-[44px] !rounded-md">
+                                        Update Registry Name
+                                    </button>
+                                </form>
+                            </div>
+                        </mat-tab>
+
+                        <!-- Varp Forge -->
+                        <mat-tab>
+                            <ng-template mat-tab-label>
+                                <mat-icon class="mr-2 !text-sm">settings_input_component</mat-icon>
+                                <span>Varp</span>
+                            </ng-template>
+                            <div class="pt-6">
+                                <form class="grid gap-3" [formGroup]="varpMutationForm" (ngSubmit)="setVarpBit()">
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>ID</mat-label>
+                                        <input matInput type="number" formControlName="id" />
+                                    </mat-form-field>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <mat-form-field appearance="outline">
+                                            <mat-label>Config</mat-label>
+                                            <input matInput type="number" formControlName="configId" />
+                                        </mat-form-field>
+                                        <mat-form-field appearance="outline">
+                                            <mat-label>Length</mat-label>
+                                            <input matInput type="number" formControlName="bitLength" />
+                                        </mat-form-field>
+                                    </div>
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>Offset</mat-label>
+                                        <input matInput type="number" formControlName="bitOffset" />
+                                    </mat-form-field>
+                                    <button mat-flat-button color="primary" type="submit" [disabled]="store.loading()" class="h-[44px] !rounded-md">
+                                        Update Varp Bit
+                                    </button>
+                                </form>
+                            </div>
+                        </mat-tab>
+                    </mat-tab-group>
+
+                    @if (store.mutationResult()) {
+                        <div class="mt-6 p-4 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3">
+                            <mat-icon class="text-emerald-400">check_circle</mat-icon>
+                            <span class="text-emerald-400 text-xs font-bold uppercase tracking-widest">Mutation Etched Successfully</span>
+                        </div>
+                    }
+                </admin-runic-card>
+            } @placeholder {
+                <div class="space-y-6">
+                    <admin-runic-card title="Property Inspector">
+                        <div class="p-12 flex justify-center"><mat-spinner diameter="40"></mat-spinner></div>
+                    </admin-runic-card>
+                    <admin-runic-card title="Mutation Forge">
+                        <div class="p-12 flex justify-center"><mat-spinner diameter="40"></mat-spinner></div>
+                    </admin-runic-card>
+                </div>
+            }
+        </div>
+    </div>
 </section>

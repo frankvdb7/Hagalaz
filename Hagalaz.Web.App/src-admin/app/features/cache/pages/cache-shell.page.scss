@@ -1,12 +1,18 @@
 :host {
     display: block;
+    height: 100vh;
 }
 
-:host ::ng-deep .mat-toolbar {
-    min-height: 86px;
+.portal-container {
+    height: 100%;
 }
 
-:host ::ng-deep .mdc-button--filled {
-    --mdc-filled-button-container-color: #f2c44a;
-    --mdc-filled-button-label-text-color: #1f1609;
+.portal-sidenav {
+    width: 260px;
+    border-right: none !important;
+}
+
+.portal-content {
+    display: flex;
+    flex-direction: column;
 }

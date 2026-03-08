@@ -1,0 +1,11 @@
+:host {
+    display: block;
+}
+
+::ng-deep {
+    .density-compact {
+        .mat-mdc-tab-body-wrapper {
+            padding-top: 0;
+        }
+    }
+}

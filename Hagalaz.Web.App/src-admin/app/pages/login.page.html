@@ -1,56 +1,119 @@
-<section class="min-h-screen grid place-items-center p-4 lg:p-8">
-    <mat-card class="login-frame w-full max-w-5xl overflow-hidden">
+<section class="min-h-screen relative overflow-hidden bg-storm-bg flex items-center justify-center p-4 lg:p-8">
+    <!-- Animated background patterns -->
+    <div class="absolute inset-0 pointer-events-none opacity-20">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,var(--color-storm-gold-dim),transparent_70%)]"></div>
+        <div class="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="relative w-full max-w-5xl overflow-hidden rounded-2xl border border-storm-gold/20 bg-storm-bg-panel/95 shadow-[0_0_50px_rgba(0,0,0,0.8)] backdrop-blur-md animate-in">
+        
         @if (store.loading()) {
-            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <mat-progress-bar mode="indeterminate" class="!absolute top-0 left-0 right-0 z-50 !h-1"></mat-progress-bar>
         }
 
         <div class="grid lg:grid-cols-[1.1fr_1fr]">
-            <aside class="brand-panel">
-                <p class="eyebrow">Hagalaz Admin</p>
-                <h1>Welcome Back</h1>
-                <p class="intro">Sign in to manage cache content and keep the realm data consistent.</p>
+            
+            <!-- Left Panel: Branding & Lore -->
+            <aside class="relative p-12 lg:p-16 flex flex-col justify-center overflow-hidden border-b lg:border-b-0 lg:border-r border-storm-gold/10">
+                <!-- Background Image Layer -->
+                <div class="absolute inset-0 opacity-15 pointer-events-none scale-110 blur-[2px]">
+                    <div class="absolute inset-0 bg-gradient-to-t from-storm-bg-panel via-transparent to-storm-bg-panel z-10"></div>
+                    <img src="/assets/images/bg.jpg" class="w-full h-full object-cover" alt="" />
+                </div>
+                
+                <div class="relative z-20 space-y-8">
+                    <div class="space-y-2">
+                        <p class="runic-label !text-storm-gold/40 mb-1">Infrastructure Access</p>
+                        <h1 class="m-0 font-serif text-6xl leading-[0.9] tracking-tighter text-storm-text">
+                            HAGALAZ <br/>
+                            <span class="text-storm-gold runic-text-glow">COMMAND</span>
+                        </h1>
+                    </div>
 
-                <div class="access-note">
-                    Access is limited to authorized staff accounts.
+                    <div class="h-px w-24 bg-linear-to-r from-storm-gold/40 to-transparent"></div>
+
+                    <p class="m-0 text-storm-text-muted text-lg leading-relaxed max-w-sm font-serif italic">
+                        The nexus of realm management. Access to the core registries is reserved for high-level archivists only.
+                    </p>
+
+                    <div class="flex items-start gap-4 p-5 rounded-xl border border-storm-gold/10 bg-black/40 backdrop-blur-sm group hover:border-storm-gold/20 transition-all duration-500">
+                        <div class="p-2 rounded-lg bg-storm-gold/5 border border-storm-gold/10 group-hover:scale-110 transition-transform">
+                            <mat-icon class="text-storm-gold !w-6 !h-6">security</mat-icon>
+                        </div>
+                        <div class="space-y-1">
+                            <p class="m-0 text-xs font-bold uppercase tracking-widest text-storm-gold/80">Protocol 12-A</p>
+                            <p class="m-0 text-xs leading-relaxed text-storm-text-dim">
+                                Multi-factor authentication is active. Unauthorized attempts are logged by the sentinel.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </aside>
 
-            <section class="form-panel">
-                <h2>Sign In</h2>
-                <p class="subtitle">Use your Hagalaz account credentials.</p>
+            <!-- Right Panel: Login Form -->
+            <section class="p-12 lg:p-16 flex flex-col justify-center bg-storm-bg/30">
+                <div class="mb-10 text-center lg:text-left">
+                    <h2 class="m-0 text-3xl font-serif text-storm-text tracking-widest uppercase mb-1">Sign In</h2>
+                    <p class="runic-label !text-storm-gold/40">Present your credentials</p>
+                </div>
 
-                <form class="grid gap-3 mt-4" [formGroup]="form" (ngSubmit)="submit()">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Email</mat-label>
-                        <input matInput autocomplete="username" type="email" formControlName="email" />
-                        <mat-error>{{ hasError("email") ? "Enter a valid email address." : "" }}</mat-error>
-                    </mat-form-field>
+                <form class="space-y-6" [formGroup]="form" (ngSubmit)="submit()">
+                    <div class="space-y-5">
+                        <mat-form-field appearance="outline" class="w-full theme-runic" subscriptSizing="dynamic">
+                            <mat-label>Ledger Identifier (Email)</mat-label>
+                            <input matInput autocomplete="username" type="email" formControlName="email" class="font-mono text-sm" />
+                            <mat-icon matPrefix class="mr-3 text-storm-gold/40">alternate_email</mat-icon>
+                            @if (hasError('email')) {<mat-error>Invalid identifier</mat-error>}
+                        </mat-form-field>
 
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Password</mat-label>
-                        <input matInput autocomplete="current-password" [type]="hidePassword() ? 'password' : 'text'" formControlName="password" />
-                        <button mat-icon-button matSuffix type="button" (click)="togglePasswordVisibility()" [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'">
-                            <mat-icon>{{ hidePassword() ? "visibility" : "visibility_off" }}</mat-icon>
-                        </button>
-                        <mat-error>{{ hasError("password") ? "Password is required." : "" }}</mat-error>
-                    </mat-form-field>
+                        <mat-form-field appearance="outline" class="w-full theme-runic" subscriptSizing="dynamic">
+                            <mat-label>Secret Keyphrase</mat-label>
+                            <input matInput autocomplete="current-password" [type]="hidePassword() ? 'password' : 'text'" formControlName="password" class="font-mono text-sm" />
+                            <mat-icon matPrefix class="mr-3 text-storm-gold/40">vpn_key</mat-icon>
+                            <button mat-icon-button matSuffix type="button" (click)="togglePasswordVisibility()" [attr.aria-label]="hidePassword() ? 'Reveal' : 'Conceal'" class="!text-storm-gold/40">
+                                <mat-icon>{{ hidePassword() ? "visibility" : "visibility_off" }}</mat-icon>
+                            </button>
+                            @if (hasError('password')) {<mat-error>Keyphrase required</mat-error>}
+                        </mat-form-field>
+                    </div>
 
-                    <div class="captcha-wrap">
+                    <div class="captcha-wrap p-4 rounded-xl border border-storm-gold/5 bg-black/40 flex flex-col items-center gap-3">
                         <ng-hcaptcha theme="dark" formControlName="captcha" (error)="markForCheck()" (expired)="markForCheck()" (verify)="markForCheck()"></ng-hcaptcha>
                         @if (hasError("captcha")) {
-                            <p class="captcha-error">Complete the captcha challenge.</p>
+                            <p class="m-0 text-[10px] font-black uppercase tracking-widest text-rose-400 animate-pulse">Sentinel verification required</p>
                         }
                     </div>
 
-                    <button mat-flat-button type="submit" [disabled]="store.loading() || form.invalid">
-                        {{ store.loading() ? "Signing In..." : "Sign In" }}
+                    <button mat-flat-button type="submit" [disabled]="store.loading() || form.invalid" 
+                            class="w-full !h-16 !rounded-xl !text-xl !font-serif !tracking-[0.2em] !bg-storm-gold !text-storm-bg shadow-lg shadow-storm-gold/10 hover:shadow-storm-gold/20 transition-all active:scale-[0.98]">
+                        {{ store.loading() ? "PENETRATING..." : "INITIATE ACCESS" }}
                     </button>
+
+                    @if (isDev) {
+                        <button mat-stroked-button type="button" (click)="devLogin()" [disabled]="store.loading()" 
+                                class="w-full !h-12 !rounded-xl !border-storm-gold/20 !text-storm-gold/60 hover:!bg-storm-gold/5 hover:!border-storm-gold/40 !font-serif !tracking-[0.1em] uppercase text-[10px] transition-all">
+                            Bypass to Sandbox
+                        </button>
+                    }
                 </form>
 
                 @if (store.error()) {
-                    <p class="text-rose-300 mt-3 text-sm">Unable to sign in. Check your credentials and try again.</p>
+                    <div class="mt-8 p-4 rounded-xl bg-rose-950/20 border border-rose-500/20 flex items-center gap-4 animate-in fade-in zoom-in duration-300">
+                        <mat-icon class="text-rose-500">gavel</mat-icon>
+                        <p class="m-0 text-sm font-medium text-rose-300 leading-tight">
+                            Access Denied. <br/>
+                            <span class="text-[10px] uppercase font-bold opacity-60">Authentication Failure</span>
+                        </p>
+                    </div>
                 }
             </section>
         </div>
-    </mat-card>
+    </div>
+    
+    <!-- Footer Credits -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center opacity-30">
+        <div class="h-8 w-px bg-storm-gold/40 mb-3"></div>
+        <p class="runic-label">Built by The Storm Project</p>
+    </div>
 </section>

@@ -1,19 +1,95 @@
-<section class="mx-auto max-w-7xl p-4">
-    <mat-toolbar class="!rounded-xl !bg-[#1d160c]/90 !border !border-amber-300/40 flex justify-between gap-3">
-        <div>
-            <h1 class="m-0 uppercase tracking-[0.14em] text-amber-200 text-lg">Cache Forge</h1>
-            <p class="m-0 text-xs text-amber-100/75">Runic admin portal for Hagalaz cache.</p>
-        </div>
-        <div class="flex items-center gap-2">
-            <span class="text-sm text-amber-50/90">{{ authStore.user()?.preferred_username }}</span>
-            <button mat-flat-button (click)="logout()">Logout</button>
-        </div>
-    </mat-toolbar>
+<mat-sidenav-container class="portal-container" autosize>
+    <mat-sidenav #sidenav mode="side" opened class="portal-sidenav !border-none !bg-transparent" [fixedInViewport]="false">
+        <admin-portal-sidebar (logout)="logout()"></admin-portal-sidebar>
+    </mat-sidenav>
 
-    <nav class="flex gap-2 my-4">
-        <a mat-stroked-button routerLink="/cache/types" routerLinkActive="mdc-button--filled">Types</a>
-        <a mat-stroked-button routerLink="/cache/sprites" routerLinkActive="mdc-button--filled">Sprites</a>
-    </nav>
+    <mat-sidenav-content class="portal-content relative min-h-full">
+        <!-- Background decorative layers -->
+        <div class="pointer-events-none absolute inset-0 -z-10 bg-storm-bg">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,var(--color-storm-gold-dim),transparent_40%)]"></div>
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(120,70,20,0.1),transparent_50%)]"></div>
+        </div>
 
-    <router-outlet></router-outlet>
-</section>
+        <header class="sticky top-0 z-50 flex min-h-16 items-center justify-between border-b border-storm-gold/10 bg-storm-bg-header/60 px-6 py-2 backdrop-blur-xl">
+            <div class="flex items-center gap-4">
+                <button mat-icon-button (click)="sidenav.toggle()" class="!text-storm-gold">
+                    <mat-icon>menu</mat-icon>
+                </button>
+                
+                <nav class="flex items-center text-sm">
+                    @for (breadcrumb of breadcrumbs(); track breadcrumb.url; let last = $last) {
+                        <div class="flex items-center">
+                            @if (!$first) {
+                                <mat-icon class="!h-auto !w-auto !text-[10px] !text-storm-gold/20 mx-2">auto_awesome</mat-icon>
+                            }
+                            
+                            <a [routerLink]="breadcrumb.url" 
+                               class="group relative flex items-center transition-all duration-300"
+                               [class.pointer-events-none]="last">
+                                
+                                <span class="font-serif tracking-[0.1em] uppercase text-[11px] transition-colors duration-300"
+                                      [class.text-storm-text]="!last"
+                                      [class.text-storm-gold]="last"
+                                      [class.group-hover:text-storm-gold]="!last">
+                                    {{ breadcrumb.label }}
+                                </span>
+
+                                @if (!last) {
+                                    <span class="absolute -bottom-1 left-0 h-px w-0 bg-storm-gold/40 transition-all duration-300 group-hover:w-full"></span>
+                                }
+                            </a>
+                        </div>
+                    }
+                </nav>
+            </div>
+
+            <div class="flex items-center gap-2 md:gap-4">
+                <div class="hidden items-center gap-1 md:flex">
+                    <button mat-icon-button class="!text-storm-gold/60 transition-colors hover:!bg-storm-gold/5 hover:!text-storm-gold">
+                        <mat-icon>search</mat-icon>
+                    </button>
+                    <button mat-icon-button class="!text-storm-gold/60 transition-colors hover:!bg-storm-gold/5 hover:!text-storm-gold">
+                        <mat-icon>dark_mode</mat-icon>
+                    </button>
+                    <button mat-icon-button class="relative !text-storm-gold/60 transition-colors hover:!bg-storm-gold/5 hover:!text-storm-gold">
+                        <mat-icon>notifications</mat-icon>
+                        <span class="absolute right-3 top-3 h-2 w-2 rounded-full border border-storm-bg-header bg-rose-500"></span>
+                    </button>
+                </div>
+
+                <div class="mx-2 h-8 w-px bg-storm-gold/10"></div>
+
+                <div class="flex items-center gap-3">
+                    <div class="hidden text-right sm:block">
+                        <p class="m-0 text-xs font-black uppercase tracking-wider text-storm-text">{{ authStore.user()?.preferred_username }}</p>
+                        <p class="runic-label !text-[9px]">High Archivist</p>
+                    </div>
+                    <button mat-icon-button [matMenuTriggerFor]="userMenu" class="!h-10 !w-10 overflow-hidden rounded-full border border-storm-gold/20 bg-storm-bg-panel/20 p-0.5 transition-transform hover:scale-105 active:scale-95">
+                        <div class="flex h-full w-full items-center justify-center rounded-full bg-linear-to-br from-storm-gold to-storm-bg-header shadow-inner">
+                            <mat-icon class="!text-lg text-storm-text">person</mat-icon>
+                        </div>
+                    </button>
+                    <mat-menu #userMenu="matMenu" class="runic-menu">
+                        <button mat-menu-item>
+                            <mat-icon>account_circle</mat-icon>
+                            <span>Profile</span>
+                        </button>
+                        <button mat-menu-item>
+                            <mat-icon>settings</mat-icon>
+                            <span>Preferences</span>
+                        </button>
+                        <mat-divider class="!border-storm-gold/10"></mat-divider>
+                        <button mat-menu-item (click)="logout()">
+                            <mat-icon class="!text-rose-400">logout</mat-icon>
+                            <span class="text-rose-400">Sign Out</span>
+                        </button>
+                    </mat-menu>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-6 transition-all duration-500 lg:p-8">
+            <router-outlet></router-outlet>
+        </main>
+    </mat-sidenav-content>
+</mat-sidenav-container>

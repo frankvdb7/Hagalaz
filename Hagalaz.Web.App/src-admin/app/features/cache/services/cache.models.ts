@@ -47,3 +47,25 @@ export interface SpriteMutationResultDto extends TypeMutationResultDto {
     height: number;
     frameCount: number;
 }
+
+export interface MapObjectDto {
+    id: number;
+    shapeType: number;
+    rotation: number;
+    x: number;
+    y: number;
+    z: number;
+}
+
+export interface MapTypeDto {
+    id: number;
+    terrainPlanes: number;
+    terrainWidth: number;
+    terrainHeight: number;
+    objectCount: number;
+    objects: MapObjectDto[];
+}
+
+export interface MapDecodeRequest {
+    xteaKeys: number[];
+}
