@@ -324,21 +324,20 @@ namespace Hagalaz.Utilities
 
             if (iIndexOfBegin != -1)
             {
-                int startOffset = iIndexOfBegin + strBegin.Length;
-                if (includeBegin)
-                    startOffset -= strBegin.Length;
+                int endOfBegin = iIndexOfBegin + strBegin.Length;
+                ReadOnlySpan<char> afterBeginSpan = sourceSpan.Slice(endOfBegin);
+                int iIndexOfEndAfterBegin = afterBeginSpan.IndexOf(strEnd.AsSpan(), StringComparison.Ordinal);
 
-                ReadOnlySpan<char> remainingSpan = sourceSpan.Slice(startOffset);
-                int iEnd = remainingSpan.IndexOf(strEnd.AsSpan(), StringComparison.Ordinal);
-
-                if (iEnd != -1)
+                if (iIndexOfEndAfterBegin != -1)
                 {
-                    int resultLength = includeEnd ? iEnd + strEnd.Length : iEnd;
-                    string found = remainingSpan.Slice(0, resultLength).ToString();
+                    int resultStart = includeBegin ? iIndexOfBegin : endOfBegin;
+                    int resultEnd = endOfBegin + iIndexOfEndAfterBegin + (includeEnd ? strEnd.Length : 0);
 
-                    int remainderIndex = iEnd + strEnd.Length;
-                    string remainder = remainderIndex < remainingSpan.Length
-                        ? remainingSpan.Slice(remainderIndex).ToString()
+                    string found = sourceSpan.Slice(resultStart, resultEnd - resultStart).ToString();
+
+                    int remainderStart = endOfBegin + iIndexOfEndAfterBegin + strEnd.Length;
+                    string remainder = remainderStart < sourceSpan.Length
+                        ? sourceSpan.Slice(remainderStart).ToString()
                         : string.Empty;
 
                     return [found, remainder];
