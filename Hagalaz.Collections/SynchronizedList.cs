@@ -234,11 +234,17 @@ namespace Hagalaz.Collections
                 return;
             }
 
-            _enumerator.Dispose();
-            // .. and exiting lock on Dispose()
-            // This will be called when foreach loop finishes
-            Monitor.Exit(_root);
-            _disposed = true;
+            try
+            {
+                _enumerator.Dispose();
+            }
+            finally
+            {
+                // .. and exiting lock on Dispose()
+                // This will be called when foreach loop finishes
+                Monitor.Exit(_root);
+                _disposed = true;
+            }
         }
 
         /// <summary>
