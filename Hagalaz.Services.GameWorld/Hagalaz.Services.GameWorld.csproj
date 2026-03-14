@@ -5,7 +5,7 @@
     <UserSecretsId>d5b8bff1-ecfb-4d95-a35d-d779474445e0</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="15.1.0" />
+    <PackageReference Include="AutoMapper" Version="16.1.1" />
     <PackageReference Include="MassTransit" Version="8.5.7" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.7" />
     <PackageReference Include="McMaster.NETCore.Plugins" Version="2.0.0" />
