@@ -71,18 +71,9 @@ namespace Hagalaz.Cache.Tests
         }
 
         public static T Throws<T>(Action action) where T : Exception
-        {
-            try { action(); }
-            catch (T e) { return e; }
-            catch (Exception e) { throw new AssertFailedException($"Expected {typeof(T).Name} but got {e.GetType().Name}", e); }
-            throw new AssertFailedException($"Expected {typeof(T).Name} but no exception was thrown");
-        }
-        public static async Task<T> ThrowsAsync<T>(Func<Task> action) where T : Exception
-        {
-            try { await action(); }
-            catch (T e) { return e; }
-            catch (Exception e) { throw new AssertFailedException($"Expected {typeof(T).Name} but got {e.GetType().Name}", e); }
-            throw new AssertFailedException($"Expected {typeof(T).Name} but no exception was thrown");
-        }
+            => Microsoft.VisualStudio.TestTools.UnitTesting.Assert.ThrowsException<T>(action);
+
+        public static Task<T> ThrowsAsync<T>(Func<Task> action) where T : Exception
+            => Microsoft.VisualStudio.TestTools.UnitTesting.Assert.ThrowsExceptionAsync<T>(action);
     }
 }
