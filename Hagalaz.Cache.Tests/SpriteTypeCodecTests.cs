@@ -2,13 +2,14 @@ using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class SpriteTypeCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_RoundTrip_ShouldRestoreSameData()
         {
             // Arrange
@@ -28,7 +29,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalSprite.Image[0,0], decodedSprite.Image.Frames[0][0, 0]);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_MultiFrame_ShouldRestoreAllFrames()
         {
             // Arrange
@@ -60,7 +61,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalSprite.Image.Frames[1][1,0], decodedSprite.Image.Frames[1][1,0]);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_WithAlpha_ShouldRestoreAlpha()
         {
             // Arrange
@@ -81,7 +82,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(128, decodedSprite.Image.Frames[0][0,0].A);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_DifferentDimensions_ShouldRestoreCorrectly()
         {
             // Arrange
@@ -104,7 +105,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalSprite.Image[5,10], decodedSprite.Image.Frames[0][5,10]);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_WithOffset_ShouldRestoreCorrectly()
         {
             // Arrange

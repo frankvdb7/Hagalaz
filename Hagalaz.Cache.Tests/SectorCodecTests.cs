@@ -1,13 +1,14 @@
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
-using Xunit;
+
 using Hagalaz.Cache.Models;
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class SectorCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void TestStandardSectorCodec()
         {
             // Arrange
@@ -29,7 +30,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(dataBlock, decodedDataBlock);
         }
 
-        [Fact]
+        [TestMethod]
         public void TestExtendedSectorCodec()
         {
             // Arrange

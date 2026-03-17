@@ -1,10 +1,12 @@
-using Xunit;
+using System.Linq;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Security.Tests.AdditionalTests
 {
+[TestClass]
     public class ISAACTests
     {
-        [Fact]
+        [TestMethod]
         public void ISAAC_Output_ShouldMatchExpected()
         {
             // This is a characterization test. The expected values are the actual
@@ -35,7 +37,7 @@ namespace Hagalaz.Security.Tests.AdditionalTests
 
             for (int i = 0; i < expected.Length; i++)
             {
-                Assert.Equal(expected[i], isaac.ReadKey());
+                Assert.AreEqual(expected[i], isaac.ReadKey());
             }
         }
     }

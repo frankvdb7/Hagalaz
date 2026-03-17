@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests.Types
 {
+    [TestClass]
     public class ConfigDefinitionCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void RoundTripTest()
         {
             // Arrange

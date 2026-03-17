@@ -2,11 +2,12 @@ using System.Text;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
-using Xunit;
+
 using Index = Hagalaz.Cache.Models.Index;
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class FileStoreTests : IDisposable
     {
         private readonly IIndexCodec _indexCodec;
@@ -31,7 +32,7 @@ namespace Hagalaz.Cache.Tests
             _fileStore = new FileStore(_dataFile, _indexFiles, _mainIndexFile, _indexCodec, _sectorCodec);
         }
 
-        [Fact]
+        [TestMethod]
         public void Read_ValidFile_ReturnsCorrectData()
         {
             // Arrange
@@ -49,7 +50,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(fileData, resultData);
         }
 
-        [Fact]
+        [TestMethod]
         public void Read_InvalidIndexId_ThrowsFileNotFoundException()
         {
             // Arrange
@@ -60,7 +61,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Throws<FileNotFoundException>(() => _fileStore.Read(invalidIndexId, fileId));
         }
 
-        [Fact]
+        [TestMethod]
         public void Read_InvalidFileId_ThrowsFileNotFoundException()
         {
             // Arrange
@@ -71,7 +72,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Throws<FileNotFoundException>(() => _fileStore.Read(indexId, invalidFileId));
         }
 
-        [Fact]
+        [TestMethod]
         public void Write_And_Read_Multiple_Files()
         {
             // Arrange
@@ -98,7 +99,7 @@ namespace Hagalaz.Cache.Tests
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void GetFileCount_ReturnsCorrectCount()
         {
             // Arrange
@@ -117,7 +118,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(fileCount, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void Write_And_Read_MainIndexFile_255()
         {
             // Arrange
@@ -136,7 +137,7 @@ namespace Hagalaz.Cache.Tests
             Assert.True(fileCount > fileId);
         }
 
-        [Fact]
+        [TestMethod]
         public void Write_Overwrite_UpdatesExistingFile()
         {
             // Arrange
@@ -157,7 +158,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(updatedData, updatedRead);
         }
 
-        [Fact]
+        [TestMethod]
         public void Read_CorruptedIndex_InvalidSize_ThrowsInvalidDataException()
         {
             // Arrange
@@ -176,7 +177,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal("Index size is invalid.", ex.Message);
         }
 
-        [Fact]
+        [TestMethod]
         public void Read_CorruptedIndex_InvalidSector_ThrowsInvalidDataException()
         {
             // Arrange
@@ -195,7 +196,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal("Index sector id is invalid.", ex.Message);
         }
 
-        [Fact]
+        [TestMethod]
         public void Read_CorruptedSector_InvalidFileId_ThrowsInvalidDataException()
         {
             // Arrange
@@ -232,7 +233,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal("Invalid file id.", ex.Message);
         }
 
-        [Fact]
+        [TestMethod]
         public void Read_CorruptedSector_InvalidChunkId_ThrowsInvalidDataException()
         {
             // Arrange
@@ -269,7 +270,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal("Invalid chunk id.", ex.Message);
         }
 
-        [Fact]
+        [TestMethod]
         public void Read_CorruptedSector_InvalidNextSectorId_ThrowsInvalidDataException()
         {
             // Arrange
@@ -306,7 +307,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal("Invalid next sector id.", ex.Message);
         }
 
-        [Fact]
+        [TestMethod]
         public void Read_CorruptedSector_InvalidIndexId_ThrowsInvalidDataException()
         {
             // Arrange
@@ -348,7 +349,7 @@ namespace Hagalaz.Cache.Tests
             _fileStore.Dispose();
         }
 
-        [Fact]
+        [TestMethod]
         public void Write_And_Read_LargeFile_Succeeds()
         {
             // Arrange
@@ -366,7 +367,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(fileData, resultData);
         }
 
-        [Fact]
+        [TestMethod]
         public void Write_And_Read_ExtendedFile_Succeeds()
         {
             // Arrange

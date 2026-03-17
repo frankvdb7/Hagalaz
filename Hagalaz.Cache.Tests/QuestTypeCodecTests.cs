@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Types;
-using Xunit;
+
 using Hagalaz.Cache.Logic.Codecs;
 
 namespace Hagalaz.Cache.Tests;
 
-public class QuestTypeCodecTests
+[TestClass]
+    public class QuestTypeCodecTests
 {
-    [Fact]
+    [TestMethod]
     public void EncodeDecode_RoundTrip_ShouldPreserveData()
     {
         // Arrange

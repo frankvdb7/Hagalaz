@@ -3,13 +3,14 @@ using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Types.Factories;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
+
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types.Providers;
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class MapProviderTests
     {
         private readonly Mock<ICacheAPI> _cacheApiMock;
@@ -27,7 +28,7 @@ namespace Hagalaz.Cache.Tests
             _provider = new MapProvider(_cacheApiMock.Object, _codecMock.Object, _typeFactory, _loggerMock.Object);
         }
 
-        [Fact]
+        [TestMethod]
         public void Get_WithXteaKeys_PassesKeysToCacheApi()
         {
             // Arrange
@@ -44,7 +45,7 @@ namespace Hagalaz.Cache.Tests
             _cacheApiMock.Verify(x => x.ReadContainer(5, 1, xteaKeys), Times.Once);
         }
 
-        [Fact]
+        [TestMethod]
         public void DecodePart_ValidData_InvokesCallbacks()
         {
             // Arrange

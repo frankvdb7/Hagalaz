@@ -3,13 +3,14 @@ using System.Security.Cryptography;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Security;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class ChecksumTableCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void EncodeDecode_WithoutWhirlpool_ShouldBeEqual()
         {
             // Arrange
@@ -32,7 +33,7 @@ namespace Hagalaz.Cache.Tests
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void EncodeDecode_WithWhirlpool_ShouldBeEqual()
         {
             // Arrange
@@ -51,7 +52,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(table[0].Version, decodedTable[0].Version);
         }
 
-        [Fact]
+        [TestMethod]
         public void EncodeDecode_WithWhirlpoolAndRsa_ShouldBeEqual()
         {
             // Arrange
@@ -76,7 +77,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(table[0].Version, decodedTable[0].Version);
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithoutWhirlpool_ShouldReturnChecksumTable()
         {
             // Arrange
@@ -98,7 +99,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(2, table.Count);
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithWhirlpool_ShouldReturnChecksumTable()
         {
             // Arrange
@@ -127,7 +128,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(1, table.Count);
         }
 
-        [Fact]
+        [TestMethod]
         public void EncodeDecode_EmptyTable_ShouldSucceed()
         {
             // Arrange
@@ -143,7 +144,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(0, decodedTable.Count);
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_MismatchedWhirlpool_ShouldThrowIOException()
         {
             // Arrange
@@ -169,7 +170,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Throws<IOException>(() => codec.Decode(finalStream, true));
         }
 
-        [Fact]
+        [TestMethod]
         public void EncodeDecode_WithWhirlpoolAnd4096BitRsa_ShouldBeEqual()
         {
             // Arrange

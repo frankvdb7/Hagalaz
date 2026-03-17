@@ -3,10 +3,11 @@ using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class CacheWriterTests
     {
         private readonly Mock<IFileStore> _fileStoreMock;
@@ -24,7 +25,7 @@ namespace Hagalaz.Cache.Tests
             _cacheWriter = new CacheWriter(_fileStoreMock.Object, _referenceTableProviderMock.Object, _containerDecoderMock.Object, _referenceTableCodecMock.Object);
         }
 
-        [Fact]
+        [TestMethod]
         public void Write_ShouldWriteToStore()
         {
             // Arrange

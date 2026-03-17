@@ -1,11 +1,13 @@
+using System.Linq;
 using System;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Security.Tests
 {
+[TestClass]
     public class ISAACTests
     {
-        [Fact]
+        [TestMethod]
         public void SameSeed_ShouldProduceSameSequence()
         {
             // Arrange
@@ -16,11 +18,11 @@ namespace Hagalaz.Security.Tests
             // Act & Assert
             for (int i = 0; i < 1000; i++)
             {
-                Assert.Equal(isaac1.ReadKey(), isaac2.ReadKey());
+                Assert.AreEqual(isaac1.ReadKey(), isaac2.ReadKey());
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void DifferentSeeds_ShouldProduceDifferentSequences()
         {
             // Arrange
@@ -41,10 +43,10 @@ namespace Hagalaz.Security.Tests
             }
 
             // Assert
-            Assert.True(sequencesAreDifferent, "Sequences for different seeds were identical.");
+            Assert.IsTrue(sequencesAreDifferent, "Sequences for different seeds were identical.");
         }
 
-        [Fact]
+        [TestMethod]
         public void ConsecutiveReads_ShouldProduceDifferentKeys()
         {
             // Arrange
@@ -56,10 +58,10 @@ namespace Hagalaz.Security.Tests
             var key2 = isaac.ReadKey();
 
             // Assert
-            Assert.NotEqual(key1, key2);
+            Assert.AreNotEqual(key1, key2);
         }
 
-        [Fact]
+        [TestMethod]
         public void PeekKey_ShouldNotAdvanceState()
         {
             // Arrange
@@ -71,10 +73,10 @@ namespace Hagalaz.Security.Tests
             var readKey = isaac.ReadKey();
 
             // Assert
-            Assert.Equal(peekedKey, readKey);
+            Assert.AreEqual(peekedKey, readKey);
         }
 
-        [Fact]
+        [TestMethod]
         public void PeekKey_MultiplePeeks_ShouldReturnSameKey()
         {
             // Arrange
@@ -87,11 +89,11 @@ namespace Hagalaz.Security.Tests
             var readKey = isaac.ReadKey();
 
             // Assert
-            Assert.Equal(peekedKey1, peekedKey2);
-            Assert.Equal(peekedKey1, readKey);
+            Assert.AreEqual(peekedKey1, peekedKey2);
+            Assert.AreEqual(peekedKey1, readKey);
         }
 
-        [Fact]
+        [TestMethod]
         public void CustomIsaac_WithNullSeed_ShouldProduceCorrectSequence()
         {
             // This test validates the output of the project's custom ISAAC implementation,
@@ -126,10 +128,10 @@ namespace Hagalaz.Security.Tests
             }
 
             // Assert
-            Assert.Equal(expectedValues, actualValues);
+            CollectionAssert.AreEqual(expectedValues, actualValues);
         }
 
-        [Fact]
+        [TestMethod]
         public void EncryptDecrypt_Symmetry()
         {
             // Arrange
@@ -154,19 +156,19 @@ namespace Hagalaz.Security.Tests
             }
 
             // Assert
-            Assert.Equal(originalPlaintext, decrypted);
+            CollectionAssert.AreEqual(originalPlaintext, decrypted);
         }
 
-        [Fact]
+        [TestMethod]
         public void Constructor_WithNullSeed_ShouldThrowArgumentNullException()
         {
             // Arrange & Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new ISAAC(null!));
+            Assert.ThrowsExactly<ArgumentNullException>(() => new ISAAC(null!));
         }
 
-        [Theory]
-        [InlineData(new uint[] { 1, 2, 3, 4, 5, 6, 7, 8 })]
-        [InlineData(new uint[] { 0xFFFFFFFF, 0xEEEEEEEE, 0xDDDDDDDD, 0xCCCCCCCC, 0xBBBBBBBB, 0xAAAAAAAA, 0x99999999, 0x88888888 })]
+        [TestMethod]
+        [DataRow(new uint[] { 1, 2, 3, 4, 5, 6, 7, 8 })]
+        [DataRow(new uint[] { 0xFFFFFFFF, 0xEEEEEEEE, 0xDDDDDDDD, 0xCCCCCCCC, 0xBBBBBBBB, 0xAAAAAAAA, 0x99999999, 0x88888888 })]
         public void KeyGeneration_AcrossKeySetBoundary_ShouldRemainConsistent(uint[] seed)
         {
             // Arrange
@@ -184,11 +186,11 @@ namespace Hagalaz.Security.Tests
             isaac = new ISAAC(seed);
             for (int i = 0; i < keys.Length; i++)
             {
-                Assert.Equal(keys[i], isaac.ReadKey());
+                Assert.AreEqual(keys[i], isaac.ReadKey());
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void KeyGeneration_WithDifferentSeedLengths_ShouldProduceUniqueSequences()
         {
             // Arrange
@@ -202,7 +204,7 @@ namespace Hagalaz.Security.Tests
             var key2 = isaac2.ReadKey();
 
             // Assert
-            Assert.NotEqual(key1, key2);
+            Assert.AreNotEqual(key1, key2);
         }
     }
 }

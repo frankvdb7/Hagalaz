@@ -1,12 +1,13 @@
-﻿using Hagalaz.Cache.Types;
+using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Logic.Codecs;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class NpcTypeCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void TestEncodeDecode_AllProperties()
         {
             // Arrange
@@ -59,7 +60,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalNpc.TransformToIDs, decodedNpc.TransformToIDs);
         }
 
-        [Fact]
+        [TestMethod]
         public void TestEncodeDecode_DefaultValues()
         {
             // Arrange
@@ -83,7 +84,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Null(decodedNpc.ExtraData);
         }
 
-        [Fact]
+        [TestMethod]
         public void TestEncodeDecode_EmptyCollections()
         {
             // Arrange
@@ -112,7 +113,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Null(decodedNpc.TransformToIDs);
         }
 
-        [Fact]
+        [TestMethod]
         public void TestEncodeDecode_TransformToIDs_Empty()
         {
             // Arrange
@@ -132,7 +133,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Null(decodedNpc.TransformToIDs);
         }
 
-        [Fact]
+        [TestMethod]
         public void TestEncodeDecode_TransformToIDs_SingleElement()
         {
             // Arrange
@@ -151,7 +152,7 @@ namespace Hagalaz.Cache.Tests
             // Assert
             Assert.Null(decodedNpc.TransformToIDs);
         }
-        [Fact]
+        [TestMethod]
         public void Encode_WithNullActions_ShouldNotThrow()
         {
             // Arrange

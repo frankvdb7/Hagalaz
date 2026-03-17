@@ -1,10 +1,11 @@
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Logic.Codecs;
-using Xunit;
+
 using Index = Hagalaz.Cache.Models.Index;
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class IndexCodecTests
     {
         private readonly IIndexCodec _codec;
@@ -14,7 +15,7 @@ namespace Hagalaz.Cache.Tests
             _codec = new IndexCodec();
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_ValidData_ReturnsCorrectIndex()
         {
             // Arrange
@@ -30,7 +31,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(expectedSector, index.SectorID);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_ValidIndex_ReturnsCorrectData()
         {
             // Arrange
@@ -49,7 +50,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(0x05, data[5]);
         }
 
-        [Fact]
+        [TestMethod]
         public void EncodeDecode_Symmetry()
         {
             // Arrange

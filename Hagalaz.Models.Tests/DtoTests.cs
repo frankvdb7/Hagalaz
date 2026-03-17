@@ -1,39 +1,41 @@
+using System.Linq;
 using Hagalaz.Game.Network.Model;
 using Hagalaz.Game.Messages.Model;
 using Hagalaz.Services.Authorization.Model;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Models.Tests
 {
+[TestClass]
     public class DtoTests
     {
-        [Fact]
+        [TestMethod]
         public void FriendsChatMemberDto_ShouldBeInitializable()
         {
             var dto = new FriendsChatMemberDto { DisplayName = "Test" };
-            Assert.Equal("Test", dto.DisplayName);
+            Assert.AreEqual("Test", dto.DisplayName);
         }
 
-        [Fact]
+        [TestMethod]
         public void NotifyClanSettingsChanged_ShouldBeInitializable()
         {
             var dto = new NotifyClanSettingsChanged { Settings = new NotifyClanSettingsChanged.ClanSettingsDto() };
-            Assert.NotNull(dto.Settings);
+            Assert.IsNotNull(dto.Settings);
         }
 
-        [Fact]
+        [TestMethod]
         public void HCaptchaVerifyResult_ShouldBeInitializable()
         {
             var dto = new HCaptchaVerifyResult { HostName = "localhost" };
-            Assert.Equal("localhost", dto.HostName);
+            Assert.AreEqual("localhost", dto.HostName);
         }
 
-        [Fact]
+        [TestMethod]
         public void FriendsChatMemberDto_ShouldHaveDefaultValues()
         {
             var dto = new FriendsChatMemberDto { DisplayName = "Test" };
-            Assert.Equal(0, dto.WorldId);
-            Assert.False(dto.InLobby);
+            Assert.AreEqual(0, dto.WorldId);
+            Assert.IsFalse(dto.InLobby);
         }
     }
 }

@@ -3,10 +3,11 @@ using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class MemoryStreamSpy : MemoryStream
     {
         public bool IsDisposed { get; private set; }
@@ -18,6 +19,7 @@ namespace Hagalaz.Cache.Tests
         }
     }
 
+    [TestClass]
     public class CacheApiTests
     {
         private readonly Mock<IFileStore> _fileStoreMock;
@@ -39,7 +41,7 @@ namespace Hagalaz.Cache.Tests
             _cacheApi = new CacheApi(_fileStoreMock.Object, _referenceTableProviderMock.Object, _cacheWriterMock.Object, _containerDecoderMock.Object, _referenceTableCodecMock.Object, _archiveDecoderMock.Object);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetFileId_ShouldReturnFileId()
         {
             // Arrange
@@ -54,7 +56,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(123, fileId);
         }
 
-        [Fact]
+        [TestMethod]
         public void ReadContainer_ReturnsContainer()
         {
             // Arrange
@@ -71,7 +73,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(expectedContainer, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void ReadContainer_ShouldDisposeStream()
         {
             // Arrange

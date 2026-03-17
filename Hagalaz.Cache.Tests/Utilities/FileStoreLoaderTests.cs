@@ -1,11 +1,12 @@
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
+
 using Hagalaz.Cache.Abstractions;
 
 namespace Hagalaz.Cache.Tests.Utilities
 {
+    [TestClass]
     public class FileStoreLoaderTests
     {
         private readonly Mock<ILogger<FileStore>> _loggerMock;
@@ -21,7 +22,7 @@ namespace Hagalaz.Cache.Tests.Utilities
             _loader = new FileStoreLoader(_loggerMock.Object, _indexCodecMock.Object, _sectorCodecMock.Object);
         }
 
-        [Fact]
+        [TestMethod]
         public void Open_ValidData_ReturnsFileStore()
         {
             // Arrange
@@ -43,7 +44,7 @@ namespace Hagalaz.Cache.Tests.Utilities
             Directory.Delete(tempDir, true);
         }
 
-        [Fact]
+        [TestMethod]
         public void Open_DataFileNotFound_ThrowsFileNotFoundException()
         {
             // Arrange
@@ -59,7 +60,7 @@ namespace Hagalaz.Cache.Tests.Utilities
             Directory.Delete(tempDir, true);
         }
 
-        [Fact]
+        [TestMethod]
         public void Open_IndexFilesNotFound_ThrowsFileNotFoundException()
         {
             // Arrange
@@ -75,7 +76,7 @@ namespace Hagalaz.Cache.Tests.Utilities
             Directory.Delete(tempDir, true);
         }
 
-        [Fact]
+        [TestMethod]
         public void Open_MainIndexFileNotFound_ThrowsFileNotFoundException()
         {
             // Arrange
@@ -91,7 +92,7 @@ namespace Hagalaz.Cache.Tests.Utilities
             Directory.Delete(tempDir, true);
         }
 
-        [Fact]
+        [TestMethod]
         public void Open_DirectoryNotFound_ThrowsDirectoryNotFoundException()
         {
             // Arrange

@@ -2,10 +2,11 @@ using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic;
 using Moq;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests.Logic
 {
+    [TestClass]
     public class ItemTypeLogicTests
     {
         private readonly Mock<IItemType> _mockItemType;
@@ -15,7 +16,7 @@ namespace Hagalaz.Cache.Tests.Logic
             _mockItemType = new Mock<IItemType>();
         }
 
-        [Fact]
+        [TestMethod]
         public void HasSpecialBar_ShouldReturnTrue_WhenExtraDataContainsValue()
         {
             // Arrange
@@ -29,7 +30,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.True(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void HasSpecialBar_ShouldReturnFalse_WhenExtraDataDoesNotContainValue()
         {
             // Arrange
@@ -43,7 +44,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.False(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void HasSpecialBar_ShouldReturnFalse_WhenExtraDataIsNull()
         {
             // Arrange
@@ -56,7 +57,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.False(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetQuestId_ShouldReturnValue_WhenExtraDataContainsQuestId()
         {
             // Arrange
@@ -70,7 +71,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(123, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetQuestId_ShouldReturnNegativeOne_WhenExtraDataDoesNotContainQuestId()
         {
             // Arrange
@@ -84,7 +85,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(-1, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetQuestId_ShouldReturnNegativeOne_WhenExtraDataIsNull()
         {
             // Arrange
@@ -97,7 +98,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(-1, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetAttackSpeed_ShouldReturnValue_WhenExtraDataContainsAttackSpeed()
         {
             // Arrange
@@ -111,7 +112,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(5, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetAttackSpeed_ShouldReturnDefault_WhenExtraDataDoesNotContainAttackSpeed()
         {
             // Arrange
@@ -125,7 +126,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(4, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetAttackSpeed_ShouldReturnDefault_WhenExtraDataIsNull()
         {
             // Arrange
@@ -138,12 +139,12 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(4, result);
         }
 
-        [Theory]
-        [InlineData(ItemConstants.StabAttack, 10)]
-        [InlineData(ItemConstants.SlashAttack, 20)]
-        [InlineData(ItemConstants.CrushAttack, 30)]
-        [InlineData(ItemConstants.MagicAttack, 40)]
-        [InlineData(ItemConstants.RangeAttack, 50)]
+        [TestMethod]
+        [DataRow(ItemConstants.StabAttack, 10)]
+        [DataRow(ItemConstants.SlashAttack, 20)]
+        [DataRow(ItemConstants.CrushAttack, 30)]
+        [DataRow(ItemConstants.MagicAttack, 40)]
+        [DataRow(ItemConstants.RangeAttack, 50)]
         public void GetAttackBonus_ShouldReturnValue_WhenExtraDataContainsKey(int key, int expectedValue)
         {
             // Arrange
@@ -165,12 +166,12 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(expectedValue, result);
         }
 
-        [Theory]
-        [InlineData(ItemConstants.StabAttack)]
-        [InlineData(ItemConstants.SlashAttack)]
-        [InlineData(ItemConstants.CrushAttack)]
-        [InlineData(ItemConstants.MagicAttack)]
-        [InlineData(ItemConstants.RangeAttack)]
+        [TestMethod]
+        [DataRow(ItemConstants.StabAttack)]
+        [DataRow(ItemConstants.SlashAttack)]
+        [DataRow(ItemConstants.CrushAttack)]
+        [DataRow(ItemConstants.MagicAttack)]
+        [DataRow(ItemConstants.RangeAttack)]
         public void GetAttackBonus_ShouldReturnZero_WhenExtraDataDoesNotContainKey(int key)
         {
             // Arrange
@@ -192,13 +193,13 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(0, result);
         }
 
-        [Theory]
-        [InlineData(ItemConstants.StabDefence, 10)]
-        [InlineData(ItemConstants.SlashDefence, 20)]
-        [InlineData(ItemConstants.CrushDefence, 30)]
-        [InlineData(ItemConstants.MagicDefence, 40)]
-        [InlineData(ItemConstants.RangeDefence, 50)]
-        [InlineData(ItemConstants.SummoningDefence, 60)]
+        [TestMethod]
+        [DataRow(ItemConstants.StabDefence, 10)]
+        [DataRow(ItemConstants.SlashDefence, 20)]
+        [DataRow(ItemConstants.CrushDefence, 30)]
+        [DataRow(ItemConstants.MagicDefence, 40)]
+        [DataRow(ItemConstants.RangeDefence, 50)]
+        [DataRow(ItemConstants.SummoningDefence, 60)]
         public void GetDefenceBonus_ShouldReturnValue_WhenExtraDataContainsKey(int key, int expectedValue)
         {
             // Arrange
@@ -221,13 +222,13 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(expectedValue, result);
         }
 
-        [Theory]
-        [InlineData(ItemConstants.StabDefence)]
-        [InlineData(ItemConstants.SlashDefence)]
-        [InlineData(ItemConstants.CrushDefence)]
-        [InlineData(ItemConstants.MagicDefence)]
-        [InlineData(ItemConstants.RangeDefence)]
-        [InlineData(ItemConstants.SummoningDefence)]
+        [TestMethod]
+        [DataRow(ItemConstants.StabDefence)]
+        [DataRow(ItemConstants.SlashDefence)]
+        [DataRow(ItemConstants.CrushDefence)]
+        [DataRow(ItemConstants.MagicDefence)]
+        [DataRow(ItemConstants.RangeDefence)]
+        [DataRow(ItemConstants.SummoningDefence)]
         public void GetDefenceBonus_ShouldReturnZero_WhenExtraDataDoesNotContainKey(int key)
         {
             // Arrange
@@ -250,10 +251,10 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(0, result);
         }
 
-        [Theory]
-        [InlineData(ItemConstants.AbsorbMeleeBonus, 10)]
-        [InlineData(ItemConstants.AbsorbMageBonus, 20)]
-        [InlineData(ItemConstants.AbsorbRangeBonus, 30)]
+        [TestMethod]
+        [DataRow(ItemConstants.AbsorbMeleeBonus, 10)]
+        [DataRow(ItemConstants.AbsorbMageBonus, 20)]
+        [DataRow(ItemConstants.AbsorbRangeBonus, 30)]
         public void GetAbsorbBonus_ShouldReturnValue_WhenExtraDataContainsKey(int key, int expectedValue)
         {
             // Arrange
@@ -273,10 +274,10 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(expectedValue, result);
         }
 
-        [Theory]
-        [InlineData(ItemConstants.AbsorbMeleeBonus)]
-        [InlineData(ItemConstants.AbsorbMageBonus)]
-        [InlineData(ItemConstants.AbsorbRangeBonus)]
+        [TestMethod]
+        [DataRow(ItemConstants.AbsorbMeleeBonus)]
+        [DataRow(ItemConstants.AbsorbMageBonus)]
+        [DataRow(ItemConstants.AbsorbRangeBonus)]
         public void GetAbsorbBonus_ShouldReturnZero_WhenExtraDataDoesNotContainKey(int key)
         {
             // Arrange
@@ -296,9 +297,9 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(0, result);
         }
 
-        [Theory]
-        [InlineData(ItemConstants.StrengthBonus, 100, 10)]
-        [InlineData(ItemConstants.RangedStrengthBonus, 200, 20)]
+        [TestMethod]
+        [DataRow(ItemConstants.StrengthBonus, 100, 10)]
+        [DataRow(ItemConstants.RangedStrengthBonus, 200, 20)]
         public void GetStrengthBonus_ShouldReturnDividedValue_WhenExtraDataContainsKey(int key, int value, int expectedValue)
         {
             // Arrange
@@ -317,9 +318,9 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(expectedValue, result);
         }
 
-        [Theory]
-        [InlineData(ItemConstants.StrengthBonus)]
-        [InlineData(ItemConstants.RangedStrengthBonus)]
+        [TestMethod]
+        [DataRow(ItemConstants.StrengthBonus)]
+        [DataRow(ItemConstants.RangedStrengthBonus)]
         public void GetStrengthBonus_ShouldReturnZero_WhenExtraDataDoesNotContainKey(int key)
         {
             // Arrange
@@ -338,7 +339,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(0, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetMagicDamage_ShouldReturnValue_WhenExtraDataContainsKey()
         {
             // Arrange
@@ -352,7 +353,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(15, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetMagicDamage_ShouldReturnZero_WhenExtraDataDoesNotContainKey()
         {
             // Arrange
@@ -366,7 +367,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(0, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetPrayerBonus_ShouldReturnValue_WhenExtraDataContainsKey()
         {
             // Arrange
@@ -380,7 +381,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(5, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetPrayerBonus_ShouldReturnZero_WhenExtraDataDoesNotContainKey()
         {
             // Arrange
@@ -394,7 +395,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(0, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetWeaponType_ShouldReturnValue_WhenExtraDataContainsKey()
         {
             // Arrange
@@ -408,7 +409,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(7, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetWeaponType_ShouldReturnZero_WhenExtraDataDoesNotContainKey()
         {
             // Arrange
@@ -422,13 +423,13 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(0, result);
         }
 
-        [Theory]
-        [InlineData(0, new int[] { 3, 3, 3, -1 })]
-        [InlineData(1, new int[] { 3, 3, 3, -1 })]
-        [InlineData(2, new int[] { 2, 2, 3, 2 })]
-        [InlineData(13, new int[] { 4, 4, 4, -1 })]
-        [InlineData(27, new int[] { 2, 1, 3, -1 })]
-        [InlineData(28, new int[] { 3, 3, 3, -1 })] // Default case
+        [TestMethod]
+        [DataRow(0, new int[] { 3, 3, 3, -1 })]
+        [DataRow(1, new int[] { 3, 3, 3, -1 })]
+        [DataRow(2, new int[] { 2, 2, 3, 2 })]
+        [DataRow(13, new int[] { 4, 4, 4, -1 })]
+        [DataRow(27, new int[] { 2, 1, 3, -1 })]
+        [DataRow(28, new int[] { 3, 3, 3, -1 })] // Default case
         public void GetAttackBonusTypes_ShouldReturnCorrectArray_ForWeaponType(int weaponType, int[] expected)
         {
             // Arrange
@@ -442,13 +443,13 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(expected, result);
         }
 
-        [Theory]
-        [InlineData(0, new int[] { 1, 2, 3, -1 })]
-        [InlineData(1, new int[] { 1, 2, 3, -1 })]
-        [InlineData(2, new int[] { 1, 2, 2, 3 })]
-        [InlineData(13, new int[] { 5, 6, 7, -1 })]
-        [InlineData(27, new int[] { 4, 4, 4, -1 })]
-        [InlineData(28, new int[] { 1, 2, 3, -1 })] // Default case
+        [TestMethod]
+        [DataRow(0, new int[] { 1, 2, 3, -1 })]
+        [DataRow(1, new int[] { 1, 2, 3, -1 })]
+        [DataRow(2, new int[] { 1, 2, 2, 3 })]
+        [DataRow(13, new int[] { 5, 6, 7, -1 })]
+        [DataRow(27, new int[] { 4, 4, 4, -1 })]
+        [DataRow(28, new int[] { 1, 2, 3, -1 })] // Default case
         public void GetAttackStylesTypes_ShouldReturnCorrectArray_ForWeaponType(int weaponType, int[] expected)
         {
             // Arrange
@@ -462,7 +463,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(expected, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetEquipmentRequirements_ShouldReturnRequirements_WhenDataExists()
         {
             // Arrange
@@ -482,7 +483,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(80, result[1]);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetEquipmentRequirements_ShouldReturnMaxedRequirement_WhenDataExists()
         {
             // Arrange
@@ -501,7 +502,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(99, result[5]);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetEquipmentRequirements_ShouldReturn120_ForSpecificItemId()
         {
             // Arrange
@@ -520,7 +521,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(120, result[5]);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetEquipmentRequirements_ShouldReturnEmpty_WhenNoDataExists()
         {
             // Arrange
@@ -533,7 +534,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Empty(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void IsNoted_ShouldReturnTrue_WhenNoted()
         {
             // Arrange
@@ -547,7 +548,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.True(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void IsNoted_ShouldReturnFalse_WhenNotNoted()
         {
             // Arrange
@@ -561,7 +562,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.False(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void IsStackable_ShouldReturnTrue_WhenStackableTypeIsOne()
         {
             // Arrange
@@ -574,7 +575,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.True(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void IsStackable_ShouldReturnTrue_WhenNoted()
         {
             // Arrange
@@ -589,7 +590,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.True(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void IsStackable_ShouldReturnFalse_WhenNotStackableOrNoted()
         {
             // Arrange
@@ -604,7 +605,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.False(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void HasWearModel_ShouldReturnTrue_WhenMaleModelExists()
         {
             // Arrange
@@ -617,7 +618,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.True(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void HasWearModel_ShouldReturnTrue_WhenFemaleModelExists()
         {
             // Arrange
@@ -631,7 +632,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.True(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void HasWearModel_ShouldReturnFalse_WhenNoModelExists()
         {
             // Arrange
@@ -645,7 +646,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.False(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetDegradeType_ShouldReturnValue_WhenExtraDataContainsKey()
         {
             // Arrange
@@ -659,7 +660,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(DegradeType.DestroyItem, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetDegradeType_ShouldReturnDefault_WhenExtraDataDoesNotContainKey()
         {
             // Arrange
@@ -672,7 +673,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(DegradeType.DropItem, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetRenderAnimationId_ShouldReturnValue_WhenExtraDataContainsKey()
         {
             // Arrange
@@ -686,7 +687,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(123, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetRenderAnimationId_ShouldReturnNegativeOne_WhenExtraDataDoesNotContainKey()
         {
             // Arrange
@@ -699,7 +700,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.Equal(-1, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void HasDestroyOption_ShouldReturnTrue_WhenOptionExists()
         {
             // Arrange
@@ -712,7 +713,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.True(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void HasDestroyOption_ShouldReturnFalse_WhenOptionDoesNotExist()
         {
             // Arrange
@@ -725,7 +726,7 @@ namespace Hagalaz.Cache.Tests.Logic
             Assert.False(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void HasDestroyOption_ShouldReturnFalse_WhenOptionsAreNull()
         {
             // Arrange

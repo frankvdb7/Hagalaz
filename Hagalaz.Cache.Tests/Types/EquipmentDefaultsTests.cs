@@ -1,11 +1,12 @@
 using Hagalaz.Cache.Types;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests.Types
 {
+    [TestClass]
     public class EquipmentDefaultsTests
     {
-        [Fact]
+        [TestMethod]
         public void Constructor_ShouldInitializeArrays()
         {
             // Arrange & Act

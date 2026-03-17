@@ -1,11 +1,12 @@
 using Hagalaz.Cache.Logic.Codecs;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class DecoderTests
     {
-        [Fact]
+        [TestMethod]
         public void ReferenceTableDecoder_Decode_WithInvalidProtocol_ShouldThrowInvalidDataException()
         {
             // Arrange

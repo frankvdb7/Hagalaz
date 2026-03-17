@@ -1,11 +1,13 @@
+using System.Linq;
 using System;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Security.Tests
 {
+[TestClass]
     public class XTEATests
     {
-        [Fact]
+        [TestMethod]
         public void Encrypt_Then_Decrypt_ShouldReturnOriginalData()
         {
             // Arrange
@@ -19,10 +21,10 @@ namespace Hagalaz.Security.Tests
             XTEA.Decrypt(encryptedData, decryptedData, key);
 
             // Assert
-            Assert.Equal(originalData, decryptedData);
+            CollectionAssert.AreEqual(originalData, decryptedData);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encrypt_Then_Decrypt_WithMultipleBlocks_ShouldReturnOriginalData()
         {
             // Arrange
@@ -41,10 +43,10 @@ namespace Hagalaz.Security.Tests
             XTEA.Decrypt(encryptedData, decryptedData, key);
 
             // Assert
-            Assert.Equal(originalData, decryptedData);
+            CollectionAssert.AreEqual(originalData, decryptedData);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encrypt_WithOffset_ShouldProcessCorrectSegment()
         {
             // Arrange
@@ -64,23 +66,23 @@ namespace Hagalaz.Security.Tests
             // Check that the prefix was not touched
             for(int i = 0; i < offset; i++)
             {
-                Assert.Equal(expectedEncryptedPrefix[i], encryptedData[i]);
+                Assert.AreEqual(expectedEncryptedPrefix[i], encryptedData[i]);
             }
 
             // Check that the encrypted part is not the same as the original
-            Assert.NotEqual(
+            Assert.AreNotEqual(
                 new Span<byte>(originalData).Slice(offset).ToArray(),
                 new Span<byte>(encryptedData).Slice(offset).ToArray()
             );
 
             // Check that the decrypted data matches the original segment
-            Assert.Equal(
+            CollectionAssert.AreEqual(
                 new Span<byte>(originalData).Slice(offset).ToArray(),
                 new Span<byte>(decryptedData).Slice(offset).ToArray()
             );
         }
 
-        [Fact]
+        [TestMethod]
         public void Encrypt_InputNotMultipleOfBlockSize_ShouldIgnoreTrailingBytes()
         {
             // Arrange
@@ -98,12 +100,12 @@ namespace Hagalaz.Security.Tests
 
             // Assert
             // Check that the first block was encrypted correctly
-            Assert.Equal(encryptedBlock, new Span<byte>(encryptedData, 0, 8).ToArray());
+            CollectionAssert.AreEqual(encryptedBlock, new Span<byte>(encryptedData, 0, 8).ToArray());
 
             // Check that trailing bytes were not modified
             for (int i = 8; i < originalData.Length; i++)
             {
-                Assert.Equal(originalData[i], encryptedData[i]);
+                Assert.AreEqual(originalData[i], encryptedData[i]);
             }
         }
     }

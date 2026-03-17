@@ -1,13 +1,14 @@
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class AnimationTypeCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void Decode_WithEmptyStream_ShouldReturnDefaultAnimation()
         {
             // Arrange
@@ -27,7 +28,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(defaultAnimation.ReplayMode, decodedAnimation.ReplayMode);
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithOpcode1_ShouldDecodeFramesAndDelays()
         {
             // Arrange
@@ -62,15 +63,15 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal((4 << 16) | 2, decodedAnimation.Frames[1]);
         }
 
-        [Theory]
-        [InlineData(2, 999, "Loop")]
-        [InlineData(5, 10, "Priority")]
-        [InlineData(6, 123, "ShieldDisplayedItemId")]
-        [InlineData(7, 456, "WeaponDisplayedItemId")]
-        [InlineData(8, 50, "Cycles")]
-        [InlineData(9, 3, "AnimationMode")]
-        [InlineData(10, 4, "WalkingProperties")]
-        [InlineData(11, 1, "ReplayMode")]
+        [TestMethod]
+        [DataRow(2, 999, "Loop")]
+        [DataRow(5, 10, "Priority")]
+        [DataRow(6, 123, "ShieldDisplayedItemId")]
+        [DataRow(7, 456, "WeaponDisplayedItemId")]
+        [DataRow(8, 50, "Cycles")]
+        [DataRow(9, 3, "AnimationMode")]
+        [DataRow(10, 4, "WalkingProperties")]
+        [DataRow(11, 1, "ReplayMode")]
         public void Decode_SimpleOpcodes_ShouldSetCorrectProperties(int opcode, int value, string propertyName)
         {
             // Arrange
@@ -93,7 +94,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(value, property.GetValue(decodedAnimation));
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithOpcode13_ShouldDecodeSoundSettings()
         {
             // Arrange
@@ -126,7 +127,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(54321, decodedAnimation.SoundSettings[1][0]);
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithOpcode249_ShouldDecodeExtraData()
         {
             // Arrange
@@ -157,7 +158,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(98765, decodedAnimation.ExtraData[2]);
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithOpcode19Before13_ThrowsInvalidDataException()
         {
             // Arrange
@@ -172,7 +173,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Throws<InvalidDataException>(() => codec.Decode(1, stream));
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithOpcode3_ShouldDecodeBooleanArray()
         {
             // Arrange
@@ -197,7 +198,7 @@ namespace Hagalaz.Cache.Tests
             Assert.False(decodedAnimation.ABooleanArray414[40]);
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithOpcode12_ShouldDecodeInterfaceFrames()
         {
             // Arrange
@@ -224,10 +225,10 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal((6 << 16) | 200, decodedAnimation.InterfaceFrames[1]);
         }
 
-        [Theory]
-        [InlineData(14, "ABoolean413")]
-        [InlineData(15, "IsTweened")]
-        [InlineData(18, "ABoolean409")]
+        [TestMethod]
+        [DataRow(14, "ABoolean413")]
+        [DataRow(15, "IsTweened")]
+        [DataRow(18, "ABoolean409")]
         public void Decode_BooleanOpcodes_ShouldSetCorrectProperties(int opcode, string propertyName)
         {
             // Arrange
@@ -246,7 +247,7 @@ namespace Hagalaz.Cache.Tests
             Assert.True((bool)property.GetValue(decodedAnimation));
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithOpcode20_ShouldDecodeSoundSpeed()
         {
             // Arrange
@@ -275,7 +276,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(200, decodedAnimation.MaxSoundSpeed[0]);
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithOpcode22_ShouldBeIgnored()
         {
             // Arrange

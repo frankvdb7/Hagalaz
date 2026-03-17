@@ -1,9 +1,10 @@
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests.Types
 {
+    [TestClass]
     public class Cs2IntDefinitionCodecTests
     {
         public static IEnumerable<object[]> RoundTripTestData =>
@@ -15,8 +16,9 @@ namespace Hagalaz.Cache.Tests.Types
                 new object[] { new Cs2IntDefinition(4) { AnInt325 = 0 } }, // Only AnInt325 set
             };
 
-        [Theory]
-        [MemberData(nameof(RoundTripTestData))]
+        [TestMethod]
+        [DynamicData(nameof(RoundTripTestData), DynamicDataSourceType.Property)]
+
         public void RoundTripTest(Cs2IntDefinition original)
         {
             // Arrange

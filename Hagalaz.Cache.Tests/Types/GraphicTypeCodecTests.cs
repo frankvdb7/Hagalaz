@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Logic.Codecs;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests.Types
 {
+    [TestClass]
     public class GraphicTypeCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void RoundTrip_AllProperties_ShouldSucceed()
         {
             // Arrange
@@ -57,7 +58,7 @@ namespace Hagalaz.Cache.Tests.Types
             Assert.Equal(original.AByteArray4433, decoded.AByteArray4433);
         }
 
-        [Fact]
+        [TestMethod]
         public void RoundTrip_Opcode16_ShouldSucceed()
         {
             // Arrange
@@ -78,7 +79,7 @@ namespace Hagalaz.Cache.Tests.Types
             Assert.Equal(original.AnInt265, decoded.AnInt265);
         }
 
-        [Fact]
+        [TestMethod]
         public void RoundTrip_Opcode15_ShouldSucceed()
         {
             // Arrange
@@ -99,7 +100,7 @@ namespace Hagalaz.Cache.Tests.Types
             Assert.Equal(original.AnInt265, decoded.AnInt265);
         }
 
-        [Fact]
+        [TestMethod]
         public void RoundTrip_Opcode9_ShouldSucceed()
         {
             // Arrange

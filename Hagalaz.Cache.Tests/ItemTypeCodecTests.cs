@@ -1,10 +1,11 @@
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
-using Xunit;
+
 using System.Collections.Generic;
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class ItemTypeCodecTests
     {
         private ItemType CreateFullyPopulatedItem(int id)
@@ -56,7 +57,7 @@ namespace Hagalaz.Cache.Tests
             };
         }
 
-        [Fact]
+        [TestMethod]
         public void TestEncodeDecode_AllProperties()
         {
             // Arrange
@@ -72,7 +73,7 @@ namespace Hagalaz.Cache.Tests
             AssertEqualAllProperties(originalItem, decodedItem);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_WithNullOptions_ShouldNotThrow()
         {
             // Arrange
@@ -87,7 +88,7 @@ namespace Hagalaz.Cache.Tests
             codec.Encode(item);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_RoundTrip_NotedItem_ShouldRestoreCorrectData()
         {
             // Arrange
@@ -113,7 +114,7 @@ namespace Hagalaz.Cache.Tests
             AssertEqualAllProperties(expected, decoded);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_RoundTrip_LentItem_ShouldRestoreCorrectData()
         {
             // Arrange

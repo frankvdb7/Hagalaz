@@ -1,13 +1,14 @@
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class ArchiveDecoderTests
     {
-        [Fact]
+        [TestMethod]
         public void Decode_SingleFile_ShouldReturnArchiveWithOneEntry()
         {
             // Arrange
@@ -30,7 +31,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(fileData, entryData);
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_MultipleFiles_ShouldReturnArchiveWithMultipleEntries()
         {
             // Arrange

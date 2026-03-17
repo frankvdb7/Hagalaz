@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
+
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 
 namespace Hagalaz.Cache.Tests
 {
-    public class FileStoreLoaderTests : IAsyncLifetime
+    [TestClass]
+    public class FileStoreLoaderTests
     {
         private string _tempPath;
         private Mock<ILogger<FileStore>> _loggerMock;
@@ -33,6 +34,7 @@ namespace Hagalaz.Cache.Tests
         }
 
 
+        [TestInitialize]
         public Task InitializeAsync()
         {
             _tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
@@ -46,6 +48,7 @@ namespace Hagalaz.Cache.Tests
             return Task.CompletedTask;
         }
 
+        [TestCleanup]
         public Task DisposeAsync()
         {
             // Cleanup
@@ -53,7 +56,7 @@ namespace Hagalaz.Cache.Tests
             return Task.CompletedTask;
         }
 
-        [Fact]
+        [TestMethod]
         public void Open_WhenFilesExist_ReturnsFileStore()
         {
             // Arrange
@@ -66,7 +69,7 @@ namespace Hagalaz.Cache.Tests
             Assert.NotNull(fileStore);
         }
 
-        [Fact]
+        [TestMethod]
         public void Open_WhenDataFileMissing_ThrowsFileNotFoundException()
         {
             // Arrange
@@ -76,7 +79,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Throws<FileNotFoundException>(() => _fileStoreLoader.Open(_tempPath));
         }
 
-        [Fact]
+        [TestMethod]
         public void Open_WhenNoIndexFiles_ThrowsFileNotFoundException()
         {
             // Arrange
@@ -90,7 +93,7 @@ namespace Hagalaz.Cache.Tests
 
         }
 
-        [Fact]
+        [TestMethod]
         public void Open_WhenMainIndexFileMissing_ThrowsFileNotFoundException()
         {
             // Arrange

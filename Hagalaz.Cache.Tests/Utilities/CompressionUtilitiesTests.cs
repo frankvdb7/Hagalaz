@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Utilities;
 using System.Text;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests.Utilities
 {
+    [TestClass]
     public class CompressionUtilitiesTests
     {
-        [Fact]
+        [TestMethod]
         public void BzipDecompress_ShouldDecompressCorrectly()
         {
             // Arrange

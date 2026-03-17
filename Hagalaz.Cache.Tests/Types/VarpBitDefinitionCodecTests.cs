@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests.Types
 {
+    [TestClass]
     public class VarpBitDefinitionCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void RoundTrip_WithValidData_ShouldSucceed()
         {
             // Arrange

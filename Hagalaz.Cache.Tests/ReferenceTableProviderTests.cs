@@ -5,13 +5,14 @@ using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types.Providers;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class ReferenceTableProviderTests
     {
-        [Fact]
+        [TestMethod]
         public void ReadReferenceTable_ShouldReturnReferenceTable()
         {
             // Arrange

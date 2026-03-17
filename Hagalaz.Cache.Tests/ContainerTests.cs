@@ -1,13 +1,14 @@
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests;
 
-public class ContainerTests
+[TestClass]
+    public class ContainerTests
 {
-    [Fact]
+    [TestMethod]
     public void Encode_NoneCompression_ReturnsCorrectData()
     {
         // Arrange
@@ -23,7 +24,7 @@ public class ContainerTests
         Assert.Equal(data.ToArray(), decoded.Data.ToArray());
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_GzipCompression_ReturnsCorrectData()
     {
         // Arrange
@@ -39,7 +40,7 @@ public class ContainerTests
         Assert.Equal(data.ToArray(), decoded.Data.ToArray());
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_Bzip2Compression_ReturnsCorrectData()
     {
         // Arrange

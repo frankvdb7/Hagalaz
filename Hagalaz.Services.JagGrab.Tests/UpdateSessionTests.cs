@@ -1,15 +1,17 @@
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Hagalaz.Services.JagGrab.Network;
 using Hagalaz.Services.JagGrab;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.JagGrab.Tests
 {
+[TestClass]
     public class UpdateSessionTests
     {
-        [Fact]
+        [TestMethod]
         public void Constructor_ShouldInitializeFields()
         {
             // Arrange
@@ -22,10 +24,10 @@ namespace Hagalaz.Services.JagGrab.Tests
             var session = new UpdateSession(requestHandler, logger);
 
             // Assert
-            Assert.NotNull(session);
+            Assert.IsNotNull(session);
         }
 
-        [Fact]
+        [TestMethod]
         public void Disconnect_ShouldNotThrow()
         {
             // Arrange

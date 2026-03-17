@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class MapCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void RoundTrip_WithComplexData_ShouldSucceed()
         {
             // Arrange
@@ -38,7 +39,7 @@ namespace Hagalaz.Cache.Tests
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void DecodeTerrainData_ValidStream_DecodesCorrectly()
         {
             // Arrange
@@ -52,7 +53,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(32, terrainData[0, 0, 0]);
         }
 
-        [Fact]
+        [TestMethod]
         public void DecodeObjectData_ValidStream_DecodesCorrectly()
         {
             // Arrange

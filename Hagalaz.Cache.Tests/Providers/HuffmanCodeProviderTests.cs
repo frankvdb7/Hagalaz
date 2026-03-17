@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Abstractions;
 using NSubstitute;
-using Xunit;
+
 using Hagalaz.Cache.Abstractions.Types.Providers.Model;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types.Providers;
 
 namespace Hagalaz.Cache.Tests.Providers
 {
+    [TestClass]
     public class HuffmanCodeProviderTests
     {
         private readonly ICacheAPI _cacheApi;
@@ -18,7 +19,7 @@ namespace Hagalaz.Cache.Tests.Providers
             _huffmanCodeProvider = new HuffmanCodeProvider(_cacheApi);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetCoding_WithValidData_ReturnsHuffmanCoding()
         {
             // Arrange
@@ -35,7 +36,7 @@ namespace Hagalaz.Cache.Tests.Providers
             Assert.IsType<HuffmanCoding>(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetCoding_WithEmptyData_ReturnsHuffmanCoding()
         {
             // Arrange
@@ -52,7 +53,7 @@ namespace Hagalaz.Cache.Tests.Providers
             Assert.IsType<HuffmanCoding>(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void GetCoding_CachesResult()
         {
             // Arrange

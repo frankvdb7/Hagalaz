@@ -4,10 +4,11 @@ using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Cache.Abstractions.Types.Providers.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Moq;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class HuffmanCodecTests
     {
         private readonly Mock<IHuffmanCodeProvider> _huffmanCodeProviderMock;
@@ -41,10 +42,10 @@ namespace Hagalaz.Cache.Tests
             _huffmanCodec = new HuffmanCodec(_huffmanCodeProviderMock.Object);
         }
 
-        [Theory]
-        [InlineData("this is a test")]
-        [InlineData("another test with more characters!@#$%^&*()")]
-        [InlineData("Lorem ipsum dolor sit amet, consectetur adipiscing elit.")]
+        [TestMethod]
+        [DataRow("this is a test")]
+        [DataRow("another test with more characters!@#$%^&*()")]
+        [DataRow("Lorem ipsum dolor sit amet, consectetur adipiscing elit.")]
         public void Encode_And_Decode_SimpleString_ShouldMatch(string testString)
         {
             // Arrange
@@ -61,7 +62,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(testString, decodedString);
         }
 
-        [Fact]
+        [TestMethod]
         public void TryDecode_EmptyInput_ShouldReturnEmptyString()
         {
             // Arrange
@@ -75,7 +76,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(string.Empty, decodedString);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_StringWithUncodableCharacter_ThrowsInvalidOperationException()
         {
             // Arrange

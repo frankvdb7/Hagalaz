@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests
 {
+    [TestClass]
     public class ObjectTypeCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_RoundTrip_ShouldRestoreSameData()
         {
             // Arrange
@@ -47,7 +48,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalObject.ExtraData, decodedObject.ExtraData);
         }
 
-        [Fact]
+        [TestMethod]
         public void Decode_WithEmptyStream_ShouldReturnDefaultObject()
         {
             // Arrange
@@ -66,7 +67,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(defaultObject.SizeX, decodedObject.SizeX);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_ClipType1_ShouldRestoreSameData()
         {
             // Arrange
@@ -82,7 +83,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalObject.ClipType, decodedObject.ClipType);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_GroundContoured_ShouldRestoreSameData()
         {
             // Arrange
@@ -98,7 +99,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalObject.GroundContoured, decodedObject.GroundContoured);
         }
 
-        [Fact]
+        [TestMethod]
         public void Encode_Decode_ComplexObject_ShouldRestoreSameData()
         {
             // Arrange
@@ -263,7 +264,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalObject.AnInt813, decodedObject.AnInt813);
             Assert.Equal(originalObject.ExtraData, decodedObject.ExtraData);
         }
-        [Fact]
+        [TestMethod]
         public void Encode_WithNullActions_ShouldNotThrow()
         {
             // Arrange

@@ -1,8 +1,9 @@
 using Hagalaz.Cache.Utilities;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests.Utilities
 {
+    [TestClass]
     public class XteaLoaderTests : System.IDisposable
     {
         private const string DataDirectory = "./data";
@@ -27,7 +28,7 @@ namespace Hagalaz.Cache.Tests.Utilities
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void Load_ValidPackedFile_LoadsXteaKeys()
         {
             // Arrange
@@ -60,7 +61,7 @@ namespace Hagalaz.Cache.Tests.Utilities
             Assert.Equal(new int[] { 5, 6, 7, 8 }, regions[54321]);
         }
 
-        [Fact]
+        [TestMethod]
         public void Load_PackedFileMissing_CallsPackerAndLoadsNothing()
         {
             // Arrange
@@ -75,7 +76,7 @@ namespace Hagalaz.Cache.Tests.Utilities
             Assert.True(File.Exists(PackedFile)); // XteaPacker.Pack() creates the file.
         }
 
-        [Fact]
+        [TestMethod]
         public void Load_EmptyPackedFile_LoadsNothing()
         {
             // Arrange
@@ -90,7 +91,7 @@ namespace Hagalaz.Cache.Tests.Utilities
             Assert.Empty(regions);
         }
 
-        [Fact]
+        [TestMethod]
         public void Load_CorruptedPackedFile_HandlesExceptionAndLoadsNothing()
         {
             // Arrange

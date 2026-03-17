@@ -1,12 +1,13 @@
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Logic.Codecs;
-using Xunit;
+
 
 namespace Hagalaz.Cache.Tests.Types
 {
+    [TestClass]
     public class ClientMapDefinitionCodecTests
     {
-        [Fact]
+        [TestMethod]
         public void TestRoundTrip_WithValueMap_String()
         {
             // Arrange
@@ -40,7 +41,7 @@ namespace Hagalaz.Cache.Tests.Types
             Assert.Equal(original.ValueMap, decoded.ValueMap);
         }
 
-        [Fact]
+        [TestMethod]
         public void TestRoundTrip_WithValueMap_Int()
         {
             // Arrange
@@ -74,7 +75,7 @@ namespace Hagalaz.Cache.Tests.Types
             Assert.Equal(original.ValueMap, decoded.ValueMap);
         }
 
-        [Fact]
+        [TestMethod]
         public void TestRoundTrip_WithValues_String()
         {
             // Arrange
@@ -107,7 +108,7 @@ namespace Hagalaz.Cache.Tests.Types
             Assert.Equal(original.Values, decoded.Values);
         }
 
-        [Fact]
+        [TestMethod]
         public void TestRoundTrip_WithValues_Int()
         {
             // Arrange
