@@ -1,3 +1,4 @@
+using System;
 ﻿using Hagalaz.Cache.Abstractions.Model;
 
 namespace Hagalaz.Cache.Abstractions.Logic.Codecs
@@ -25,6 +26,14 @@ namespace Hagalaz.Cache.Abstractions.Logic.Codecs
         /// <param name="sector">The sector object to encode, containing header information.</param>
         /// <param name="dataBlock">The raw data payload that belongs to the sector.</param>
         /// <returns>A byte array representing the fully encoded sector, including its header and data block.</returns>
-        byte[] Encode(ISector sector, byte[] dataBlock);
+        byte[] Encode(ISector sector, byte[] dataBlock) => Encode(sector, dataBlock.AsSpan());
+
+        /// <summary>
+        /// Encodes a sector object into a byte array.
+        /// </summary>
+        /// <param name="sector">The sector object to encode, containing header information.</param>
+        /// <param name="dataBlock">The raw data payload that belongs to the sector.</param>
+        /// <returns>A byte array representing the fully encoded sector, including its header and data block.</returns>
+        byte[] Encode(ISector sector, ReadOnlySpan<byte> dataBlock);
     }
 }

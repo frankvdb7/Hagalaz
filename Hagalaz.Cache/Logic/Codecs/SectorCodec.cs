@@ -9,9 +9,11 @@ namespace Hagalaz.Cache.Logic.Codecs
 {
     public class SectorCodec : ISectorCodec
     {
+        private static readonly byte[] _zeroPadding = new byte[Sector.DataSize];
+
         public ISector Decode(byte[] data, bool extended)
         {
-            if (data.Length != Sector.DataSize)
+            if (data.Length < (extended ? Sector.ExtendedDataHeaderSize : Sector.DataHeaderSize))
                 throw new ArgumentException();
 
             int position = 0;
@@ -28,7 +30,9 @@ namespace Hagalaz.Cache.Logic.Codecs
             return new Sector(fileID, chunkID, nextSectorID, cacheID);
         }
 
-        public byte[] Encode(ISector sector, byte[] dataBlock)
+        public byte[] Encode(ISector sector, byte[] dataBlock) => Encode(sector, dataBlock.AsSpan());
+
+        public byte[] Encode(ISector sector, ReadOnlySpan<byte> dataBlock)
         {
             using (var writer = new MemoryStream(Sector.DataSize))
             {
@@ -40,6 +44,13 @@ namespace Hagalaz.Cache.Logic.Codecs
                 writer.WriteMedInt(sector.NextSectorID);
                 writer.WriteByte(sector.IndexID);
                 writer.WriteBytes(dataBlock);
+
+                // sectors must be exactly Sector.DataSize (520) bytes.
+                if (writer.Length < Sector.DataSize)
+                {
+                    writer.WriteBytes(_zeroPadding.AsSpan(0, Sector.DataSize - (int)writer.Length));
+                }
+
                 return writer.ToArray();
             }
         }

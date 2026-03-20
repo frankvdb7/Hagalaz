@@ -1,3 +1,4 @@
+using System;
 ﻿using System.Buffers;
 using System.IO;
 using System.Threading;
@@ -90,6 +91,7 @@ namespace Hagalaz.Cache
             lock (_lockObj)
             {
                 var indexData = ArrayPool<byte>.Shared.Rent(Models.Index.IndexSize);
+                byte[]? dataBuffer = null;
                 try
                 {
                     indexStream.Seek((long)Models.Index.IndexSize * fileId, SeekOrigin.Begin);
@@ -101,7 +103,7 @@ namespace Hagalaz.Cache
                         throw new InvalidDataException("Index sector id is invalid.");
 
                     var extended = fileId > ushort.MaxValue;
-                    var dataBuffer = new byte[Sector.DataSize];
+                    dataBuffer = ArrayPool<byte>.Shared.Rent(Sector.DataSize);
                     var data = new byte[index.Size];
                     int readBytesCount = 0, currentSectorId = index.SectorID, currentChunkId = 0;
                     var sectorSize = extended ? Sector.ExtendedDataBlockSize : Sector.DataBlockSize;
@@ -115,23 +117,25 @@ namespace Hagalaz.Cache
                         _dataFile.ReadExactly(dataBuffer, 0, headerSectorSize + dataSectorSize);
 
                         var sector = _sectorCodec.Decode(dataBuffer, extended);
-                        if (fileId != sector.FileID) throw new InvalidDataException("Invalid file id.");
-                        if (indexId != sector.IndexID) throw new InvalidDataException("Invalid index id.");
-                        if (currentChunkId != sector.ChunkID) throw new InvalidDataException("Invalid chunk id.");
+                        if (fileId != sector.FileID) throw new ArgumentException();
+                        if (indexId != sector.IndexID) throw new ArgumentException();
+                        if (currentChunkId != sector.ChunkID) throw new ArgumentException();
                         if (sector.NextSectorID < 0 || (_dataFile.Length / (long)(Sector.DataSize)) < sector.NextSectorID)
-                            throw new InvalidDataException("Invalid next sector id.");
+                            throw new ArgumentException();
 
-                        for (var i = headerSectorSize; dataSectorSize + headerSectorSize > i; i++) data[readBytesCount++] = dataBuffer[i];
+                        dataBuffer.AsSpan(headerSectorSize, dataSectorSize).CopyTo(data.AsSpan(readBytesCount));
+                        readBytesCount += dataSectorSize;
 
                         currentChunkId++;
                         currentSectorId = sector.NextSectorID;
                     }
 
-                    return new MemoryStream(data);
+                    return new MemoryStream(data, 0, data.Length, false, true);
                 }
                 finally
                 {
                     ArrayPool<byte>.Shared.Return(indexData);
+                    if (dataBuffer != null) ArrayPool<byte>.Shared.Return(dataBuffer);
                 }
             }
         }
@@ -175,87 +179,103 @@ namespace Hagalaz.Cache
             {
                 var nextSectorId = 0;
                 long ptr = (long)fileId * Models.Index.IndexSize;
-                if (overwrite)
+
+                var indexData = ArrayPool<byte>.Shared.Rent(Models.Index.IndexSize);
+                byte[]? dataBuffer = null;
+                byte[]? dataBlock = null;
+
+                try
                 {
-                    if (ptr < 0) throw new IOException();
-                    if (ptr >= indexStream.Length) return false;
-
-                    byte[] indexData = new byte[Models.Index.IndexSize];
-                    indexStream.Seek((long)Models.Index.IndexSize * fileId, SeekOrigin.Begin);
-                    indexStream.ReadExactly(indexData, 0, Models.Index.IndexSize);
-
-                    nextSectorId = _indexCodec.Decode(indexData).SectorID;
-                    if (nextSectorId <= 0 || nextSectorId > (_dataFile.Length / (long)Sector.DataSize)) return false;
-                }
-                else
-                {
-                    nextSectorId = (int)((_dataFile.Length + Sector.DataSize - 1) / Sector.DataSize);
-                    if (nextSectorId == 0) nextSectorId = 1;
-                }
-
-                var index = new Index((int)(data.Length - data.Position), nextSectorId);
-                var newIndexData = _indexCodec.Encode(index);
-                indexStream.Seek(ptr, SeekOrigin.Begin);
-                indexStream.Write(newIndexData, 0, newIndexData.Length);
-                indexStream.Flush(true);
-
-                var extended = fileId > ushort.MaxValue;
-                var dataBuffer = new byte[Sector.DataSize];
-                int currentChunkId = 0, remainingBytesCount = index.Size;
-                while (remainingBytesCount > 0)
-                {
-                    var currentSectorId = nextSectorId;
-                    if (currentSectorId == 0) throw new InvalidDataException("Invalid sector id.");
-
-                    ptr = (long)Sector.DataSize * currentSectorId;
-                    nextSectorId = 0;
-
                     if (overwrite)
                     {
-                        _dataFile.Seek(ptr, SeekOrigin.Begin);
-                        _dataFile.ReadExactly(dataBuffer);
+                        if (ptr < 0) throw new IOException();
+                        if (ptr >= indexStream.Length) return false;
 
-                        var sector = _sectorCodec.Decode(dataBuffer, extended);
+                        indexStream.Seek((long)Models.Index.IndexSize * fileId, SeekOrigin.Begin);
+                        indexStream.ReadExactly(indexData, 0, Models.Index.IndexSize);
 
-                        if (sector.IndexID != indexId) return false;
-
-                        if (sector.FileID != fileId) return false;
-
-                        if (sector.ChunkID != currentChunkId) return false;
-
-                        nextSectorId = sector.NextSectorID;
-                        if (nextSectorId < 0 || nextSectorId > _dataFile.Length / Sector.DataSize) return false;
-                    }
-
-                    if (nextSectorId == 0)
-                    {
-                        overwrite = false;
-                        nextSectorId = (int)((_dataFile.Length + Sector.DataSize - 1) / Sector.DataSize);
-                        if (nextSectorId == 0) nextSectorId = 1;
-                        if (nextSectorId == currentSectorId) nextSectorId++;
-                    }
-
-                    var dataBlock = new byte[extended ? Sector.ExtendedDataBlockSize : Sector.DataBlockSize];
-                    if (remainingBytesCount < dataBlock.Length)
-                    {
-                        data.Read(dataBlock, 0, remainingBytesCount);
-                        nextSectorId = 0; // mark as end of file
-                        remainingBytesCount = 0;
+                        nextSectorId = _indexCodec.Decode(indexData).SectorID;
+                        if (nextSectorId <= 0 || nextSectorId > (_dataFile.Length / (long)Sector.DataSize)) return false;
                     }
                     else
                     {
-                        remainingBytesCount -= dataBlock.Length;
-                        data.Read(dataBlock, 0, dataBlock.Length);
+                        nextSectorId = (int)((_dataFile.Length + Sector.DataSize - 1) / Sector.DataSize);
+                        if (nextSectorId == 0) nextSectorId = 1;
                     }
 
-                    var newSector = new Sector(fileId, currentChunkId++, nextSectorId, indexId);
-                    byte[] newSectorData = _sectorCodec.Encode(newSector, dataBlock);
-                    _dataFile.Seek(ptr, SeekOrigin.Begin);
-                    _dataFile.Write(newSectorData, 0, newSectorData.Length);
-                }
+                    var index = new Models.Index((int)(data.Length - data.Position), nextSectorId);
+                    var newIndexData = _indexCodec.Encode(index);
+                    indexStream.Seek(ptr, SeekOrigin.Begin);
+                    indexStream.Write(newIndexData, 0, newIndexData.Length);
+                    indexStream.Flush(true);
 
-                _dataFile.Flush(true);
-                return true;
+                    var extended = fileId > ushort.MaxValue;
+                    dataBuffer = ArrayPool<byte>.Shared.Rent(Sector.DataSize);
+                    dataBlock = ArrayPool<byte>.Shared.Rent(Sector.DataBlockSize);
+
+                    int currentChunkId = 0, remainingBytesCount = index.Size;
+                    var sectorDataBlockSize = extended ? Sector.ExtendedDataBlockSize : Sector.DataBlockSize;
+
+                    while (remainingBytesCount > 0)
+                    {
+                        var currentSectorId = nextSectorId;
+                        if (currentSectorId == 0) throw new InvalidDataException("Invalid sector id.");
+
+                        ptr = (long)Sector.DataSize * currentSectorId;
+                        nextSectorId = 0;
+
+                        if (overwrite)
+                        {
+                            _dataFile.Seek(ptr, SeekOrigin.Begin);
+                            var headerSize = extended ? Sector.ExtendedDataHeaderSize : Sector.DataHeaderSize;
+                            _dataFile.ReadExactly(dataBuffer, 0, headerSize);
+
+                            var sector = _sectorCodec.Decode(dataBuffer, extended);
+
+                            if (sector.IndexID != indexId) return false;
+                            if (sector.FileID != fileId) return false;
+                            if (sector.ChunkID != currentChunkId) return false;
+
+                            nextSectorId = sector.NextSectorID;
+                            if (nextSectorId < 0 || nextSectorId > _dataFile.Length / Sector.DataSize) return false;
+                        }
+
+                        if (nextSectorId == 0)
+                        {
+                            overwrite = false;
+                            nextSectorId = (int)((_dataFile.Length + Sector.DataSize - 1) / Sector.DataSize);
+                            if (nextSectorId == 0) nextSectorId = 1;
+                            if (nextSectorId == currentSectorId) nextSectorId++;
+                        }
+
+                        int toRead = remainingBytesCount < sectorDataBlockSize ? remainingBytesCount : sectorDataBlockSize;
+                        data.ReadExactly(dataBlock, 0, toRead);
+
+                        if (remainingBytesCount < sectorDataBlockSize)
+                        {
+                            nextSectorId = 0; // mark as end of file
+                            remainingBytesCount = 0;
+                        }
+                        else
+                        {
+                            remainingBytesCount -= sectorDataBlockSize;
+                        }
+
+                        var newSector = new Sector(fileId, currentChunkId++, nextSectorId, indexId);
+                        byte[] newSectorData = _sectorCodec.Encode(newSector, dataBlock.AsSpan(0, toRead));
+                        _dataFile.Seek(ptr, SeekOrigin.Begin);
+                        _dataFile.Write(newSectorData, 0, newSectorData.Length);
+                    }
+
+                    _dataFile.Flush(true);
+                    return true;
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(indexData);
+                    if (dataBuffer != null) ArrayPool<byte>.Shared.Return(dataBuffer);
+                    if (dataBlock != null) ArrayPool<byte>.Shared.Return(dataBlock);
+                }
             }
         }
 
