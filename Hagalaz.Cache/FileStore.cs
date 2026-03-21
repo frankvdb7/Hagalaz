@@ -117,11 +117,11 @@ namespace Hagalaz.Cache
                         _dataFile.ReadExactly(dataBuffer, 0, headerSectorSize + dataSectorSize);
 
                         var sector = _sectorCodec.Decode(dataBuffer, extended);
-                        if (fileId != sector.FileID) throw new ArgumentException();
-                        if (indexId != sector.IndexID) throw new ArgumentException();
-                        if (currentChunkId != sector.ChunkID) throw new ArgumentException();
+                        if (fileId != sector.FileID) throw new InvalidDataException("Invalid file id.");
+                        if (indexId != sector.IndexID) throw new InvalidDataException("Invalid index id.");
+                        if (currentChunkId != sector.ChunkID) throw new InvalidDataException("Invalid chunk id.");
                         if (sector.NextSectorID < 0 || (_dataFile.Length / (long)(Sector.DataSize)) < sector.NextSectorID)
-                            throw new ArgumentException();
+                            throw new InvalidDataException("Invalid next sector id.");
 
                         dataBuffer.AsSpan(headerSectorSize, dataSectorSize).CopyTo(data.AsSpan(readBytesCount));
                         readBytesCount += dataSectorSize;
