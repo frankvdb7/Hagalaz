@@ -130,7 +130,7 @@ namespace Hagalaz.Cache
                         currentSectorId = sector.NextSectorID;
                     }
 
-                    return new MemoryStream(data, 0, data.Length, false, true);
+                    return new MemoryStream(data, 0, data.Length, false, false);
                 }
                 finally
                 {
