@@ -382,5 +382,41 @@ namespace Hagalaz.Cache.Tests
             var resultData = resultStream.ToArray();
             Assert.Equal(fileData, resultData);
         }
+
+        [Fact]
+        public void Write_And_Read_ExactSectorSize_Succeeds()
+        {
+            // Arrange
+            const int indexId = 0;
+            const int fileId = 11;
+            var fileData = new byte[Sector.DataBlockSize];
+            new Random().NextBytes(fileData);
+
+            // Act
+            _fileStore.Write(indexId, fileId, new MemoryStream(fileData));
+            var resultStream = _fileStore.Read(indexId, fileId);
+
+            // Assert
+            var resultData = resultStream.ToArray();
+            Assert.Equal(fileData, resultData);
+        }
+
+        [Fact]
+        public void Write_And_Read_MultiplesOfSectorSize_Succeeds()
+        {
+            // Arrange
+            const int indexId = 0;
+            const int fileId = 12;
+            var fileData = new byte[Sector.DataBlockSize * 2];
+            new Random().NextBytes(fileData);
+
+            // Act
+            _fileStore.Write(indexId, fileId, new MemoryStream(fileData));
+            var resultStream = _fileStore.Read(indexId, fileId);
+
+            // Assert
+            var resultData = resultStream.ToArray();
+            Assert.Equal(fileData, resultData);
+        }
     }
 }
