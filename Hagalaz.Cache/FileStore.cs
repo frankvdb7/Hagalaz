@@ -262,9 +262,17 @@ namespace Hagalaz.Cache
                         }
 
                         var newSector = new Sector(fileId, currentChunkId++, nextSectorId, indexId);
-                        byte[] newSectorData = _sectorCodec.Encode(newSector, dataBlock.AsSpan(0, toRead));
-                        _dataFile.Seek(ptr, SeekOrigin.Begin);
-                        _dataFile.Write(newSectorData, 0, newSectorData.Length);
+                        var encodedBuffer = ArrayPool<byte>.Shared.Rent(Sector.DataSize);
+                        try
+                        {
+                            _sectorCodec.Encode(newSector, dataBlock.AsSpan(0, toRead), encodedBuffer);
+                            _dataFile.Seek(ptr, SeekOrigin.Begin);
+                            _dataFile.Write(encodedBuffer, 0, Sector.DataSize);
+                        }
+                        finally
+                        {
+                            ArrayPool<byte>.Shared.Return(encodedBuffer);
+                        }
                     }
 
                     _dataFile.Flush(true);
