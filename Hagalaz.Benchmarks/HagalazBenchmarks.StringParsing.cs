@@ -13,6 +13,9 @@ namespace Hagalaz.Benchmarks
         private string _csvBools = string.Empty;
         private int[] _intArray = null!;
         private bool[] _boolArray = null!;
+        private string _sourceString = string.Empty;
+        private string _beginMarker = "[[[";
+        private string _endMarker = "]]]";
 
         private void SetupStringParsing()
         {
@@ -20,7 +23,11 @@ namespace Hagalaz.Benchmarks
             _csvBools = string.Join(",", Enumerable.Range(0, N).Select(i => i % 2 == 0 ? "1" : "0"));
             _intArray = Enumerable.Range(0, N).ToArray();
             _boolArray = Enumerable.Range(0, N).Select(i => i % 2 == 0).ToArray();
+            _sourceString = "Some prefix " + _beginMarker + new string('A', N) + _endMarker + " Some suffix";
         }
+
+        [Benchmark]
+        public string[] GetStringInBetween() => StringUtilities.GetStringInBetween(_beginMarker, _endMarker, _sourceString, false, false);
 
         [Benchmark]
         public List<int> SelectIntFromString() => StringUtilities.SelectIntFromString(_csvInts).ToList();

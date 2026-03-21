@@ -338,6 +338,7 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("begin ", " end", "begin THE_STRING end REST", false, false, "THE_STRING", " REST")]
         [DataRow("A", "B", "A123B456", false, false, "123", "456")]
         [DataRow("A", "B", "A123B456", true, true, "A123B", "456")]
+        [DataRow("<a>", "<a>", "<a>b<a>", true, false, "<a>b", "")]
         public void GetStringInBetween_VariousScenarios_ReturnsExpected(
             string begin, string end, string source, bool includeBegin, bool includeEnd,
             string expectedResult, string expectedRemainder)
