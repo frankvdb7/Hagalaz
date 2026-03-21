@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 
@@ -142,6 +143,13 @@ namespace Hagalaz.Cache.Extensions
         /// <param name="offset">The zero-based byte offset in <paramref name="array"/> at which to begin writing.</param>
         /// <param name="count">The number of bytes to write.</param>
         public static void WriteBytes(this MemoryStream stream, byte[] array, int offset, int count) => stream.Write(array, offset, count);
+
+        /// <summary>
+        /// Writes a span of bytes to the stream.
+        /// </summary>
+        /// <param name="stream">The memory stream.</param>
+        /// <param name="span">The span of bytes to write.</param>
+        public static void WriteBytes(this MemoryStream stream, ReadOnlySpan<byte> span) => stream.Write(span);
 
         /// <summary>
         /// Writes a string to the stream as a sequence of ASCII bytes, terminated by a null byte (0).

@@ -316,32 +316,39 @@ namespace Hagalaz.Utilities
         /// <returns>A string array where the first element is the extracted substring and the second element is the remainder of the source string.</returns>
         public static string[] GetStringInBetween(string strBegin, string strEnd, string strSource, bool includeBegin, bool includeEnd)
         {
-            string[] result = ["", ""];
-            int iIndexOfBegin = strSource.IndexOf(strBegin, StringComparison.Ordinal);
+            if (string.IsNullOrEmpty(strSource))
+                return ["", ""];
+
+            ReadOnlySpan<char> sourceSpan = strSource.AsSpan();
+            int iIndexOfBegin = sourceSpan.IndexOf(strBegin.AsSpan(), StringComparison.Ordinal);
+
             if (iIndexOfBegin != -1)
             {
-                // include the Begin string if desired
-                if (includeBegin)
-                    iIndexOfBegin -= strBegin.Length;
-                strSource = strSource.Substring(iIndexOfBegin
-                    + strBegin.Length);
-                int iEnd = strSource.IndexOf(strEnd, StringComparison.Ordinal);
-                if (iEnd != -1)
-                {
-                    // include the End string if desired
-                    int resultLength = includeEnd ? iEnd + strEnd.Length : iEnd;
-                    result[0] = strSource.Substring(0, resultLength);
+                int endOfBegin = iIndexOfBegin + strBegin.Length;
+                ReadOnlySpan<char> afterBeginSpan = sourceSpan.Slice(endOfBegin);
+                int iIndexOfEndAfterBegin = afterBeginSpan.IndexOf(strEnd.AsSpan(), StringComparison.Ordinal);
 
-                    // advance beyond this segment
-                    int remainderIndex = iEnd + strEnd.Length;
-                    if (remainderIndex < strSource.Length)
-                        result[1] = strSource.Substring(remainderIndex);
+                if (iIndexOfEndAfterBegin != -1)
+                {
+                    int resultStart = includeBegin ? iIndexOfBegin : endOfBegin;
+                    int resultEnd = endOfBegin + iIndexOfEndAfterBegin + (includeEnd ? strEnd.Length : 0);
+
+                    string found = sourceSpan.Slice(resultStart, resultEnd - resultStart).ToString();
+
+                    int remainderStart = endOfBegin + iIndexOfEndAfterBegin + strEnd.Length;
+                    string remainder = remainderStart < sourceSpan.Length
+                        ? sourceSpan.Slice(remainderStart).ToString()
+                        : string.Empty;
+
+                    return [found, remainder];
                 }
+
+                // If end marker is not found, return empty results as per original behavior
+                return ["", ""];
             }
-            else
-                // stay where we are
-                result[1] = strSource;
-            return result;
+
+            // If begin marker is not found, return empty result and original source as remainder
+            return ["", strSource];
         }
 
         /// <summary>
