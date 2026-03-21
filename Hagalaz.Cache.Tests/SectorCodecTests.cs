@@ -49,6 +49,52 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(originalSector.NextSectorID, decodedSector.NextSectorID);
             Assert.Equal(originalSector.IndexID, decodedSector.IndexID);
             Assert.Equal(dataBlock, decodedDataBlock);
+            Assert.Equal(Sector.DataSize, encodedData.Length);
+        }
+
+        [Fact]
+        public void Encode_PartialDataBlock_PadsToFullSectorSize()
+        {
+            // Arrange
+            var codec = new SectorCodec();
+            ISector originalSector = new Sector(1, 1, 0, 1);
+            var partialData = new byte[100];
+            new Random().NextBytes(partialData);
+
+            // Act
+            var encodedData = codec.Encode(originalSector, partialData);
+
+            // Assert
+            Assert.Equal(Sector.DataSize, encodedData.Length);
+
+            // Verify data was written correctly
+            var writtenData = encodedData.AsSpan(Sector.DataHeaderSize, 100).ToArray();
+            Assert.Equal(partialData, writtenData);
+
+            // Verify padding is zero
+            for (int i = Sector.DataHeaderSize + 100; i < Sector.DataSize; i++)
+            {
+                Assert.Equal(0, encodedData[i]);
+            }
+        }
+
+        [Fact]
+        public void Encode_ReadOnlySpanOverload_WorksCorrectly()
+        {
+            // Arrange
+            var codec = new SectorCodec();
+            ISector originalSector = new Sector(1, 1, 0, 1);
+            var dataBlock = new byte[Sector.DataBlockSize];
+            new Random().NextBytes(dataBlock);
+            ReadOnlySpan<byte> span = dataBlock;
+
+            // Act
+            var encodedData = codec.Encode(originalSector, span);
+
+            // Assert
+            Assert.Equal(Sector.DataSize, encodedData.Length);
+            var decodedDataBlock = encodedData.Skip(Sector.DataHeaderSize).ToArray();
+            Assert.Equal(dataBlock, decodedDataBlock);
         }
     }
 }
