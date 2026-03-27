@@ -39,7 +39,7 @@ namespace Hagalaz.Services.Characters.Controllers
                 return NotFound();
             }
 
-            return Ok(response);
+            return Ok(message);
         }
 
         [HttpPost]
