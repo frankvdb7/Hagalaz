@@ -22,15 +22,26 @@ namespace Hagalaz.Collections.Extensions
         /// <paramref name="predicate"/>, if found; otherwise, –1.
         /// </returns>
         /// <exception cref="ArgumentNullException"><paramref name="source"/> or <paramref name="predicate"/> is null.</exception>
+        /// <remarks>
+        /// This method is optimized to avoid unnecessary allocations and materialized collections by iterating over the
+        /// <paramref name="source"/> sequence directly and returning the index of the first matching element.
+        /// </remarks>
         public static int IndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
         {
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(predicate);
 
-            var tSources = source as TSource[] ?? source.ToArray();
-            for (var i = 0; i < tSources.Length; i++)
-                if (predicate(tSources.ElementAt(i)))
-                    return i;
+            var index = 0;
+            // Iterate over the source sequence directly to avoid unnecessary allocations (e.g., ToArray())
+            // and enable early return upon finding the first match.
+            foreach (var item in source)
+            {
+                if (predicate(item))
+                {
+                    return index;
+                }
+                index++;
+            }
             return -1;
         }
 
