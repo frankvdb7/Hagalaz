@@ -10,6 +10,6 @@ namespace Hagalaz.Game.Messages.Protocol
         public required ICharacter Character { get; init; } = default!;
         public required bool IsLargeSceneView { get; init; }
         public required LinkedList<INpc> LocalNpcs { get; init; } = default!;
-        public required IReadOnlyList<INpc> VisibleNpcs { get; init; } = default!;
+        public required IReadOnlyCollection<INpc> VisibleNpcs { get; init; } = default!;
     }
 }

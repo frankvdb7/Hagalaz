@@ -1,159 +1,254 @@
 {
-    "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
-    "version": 1,
-    "newProjectRoot": "projects",
-    "projects": {
-        "Hagalaz.Web.App": {
-            "root": "",
-            "sourceRoot": "src",
-            "projectType": "application",
-            "architect": {
-                "build": {
-                    "builder": "@angular/build:application",
-                    "options": {
-                        "outputPath": {
-                            "base": "dist"
-                        },
-                        "index": "src/index.html",
-                        "tsConfig": "tsconfig.app.json",
-                        "inlineStyleLanguage": "scss",
-                        "polyfills": ["src/polyfills.ts"],
-                        "assets": ["src/assets", "src/manifest.json"],
-                        "styles": ["src/styles.scss"],
-                        "scripts": [],
-                        "browser": "src/main.ts"
-                    },
-                    "configurations": {
-                        "production": {
-                            "budgets": [
-                                {
-                                    "type": "initial",
-                                    "maximumWarning": "750kb",
-                                    "maximumError": "1mb"
-                                },
-                                {
-                                    "type": "anyComponentStyle",
-                                    "maximumWarning": "3kb",
-                                    "maximumError": "5kb"
-                                }
-                            ],
-                            "fileReplacements": [
-                                {
-                                    "replace": "src/environments/environment.ts",
-                                    "with": "src/environments/environment.prod.ts"
-                                }
-                            ],
-                            "subresourceIntegrity": true,
-                            "serviceWorker": "ngsw-config.json",
-                            "outputHashing": "all"
-                        },
-                        "launcher-production": {
-                            "fileReplacements": [
-                                {
-                                    "replace": "src/environments/environment.ts",
-                                    "with": "src/environments/environment.launcher.prod.ts"
-                                }
-                            ]
-                        },
-                        "development": {
-                            "optimization": false,
-                            "extractLicenses": false,
-                            "sourceMap": true,
-                            "namedChunks": true,
-                            "outputHashing": "none"
-                        },
-                        "launcher-development": {
-                            "optimization": false,
-                            "extractLicenses": false,
-                            "sourceMap": true,
-                            "namedChunks": true,
-                            "outputHashing": "none",
-                            "fileReplacements": [
-                                {
-                                    "replace": "src/environments/environment.ts",
-                                    "with": "src/environments/environment.launcher.ts"
-                                }
-                            ]
-                        }
-                    },
-                    "defaultConfiguration": "production"
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "Hagalaz.Web.App": {
+      "root": "",
+      "sourceRoot": "src",
+      "projectType": "application",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": {
+              "base": "dist"
+            },
+            "index": "src/index.html",
+            "tsConfig": "tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "polyfills": [
+              "src/polyfills.ts"
+            ],
+            "assets": [
+              "src/assets",
+              "src/manifest.json"
+            ],
+            "styles": [
+              "src/styles.scss"
+            ],
+            "scripts": [],
+            "browser": "src/main.ts"
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "750kb",
+                  "maximumError": "1mb"
                 },
-                "serve": {
-                    "builder": "@angular/build:dev-server",
-                    "options": {
-                        "proxyConfig": "proxy.conf.mjs"
-                    },
-                    "configurations": {
-                        "production": {
-                            "buildTarget": "Hagalaz.Web.App:build:production"
-                        },
-                        "launcher-production": {
-                            "buildTarget": "Hagalaz.Web.App:build:launcher-production"
-                        },
-                        "development": {
-                            "buildTarget": "Hagalaz.Web.App:build:development"
-                        },
-                        "launcher-development": {
-                            "buildTarget": "Hagalaz.Web.App:build:launcher-development"
-                        }
-                    },
-                    "defaultConfiguration": "development"
-                },
-                "extract-i18n": {
-                    "builder": "@angular/build:extract-i18n",
-                    "options": {
-                        "buildTarget": "Hagalaz.Web.App:build"
-                    }
-                },
-                "test": {
-                    "builder": "@angular/build:unit-test",
-                    "options": {
-                        "tsConfig": "tsconfig.spec.json",
-                        "buildTarget": "::development",
-                        "runner": "vitest",
-                        "providersFile": "src/test.ts"
-                    }
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "3kb",
+                  "maximumError": "5kb"
                 }
+              ],
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ],
+              "subresourceIntegrity": true,
+              "serviceWorker": "ngsw-config.json",
+              "outputHashing": "all"
+            },
+            "launcher-production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.launcher.prod.ts"
+                }
+              ]
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true,
+              "outputHashing": "none"
+            },
+            "launcher-development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true,
+              "outputHashing": "none",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.launcher.ts"
+                }
+              ]
             }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "proxyConfig": "proxy.conf.mjs"
+          },
+          "configurations": {
+            "production": {
+              "buildTarget": "Hagalaz.Web.App:build:production"
+            },
+            "launcher-production": {
+              "buildTarget": "Hagalaz.Web.App:build:launcher-production"
+            },
+            "development": {
+              "buildTarget": "Hagalaz.Web.App:build:development"
+            },
+            "launcher-development": {
+              "buildTarget": "Hagalaz.Web.App:build:launcher-development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "extract-i18n": {
+          "builder": "@angular/build:extract-i18n",
+          "options": {
+            "buildTarget": "Hagalaz.Web.App:build"
+          }
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "tsconfig.spec.json",
+            "buildTarget": "::development",
+            "runner": "vitest",
+            "providersFile": "src/test.ts"
+          }
         }
+      }
     },
-    "schematics": {
-        "@schematics/angular:component": {
-            "prefix": "storm",
-            "style": "scss",
-            "changeDetection": "OnPush",
-            "standalone": true,
-            "type": "component"
+    "Hagalaz.Web.Admin": {
+      "root": "",
+      "sourceRoot": "src-admin",
+      "projectType": "application",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": {
+              "base": "dist-admin"
+            },
+            "index": "src-admin/index.html",
+            "tsConfig": "tsconfig.admin.app.json",
+            "inlineStyleLanguage": "scss",
+            "polyfills": [
+              "src/polyfills.ts"
+            ],
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "src/assets",
+                "output": "assets"
+              }
+            ],
+            "styles": [
+              "src-admin/styles.scss"
+            ],
+            "scripts": [],
+            "browser": "src-admin/main.ts"
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "750kb",
+                  "maximumError": "1mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "5kb",
+                  "maximumError": "8kb"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true,
+              "outputHashing": "none"
+            }
+          },
+          "defaultConfiguration": "production"
         },
-        "@schematics/angular:directive": {
-            "prefix": "storm",
-            "standalone": true,
-            "type": "directive"
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "proxyConfig": "proxy.conf.mjs"
+          },
+          "configurations": {
+            "production": {
+              "buildTarget": "Hagalaz.Web.Admin:build:production"
+            },
+            "development": {
+              "buildTarget": "Hagalaz.Web.Admin:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
         },
-        "@schematics/angular:pipe": {
-            "standalone": true,
-            "typeSeparator": "."
+        "extract-i18n": {
+          "builder": "@angular/build:extract-i18n",
+          "options": {
+            "buildTarget": "Hagalaz.Web.Admin:build"
+          }
         },
-        "@schematics/angular:application": {
-            "strict": true
-        },
-        "@schematics/angular:service": {
-            "type": "service"
-        },
-        "@schematics/angular:guard": {
-            "typeSeparator": "."
-        },
-        "@schematics/angular:interceptor": {
-            "typeSeparator": "."
-        },
-        "@schematics/angular:module": {
-            "typeSeparator": "."
-        },
-        "@schematics/angular:resolver": {
-            "typeSeparator": "."
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "tsconfig.admin.spec.json",
+            "buildTarget": "Hagalaz.Web.Admin:build:development",
+            "runner": "vitest",
+            "providersFile": "src-admin/test.ts"
+          }
         }
-    },
-    "cli": {
-        "analytics": false
+      }
     }
+  },
+  "schematics": {
+    "@schematics/angular:component": {
+      "prefix": "storm",
+      "style": "scss",
+      "changeDetection": "OnPush",
+      "standalone": true,
+      "type": "component"
+    },
+    "@schematics/angular:directive": {
+      "prefix": "storm",
+      "standalone": true,
+      "type": "directive"
+    },
+    "@schematics/angular:pipe": {
+      "standalone": true,
+      "typeSeparator": "."
+    },
+    "@schematics/angular:application": {
+      "strict": true
+    },
+    "@schematics/angular:service": {
+      "type": "service"
+    },
+    "@schematics/angular:guard": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:interceptor": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:module": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:resolver": {
+      "typeSeparator": "."
+    }
+  },
+  "cli": {
+    "analytics": false
+  }
 }

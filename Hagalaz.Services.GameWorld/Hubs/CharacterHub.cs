@@ -72,7 +72,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                         TextAnimation = message.TextAnimation,
                         TextColor = message.TextColor
                     };
-                    character.Viewport.VisibleCreatures.OfType<ICharacter>().ForEach(c => c.Session.SendMessage(publicChatMessage));
+                    character.Viewport.VisibleCharacters.ForEach(c => c.Session.SendMessage(publicChatMessage));
                     break;
             }
         }

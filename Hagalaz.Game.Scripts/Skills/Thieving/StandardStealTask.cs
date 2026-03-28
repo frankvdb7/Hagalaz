@@ -79,7 +79,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
                 return;
             }
 
-            var guards = _performer.Viewport.VisibleCreatures.OfType<INpc>().Where(n => n.Name.Contains("Guard") && n.WithinRange(_performer, 3));
+            var guards = _performer.Viewport.VisibleNpcs.Where(n => n.Name.Contains("Guard") && n.WithinRange(_performer, 3));
             foreach (var guard in guards)
             {
                 if (RandomStatic.Generator.Next(0, 5) != 2)

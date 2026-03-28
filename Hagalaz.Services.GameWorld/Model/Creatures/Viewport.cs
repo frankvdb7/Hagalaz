@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,6 +6,7 @@ using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 
@@ -17,7 +18,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly ICreature _owner;
         private readonly IMapRegionService _regionService;
         private readonly List<IMapRegion> _visibleRegions = [];
-        private readonly ListHashSet<ICreature> _visibleCreatures = new();
+        private readonly ListHashSet<ICreature> _visibleCreatures = new(255);
+        private readonly ListHashSet<ICharacter> _visibleCharacters = new(255);
+        private readonly ListHashSet<INpc> _visibleNpcs = new(255);
 
         /// <summary>
         /// Contains size for both X and Y in tiles of this viewport.
@@ -91,6 +94,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         public IReadOnlyList<ICreature> VisibleCreatures => _visibleCreatures;
 
         /// <summary>
+        /// Gets list of visible characters.
+        /// </summary>
+        public IReadOnlyCollection<ICharacter> VisibleCharacters => _visibleCharacters;
+
+        /// <summary>
+        /// Gets list of visible npcs.
+        /// </summary>
+        public IReadOnlyCollection<INpc> VisibleNpcs => _visibleNpcs;
+
+        /// <summary>
         /// Get's creature surrounding regions + center region.
         /// </summary>
         /// <returns>LinkedList{MapRegion}.</returns>
@@ -154,24 +167,31 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         public void UpdateTick()
         {
             _visibleCreatures.Clear();
+            _visibleCharacters.Clear();
+            _visibleNpcs.Clear();
 
+            var ownerLocation = _owner.Location;
             foreach (var region in _visibleRegions)
             {
-                foreach (var character in region.FindAllCharacters()
-                    .Where(character =>
-                        InBounds(character.Location) &&
-                        _owner.Location.WithinDistance(character.Location, CreatureConstants.VisibilityDistance) &&
-                        character.Appearance.Visible))
+                ProcessVisibleCreatures(region.FindAllCharacters(), ownerLocation, c => c.Appearance.Visible, _visibleCharacters);
+                ProcessVisibleCreatures(region.FindAllNpcs(), ownerLocation, n => n.Appearance.Visible, _visibleNpcs);
+            }
+        }
+
+        /// <summary>
+        /// Processes and adds visible creatures from a collection based on proximity and visibility.
+        /// </summary>
+        private void ProcessVisibleCreatures<T>(IEnumerable<T> creatures, ILocation ownerLocation, Func<T, bool> visibilityCheck, ListHashSet<T> typeSpecificCollection) where T : ICreature
+        {
+            foreach (var creature in creatures)
+            {
+                var loc = creature.Location;
+                if (InBounds(loc) &&
+                    ownerLocation.WithinDistance(loc, CreatureConstants.VisibilityDistance) &&
+                    visibilityCheck(creature))
                 {
-                    _visibleCreatures.Add(character);
-                }
-                foreach (var npc in region.FindAllNpcs()
-                    .Where(npc =>
-                    InBounds(npc.Location) &&
-                    _owner.Location.WithinDistance(npc.Location, CreatureConstants.VisibilityDistance) &&
-                    npc.Appearance.Visible))
-                {
-                    _visibleCreatures.Add(npc);
+                    _visibleCreatures.Add(creature);
+                    typeSpecificCollection.Add(creature);
                 }
             }
         }

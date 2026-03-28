@@ -89,7 +89,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
 
                         var combat = (INpcCombat)Owner.Combat;
 
-                        var visibleCharacters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>()
+                        var visibleCharacters = Owner.Viewport.VisibleCharacters
                             .Where(c => IsAggressiveTowards(c) && c.Combat.CanBeAttackedBy(Owner));
                         foreach (var c in visibleCharacters)
                         {

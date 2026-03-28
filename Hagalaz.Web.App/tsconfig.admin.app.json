@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "outDir": "./out-tsc/admin-app",
+        "types": []
+    },
+    "files": ["src-admin/main.ts", "src/polyfills.ts"],
+    "include": ["src-admin/**/*.d.ts"],
+    "exclude": ["src-admin/**/*.spec.ts"]
+}

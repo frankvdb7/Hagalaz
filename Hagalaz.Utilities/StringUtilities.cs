@@ -77,14 +77,9 @@ namespace Hagalaz.Utilities
         /// <returns>A string containing the comma-separated values.</returns>
         public static string EncodeValues<T>(T[] values)
         {
-            StringBuilder bld = new StringBuilder();
-            for (int i = 0; i < values.Length; i++)
-            {
-                bld.Append(values[i]);
-                if ((i + 1) < values.Length)
-                    bld.Append(',');
-            }
-            return bld.ToString();
+            if (values == null || values.Length == 0) return string.Empty;
+            // string.Join is highly optimized in .NET and preferred over manual StringBuilder for simple joins.
+            return string.Join(',', values);
         }
 
         /// <summary>
@@ -94,14 +89,22 @@ namespace Hagalaz.Utilities
         /// <returns>A string containing the comma-separated numeric representation of the booleans.</returns>
         public static string EncodeValues(bool[] values)
         {
-            var bld = new StringBuilder();
-            for (int i = 0; i < values.Length; i++)
+            if (values == null || values.Length == 0) return string.Empty;
+
+            // Use string.Create for zero-allocation (of intermediate buffers) and exact sizing.
+            int length = values.Length * 2 - 1;
+            return string.Create(length, values, (span, state) =>
             {
-                bld.Append(values[i] ? 1 : 0);
-                if ((i + 1) < values.Length)
-                    bld.Append(',');
-            }
-            return bld.ToString();
+                for (int i = 0; i < state.Length; i++)
+                {
+                    int pos = i * 2;
+                    span[pos] = state[i] ? '1' : '0';
+                    if (pos + 1 < span.Length)
+                    {
+                        span[pos + 1] = ',';
+                    }
+                }
+            });
         }
 
         /// <summary>
@@ -313,32 +316,39 @@ namespace Hagalaz.Utilities
         /// <returns>A string array where the first element is the extracted substring and the second element is the remainder of the source string.</returns>
         public static string[] GetStringInBetween(string strBegin, string strEnd, string strSource, bool includeBegin, bool includeEnd)
         {
-            string[] result = ["", ""];
-            int iIndexOfBegin = strSource.IndexOf(strBegin, StringComparison.Ordinal);
+            if (string.IsNullOrEmpty(strSource))
+                return ["", ""];
+
+            ReadOnlySpan<char> sourceSpan = strSource.AsSpan();
+            int iIndexOfBegin = sourceSpan.IndexOf(strBegin.AsSpan(), StringComparison.Ordinal);
+
             if (iIndexOfBegin != -1)
             {
-                // include the Begin string if desired
-                if (includeBegin)
-                    iIndexOfBegin -= strBegin.Length;
-                strSource = strSource.Substring(iIndexOfBegin
-                    + strBegin.Length);
-                int iEnd = strSource.IndexOf(strEnd, StringComparison.Ordinal);
-                if (iEnd != -1)
-                {
-                    // include the End string if desired
-                    int resultLength = includeEnd ? iEnd + strEnd.Length : iEnd;
-                    result[0] = strSource.Substring(0, resultLength);
+                int endOfBegin = iIndexOfBegin + strBegin.Length;
+                ReadOnlySpan<char> afterBeginSpan = sourceSpan.Slice(endOfBegin);
+                int iIndexOfEndAfterBegin = afterBeginSpan.IndexOf(strEnd.AsSpan(), StringComparison.Ordinal);
 
-                    // advance beyond this segment
-                    int remainderIndex = iEnd + strEnd.Length;
-                    if (remainderIndex < strSource.Length)
-                        result[1] = strSource.Substring(remainderIndex);
+                if (iIndexOfEndAfterBegin != -1)
+                {
+                    int resultStart = includeBegin ? iIndexOfBegin : endOfBegin;
+                    int resultEnd = endOfBegin + iIndexOfEndAfterBegin + (includeEnd ? strEnd.Length : 0);
+
+                    string found = sourceSpan.Slice(resultStart, resultEnd - resultStart).ToString();
+
+                    int remainderStart = endOfBegin + iIndexOfEndAfterBegin + strEnd.Length;
+                    string remainder = remainderStart < sourceSpan.Length
+                        ? sourceSpan.Slice(remainderStart).ToString()
+                        : string.Empty;
+
+                    return [found, remainder];
                 }
+
+                // If end marker is not found, return empty results as per original behavior
+                return ["", ""];
             }
-            else
-                // stay where we are
-                result[1] = strSource;
-            return result;
+
+            // If begin marker is not found, return empty result and original source as remainder
+            return ["", strSource];
         }
 
         /// <summary>
@@ -349,14 +359,8 @@ namespace Hagalaz.Utilities
         private static int CountSegments(ReadOnlySpan<char> span, char separator)
         {
             if (span.IsEmpty) return 0;
-            int count = 1;
-            int index;
-            while ((index = span.IndexOf(separator)) != -1)
-            {
-                count++;
-                span = span[(index + 1)..];
-            }
-            return count;
+            // Use vectorized Count from MemoryExtensions
+            return span.Count(separator) + 1;
         }
 
         public static string FormatNumber(int value) => value.ToString("#,###,##0", CultureInfo.InvariantCulture);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -17,18 +17,50 @@ namespace Hagalaz.Security
         /// <returns>A hexadecimal string representation of the computed hash. Returns an empty string if the hash algorithm is not supported.</returns>
         public static string ComputeHash(string text, HashType hashType)
         {
-            var algorithm = CreateNewInstance(hashType);
-            if (algorithm == null)
+            ArgumentNullException.ThrowIfNull(text);
+
+            int byteCount = Encoding.UTF8.GetByteCount(text);
+            Span<byte> textBytes = byteCount <= 1024 ? stackalloc byte[byteCount] : new byte[byteCount];
+            Encoding.UTF8.GetBytes(text, textBytes);
+
+            int hashLength = GetHashLength(hashType);
+            if (hashLength == 0) return string.Empty;
+
+            Span<byte> hash = stackalloc byte[hashLength];
+
+            switch (hashType)
             {
-                return string.Empty;
+                case HashType.MD5:
+                    MD5.HashData(textBytes, hash);
+                    break;
+                case HashType.SHA1:
+                    SHA1.HashData(textBytes, hash);
+                    break;
+                case HashType.SHA256:
+                    SHA256.HashData(textBytes, hash);
+                    break;
+                case HashType.SHA384:
+                    SHA384.HashData(textBytes, hash);
+                    break;
+                case HashType.SHA512:
+                    SHA512.HashData(textBytes, hash);
+                    break;
+                default:
+                    return string.Empty;
             }
 
-            using (algorithm)
-            {
-                var hash = algorithm.ComputeHash(Encoding.UTF8.GetBytes(text));
-                return string.Concat(Array.ConvertAll(hash, h => h.ToString("x2")));
-            }
+            return Convert.ToHexStringLower(hash);
         }
+
+        private static int GetHashLength(HashType hashType) => hashType switch
+        {
+            HashType.MD5 => 16,
+            HashType.SHA1 => 20,
+            HashType.SHA256 => 32,
+            HashType.SHA384 => 48,
+            HashType.SHA512 => 64,
+            _ => 0
+        };
 
         /// <summary>
         /// Creates a new instance of a hash algorithm based on the specified hash type.
@@ -37,28 +69,15 @@ namespace Hagalaz.Security
         /// <returns>A new instance of the specified <see cref="HashAlgorithm"/>, or <c>null</c> if the hash type is not supported.</returns>
         public static HashAlgorithm? CreateNewInstance(HashType hashType)
         {
-            HashAlgorithm? result = null;
- 
-            switch (hashType)
+            return hashType switch
             {
-                case HashType.MD5:
-                    result = MD5.Create();
-                    break;
-                case HashType.SHA1:
-                    result = SHA1.Create();
-                    break;
-                case HashType.SHA256:
-                    result = SHA256.Create();
-                    break;
-                case HashType.SHA384:
-                    result = SHA384.Create();
-                    break;
-                case HashType.SHA512:
-                    result = SHA512.Create();
-                    break;
-            }
- 
-            return result;
+                HashType.MD5 => MD5.Create(),
+                HashType.SHA1 => SHA1.Create(),
+                HashType.SHA256 => SHA256.Create(),
+                HashType.SHA384 => SHA384.Create(),
+                HashType.SHA512 => SHA512.Create(),
+                _ => null
+            };
         }
     }
 }

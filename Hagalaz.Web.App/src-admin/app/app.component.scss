@@ -1,0 +1,56 @@
+:host {
+    display: block;
+    min-height: 100vh;
+}
+
+.admin-shell {
+    position: relative;
+    min-height: 100vh;
+    overflow: clip;
+    isolation: isolate;
+    color: #f7e8b4;
+    font-family: "Semplicita Pro", "Cinzel", Georgia, serif;
+    background: linear-gradient(180deg, #1a130a 0%, #0d0905 48%, #090603 100%);
+}
+
+.bg-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.bg-layer-base {
+    background:
+        radial-gradient(110% 80% at 18% 6%, rgba(247, 203, 73, 0.22), transparent 58%),
+        radial-gradient(90% 60% at 88% 10%, rgba(201, 139, 39, 0.2), transparent 55%),
+        radial-gradient(130% 90% at 50% 118%, rgba(120, 70, 20, 0.26), transparent 55%);
+}
+
+.bg-layer-gold {
+    opacity: 0.75;
+    filter: blur(70px);
+    transform: translateZ(0);
+    background:
+        radial-gradient(40% 26% at 22% 22%, rgba(255, 209, 92, 0.24), transparent 75%),
+        radial-gradient(34% 24% at 80% 30%, rgba(255, 169, 68, 0.2), transparent 76%);
+}
+
+.bg-layer-fire {
+    opacity: 0.38;
+    filter: blur(90px);
+    transform: translateZ(0);
+    background: radial-gradient(50% 34% at 50% 110%, rgba(216, 120, 38, 0.38), transparent 72%);
+}
+
+.bg-layer-vignette {
+    background:
+        radial-gradient(140% 120% at 50% 8%, transparent 42%, rgba(5, 4, 2, 0.58) 86%),
+        linear-gradient(180deg, rgba(6, 4, 2, 0.22) 0%, rgba(5, 4, 2, 0.58) 100%);
+}
+
+.shell-content {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+}

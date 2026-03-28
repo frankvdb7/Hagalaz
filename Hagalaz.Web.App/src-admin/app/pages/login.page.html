@@ -1,0 +1,56 @@
+<section class="min-h-screen grid place-items-center p-4 lg:p-8">
+    <mat-card class="login-frame w-full max-w-5xl overflow-hidden">
+        @if (store.loading()) {
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        }
+
+        <div class="grid lg:grid-cols-[1.1fr_1fr]">
+            <aside class="brand-panel">
+                <p class="eyebrow">Hagalaz Admin</p>
+                <h1>Welcome Back</h1>
+                <p class="intro">Sign in to manage cache content and keep the realm data consistent.</p>
+
+                <div class="access-note">
+                    Access is limited to authorized staff accounts.
+                </div>
+            </aside>
+
+            <section class="form-panel">
+                <h2>Sign In</h2>
+                <p class="subtitle">Use your Hagalaz account credentials.</p>
+
+                <form class="grid gap-3 mt-4" [formGroup]="form" (ngSubmit)="submit()">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Email</mat-label>
+                        <input matInput autocomplete="username" type="email" formControlName="email" />
+                        <mat-error>{{ hasError("email") ? "Enter a valid email address." : "" }}</mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Password</mat-label>
+                        <input matInput autocomplete="current-password" [type]="hidePassword() ? 'password' : 'text'" formControlName="password" />
+                        <button mat-icon-button matSuffix type="button" (click)="togglePasswordVisibility()" [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'">
+                            <mat-icon>{{ hidePassword() ? "visibility" : "visibility_off" }}</mat-icon>
+                        </button>
+                        <mat-error>{{ hasError("password") ? "Password is required." : "" }}</mat-error>
+                    </mat-form-field>
+
+                    <div class="captcha-wrap">
+                        <ng-hcaptcha theme="dark" formControlName="captcha" (error)="markForCheck()" (expired)="markForCheck()" (verify)="markForCheck()"></ng-hcaptcha>
+                        @if (hasError("captcha")) {
+                            <p class="captcha-error">Complete the captcha challenge.</p>
+                        }
+                    </div>
+
+                    <button mat-flat-button type="submit" [disabled]="store.loading() || form.invalid">
+                        {{ store.loading() ? "Signing In..." : "Sign In" }}
+                    </button>
+                </form>
+
+                @if (store.error()) {
+                    <p class="text-rose-300 mt-3 text-sm">Unable to sign in. Check your credentials and try again.</p>
+                }
+            </section>
+        </div>
+    </mat-card>
+</section>

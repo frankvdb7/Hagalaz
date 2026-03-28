@@ -9,5 +9,10 @@ namespace Hagalaz.Authorization.Constants
         /// The scope for accessing the characters API, which manages player character data.
         /// </summary>
         public const string CharactersApi = "characters_api";
+
+        /// <summary>
+        /// The scope for accessing the cache API used by administrative tools.
+        /// </summary>
+        public const string CacheApi = "cache_api";
     }
 }

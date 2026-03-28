@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Extensions
         public static void PlayWithinDistance(this ISound sound, ICreature source, int distance)
         {
             var message = sound.ToMessage();
-            foreach (var character in source.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => c.Location.WithinDistance(source.Location, distance)))
+            foreach (var character in source.Viewport.VisibleCharacters.Where(c => c.Location.WithinDistance(source.Location, distance)))
             {
                 character.Session.SendMessage(message);
             }

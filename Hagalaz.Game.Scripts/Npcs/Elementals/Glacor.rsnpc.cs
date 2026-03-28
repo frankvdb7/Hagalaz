@@ -149,7 +149,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                 .Build();
             Owner.QueueHitSplat(npcSplat);
 
-            var characters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => c.WithinRange(Owner, 2));
+            var characters = Owner.Viewport.VisibleCharacters.Where(c => c.WithinRange(Owner, 2));
             foreach (var character in characters)
             {
                 Owner.Combat.PerformAttack(new AttackParams()
@@ -561,7 +561,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
                         Owner.QueueTask(new RsTask(() =>
                             {
-                                var characters = Owner.Viewport.VisibleCreatures.OfType<ICharacter>().Where(c => c.Location.Equals(targetLocation));
+                                var characters = Owner.Viewport.VisibleCharacters.Where(c => c.Location.Equals(targetLocation));
                                 foreach (var character in characters)
                                 {
                                     Owner.Combat.PerformAttack(new AttackParams()

@@ -9,9 +9,11 @@ namespace Hagalaz.Cache.Logic.Codecs
 {
     public class SectorCodec : ISectorCodec
     {
-        public ISector Decode(byte[] data, bool extended)
+        private static readonly byte[] _zeroPadding = new byte[Sector.DataSize];
+
+        public ISector Decode(ReadOnlySpan<byte> data, bool extended)
         {
-            if (data.Length != Sector.DataSize)
+            if (data.Length < (extended ? Sector.ExtendedDataHeaderSize : Sector.DataHeaderSize))
                 throw new ArgumentException();
 
             int position = 0;
@@ -28,19 +30,51 @@ namespace Hagalaz.Cache.Logic.Codecs
             return new Sector(fileID, chunkID, nextSectorID, cacheID);
         }
 
-        public byte[] Encode(ISector sector, byte[] dataBlock)
+        public byte[] Encode(ISector sector, byte[] dataBlock) => Encode(sector, dataBlock.AsSpan());
+
+        public byte[] Encode(ISector sector, ReadOnlySpan<byte> dataBlock)
         {
-            using (var writer = new MemoryStream(Sector.DataSize))
+            var array = new byte[Sector.DataSize];
+            Encode(sector, dataBlock, array);
+            return array;
+        }
+
+        public void Encode(ISector sector, ReadOnlySpan<byte> dataBlock, Span<byte> destination)
+        {
+            var headerSize = sector.FileID > ushort.MaxValue ? Sector.ExtendedDataHeaderSize : Sector.DataHeaderSize;
+            if (destination.Length < headerSize + dataBlock.Length)
+                throw new ArgumentException("Destination span too small.");
+
+            int pos = 0;
+            if (sector.FileID > ushort.MaxValue)
             {
-                if (sector.FileID > ushort.MaxValue)
-                    writer.WriteInt(sector.FileID);
-                else
-                    writer.WriteShort(sector.FileID);
-                writer.WriteShort(sector.ChunkID);
-                writer.WriteMedInt(sector.NextSectorID);
-                writer.WriteByte(sector.IndexID);
-                writer.WriteBytes(dataBlock);
-                return writer.ToArray();
+                destination[pos++] = (byte)(sector.FileID >> 24);
+                destination[pos++] = (byte)(sector.FileID >> 16);
+                destination[pos++] = (byte)(sector.FileID >> 8);
+                destination[pos++] = (byte)sector.FileID;
+            }
+            else
+            {
+                destination[pos++] = (byte)(sector.FileID >> 8);
+                destination[pos++] = (byte)sector.FileID;
+            }
+
+            destination[pos++] = (byte)(sector.ChunkID >> 8);
+            destination[pos++] = (byte)sector.ChunkID;
+
+            destination[pos++] = (byte)(sector.NextSectorID >> 16);
+            destination[pos++] = (byte)(sector.NextSectorID >> 8);
+            destination[pos++] = (byte)sector.NextSectorID;
+
+            destination[pos++] = (byte)sector.IndexID;
+
+            dataBlock.CopyTo(destination.Slice(pos));
+
+            // pad remainder if necessary
+            int totalWritten = pos + dataBlock.Length;
+            if (totalWritten < Sector.DataSize && destination.Length >= Sector.DataSize)
+            {
+                destination.Slice(totalWritten, Sector.DataSize - totalWritten).Clear();
             }
         }
     }

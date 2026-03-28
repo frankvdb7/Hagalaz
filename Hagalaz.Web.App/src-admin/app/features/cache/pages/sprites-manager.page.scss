@@ -1,0 +1,42 @@
+:host {
+    display: block;
+}
+
+.panel-card {
+    border: 1px solid rgba(252, 211, 77, 0.3);
+    background: rgba(18, 13, 8, 0.86);
+}
+
+.placeholder {
+    margin: 0.65rem 0 0;
+    color: rgba(255, 234, 178, 0.72);
+    font-size: 0.8rem;
+}
+
+.file-input {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px dashed rgba(252, 211, 77, 0.45);
+    background: rgba(7, 5, 3, 0.65);
+    color: #f7e8b4;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.82rem;
+}
+
+.preview-image {
+    margin-top: 0.75rem;
+    max-width: 100%;
+    border-radius: 0.6rem;
+    border: 1px solid rgba(252, 211, 77, 0.4);
+    background: rgba(7, 5, 3, 0.75);
+}
+
+pre {
+    margin: 0.6rem 0 0;
+    max-height: 14rem;
+    overflow: auto;
+    border-radius: 0.6rem;
+    padding: 0.6rem;
+    background: rgba(7, 5, 3, 0.8);
+    font-size: 0.78rem;
+}

@@ -1,0 +1,117 @@
+<section class="space-y-4">
+    @if (loading()) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
+
+    <mat-card class="border border-amber-300/30 bg-[#120d08]/85">
+        <mat-card-content class="flex flex-wrap items-center gap-2 py-3">
+            <mat-chip-set>
+                <mat-chip>Read Types</mat-chip>
+                <mat-chip>Search Archives</mat-chip>
+                <mat-chip>Edit Definitions</mat-chip>
+            </mat-chip-set>
+            <span class="text-sm text-amber-100/75">Use one read card at a time, then apply a mutation in the forge panel.</span>
+        </mat-card-content>
+    </mat-card>
+
+    <section class="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
+        <mat-card class="panel-card">
+            <mat-card-header><mat-card-title>Archive Sizes</mat-card-title></mat-card-header>
+            <mat-card-actions><button mat-flat-button (click)="loadArchiveSizes()" [disabled]="loading()">Load</button></mat-card-actions>
+            <mat-card-content>
+                @if (archiveSizes()) { <pre>{{ archiveSizes() | json }}</pre> } @else { <p class="placeholder">No data loaded yet.</p> }
+            </mat-card-content>
+        </mat-card>
+
+        <mat-card class="panel-card">
+            <mat-card-header><mat-card-title>Get By Id</mat-card-title></mat-card-header>
+            <mat-card-content>
+                <form class="grid gap-2" [formGroup]="byIdForm" (ngSubmit)="loadById()">
+                    <mat-form-field appearance="outline"><mat-label>Type</mat-label><mat-select formControlName="kind">@for (kind of kinds; track kind) { <mat-option [value]="kind">{{ kind }}</mat-option> }</mat-select></mat-form-field>
+                    <mat-form-field appearance="outline"><mat-label>Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
+                    <button mat-flat-button type="submit" [disabled]="loading()">Fetch</button>
+                </form>
+                @if (byIdResult()) { <pre>{{ byIdResult() | json }}</pre> } @else { <p class="placeholder">No result yet.</p> }
+            </mat-card-content>
+        </mat-card>
+
+        <mat-card class="panel-card">
+            <mat-card-header><mat-card-title>Range Query</mat-card-title></mat-card-header>
+            <mat-card-content>
+                <form class="grid gap-2" [formGroup]="rangeForm" (ngSubmit)="loadRange()">
+                    <mat-form-field appearance="outline"><mat-label>Type</mat-label><mat-select formControlName="kind">@for (kind of kinds; track kind) { <mat-option [value]="kind">{{ kind }}</mat-option> }</mat-select></mat-form-field>
+                    <div class="grid grid-cols-2 gap-2">
+                        <mat-form-field appearance="outline"><mat-label>Start</mat-label><input matInput type="number" formControlName="startId" /></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>End (exclusive)</mat-label><input matInput type="number" formControlName="endIdExclusive" /></mat-form-field>
+                    </div>
+                    <button mat-flat-button type="submit" [disabled]="loading()">Fetch Range</button>
+                </form>
+                @if (rangeResult()) { <pre>{{ rangeResult() | json }}</pre> } @else { <p class="placeholder">No range loaded.</p> }
+            </mat-card-content>
+        </mat-card>
+
+        <mat-card class="panel-card">
+            <mat-card-header><mat-card-title>Search</mat-card-title></mat-card-header>
+            <mat-card-content>
+                <form class="grid gap-2" [formGroup]="searchForm" (ngSubmit)="search()">
+                    <mat-form-field appearance="outline"><mat-label>Type</mat-label><mat-select formControlName="kind">@for (kind of searchableKinds; track kind) { <mat-option [value]="kind">{{ kind }}</mat-option> }</mat-select></mat-form-field>
+                    <mat-form-field appearance="outline"><mat-label>Query</mat-label><input matInput type="text" formControlName="query" /></mat-form-field>
+                    <div class="grid grid-cols-2 gap-2">
+                        <mat-form-field appearance="outline"><mat-label>Offset</mat-label><input matInput type="number" formControlName="offset" /></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Limit</mat-label><input matInput type="number" formControlName="limit" /></mat-form-field>
+                    </div>
+                    <button mat-flat-button type="submit" [disabled]="loading()">Search</button>
+                </form>
+                @if (searchResult()) { <pre>{{ searchResult() | json }}</pre> } @else { <p class="placeholder">No search yet.</p> }
+            </mat-card-content>
+        </mat-card>
+    </section>
+
+    <mat-card class="panel-card">
+        <mat-card-header><mat-card-title>Mutation Forge</mat-card-title></mat-card-header>
+        <mat-card-content class="space-y-4">
+            <div class="grid gap-4 xl:grid-cols-2">
+                <form class="grid gap-2" [formGroup]="npcMutationForm" (ngSubmit)="setNpcCombatLevel()">
+                    <h3>NPC Combat</h3>
+                    <mat-form-field appearance="outline"><mat-label>Npc Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
+                    <mat-form-field appearance="outline"><mat-label>Combat Level</mat-label><input matInput type="number" formControlName="combatLevel" /></mat-form-field>
+                    <button mat-stroked-button type="submit" [disabled]="loading()">Update NPC</button>
+                </form>
+
+                <form class="grid gap-2" [formGroup]="objectMutationForm" (ngSubmit)="setObjectName()">
+                    <h3>Object Name</h3>
+                    <mat-form-field appearance="outline"><mat-label>Object Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
+                    <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput type="text" formControlName="name" /></mat-form-field>
+                    <button mat-stroked-button type="submit" [disabled]="loading()">Update Object</button>
+                </form>
+
+                <form class="grid gap-2" [formGroup]="varpMutationForm" (ngSubmit)="setVarpBit()">
+                    <h3>Varp Bit</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <mat-form-field appearance="outline"><mat-label>Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Config Id</mat-label><input matInput type="number" formControlName="configId" /></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Bit Length</mat-label><input matInput type="number" formControlName="bitLength" /></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Bit Offset</mat-label><input matInput type="number" formControlName="bitOffset" /></mat-form-field>
+                    </div>
+                    <button mat-stroked-button type="submit" [disabled]="loading()">Update Varp Bit</button>
+                </form>
+
+                <form class="grid gap-2" [formGroup]="configMutationForm" (ngSubmit)="setConfigDefinition()">
+                    <h3>Config Definition</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <mat-form-field appearance="outline"><mat-label>Id</mat-label><input matInput type="number" formControlName="id" /></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Default Value</mat-label><input matInput type="number" formControlName="defaultValue" /></mat-form-field>
+                    </div>
+                    <mat-form-field appearance="outline"><mat-label>Value Type</mat-label><input matInput type="text" formControlName="valueType" /></mat-form-field>
+                    <button mat-stroked-button type="submit" [disabled]="loading()">Update Config</button>
+                </form>
+            </div>
+            <mat-divider></mat-divider>
+            @if (mutationResult()) { <pre>{{ mutationResult() | json }}</pre> } @else { <p class="placeholder">No mutations executed.</p> }
+        </mat-card-content>
+    </mat-card>
+
+    @if (error()) {
+        <p class="text-rose-300 text-sm">{{ error() }}</p>
+    }
+</section>

@@ -193,7 +193,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
             }
 
             var centerLoc = Owner.Location.Translate(1, 1, 0);
-            var npcs = _cannonOwner.Viewport.VisibleCreatures.OfType<INpc>()
+            var npcs = _cannonOwner.Viewport.VisibleNpcs
                 .Where(n => centerLoc.WithinDistance(n.Location, 8) && _cannonOwner.Combat.CanSetTarget(n) && n.Combat.CanSetTarget(_cannonOwner));
 
             foreach (var npc in npcs)

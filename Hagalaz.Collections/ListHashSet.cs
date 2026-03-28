@@ -9,8 +9,16 @@ namespace Hagalaz.Collections
     /// </summary>
     public class ListHashSet<T> : IReadOnlyList<T>, ICollection<T> where T : notnull
     {
-        private readonly List<T> _list = new();
-        private readonly HashSet<T> _set = new();
+        private readonly List<T> _list;
+        private readonly HashSet<T> _set;
+
+        public ListHashSet() : this(0) { }
+
+        public ListHashSet(int capacity)
+        {
+            _list = new List<T>(capacity);
+            _set = new HashSet<T>(capacity);
+        }
 
         public T this[int index] => _list[index];
 
@@ -36,7 +44,11 @@ namespace Hagalaz.Collections
 
         public void CopyTo(T[] array, int arrayIndex) => _list.CopyTo(array, arrayIndex);
 
-        public IEnumerator<T> GetEnumerator() => _list.GetEnumerator();
+        /// <summary>
+        /// Returns an enumerator that iterates through the collection.
+        /// </summary>
+        /// <returns>A <see cref="List{T}.Enumerator"/> that can be used to iterate through the collection.</returns>
+        public List<T>.Enumerator GetEnumerator() => _list.GetEnumerator();
 
         public bool Remove(T item)
         {
@@ -46,6 +58,8 @@ namespace Hagalaz.Collections
             }
             return false;
         }
+
+        IEnumerator<T> IEnumerable<T>.GetEnumerator() => GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }

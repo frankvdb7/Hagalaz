@@ -1,0 +1,45 @@
+@use "@angular/material" as mat;
+@use "../src/theming/colors" as colors;
+@use "../src/theming/typography" as typography;
+
+@import "../src/tailwind.css";
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+}
+
+html {
+    color-scheme: dark;
+    @include mat.theme(
+        (
+            color: (
+                primary: colors.$primary-palette,
+                tertiary: colors.$tertiary-palette,
+            ),
+            typography: (
+                plain-family: "Semplicita Pro",
+                brand-family: "Semplicita Pro",
+            ),
+            density: 0,
+        )
+    );
+
+    @include mat.button-overrides(
+        (
+            filled-label-text-transform: uppercase,
+            outlined-label-text-transform: uppercase,
+            text-label-text-transform: uppercase,
+        )
+    );
+
+    @include typography.material-icons();
+    @include typography.semplicita-pro();
+}
+
+body {
+    font-family: "Semplicita Pro", "Cinzel", Georgia, serif;
+    background: #0b0704;
+    color: #f7e8b4;
+}

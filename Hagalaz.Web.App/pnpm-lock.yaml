@@ -5468,7 +5468,7 @@ snapshots:
       make-fetch-happen: 10.2.1
       nopt: 6.0.0
       proc-log: 2.0.1
-      semver: 7.7.2
+      semver: 7.7.3
       tar: 6.2.1
       which: 2.0.2
     transitivePeerDependencies:
@@ -6075,7 +6075,7 @@ snapshots:
   '@npmcli/fs@2.1.2':
     dependencies:
       '@gar/promisify': 1.1.3
-      semver: 7.7.2
+      semver: 7.7.3
 
   '@npmcli/fs@5.0.0':
     dependencies:
@@ -6578,7 +6578,7 @@ snapshots:
 
   agent-base@6.0.2:
     dependencies:
-      debug: 4.4.1
+      debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
 
@@ -7692,7 +7692,7 @@ snapshots:
     dependencies:
       '@tootallnate/once': 2.0.0
       agent-base: 6.0.2
-      debug: 4.4.1
+      debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
 
@@ -7720,7 +7720,7 @@ snapshots:
   https-proxy-agent@5.0.1:
     dependencies:
       agent-base: 6.0.2
-      debug: 4.4.1
+      debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
 
@@ -9160,7 +9160,7 @@ snapshots:
   socks-proxy-agent@7.0.0:
     dependencies:
       agent-base: 6.0.2
-      debug: 4.4.1
+      debug: 4.4.3
       socks: 2.8.7
     transitivePeerDependencies:
       - supports-color

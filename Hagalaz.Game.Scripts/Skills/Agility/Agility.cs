@@ -54,7 +54,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
         /// <param name="npcSpeakText">The NPC speak text.</param>
         public static void CheckGnomeCourseNpCs(ICharacter character, string npcSpeakText)
         {
-            var npc = character.Viewport.VisibleCreatures.OfType<INpc>().Where(n => n.SpeakingText == null && n.WithinRange(n, 5)).FirstOrDefault();
+            var npc = character.Viewport.VisibleNpcs.Where(n => n.SpeakingText == null && n.WithinRange(n, 5)).FirstOrDefault();
             if (npc != null)
             {
                 npc.Speak(npcSpeakText);
