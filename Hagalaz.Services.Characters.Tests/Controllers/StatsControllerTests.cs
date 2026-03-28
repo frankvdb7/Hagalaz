@@ -60,7 +60,7 @@ namespace Hagalaz.Services.Characters.Tests.Controllers
             // Assert
             Assert.IsInstanceOfType(result.Result, typeof(OkObjectResult));
             var okResult = (OkObjectResult)result.Result;
-            Assert.AreEqual(expectedResult, okResult.Value);
+            Assert.AreEqual(expectedResult.Result, okResult.Value);
         }
 
         [TestMethod]

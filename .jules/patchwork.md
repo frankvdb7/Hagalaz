@@ -7,5 +7,5 @@
 ## 2025-05-15 - [StatsController.Get Returning MassTransit Response Wrapper]
 **Bug:** The `StatsController.Get` method was returning the full `Response<GetCharacterStatisticsResult>` instead of the inner `GetCharacterStatisticsResult` message.
 **Cause:** Incorrect usage of the MassTransit `GetResponse` return value in the controller action.
-**Fix:** Changed the return statement to use `response.Message` instead of `response`.
-**Prevention:** Always extract the `Message` property from MassTransit/Mediator responses before returning them in a Web API controller. Added unit tests for `StatsController` to verify correct return types.
+**Fix:** Changed the return statement to use `response.Message.Result` instead of `response`.
+**Prevention:** Always extract the actual DTO (`Result` property) from MassTransit/Mediator response messages before returning them in a Web API controller to match the `ActionResult<T>` signature. Added unit tests for `StatsController` to verify correct return types.
