@@ -52,5 +52,11 @@ namespace Hagalaz.Benchmarks
 
         [Benchmark]
         public ListHashSet<int> ToListHashSet_Benchmark() => _list.ToListHashSet();
+
+        /// <summary>
+        /// Benchmarks the IndexOf extension method for IEnumerable.
+        /// </summary>
+        [Benchmark]
+        public int EnumerableIndexOf() => Hagalaz.Collections.Extensions.CollectionExtensions.IndexOf(_list, i => i == _lookupValue);
     }
 }
