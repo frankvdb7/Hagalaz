@@ -14,6 +14,7 @@ jobs:
   benchmark:
     name: Run Benchmarks
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v5
 
@@ -22,12 +23,20 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Build
         run: dotnet build Hagalaz.Benchmarks/Hagalaz.Benchmarks.csproj -c Release
 
       - name: Run Benchmarks
         run: |
-          dotnet run -c Release --project Hagalaz.Benchmarks -- --job short --filter "*" --exporters json
+          dotnet run -c Release --project Hagalaz.Benchmarks -- --job medium --filter "*" --exporters json --artifacts ./BenchmarkDotNet.Artifacts
 
       - name: Initialize Benchmark Branch if missing
         run: |
@@ -53,12 +62,12 @@ jobs:
         with:
           name: Hagalaz Performance Benchmarks
           tool: 'benchmarkdotnet'
-          output-file-path: BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks.HagalazBenchmarks-report-full.json
+          output-file-path: BenchmarkDotNet.Artifacts/results/*.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           # Show alert on PR if performance regresses by more than 20%
-          alert-threshold: '120%'
+          alert-threshold: '110%'
           comment-on-alert: true
-          fail-on-alert: false
+          fail-on-alert: true
           # For PRs, don't push to gh-pages but still fetch it
           save-data-file: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
