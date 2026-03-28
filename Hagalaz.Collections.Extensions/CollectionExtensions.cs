@@ -31,9 +31,23 @@ namespace Hagalaz.Collections.Extensions
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(predicate);
 
+            // Fast path for collections implementing IList<T> (e.g., List<T>, arrays) to avoid enumerator overhead
+            // and enable direct indexed access.
+            if (source is IList<TSource> list)
+            {
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (predicate(list[i]))
+                    {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+
             var index = 0;
-            // Iterate over the source sequence directly to avoid unnecessary allocations (e.g., ToArray())
-            // and enable early return upon finding the first match.
+            // General path for other IEnumerable sources (e.g., sequences, generators).
+            // Iterating directly to avoid materialization (e.g., ToArray()) and support early exit.
             foreach (var item in source)
             {
                 if (predicate(item))
