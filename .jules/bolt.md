@@ -13,3 +13,7 @@
 ## 2026-03-13 - [Reducing Allocations with ReadOnlySpan in String Slicing]
 **Learning:** Using `Substring` repeatedly to slice strings during parsing creates multiple transient heap-allocated string objects, which significantly increases GC pressure. Replacing these with `ReadOnlySpan<char>` allows for O(1) slicing without any allocations. In `GetStringInBetween`, this reduced heap allocations by ~49% and improved execution time by ~42%.
 **Action:** Always prefer `ReadOnlySpan<char>` and `AsSpan()` when performing complex string parsing or multi-step slicing. Only call `ToString()` at the final step when a persistent string object is actually required.
+
+## 2026-03-27 - [Optimizing Enumerable.IndexOf by Avoiding Materialization]
+**Learning:** Using `ToArray()` on an `IEnumerable<T>` to perform a search via index is highly inefficient as it materializes the entire collection into memory (O(N) space) and prevents early return. Iterating directly with `foreach` and a manual counter achieves O(1) space and allows immediate exit upon finding the match. In `CollectionExtensions.IndexOf`, this reduced execution time by ~51% (N=100) and eliminated all managed allocations (424B -> 0B).
+**Action:** Avoid `ToArray()`, `ToList()`, or `ElementAt()` when a simple pass over an `IEnumerable` is sufficient. Always prefer single-pass, allocation-free iteration for search operations.
