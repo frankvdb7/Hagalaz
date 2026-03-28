@@ -11,7 +11,7 @@
 **Action:** Always return the concrete struct enumerator (e.g., `List<T>.Enumerator`) from `GetEnumerator()` to enable allocation-free `foreach` loops. For `ConcurrentDictionary`, implement manual `Any` and `FirstOrDefault` methods that iterate over the dictionary directly to avoid snapshotting.
 
 ## 2026-03-13 - [Reducing Allocations with ReadOnlySpan in String Slicing]
-**Learning:** Using `Substring` repeatedly to slice strings during parsing creates multiple transient heap-allocated string objects, which significantly increases GC pressure. Replacing these with `ReadOnlySpan<char>` allows for O(1) slicing without any allocations. In `GetStringInBetween`, this reduced heap allocations by ~49% and improved memory allocations by ~49%.
+**Learning:** Using `Substring` repeatedly to slice strings during parsing creates multiple transient heap-allocated string objects, which significantly increases GC pressure. Replacing these with `ReadOnlySpan<char>` allows for O(1) slicing without any allocations. In `GetStringInBetween`, this reduced heap allocations by ~49% and improved execution time by ~42%.
 **Action:** Always prefer `ReadOnlySpan<char>` and `AsSpan()` when performing complex string parsing or multi-step slicing. Only call `ToString()` at the final step when a persistent string object is actually required.
 
 ## 2026-03-27 - [Optimizing Enumerable.IndexOf by Avoiding Materialization]
