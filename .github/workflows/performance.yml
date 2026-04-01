@@ -36,7 +36,7 @@ jobs:
 
       - name: Run Benchmarks
         run: |
-          dotnet run -c Release --project Hagalaz.Benchmarks -- --job medium --filter "*" --exporters json --artifacts ./BenchmarkDotNet.Artifacts
+          dotnet run -c Release --project Hagalaz.Benchmarks -- --job short --warmupCount 3 --iterationCount 5 --filter "*" --exporters json --artifacts ./BenchmarkDotNet.Artifacts
 
       - name: Initialize Benchmark Branch if missing
         run: |
