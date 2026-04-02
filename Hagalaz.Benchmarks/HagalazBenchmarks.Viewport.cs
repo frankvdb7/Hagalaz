@@ -2,6 +2,7 @@ using BenchmarkDotNet.Attributes;
 using Hagalaz.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Hagalaz.Benchmarks
 {
@@ -73,11 +74,15 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark]
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public int ViewportTypedAccess_New()
         {
             // Simulates direct access to pre-maintained typed collection
             var visibleNpcs = _visibleCreaturesListHashSet; // Already typed and maintained
-            return visibleNpcs.Count;
+            return GetCount(visibleNpcs);
         }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private int GetCount(ListHashSet<int> collection) => collection.Count;
     }
 }

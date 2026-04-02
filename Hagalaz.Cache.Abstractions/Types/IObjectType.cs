@@ -1,4 +1,4 @@
-﻿namespace Hagalaz.Cache.Abstractions.Types
+namespace Hagalaz.Cache.Abstractions.Types
 {
     /// <summary>
     /// Defines the contract for a game object type, which represents a static object in the game world,
@@ -6,11 +6,6 @@
     /// </summary>
     public interface IObjectType : IType
     {
-        /// <summary>
-        /// Gets the unique identifier for this object type.
-        /// </summary>
-        int Id { get; }
-
         /// <summary>
         /// Gets or sets the name of the object as it appears in-game.
         /// </summary>

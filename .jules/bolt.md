@@ -25,3 +25,7 @@
 ## 2026-04-02 - [Fast Paths for IReadOnlyList in Enumerable Extensions]
 **Learning:** Adding fast paths for `IList<T>`, `T[]`, and `List<T>` in `IEnumerable` extension methods (like `IndexOf`) is common, but also including a fast path for `IReadOnlyList<T>` captures custom high-performance collections like `ListHashSet<T>`. This avoids the 16-32B allocation for an enumerator and the overhead of interface-based enumeration.
 **Action:** When writing extension methods for `IEnumerable<T>`, include fast paths for `List<T>`, arrays, and `IReadOnlyList<T>` to maximize performance across both standard and custom collections.
+
+## 2026-04-02 - [Preventing Zero-Duration Benchmarks]
+**Learning:** In CI environments, extremely fast benchmarks (like simple property access) can result in a measured duration of 0ns. This triggers a "+∞" ratio regression alert in performance tracking tools.
+**Action:** Always ensure benchmarks perform enough work to be measurable. Use `[MethodImpl(MethodImplOptions.NoInlining)]` on the benchmark method and its called methods, or introduce minimal logic (e.g., passing the result to a non-inlined helper) to prevent compiler optimizations from eliding the code under test.
