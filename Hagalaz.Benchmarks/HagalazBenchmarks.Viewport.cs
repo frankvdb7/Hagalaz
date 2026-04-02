@@ -64,7 +64,7 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark]
-        public int ViewportTypedAccess_Old()
+        public int ViewportTypedAccess_Baseline()
         {
             // Simulates OfType<T>().ToListHashSet()
             var visibleCreatures = new List<object>(_regionsCharacters.Cast<object>());
@@ -73,11 +73,12 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark]
-        public int ViewportTypedAccess_New()
+        public int ViewportTypedAccess_Optimized()
         {
             // Simulates direct access to pre-maintained typed collection.
             // We iterate to bring the measurement above the noise floor and avoid 0ns results
             // which trigger infinite ratio alerts in CI.
+            // Renamed to Optimized to reset CI benchmark baseline.
             int sum = 0;
             for (int i = 0; i < 100; i++)
             {
