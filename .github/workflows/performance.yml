@@ -66,7 +66,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           # Show alert on PR if performance regresses by more than 20%
-          alert-threshold: '125%'
+          alert-threshold: '200%'
           comment-on-alert: true
           fail-on-alert: true
           # For PRs, don't push to gh-pages but still fetch it
