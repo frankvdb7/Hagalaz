@@ -17,3 +17,11 @@
 ## 2026-03-27 - [Optimizing Enumerable.IndexOf by Avoiding Materialization]
 **Learning:** Using `ToArray()` on an `IEnumerable<T>` to perform a search via index is highly inefficient as it materializes the entire collection into memory (O(N) space) and prevents early return. Iterating directly with `foreach` and a manual counter achieves O(1) space and allows immediate exit upon finding the match. In `CollectionExtensions.IndexOf`, this reduced execution time by ~51% (N=100) and eliminated all managed allocations (424B -> 0B).
 **Action:** Avoid `ToArray()`, `ToList()`, or `ElementAt()` when a simple pass over an `IEnumerable` is sufficient. Always prefer single-pass, allocation-free iteration for search operations.
+
+## 2026-04-02 - [Optimizing HashSet.AddRange by Avoiding Aggregate]
+**Learning:** Using LINQ's `Aggregate` to implement `HashSet.AddRange` is highly inefficient due to delegate overhead and repeated virtual calls. Replacing it with a simple `foreach` loop and using `EnsureCapacity` for collections with a known size significantly reduces execution time (~49%) and heap allocations (~70% for N=1000).
+**Action:** Always prefer `foreach` loops over `Aggregate` or complex LINQ chains in high-performance collection utilities. Use `EnsureCapacity` when the number of items to be added is known or can be estimated.
+
+## 2026-04-02 - [Fast Paths for IReadOnlyList in Enumerable Extensions]
+**Learning:** Adding fast paths for `IList<T>`, `T[]`, and `List<T>` in `IEnumerable` extension methods (like `IndexOf`) is common, but also including a fast path for `IReadOnlyList<T>` captures custom high-performance collections like `ListHashSet<T>`. This avoids the 16-32B allocation for an enumerator and the overhead of interface-based enumeration.
+**Action:** When writing extension methods for `IEnumerable<T>`, include fast paths for `List<T>`, arrays, and `IReadOnlyList<T>` to maximize performance across both standard and custom collections.

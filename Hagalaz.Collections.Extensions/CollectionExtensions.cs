@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -22,38 +22,46 @@ namespace Hagalaz.Collections.Extensions
         /// <paramref name="predicate"/>, if found; otherwise, –1.
         /// </returns>
         /// <exception cref="ArgumentNullException"><paramref name="source"/> or <paramref name="predicate"/> is null.</exception>
-        /// <remarks>
-        /// This method is optimized to avoid unnecessary allocations and materialized collections by iterating over the
-        /// <paramref name="source"/> sequence directly and returning the index of the first matching element.
-        /// </remarks>
         public static int IndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
         {
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(predicate);
 
-            // Fast path for collections implementing IList<T> (e.g., List<T>, arrays) to avoid enumerator overhead
-            // and enable direct indexed access.
-            if (source is IList<TSource> list)
+            // Fast path for List<T> to avoid interface overhead and enable direct indexed access.
+            if (source is List<TSource> list)
             {
                 for (int i = 0; i < list.Count; i++)
                 {
-                    if (predicate(list[i]))
-                    {
-                        return i;
-                    }
+                    if (predicate(list[i])) return i;
+                }
+                return -1;
+            }
+
+            // Fast path for arrays to avoid interface overhead and enable direct indexed access.
+            if (source is TSource[] array)
+            {
+                for (int i = 0; i < array.Length; i++)
+                {
+                    if (predicate(array[i])) return i;
+                }
+                return -1;
+            }
+
+            // Fallback for other IList<T> implementations.
+            if (source is IList<TSource> ilist)
+            {
+                for (int i = 0; i < ilist.Count; i++)
+                {
+                    if (predicate(ilist[i])) return i;
                 }
                 return -1;
             }
 
             var index = 0;
-            // General path for other IEnumerable sources (e.g., sequences, generators).
-            // Iterating directly to avoid materialization (e.g., ToArray()) and support early exit.
+            // General path for other IEnumerable sources.
             foreach (var item in source)
             {
-                if (predicate(item))
-                {
-                    return index;
-                }
+                if (predicate(item)) return index;
                 index++;
             }
             return -1;
@@ -69,12 +77,31 @@ namespace Hagalaz.Collections.Extensions
         /// <c>true</c> if all items from the collection were successfully added;
         /// <c>false</c> if at least one item was already present in the hash set.
         /// </returns>
-        /// <exception cref="ArgumentNullException"><paramref name="items"/> is null.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="this"/> or <paramref name="items"/> is null.</exception>
         public static bool AddRange<T>(this HashSet<T> @this, IEnumerable<T> items)
         {
+            ArgumentNullException.ThrowIfNull(@this);
             ArgumentNullException.ThrowIfNull(items);
 
-            return items.Aggregate(true, (current, item) => current & @this.Add(item));
+            // Optimization: If the items collection is an ICollection or IReadOnlyCollection,
+            // we can pre-allocate capacity to reduce the number of resizes.
+            if (items is ICollection<T> collection)
+            {
+                @this.EnsureCapacity(@this.Count + collection.Count);
+            }
+            else if (items is IReadOnlyCollection<T> readOnlyCollection)
+            {
+                @this.EnsureCapacity(@this.Count + readOnlyCollection.Count);
+            }
+
+            var allAdded = true;
+            // Optimization: Replace Aggregate with a simple foreach loop to avoid delegate overhead
+            // and unnecessary allocations.
+            foreach (var item in items)
+            {
+                if (!@this.Add(item)) allAdded = false;
+            }
+            return allAdded;
         }
 
         /// <summary>
@@ -88,6 +115,20 @@ namespace Hagalaz.Collections.Extensions
         {
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(action);
+
+            // Fast path for List<T> to avoid interface overhead.
+            if (source is List<T> list)
+            {
+                for (int i = 0; i < list.Count; i++) action(list[i]);
+                return;
+            }
+
+            // Fast path for arrays to avoid interface overhead.
+            if (source is T[] array)
+            {
+                for (int i = 0; i < array.Length; i++) action(array[i]);
+                return;
+            }
 
             foreach (var item in source)
             {
