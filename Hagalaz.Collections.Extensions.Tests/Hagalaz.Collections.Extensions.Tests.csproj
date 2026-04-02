@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Collections.Extensions\Hagalaz.Collections.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Collections\Hagalaz.Collections.csproj" />
   </ItemGroup>
 
 </Project>

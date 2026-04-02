@@ -9,6 +9,7 @@ namespace Hagalaz.Benchmarks
     {
         private List<int> _list = null!;
         private ListHashSet<int> _listHashSet = null!;
+        private HashSet<int> _hashSet = null!;
         private int _lookupValue;
         private ConcurrentStore<int, int> _concurrentStore = null!;
 
@@ -16,6 +17,7 @@ namespace Hagalaz.Benchmarks
         {
             _list = Enumerable.Range(0, N).ToList();
             _listHashSet = _list.ToListHashSet();
+            _hashSet = new HashSet<int>(_list);
             _lookupValue = N - 1;
 
             _concurrentStore = new ConcurrentStore<int, int>();
@@ -58,5 +60,15 @@ namespace Hagalaz.Benchmarks
         /// </summary>
         [Benchmark]
         public int EnumerableIndexOf() => Hagalaz.Collections.Extensions.CollectionExtensions.IndexOf(_list, i => i == _lookupValue);
+
+        [Benchmark]
+        public int ListHashSetIndexOf() => Hagalaz.Collections.Extensions.CollectionExtensions.IndexOf(_listHashSet, i => i == _lookupValue);
+
+        [Benchmark]
+        public bool HashSetAddRange()
+        {
+            var set = new HashSet<int>();
+            return Hagalaz.Collections.Extensions.CollectionExtensions.AddRange(set, _list);
+        }
     }
 }
