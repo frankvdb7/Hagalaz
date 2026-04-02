@@ -4,7 +4,7 @@ import { CharacterStatisticEntity } from "@app/main/highscores/highscores.models
 export function mapStatisticsResult(result: GetAllCharacterStatisticsResult): [stats: CharacterStatisticEntity[], total: number] {
     return [
         result.results?.map((s, index) => {
-            const stat = s.statistics[0];
+            const stat = s.statistics && s.statistics.length > 0 ? s.statistics[0] : { level: 1, experience: 0 };
             return {
                 rank: (result.metaData.page - 1) * result.metaData.limit + (index + 1),
                 name: s.displayName,

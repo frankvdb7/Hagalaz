@@ -9,3 +9,15 @@
 **Cause:** Incorrect usage of the MassTransit `GetResponse` return value in the controller action.
 **Fix:** Changed the return statement to use `response.Message.Result` instead of `response`.
 **Prevention:** Always extract the actual DTO (`Result` property) from MassTransit/Mediator response messages before returning them in a Web API controller to match the `ActionResult<T>` signature. Added unit tests for `StatsController` to verify correct return types.
+
+## 2026-04-02 - [Highscores] Fix character statistics sorting and frontend stability
+**Bug:** Highscores sorting was non-functional, and the highscores page could crash if a player had no statistics records.
+**Cause:**
+1. The `SortModel.Experience` property in the backend DTO lacked an `init` accessor, preventing deserialization from the frontend.
+2. The frontend mapping function `mapStatisticsResult` accessed `statistics[0]` without checking if the array was present or had elements.
+3. The backend controller deconstructed the request object without a null guard.
+**Fix:**
+1. Added `init` to `SortModel.Experience`.
+2. Added a safety check and default values for missing statistics in the frontend mapping.
+3. Added a null guard for the request in the `StatsController.GetAll` method.
+**Prevention:** Ensure DTOs used for deserialization have appropriate accessors and always validate array presence before indexing in mapping functions.
