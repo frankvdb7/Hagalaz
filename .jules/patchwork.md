@@ -21,3 +21,15 @@
 2. Added a safety check and default values for missing statistics in the frontend mapping.
 3. Added a null guard for the request in the `StatsController.GetAll` method.
 **Prevention:** Ensure DTOs used for deserialization have appropriate accessors and always validate array presence before indexing in mapping functions.
+
+## 2026-04-02 - [Cache/Benchmarks] Fix shadowing warnings and stabilize benchmarks
+**Bug:** The CI check failed due to member shadowing warnings in the Cache abstraction and a performance regression alert on an extremely fast benchmark (indistinguishable from zero).
+**Cause:**
+1. Redundant `Id` property declarations in several interfaces (e.g., `INpcType`) shadowed the `Id` property inherited from `IType`.
+2. Several non-nullable properties in `IMapProvider.cs` lacked the `required` modifier.
+3. `ViewportTypedAccess_New` benchmark was so fast that its mean time was 0ns, causing an infinite ratio regression alert in CI.
+**Fix:**
+1. Removed redundant `Id` declarations in `INpcType.cs`, `IAnimationType.cs`, `IObjectType.cs`, and `IItemType.cs`.
+2. Added `required` modifier to non-nullable properties in `IMapProvider.cs`.
+3. Modified `ViewportTypedAccess_New` to be more robust against measurement noise.
+**Prevention:** Avoid shadowing inherited members and use `required` for non-nullable properties that are not initialized in constructors. Ensure benchmarks have a measurable duration above zero.

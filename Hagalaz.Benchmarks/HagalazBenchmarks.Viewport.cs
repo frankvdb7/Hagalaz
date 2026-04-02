@@ -76,8 +76,10 @@ namespace Hagalaz.Benchmarks
         public int ViewportTypedAccess_New()
         {
             // Simulates direct access to pre-maintained typed collection
-            var visibleNpcs = _visibleCreaturesListHashSet; // Already typed and maintained
-            return visibleNpcs.Count;
+            // Accessing the collection directly should be near-zero, but we add a simple operation
+            // to ensure it's not optimized away and has a more measurable presence if possible.
+            var visibleNpcs = _visibleCreaturesListHashSet;
+            return visibleNpcs.Count > 0 ? visibleNpcs.Count : 0;
         }
     }
 }

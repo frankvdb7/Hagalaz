@@ -1,4 +1,4 @@
-﻿namespace Hagalaz.Cache.Abstractions.Types
+namespace Hagalaz.Cache.Abstractions.Types
 {
     /// <summary>
     /// Defines the contract for a Non-Player Character (NPC) type, containing all the
@@ -6,11 +6,6 @@
     /// </summary>
     public interface INpcType : IType
     {
-        /// <summary>
-        /// Gets the unique identifier for this NPC type.
-        /// </summary>
-        int Id { get; }
-
         /// <summary>
         /// Gets or sets the combat level of the NPC. This value may be adjusted after being loaded from the cache.
         /// </summary>

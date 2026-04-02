@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Cache.Abstractions.Model;
 
 namespace Hagalaz.Cache.Abstractions.Types
@@ -9,11 +9,6 @@ namespace Hagalaz.Cache.Abstractions.Types
     /// </summary>
     public interface IItemType : IType
     {
-        /// <summary>
-        /// Gets the unique identifier for this item type.
-        /// </summary>
-        int Id { get; }
-
         /// <summary>
         /// Gets the name of the item as it appears in-game.
         /// </summary>
