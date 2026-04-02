@@ -75,11 +75,15 @@ namespace Hagalaz.Benchmarks
         [Benchmark]
         public int ViewportTypedAccess_New()
         {
-            // Simulates direct access to pre-maintained typed collection
-            // Accessing the collection directly should be near-zero, but we add a simple operation
-            // to ensure it's not optimized away and has a more measurable presence if possible.
-            var visibleNpcs = _visibleCreaturesListHashSet;
-            return visibleNpcs.Count > 0 ? visibleNpcs.Count : 0;
+            // Simulates direct access to pre-maintained typed collection.
+            // We iterate to bring the measurement above the noise floor and avoid 0ns results
+            // which trigger infinite ratio alerts in CI.
+            int sum = 0;
+            for (int i = 0; i < 100; i++)
+            {
+                sum += _visibleCreaturesListHashSet.Count;
+            }
+            return sum;
         }
     }
 }
