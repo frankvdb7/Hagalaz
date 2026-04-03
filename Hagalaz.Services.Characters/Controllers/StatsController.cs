@@ -46,6 +46,12 @@ namespace Hagalaz.Services.Characters.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult<GetAllCharacterStatisticsResult>> GetAll([FromBody] GetAllCharacterStatisticsRequest request)
         {
+            // Guard against null request to prevent NullReferenceException on deconstruction.
+            if (request == null)
+            {
+                return BadRequest();
+            }
+
             var (sort, filter) = request;
             var response = await _getAllCharacterStatisticsQuery.GetResponse<GetAllCharacterStatisticsResult>(new GetAllCharacterStatisticsQuery
             {
