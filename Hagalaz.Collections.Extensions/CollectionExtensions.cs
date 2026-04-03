@@ -74,7 +74,24 @@ namespace Hagalaz.Collections.Extensions
         {
             ArgumentNullException.ThrowIfNull(items);
 
-            return items.Aggregate(true, (current, item) => current & @this.Add(item));
+            // Optimization: If the items collection has a known count, pre-expand the HashSet capacity
+            // to minimize rehashing during the bulk add operation.
+            if (items is ICollection<T> collection)
+            {
+                @this.EnsureCapacity(@this.Count + collection.Count);
+            }
+            else if (items is IReadOnlyCollection<T> readOnlyCollection)
+            {
+                @this.EnsureCapacity(@this.Count + readOnlyCollection.Count);
+            }
+
+            var allAdded = true;
+            // Using foreach instead of LINQ Aggregate to avoid delegate allocations and overhead.
+            foreach (var item in items)
+            {
+                allAdded &= @this.Add(item);
+            }
+            return allAdded;
         }
 
         /// <summary>
@@ -89,6 +106,37 @@ namespace Hagalaz.Collections.Extensions
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(action);
 
+            // Fast path for List<T> to avoid enumerator boxing and use indexed access.
+            if (source is List<T> list)
+            {
+                for (int i = 0; i < list.Count; i++)
+                {
+                    action(list[i]);
+                }
+                return;
+            }
+
+            // Fast path for arrays to avoid enumerator boxing and use indexed access.
+            if (source is T[] array)
+            {
+                for (int i = 0; i < array.Length; i++)
+                {
+                    action(array[i]);
+                }
+                return;
+            }
+
+            // Fast path for generic IList<T> to avoid enumerator boxing.
+            if (source is IList<T> iList)
+            {
+                for (int i = 0; i < iList.Count; i++)
+                {
+                    action(iList[i]);
+                }
+                return;
+            }
+
+            // General path for other IEnumerable sources (e.g., sequences, generators).
             foreach (var item in source)
             {
                 action(item);
