@@ -63,21 +63,31 @@ namespace Hagalaz.Benchmarks
             return visibleCreatures.Count;
         }
 
-        [Benchmark]
+        [Benchmark(OperationsPerInvoke = 100)]
         public int ViewportTypedAccess_Old()
         {
             // Simulates OfType<T>().ToListHashSet()
-            var visibleCreatures = new List<object>(_regionsCharacters.Cast<object>());
-            var result = visibleCreatures.OfType<int>().ToListHashSet();
-            return result.Count;
+            int total = 0;
+            for (int i = 0; i < 100; i++)
+            {
+                var visibleCreatures = new List<object>(_regionsCharacters.Cast<object>());
+                var result = visibleCreatures.OfType<int>().ToListHashSet();
+                total += result.Count;
+            }
+            return total;
         }
 
-        [Benchmark]
+        [Benchmark(OperationsPerInvoke = 100)]
         public int ViewportTypedAccess_New()
         {
             // Simulates direct access to pre-maintained typed collection
-            var visibleNpcs = _visibleCreaturesListHashSet; // Already typed and maintained
-            return visibleNpcs.Count;
+            int total = 0;
+            for (int i = 0; i < 100; i++)
+            {
+                var visibleNpcs = _visibleCreaturesListHashSet;
+                total += visibleNpcs.Count;
+            }
+            return total;
         }
     }
 }
