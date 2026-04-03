@@ -9,3 +9,9 @@
 **Cause:** Incorrect usage of the MassTransit `GetResponse` return value in the controller action.
 **Fix:** Changed the return statement to use `response.Message.Result` instead of `response`.
 **Prevention:** Always extract the actual DTO (`Result` property) from MassTransit/Mediator response messages before returning them in a Web API controller to match the `ActionResult<T>` signature. Added unit tests for `StatsController` to verify correct return types.
+
+## 2025-05-16 - [StatsController.GetAll NullReferenceException on Deconstruction]
+**Bug:** The `StatsController.GetAll` method would crash with a `NullReferenceException` if the request body was empty.
+**Cause:** Attempting to deconstruct a null `GetAllCharacterStatisticsRequest` object (`var (sort, filter) = request;`).
+**Fix:** Added an explicit null check for the `request` parameter and return `BadRequest()` if it is null.
+**Prevention:** Always perform null checks on `[FromBody]` parameters in ASP.NET Core controllers before deconstructing or accessing their properties. Added a unit test to verify that a null request returns `BadRequest`.
