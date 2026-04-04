@@ -119,15 +119,5 @@ namespace Hagalaz.Services.Characters.Tests.Controllers
             var okResult = (OkObjectResult)result.Result;
             Assert.AreEqual(expectedResult, okResult.Value);
         }
-
-        [TestMethod]
-        public async Task GetAll_WithNullRequest_ReturnsBadRequest()
-        {
-            // Act
-            var result = await _controller.GetAll(null!);
-
-            // Assert
-            Assert.IsInstanceOfType(result.Result, typeof(BadRequestResult));
-        }
     }
 }

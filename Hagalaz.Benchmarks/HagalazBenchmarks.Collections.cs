@@ -58,5 +58,27 @@ namespace Hagalaz.Benchmarks
         /// </summary>
         [Benchmark]
         public int EnumerableIndexOf() => Hagalaz.Collections.Extensions.CollectionExtensions.IndexOf(_list, i => i == _lookupValue);
+
+        /// <summary>
+        /// Benchmarks the AddRange extension method for HashSet.
+        /// </summary>
+        [Benchmark]
+        public HashSet<int> HashSetAddRange()
+        {
+            var set = new HashSet<int>();
+            Hagalaz.Collections.Extensions.CollectionExtensions.AddRange(set, _list);
+            return set;
+        }
+
+        /// <summary>
+        /// Benchmarks the ForEach extension method for IEnumerable.
+        /// </summary>
+        [Benchmark]
+        public int EnumerableForEach()
+        {
+            int sum = 0;
+            Hagalaz.Collections.Extensions.CollectionExtensions.ForEach(_list, i => sum += i);
+            return sum;
+        }
     }
 }
