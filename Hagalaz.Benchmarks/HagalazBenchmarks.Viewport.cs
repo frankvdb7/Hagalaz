@@ -63,28 +63,31 @@ namespace Hagalaz.Benchmarks
             return visibleCreatures.Count;
         }
 
-        [Benchmark]
-        public int ViewportTypedAccess_Baseline()
+        [Benchmark(OperationsPerInvoke = 100)]
+        public int ViewportTypedAccess_Cast_Baseline()
         {
             // Simulates OfType<T>().ToListHashSet()
-            var visibleCreatures = new List<object>(_regionsCharacters.Cast<object>());
-            var result = visibleCreatures.OfType<int>().ToListHashSet();
-            return result.Count;
-        }
-
-        [Benchmark]
-        public int ViewportTypedAccess_Optimized()
-        {
-            // Simulates direct access to pre-maintained typed collection.
-            // We iterate to bring the measurement above the noise floor and avoid 0ns results
-            // which trigger infinite ratio alerts in CI.
-            // Renamed to Optimized to reset CI benchmark baseline.
-            int sum = 0;
+            int total = 0;
             for (int i = 0; i < 100; i++)
             {
-                sum += _visibleCreaturesListHashSet.Count;
+                var visibleCreatures = new List<object>(_regionsCharacters.Cast<object>());
+                var result = visibleCreatures.OfType<int>().ToListHashSet();
+                total += result.Count;
             }
-            return sum;
+            return total;
+        }
+
+        [Benchmark(OperationsPerInvoke = 100)]
+        public int ViewportTypedAccess_Direct_Optimized()
+        {
+            // Simulates direct access to pre-maintained typed collection
+            int total = 0;
+            for (int i = 0; i < 100; i++)
+            {
+                var visibleNpcs = _visibleCreaturesListHashSet;
+                total += visibleNpcs.Count;
+            }
+            return total;
         }
     }
 }
