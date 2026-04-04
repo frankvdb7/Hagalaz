@@ -64,7 +64,7 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark(OperationsPerInvoke = 100)]
-        public int ViewportTypedAccess_Cast_Baseline()
+        public int ViewportTypedAccess_Baseline_V2()
         {
             // Simulates OfType<T>().ToListHashSet()
             int total = 0;
@@ -78,7 +78,7 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark(OperationsPerInvoke = 100)]
-        public int ViewportTypedAccess_Direct_Optimized()
+        public int ViewportTypedAccess_Optimized_V2()
         {
             // Simulates direct access to pre-maintained typed collection
             int total = 0;

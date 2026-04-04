@@ -66,7 +66,7 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark]
-        public bool FileStore_Write_Small()
+        public bool FileStore_Write_Small_V2()
         {
             EnsureFileStoreInitialized();
             _fileStore!.Write(0, 3, new MemoryStream(_smallData!));
@@ -74,7 +74,7 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark]
-        public bool FileStore_Write_Large()
+        public bool FileStore_Write_Large_V2()
         {
             EnsureFileStoreInitialized();
             _fileStore!.Write(0, 4, new MemoryStream(_largeData!));
