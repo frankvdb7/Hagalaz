@@ -31,8 +31,20 @@ namespace Hagalaz.Collections.Extensions
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(predicate);
 
-            // Fast path for collections implementing IList<T> (e.g., List<T>, arrays) to avoid enumerator overhead
-            // and enable direct indexed access.
+            // Fast path for collections implementing IReadOnlyList<T> or IList<T> (e.g., List<T>, arrays, ImmutableArray<T>)
+            // to avoid enumerator overhead and enable direct indexed access.
+            if (source is IReadOnlyList<TSource> readOnlyList)
+            {
+                for (int i = 0; i < readOnlyList.Count; i++)
+                {
+                    if (predicate(readOnlyList[i]))
+                    {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+
             if (source is IList<TSource> list)
             {
                 for (int i = 0; i < list.Count; i++)
@@ -126,7 +138,16 @@ namespace Hagalaz.Collections.Extensions
                 return;
             }
 
-            // Fast path for generic IList<T> to avoid enumerator boxing.
+            // Fast path for generic IReadOnlyList<T> or IList<T> to avoid enumerator boxing.
+            if (source is IReadOnlyList<T> readOnlyList)
+            {
+                for (int i = 0; i < readOnlyList.Count; i++)
+                {
+                    action(readOnlyList[i]);
+                }
+                return;
+            }
+
             if (source is IList<T> iList)
             {
                 for (int i = 0; i < iList.Count; i++)
