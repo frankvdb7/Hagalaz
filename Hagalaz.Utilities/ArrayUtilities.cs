@@ -11,7 +11,7 @@ namespace Hagalaz.Utilities
         /// <summary>
         /// Combines multiple arrays of integers into a single array.
         /// </summary>
-        /// <param name="arrays">A variable number of integer arrays to be combined.</param>
+        /// <param name="arrays">A variable number of integer arrays to be combined. Null inner arrays are ignored.</param>
         /// <returns>An array of <see cref="int"/> containing all the elements from the input arrays in the order they were provided.</returns>
         public static int[] MakeArray(params int[][] arrays)
         {
@@ -24,7 +24,11 @@ namespace Hagalaz.Utilities
             int total = 0;
             for (int i = 0; i < arrays.Length; i++)
             {
-                total += arrays[i].Length;
+                int[] inner = arrays[i];
+                if (inner != null)
+                {
+                    total += inner.Length;
+                }
             }
 
             int[] result = new int[total];
@@ -34,11 +38,14 @@ namespace Hagalaz.Utilities
             for (int i = 0; i < arrays.Length; i++)
             {
                 int[] source = arrays[i];
-                int length = source.Length;
-                if (length > 0)
+                if (source != null)
                 {
-                    Array.Copy(source, 0, result, offset, length);
-                    offset += length;
+                    int length = source.Length;
+                    if (length > 0)
+                    {
+                        Array.Copy(source, 0, result, offset, length);
+                        offset += length;
+                    }
                 }
             }
 

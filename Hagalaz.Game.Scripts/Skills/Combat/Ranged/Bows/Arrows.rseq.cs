@@ -433,37 +433,6 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         }
 
         /// <summary>
-        ///     Make's one array from given arrays.
-        /// </summary>
-        /// <returns></returns>
-        private static int[] MakeArray(params int[][] arrays)
-        {
-            // Optimization: Use a manual loop to calculate total length to avoid LINQ Sum overhead.
-            int total = 0;
-            for (int i = 0; i < arrays.Length; i++)
-            {
-                total += arrays[i].Length;
-            }
-
-            int[] result = new int[total];
-            int offset = 0;
-
-            // Optimization: Use System.Array.Copy for high-performance block copying instead of nested foreach loops.
-            for (int i = 0; i < arrays.Length; i++)
-            {
-                int[] source = arrays[i];
-                int length = source.Length;
-                if (length > 0)
-                {
-                    System.Array.Copy(source, 0, result, offset, length);
-                    offset += length;
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
         ///     Happens when arrows are equipped for this character.
         /// </summary>
         public override void OnEquipped(IItem item, ICharacter character)
