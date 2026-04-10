@@ -1,0 +1,488 @@
+diff --git a/Hagalaz.Cache.Tests/AnimationTypeCodecTests.cs b/Hagalaz.Cache.Tests/AnimationTypeCodecTests.cs
+index 3b62b49..72b2a19 100644
+--- a/Hagalaz.Cache.Tests/AnimationTypeCodecTests.cs
++++ b/Hagalaz.Cache.Tests/AnimationTypeCodecTests.cs
+@@ -122,7 +122,7 @@ namespace Hagalaz.Cache.Tests
+             Assert.Equal(12345, decodedAnimation.SoundSettings[0][0]);
+             Assert.Equal(100, decodedAnimation.SoundSettings[0][1]);
+             Assert.NotNull(decodedAnimation.SoundSettings[1]);
+-            Assert.Equal(1, decodedAnimation.SoundSettings[1].Length);
++            Assert.Single(decodedAnimation.SoundSettings[1]);
+             Assert.Equal(54321, decodedAnimation.SoundSettings[1][0]);
+         }
+
+diff --git a/Hagalaz.Collections.Extensions.Tests/CollectionExtensionsTests.cs b/Hagalaz.Collections.Extensions.Tests/CollectionExtensionsTests.cs
+index 25afba7..34cd458 100644
+--- a/Hagalaz.Collections.Extensions.Tests/CollectionExtensionsTests.cs
++++ b/Hagalaz.Collections.Extensions.Tests/CollectionExtensionsTests.cs
+@@ -20,7 +20,7 @@ namespace Hagalaz.Collections.Extensions.Tests
+             var set = new HashSet<int> { 1, 2 };
+             var list = new List<int> { 3, 4 };
+             set.AddRange(list);
+-            Assert.AreEqual(4, set.Count);
++            Assert.HasCount(4, set);
+         }
+
+         [TestMethod]
+diff --git a/Hagalaz.Collections.Tests/ConcurrentStoreTests.cs b/Hagalaz.Collections.Tests/ConcurrentStoreTests.cs
+index ec48146..81ca9ca 100644
+--- a/Hagalaz.Collections.Tests/ConcurrentStoreTests.cs
++++ b/Hagalaz.Collections.Tests/ConcurrentStoreTests.cs
+@@ -86,7 +86,7 @@ namespace Hagalaz.Collections.Tests
+             store.TryAdd("a", 1);
+             store.TryAdd("b", 2);
+             var list = store.ToList();
+-            Assert.AreEqual(2, list.Count);
++            Assert.HasCount(2, list);
+         }
+
+         [TestMethod]
+diff --git a/Hagalaz.Collections.Tests/LazyListTests.cs b/Hagalaz.Collections.Tests/LazyListTests.cs
+index 1442ec8..4e6ee0c 100644
+--- a/Hagalaz.Collections.Tests/LazyListTests.cs
++++ b/Hagalaz.Collections.Tests/LazyListTests.cs
+@@ -132,7 +132,7 @@ namespace Hagalaz.Collections.Tests
+
+             // Assert
+             Assert.AreEqual(3, enumerationCount, "The source should only be enumerated as far as needed.");
+-            Assert.AreEqual(3, subset.Count);
++            Assert.HasCount(3, subset);
+         }
+
+         [TestMethod]
+@@ -161,10 +161,10 @@ namespace Hagalaz.Collections.Tests
+
+             // Assert
+             Assert.AreEqual(100, enumerationCount, "The source should be enumerated exactly once, even with multiple threads.");
+-            Assert.AreEqual(10, allElements.Count, "All tasks should complete and add their element lists.");
++            Assert.HasCount(10, allElements, "All tasks should complete and add their element lists.");
+             foreach (var elements in allElements)
+             {
+-                Assert.AreEqual(100, elements.Count, "Each thread should get all the elements.");
++                Assert.HasCount(100, elements, "Each thread should get all the elements.");
+                 CollectionAssert.AreEqual(Enumerable.Range(0, 100).ToList(), elements, "The elements should be consistent across all threads.");
+             }
+         }
+diff --git a/Hagalaz.Collections.Tests/ListHashSetTests.cs b/Hagalaz.Collections.Tests/ListHashSetTests.cs
+index e8549ad..4e34e05 100644
+--- a/Hagalaz.Collections.Tests/ListHashSetTests.cs
++++ b/Hagalaz.Collections.Tests/ListHashSetTests.cs
+@@ -78,7 +78,7 @@ namespace Hagalaz.Collections.Tests
+             collection.Add(3);
+
+             var list = collection.ToList();
+-            Assert.AreEqual(3, list.Count);
++            Assert.HasCount(3, list);
+             Assert.AreEqual(1, list[0]);
+             Assert.AreEqual(2, list[1]);
+             Assert.AreEqual(3, list[2]);
+@@ -130,7 +130,7 @@ namespace Hagalaz.Collections.Tests
+             // Assert
+             // ListHashSet should be much faster. We use a conservative 5x check
+             // to avoid flakiness while still catching major regressions (like falling back to O(N)).
+-            Assert.IsTrue(listHashSetTime < listTime / 5,
++            Assert.IsLessThan(listTime / 5, listHashSetTime,
+                 $"Performance regression: ListHashSet.Contains ({listHashSetTime} ticks) should be at least 5x faster than List.Contains ({listTime} ticks)");
+         }
+     }
+diff --git a/Hagalaz.Game.Abstractions.Tests/Collections/BaseItemContainerTests.cs b/Hagalaz.Game.Abstractions.Tests/Collections/BaseItemContainerTests.cs
+index c805101..d8308a8 100644
+--- a/Hagalaz.Game.Abstractions.Tests/Collections/BaseItemContainerTests.cs
++++ b/Hagalaz.Game.Abstractions.Tests/Collections/BaseItemContainerTests.cs
+@@ -959,7 +959,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
+             var array = container.ToArray();
+
+             // Assert
+-            Assert.AreEqual(10, array.Length);
++            Assert.HasCount(10, array);
+             Assert.IsNotNull(array[0]);
+             Assert.AreEqual(1, array[0].Id);
+         }
+diff --git a/Hagalaz.Game.Scripts.Tests/Commands/SearchNpcCommandTests.cs b/Hagalaz.Game.Scripts.Tests/Commands/SearchNpcCommandTests.cs
+index 252420f..bfb0638 100644
+--- a/Hagalaz.Game.Scripts.Tests/Commands/SearchNpcCommandTests.cs
++++ b/Hagalaz.Game.Scripts.Tests/Commands/SearchNpcCommandTests.cs
+@@ -6,7 +6,6 @@ using Hagalaz.Game.Scripts.Commands;
+ using Microsoft.VisualStudio.TestTools.UnitTesting;
+ using NSubstitute;
+ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+
+ namespace Hagalaz.Game.Scripts.Tests.Commands
+ {
+diff --git a/Hagalaz.Game.Scripts.Tests/Commands/TeleportCommandTests.cs b/Hagalaz.Game.Scripts.Tests/Commands/TeleportCommandTests.cs
+index 430b82e..e2f02a9 100644
+--- a/Hagalaz.Game.Scripts.Tests/Commands/TeleportCommandTests.cs
++++ b/Hagalaz.Game.Scripts.Tests/Commands/TeleportCommandTests.cs
+@@ -13,12 +13,12 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
+     [TestClass]
+     public class TeleportCommandTests
+     {
+-        private Mock<ITeleportBuilder> _teleportBuilderMock;
+-        private Mock<ITeleportType> _teleportTypeMock;
+-        private Mock<ITeleportY> _teleportYMock;
+-        private Mock<ITeleportOptional> _teleportOptionalMock;
+-        private Mock<ITeleport> _teleportMock;
+-        private TeleportCommand _teleportCommand;
++        private Mock<ITeleportBuilder> _teleportBuilderMock = null!;
++        private Mock<ITeleportType> _teleportTypeMock = null!;
++        private Mock<ITeleportY> _teleportYMock = null!;
++        private Mock<ITeleportOptional> _teleportOptionalMock = null!;
++        private Mock<ITeleport> _teleportMock = null!;
++        private TeleportCommand _teleportCommand = null!;
+
+         [TestInitialize]
+         public void Setup()
+diff --git a/Hagalaz.Game.Scripts.Tests/Skills/Woodcutting/WoodcuttingSkillServiceTests.cs b/Hagalaz.Game.Scripts.Tests/Skills/Woodcutting/WoodcuttingSkillServiceTests.cs
+index 4253d94..69bbf2b 100644
+--- a/Hagalaz.Game.Scripts.Tests/Skills/Woodcutting/WoodcuttingSkillServiceTests.cs
++++ b/Hagalaz.Game.Scripts.Tests/Skills/Woodcutting/WoodcuttingSkillServiceTests.cs
+@@ -29,20 +29,20 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
+     [TestClass]
+     public class WoodcuttingSkillServiceTests
+     {
+-        private IServiceProvider _serviceProvider;
+-        private ICharacterStore _characterStore;
+-        private IRsTaskService _rsTaskService;
+-        private IWoodcuttingService _woodcuttingService;
+-        private ILootService _lootService;
+-        private WoodcuttingSkillService _woodcuttingSkillService;
+-        private ILootGenerator _lootGenerator;
+-        private IItemBuilder _itemBuilder;
+-        private IGroundItemBuilder _groundItemBuilder;
+-        private IGameObjectService _gameObjectService;
+-        private IGameObjectBuilder _gameObjectBuilder;
+-        private IGameObjectId _gameObjectId;
+-        private IGameObjectLocation _gameObjectLocation;
+-        private IGameObjectOptional _gameObjectOptional;
++        private IServiceProvider _serviceProvider = null!;
++        private ICharacterStore _characterStore = null!;
++        private IRsTaskService _rsTaskService = null!;
++        private IWoodcuttingService _woodcuttingService = null!;
++        private ILootService _lootService = null!;
++        private WoodcuttingSkillService _woodcuttingSkillService = null!;
++        private ILootGenerator _lootGenerator = null!;
++        private IItemBuilder _itemBuilder = null!;
++        private IGroundItemBuilder _groundItemBuilder = null!;
++        private IGameObjectService _gameObjectService = null!;
++        private IGameObjectBuilder _gameObjectBuilder = null!;
++        private IGameObjectId _gameObjectId = null!;
++        private IGameObjectLocation _gameObjectLocation = null!;
++        private IGameObjectOptional _gameObjectOptional = null!;
+
+
+         [TestInitialize]
+diff --git a/Hagalaz.Services.Cache.Tests/Features/CacheEndpointsAuthorizationTests.cs b/Hagalaz.Services.Cache.Tests/Features/CacheEndpointsAuthorizationTests.cs
+index 816a460..153ff25 100644
+--- a/Hagalaz.Services.Cache.Tests/Features/CacheEndpointsAuthorizationTests.cs
++++ b/Hagalaz.Services.Cache.Tests/Features/CacheEndpointsAuthorizationTests.cs
+@@ -30,7 +30,7 @@ public class CacheEndpointsAuthorizationTests
+             .Where(endpoint => endpoint.RoutePattern.RawText is not null && endpoint.RoutePattern.RawText.Contains("api/v1/cache"))
+             .ToArray();
+
+-        Assert.IsTrue(cacheEndpoints.Length > 0);
++        Assert.IsNotEmpty(cacheEndpoints);
+         Assert.IsTrue(cacheEndpoints.All(endpoint =>
+         {
+             var authorizeData = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>();
+diff --git a/Hagalaz.Services.GameWorld.Tests/CharacterProfileTests.cs b/Hagalaz.Services.GameWorld.Tests/CharacterProfileTests.cs
+index 745d69b..7745d1f 100644
+--- a/Hagalaz.Services.GameWorld.Tests/CharacterProfileTests.cs
++++ b/Hagalaz.Services.GameWorld.Tests/CharacterProfileTests.cs
+@@ -76,7 +76,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+
+             profile.SetValue("a.b.c.d", 5);
+             var dto = profile.Dehydrate();
+-            Assert.AreEqual(dto.JsonData, "{\"a\":{\"b\":{\"c\":{\"d\":5}}}}", true);
++            Assert.AreEqual("{\"a\":{\"b\":{\"c\":{\"d\":5}}}}", dto.JsonData, true);
+         }
+
+         [TestMethod]
+@@ -143,7 +143,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+             profile.Hydrate(new HydratedProfileDto { JsonData = _json });
+
+             var result = profile.TryGetValue<int>("a.b", out var value);
+-            Assert.AreEqual(result, true);
++            Assert.IsTrue(result);
+             Assert.AreEqual(1, value);
+         }
+
+@@ -154,7 +154,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+             profile.Hydrate(new HydratedProfileDto { JsonData = _json });
+
+             var result = profile.TryGetValue("h", out var value);
+-            Assert.AreEqual(result, true);
++            Assert.IsTrue(result);
+             Assert.AreEqual("stringvalue", value);
+         }
+
+@@ -186,7 +186,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+         public void Profile_Get_Object_Null()
+         {
+             var profile = new Profile(_jsonOptions);
+-            Assert.AreEqual(null, profile.GetObject<ADto>("b.d.f.g"));
++            Assert.IsNull(profile.GetObject<ADto>("b.d.f.g"));
+         }
+
+         [TestMethod]
+@@ -205,7 +205,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+             profile.Hydrate(new HydratedProfileDto { JsonData = _json });
+
+             var result = profile.TryGetObject<ADto>("a", out var value);
+-            Assert.AreEqual(true, result);
++            Assert.IsTrue(result);
+             Assert.AreEqual(value, new ADto { B = 1, C = new CDto { D = 2 } });
+         }
+
+diff --git a/Hagalaz.Services.GameWorld.Tests/CharacterRenderInformationTests.cs b/Hagalaz.Services.GameWorld.Tests/CharacterRenderInformationTests.cs
+index 2785789..a91c307 100644
+--- a/Hagalaz.Services.GameWorld.Tests/CharacterRenderInformationTests.cs
++++ b/Hagalaz.Services.GameWorld.Tests/CharacterRenderInformationTests.cs
+@@ -54,7 +54,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+
+             // Assert
+             Assert.AreEqual(location, _renderInfo.LastLocation);
+-            Assert.IsTrue(_renderInfo.LocalCharacters.Contains(_owner));
++            Assert.Contains(_owner, _renderInfo.LocalCharacters);
+             Assert.IsTrue(_renderInfo.IsInViewport(_owner.Index));
+         }
+
+diff --git a/Hagalaz.Services.GameWorld.Tests/CreatureCollectionTests.cs b/Hagalaz.Services.GameWorld.Tests/CreatureCollectionTests.cs
+index 7bc510f..9ccf6c5 100644
+--- a/Hagalaz.Services.GameWorld.Tests/CreatureCollectionTests.cs
++++ b/Hagalaz.Services.GameWorld.Tests/CreatureCollectionTests.cs
+@@ -23,7 +23,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+             var collection = new CreatureCollection<CreatureMock>(2000);
+             Assert.AreEqual(2000, collection.Capacity);
+             Assert.AreEqual(0, collection.Count);
+-            Assert.AreEqual(null, collection[1000]);
++            Assert.IsNull(collection[1000]);
+         }
+
+         [TestMethod]
+@@ -106,7 +106,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+             };
+             collection.Remove(creature);
+             Assert.AreEqual(0, collection.Count);
+-            Assert.AreEqual(null, collection[1]);
++            Assert.IsNull(collection[1]);
+         }
+
+         [TestMethod]
+@@ -142,8 +142,8 @@ namespace Hagalaz.Services.GameWorld.Tests
+             collection.Remove(creature1);
+             collection.Remove(creature3);
+             Assert.AreEqual(1, collection.Count);
+-            Assert.AreEqual(null, collection[1]);
+-            Assert.AreEqual(null, collection[3]);
++            Assert.IsNull(collection[1]);
++            Assert.IsNull(collection[3]);
+             Assert.AreEqual(creature2, collection[2]);
+         }
+
+diff --git a/Hagalaz.Services.GameWorld.Tests/CreatureStateTests.cs b/Hagalaz.Services.GameWorld.Tests/CreatureStateTests.cs
+index 3401575..f062a82 100644
+--- a/Hagalaz.Services.GameWorld.Tests/CreatureStateTests.cs
++++ b/Hagalaz.Services.GameWorld.Tests/CreatureStateTests.cs
+@@ -107,9 +107,9 @@ namespace Hagalaz.Services.GameWorld.Tests
+             _creature.AddState(state2);
+
+             var states = _creature.GetStates().ToList();
+-            Assert.AreEqual(2, states.Count);
+-            Assert.IsTrue(states.Contains(state1));
+-            Assert.IsTrue(states.Contains(state2));
++            Assert.HasCount(2, states);
++            Assert.Contains(state1, states);
++            Assert.Contains(state2, states);
+         }
+
+         private class CreatureMock : Creature
+diff --git a/Hagalaz.Services.GameWorld.Tests/GroundItemTickTests.cs b/Hagalaz.Services.GameWorld.Tests/GroundItemTickTests.cs
+index 0d13559..a5532cf 100644
+--- a/Hagalaz.Services.GameWorld.Tests/GroundItemTickTests.cs
++++ b/Hagalaz.Services.GameWorld.Tests/GroundItemTickTests.cs
+@@ -100,7 +100,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+             await region.MajorClientPrepareUpdateTick();
+
+             var items = region.FindAllGroundItems().ToList();
+-            Assert.AreEqual(1, items.Count);
++            Assert.HasCount(1, items);
+             Assert.AreNotSame(item, items[0]);
+             var respawnItem = items[0];
+             Assert.IsTrue(respawnItem.IsRespawning);
+@@ -132,7 +132,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+             await region.MajorClientPrepareUpdateTick();
+             var items = region.FindAllGroundItems().ToList();
+             // Assert state, no debug output
+-            Assert.AreEqual(1, items.Count, "There should be one item after respawn");
++            Assert.HasCount(1, items, "There should be one item after respawn");
+             var respawned = items[0];
+             Assert.IsFalse(respawned.IsRespawning, $"Item should no longer be respawning after respawn, but was: {respawned.IsRespawning}, TicksLeft={respawned.TicksLeft}");
+             Assert.AreEqual(respawned.RespawnTicks, respawned.TicksLeft, "Respawned item should have its ticks reset");
+@@ -148,7 +148,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+             await region.MajorClientPrepareUpdateTick();
+
+             var items = region.FindAllGroundItems().ToList();
+-            Assert.AreEqual(1, items.Count);
++            Assert.HasCount(1, items);
+             Assert.AreNotSame(item, items[0]);
+             Assert.IsNull(items[0].Owner);
+         }
+diff --git a/Hagalaz.Services.GameWorld.Tests/RsTaskServiceTests.cs b/Hagalaz.Services.GameWorld.Tests/RsTaskServiceTests.cs
+index 92b78ff..de48a64 100644
+--- a/Hagalaz.Services.GameWorld.Tests/RsTaskServiceTests.cs
++++ b/Hagalaz.Services.GameWorld.Tests/RsTaskServiceTests.cs
+@@ -31,7 +31,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+             var task3 = Substitute.For<ITaskItem>();
+             taskService.Schedule(task3);
+
+-            Assert.AreEqual(1, taskService.Tasks.Count);
++            Assert.HasCount(1, taskService.Tasks);
+             Assert.AreSame(task3, taskService.Tasks[0]);
+         }
+     }
+diff --git a/Hagalaz.Services.GameWorld.Tests/ViewportTests.cs b/Hagalaz.Services.GameWorld.Tests/ViewportTests.cs
+index 199c0d7..fc7f07e 100644
+--- a/Hagalaz.Services.GameWorld.Tests/ViewportTests.cs
++++ b/Hagalaz.Services.GameWorld.Tests/ViewportTests.cs
+@@ -99,7 +99,7 @@ namespace Hagalaz.Services.GameWorld.Tests
+             _viewport.UpdateTick();
+
+             // Act & Assert
+-            Assert.AreEqual(2, _viewport.VisibleCreatures.Count);
++            Assert.HasCount(2, _viewport.VisibleCreatures);
+             Assert.AreEqual(char1, _viewport.VisibleCreatures[0]);
+             Assert.AreEqual(char2, _viewport.VisibleCreatures[1]);
+         }
+@@ -127,14 +127,14 @@ namespace Hagalaz.Services.GameWorld.Tests
+
+             _viewport.RebuildView();
+             _viewport.UpdateTick();
+-            Assert.AreEqual(1, _viewport.VisibleCreatures.Count);
++            Assert.HasCount(1, _viewport.VisibleCreatures);
+
+             // Rebuild with no creatures
+             region.FindAllCharacters().Returns(new List<ICharacter>());
+             _viewport.UpdateTick();
+
+             // Act & Assert
+-            Assert.AreEqual(0, _viewport.VisibleCreatures.Count);
++            Assert.IsEmpty(_viewport.VisibleCreatures);
+             Assert.IsFalse(_viewport.VisibleCreatures.Contains(character));
+         }
+
+diff --git a/Hagalaz.Utilities.Tests/StringUtilitiesTests.cs b/Hagalaz.Utilities.Tests/StringUtilitiesTests.cs
+index 2ad5321..a959d38 100644
+--- a/Hagalaz.Utilities.Tests/StringUtilitiesTests.cs
++++ b/Hagalaz.Utilities.Tests/StringUtilitiesTests.cs
+@@ -246,7 +246,7 @@ namespace Hagalaz.Utilities.Tests
+             var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
+
+             // Assert
+-            Assert.AreEqual(0, actual.Length);
++            Assert.IsEmpty(actual);
+         }
+
+         [TestMethod]
+@@ -315,7 +315,7 @@ namespace Hagalaz.Utilities.Tests
+             var actual = StringUtilities.DecodeValues(data, int.Parse);
+
+             // Assert
+-            Assert.AreEqual(0, actual.Length);
++            Assert.IsEmpty(actual);
+         }
+
+         [TestMethod]
+@@ -378,7 +378,7 @@ namespace Hagalaz.Utilities.Tests
+             var actual = StringUtilities.SelectIntFromString(input).ToArray();
+
+             // Assert
+-            Assert.AreEqual(0, actual.Length);
++            Assert.IsEmpty(actual);
+         }
+
+         [TestMethod]
+@@ -405,7 +405,7 @@ namespace Hagalaz.Utilities.Tests
+             var actual = StringUtilities.SelectBoolFromString(input).ToArray();
+
+             // Assert
+-            Assert.AreEqual(0, actual.Length);
++            Assert.IsEmpty(actual);
+         }
+
+         [TestMethod]
+@@ -445,7 +445,7 @@ namespace Hagalaz.Utilities.Tests
+             var actual = StringUtilities.DecodeValues(data);
+
+             // Assert
+-            Assert.AreEqual(0, actual.Length);
++            Assert.IsEmpty(actual);
+         }
+
+         [TestMethod]
+@@ -458,7 +458,7 @@ namespace Hagalaz.Utilities.Tests
+             var actual = StringUtilities.DecodeValues(data, int.Parse);
+
+             // Assert
+-            Assert.AreEqual(0, actual.Length);
++            Assert.IsEmpty(actual);
+         }
+
+         [TestMethod]
+@@ -471,7 +471,7 @@ namespace Hagalaz.Utilities.Tests
+             var actual = StringUtilities.DecodeValues(data);
+
+             // Assert
+-            Assert.AreEqual(0, actual.Length);
++            Assert.IsEmpty(actual);
+         }
+     }
+
+diff --git a/Raido.Common.Tests/MemoryBufferWriterTests.cs b/Raido.Common.Tests/MemoryBufferWriterTests.cs
+index 3b27bfe..5a6ae53 100644
+--- a/Raido.Common.Tests/MemoryBufferWriterTests.cs
++++ b/Raido.Common.Tests/MemoryBufferWriterTests.cs
+@@ -73,7 +73,7 @@ namespace Raido.Common.Tests
+             var result = writer.ToArray();
+
+             // Assert
+-            Assert.AreEqual(0, result.Length);
++            Assert.IsEmpty(result);
+             MemoryBufferWriter.Return(writer);
+         }
+
+diff --git a/Raido.Common.Tests/Protocol/RaidoMessageEncoderTests.cs b/Raido.Common.Tests/Protocol/RaidoMessageEncoderTests.cs
+index e3debea..a0ca85f 100644
+--- a/Raido.Common.Tests/Protocol/RaidoMessageEncoderTests.cs
++++ b/Raido.Common.Tests/Protocol/RaidoMessageEncoderTests.cs
+@@ -23,7 +23,7 @@ namespace Raido.Common.Tests.Protocol
+
+             // Assert
+             var result = buffer.ToArray();
+-            Assert.AreEqual(4, result.Length);
++            Assert.HasCount(4, result);
+             CollectionAssert.AreEqual(new byte[] { 116, 101, 115, 116 }, result);
+             MemoryBufferWriter.Return(buffer);
+         }
+diff --git a/Raido.Common.Tests/RaidoMessageBinaryWriterTest.cs b/Raido.Common.Tests/RaidoMessageBinaryWriterTest.cs
+index 3ba544f..f316919 100644
+--- a/Raido.Common.Tests/RaidoMessageBinaryWriterTest.cs
++++ b/Raido.Common.Tests/RaidoMessageBinaryWriterTest.cs
+@@ -93,7 +93,7 @@ namespace Raido.Common.Tests
+             buffer.WriteByte(6);
+             output.BeginBitAccess();
+
+-            Assert.AreEqual(output.Length, 2);
++            Assert.AreEqual(2, output.Length);
+         }
+
+         [TestMethod]
+@@ -103,7 +103,7 @@ namespace Raido.Common.Tests
+             var output = new RaidoMessageBinaryWriter(buffer);
+             output.BeginBitAccess();
+
+-            Assert.AreEqual(output.Length, 0);
++            Assert.AreEqual(0, output.Length);
+         }
+
+         [TestMethod]

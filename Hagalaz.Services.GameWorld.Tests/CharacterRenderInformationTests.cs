@@ -54,7 +54,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             // Assert
             Assert.AreEqual(location, _renderInfo.LastLocation);
-            Assert.IsTrue(_renderInfo.LocalCharacters.Contains(_owner));
+            Assert.Contains(_owner, _renderInfo.LocalCharacters);
             Assert.IsTrue(_renderInfo.IsInViewport(_owner.Index));
         }
 

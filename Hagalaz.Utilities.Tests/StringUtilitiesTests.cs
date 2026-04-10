@@ -246,7 +246,7 @@ namespace Hagalaz.Utilities.Tests
             var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -315,7 +315,7 @@ namespace Hagalaz.Utilities.Tests
             var actual = StringUtilities.DecodeValues(data, int.Parse);
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -378,7 +378,7 @@ namespace Hagalaz.Utilities.Tests
             var actual = StringUtilities.SelectIntFromString(input).ToArray();
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -405,7 +405,7 @@ namespace Hagalaz.Utilities.Tests
             var actual = StringUtilities.SelectBoolFromString(input).ToArray();
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -445,7 +445,7 @@ namespace Hagalaz.Utilities.Tests
             var actual = StringUtilities.DecodeValues(data);
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -458,7 +458,7 @@ namespace Hagalaz.Utilities.Tests
             var actual = StringUtilities.DecodeValues(data, int.Parse);
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
 
         [TestMethod]
@@ -471,7 +471,7 @@ namespace Hagalaz.Utilities.Tests
             var actual = StringUtilities.DecodeValues(data);
 
             // Assert
-            Assert.AreEqual(0, actual.Length);
+            Assert.IsEmpty(actual);
         }
     }
 
