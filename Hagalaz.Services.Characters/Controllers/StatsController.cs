@@ -45,6 +45,7 @@ namespace Hagalaz.Services.Characters.Controllers
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [IgnoreAntiforgeryToken]
         public async Task<ActionResult<GetAllCharacterStatisticsResult>> GetAll([FromBody] GetAllCharacterStatisticsRequest? request)
         {
             if (request == null)
