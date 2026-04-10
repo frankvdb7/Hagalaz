@@ -3,6 +3,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Scripts.Dialogues.Generic;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 
@@ -28,20 +29,24 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
             {
                 return false;
             }
-            var defaultScript = character.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
-            character.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.InteractiveChatBox, 0, defaultScript, false);
-            var parent = character.Widgets.GetOpenWidget((short)DialogueInterfaces.InteractiveChatBox);
-            if (parent == null)
+            var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
+            dialogue.ProductIds = [dto.ItemId];
+            dialogue.Options = InteractiveDialogueOptions.Offer;
+            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
-                return false;
-            }
+                if (currentCount > 0)
+                {
+                    character.QueueTask(new OfferTask(character, altar, dto, currentCount, 3));
+                }
 
-            var offerDialogue = character.ServiceProvider.GetRequiredService<OfferDialogue>();
-            offerDialogue.Definition = dto;
-            offerDialogue.Altar = altar;
-            offerDialogue.TickDelay = 3;
-            character.Widgets.OpenWidget((short)DialogueInterfaces.InteractiveSelectAmountBox, parent, 4, 0, offerDialogue, false);
-            return true;
+                return true;
+            };
+
+            var count = character.Inventory.GetCountById(dto.ItemId);
+            dialogue.SetMaxCount(count, false);
+            dialogue.SetCurrentCount(count, false);
+
+            return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
         }
     }
 }

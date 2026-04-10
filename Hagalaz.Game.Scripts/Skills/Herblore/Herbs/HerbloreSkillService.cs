@@ -40,18 +40,24 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                 return;
             }
 
-            var defaultScript = character.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
-            character.Widgets.OpenChatboxOverlay((int)DialogueInterfaces.InteractiveChatBox, 0, defaultScript, false);
-            var parent = character.Widgets.GetOpenWidget((int)DialogueInterfaces.InteractiveChatBox);
-            if (parent == null)
+            var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
+            dialogue.ProductIds = [herb.CleanHerbId];
+            dialogue.Options = InteractiveDialogueOptions.Make;
+            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
-                return;
-            }
+                if (currentCount > 0)
+                {
+                    QueueCleanHerbTask(character, herb, currentCount, 1);
+                }
 
-            var herbloreDialogue = character.ServiceProvider.GetRequiredService<HerbloreDialogue>();
-            herbloreDialogue.Definition = herb;
-            herbloreDialogue.TickDelay = 1;
-            character.Widgets.OpenWidget((int)DialogueInterfaces.InteractiveSelectAmountBox, parent, 4, 0, herbloreDialogue, false);
+                return true;
+            };
+
+            var count = character.Inventory.GetCountById(herb.GrimyHerbId);
+            dialogue.SetMaxCount(count, false);
+            dialogue.SetCurrentCount(count, false);
+
+            InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
         }
 
         /// <summary>
