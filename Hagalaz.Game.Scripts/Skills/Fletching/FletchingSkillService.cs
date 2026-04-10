@@ -184,6 +184,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = definition.ProductIDs;
             dialogue.Options = InteractiveDialogueOptions.Make;
+            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
             dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
                 if (currentCount > 0)
@@ -194,6 +195,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
                 return true;
             };
+
 
             var count = character.Inventory.GetCountById(definition.ResourceID);
             dialogue.SetMaxCount(count, false);
@@ -276,6 +278,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = definition.ProductIDs;
             dialogue.Options = InteractiveDialogueOptions.Make;
+            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
             dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
                 if (currentCount > 0)
@@ -286,6 +289,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
                 return true;
             };
+
 
             var count = character.Inventory.GetCountById(definition.ResourceID);
             dialogue.SetMaxCount(count, false);
@@ -376,6 +380,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = definition.ProductIDs;
             dialogue.Options = InteractiveDialogueOptions.Make;
+            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
             dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
                 if (currentCount > 0)
@@ -386,6 +391,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
                 return true;
             };
+
 
             var count = character.Inventory.GetCountById(definition.ResourceID);
             dialogue.SetMaxCount(count, false);
@@ -495,6 +501,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = definition.ProductIDs;
             dialogue.Options = InteractiveDialogueOptions.Make;
+            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
             dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
                 if (currentCount > 0)
@@ -505,6 +512,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
                 return true;
             };
+
 
             var count = character.Inventory.GetCountById(definition.ResourceID);
             dialogue.SetMaxCount(count, false);

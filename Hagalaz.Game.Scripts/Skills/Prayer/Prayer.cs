@@ -32,7 +32,8 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = [dto.ItemId];
             dialogue.Options = InteractiveDialogueOptions.Offer;
-            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
+            dialogue.Info = "Choose how many you wish to offer, <br>then click on the item to begin.";
+            dialogue.PerformMakeProductCallback = (_, currentCount) =>
             {
                 if (currentCount > 0)
                 {

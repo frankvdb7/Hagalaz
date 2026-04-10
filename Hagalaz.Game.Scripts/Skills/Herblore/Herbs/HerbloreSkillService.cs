@@ -43,7 +43,8 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = [herb.CleanHerbId];
             dialogue.Options = InteractiveDialogueOptions.Make;
-            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
+            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
+            dialogue.PerformMakeProductCallback = (_, currentCount) =>
             {
                 if (currentCount > 0)
                 {
