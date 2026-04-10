@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+using System;
+using System.Collections.Generic;
 
 namespace Hagalaz.Utilities
 {
@@ -9,20 +9,40 @@ namespace Hagalaz.Utilities
     public static class ArrayUtilities
     {
         /// <summary>
-        /// Combines multiple arrays of integers into a single enumerable collection.
+        /// Combines multiple arrays of integers into a single array.
         /// </summary>
         /// <param name="arrays">A variable number of integer arrays to be combined.</param>
-        /// <returns>An <see cref="IEnumerable{T}"/> of <see cref="int"/> containing all the elements from the input arrays in the order they were provided.</returns>
-        public static IEnumerable<int> MakeArray(params int[][] arrays)
+        /// <returns>An array of <see cref="int"/> containing all the elements from the input arrays in the order they were provided.</returns>
+        public static int[] MakeArray(params int[][] arrays)
         {
-            int total = arrays.Sum(t => t.Length);
-            int[] array = new int[total];
-            total = 0;
-            foreach (var t in arrays)
-                foreach (var t1 in t)
-                    array[total++] = t1;
+            if (arrays == null || arrays.Length == 0)
+            {
+                return [];
+            }
 
-            return array;
+            // Optimization: Use a manual loop to calculate total length to avoid LINQ Sum overhead.
+            int total = 0;
+            for (int i = 0; i < arrays.Length; i++)
+            {
+                total += arrays[i].Length;
+            }
+
+            int[] result = new int[total];
+            int offset = 0;
+
+            // Optimization: Use Array.Copy for high-performance block copying instead of nested foreach loops.
+            for (int i = 0; i < arrays.Length; i++)
+            {
+                int[] source = arrays[i];
+                int length = source.Length;
+                if (length > 0)
+                {
+                    Array.Copy(source, 0, result, offset, length);
+                    offset += length;
+                }
+            }
+
+            return result;
         }
     }
 }

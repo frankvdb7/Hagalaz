@@ -422,7 +422,15 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         /// <summary>
         ///     Checks if array contains given value.
         /// </summary>
-        private static bool Lookup(int v, int[] array) => array.Any(t => t == v);
+        private static bool Lookup(int v, int[] array)
+        {
+            // Optimization: Use a simple for loop to avoid LINQ Any() overhead (allocations of enumerator and delegate).
+            for (int i = 0; i < array.Length; i++)
+            {
+                if (array[i] == v) return true;
+            }
+            return false;
+        }
 
         /// <summary>
         ///     Make's one array from given arrays.
@@ -430,17 +438,29 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         /// <returns></returns>
         private static int[] MakeArray(params int[][] arrays)
         {
-            var total = arrays.Sum(t => t.Length);
+            // Optimization: Use a manual loop to calculate total length to avoid LINQ Sum overhead.
+            int total = 0;
+            for (int i = 0; i < arrays.Length; i++)
+            {
+                total += arrays[i].Length;
+            }
 
-            var array = new int[total];
-            total = 0;
-            foreach (var t in arrays)
-                foreach (var t1 in t)
+            int[] result = new int[total];
+            int offset = 0;
+
+            // Optimization: Use System.Array.Copy for high-performance block copying instead of nested foreach loops.
+            for (int i = 0; i < arrays.Length; i++)
+            {
+                int[] source = arrays[i];
+                int length = source.Length;
+                if (length > 0)
                 {
-                    array[total++] = t1;
+                    System.Array.Copy(source, 0, result, offset, length);
+                    offset += length;
                 }
+            }
 
-            return array;
+            return result;
         }
 
         /// <summary>
