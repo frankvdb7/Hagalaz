@@ -8,7 +8,11 @@ namespace Hagalaz.Services.Characters.Model
     {
         public record SortModel
         {
-            public SortType? Experience { get; }
+            /// <summary>
+            /// Gets or sets the experience sort type.
+            /// Using init accessor to allow System.Text.Json deserialization while maintaining immutability.
+            /// </summary>
+            public SortType? Experience { get; init; }
         }
 
         public record FilterModel
