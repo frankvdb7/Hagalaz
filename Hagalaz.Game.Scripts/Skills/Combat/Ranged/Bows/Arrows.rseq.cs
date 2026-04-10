@@ -422,25 +422,14 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
         /// <summary>
         ///     Checks if array contains given value.
         /// </summary>
-        private static bool Lookup(int v, int[] array) => array.Any(t => t == v);
-
-        /// <summary>
-        ///     Make's one array from given arrays.
-        /// </summary>
-        /// <returns></returns>
-        private static int[] MakeArray(params int[][] arrays)
+        private static bool Lookup(int v, int[] array)
         {
-            var total = arrays.Sum(t => t.Length);
-
-            var array = new int[total];
-            total = 0;
-            foreach (var t in arrays)
-                foreach (var t1 in t)
-                {
-                    array[total++] = t1;
-                }
-
-            return array;
+            // Optimization: Use a simple for loop to avoid LINQ Any() overhead (allocations of enumerator and delegate).
+            for (int i = 0; i < array.Length; i++)
+            {
+                if (array[i] == v) return true;
+            }
+            return false;
         }
 
         /// <summary>

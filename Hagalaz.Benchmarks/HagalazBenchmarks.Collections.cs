@@ -11,6 +11,7 @@ namespace Hagalaz.Benchmarks
         private ListHashSet<int> _listHashSet = null!;
         private int _lookupValue;
         private ConcurrentStore<int, int> _concurrentStore = null!;
+        private int[][] _jaggedArrays = null!;
 
         private void SetupCollections()
         {
@@ -20,6 +21,15 @@ namespace Hagalaz.Benchmarks
 
             _concurrentStore = new ConcurrentStore<int, int>();
             for (int i = 0; i < N; i++) _concurrentStore.TryAdd(i, i);
+
+            _jaggedArrays = new int[5][]
+            {
+                Enumerable.Range(0, N / 5).ToArray(),
+                Enumerable.Range(0, N / 5).ToArray(),
+                Enumerable.Range(0, N / 5).ToArray(),
+                Enumerable.Range(0, N / 5).ToArray(),
+                Enumerable.Range(0, N / 5).ToArray()
+            };
         }
 
         [Benchmark]
@@ -80,5 +90,11 @@ namespace Hagalaz.Benchmarks
             Hagalaz.Collections.Extensions.CollectionExtensions.ForEach(_list, i => sum += i);
             return sum;
         }
+
+        /// <summary>
+        /// Benchmarks the MakeArray utility method.
+        /// </summary>
+        [Benchmark]
+        public int[] ArrayUtilities_MakeArray() => Hagalaz.Utilities.ArrayUtilities.MakeArray(_jaggedArrays);
     }
 }
