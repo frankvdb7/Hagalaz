@@ -86,7 +86,7 @@ namespace Hagalaz.Collections.Tests
             store.TryAdd("a", 1);
             store.TryAdd("b", 2);
             var list = store.ToList();
-            Assert.AreEqual(2, list.Count);
+            Assert.HasCount(2, list);
         }
 
         [TestMethod]

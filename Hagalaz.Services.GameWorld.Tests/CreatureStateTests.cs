@@ -107,9 +107,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             _creature.AddState(state2);
 
             var states = _creature.GetStates().ToList();
-            Assert.AreEqual(2, states.Count);
-            Assert.IsTrue(states.Contains(state1));
-            Assert.IsTrue(states.Contains(state2));
+            Assert.HasCount(2, states);
+            Assert.Contains(state1, states);
+            Assert.Contains(state2, states);
         }
 
         private class CreatureMock : Creature

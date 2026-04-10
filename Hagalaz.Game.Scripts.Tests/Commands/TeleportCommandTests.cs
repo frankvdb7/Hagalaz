@@ -13,12 +13,12 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
     [TestClass]
     public class TeleportCommandTests
     {
-        private Mock<ITeleportBuilder> _teleportBuilderMock;
-        private Mock<ITeleportType> _teleportTypeMock;
-        private Mock<ITeleportY> _teleportYMock;
-        private Mock<ITeleportOptional> _teleportOptionalMock;
-        private Mock<ITeleport> _teleportMock;
-        private TeleportCommand _teleportCommand;
+        private Mock<ITeleportBuilder> _teleportBuilderMock = null!;
+        private Mock<ITeleportType> _teleportTypeMock = null!;
+        private Mock<ITeleportY> _teleportYMock = null!;
+        private Mock<ITeleportOptional> _teleportOptionalMock = null!;
+        private Mock<ITeleport> _teleportMock = null!;
+        private TeleportCommand _teleportCommand = null!;
 
         [TestInitialize]
         public void Setup()

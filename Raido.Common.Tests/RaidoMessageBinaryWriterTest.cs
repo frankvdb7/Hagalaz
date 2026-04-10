@@ -93,7 +93,7 @@ namespace Raido.Common.Tests
             buffer.WriteByte(6);
             output.BeginBitAccess();
 
-            Assert.AreEqual(output.Length, 2);
+            Assert.AreEqual(2, output.Length);
         }
 
         [TestMethod]
@@ -103,7 +103,7 @@ namespace Raido.Common.Tests
             var output = new RaidoMessageBinaryWriter(buffer);
             output.BeginBitAccess();
 
-            Assert.AreEqual(output.Length, 0);
+            Assert.AreEqual(0, output.Length);
         }
 
         [TestMethod]

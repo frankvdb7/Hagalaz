@@ -959,7 +959,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var array = container.ToArray();
 
             // Assert
-            Assert.AreEqual(10, array.Length);
+            Assert.HasCount(10, array);
             Assert.IsNotNull(array[0]);
             Assert.AreEqual(1, array[0].Id);
         }

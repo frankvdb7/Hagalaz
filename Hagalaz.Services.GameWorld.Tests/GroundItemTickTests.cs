@@ -100,7 +100,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             await region.MajorClientPrepareUpdateTick();
 
             var items = region.FindAllGroundItems().ToList();
-            Assert.AreEqual(1, items.Count);
+            Assert.HasCount(1, items);
             Assert.AreNotSame(item, items[0]);
             var respawnItem = items[0];
             Assert.IsTrue(respawnItem.IsRespawning);
@@ -132,7 +132,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             await region.MajorClientPrepareUpdateTick();
             var items = region.FindAllGroundItems().ToList();
             // Assert state, no debug output
-            Assert.AreEqual(1, items.Count, "There should be one item after respawn");
+            Assert.HasCount(1, items, "There should be one item after respawn");
             var respawned = items[0];
             Assert.IsFalse(respawned.IsRespawning, $"Item should no longer be respawning after respawn, but was: {respawned.IsRespawning}, TicksLeft={respawned.TicksLeft}");
             Assert.AreEqual(respawned.RespawnTicks, respawned.TicksLeft, "Respawned item should have its ticks reset");
@@ -148,7 +148,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             await region.MajorClientPrepareUpdateTick();
 
             var items = region.FindAllGroundItems().ToList();
-            Assert.AreEqual(1, items.Count);
+            Assert.HasCount(1, items);
             Assert.AreNotSame(item, items[0]);
             Assert.IsNull(items[0].Owner);
         }

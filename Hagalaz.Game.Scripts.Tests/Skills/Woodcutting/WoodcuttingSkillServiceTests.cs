@@ -29,20 +29,20 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
     [TestClass]
     public class WoodcuttingSkillServiceTests
     {
-        private IServiceProvider _serviceProvider;
-        private ICharacterStore _characterStore;
-        private IRsTaskService _rsTaskService;
-        private IWoodcuttingService _woodcuttingService;
-        private ILootService _lootService;
-        private WoodcuttingSkillService _woodcuttingSkillService;
-        private ILootGenerator _lootGenerator;
-        private IItemBuilder _itemBuilder;
-        private IGroundItemBuilder _groundItemBuilder;
-        private IGameObjectService _gameObjectService;
-        private IGameObjectBuilder _gameObjectBuilder;
-        private IGameObjectId _gameObjectId;
-        private IGameObjectLocation _gameObjectLocation;
-        private IGameObjectOptional _gameObjectOptional;
+        private IServiceProvider _serviceProvider = null!;
+        private ICharacterStore _characterStore = null!;
+        private IRsTaskService _rsTaskService = null!;
+        private IWoodcuttingService _woodcuttingService = null!;
+        private ILootService _lootService = null!;
+        private WoodcuttingSkillService _woodcuttingSkillService = null!;
+        private ILootGenerator _lootGenerator = null!;
+        private IItemBuilder _itemBuilder = null!;
+        private IGroundItemBuilder _groundItemBuilder = null!;
+        private IGameObjectService _gameObjectService = null!;
+        private IGameObjectBuilder _gameObjectBuilder = null!;
+        private IGameObjectId _gameObjectId = null!;
+        private IGameObjectLocation _gameObjectLocation = null!;
+        private IGameObjectOptional _gameObjectOptional = null!;
 
 
         [TestInitialize]

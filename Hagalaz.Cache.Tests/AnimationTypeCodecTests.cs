@@ -122,7 +122,7 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(12345, decodedAnimation.SoundSettings[0][0]);
             Assert.Equal(100, decodedAnimation.SoundSettings[0][1]);
             Assert.NotNull(decodedAnimation.SoundSettings[1]);
-            Assert.Equal(1, decodedAnimation.SoundSettings[1].Length);
+            Assert.Single(decodedAnimation.SoundSettings[1]);
             Assert.Equal(54321, decodedAnimation.SoundSettings[1][0]);
         }
 
