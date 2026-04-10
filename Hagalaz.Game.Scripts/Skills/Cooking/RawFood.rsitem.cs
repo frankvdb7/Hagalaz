@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Items;
+using Hagalaz.Game.Scripts.Dialogues.Generic;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Skills.Cooking
@@ -51,18 +52,30 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
             {
                 return false;
             }
-            var defaultScript = character.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
-            character.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.InteractiveChatBox, 0, defaultScript, false);
-            var parent = character.Widgets.GetOpenWidget((short)DialogueInterfaces.InteractiveChatBox);
-            if (parent == null)
+
+            var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
+            dialogue.ProductIds = [definition.CookedItemId];
+            dialogue.Options = InteractiveDialogueOptions.Cook;
+            dialogue.Info = "Choose how many you wish to cook,<br>then click on the item to begin.";
+            dialogue.PerformMakeProductCallback = (_, currentCount) =>
             {
-                return false;
-            }
-            var cookingDialogue = character.ServiceProvider.GetRequiredService<CookingDialogue>();
-            cookingDialogue.Obj = obj;
-            cookingDialogue.Dto = definition;
-            character.Widgets.OpenWidget((short)DialogueInterfaces.InteractiveSelectAmountBox, parent, 4, 0, cookingDialogue, false);
-            return true;
+                if (currentCount > 0)
+                {
+                    var task = character.ServiceProvider.GetRequiredService<CookingTask>();
+                    task.RawDto = definition;
+                    task.GameObject = obj;
+                    task.TotalCookCount = currentCount;
+                    character.QueueTask(task);
+                }
+
+                return true;
+            };
+
+            var count = character.Inventory.GetCountById(definition.ItemId);
+            dialogue.SetMaxCount(count, false);
+            dialogue.SetCurrentCount(count, false);
+
+            return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
         }
     }
 }
