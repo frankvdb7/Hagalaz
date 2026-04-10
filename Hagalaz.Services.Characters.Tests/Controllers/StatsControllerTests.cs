@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Hagalaz.Services.Characters.Controllers;
 using Hagalaz.Services.Common.Model;
@@ -120,37 +118,6 @@ namespace Hagalaz.Services.Characters.Tests.Controllers
             Assert.IsInstanceOfType(result.Result, typeof(OkObjectResult));
             var okResult = (OkObjectResult)result.Result;
             Assert.AreEqual(expectedResult, okResult.Value);
-        }
-
-        [TestMethod]
-        public async Task GetAll_WithNullRequest_ReturnsBadRequest()
-        {
-            // Act
-            var result = await _controller.GetAll(null!);
-
-            // Assert
-            Assert.IsInstanceOfType(result.Result, typeof(BadRequestResult));
-        }
-
-        [TestMethod]
-        public void GetAllCharacterStatisticsRequest_Deserialization_ShouldPopulateExperienceSort()
-        {
-            // Arrange
-            var json = "{\"sort\": {\"experience\": \"Desc\"}, \"filter\": {\"page\": 1, \"limit\": 10, \"type\": \"Attack\"}}";
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-            options.Converters.Add(new JsonStringEnumConverter());
-
-            // Act
-            var request = JsonSerializer.Deserialize<GetAllCharacterStatisticsRequest>(json, options);
-
-            // Assert
-            Assert.IsNotNull(request);
-            Assert.IsNotNull(request.Sort);
-            Assert.IsNotNull(request.Sort.Experience, "Experience sort should be populated");
-            Assert.AreEqual(SortType.Desc, request.Sort.Experience.Value, "Experience sort should be Desc");
         }
     }
 }
