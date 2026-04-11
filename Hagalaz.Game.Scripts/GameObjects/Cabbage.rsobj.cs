@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Abstractions.Services;
-﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -44,8 +44,11 @@ namespace Hagalaz.Game.Scripts.GameObjects
                         if (clicker.Inventory.Add(_itemBuilder.Create().WithId(1965).Build()))
                         {
                             // delete the cabbage object.
-                            clicker.ServiceProvider.GetRequiredService<IMapRegionService>().GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Remove(Owner);
-                            _rsTaskService.Schedule(new RsTask(() => clicker.ServiceProvider.GetRequiredService<IMapRegionService>().GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Add(Owner), 100));
+                            var region = clicker.ServiceProvider.GetRequiredService<IMapRegionService>()
+                                .GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false);
+
+                            region.Remove(Owner);
+                            _rsTaskService.Schedule(new RsTask(() => region.Add(Owner), 100));
                             clicker.SendChatMessage("You pulled the cabbage out of the ground.");
                         }
                         else
