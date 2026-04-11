@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Items
         /// <summary>
         ///     The item that should be destroyed.
         /// </summary>
-        private IItem _toDestroy;
+        private IItem _toDestroy = null!;
 
         public DestroyItemDialogue(ICharacterContextAccessor contextAccessor, IAudioBuilder soundBuilder) : base(contextAccessor) => _soundBuilder = soundBuilder;
 

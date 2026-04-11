@@ -50,7 +50,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
         /// <summary>
         /// The products.
         /// </summary>
-        public int[] ProductIds { get; set; }
+        public int[] ProductIds { get; set; } = null!;
 
         /// <summary>
         /// The perform make product callback.
@@ -86,7 +86,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
         /// <value>
         /// The product naming callback.
         /// </value>
-        public Func<int, string> ProductNamingCallback { get; set; }
+        public Func<int, string> ProductNamingCallback { get; set; } = null!;
 
         public InteractiveDialogueScript(
             ICharacterContextAccessor characterContextAccessor, IItemService itemService,

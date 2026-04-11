@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Items
         /// <summary>
         ///     The item that should be degraded.
         /// </summary>
-        private IItem _toDegrade;
+        private IItem _toDegrade = null!;
 
         public DegradeDialogue(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }
 

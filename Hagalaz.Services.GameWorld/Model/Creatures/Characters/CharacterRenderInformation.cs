@@ -98,7 +98,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains current animation.
         /// </summary>
         /// <value>The current animation.</value>
-        public IAnimation CurrentAnimation { get; private set; }
+        public IAnimation CurrentAnimation { get; private set; } = null!;
 
         public CharacterRenderInformation(ICharacter renderable)
         {

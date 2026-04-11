@@ -10,7 +10,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
         /// <summary>
         /// The active phase
         /// </summary>
-        private CombatPhase<T> _activePhase;
+        private CombatPhase<T> _activePhase = null!;
 
         /// <summary>
         /// Gets or sets the active phase.

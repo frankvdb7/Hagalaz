@@ -108,7 +108,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
         /// <summary>
         ///     Contains inventory interface.
         /// </summary>
-        private IWidget _inventoryInterface;
+        private IWidget _inventoryInterface = null!;
 
         /// <summary>
         ///     Contains price check interface container.

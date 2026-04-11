@@ -15,7 +15,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Warning
         /// <summary>
         ///     The on clicked.
         /// </summary>
-        public Action OnAcceptClicked { get; set; }
+        public Action OnAcceptClicked { get; set; } = null!;
 
         /// <summary>
         ///     The on decline clicked.

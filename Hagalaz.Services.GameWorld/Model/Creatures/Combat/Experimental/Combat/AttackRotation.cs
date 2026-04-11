@@ -11,17 +11,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
         /// <summary>
         /// Occurs when [on active].
         /// </summary>
-        public event Action OnActivated;
+        public event Action OnActivated = null!;
 
         /// <summary>
         /// Occurs when [on deactivated].
         /// </summary>
-        public event Action OnDeactivated;
+        public event Action OnDeactivated = null!;
 
         /// <summary>
         /// Occurs when [on perform].
         /// </summary>
-        public event Action OnPerform;
+        public event Action OnPerform = null!;
 
         /// <summary>
         /// Avalue indicating whether this <see cref="AttackRotation"/> is active.

@@ -23,12 +23,12 @@ namespace Hagalaz.Services.GameWorld.Data.Model
         /// <summary>
         /// The NPC's display name.
         /// </summary>
-        public string DisplayName { get; set; }
+        public string DisplayName { get; set; } = null!;
 
         /// <summary>
         /// The NPC's examine text.
         /// </summary>
-        public string Examine { get; set; }
+        public string Examine { get; set; } = null!;
 
         /// <summary>
         /// Contains max hitpoints of this npc.

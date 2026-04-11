@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         /// <summary>
         ///     Contains inventory changes unEquipHandler.
         /// </summary>
-        private EventHappened _handler;
+        private EventHappened _handler = null!;
 
         public InventoryTab(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }
 

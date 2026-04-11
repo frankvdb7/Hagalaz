@@ -51,7 +51,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
         /// <summary>
         ///     The cannon owner
         /// </summary>
-        private ICharacter _cannonOwner;
+        private ICharacter _cannonOwner = null!;
 
         /// <summary>
         ///     Wether the cannon is firing.

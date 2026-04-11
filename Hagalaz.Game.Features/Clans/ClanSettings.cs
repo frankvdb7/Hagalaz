@@ -12,7 +12,7 @@ namespace Hagalaz.Game.Features.Clans
         /// <summary>
         /// Occurs when [changed].
         /// </summary>
-        public event Action OnChanged;
+        public event Action OnChanged = null!;
 
         /// <summary>
         /// The national flag

@@ -41,12 +41,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Contains last location
         /// </summary>
-        public ILocation LastLocation { get; private set; }
+        public ILocation LastLocation { get; private set; } = null!;
 
         /// <summary>
         /// Contains current animation.
         /// </summary>
-        public IAnimation CurrentAnimation { get; private set; }
+        public IAnimation CurrentAnimation { get; private set; } = null!;
 
         /// <summary>
         /// Create's new rendering information instance.

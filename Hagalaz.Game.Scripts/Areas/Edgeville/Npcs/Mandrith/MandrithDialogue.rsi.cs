@@ -15,12 +15,12 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
         /// <summary>
         ///     The next callback.
         /// </summary>
-        private Action _moreOptionsCallback;
+        private Action _moreOptionsCallback = null!;
 
         /// <summary>
         ///     The back callback.
         /// </summary>
-        private Action _backCallback;
+        private Action _backCallback = null!;
 
         public MandrithDialogue(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }
 

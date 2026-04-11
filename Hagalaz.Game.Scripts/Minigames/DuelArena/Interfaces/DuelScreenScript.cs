@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
         /// <summary>
         ///     Gets or sets the close callback.
         /// </summary>
-        public Action CloseCallback { get; set; }
+        public Action CloseCallback { get; set; } = null!;
 
 
         public DuelScreenScript(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }

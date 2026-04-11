@@ -11,7 +11,7 @@ namespace Hagalaz.Services.GameWorld.Tests
     public class DumbPathfinderTests
     {
         private DumbPathFinder _pathfinder;
-        private IMapRegionService _mapRegionService;
+        private IMapRegionService _mapRegionService = null!;
 
         [TestInitialize]
         public void Initialize()

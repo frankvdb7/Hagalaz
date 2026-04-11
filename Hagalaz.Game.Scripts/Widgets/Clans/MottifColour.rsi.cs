@@ -21,7 +21,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
         /// <summary>
         ///     The on close
         /// </summary>
-        public Action<int> OnSelectedColour { get; set; }
+        public Action<int> OnSelectedColour { get; set; } = null!;
 
         /// <summary>
         ///     The selected colour.

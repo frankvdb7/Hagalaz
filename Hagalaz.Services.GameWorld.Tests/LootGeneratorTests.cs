@@ -9,7 +9,7 @@ namespace Hagalaz.Services.GameWorld.Tests
     public class LootGeneratorTests
     {
         private LootGenerator _generator;
-        private IRandomProvider _randomProviderMock;
+        private IRandomProvider _randomProviderMock = null!;
 
         [TestInitialize]
         public void Setup()

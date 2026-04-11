@@ -7,7 +7,7 @@ namespace Hagalaz.Services.GameWorld.Tests
     [TestClass]
     public class InMemoryEventBusTests
     {
-        private InMemoryEventBus _eventBus;
+        private InMemoryEventBus _eventBus = null!;
 
         [TestInitialize]
         public void Setup()

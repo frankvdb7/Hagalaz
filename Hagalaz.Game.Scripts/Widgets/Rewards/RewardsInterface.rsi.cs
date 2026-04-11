@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Rewards
         /// <summary>
         ///     Contains rewards change handler.
         /// </summary>
-        private EventHappened _rewardsChangeHandler;
+        private EventHappened _rewardsChangeHandler = null!;
 
         public RewardsInterface(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor)
         {

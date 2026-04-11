@@ -15,7 +15,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         /// <summary>
         ///     The on music play.
         /// </summary>
-        private EventHappened _musicPlayHandler;
+        private EventHappened _musicPlayHandler = null!;
 
         public MusicTab(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }
 

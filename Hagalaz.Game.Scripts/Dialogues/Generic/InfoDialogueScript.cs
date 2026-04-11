@@ -8,7 +8,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
         /// <summary>
         /// The texts
         /// </summary>
-        public string[] Texts { get; set; }
+        public string[] Texts { get; set; } = null!;
 
         public InfoDialogueScript(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) {}
 

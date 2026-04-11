@@ -29,7 +29,7 @@ namespace Hagalaz.Game.Features.Clans
         /// <summary>
         /// Contains the settings.
         /// </summary>
-        private IClanSettings _settings;
+        private IClanSettings _settings = null!;
 
         /// <summary>
         /// Contains the clan identifier.

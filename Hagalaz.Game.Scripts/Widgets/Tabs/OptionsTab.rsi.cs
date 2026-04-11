@@ -15,7 +15,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
     public class OptionsTab : WidgetScript
     {
         private readonly IScopedGameMediator _gameMediator;
-        private IGameConnectHandle _gameConnectHandle;
+        private IGameConnectHandle _gameConnectHandle = null!;
 
         public OptionsTab(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 

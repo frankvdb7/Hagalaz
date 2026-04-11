@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.GameObjects
         /// <summary>
         ///     The obj.
         /// </summary>
-        private IGameObject _obj;
+        private IGameObject _obj = null!;
 
         public EdgevilleLeverDialogue(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }
 

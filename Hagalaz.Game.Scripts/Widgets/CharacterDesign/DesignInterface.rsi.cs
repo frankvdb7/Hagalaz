@@ -51,62 +51,62 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
         /// <summary>
         ///     Contains step button unEquipHandler.
         /// </summary>
-        private OnComponentClick _stepButtonHandler;
+        private OnComponentClick _stepButtonHandler = null!;
 
         /// <summary>
         ///     Contains style button unEquipHandler.
         /// </summary>
-        private OnComponentClick _styleButtonHandler;
+        private OnComponentClick _styleButtonHandler = null!;
 
         /// <summary>
         ///     Contains gender button unEquipHandler.
         /// </summary>
-        private OnComponentClick _genderButtonHandler;
+        private OnComponentClick _genderButtonHandler = null!;
 
         /// <summary>
         ///     Contains substyle button unEquipHandler.
         /// </summary>
-        private OnComponentClick _substyleButtonHandler;
+        private OnComponentClick _substyleButtonHandler = null!;
 
         /// <summary>
         ///     Contains confirm button unEquipHandler.
         /// </summary>
-        private OnComponentClick _confirmClick;
+        private OnComponentClick _confirmClick = null!;
 
         /// <summary>
         ///     Contains name confirm button unEquipHandler.
         /// </summary>
-        private OnComponentClick _nameConfirmClick;
+        private OnComponentClick _nameConfirmClick = null!;
 
         /// <summary>
         ///     Contains suggestion button unEquipHandler.
         /// </summary>
-        private OnComponentClick _suggestionClick;
+        private OnComponentClick _suggestionClick = null!;
 
         /// <summary>
         ///     Contains skinChooser button unEquipHandler.
         /// </summary>
-        private OnComponentClick _skinChooserClick;
+        private OnComponentClick _skinChooserClick = null!;
 
         /// <summary>
         ///     Contains designerChooser button unEquipHandler.
         /// </summary>
-        private OnComponentClick _designerChooserClick;
+        private OnComponentClick _designerChooserClick = null!;
 
         /// <summary>
         ///     Contains designerPallete button unEquipHandler.
         /// </summary>
-        private OnComponentClick _designerPalleteClick;
+        private OnComponentClick _designerPalleteClick = null!;
 
         /// <summary>
         ///     Contains designerPanel button unEquipHandler.
         /// </summary>
-        private OnComponentClick _designerPanelClick;
+        private OnComponentClick _designerPanelClick = null!;
 
         /// <summary>
         ///     Contains designerRandomizerclick button unEquipHandler.
         /// </summary>
-        private OnComponentClick _designerRandomizerClick;
+        private OnComponentClick _designerRandomizerClick = null!;
 
         /// <summary>
         ///     Contains suggestion table.
@@ -124,7 +124,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
         /// <summary>
         ///     Contains last name entered.
         /// </summary>
-        private string _lastName;
+        private string _lastName = null!;
 
         private readonly IGameMessageService _gameMessageService;
         private readonly ICharacterCreateInfoRepository _characterCreateInfoRepository;

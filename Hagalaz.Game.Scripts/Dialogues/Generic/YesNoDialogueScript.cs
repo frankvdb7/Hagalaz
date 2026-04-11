@@ -12,7 +12,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
         /// <summary>
         /// The callback.
         /// </summary>
-        public Action<bool> Callback { get; set; }
+        public Action<bool> Callback { get; set; } = null!;
 
         /// <summary>
         /// The question.

@@ -31,27 +31,27 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         /// <summary>
         ///     Contains inventory interface.
         /// </summary>
-        private IWidget _inventoryInterface;
+        private IWidget _inventoryInterface = null!;
 
         /// <summary>
         ///     Contains inventory change unEquipHandler.
         /// </summary>
-        private EventHappened _inventoryChangeHandler;
+        private EventHappened _inventoryChangeHandler = null!;
 
         /// <summary>
         ///     Contains inventory change unEquipHandler.
         /// </summary>
-        private EventHappened _moneyChangeHandler;
+        private EventHappened _moneyChangeHandler = null!;
 
         /// <summary>
         ///     The main stock change handler.
         /// </summary>
-        private EventHappened _mainStockChangeHandler;
+        private EventHappened _mainStockChangeHandler = null!;
 
         /// <summary>
         ///     The sample stock change handler.
         /// </summary>
-        private EventHappened _sampleStockChangeHandler;
+        private EventHappened _sampleStockChangeHandler = null!;
 
         /// <summary>
         ///     The amount

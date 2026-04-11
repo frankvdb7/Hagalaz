@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Features.Clans
         /// <summary>
         /// The member's name.
         /// </summary>
-        public string DisplayName { get; set; }
+        public string DisplayName { get; set; } = null!;
         /// <summary>
         /// The privileges this member has in a clan.
         /// </summary>

@@ -10,7 +10,7 @@ namespace Hagalaz.Services.GameWorld.Tests
     public class SmartPathfinderTests
     {
         private SmartPathFinder _pathfinder;
-        private IMapRegionService _mapRegionService;
+        private IMapRegionService _mapRegionService = null!;
 
         [TestInitialize]
         public void Initialize()

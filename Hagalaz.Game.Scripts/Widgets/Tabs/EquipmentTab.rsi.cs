@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         /// <summary>
         ///     Contains equipment changes unEquipHandler.
         /// </summary>
-        private EventHappened _handler;
+        private EventHappened _handler = null!;
 
         public EquipmentTab(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }
 

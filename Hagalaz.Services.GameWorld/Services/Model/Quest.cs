@@ -24,12 +24,12 @@ namespace Hagalaz.Services.GameWorld.Services.Model
         /// <summary>
         /// Occurs when [quest primary status changed].
         /// </summary>
-        public event Action OnQuestPrimaryStatusChanged;
+        public event Action OnQuestPrimaryStatusChanged = null!;
 
         /// <summary>
         /// Occurs when [quest secondary status flag changed].
         /// </summary>
-        public event Action OnQuestSecondaryStatusFlagChanged;
+        public event Action OnQuestSecondaryStatusFlagChanged = null!;
 
         /// <summary>
         /// Contains the quest owner.

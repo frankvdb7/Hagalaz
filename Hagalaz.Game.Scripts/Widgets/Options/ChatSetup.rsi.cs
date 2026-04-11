@@ -15,7 +15,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Options
     public class ChatSetup : WidgetScript
     {
         private readonly IScopedGameMediator _gameMediator;
-        private IGameConnectHandle _chatSettingsHandle;
+        private IGameConnectHandle _chatSettingsHandle = null!;
 
         public ChatSetup(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator) : base(characterContextAccessor) => _gameMediator = gameMediator;
 

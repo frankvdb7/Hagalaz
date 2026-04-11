@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
         /// <summary>
         ///     The clan
         /// </summary>
-        private IClan _clan;
+        private IClan _clan = null!;
 
         /// <summary>
         ///     The planter

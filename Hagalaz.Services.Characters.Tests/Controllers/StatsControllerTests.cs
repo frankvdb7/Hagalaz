@@ -14,10 +14,10 @@ namespace Hagalaz.Services.Characters.Tests.Controllers
     [TestClass]
     public class StatsControllerTests
     {
-        private Mock<IMediator> _mediatorMock;
-        private Mock<IRequestClient<GetCharacterStatisticsQuery>> _getCharacterStatisticsQueryMock;
-        private Mock<IRequestClient<GetAllCharacterStatisticsQuery>> _getAllCharacterStatisticsQueryMock;
-        private StatsController _controller;
+        private Mock<IMediator> _mediatorMock = null!;
+        private Mock<IRequestClient<GetCharacterStatisticsQuery>> _getCharacterStatisticsQueryMock = null!;
+        private Mock<IRequestClient<GetAllCharacterStatisticsQuery>> _getAllCharacterStatisticsQueryMock = null!;
+        private StatsController _controller = null!;
 
         [TestInitialize]
         public void Initialize()

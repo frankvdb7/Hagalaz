@@ -17,11 +17,11 @@ namespace Hagalaz.Services.GameWorld.Tests
     [TestClass]
     public class CreatureStateTests
     {
-        private IServiceScope _serviceScope;
-        private IGameMediator _mediatorMock;
-        private ICreatureTaskService _taskServiceMock;
-        private IMapRegionService _mapRegionServiceMock;
-        private Creature _creature;
+        private IServiceScope _serviceScope = null!;
+        private IGameMediator _mediatorMock = null!;
+        private ICreatureTaskService _taskServiceMock = null!;
+        private IMapRegionService _mapRegionServiceMock = null!;
+        private Creature _creature = null!;
 
         [TestInitialize]
         public void Setup()

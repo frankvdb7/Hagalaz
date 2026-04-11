@@ -18,12 +18,12 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
         /// <summary>
         ///     Contains inventory interface instance.
         /// </summary>
-        private IWidget _inventoryInterface;
+        private IWidget _inventoryInterface = null!;
 
         /// <summary>
         ///     Contains equipment changes unEquipHandler.
         /// </summary>
-        private EventHappened _handler;
+        private EventHappened _handler = null!;
 
         public EquipmentWindow(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor)
         {

@@ -33,12 +33,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Crucible.Characters
         /// <summary>
         ///     The target
         /// </summary>
-        private ICharacter _target;
+        private ICharacter _target = null!;
 
         /// <summary>
         ///     The target hint icon
         /// </summary>
-        private IHintIcon _targetHintIcon;
+        private IHintIcon _targetHintIcon = null!;
 
         public CrucibleScript(ICharacterContextAccessor contextAccessor, IHintIconBuilder hintIconBuilder)
             : base(contextAccessor) =>
