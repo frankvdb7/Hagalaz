@@ -13,7 +13,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
         /// <summary>
         /// The NPC the character is talking to.
         /// </summary>
-        protected INpc TalkingTo = default!;
+        protected INpc TalkingTo = null!;
 
         public NpcDialogueScript(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor)
         {

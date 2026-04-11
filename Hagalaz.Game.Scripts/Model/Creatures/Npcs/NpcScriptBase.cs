@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// Contains owner npc.
         /// </summary>
         /// <value>The owner.</value>
-        protected INpc Owner;
+        protected INpc Owner = null!;
 
         /// <summary>
         /// <summary>

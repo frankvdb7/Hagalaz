@@ -70,7 +70,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
         /// <value>
         /// The information.
         /// </value>
-        public string Info { get; set; }
+        public string Info { get; set; } = null!;
 
         /// <summary>
         /// Gets or sets the options.

@@ -69,12 +69,12 @@ namespace Hagalaz.Game.Scripts.Characters
         /// <summary>
         ///     Contains self container instance.
         /// </summary>
-        public TradeContainer SelfContainer { get; private set; }
+        public TradeContainer SelfContainer { get; private set; } = null!;
 
         /// <summary>
         ///     Contains target container instance.
         /// </summary>
-        public TradeContainer TargetContainer { get; private set; }
+        public TradeContainer TargetContainer { get; private set; } = null!;
 
         /// <summary>
         ///     Contains last sended my inventory free slots value.
@@ -1645,7 +1645,7 @@ namespace Hagalaz.Game.Scripts.Characters
             /// <summary>
             ///     Contains close handler for this trade interface.
             /// </summary>
-            public Action CloseHandler { get; set; }
+            public Action CloseHandler { get; set; } = null!;
 
             public TradeInterfaceScript(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }
 

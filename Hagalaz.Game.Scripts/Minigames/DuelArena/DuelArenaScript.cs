@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <summary>
         ///     Contains the rules.
         /// </summary>
-        public DuelRules CurrentRules { get; private set; }
+        public DuelRules CurrentRules { get; private set; } = null!;
 
         /// <summary>
         ///     Contains boolean if trade session is currently active.

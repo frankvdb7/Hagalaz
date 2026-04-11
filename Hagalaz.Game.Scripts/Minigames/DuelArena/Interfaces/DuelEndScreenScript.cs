@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
         /// <summary>
         ///     The opponent
         /// </summary>
-        public ICharacter Opponent { get; set; }
+        public ICharacter Opponent { get; set; } = null!;
 
         /// <summary>
         ///     The victorious.

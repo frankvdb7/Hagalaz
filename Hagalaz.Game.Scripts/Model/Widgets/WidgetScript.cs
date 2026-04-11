@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
         /// <summary>
         /// Contains the interface of this interface script.
         /// </summary>
-        protected IWidget InterfaceInstance { get; private set; }
+        protected IWidget InterfaceInstance { get; private set; } = null!;
 
         public WidgetScript(ICharacterContextAccessor characterContextAccessor) => _characterContextAccessor = characterContextAccessor;
 

@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CapeDesign
         /// <summary>
         ///     Id of the item that this interface script will customize.
         /// </summary>
-        public IItem ToCustomize { get; set; }
+        public IItem ToCustomize { get; set; } = null!;
 
         /// <summary>
         ///     The item manager

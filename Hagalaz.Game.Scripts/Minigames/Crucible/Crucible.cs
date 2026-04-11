@@ -20,7 +20,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Crucible
             /// <value>
             ///     The location.
             /// </value>
-            public ILocation Location { get; set; }
+            public ILocation Location { get; set; } = null!;
 
             /// <summary>
             ///     Gets the component identifier.

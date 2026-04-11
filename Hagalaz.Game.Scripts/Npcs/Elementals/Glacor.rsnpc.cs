@@ -278,9 +278,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                 .WithScript(script)
                 .Spawn();
             var glacyte = handle.Npc;
-            glacyte.QueueTask(new RsTask(() => glacyte.Combat.SetTarget(Owner.Combat.Target), 1));
+            glacyte.QueueTask(new RsTask(() => glacyte.Combat.SetTarget(Owner.Combat.Target!), 1));
 
-            EventHappened happ = null;
+            EventHappened happ = null!;
             happ = glacyte.RegisterEventHandler(new EventHappened<CreatureDiedEvent>(e =>
             {
                 _glacyteDeadCount++;

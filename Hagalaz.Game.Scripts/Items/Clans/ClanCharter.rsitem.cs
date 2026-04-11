@@ -432,7 +432,7 @@ namespace Hagalaz.Game.Scripts.Items.Clans
             /// <summary>
             ///     The inviter.
             /// </summary>
-            public ICharacter Inviter { get; set; }
+            public ICharacter Inviter { get; set; } = null!;
 
             /// <summary>
             ///     The accepted

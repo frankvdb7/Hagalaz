@@ -9,6 +9,7 @@ namespace Hagalaz.Data.Entities
         public Character()
         {
             Aspnetuserclaims = new HashSet<Aspnetuserclaim>();
+#pragma warning disable CS8618
             Aspnetuserlogins = new HashSet<Aspnetuserlogin>();
             Aspnetusertokens = new HashSet<Aspnetusertoken>();
             Aspnetuserroles = new HashSet<Aspnetuserrole>();
@@ -92,3 +93,5 @@ namespace Hagalaz.Data.Entities
         public virtual ICollection<Aspnetrole> Roles { get; set; }
     }
 }
+
+#pragma warning restore CS8618

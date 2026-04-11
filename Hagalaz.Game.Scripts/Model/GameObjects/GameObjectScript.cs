@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Model.GameObjects
         /// <summary>
         /// Contains owner object.
         /// </summary>
-        protected IGameObject Owner { get; private set; } = default!;
+        protected IGameObject Owner { get; private set; } = null!;
 
         /// <summary>
         /// Get's objectIDS which are suitable for this script.

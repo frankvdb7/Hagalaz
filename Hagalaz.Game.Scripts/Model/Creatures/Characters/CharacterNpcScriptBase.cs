@@ -15,12 +15,12 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Characters
         /// <summary>
         /// Contains owner character.
         /// </summary>
-        protected ICharacter Owner { get; private set; }
+        protected ICharacter Owner { get; private set; } = null!;
 
         /// <summary>
         /// Contains the NPC definition.
         /// </summary>
-        protected INpcDefinition Definition { get; private set; }
+        protected INpcDefinition Definition { get; private set; } = null!;
 
         /// <summary>
         /// The NPC definitionRepository

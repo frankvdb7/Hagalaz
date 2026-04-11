@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
         /// <summary>
         /// The question.
         /// </summary>
-        public string Question { get; set; }
+        public string Question { get; set; } = null!;
 
         public YesNoDialogueScript(ICharacterContextAccessor contextAccessor) : base(contextAccessor)
         {

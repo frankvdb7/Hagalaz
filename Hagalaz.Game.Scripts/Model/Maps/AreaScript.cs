@@ -23,9 +23,9 @@ namespace Hagalaz.Game.Scripts.Model.Maps
         /// Contains area instance.
         /// </summary>
         /// <value>The area.</value>
-        protected IArea Area { get; private set; }
+        protected IArea Area { get; private set; } = null!;
 
-        private ILocation SpawnPoint { get; set; }
+        private ILocation SpawnPoint { get; set; } = null!;
 
         /// <summary>
         /// Initializes area script.

@@ -45,12 +45,12 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// <value>
         /// The definition.
         /// </value>
-        public SummoningDto Definition { get; private set; }
+        public SummoningDto Definition { get; private set; } = null!;
 
         /// <summary>
         /// Contains the summoner.
         /// </summary>
-        public ICharacter Summoner { get; private set; }
+        public ICharacter Summoner { get; private set; } = null!;
 
         /// <summary>
         /// Contains the owner of this script.

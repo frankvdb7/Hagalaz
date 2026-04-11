@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
         /// <summary>
         ///     The selected item
         /// </summary>
-        public IItem SelectedItem { get; set; }
+        public IItem SelectedItem { get; set; } = null!;
 
         /// <summary>
         ///     The sample item

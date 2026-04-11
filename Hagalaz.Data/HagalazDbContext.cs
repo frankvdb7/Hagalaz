@@ -9,6 +9,7 @@ namespace Hagalaz.Data
         Aspnetusertoken>
     {
         public HagalazDbContext(DbContextOptions<HagalazDbContext> options) : base(options) { }
+#pragma warning disable CS0618, CS8618
 
         public virtual DbSet<Area> Areas { get; set; } = null!;
         public virtual DbSet<Aspnetrole> Aspnetroles { get; set; } = null!;
@@ -3403,3 +3404,4 @@ namespace Hagalaz.Data
         }
     }
 }
+#pragma warning restore CS0618, CS8618

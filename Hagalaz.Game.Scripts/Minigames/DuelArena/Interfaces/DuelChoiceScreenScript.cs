@@ -21,7 +21,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
         /// <summary>
         ///     The target
         /// </summary>
-        public ICharacter Target { get; set; }
+        public ICharacter Target { get; set; } = null!;
 
         /// <summary>
         ///     Happens when interface is opened for character.

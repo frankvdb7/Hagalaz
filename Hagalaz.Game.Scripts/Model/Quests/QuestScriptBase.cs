@@ -12,13 +12,13 @@ namespace Hagalaz.Game.Scripts.Model.Quests
         /// Contains quest instance.
         /// </summary>
         /// <value>The quest instance.</value>
-        protected IQuest Quest { get; private set; }
+        protected IQuest Quest { get; private set; } = null!;
 
         /// <summary>
         /// Contains character instance.
         /// </summary>
         /// <value>The character instance.</value>
-        protected ICharacter Character { get; private set; }
+        protected ICharacter Character { get; private set; } = null!;
 
         /// <summary>
         /// Initializes this script with given quest and character.
