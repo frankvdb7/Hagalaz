@@ -16,11 +16,13 @@ namespace Hagalaz.Game.Scripts.GameObjects
     {
         private readonly IRsTaskService _rsTaskService;
         private readonly IItemBuilder _itemBuilder;
+        private readonly IMapRegionService _mapRegionService;
 
-        public Cabbage(IRsTaskService rsTaskService, IItemBuilder itemBuilder)
+        public Cabbage(IRsTaskService rsTaskService, IItemBuilder itemBuilder, IMapRegionService mapRegionService)
         {
             _rsTaskService = rsTaskService;
             _itemBuilder = itemBuilder;
+            _mapRegionService = mapRegionService;
         }
 
         /// <summary>
@@ -44,8 +46,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
                         if (clicker.Inventory.Add(_itemBuilder.Create().WithId(1965).Build()))
                         {
                             // delete the cabbage object.
-                            var region = clicker.ServiceProvider.GetRequiredService<IMapRegionService>()
-                                .GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false);
+                            var region = _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false);
 
                             region.Remove(Owner);
                             _rsTaskService.Schedule(new RsTask(() => region.Add(Owner), 100));

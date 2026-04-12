@@ -18,6 +18,7 @@ namespace Hagalaz.Game.Scripts.Tests.GameObjects
     {
         private IRsTaskService _rsTaskService = null!;
         private IItemBuilder _itemBuilder = null!;
+        private IMapRegionService _mapRegionService = null!;
         private IGameObject _gameObject = null!;
         private ICharacter _character = null!;
         private Cabbage _cabbage = null!;
@@ -27,6 +28,7 @@ namespace Hagalaz.Game.Scripts.Tests.GameObjects
         {
             _rsTaskService = Substitute.For<IRsTaskService>();
             _itemBuilder = Substitute.For<IItemBuilder>();
+            _mapRegionService = Substitute.For<IMapRegionService>();
             _gameObject = Substitute.For<IGameObject>();
             _character = Substitute.For<ICharacter>();
 
@@ -35,7 +37,7 @@ namespace Hagalaz.Game.Scripts.Tests.GameObjects
             location.Dimension.Returns(0);
             _gameObject.Location.Returns(location);
 
-            _cabbage = new Cabbage(_rsTaskService, _itemBuilder);
+            _cabbage = new Cabbage(_rsTaskService, _itemBuilder, _mapRegionService);
             _cabbage.Initialize(_gameObject);
         }
 
@@ -53,9 +55,7 @@ namespace Hagalaz.Game.Scripts.Tests.GameObjects
             _character.Inventory.Add(itemMock).Returns(true);
 
             var regionMock = Substitute.For<IMapRegion>();
-            var mapRegionServiceMock = Substitute.For<IMapRegionService>();
-            mapRegionServiceMock.GetOrCreateMapRegion(123, 0, false).Returns(regionMock);
-            _character.ServiceProvider.GetService(typeof(IMapRegionService)).Returns(mapRegionServiceMock);
+            _mapRegionService.GetOrCreateMapRegion(123, 0, false).Returns(regionMock);
 
             _cabbage.OnCharacterClickPerform(_character, GameObjectClickType.Option2Click);
 

@@ -9,8 +9,7 @@ namespace Hagalaz.Data.Entities
         public Character()
         {
             Aspnetuserclaims = new HashSet<Aspnetuserclaim>();
-#pragma warning disable CS8618
-            Aspnetuserlogins = new HashSet<Aspnetuserlogin>();
+Aspnetuserlogins = new HashSet<Aspnetuserlogin>();
             Aspnetusertokens = new HashSet<Aspnetusertoken>();
             Aspnetuserroles = new HashSet<Aspnetuserrole>();
             Blacklists = new HashSet<Blacklist>();
@@ -33,10 +32,9 @@ namespace Hagalaz.Data.Entities
             Roles = new HashSet<Aspnetrole>();
         }
 
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-        public Character(string userName)
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-            : base(userName)
+        #pragma warning disable CS8618
+        public Character(string userName) : base(userName)
+#pragma warning restore CS8618
         {
             
         }
@@ -64,34 +62,42 @@ namespace Hagalaz.Data.Entities
         public virtual CharactersSlayerTask CharactersSlayerTask { get; set; } = null!;
         public virtual CharactersStatistic CharactersStatistic { get; set; } = null!;
         public virtual ClansMember ClansMemberMaster { get; set; } = null!;
+        #pragma warning disable CS0618
         public virtual MinigamesBarrow MinigamesBarrow { get; set; } = null!;
+#pragma warning restore CS0618
+        #pragma warning disable CS0618
         public virtual MinigamesDuelArena MinigamesDuelArena { get; set; } = null!;
+#pragma warning restore CS0618
+        #pragma warning disable CS0618
         public virtual MinigamesGodwar MinigamesGodwar { get; set; } = null!;
+#pragma warning restore CS0618
+        #pragma warning disable CS0618
         public virtual MinigamesTzhaarCave MinigamesTzhaarCave { get; set; } = null!;
-        public virtual ICollection<Aspnetuserclaim> Aspnetuserclaims { get; set; }
-        public virtual ICollection<Aspnetuserlogin> Aspnetuserlogins { get; set; }
-        public virtual ICollection<Aspnetusertoken> Aspnetusertokens { get; set; }
-        public virtual ICollection<Aspnetuserrole> Aspnetuserroles { get; set; }
-        public virtual ICollection<Blacklist> Blacklists { get; set; }
-        public virtual ICollection<CharactersAppeal> CharactersAppeals { get; set; }
-        public virtual ICollection<CharactersContact> CharactersContactContacts { get; set; }
-        public virtual ICollection<CharactersContact> CharactersContactMasters { get; set; }
-        public virtual ICollection<CharactersFarmingPatch> CharactersFarmingPatches { get; set; }
-        public virtual ICollection<CharactersItem> CharactersItems { get; set; }
-        public virtual ICollection<CharactersItemsLook> CharactersItemsLooks { get; set; }
-        public virtual ICollection<CharactersNote> CharactersNotes { get; set; }
-        public virtual ICollection<CharactersOffence> CharactersOffenceMasters { get; set; }
-        public virtual ICollection<CharactersOffence> CharactersOffenceModerators { get; set; }
-        public virtual ICollection<CharactersPermission> CharactersPermissions { get; set; }
-        public virtual ICollection<CharactersReport> CharactersReportReporteds { get; set; }
-        public virtual ICollection<CharactersReport> CharactersReportReporters { get; set; }
-        public virtual ICollection<CharactersReward> CharactersRewards { get; set; }
-        public virtual ICollection<CharactersState> CharactersStates { get; set; }
-        public virtual ICollection<ClansMember> ClansMemberRecruiters { get; set; }
+#pragma warning restore CS0618
+        public virtual ICollection<Aspnetuserclaim> Aspnetuserclaims { get; set; } = null!;
+        public virtual ICollection<Aspnetuserlogin> Aspnetuserlogins { get; set; } = null!;
+        public virtual ICollection<Aspnetusertoken> Aspnetusertokens { get; set; } = null!;
+        public virtual ICollection<Aspnetuserrole> Aspnetuserroles { get; set; } = null!;
+        public virtual ICollection<Blacklist> Blacklists { get; set; } = null!;
+        public virtual ICollection<CharactersAppeal> CharactersAppeals { get; set; } = null!;
+        public virtual ICollection<CharactersContact> CharactersContactContacts { get; set; } = null!;
+        public virtual ICollection<CharactersContact> CharactersContactMasters { get; set; } = null!;
+        public virtual ICollection<CharactersFarmingPatch> CharactersFarmingPatches { get; set; } = null!;
+        public virtual ICollection<CharactersItem> CharactersItems { get; set; } = null!;
+        public virtual ICollection<CharactersItemsLook> CharactersItemsLooks { get; set; } = null!;
+        public virtual ICollection<CharactersNote> CharactersNotes { get; set; } = null!;
+        public virtual ICollection<CharactersOffence> CharactersOffenceMasters { get; set; } = null!;
+        public virtual ICollection<CharactersOffence> CharactersOffenceModerators { get; set; } = null!;
+        #pragma warning disable CS0618
+        public virtual ICollection<CharactersPermission> CharactersPermissions { get; set; } = null!;
+#pragma warning restore CS0618
+        public virtual ICollection<CharactersReport> CharactersReportReporteds { get; set; } = null!;
+        public virtual ICollection<CharactersReport> CharactersReportReporters { get; set; } = null!;
+        public virtual ICollection<CharactersReward> CharactersRewards { get; set; } = null!;
+        public virtual ICollection<CharactersState> CharactersStates { get; set; } = null!;
+        public virtual ICollection<ClansMember> ClansMemberRecruiters { get; set; } = null!;
 
-        public virtual ICollection<Clan> Clans { get; set; }
-        public virtual ICollection<Aspnetrole> Roles { get; set; }
+        public virtual ICollection<Clan> Clans { get; set; } = null!;
+        public virtual ICollection<Aspnetrole> Roles { get; set; } = null!;
     }
 }
-
-#pragma warning restore CS8618

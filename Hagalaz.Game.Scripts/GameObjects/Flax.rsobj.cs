@@ -15,11 +15,13 @@ namespace Hagalaz.Game.Scripts.GameObjects
     {
         private readonly IRsTaskService _taskService;
         private readonly IItemBuilder _itemBuilder;
+        private readonly IMapRegionService _mapRegionService;
 
-        public Flax(IRsTaskService taskService, IItemBuilder itemBuilder)
+        public Flax(IRsTaskService taskService, IItemBuilder itemBuilder, IMapRegionService mapRegionService)
         {
             _taskService = taskService;
             _itemBuilder = itemBuilder;
+            _mapRegionService = mapRegionService;
         }
 
         /// <summary>
@@ -47,8 +49,8 @@ namespace Hagalaz.Game.Scripts.GameObjects
                             if (0.40 >= RandomStatic.Generator.NextDouble())
                             {
                                 // delete the flax object.
-                                Owner.Region.Remove(Owner);
-                                _taskService.Schedule(new RsTask(() => Owner.Region.Add(Owner), 8));
+                                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Remove(Owner);
+                                _taskService.Schedule(new RsTask(() => _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Add(Owner), 8));
                             }
 
                             clicker.SendChatMessage("You picked up the flax from the ground.");
