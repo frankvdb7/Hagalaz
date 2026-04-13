@@ -9,7 +9,7 @@ namespace Hagalaz.Data
         Aspnetusertoken>
     {
         public HagalazDbContext(DbContextOptions<HagalazDbContext> options) : base(options) { }
-public virtual DbSet<Area> Areas { get; set; } = null!;
+        public virtual DbSet<Area> Areas { get; set; } = null!;
         public virtual DbSet<Aspnetrole> Aspnetroles { get; set; } = null!;
         public virtual DbSet<Aspnetroleclaim> Aspnetroleclaims { get; set; } = null!;
         public virtual DbSet<Aspnetuserclaim> Aspnetuserclaims { get; set; } = null!;
@@ -31,8 +31,6 @@ public virtual DbSet<Area> Areas { get; set; } = null!;
         public virtual DbSet<CharactersOffence> CharactersOffences { get; set; } = null!;
         #pragma warning disable CS0618
         public virtual DbSet<CharactersPermission> CharactersPermissions { get; set; } = null!;
-        #pragma warning restore CS0618
-        #pragma warning disable CS0618
         public virtual DbSet<CharactersPreference> CharactersPreferences { get; set; } = null!;
         #pragma warning restore CS0618
         public virtual DbSet<CharactersQuest> CharactersQuests { get; set; } = null!;
@@ -71,17 +69,9 @@ public virtual DbSet<Area> Areas { get; set; } = null!;
         public virtual DbSet<LogsLoginAttempt> LogsLoginAttempts { get; set; } = null!;
         #pragma warning disable CS0618
         public virtual DbSet<MinigamesBarrow> MinigamesBarrows { get; set; } = null!;
-        #pragma warning restore CS0618
-        #pragma warning disable CS0618
         public virtual DbSet<MinigamesDuelArena> MinigamesDuelArenas { get; set; } = null!;
-        #pragma warning restore CS0618
-        #pragma warning disable CS0618
         public virtual DbSet<MinigamesGodwar> MinigamesGodwars { get; set; } = null!;
-        #pragma warning restore CS0618
-        #pragma warning disable CS0618
         public virtual DbSet<MinigamesTzhaarCave> MinigamesTzhaarCaves { get; set; } = null!;
-        #pragma warning restore CS0618
-        #pragma warning disable CS0618
         public virtual DbSet<MinigamesTzhaarCaveWave> MinigamesTzhaarCaveWaves { get; set; } = null!;
         #pragma warning restore CS0618
         public virtual DbSet<MusicDefinition> MusicDefinitions { get; set; } = null!;
@@ -3418,4 +3408,3 @@ public virtual DbSet<Area> Areas { get; set; } = null!;
         }
     }
 }
-#pragma warning restore CS0618, CS8618

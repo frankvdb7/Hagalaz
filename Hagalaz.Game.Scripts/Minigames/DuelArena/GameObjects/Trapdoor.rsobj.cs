@@ -10,6 +10,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.GameObjects
     [GameObjectScriptMetaData([3203])]
     public class Trapdoor : GameObjectScript
     {
+        private readonly IMapRegionService _mapRegionService;
         /// <summary>
         ///     Happens when character click's this object and then walks to it
         ///     and reaches it.
@@ -18,6 +19,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.GameObjects
         /// </summary>
         /// <param name="clicker">Character which clicked on the object.</param>
         /// <param name="clickType">Type of the click that was performed.</param>
+        public Trapdoor(IMapRegionService mapRegionService)
+        {
+            _mapRegionService = mapRegionService;
+        }
+
         public override void OnCharacterClickPerform(ICharacter clicker, GameObjectClickType clickType)
         {
             if (clickType == GameObjectClickType.Option1Click)
@@ -32,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.GameObjects
                     }
                 }
 
-                var regionService = clicker.ServiceProvider.GetRequiredService<IMapRegionService>();
+                var regionService = _mapRegionService;
                 clicker.Interrupt(this);
                 clicker.Movement.Lock(true);
                 clicker.QueueAnimation(Animation.Create(827));

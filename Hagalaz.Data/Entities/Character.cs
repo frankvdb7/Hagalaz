@@ -32,13 +32,14 @@ Aspnetuserlogins = new HashSet<Aspnetuserlogin>();
             Clans = new HashSet<Clan>();
             Roles = new HashSet<Aspnetrole>();
         }
-#pragma warning restore CS8618
+        #pragma warning restore CS8618
 
+        #pragma warning disable CS8618
         public Character(string userName)
             : base(userName)
         {
         }
-#pragma warning restore CS8618
+        #pragma warning restore CS8618
         
         public string? Password { get; set; }
         public string DisplayName { get; set; } = null!;
@@ -65,17 +66,11 @@ Aspnetuserlogins = new HashSet<Aspnetuserlogin>();
         public virtual ClansMember ClansMemberMaster { get; set; } = null!;
         #pragma warning disable CS0618
         public virtual MinigamesBarrow MinigamesBarrow { get; set; } = null!;
+        public virtual MinigamesDuelArena MinigamesDuelArena { get; set; } = null!;
+        public virtual MinigamesGodwar MinigamesGodwar { get; set; } = null!;
+        public virtual MinigamesTzhaarCave MinigamesTzhaarCave { get; set; } = null!;
         #pragma warning restore CS0618
-        #pragma warning disable CS0618
-public virtual MinigamesDuelArena MinigamesDuelArena { get; set; } = null!;
-        #pragma warning restore CS0618
-        #pragma warning disable CS0618
-public virtual MinigamesGodwar MinigamesGodwar { get; set; } = null!;
-        #pragma warning restore CS0618
-        #pragma warning disable CS0618
-public virtual MinigamesTzhaarCave MinigamesTzhaarCave { get; set; } = null!;
-        #pragma warning restore CS0618
-public virtual ICollection<Aspnetuserclaim> Aspnetuserclaims { get; set; } = null!;
+        public virtual ICollection<Aspnetuserclaim> Aspnetuserclaims { get; set; } = null!;
         public virtual ICollection<Aspnetuserlogin> Aspnetuserlogins { get; set; } = null!;
         public virtual ICollection<Aspnetusertoken> Aspnetusertokens { get; set; } = null!;
         public virtual ICollection<Aspnetuserrole> Aspnetuserroles { get; set; } = null!;
@@ -92,7 +87,7 @@ public virtual ICollection<Aspnetuserclaim> Aspnetuserclaims { get; set; } = nul
         #pragma warning disable CS0618
         public virtual ICollection<CharactersPermission> CharactersPermissions { get; set; } = null!;
         #pragma warning restore CS0618
-public virtual ICollection<CharactersReport> CharactersReportReporteds { get; set; } = null!;
+        public virtual ICollection<CharactersReport> CharactersReportReporteds { get; set; } = null!;
         public virtual ICollection<CharactersReport> CharactersReportReporters { get; set; } = null!;
         public virtual ICollection<CharactersReward> CharactersRewards { get; set; } = null!;
         public virtual ICollection<CharactersState> CharactersStates { get; set; } = null!;
