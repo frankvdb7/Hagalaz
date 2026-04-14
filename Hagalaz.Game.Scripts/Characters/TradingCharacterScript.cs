@@ -200,7 +200,7 @@ namespace Hagalaz.Game.Scripts.Characters
         {
             if (TradeSession)
             {
-                if (Target!.IsDestroyed)
+                if (Target.IsDestroyed)
                 {
                     CancelTradeSession();
                 }
@@ -268,9 +268,9 @@ namespace Hagalaz.Game.Scripts.Characters
             Target = target;
 
             Character.Configurations.SendStandardConfiguration(1042, 0);
-            Target!.Configurations.SendStandardConfiguration(1042, 0);
+            Target.Configurations.SendStandardConfiguration(1042, 0);
             Character.Configurations.SendStandardConfiguration(1043, 0);
-            Target!.Configurations.SendStandardConfiguration(1043, 0);
+            Target.Configurations.SendStandardConfiguration(1043, 0);
 
             var characterTradeInterfaceScript = Character.ServiceProvider.GetRequiredService<TradeInterfaceScript>();
             characterTradeInterfaceScript.CloseHandler = () =>
@@ -282,7 +282,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 CancelTradeSession();
             };
-            var targetTradeInterfaceScript = Target!.ServiceProvider.GetRequiredService<TradeInterfaceScript>();
+            var targetTradeInterfaceScript = Target.ServiceProvider.GetRequiredService<TradeInterfaceScript>();
             targetTradeInterfaceScript.CloseHandler = () =>
             {
                 if (TradeSession)
@@ -297,7 +297,7 @@ namespace Hagalaz.Game.Scripts.Characters
             {
                 TradeSession = false;
                 Character.Interrupt(this);
-                Target!.Interrupt(this);
+                Target.Interrupt(this);
                 Character.SendChatMessage("System error occured.");
                 Target.SendChatMessage("System error occured.");
                 Target = null;
@@ -312,7 +312,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 SelfInterface = null;
                 TargetInterface = null;
                 Character.Interrupt(this);
-                Target!.Interrupt(this);
+                Target.Interrupt(this);
                 Character.SendChatMessage("System error occured.");
                 Target.SendChatMessage("System error occured.");
                 Target = null;
@@ -320,13 +320,13 @@ namespace Hagalaz.Game.Scripts.Characters
             }
 
             if (!Character.Widgets.OpenInventoryOverlay(336, 1, Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>()) ||
-                !Target.Widgets.OpenInventoryOverlay(336, 1, Target!.ServiceProvider.GetRequiredService<DefaultWidgetScript>()))
+                !Target.Widgets.OpenInventoryOverlay(336, 1, Target.ServiceProvider.GetRequiredService<DefaultWidgetScript>()))
             {
                 TradeSession = false;
                 SelfInterface = null;
                 TargetInterface = null;
                 Character.Interrupt(this);
-                Target!.Interrupt(this);
+                Target.Interrupt(this);
                 Character.SendChatMessage("System error occured.");
                 Target.SendChatMessage("System error occured.");
                 Target = null;
@@ -343,7 +343,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 SelfOverlay = null;
                 TargetOverlay = null;
                 Character.Interrupt(this);
-                Target!.Interrupt(this);
+                Target.Interrupt(this);
                 Character.SendChatMessage("System error occured.");
                 Target.SendChatMessage("System error occured.");
                 Target = null;
@@ -353,7 +353,7 @@ namespace Hagalaz.Game.Scripts.Characters
             SelfContainer = [];
             TargetContainer = [];
 
-            SelfInterface!.DrawString(17, "Trading With: " + Target!.DisplayName);
+            SelfInterface!.DrawString(17, "Trading With: " + Target.DisplayName);
             TargetInterface!.DrawString(17, "Trading With: " + Character.DisplayName);
 
             // IviiiIsssssssss
@@ -367,11 +367,11 @@ namespace Hagalaz.Game.Scripts.Characters
             [
                 (335 << 16) | 35, 90, 4, 7, 0, -1, "Value", "", "", "", "", "", "", "", ""
             ]);
-            Target!.Configurations.SendCs2Script(150,
+            Target.Configurations.SendCs2Script(150,
             [
                 (335 << 16) | 32, 90, 4, 7, 1, -1, "Remove", "Remove-5", "Remove-10", "Remove-All", "Remove-X", "Value"
             ]);
-            Target!.Configurations.SendCs2Script(695,
+            Target.Configurations.SendCs2Script(695,
             [
                 (335 << 16) | 35, 90, 4, 7, 0, -1, "Value", "", "", "", "", "", "", "", ""
             ]);
@@ -391,7 +391,7 @@ namespace Hagalaz.Game.Scripts.Characters
             [
                 (336 << 16) | 0, 93, 4, 7, 0, -1, "Offer", "Offer-5", "Offer-10", "Offer-All", "Offer-X", "Value", "Lend"
             ]);
-            Target!.Configurations.SendCs2Script(150,
+            Target.Configurations.SendCs2Script(150,
             [
                 (336 << 16) | 0, 93, 4, 7, 0, -1, "Offer", "Offer-5", "Offer-10", "Offer-All", "Offer-X", "Value", "Lend"
             ]);
@@ -611,7 +611,7 @@ namespace Hagalaz.Game.Scripts.Characters
                                 ProcessTradeChange(false, false);
                             };
                             TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                            Target!.Configurations.SendIntegerInput("Please enter the amount to offer:");
+                            Target.Configurations.SendIntegerInput("Please enter the amount to offer:");
                             return true;
                         }
 
@@ -863,7 +863,7 @@ namespace Hagalaz.Game.Scripts.Characters
                                 ProcessTradeChange(false, true);
                             };
                             TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                            Target!.Configurations.SendIntegerInput("Please enter the amount to remove:");
+                            Target.Configurations.SendIntegerInput("Please enter the amount to remove:");
                             return true;
                         }
 
@@ -1066,7 +1066,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         ProcessTradeChange(false, false);
                     };
                     TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                    Target!.Configurations.SendIntegerInput(Target.MoneyPouch.Examine + "<br>How many would you like to offer?");
+                    Target.Configurations.SendIntegerInput(Target.MoneyPouch.Examine + "<br>How many would you like to offer?");
                     return true;
                 });
 
@@ -1176,7 +1176,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     [
                         (335 << 16) | (self ? 32 : 35), 4, 7, (int)slot
                     ]);
-                    Target!.Configurations.SendCs2Script(143,
+                    Target.Configurations.SendCs2Script(143,
                     [
                         (335 << 16) | (self ? 35 : 32), 4, 7, (int)slot
                     ]);
@@ -1185,12 +1185,12 @@ namespace Hagalaz.Game.Scripts.Characters
                 if (!SelfModified && self)
                 {
                     Character.Configurations.SendStandardConfiguration(1042, 1);
-                    Target!.Configurations.SendStandardConfiguration(1043, 1);
+                    Target.Configurations.SendStandardConfiguration(1043, 1);
                 }
                 else if (!TargetModified && !self)
                 {
                     Character.Configurations.SendStandardConfiguration(1043, 1);
-                    Target!.Configurations.SendStandardConfiguration(1042, 1);
+                    Target.Configurations.SendStandardConfiguration(1042, 1);
                 }
 
                 if (self)
@@ -1220,8 +1220,8 @@ namespace Hagalaz.Game.Scripts.Characters
             LastMyInventoryFreeSlots = Character.Inventory.FreeSlots;
             LastTargetInventoryFreeSlots = Target.Inventory.FreeSlots;
             Character.Configurations.SendGlobalCs2String(203,
-                "<br><br>" + Target!.DisplayName + "<br>has " + LastTargetInventoryFreeSlots + " free<br>inventory slots.");
-            Target!.Configurations.SendGlobalCs2String(203,
+                "<br><br>" + Target.DisplayName + "<br>has " + LastTargetInventoryFreeSlots + " free<br>inventory slots.");
+            Target.Configurations.SendGlobalCs2String(203,
                 "<br><br>" + Character.DisplayName + "<br>has " + LastMyInventoryFreeSlots + " free<br>inventory slots.");
         }
 
@@ -1238,8 +1238,8 @@ namespace Hagalaz.Game.Scripts.Characters
 
             Character.Configurations.SendItems(90, false, SelfContainer!, SelfContainer!.Updates);
             Character.Configurations.SendItems(90, true, TargetContainer!, TargetContainer!.Updates);
-            Target!.Configurations.SendItems(90, false, TargetContainer!, TargetContainer!.Updates);
-            Target!.Configurations.SendItems(90, true, SelfContainer!, SelfContainer!.Updates);
+            Target.Configurations.SendItems(90, false, TargetContainer!, TargetContainer!.Updates);
+            Target.Configurations.SendItems(90, true, SelfContainer!, SelfContainer!.Updates);
 
             var selfTotal = SelfContainer!.CalculateTotalValue();
             var targetTotal = TargetContainer!.CalculateTotalValue();
@@ -1247,8 +1247,8 @@ namespace Hagalaz.Game.Scripts.Characters
             Character.Configurations.SendGlobalCs2Int(729, selfTotal);
             Character.Configurations.SendGlobalCs2Int(697, targetTotal);
 
-            Target!.Configurations.SendGlobalCs2Int(729, targetTotal);
-            Target!.Configurations.SendGlobalCs2Int(697, selfTotal);
+            Target.Configurations.SendGlobalCs2Int(729, targetTotal);
+            Target.Configurations.SendGlobalCs2Int(697, selfTotal);
         }
 
         /// <summary>
@@ -1347,7 +1347,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 CancelTradeSession();
             }
 
-            var targetTradeInterfaceScript = Target!.ServiceProvider.GetRequiredService<TradeInterfaceScript>();
+            var targetTradeInterfaceScript = Target.ServiceProvider.GetRequiredService<TradeInterfaceScript>();
             targetTradeInterfaceScript.CloseHandler = () =>
             {
                 if (TradeSession)
@@ -1376,8 +1376,8 @@ namespace Hagalaz.Game.Scripts.Characters
             SelfInterface = self;
             TargetInterface = target;
 
-            Character.Configurations.SendGlobalCs2String(203, Target!.DisplayName);
-            Target!.Configurations.SendGlobalCs2String(203, Character.DisplayName);
+            Character.Configurations.SendGlobalCs2String(203, Target.DisplayName);
+            Target.Configurations.SendGlobalCs2String(203, Character.DisplayName);
 
             if (SelfModified)
             {

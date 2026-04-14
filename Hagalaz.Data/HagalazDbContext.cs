@@ -9,6 +9,7 @@ namespace Hagalaz.Data
         Aspnetusertoken>
     {
         public HagalazDbContext(DbContextOptions<HagalazDbContext> options) : base(options) { }
+
         public virtual DbSet<Area> Areas { get; set; } = null!;
         public virtual DbSet<Aspnetrole> Aspnetroles { get; set; } = null!;
         public virtual DbSet<Aspnetroleclaim> Aspnetroleclaims { get; set; } = null!;
