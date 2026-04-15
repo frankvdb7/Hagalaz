@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <summary>
         ///     Contains the rules.
         /// </summary>
-        public DuelRules? CurrentRules { get; private set; }
+        public DuelRules CurrentRules { get; private set; } = null!;
 
         /// <summary>
         ///     Contains boolean if trade session is currently active.
@@ -84,22 +84,22 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <summary>
         ///     Contains self interface.
         /// </summary>
-        private IWidget? SelfInterface { get; set; }
+        private IWidget SelfInterface { get; set; } = null!;
 
         /// <summary>
         ///     Contains target interface.
         /// </summary>
-        private IWidget? TargetInterface { get; set; }
+        private IWidget TargetInterface { get; set; } = null!;
 
         /// <summary>
         ///     Contains self overlay.
         /// </summary>
-        private IWidget? SelfOverlay { get; set; }
+        private IWidget SelfOverlay { get; set; } = null!;
 
         /// <summary>
         ///     Contains target overlay.
         /// </summary>
-        private IWidget? TargetOverlay { get; set; }
+        private IWidget TargetOverlay { get; set; } = null!;
 
         /// <summary>
         ///     Contains boolean if self player accepted.
@@ -124,12 +124,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <summary>
         ///     Contains self container instance.
         /// </summary>
-        private DuelContainer? SelfContainer { get; set; }
+        private DuelContainer SelfContainer { get; set; } = null!;
 
         /// <summary>
         ///     Contains target container instance.
         /// </summary>
-        private DuelContainer? TargetContainer { get; set; }
+        private DuelContainer TargetContainer { get; set; } = null!;
 
         /// <summary>
         ///     Contains boolean if self trade was modified.
@@ -144,12 +144,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <summary>
         ///     Contains the encoded previous rules.
         /// </summary>
-        private DuelRulesDto? PreviousRules { get; set; }
+        private DuelRulesDto PreviousRules { get; set; } = null!;
 
         /// <summary>
         ///     Contains the encoded favourite rules.
         /// </summary>
-        private DuelRulesDto? FavoriteRules { get; set; }
+        private DuelRulesDto FavoriteRules { get; set; } = null!;
 
         public DuelArenaScript(ICharacterContextAccessor contextAccessor, IHintIconBuilder hintIconBuilder, IItemBuilder itemBuilder)
             : base(contextAccessor)
@@ -321,7 +321,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Character.Configurations.SendGlobalCs2String(378, string.Empty); // reset confirmation status
             Target.Configurations.SendGlobalCs2String(378, string.Empty); // reset confirmation status
 
-            SelfInterface!.AttachClickHandler(42,
+            SelfInterface.AttachClickHandler(42,
                 (componentId, clickType, extra1, extra2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -329,39 +329,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return false;
                     }
 
-                    CurrentRules!.Hydrate(PreviousRules);
-                    CurrentRules!.SendRules(Character, Target);
+                    CurrentRules.Hydrate(PreviousRules);
+                    CurrentRules.SendRules(Character, Target);
                     return true;
                 });
-            TargetInterface!.AttachClickHandler(42,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    if (clickType != ComponentClickType.LeftClick)
-                    {
-                        return false;
-                    }
-
-                    var script = Target.GetOrAddScript<DuelArenaScript>();
-
-                    CurrentRules!.Hydrate(script.PreviousRules);
-                    CurrentRules!.SendRules(Character, Target);
-
-                    return true;
-                });
-
-            SelfInterface!.AttachClickHandler(48,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    if (clickType != ComponentClickType.LeftClick)
-                    {
-                        return false;
-                    }
-
-                    CurrentRules!.Hydrate(FavoriteRules);
-                    CurrentRules!.SendRules(Character, Target);
-                    return true;
-                });
-            TargetInterface!.AttachClickHandler(48,
+            TargetInterface.AttachClickHandler(42,
                 (componentId, clickType, extra1, extra2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -371,13 +343,41 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                     var script = Target.GetOrAddScript<DuelArenaScript>();
 
-                    CurrentRules!.Hydrate(script.FavoriteRules);
-                    CurrentRules!.SendRules(Character, Target);
+                    CurrentRules.Hydrate(script.PreviousRules);
+                    CurrentRules.SendRules(Character, Target);
 
                     return true;
                 });
 
-            SelfInterface!.AttachClickHandler(56,
+            SelfInterface.AttachClickHandler(48,
+                (componentId, clickType, extra1, extra2) =>
+                {
+                    if (clickType != ComponentClickType.LeftClick)
+                    {
+                        return false;
+                    }
+
+                    CurrentRules.Hydrate(FavoriteRules);
+                    CurrentRules.SendRules(Character, Target);
+                    return true;
+                });
+            TargetInterface.AttachClickHandler(48,
+                (componentId, clickType, extra1, extra2) =>
+                {
+                    if (clickType != ComponentClickType.LeftClick)
+                    {
+                        return false;
+                    }
+
+                    var script = Target.GetOrAddScript<DuelArenaScript>();
+
+                    CurrentRules.Hydrate(script.FavoriteRules);
+                    CurrentRules.SendRules(Character, Target);
+
+                    return true;
+                });
+
+            SelfInterface.AttachClickHandler(56,
                 (componentId, clickType, extra1, extra2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -394,7 +394,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     RefreshDuelConfirmationStatus();
                     return true;
                 });
-            TargetInterface!.AttachClickHandler(56,
+            TargetInterface.AttachClickHandler(56,
                 (componentId, clickType, extra1, extra2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -412,7 +412,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
 
-            SelfInterface!.AttachClickHandler(71,
+            SelfInterface.AttachClickHandler(71,
                 (componentId, clickType, extra1, extra2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -421,10 +421,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     }
 
                     Character.SendChatMessage("Your favorited dueling rules have been saved.");
-                    FavoriteRules = CurrentRules!.Dehydrate();
+                    FavoriteRules = CurrentRules.Dehydrate();
                     return true;
                 });
-            TargetInterface!.AttachClickHandler(71,
+            TargetInterface.AttachClickHandler(71,
                 (componentId, clickType, extra1, extra2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -434,7 +434,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                     Target.SendChatMessage("Your favorited dueling rules have been saved.");
                     var script = Target.GetOrAddScript<DuelArenaScript>();
-                    script.FavoriteRules = CurrentRules!.Dehydrate();
+                    script.FavoriteRules = CurrentRules.Dehydrate();
 
                     return true;
                 });
@@ -478,11 +478,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             SelfContainer = [];
             TargetContainer = [];
 
-            SelfOverlay!.SetOptions(0,
+            SelfOverlay.SetOptions(0,
                 0,
                 27,
                 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x80 | 0x400); // allow clicking of 7 right click options + auto examine option ( last )
-            TargetOverlay!.SetOptions(0,
+            TargetOverlay.SetOptions(0,
                 0,
                 27,
                 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x80 | 0x400); // allow clicking of 7 right click options + auto examine option ( last )
@@ -490,17 +490,17 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Character.Configurations.SendCs2Script(150, [(1368 << 16) | 0, 93, 4, 7, 1, -1, "Stake", "Stake-5", "Stake-10", "Stake-All", "Stake-X"]);
             Target.Configurations.SendCs2Script(150, [(1368 << 16) | 0, 93, 4, 7, 1, -1, "Stake", "Stake-5", "Stake-10", "Stake-All", "Stake-X"]);
 
-            SelfInterface!.SetOptions(7,
+            SelfInterface.SetOptions(7,
                 0,
                 27,
                 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x80 | 0x400); // allow clicking of 7 right click options + auto examine option ( last )
-            SelfInterface!.SetOptions(13, 0, 27, 0x2 | 0x400); // allow clicking of one option + auto examine option ( last )
+            SelfInterface.SetOptions(13, 0, 27, 0x2 | 0x400); // allow clicking of one option + auto examine option ( last )
 
-            TargetInterface!.SetOptions(7,
+            TargetInterface.SetOptions(7,
                 0,
                 27,
                 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x80 | 0x400); // allow clicking of 7 right click options + auto examine option ( last )
-            TargetInterface!.SetOptions(13, 0, 27, 0x2 | 0x400); // allow clicking of one option + auto examine option ( last )
+            TargetInterface.SetOptions(13, 0, 27, 0x2 | 0x400); // allow clicking of one option + auto examine option ( last )
 
             Character.Configurations.SendCs2Script(150, [(1367 << 16) | 7, 134, 3, 3, 1, -1, "Remove", "Remove-5", "Remove-10", "Remove-All", "Remove-X"]);
             Character.Configurations.SendCs2Script(158, [(1367 << 16) | 13, 134, 3, 3, 1, -1, "Value", "", "", ""]);
@@ -508,7 +508,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Target.Configurations.SendCs2Script(150, [(1367 << 16) | 7, 134, 3, 3, 1, -1, "Remove", "Remove-5", "Remove-10", "Remove-All", "Remove-X"]);
             Target.Configurations.SendCs2Script(158, [(1367 << 16) | 13, 134, 3, 3, 1, -1, "Value", "", "", ""]);
 
-            SelfOverlay!.AttachClickHandler(0,
+            SelfOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
                     if (itemSlot < 0 || itemSlot >= Character.Inventory.Capacity)
@@ -562,7 +562,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                                 return;
                             }
 
-                            SelfIntInputHandler = null;
+                            SelfIntInputHandler = null!;
                             if (amt <= 0)
                             {
                                 return;
@@ -570,7 +570,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var rem = item.Clone();
                             rem.Count = amt > max ? max : amt;
-                            if (!SelfContainer!.HasSpaceFor(rem))
+                            if (!SelfContainer.HasSpaceFor(rem))
                             {
                                 Character.SendChatMessage("The stake is full.");
                                 return;
@@ -584,7 +584,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var add = item.Clone();
                             add.Count = cnt;
-                            SelfContainer!.Add(add);
+                            SelfContainer.Add(add);
                             RefreshDuelStakeScreen();
                             ProcessDuelStakeChange(true, false);
                         };
@@ -606,7 +606,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toRemove = item.Clone();
                         toRemove.Count = count;
-                        if (!SelfContainer!.HasSpaceFor(toRemove))
+                        if (!SelfContainer.HasSpaceFor(toRemove))
                         {
                             Character.SendChatMessage("The stake is full.");
                             return false;
@@ -620,7 +620,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toAdd = item.Clone();
                         toAdd.Count = count;
-                        SelfContainer!.Add(toAdd);
+                        SelfContainer.Add(toAdd);
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(true, false);
                     }
@@ -628,7 +628,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
 
-            TargetOverlay!.AttachClickHandler(0,
+            TargetOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
                     if (itemSlot < 0 || itemSlot >= Target.Inventory.Capacity)
@@ -682,7 +682,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                                 return;
                             }
 
-                            TargetIntInputHandler = null;
+                            TargetIntInputHandler = null!;
                             if (amt <= 0)
                             {
                                 return;
@@ -690,7 +690,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var rem = item.Clone();
                             rem.Count = amt > max ? max : amt;
-                            if (!TargetContainer!.HasSpaceFor(rem))
+                            if (!TargetContainer.HasSpaceFor(rem))
                             {
                                 Target.SendChatMessage("The stake is full.");
                                 return;
@@ -704,7 +704,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var add = item.Clone();
                             add.Count = cnt;
-                            TargetContainer!.Add(add);
+                            TargetContainer.Add(add);
                             RefreshDuelStakeScreen();
                             ProcessDuelStakeChange(false, false);
                         };
@@ -726,7 +726,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toRemove = item.Clone();
                         toRemove.Count = count;
-                        if (!TargetContainer!.HasSpaceFor(toRemove))
+                        if (!TargetContainer.HasSpaceFor(toRemove))
                         {
                             Target.SendChatMessage("The stake is full.");
                             return false;
@@ -740,7 +740,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toAdd = item.Clone();
                         toAdd.Count = count;
-                        TargetContainer!.Add(toAdd);
+                        TargetContainer.Add(toAdd);
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(false, false);
                     }
@@ -749,7 +749,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             // money pouch
-            SelfInterface!.AttachClickHandler(8,
+            SelfInterface.AttachClickHandler(8,
                 (componentId, clickType, extra1, extra2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -766,13 +766,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        SelfIntInputHandler = null;
+                        SelfIntInputHandler = null!;
                         if (amt <= 0)
                         {
                             return;
                         }
 
-                        if (!SelfContainer!.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
+                        if (!SelfContainer.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
                         {
                             Character.SendChatMessage("The stake is full.");
                             return;
@@ -784,7 +784,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        SelfContainer!.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
+                        SelfContainer.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(true, false);
                     };
@@ -793,7 +793,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
 
-            TargetInterface!.AttachClickHandler(8,
+            TargetInterface.AttachClickHandler(8,
                 (componentId, clickType, extra1, extra2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -810,13 +810,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        TargetIntInputHandler = null;
+                        TargetIntInputHandler = null!;
                         if (amt <= 0)
                         {
                             return;
                         }
 
-                        if (!TargetContainer!.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
+                        if (!TargetContainer.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
                         {
                             Target.SendChatMessage("The stake is full.");
                             return;
@@ -828,7 +828,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             return;
                         }
 
-                        TargetContainer!.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
+                        TargetContainer.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(false, false);
                     };
@@ -837,22 +837,22 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
 
-            SelfInterface!.AttachClickHandler(7,
+            SelfInterface.AttachClickHandler(7,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= SelfContainer!.Capacity)
+                    if (itemSlot < 0 || itemSlot >= SelfContainer.Capacity)
                     {
                         return false;
                     }
 
-                    var item = SelfContainer![itemSlot];
+                    var item = SelfContainer[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
                     }
 
                     var count = 0;
-                    var max = SelfContainer!.GetCount(item);
+                    var max = SelfContainer.GetCount(item);
                     if (max <= 0)
                     {
                         return false;
@@ -885,7 +885,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                                 return;
                             }
 
-                            SelfIntInputHandler = null;
+                            SelfIntInputHandler = null!;
                             if (amt <= 0)
                             {
                                 return;
@@ -893,7 +893,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var rem = item.Clone();
                             rem.Count = amt > max ? max : amt;
-                            var cnt = SelfContainer!.Remove(rem, itemSlot);
+                            var cnt = SelfContainer.Remove(rem, itemSlot);
                             if (cnt <= 0)
                             {
                                 return;
@@ -931,7 +931,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toRemove = item.Clone();
                         toRemove.Count = count;
-                        count = SelfContainer!.Remove(toRemove, itemSlot);
+                        count = SelfContainer.Remove(toRemove, itemSlot);
                         if (count <= 0)
                         {
                             return false;
@@ -955,22 +955,22 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
 
-            TargetInterface!.AttachClickHandler(7,
+            TargetInterface.AttachClickHandler(7,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= TargetContainer!.Capacity)
+                    if (itemSlot < 0 || itemSlot >= TargetContainer.Capacity)
                     {
                         return false;
                     }
 
-                    var item = TargetContainer![itemSlot];
+                    var item = TargetContainer[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
                     }
 
                     var count = 0;
-                    var max = TargetContainer!.GetCount(item);
+                    var max = TargetContainer.GetCount(item);
                     if (max <= 0)
                     {
                         return false;
@@ -1003,7 +1003,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                                 return;
                             }
 
-                            TargetIntInputHandler = null;
+                            TargetIntInputHandler = null!;
                             if (amt <= 0)
                             {
                                 return;
@@ -1011,7 +1011,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                             var rem = item.Clone();
                             rem.Count = amt > max ? max : amt;
-                            var cnt = TargetContainer!.Remove(rem, itemSlot);
+                            var cnt = TargetContainer.Remove(rem, itemSlot);
                             if (cnt <= 0)
                             {
                                 return;
@@ -1049,7 +1049,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         var toRemove = item.Clone();
                         toRemove.Count = count;
-                        count = TargetContainer!.Remove(toRemove, itemSlot);
+                        count = TargetContainer.Remove(toRemove, itemSlot);
                         if (count <= 0)
                         {
                             return false;
@@ -1084,16 +1084,16 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            var selfFullUpdate = SelfContainer!.Updates.Count == 0;
-            var targetFullUpdate = TargetContainer!.Updates.Count == 0;
+            var selfFullUpdate = SelfContainer.Updates.Count == 0;
+            var targetFullUpdate = TargetContainer.Updates.Count == 0;
 
-            Character.Configurations.SendItems(134, false, SelfContainer!, selfFullUpdate ? null : SelfContainer!.Updates);
-            Character.Configurations.SendItems(134, true, TargetContainer!, targetFullUpdate ? null : TargetContainer!.Updates);
-            Target.Configurations.SendItems(134, false, TargetContainer!, targetFullUpdate ? null : TargetContainer!.Updates);
-            Target.Configurations.SendItems(134, true, SelfContainer!, selfFullUpdate ? null : SelfContainer!.Updates);
+            Character.Configurations.SendItems(134, false, SelfContainer, selfFullUpdate ? null : SelfContainer.Updates);
+            Character.Configurations.SendItems(134, true, TargetContainer, targetFullUpdate ? null : TargetContainer.Updates);
+            Target.Configurations.SendItems(134, false, TargetContainer, targetFullUpdate ? null : TargetContainer.Updates);
+            Target.Configurations.SendItems(134, true, SelfContainer, selfFullUpdate ? null : SelfContainer.Updates);
 
-            var selfTotal = SelfContainer!.CalculateTotalValue();
-            var targetTotal = TargetContainer!.CalculateTotalValue();
+            var selfTotal = SelfContainer.CalculateTotalValue();
+            var targetTotal = TargetContainer.CalculateTotalValue();
 
             Character.Configurations.SendGlobalCs2Int(546, selfTotal);
             Character.Configurations.SendGlobalCs2Int(1333, targetTotal);
@@ -1168,14 +1168,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 RefreshDuelConfirmationStatus();
             }
 
-            var slots = self ? SelfContainer!.Updates : TargetContainer!.Updates;
+            var slots = self ? SelfContainer.Updates : TargetContainer.Updates;
 
             if (valueDecreased)
             {
                 //if (self && targetAccepted)
-                //this.TargetInterface!.DrawString(37, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
+                //this.TargetInterface.DrawString(37, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
                 //else if (!self && selfAccepted)
-                //this.SelfInterface!.DrawString(37, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
+                //this.SelfInterface.DrawString(37, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
 
                 //foreach (short slot in slots)
                 // {
@@ -1212,7 +1212,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             SelfAccepted = false;
             TargetAccepted = false;
 
-            if (!CurrentRules!.CheckRules(Character, Target) || !CurrentRules!.CheckRules(Target, Character))
+            if (!CurrentRules.CheckRules(Character, Target) || !CurrentRules.CheckRules(Target, Character))
             {
                 RefreshDuelConfirmationStatus();
                 return;
@@ -1220,7 +1220,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (IsStaking)
             {
-                var container = new GenericContainer(StorageType.Normal, (short)(SelfContainer!.Capacity + TargetContainer!.Capacity));
+                var container = new GenericContainer(StorageType.Normal, (short)(SelfContainer.Capacity + TargetContainer.Capacity));
                 container.AddRange(SelfContainer);
                 container.AddRange(TargetContainer);
 
@@ -1243,14 +1243,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
             }
 
-            ((DuelScreenScript)SelfInterface!.Script).CloseCallback = null;
-            ((DuelScreenScript)TargetInterface!.Script).CloseCallback = null;
-            Character.Widgets.CloseWidget(SelfInterface!);
-            Target.Widgets.CloseWidget(TargetInterface!);
-            Character.Widgets.CloseWidget(SelfOverlay!);
-            Target.Widgets.CloseWidget(TargetOverlay!);
-            SelfIntInputHandler = null;
-            TargetIntInputHandler = null;
+            ((DuelScreenScript)SelfInterface.Script).CloseCallback = null;
+            ((DuelScreenScript)TargetInterface.Script).CloseCallback = null;
+            Character.Widgets.CloseWidget(SelfInterface);
+            Target.Widgets.CloseWidget(TargetInterface);
+            Character.Widgets.CloseWidget(SelfOverlay);
+            Target.Widgets.CloseWidget(TargetOverlay);
+            SelfIntInputHandler = null!;
+            TargetIntInputHandler = null!;
 
             Stage = DuelStage.Second;
 
@@ -1297,27 +1297,27 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             /*if (this.IsStaking)
             {
-                if (this.SelfContainer!.TakenSlots > 0)
+                if (this.SelfContainer.TakenSlots > 0)
                 {
-                    this.SelfInterface!.DrawString(25, string.Empty);
-                    this.TargetInterface!.DrawString(26, string.Empty);
+                    this.SelfInterface.DrawString(25, string.Empty);
+                    this.TargetInterface.DrawString(26, string.Empty);
                 }
-                if (this.TargetContainer!.TakenSlots > 0)
+                if (this.TargetContainer.TakenSlots > 0)
                 {
-                    this.SelfInterface!.DrawString(26, string.Empty);
-                    this.TargetInterface!.DrawString(25, string.Empty);
+                    this.SelfInterface.DrawString(26, string.Empty);
+                    this.TargetInterface.DrawString(25, string.Empty);
                 }
             }*/
 
             //if (this.SelfModified)
-            //this.TargetInterface!.SetVisible(55, true);
+            //this.TargetInterface.SetVisible(55, true);
             //if (this.TargetModified)
-            //this.SelfInterface!.SetVisible(55, true);
+            //this.SelfInterface.SetVisible(55, true);
 
             Character.Configurations.SendGlobalCs2String(377, Target.DisplayName); // name, no combat
             Target.Configurations.SendGlobalCs2String(377, Character.DisplayName); // name, no combat
 
-            SelfInterface!.AttachClickHandler(24,
+            SelfInterface.AttachClickHandler(24,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1335,7 +1335,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
 
-            TargetInterface!.AttachClickHandler(24,
+            TargetInterface.AttachClickHandler(24,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1366,15 +1366,15 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            ((DuelConfirmScreenScript)SelfInterface!.Script).CloseCallback = null;
-            ((DuelConfirmScreenScript)TargetInterface!.Script).CloseCallback = null;
+            ((DuelConfirmScreenScript)SelfInterface.Script).CloseCallback = null;
+            ((DuelConfirmScreenScript)TargetInterface.Script).CloseCallback = null;
             CloseInterfaces();
 
             var regionService = Character.ServiceProvider.GetRequiredService<IMapRegionService>();
             ILocation selfLocation;
             ILocation targetLocation;
             var arenaId = RandomStatic.Generator.Next(3);
-            if (CurrentRules![DuelRules.Rule.Obstacles])
+            if (CurrentRules[DuelRules.Rule.Obstacles])
             {
                 while (true)
                 {
@@ -1419,7 +1419,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
             }
 
-            if (CurrentRules![DuelRules.Rule.NoMovement])
+            if (CurrentRules[DuelRules.Rule.NoMovement])
             {
                 var found = false;
                 for (var x = 0; !found; x++)
@@ -1439,8 +1439,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Character.Movement.Teleport(Teleport.Create(selfLocation));
             Target.Movement.Teleport(Teleport.Create(targetLocation));
 
-            CurrentRules!.RemoveEquipment(Character);
-            CurrentRules!.RemoveEquipment(Target);
+            CurrentRules.RemoveEquipment(Character);
+            CurrentRules.RemoveEquipment(Target);
 
             Character.Statistics.NormalizeBoostedStatistics();
             Target.Statistics.NormalizeBoostedStatistics();
@@ -1461,7 +1461,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 SelfContainer,
                 _hintIconBuilder));
 
-            var previousRules = CurrentRules!.Dehydrate();
+            var previousRules = CurrentRules.Dehydrate();
             PreviousRules = previousRules;
             var script = Target.GetScript<DuelArenaScript>();
             if (script != null)
@@ -1469,8 +1469,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 script.PreviousRules = previousRules;
             }
 
-            Character.Profile.SetObject(DuelArenaConstants.MinigamesDuelArenaFavoriteRules, FavoriteRules!);
-            Character.Profile.SetObject(DuelArenaConstants.MinigamesDuelArenaPreviousRules, PreviousRules!);
+            Character.Profile.SetObject(DuelArenaConstants.MinigamesDuelArenaFavoriteRules, FavoriteRules);
+            Character.Profile.SetObject(DuelArenaConstants.MinigamesDuelArenaPreviousRules, PreviousRules);
 
             Character.TryRemoveScript<DuelArenaScript>();
             Target.TryRemoveScript<DuelArenaScript>();
@@ -1490,49 +1490,49 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             CloseInterfaces();
             if (SelfContainer != null && SelfContainer.TakenSlots > 0)
             {
-                for (var i = 0; i < SelfContainer!.Capacity; i++)
+                for (var i = 0; i < SelfContainer.Capacity; i++)
                 {
-                    if (SelfContainer![i] == null)
+                    if (SelfContainer[i] == null)
                     {
                         continue;
                     }
 
-                    if (SelfContainer![i]!.Id == 995)
+                    if (SelfContainer[i]!.Id == 995)
                     {
-                        Character.MoneyPouch.Add(SelfContainer![i]!.Count);
+                        Character.MoneyPouch.Add(SelfContainer[i]!.Count);
                     }
                     else
                     {
-                        Character.Inventory.Add(SelfContainer![i]!);
+                        Character.Inventory.Add(SelfContainer[i]!);
                     }
                 }
             }
 
-            if (Target != null && TargetContainer != null && TargetContainer!.TakenSlots > 0)
+            if (Target != null && TargetContainer != null && TargetContainer.TakenSlots > 0)
             {
-                for (var i = 0; i < TargetContainer!.Capacity; i++)
+                for (var i = 0; i < TargetContainer.Capacity; i++)
                 {
-                    if (TargetContainer![i] == null)
+                    if (TargetContainer[i] == null)
                     {
                         continue;
                     }
 
-                    if (TargetContainer![i]!.Id == 995)
+                    if (TargetContainer[i]!.Id == 995)
                     {
-                        Target.MoneyPouch.Add(TargetContainer![i]!.Count);
+                        Target.MoneyPouch.Add(TargetContainer[i]!.Count);
                     }
                     else
                     {
-                        Target.Inventory.Add(TargetContainer![i]!);
+                        Target.Inventory.Add(TargetContainer[i]!);
                     }
                 }
             }
 
             Stage = DuelStage.Request;
             IsStaking = false;
-            Target = null;
-            SelfContainer = null;
-            TargetContainer = null;
+            Target = null!;
+            SelfContainer = null!;
+            TargetContainer = null!;
         }
 
         /// <summary>
@@ -1552,30 +1552,30 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (SelfInterface != null && SelfInterface.IsOpened)
             {
-                Character.Widgets.CloseWidget(SelfInterface!);
+                Character.Widgets.CloseWidget(SelfInterface);
             }
 
             if (TargetInterface != null && TargetInterface.IsOpened)
             {
-                Target.Widgets.CloseWidget(TargetInterface!);
+                Target.Widgets.CloseWidget(TargetInterface);
             }
 
             if (SelfOverlay != null && SelfOverlay.IsOpened)
             {
-                Character.Widgets.CloseWidget(SelfOverlay!);
+                Character.Widgets.CloseWidget(SelfOverlay);
             }
 
             if (TargetOverlay != null && TargetOverlay.IsOpened)
             {
-                Target.Widgets.CloseWidget(TargetOverlay!);
+                Target.Widgets.CloseWidget(TargetOverlay);
             }
 
-            SelfInterface = null;
-            TargetInterface = null;
-            SelfOverlay = null;
-            TargetOverlay = null;
-            SelfIntInputHandler = null;
-            TargetIntInputHandler = null;
+            SelfInterface = null!;
+            TargetInterface = null!;
+            SelfOverlay = null!;
+            TargetOverlay = null!;
+            SelfIntInputHandler = null!;
+            TargetIntInputHandler = null!;
             SelfAccepted = false;
             TargetAccepted = false;
             _interfacesClosed = true;
@@ -1621,12 +1621,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                 if (Stage == DuelStage.First || Stage == DuelStage.Second)
                 {
-                    if (!_interfacesClosed && !SelfInterface!.IsOpened)
+                    if (!_interfacesClosed && !SelfInterface.IsOpened)
                     {
                         CancelDuelSession();
                     }
 
-                    if (!_interfacesClosed && !TargetInterface!.IsOpened)
+                    if (!_interfacesClosed && !TargetInterface.IsOpened)
                     {
                         CancelDuelSession();
                     }
@@ -1636,7 +1636,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         // duel step 1
                         case DuelStage.First:
                             {
-                                if (IsStaking && !_interfacesClosed && (!SelfOverlay!.IsOpened || !TargetOverlay!.IsOpened))
+                                if (IsStaking && !_interfacesClosed && (!SelfOverlay.IsOpened || !TargetOverlay.IsOpened))
                                 {
                                     CancelDuelSession();
                                 }
@@ -1647,7 +1647,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             }
                         case DuelStage.Second:
                             {
-                                if (IsStaking && !_interfacesClosed && (SelfOverlay!.IsOpened || TargetOverlay!.IsOpened))
+                                if (IsStaking && !_interfacesClosed && (SelfOverlay.IsOpened || TargetOverlay.IsOpened))
                                 {
                                     CancelDuelSession();
                                 }

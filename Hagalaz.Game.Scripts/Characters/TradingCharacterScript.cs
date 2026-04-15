@@ -39,22 +39,22 @@ namespace Hagalaz.Game.Scripts.Characters
         /// <summary>
         ///     Contains self interface.
         /// </summary>
-        public IWidget? SelfInterface { get; private set; }
+        public IWidget SelfInterface { get; private set; } = null!;
 
         /// <summary>
         ///     Contains target interface.
         /// </summary>
-        public IWidget? TargetInterface { get; private set; }
+        public IWidget TargetInterface { get; private set; } = null!;
 
         /// <summary>
         ///     Contains self overlay.
         /// </summary>
-        public IWidget? SelfOverlay { get; private set; }
+        public IWidget SelfOverlay { get; private set; } = null!;
 
         /// <summary>
         ///     Contains target overlay.
         /// </summary>
-        public IWidget? TargetOverlay { get; private set; }
+        public IWidget TargetOverlay { get; private set; } = null!;
 
         /// <summary>
         ///     Contains boolean if self player accepted.
@@ -69,12 +69,12 @@ namespace Hagalaz.Game.Scripts.Characters
         /// <summary>
         ///     Contains self container instance.
         /// </summary>
-        public TradeContainer? SelfContainer { get; private set; }
+        public TradeContainer SelfContainer { get; private set; } = null!;
 
         /// <summary>
         ///     Contains target container instance.
         /// </summary>
-        public TradeContainer? TargetContainer { get; private set; }
+        public TradeContainer TargetContainer { get; private set; } = null!;
 
         /// <summary>
         ///     Contains last sended my inventory free slots value.
@@ -89,12 +89,12 @@ namespace Hagalaz.Game.Scripts.Characters
         /// <summary>
         ///     Contains self int input handler.
         /// </summary>
-        public OnIntInput? SelfIntInputHandler { get; private set; }
+        public OnIntInput SelfIntInputHandler { get; private set; } = null!;
 
         /// <summary>
         ///     Contains target int input handler.
         /// </summary>
-        public OnIntInput? TargetIntInputHandler { get; private set; }
+        public OnIntInput TargetIntInputHandler { get; private set; } = null!;
 
         /// <summary>
         ///     Contains boolean if self trade was modified.
@@ -210,20 +210,20 @@ namespace Hagalaz.Game.Scripts.Characters
                     CancelTradeSession();
                 }
 
-                if (!SelfInterface!.IsOpened)
+                if (!SelfInterface.IsOpened)
                 {
                     CancelTradeSession();
                 }
 
-                if (!TargetInterface!.IsOpened)
+                if (!TargetInterface.IsOpened)
                 {
                     CancelTradeSession();
                 }
 
 
-                if (SelfInterface!.Id == 335 || TargetInterface!.Id == 335) // trade offer step
+                if (SelfInterface.Id == 335 || TargetInterface.Id == 335) // trade offer step
                 {
-                    if (!SelfOverlay!.IsOpened || !TargetOverlay!.IsOpened)
+                    if (!SelfOverlay.IsOpened || !TargetOverlay.IsOpened)
                     {
                         CancelTradeSession();
                     }
@@ -235,7 +235,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
                 else // trade confirm step
                 {
-                    if (SelfOverlay!.IsOpened || TargetOverlay!.IsOpened)
+                    if (SelfOverlay.IsOpened || TargetOverlay.IsOpened)
                     {
                         CancelTradeSession();
                     }
@@ -300,7 +300,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 Target.Interrupt(this);
                 Character.SendChatMessage("System error occured.");
                 Target.SendChatMessage("System error occured.");
-                Target = null;
+                Target = null!;
                 return;
             }
 
@@ -309,13 +309,13 @@ namespace Hagalaz.Game.Scripts.Characters
             if (SelfInterface == null || TargetInterface == null)
             {
                 TradeSession = false;
-                SelfInterface = null;
-                TargetInterface = null;
+                SelfInterface = null!;
+                TargetInterface = null!;
                 Character.Interrupt(this);
                 Target.Interrupt(this);
                 Character.SendChatMessage("System error occured.");
                 Target.SendChatMessage("System error occured.");
-                Target = null;
+                Target = null!;
                 return;
             }
 
@@ -323,13 +323,13 @@ namespace Hagalaz.Game.Scripts.Characters
                 !Target.Widgets.OpenInventoryOverlay(336, 1, Target.ServiceProvider.GetRequiredService<DefaultWidgetScript>()))
             {
                 TradeSession = false;
-                SelfInterface = null;
-                TargetInterface = null;
+                SelfInterface = null!;
+                TargetInterface = null!;
                 Character.Interrupt(this);
                 Target.Interrupt(this);
                 Character.SendChatMessage("System error occured.");
                 Target.SendChatMessage("System error occured.");
-                Target = null;
+                Target = null!;
                 return;
             }
 
@@ -338,23 +338,23 @@ namespace Hagalaz.Game.Scripts.Characters
             if (SelfOverlay == null || TargetOverlay == null)
             {
                 TradeSession = false;
-                SelfInterface = null;
-                TargetInterface = null;
-                SelfOverlay = null;
-                TargetOverlay = null;
+                SelfInterface = null!;
+                TargetInterface = null!;
+                SelfOverlay = null!;
+                TargetOverlay = null!;
                 Character.Interrupt(this);
                 Target.Interrupt(this);
                 Character.SendChatMessage("System error occured.");
                 Target.SendChatMessage("System error occured.");
-                Target = null;
+                Target = null!;
                 return;
             }
 
             SelfContainer = [];
             TargetContainer = [];
 
-            SelfInterface!.DrawString(17, "Trading With: " + Target.DisplayName);
-            TargetInterface!.DrawString(17, "Trading With: " + Character.DisplayName);
+            SelfInterface.DrawString(17, "Trading With: " + Target.DisplayName);
+            TargetInterface.DrawString(17, "Trading With: " + Character.DisplayName);
 
             // IviiiIsssssssss
             // setupInterfaceItemsDisplayFromItemsArrayNonSplit(icomponent,itemsArrayIndex,numRows,numCollumns,dragOptions,dragTarget,option1,option2,option3,option4,option5,option6,option7,option8,option9) : 150
@@ -376,16 +376,16 @@ namespace Hagalaz.Game.Scripts.Characters
                 (335 << 16) | 35, 90, 4, 7, 0, -1, "Value", "", "", "", "", "", "", "", ""
             ]);
 
-            SelfInterface!.SetOptions(32,
+            SelfInterface.SetOptions(32,
                 0,
                 27,
                 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x400); // allow clicking of 6 right click options + auto examine option ( last )
-            SelfInterface!.SetOptions(35, 0, 27, 0x2 | 0x400); // allow clicking of one option + auto examine option ( last )
-            TargetInterface!.SetOptions(32,
+            SelfInterface.SetOptions(35, 0, 27, 0x2 | 0x400); // allow clicking of one option + auto examine option ( last )
+            TargetInterface.SetOptions(32,
                 0,
                 27,
                 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x400); // allow clicking of 6 right click options + auto examine option ( last )
-            TargetInterface!.SetOptions(35, 0, 27, 0x2 | 0x400); // allow clicking of one option + auto examine option ( last )
+            TargetInterface.SetOptions(35, 0, 27, 0x2 | 0x400); // allow clicking of one option + auto examine option ( last )
 
             Character.Configurations.SendCs2Script(150,
             [
@@ -396,16 +396,16 @@ namespace Hagalaz.Game.Scripts.Characters
                 (336 << 16) | 0, 93, 4, 7, 0, -1, "Offer", "Offer-5", "Offer-10", "Offer-All", "Offer-X", "Value", "Lend"
             ]);
 
-            SelfOverlay!.SetOptions(0,
+            SelfOverlay.SetOptions(0,
                 0,
                 27,
                 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x80 | 0x400); // allow clicking of 7 right click options + auto examine option ( last )
-            TargetOverlay!.SetOptions(0,
+            TargetOverlay.SetOptions(0,
                 0,
                 27,
                 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x80 | 0x400); // allow clicking of 7 right click options + auto examine option ( last )
 
-            SelfOverlay!.AttachClickHandler(0,
+            SelfOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
                     if (itemSlot < 0 || itemSlot >= Character.Inventory.Capacity)
@@ -459,7 +459,7 @@ namespace Hagalaz.Game.Scripts.Characters
                                     return;
                                 }
 
-                                SelfIntInputHandler = null;
+                                SelfIntInputHandler = null!;
                                 if (amt <= 0)
                                 {
                                     return;
@@ -475,7 +475,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                                 var add = item.Clone();
                                 add.Count = cnt;
-                                SelfContainer!.Add(add);
+                                SelfContainer.Add(add);
                                 RefreshTradeOfferScreen();
                                 ProcessTradeChange(true, false);
                             };
@@ -501,7 +501,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                             var toAdd = item.Clone();
                             toAdd.Count = count;
-                            SelfContainer!.Add(toAdd);
+                            SelfContainer.Add(toAdd);
                             RefreshTradeOfferScreen();
                             ProcessTradeChange(true, false);
                         }
@@ -536,7 +536,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
 
-            TargetOverlay!.AttachClickHandler(0,
+            TargetOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
                     if (itemSlot < 0 || itemSlot >= Target.Inventory.Capacity)
@@ -590,7 +590,7 @@ namespace Hagalaz.Game.Scripts.Characters
                                     return;
                                 }
 
-                                TargetIntInputHandler = null;
+                                TargetIntInputHandler = null!;
                                 if (amt <= 0)
                                 {
                                     return;
@@ -606,7 +606,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                                 var add = item.Clone();
                                 add.Count = cnt;
-                                TargetContainer!.Add(add);
+                                TargetContainer.Add(add);
                                 RefreshTradeOfferScreen();
                                 ProcessTradeChange(false, false);
                             };
@@ -632,7 +632,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                             var toAdd = item.Clone();
                             toAdd.Count = count;
-                            TargetContainer!.Add(toAdd);
+                            TargetContainer.Add(toAdd);
                             RefreshTradeOfferScreen();
                             ProcessTradeChange(false, false);
                         }
@@ -667,15 +667,15 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
 
-            SelfInterface!.AttachClickHandler(32,
+            SelfInterface.AttachClickHandler(32,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= SelfContainer!.Capacity)
+                    if (itemSlot < 0 || itemSlot >= SelfContainer.Capacity)
                     {
                         return false;
                     }
 
-                    var item = SelfContainer![itemSlot];
+                    var item = SelfContainer[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -686,7 +686,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         clickType == ComponentClickType.Option5Click)
                     {
                         var count = 0;
-                        var max = SelfContainer!.GetCount(item);
+                        var max = SelfContainer.GetCount(item);
                         if (max <= 0)
                         {
                             return false;
@@ -719,7 +719,7 @@ namespace Hagalaz.Game.Scripts.Characters
                                     return;
                                 }
 
-                                SelfIntInputHandler = null;
+                                SelfIntInputHandler = null!;
                                 if (amt <= 0)
                                 {
                                     return;
@@ -727,7 +727,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                                 var rem = item.Clone();
                                 rem.Count = amt > max ? max : amt;
-                                var cnt = SelfContainer!.Remove(rem, itemSlot);
+                                var cnt = SelfContainer.Remove(rem, itemSlot);
                                 if (cnt <= 0)
                                 {
                                     return;
@@ -753,7 +753,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                             var toRemove = item.Clone();
                             toRemove.Count = count;
-                            count = SelfContainer!.Remove(toRemove, itemSlot);
+                            count = SelfContainer.Remove(toRemove, itemSlot);
                             if (count <= 0)
                             {
                                 return false;
@@ -790,15 +790,15 @@ namespace Hagalaz.Game.Scripts.Characters
 
                     return true;
                 });
-            TargetInterface!.AttachClickHandler(32,
+            TargetInterface.AttachClickHandler(32,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= TargetContainer!.Capacity)
+                    if (itemSlot < 0 || itemSlot >= TargetContainer.Capacity)
                     {
                         return false;
                     }
 
-                    var item = TargetContainer![itemSlot];
+                    var item = TargetContainer[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -809,7 +809,7 @@ namespace Hagalaz.Game.Scripts.Characters
                         clickType == ComponentClickType.Option5Click)
                     {
                         var count = 0;
-                        var max = TargetContainer!.GetCount(item);
+                        var max = TargetContainer.GetCount(item);
                         if (max <= 0)
                         {
                             return false;
@@ -842,7 +842,7 @@ namespace Hagalaz.Game.Scripts.Characters
                                     return;
                                 }
 
-                                TargetIntInputHandler = null;
+                                TargetIntInputHandler = null!;
                                 if (amt <= 0)
                                 {
                                     return;
@@ -850,7 +850,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                                 var rem = item.Clone();
                                 rem.Count = amt > max ? max : amt;
-                                var cnt = TargetContainer!.Remove(rem, itemSlot);
+                                var cnt = TargetContainer.Remove(rem, itemSlot);
                                 if (cnt <= 0)
                                 {
                                     return;
@@ -876,7 +876,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                             var toRemove = item.Clone();
                             toRemove.Count = count;
-                            count = TargetContainer!.Remove(toRemove, itemSlot);
+                            count = TargetContainer.Remove(toRemove, itemSlot);
                             if (count <= 0)
                             {
                                 return false;
@@ -914,15 +914,15 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
 
-            SelfInterface!.AttachClickHandler(35,
+            SelfInterface.AttachClickHandler(35,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= TargetContainer!.Capacity)
+                    if (itemSlot < 0 || itemSlot >= TargetContainer.Capacity)
                     {
                         return false;
                     }
 
-                    var item = TargetContainer![itemSlot];
+                    var item = TargetContainer[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -954,15 +954,15 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
 
-            TargetInterface!.AttachClickHandler(35,
+            TargetInterface.AttachClickHandler(35,
                 (componentID, clickType, itemID, itemSlot) =>
                 {
-                    if (itemSlot < 0 || itemSlot >= SelfContainer!.Capacity)
+                    if (itemSlot < 0 || itemSlot >= SelfContainer.Capacity)
                     {
                         return false;
                     }
 
-                    var item = SelfContainer![itemSlot];
+                    var item = SelfContainer[itemSlot];
                     if (item == null || item.Id != itemID)
                     {
                         return false;
@@ -994,7 +994,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
 
-            SelfInterface!.AttachClickHandler(53,
+            SelfInterface.AttachClickHandler(53,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1011,7 +1011,7 @@ namespace Hagalaz.Game.Scripts.Characters
                             return;
                         }
 
-                        SelfIntInputHandler = null;
+                        SelfIntInputHandler = null!;
                         if (amt <= 0)
                         {
                             return;
@@ -1023,7 +1023,7 @@ namespace Hagalaz.Game.Scripts.Characters
                             return;
                         }
 
-                        SelfContainer!.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
+                        SelfContainer.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshTradeOfferScreen();
                         ProcessTradeChange(true, false);
                     };
@@ -1032,7 +1032,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
 
-            TargetInterface!.AttachClickHandler(53,
+            TargetInterface.AttachClickHandler(53,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1049,7 +1049,7 @@ namespace Hagalaz.Game.Scripts.Characters
                             return;
                         }
 
-                        TargetIntInputHandler = null;
+                        TargetIntInputHandler = null!;
                         if (amt <= 0)
                         {
                             return;
@@ -1061,7 +1061,7 @@ namespace Hagalaz.Game.Scripts.Characters
                             return;
                         }
 
-                        TargetContainer!.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
+                        TargetContainer.Add(_itemBuilder.Create().WithId(995).WithCount(amt).Build());
                         RefreshTradeOfferScreen();
                         ProcessTradeChange(false, false);
                     };
@@ -1070,7 +1070,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
 
-            SelfInterface!.AttachClickHandler(18,
+            SelfInterface.AttachClickHandler(18,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1087,7 +1087,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     RefreshTradeConfirmationStatus();
                     return true;
                 });
-            TargetInterface!.AttachClickHandler(18,
+            TargetInterface.AttachClickHandler(18,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1104,7 +1104,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     RefreshTradeConfirmationStatus();
                     return true;
                 });
-            SelfInterface!.AttachClickHandler(20,
+            SelfInterface.AttachClickHandler(20,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1116,7 +1116,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     CancelTradeSession();
                     return true;
                 });
-            TargetInterface!.AttachClickHandler(20,
+            TargetInterface.AttachClickHandler(20,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1157,17 +1157,17 @@ namespace Hagalaz.Game.Scripts.Characters
                 RefreshTradeConfirmationStatus();
             }
 
-            var slots = self ? SelfContainer!.Updates : TargetContainer!.Updates;
+            var slots = self ? SelfContainer.Updates : TargetContainer.Updates;
 
             if (valueDecreased)
             {
                 if (self && targetAccepted)
                 {
-                    TargetInterface!.DrawString(39, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
+                    TargetInterface.DrawString(39, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
                 }
                 else if (!self && selfAccepted)
                 {
-                    SelfInterface!.DrawString(39, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
+                    SelfInterface.DrawString(39, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
                 }
 
                 foreach (short slot in slots)
@@ -1236,13 +1236,13 @@ namespace Hagalaz.Game.Scripts.Characters
                 return;
             }
 
-            Character.Configurations.SendItems(90, false, SelfContainer!, SelfContainer!.Updates);
-            Character.Configurations.SendItems(90, true, TargetContainer!, TargetContainer!.Updates);
-            Target.Configurations.SendItems(90, false, TargetContainer!, TargetContainer!.Updates);
-            Target.Configurations.SendItems(90, true, SelfContainer!, SelfContainer!.Updates);
+            Character.Configurations.SendItems(90, false, SelfContainer, SelfContainer.Updates);
+            Character.Configurations.SendItems(90, true, TargetContainer, TargetContainer.Updates);
+            Target.Configurations.SendItems(90, false, TargetContainer, TargetContainer.Updates);
+            Target.Configurations.SendItems(90, true, SelfContainer, SelfContainer.Updates);
 
-            var selfTotal = SelfContainer!.CalculateTotalValue();
-            var targetTotal = TargetContainer!.CalculateTotalValue();
+            var selfTotal = SelfContainer.CalculateTotalValue();
+            var targetTotal = TargetContainer.CalculateTotalValue();
 
             Character.Configurations.SendGlobalCs2Int(729, selfTotal);
             Character.Configurations.SendGlobalCs2Int(697, targetTotal);
@@ -1261,22 +1261,22 @@ namespace Hagalaz.Game.Scripts.Characters
                 return;
             }
 
-            if (SelfInterface!.Id == 335 || TargetInterface!.Id == 335)
+            if (SelfInterface.Id == 335 || TargetInterface.Id == 335)
             {
                 if (!SelfAccepted && !TargetAccepted)
                 {
-                    SelfInterface!.DrawString(39, ""); // turn off Waiting for other player
-                    TargetInterface!.DrawString(39, ""); // turn off Waiting for other player
+                    SelfInterface.DrawString(39, ""); // turn off Waiting for other player
+                    TargetInterface.DrawString(39, ""); // turn off Waiting for other player
                 }
                 else if (SelfAccepted && !TargetAccepted)
                 {
-                    SelfInterface!.DrawString(39, "Waiting for other player...");
-                    TargetInterface!.DrawString(39, "The other player has accepted.");
+                    SelfInterface.DrawString(39, "Waiting for other player...");
+                    TargetInterface.DrawString(39, "The other player has accepted.");
                 }
                 else if (!SelfAccepted && TargetAccepted)
                 {
-                    SelfInterface!.DrawString(39, "The other player has accepted.");
-                    TargetInterface!.DrawString(39, "Waiting for other player...");
+                    SelfInterface.DrawString(39, "The other player has accepted.");
+                    TargetInterface.DrawString(39, "Waiting for other player...");
                 }
                 else // GOTO next step
                 {
@@ -1287,18 +1287,18 @@ namespace Hagalaz.Game.Scripts.Characters
             {
                 if (!SelfAccepted && !TargetAccepted)
                 {
-                    SelfInterface!.DrawString(34, "Are you sure you want to make this trade?");
-                    TargetInterface!.DrawString(34, "Are you sure you want to make this trade?");
+                    SelfInterface.DrawString(34, "Are you sure you want to make this trade?");
+                    TargetInterface.DrawString(34, "Are you sure you want to make this trade?");
                 }
                 else if (SelfAccepted && !TargetAccepted)
                 {
-                    SelfInterface!.DrawString(34, "Waiting for other player...");
-                    TargetInterface!.DrawString(34, "The other player has accepted.");
+                    SelfInterface.DrawString(34, "Waiting for other player...");
+                    TargetInterface.DrawString(34, "The other player has accepted.");
                 }
                 else if (!SelfAccepted && TargetAccepted)
                 {
-                    SelfInterface!.DrawString(34, "The other player has accepted.");
-                    TargetInterface!.DrawString(34, "Waiting for other player...");
+                    SelfInterface.DrawString(34, "The other player has accepted.");
+                    TargetInterface.DrawString(34, "Waiting for other player...");
                 }
                 else
                 {
@@ -1319,14 +1319,14 @@ namespace Hagalaz.Game.Scripts.Characters
 
             SelfAccepted = false;
             TargetAccepted = false;
-            ((TradeInterfaceScript)SelfInterface!.Script).CloseHandler = null!;
-            ((TradeInterfaceScript)TargetInterface!.Script).CloseHandler = null!;
-            Character.Widgets.CloseWidget(SelfInterface!);
-            Target.Widgets.CloseWidget(TargetInterface!);
-            Character.Widgets.CloseWidget(SelfOverlay!);
-            Target.Widgets.CloseWidget(TargetOverlay!);
-            SelfIntInputHandler = null;
-            TargetIntInputHandler = null;
+            ((TradeInterfaceScript)SelfInterface.Script).CloseHandler = null!;
+            ((TradeInterfaceScript)TargetInterface.Script).CloseHandler = null!;
+            Character.Widgets.CloseWidget(SelfInterface);
+            Target.Widgets.CloseWidget(TargetInterface);
+            Character.Widgets.CloseWidget(SelfOverlay);
+            Target.Widgets.CloseWidget(TargetOverlay);
+            SelfIntInputHandler = null!;
+            TargetIntInputHandler = null!;
 
             var characterTradeInterfaceScript = Character.ServiceProvider.GetRequiredService<TradeInterfaceScript>();
             characterTradeInterfaceScript.CloseHandler = () =>
@@ -1381,17 +1381,17 @@ namespace Hagalaz.Game.Scripts.Characters
 
             if (SelfModified)
             {
-                TargetInterface!.SetVisible(55, true);
+                TargetInterface.SetVisible(55, true);
             }
 
             if (TargetModified)
             {
-                SelfInterface!.SetVisible(55, true);
+                SelfInterface.SetVisible(55, true);
             }
 
             RefreshTradeConfirmationStatus();
 
-            SelfInterface!.AttachClickHandler(21,
+            SelfInterface.AttachClickHandler(21,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1409,7 +1409,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
 
-            TargetInterface!.AttachClickHandler(21,
+            TargetInterface.AttachClickHandler(21,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1427,7 +1427,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
 
-            SelfInterface!.AttachClickHandler(22,
+            SelfInterface.AttachClickHandler(22,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1439,7 +1439,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     CancelTradeSession();
                     return true;
                 });
-            TargetInterface!.AttachClickHandler(22,
+            TargetInterface.AttachClickHandler(22,
                 (componentID, clickType, extraData1, extraData2) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
@@ -1473,37 +1473,37 @@ namespace Hagalaz.Game.Scripts.Characters
 
         if (SelfInterface != null && SelfInterface.IsOpened)
                 {
-                    Character.Widgets.CloseWidget(SelfInterface!);
+                    Character.Widgets.CloseWidget(SelfInterface);
                 }
 
         if (TargetInterface != null && TargetInterface.IsOpened)
                 {
-                    Target.Widgets.CloseWidget(TargetInterface!);
+                    Target.Widgets.CloseWidget(TargetInterface);
                 }
 
         if (SelfOverlay != null && SelfOverlay.IsOpened)
                 {
-                    Character.Widgets.CloseWidget(SelfOverlay!);
+                    Character.Widgets.CloseWidget(SelfOverlay);
                 }
 
         if (TargetOverlay != null && TargetOverlay.IsOpened)
                 {
-                    Target.Widgets.CloseWidget(TargetOverlay!);
+                    Target.Widgets.CloseWidget(TargetOverlay);
                 }
 
         if (SelfContainer != null && SelfContainer.TakenSlots > 0)
                 {
-                    for (var i = 0; i < SelfContainer!.Capacity; i++)
+                    for (var i = 0; i < SelfContainer.Capacity; i++)
                     {
-                        if (SelfContainer![(short)i] != null)
+                        if (SelfContainer[(short)i] != null)
                         {
-                            if (SelfContainer![(short)i]!.Id == 995)
+                            if (SelfContainer[(short)i]!.Id == 995)
                             {
-                                Character.MoneyPouch.Add(SelfContainer![(short)i]!.Count);
+                                Character.MoneyPouch.Add(SelfContainer[(short)i]!.Count);
                             }
                             else
                             {
-                                Character.Inventory.Add(SelfContainer![(short)i]!);
+                                Character.Inventory.Add(SelfContainer[(short)i]!);
                             }
                         }
                     }
@@ -1511,76 +1511,83 @@ namespace Hagalaz.Game.Scripts.Characters
 
         if (TargetContainer != null && TargetContainer.TakenSlots > 0)
                 {
-                    for (var i = 0; i < TargetContainer!.Capacity; i++)
+                    for (var i = 0; i < TargetContainer.Capacity; i++)
                     {
-                        if (TargetContainer![(short)i] != null)
+                        if (TargetContainer[(short)i] != null)
                         {
-                            if (TargetContainer![(short)i]!.Id == 995)
+                            if (TargetContainer[(short)i]!.Id == 995)
                             {
-                        Target?.MoneyPouch.Add(TargetContainer![(short)i]!.Count);
+                        Target?.MoneyPouch.Add(TargetContainer[(short)i]!.Count);
                             }
                             else
                             {
-                        Target?.Inventory.Add(TargetContainer![(short)i]!);
+                        Target?.Inventory.Add(TargetContainer[(short)i]!);
                             }
                         }
                     }
                 }
 
-                Target = null;
-                SelfInterface = null;
-                TargetInterface = null;
-                SelfOverlay = null;
-                TargetOverlay = null;
+                Target = null!;
+                SelfInterface = null!;
+                TargetInterface = null!;
+                SelfOverlay = null!;
+                TargetOverlay = null!;
                 SelfAccepted = false;
                 TargetAccepted = false;
-                SelfContainer = null;
-                TargetContainer = null;
-                SelfIntInputHandler = null;
-                TargetIntInputHandler = null;
+                SelfContainer = null!;
+                TargetContainer = null!;
+                SelfIntInputHandler = null!;
+                TargetIntInputHandler = null!;
             }
         }
 
         /// <summary>
         ///     Finishe's trade session by exchanging items and closing interfaces.
         /// </summary>
-        public void FinishTradeSession()
+                public void FinishTradeSession()
         {
             if (!TradeSession)
             {
                 return;
             }
 
-            var myItems = new IItem[SelfContainer!.TakenSlots];
-            var targetItems = new IItem[TargetContainer!.TakenSlots];
-            for (int write = 0, i = 0; i < SelfContainer!.Capacity; i++)
+            var target = Target;
+            if (target == null)
             {
-                if (SelfContainer![i] != null)
+                CancelTradeSession();
+                return;
+            }
+
+            var myItems = new IItem[SelfContainer.TakenSlots];
+            var targetItems = new IItem[target.GetScript<TradingCharacterScript>()!.SelfContainer.TakenSlots];
+            for (int write = 0, i = 0; i < SelfContainer.Capacity; i++)
+            {
+                if (SelfContainer[i] != null)
                 {
-                    myItems[write++] = SelfContainer![i]!;
+                    myItems[write++] = SelfContainer[i]!;
                 }
             }
 
-            for (int write = 0, i = 0; i < TargetContainer!.Capacity; i++)
+            for (int write = 0, i = 0; i < target.GetScript<TradingCharacterScript>()!.SelfContainer.Capacity; i++)
             {
-                if (TargetContainer![i] != null)
+                if (target.GetScript<TradingCharacterScript>()!.SelfContainer[i] != null)
                 {
-                    targetItems[write++] = TargetContainer![i]!;
+                    targetItems[write++] = target.GetScript<TradingCharacterScript>()!.SelfContainer[i]!;
                 }
             }
 
             if (!Character.Inventory.HasSpaceForRange(targetItems))
             {
                 Character.SendChatMessage("You don't have enough space in your inventory for this trade.");
-                Target.SendChatMessage("Other player doesn't have enough space in their inventory for this trade.");
+                target.SendChatMessage("Other player doesn't have enough space in their inventory for this trade.");
                 CancelTradeSession();
                 return;
             }
 
-            if (!Target.Inventory.HasSpaceForRange(myItems))
+            if (!target.Inventory.HasSpaceForRange(myItems))
             {
                 Character.SendChatMessage("Other player doesn't have enough space in their inventory for this trade.");
-                Target.SendChatMessage("You don't have enough space in your inventory for this trade.");
+                target.SendChatMessage("You don't have enough space in your inventory for this trade.");
                 CancelTradeSession();
                 return;
             }
@@ -1601,19 +1608,19 @@ namespace Hagalaz.Game.Scripts.Characters
             {
                 if (t.Id == 995)
                 {
-                    Target.MoneyPouch.Add(t.Count);
+                    target.MoneyPouch.Add(t.Count);
                 }
                 else
                 {
-                    Target.Inventory.Add(t);
+                    target.Inventory.Add(t);
                 }
             }
 
-            SelfContainer!.Clear(false);
-            TargetContainer!.Clear(false);
+            SelfContainer.Clear(false);
+            target.GetScript<TradingCharacterScript>()!.SelfContainer.Clear(false);
 
             Character.SendChatMessage("Accepted trade.");
-            Target.SendChatMessage("Accepted trade.");
+            target.SendChatMessage("Accepted trade.");
             CancelTradeSession(); // end
         }
 
