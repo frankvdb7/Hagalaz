@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -727,13 +728,53 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         private void ProcessStates()
         {
-            foreach (var state in States.Values.ToList())
+            if (States.Count == 0)
             {
-                state.Tick();
-                if (state.TicksLeft <= 0)
+                return;
+            }
+
+            // Optimization: Use ArrayPool to track removals, avoiding ToList() heap allocations.
+            // We still need a snapshot of values to safely allow state.Tick() to modify the dictionary (add/remove states).
+            // Using ArrayPool for the snapshot to avoid heap allocations.
+            var statesCount = States.Count;
+            var statesBuffer = ArrayPool<IState>.Shared.Rent(statesCount);
+
+            try
+            {
+                States.Values.CopyTo(statesBuffer, 0);
+
+                Type[]? toRemove = null;
+                var removeCount = 0;
+
+                for (var i = 0; i < statesCount; i++)
                 {
-                    RemoveState(state.GetType());
+                    var state = statesBuffer[i];
+                    state.Tick();
+                    if (state.TicksLeft <= 0)
+                    {
+                        toRemove ??= ArrayPool<Type>.Shared.Rent(statesCount);
+                        toRemove[removeCount++] = state.GetType();
+                    }
                 }
+
+                if (toRemove != null)
+                {
+                    try
+                    {
+                        for (var i = 0; i < removeCount; i++)
+                        {
+                            RemoveState(toRemove[i]);
+                        }
+                    }
+                    finally
+                    {
+                        ArrayPool<Type>.Shared.Return(toRemove);
+                    }
+                }
+            }
+            finally
+            {
+                ArrayPool<IState>.Shared.Return(statesBuffer, true);
             }
         }
 
