@@ -768,7 +768,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     }
                     finally
                     {
-                        ArrayPool<Type>.Shared.Return(toRemove);
+                        ArrayPool<Type>.Shared.Return(toRemove, true);
                     }
                 }
             }

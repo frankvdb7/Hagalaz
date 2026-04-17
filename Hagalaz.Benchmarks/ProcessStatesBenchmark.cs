@@ -66,29 +66,48 @@ namespace Hagalaz.Benchmarks
         {
             if (_states.Count == 0) return;
 
-            Type[]? toRemove = null;
-            var removeCount = 0;
+            var statesCount = _states.Count;
+            var statesBuffer = ArrayPool<IStateMock>.Shared.Rent(statesCount);
 
-            foreach (var kvp in _states)
+            try
             {
-                kvp.Value.Tick();
-                if (kvp.Value.TicksLeft <= 0)
-                {
-                    toRemove ??= ArrayPool<Type>.Shared.Rent(_states.Count);
-                    toRemove[removeCount++] = kvp.Key;
-                }
-            }
+                _states.Values.CopyTo(statesBuffer, 0);
 
-            if (toRemove != null)
-            {
-                for (var i = 0; i < removeCount; i++)
+                Type[]? toRemove = null;
+                var removeCount = 0;
+
+                for (var i = 0; i < statesCount; i++)
                 {
-                    if (_states.Remove(toRemove[i], out var state))
+                    var state = statesBuffer[i];
+                    state.Tick();
+                    if (state.TicksLeft <= 0)
                     {
-                        state.OnStateRemoved(state, null!);
+                        toRemove ??= ArrayPool<Type>.Shared.Rent(statesCount);
+                        toRemove[removeCount++] = state.GetType();
                     }
                 }
-                ArrayPool<Type>.Shared.Return(toRemove);
+
+                if (toRemove != null)
+                {
+                    try
+                    {
+                        for (var i = 0; i < removeCount; i++)
+                        {
+                            if (_states.Remove(toRemove[i], out var state))
+                            {
+                                state.OnStateRemoved(state, null!);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        ArrayPool<Type>.Shared.Return(toRemove, true);
+                    }
+                }
+            }
+            finally
+            {
+                ArrayPool<IStateMock>.Shared.Return(statesBuffer, true);
             }
         }
 
