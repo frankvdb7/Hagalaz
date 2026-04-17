@@ -11,7 +11,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
         /// <summary>
         ///     The script.
         /// </summary>
-        public DuelArenaScript Script { get; set; }
+        public DuelArenaScript Script { get; set; } = null!;
 
         /// <summary>
         ///     Gets or sets the close callback.
@@ -199,7 +199,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
                 CloseCallback();
             }
 
-            Script = null;
+            Script = null!;
         }
     }
 }

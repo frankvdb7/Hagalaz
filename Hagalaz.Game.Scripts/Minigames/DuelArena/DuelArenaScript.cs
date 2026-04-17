@@ -259,13 +259,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             {
                 if (DuelSession)
                 {
-                    Target.SendChatMessage("The other player declined the duel.");
+                    Target?.SendChatMessage("The other player declined the duel.");
                 }
 
                 CancelDuelSession();
             };
             Character.Widgets.OpenWidget(1367, 0, characterDuelScreenScript, false);
-            var targetDuelScreenScript = Target.ServiceProvider.GetRequiredService<DuelScreenScript>();
+            var targetDuelScreenScript = Target?.ServiceProvider.GetRequiredService<DuelScreenScript>();
             targetDuelScreenScript.Script = this;
             targetDuelScreenScript.CloseCallback = () =>
             {
@@ -276,10 +276,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                 CancelDuelSession();
             };
-            Target.Widgets.OpenWidget(1367, 0, targetDuelScreenScript, false);
+            Target?.Widgets.OpenWidget(1367, 0, targetDuelScreenScript, false);
 
             SelfInterface = Character.Widgets.GetOpenWidget(1367);
-            TargetInterface = Target.Widgets.GetOpenWidget(1367);
+            TargetInterface = Target?.Widgets.GetOpenWidget(1367);
             if (SelfInterface == null || TargetInterface == null)
             {
                 CancelDuelSession();
@@ -299,10 +299,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
                 else if (TargetAccepted && !SelfAccepted)
                 {
-                    Target.Configurations.SendGlobalCs2Int(1332, 1); // warning for change
-                    Target.QueueTask(new RsTask(() =>
+                    Target?.Configurations.SendGlobalCs2Int(1332, 1); // warning for change
+                    Target?.QueueTask(new RsTask(() =>
                         {
-                            Target.Configurations.SendGlobalCs2Int(1332, 0); // disable warning
+                            Target?.Configurations.SendGlobalCs2Int(1332, 0); // disable warning
                         },
                         5));
                 }
@@ -313,13 +313,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             });
 
             Character.Configurations.SendStandardConfiguration(286, 0); // reset rules
-            Target.Configurations.SendStandardConfiguration(286, 0); // reset rules
+            Target?.Configurations.SendStandardConfiguration(286, 0); // reset rules
             Character.Configurations.SendGlobalCs2Int(545, IsStaking ? 1 : 0); // enables/disables staking tab for all screens
-            Target.Configurations.SendGlobalCs2Int(545, IsStaking ? 1 : 0); // enables/disables staking tab for all screens
-            Character.Configurations.SendGlobalCs2String(377, Target.DisplayName + " - " + Target.Statistics.FullCombatLevel);
-            Target.Configurations.SendGlobalCs2String(377, Character.DisplayName + " - " + Character.Statistics.FullCombatLevel);
+            Target?.Configurations.SendGlobalCs2Int(545, IsStaking ? 1 : 0); // enables/disables staking tab for all screens
+            Character.Configurations.SendGlobalCs2String(377, Target.DisplayName + " - " + Target?.Statistics.FullCombatLevel);
+            Target?.Configurations.SendGlobalCs2String(377, Character.DisplayName + " - " + Character.Statistics.FullCombatLevel);
             Character.Configurations.SendGlobalCs2String(378, string.Empty); // reset confirmation status
-            Target.Configurations.SendGlobalCs2String(378, string.Empty); // reset confirmation status
+            Target?.Configurations.SendGlobalCs2String(378, string.Empty); // reset confirmation status
 
             SelfInterface.AttachClickHandler(42,
                 (componentId, clickType, extra1, extra2) =>
@@ -341,7 +341,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return false;
                     }
 
-                    var script = Target.GetOrAddScript<DuelArenaScript>();
+                    var script = Target?.GetOrAddScript<DuelArenaScript>();
 
                     CurrentRules.Hydrate(script.PreviousRules);
                     CurrentRules.SendRules(Character, Target);
@@ -369,7 +369,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return false;
                     }
 
-                    var script = Target.GetOrAddScript<DuelArenaScript>();
+                    var script = Target?.GetOrAddScript<DuelArenaScript>();
 
                     CurrentRules.Hydrate(script.FavoriteRules);
                     CurrentRules.SendRules(Character, Target);
@@ -432,8 +432,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         return false;
                     }
 
-                    Target.SendChatMessage("Your favorited dueling rules have been saved.");
-                    var script = Target.GetOrAddScript<DuelArenaScript>();
+                    Target?.SendChatMessage("Your favorited dueling rules have been saved.");
+                    var script = Target?.GetOrAddScript<DuelArenaScript>();
                     script.FavoriteRules = CurrentRules.Dehydrate();
 
                     return true;
@@ -456,19 +456,19 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             // extend the screen to support staking // args: IY enable or IIY disable
             // this.Character.Configurations.SendCS2Script(6910, new object[] { ((1367 << 16) | 1), ((1367 << 16) | 1) });
-            // this.Target.Configurations.SendCS2Script(6910, new object[] { ((1367 << 16) | 1), ((1367 << 16) | 1) });
+            // this.Target?.Configurations.SendCS2Script(6910, new object[] { ((1367 << 16) | 1), ((1367 << 16) | 1) });
 
             Character.Widgets.OpenInventoryOverlay(1368, 1, Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>());
-            Target.Widgets.OpenInventoryOverlay(1368, 1, Target.ServiceProvider.GetRequiredService<DefaultWidgetScript>());
+            Target?.Widgets.OpenInventoryOverlay(1368, 1, Target?.ServiceProvider.GetRequiredService<DefaultWidgetScript>());
             if (!Character.Widgets.OpenInventoryOverlay(1368, 1, Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>()) ||
-                !Target.Widgets.OpenInventoryOverlay(1368, 1, Target.ServiceProvider.GetRequiredService<DefaultWidgetScript>()))
+                !Target?.Widgets.OpenInventoryOverlay(1368, 1, Target?.ServiceProvider.GetRequiredService<DefaultWidgetScript>()))
             {
                 CancelDuelSession();
                 return;
             }
 
             SelfOverlay = Character.Widgets.GetOpenWidget(1368);
-            TargetOverlay = Target.Widgets.GetOpenWidget(1368);
+            TargetOverlay = Target?.Widgets.GetOpenWidget(1368);
             if (SelfOverlay == null || TargetOverlay == null)
             {
                 CancelDuelSession();
@@ -488,7 +488,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x80 | 0x400); // allow clicking of 7 right click options + auto examine option ( last )
 
             Character.Configurations.SendCs2Script(150, [(1368 << 16) | 0, 93, 4, 7, 1, -1, "Stake", "Stake-5", "Stake-10", "Stake-All", "Stake-X"]);
-            Target.Configurations.SendCs2Script(150, [(1368 << 16) | 0, 93, 4, 7, 1, -1, "Stake", "Stake-5", "Stake-10", "Stake-All", "Stake-X"]);
+            Target?.Configurations.SendCs2Script(150, [(1368 << 16) | 0, 93, 4, 7, 1, -1, "Stake", "Stake-5", "Stake-10", "Stake-All", "Stake-X"]);
 
             SelfInterface.SetOptions(7,
                 0,
@@ -505,8 +505,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Character.Configurations.SendCs2Script(150, [(1367 << 16) | 7, 134, 3, 3, 1, -1, "Remove", "Remove-5", "Remove-10", "Remove-All", "Remove-X"]);
             Character.Configurations.SendCs2Script(158, [(1367 << 16) | 13, 134, 3, 3, 1, -1, "Value", "", "", ""]);
 
-            Target.Configurations.SendCs2Script(150, [(1367 << 16) | 7, 134, 3, 3, 1, -1, "Remove", "Remove-5", "Remove-10", "Remove-All", "Remove-X"]);
-            Target.Configurations.SendCs2Script(158, [(1367 << 16) | 13, 134, 3, 3, 1, -1, "Value", "", "", ""]);
+            Target?.Configurations.SendCs2Script(150, [(1367 << 16) | 7, 134, 3, 3, 1, -1, "Remove", "Remove-5", "Remove-10", "Remove-All", "Remove-X"]);
+            Target?.Configurations.SendCs2Script(158, [(1367 << 16) | 13, 134, 3, 3, 1, -1, "Value", "", "", ""]);
 
             SelfOverlay.AttachClickHandler(0,
                 (componentID, clickType, itemID, itemSlot) =>
@@ -644,7 +644,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                     if (!item.ItemScript.CanTradeItem(item, Target))
                     {
-                        Target.SendChatMessage("You can't stake this item.");
+                        Target?.SendChatMessage("You can't stake this item.");
                         return false;
                     }
 
@@ -676,7 +676,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         OnIntInput handler = null;
                         handler = amt =>
                         {
-                            Target.Widgets.IntInputHandler = null;
+                            Target?.Widgets.IntInputHandler = null;
                             if (TargetIntInputHandler != handler)
                             {
                                 return;
@@ -692,7 +692,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             rem.Count = amt > max ? max : amt;
                             if (!TargetContainer.HasSpaceFor(rem))
                             {
-                                Target.SendChatMessage("The stake is full.");
+                                Target?.SendChatMessage("The stake is full.");
                                 return;
                             }
 
@@ -708,13 +708,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             RefreshDuelStakeScreen();
                             ProcessDuelStakeChange(false, false);
                         };
-                        TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                        Target.Configurations.SendIntegerInput("Please enter the amount to stake:");
+                        TargetIntInputHandler = Target?.Widgets.IntInputHandler = handler;
+                        Target?.Configurations.SendIntegerInput("Please enter the amount to stake:");
                         return true;
                     }
                     else if (clickType == ComponentClickType.Option10Click) // examine
                     {
-                        Target.SendChatMessage(item.ItemScript.GetExamine(item));
+                        Target?.SendChatMessage(item.ItemScript.GetExamine(item));
                     }
 
                     if (count > 0)
@@ -728,7 +728,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         toRemove.Count = count;
                         if (!TargetContainer.HasSpaceFor(toRemove))
                         {
-                            Target.SendChatMessage("The stake is full.");
+                            Target?.SendChatMessage("The stake is full.");
                             return false;
                         }
 
@@ -804,7 +804,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     OnIntInput handler = null;
                     handler = amt =>
                     {
-                        Target.Widgets.IntInputHandler = null;
+                        Target?.Widgets.IntInputHandler = null;
                         if (TargetIntInputHandler != handler)
                         {
                             return;
@@ -818,7 +818,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                         if (!TargetContainer.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(amt).Build()))
                         {
-                            Target.SendChatMessage("The stake is full.");
+                            Target?.SendChatMessage("The stake is full.");
                             return;
                         }
 
@@ -832,8 +832,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         RefreshDuelStakeScreen();
                         ProcessDuelStakeChange(false, false);
                     };
-                    TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                    Target.Configurations.SendIntegerInput("Please enter the amount to stake:");
+                    TargetIntInputHandler = Target?.Widgets.IntInputHandler = handler;
+                    Target?.Configurations.SendIntegerInput("Please enter the amount to stake:");
                     return true;
                 });
 
@@ -997,7 +997,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         OnIntInput handler = null;
                         handler = amt =>
                         {
-                            Target.Widgets.IntInputHandler = null;
+                            Target?.Widgets.IntInputHandler = null;
                             if (TargetIntInputHandler != handler)
                             {
                                 return;
@@ -1031,13 +1031,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             RefreshDuelStakeScreen();
                             ProcessDuelStakeChange(false, true);
                         };
-                        TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
-                        Target.Configurations.SendIntegerInput("Please enter the amount to remove:");
+                        TargetIntInputHandler = Target?.Widgets.IntInputHandler = handler;
+                        Target?.Configurations.SendIntegerInput("Please enter the amount to remove:");
                         return true;
                     }
                     else if (clickType == ComponentClickType.Option10Click)
                     {
-                        Target.SendChatMessage(item.ItemScript.GetExamine(item));
+                        Target?.SendChatMessage(item.ItemScript.GetExamine(item));
                     }
 
                     if (count > 0)
@@ -1089,8 +1089,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             Character.Configurations.SendItems(134, false, SelfContainer, selfFullUpdate ? null : SelfContainer.Updates);
             Character.Configurations.SendItems(134, true, TargetContainer, targetFullUpdate ? null : TargetContainer.Updates);
-            Target.Configurations.SendItems(134, false, TargetContainer, targetFullUpdate ? null : TargetContainer.Updates);
-            Target.Configurations.SendItems(134, true, SelfContainer, selfFullUpdate ? null : SelfContainer.Updates);
+            Target?.Configurations.SendItems(134, false, TargetContainer, targetFullUpdate ? null : TargetContainer.Updates);
+            Target?.Configurations.SendItems(134, true, SelfContainer, selfFullUpdate ? null : SelfContainer.Updates);
 
             var selfTotal = SelfContainer.CalculateTotalValue();
             var targetTotal = TargetContainer.CalculateTotalValue();
@@ -1098,8 +1098,8 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Character.Configurations.SendGlobalCs2Int(546, selfTotal);
             Character.Configurations.SendGlobalCs2Int(1333, targetTotal);
 
-            Target.Configurations.SendGlobalCs2Int(546, targetTotal);
-            Target.Configurations.SendGlobalCs2Int(1333, selfTotal);
+            Target?.Configurations.SendGlobalCs2Int(546, targetTotal);
+            Target?.Configurations.SendGlobalCs2Int(1333, selfTotal);
         }
 
         /// <summary>
@@ -1116,18 +1116,18 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             {
                 Character.Configurations.SendBitConfiguration(12247, 0); // turn off Waiting for opponent
                 Character.Configurations.SendGlobalCs2Int(9, 0); // turn off Waiting for opponent
-                Target.Configurations.SendBitConfiguration(12247, 0); // turn off Waiting for opponent
-                Target.Configurations.SendGlobalCs2Int(9, 0); // turn off Waiting for opponent
+                Target?.Configurations.SendBitConfiguration(12247, 0); // turn off Waiting for opponent
+                Target?.Configurations.SendGlobalCs2Int(9, 0); // turn off Waiting for opponent
             }
             else if (SelfAccepted && !TargetAccepted)
             {
                 Character.Configurations.SendBitConfiguration(12247, 1); // waiting for opponent
-                Target.Configurations.SendGlobalCs2Int(9, 1); // opponent has accepted
+                Target?.Configurations.SendGlobalCs2Int(9, 1); // opponent has accepted
             }
             else if (!SelfAccepted && TargetAccepted)
             {
                 Character.Configurations.SendGlobalCs2Int(9, 1); // opponent has accepted
-                Target.Configurations.SendBitConfiguration(12247, 1); // waiting for opponent
+                Target?.Configurations.SendBitConfiguration(12247, 1); // waiting for opponent
             }
             else // GOTO next step
             {
@@ -1180,7 +1180,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 //foreach (short slot in slots)
                 // {
                 //this.Character.Configurations.SendCS2Script(143, new object[] { 335 << 16 | (self ? 31 : 33), 4, 7, (int)slot });
-                //this.Target.Configurations.SendCS2Script(143, new object[] { 335 << 16 | (self ? 33 : 31), 4, 7, (int)slot });
+                //this.Target?.Configurations.SendCS2Script(143, new object[] { 335 << 16 | (self ? 33 : 31), 4, 7, (int)slot });
                 //}
 
                 if (!SelfModified && self) { }
@@ -1229,7 +1229,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 if (!Character.Inventory.HasSpaceForRange(all))
                 {
                     Character.SendChatMessage("You don't have enough space in your inventory for this duel.");
-                    Target.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
+                    Target?.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
                     RefreshDuelConfirmationStatus();
                     return;
                 }
@@ -1237,7 +1237,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 if (!Target.Inventory.HasSpaceForRange(all))
                 {
                     Character.SendChatMessage("Your opponent doesn't have enough space in their inventory for this duel.");
-                    Target.SendChatMessage("You don't have enough space in your inventory for this duel.");
+                    Target?.SendChatMessage("You don't have enough space in your inventory for this duel.");
                     RefreshDuelConfirmationStatus();
                     return;
                 }
@@ -1246,9 +1246,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             ((DuelScreenScript)SelfInterface.Script).CloseCallback = null;
             ((DuelScreenScript)TargetInterface.Script).CloseCallback = null;
             Character.Widgets.CloseWidget(SelfInterface);
-            Target.Widgets.CloseWidget(TargetInterface);
+            Target?.Widgets.CloseWidget(TargetInterface);
             Character.Widgets.CloseWidget(SelfOverlay);
-            Target.Widgets.CloseWidget(TargetOverlay);
+            Target?.Widgets.CloseWidget(TargetOverlay);
             SelfIntInputHandler = null!;
             TargetIntInputHandler = null!;
 
@@ -1259,7 +1259,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             {
                 if (DuelSession)
                 {
-                    Target.SendChatMessage("Your opponent declined the duel.");
+                    Target?.SendChatMessage("Your opponent declined the duel.");
                 }
 
                 CancelDuelSession();
@@ -1269,7 +1269,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 characterDuelConfirmScreen,
                 false);
 
-            var targetDuelConfirmScreen = Target.ServiceProvider.GetRequiredService<DuelConfirmScreenScript>();
+            var targetDuelConfirmScreen = Target?.ServiceProvider.GetRequiredService<DuelConfirmScreenScript>();
             targetDuelConfirmScreen.CloseCallback = () =>
             {
                 if (DuelSession)
@@ -1279,13 +1279,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                 CancelDuelSession();
             };
-            Target.Widgets.OpenWidget(1366,
+            Target?.Widgets.OpenWidget(1366,
                 0,
                 targetDuelConfirmScreen,
                 false);
 
             var self = Character.Widgets.GetOpenWidget(1366);
-            var target = Target.Widgets.GetOpenWidget(1366);
+            var target = Target?.Widgets.GetOpenWidget(1366);
             if (self == null || target == null)
             {
                 CancelDuelSession();
@@ -1315,7 +1315,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             //this.SelfInterface.SetVisible(55, true);
 
             Character.Configurations.SendGlobalCs2String(377, Target.DisplayName); // name, no combat
-            Target.Configurations.SendGlobalCs2String(377, Character.DisplayName); // name, no combat
+            Target?.Configurations.SendGlobalCs2String(377, Character.DisplayName); // name, no combat
 
             SelfInterface.AttachClickHandler(24,
                 (componentID, clickType, extraData1, extraData2) =>
@@ -1437,16 +1437,16 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             }
 
             Character.Movement.Teleport(Teleport.Create(selfLocation));
-            Target.Movement.Teleport(Teleport.Create(targetLocation));
+            Target?.Movement.Teleport(Teleport.Create(targetLocation));
 
             CurrentRules.RemoveEquipment(Character);
             CurrentRules.RemoveEquipment(Target);
 
             Character.Statistics.NormalizeBoostedStatistics();
-            Target.Statistics.NormalizeBoostedStatistics();
+            Target?.Statistics.NormalizeBoostedStatistics();
 
             Character.Prayers.DeactivateAllPrayers();
-            Target.Prayers.DeactivateAllPrayers();
+            Target?.Prayers.DeactivateAllPrayers();
 
             Character.AddScript(new DuelArenaCombatScript(Character.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
                 Target,
@@ -1454,7 +1454,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 SelfContainer,
                 TargetContainer,
                 _hintIconBuilder));
-            Target.AddScript(new DuelArenaCombatScript(Target.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
+            Target.AddScript(new DuelArenaCombatScript(Target?.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
                 Character,
                 CurrentRules,
                 TargetContainer,
@@ -1545,9 +1545,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 Character.Widgets.IntInputHandler = null;
             }
 
-            if (Target.Widgets.IntInputHandler == TargetIntInputHandler)
+            if (Target?.Widgets.IntInputHandler == TargetIntInputHandler)
             {
-                Target.Widgets.IntInputHandler = null;
+                Target?.Widgets.IntInputHandler = null;
             }
 
             if (SelfInterface != null && SelfInterface.IsOpened)
@@ -1557,7 +1557,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (TargetInterface != null && TargetInterface.IsOpened)
             {
-                Target.Widgets.CloseWidget(TargetInterface);
+                Target?.Widgets.CloseWidget(TargetInterface);
             }
 
             if (SelfOverlay != null && SelfOverlay.IsOpened)
@@ -1567,7 +1567,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (TargetOverlay != null && TargetOverlay.IsOpened)
             {
-                Target.Widgets.CloseWidget(TargetOverlay);
+                Target?.Widgets.CloseWidget(TargetOverlay);
             }
 
             SelfInterface = null!;
