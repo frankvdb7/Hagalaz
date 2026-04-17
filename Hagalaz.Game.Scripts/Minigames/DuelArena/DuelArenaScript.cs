@@ -459,9 +459,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             // this.Target?.Configurations.SendCS2Script(6910, new object[] { ((1367 << 16) | 1), ((1367 << 16) | 1) });
 
             Character.Widgets.OpenInventoryOverlay(1368, 1, Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>());
-            Target?.Widgets.OpenInventoryOverlay(1368, 1, Target?.ServiceProvider.GetRequiredService<DefaultWidgetScript>());
+            Target?.Widgets.OpenInventoryOverlay(1368, 1, Target!.ServiceProvider.GetRequiredService<DefaultWidgetScript>());
             if (!Character.Widgets.OpenInventoryOverlay(1368, 1, Character.ServiceProvider.GetRequiredService<DefaultWidgetScript>()) ||
-                !Target?.Widgets.OpenInventoryOverlay(1368, 1, Target?.ServiceProvider.GetRequiredService<DefaultWidgetScript>()))
+                !Target!.Widgets.OpenInventoryOverlay(1368, 1, Target!.ServiceProvider.GetRequiredService<DefaultWidgetScript>()))
             {
                 CancelDuelSession();
                 return;

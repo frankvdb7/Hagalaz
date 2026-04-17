@@ -356,7 +356,6 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var value = 1234567;
-            var expected = "1,2,34,567"; // Wait, format was "#,###,##0"
 
             // Act
             var actual = StringUtilities.FormatNumber(value);
