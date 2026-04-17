@@ -15,8 +15,16 @@ namespace Hagalaz.Services.Characters.Profiles
         {
             CreateMap<CharactersStatistic, CharactersStatisticsDto>()
                 .ForMember(dto => dto.DisplayName, opt => opt.MapFrom(src => src.Master.DisplayName))
-                .ForMember(dto => dto.OverallExperience, opt => opt.Ignore())
-                .ForMember(dto => dto.OverallLevel, opt => opt.Ignore());
+                .ForMember(dto => dto.OverallExperience, opt => opt.MapFrom(src =>
+                    (double)src.AgilityExp + src.AttackExp + src.ConstitutionExp + src.ConstructionExp + src.CookingExp + src.CraftingExp + src.DefenceExp +
+                    src.DungeoneeringExp + src.FarmingExp + src.FiremakingExp + src.FishingExp + src.FletchingExp + src.HerbloreExp + src.HunterExp +
+                    src.MagicExp + src.MiningExp + src.PrayerExp + src.RangeExp + src.RunecraftingExp + src.SlayerExp + src.SmithingExp +
+                    src.StrengthExp + src.SummoningExp + src.ThievingExp + src.WoodcuttingExp))
+                .ForMember(dto => dto.OverallLevel, opt => opt.MapFrom(src =>
+                    (int)src.AgilityLevel + src.AttackLevel + src.ConstitutionLevel + src.ConstructionLevel + src.CookingLevel + src.CraftingLevel + src.DefenceLevel +
+                    src.DungeoneeringLevel + src.FarmingLevel + src.FiremakingLevel + src.FishingLevel + src.FletchingLevel + src.HerbloreLevel + src.HunterLevel +
+                    src.MagicLevel + src.MiningLevel + src.PrayerLevel + src.RangeLevel + src.RunecraftingLevel + src.SlayerLevel + src.SmithingLevel +
+                    src.StrengthLevel + src.SummoningLevel + src.ThievingLevel + src.WoodcuttingLevel));
 
             CreateMap<CharactersStatistic, Statistics>()
                 .ForMember(dest => dest.AttackLevel, opt => opt.MapFrom(src => (int)src.AttackLevel))
