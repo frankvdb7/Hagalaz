@@ -56,7 +56,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         {
             _owner = owner;
             _currentGraphics = new IGraphic[4];
-            LastLocation = owner.Location?.Clone() ?? null!;
+            LastLocation = owner.Location.Clone();
         }
 
         /// <summary>

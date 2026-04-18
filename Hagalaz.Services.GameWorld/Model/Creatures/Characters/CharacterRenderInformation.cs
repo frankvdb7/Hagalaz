@@ -108,7 +108,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _currentGraphics = new IGraphic[4];
             _characterStore = renderable.ServiceProvider.GetRequiredService<ICharacterStore>();
             _characterLocationMap = renderable.ServiceProvider.GetRequiredService<ICharacterLocationService>();
-            LastLocation = renderable.Location?.Clone() ?? null!;
+            LastLocation = renderable.Location.Clone();
         }
 
         /// <summary>

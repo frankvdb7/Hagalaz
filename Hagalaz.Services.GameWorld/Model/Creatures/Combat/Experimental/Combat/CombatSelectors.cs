@@ -22,8 +22,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
                     throw new InvalidOperationException("Cannot select a rotation from an empty list.");
                 }
 
-                int totalProbability = (int)rotations.Sum(r => r.Probability);
-                double hitValue = Random.Shared.Next(Math.Max(1, totalProbability));
+                double totalProbability = rotations.Sum(r => r.Probability);
+                double hitValue = Random.Shared.NextDouble() * totalProbability;
                 double runningValue = 0.0;
                 foreach (T rotation in rotations)
                 {
