@@ -30,8 +30,12 @@ namespace Hagalaz.Data
         public virtual DbSet<CharactersMusicPlaylist> CharactersMusicPlaylists { get; set; } = null!;
         public virtual DbSet<CharactersNote> CharactersNotes { get; set; } = null!;
         public virtual DbSet<CharactersOffence> CharactersOffences { get; set; } = null!;
+        #pragma warning disable CS0618
         public virtual DbSet<CharactersPermission> CharactersPermissions { get; set; } = null!;
+#pragma warning restore CS0618
+        #pragma warning disable CS0618
         public virtual DbSet<CharactersPreference> CharactersPreferences { get; set; } = null!;
+#pragma warning restore CS0618
         public virtual DbSet<CharactersQuest> CharactersQuests { get; set; } = null!;
         public virtual DbSet<CharactersReport> CharactersReports { get; set; } = null!;
         public virtual DbSet<CharactersReward> CharactersRewards { get; set; } = null!;
@@ -64,10 +68,18 @@ namespace Hagalaz.Data
         public virtual DbSet<LogsConnection> LogsConnections { get; set; } = null!;
         public virtual DbSet<LogsDisplayNameChange> LogsDisplayNameChanges { get; set; } = null!;
         public virtual DbSet<LogsLoginAttempt> LogsLoginAttempts { get; set; } = null!;
+        #pragma warning disable CS0618
         public virtual DbSet<MinigamesBarrow> MinigamesBarrows { get; set; } = null!;
+#pragma warning restore CS0618
+        #pragma warning disable CS0618
         public virtual DbSet<MinigamesDuelArena> MinigamesDuelArenas { get; set; } = null!;
+#pragma warning restore CS0618
+        #pragma warning disable CS0618
         public virtual DbSet<MinigamesGodwar> MinigamesGodwars { get; set; } = null!;
+#pragma warning restore CS0618
+        #pragma warning disable CS0618
         public virtual DbSet<MinigamesTzhaarCave> MinigamesTzhaarCaves { get; set; } = null!;
+#pragma warning restore CS0618
         public virtual DbSet<MinigamesTzhaarCaveWave> MinigamesTzhaarCaveWaves { get; set; } = null!;
         public virtual DbSet<MusicDefinition> MusicDefinitions { get; set; } = null!;
         public virtual DbSet<MusicLocation> MusicLocations { get; set; } = null!;
@@ -762,6 +774,7 @@ namespace Hagalaz.Data
                     .HasConstraintName("moderator_id_foreign_key");
             });
 
+            #pragma warning disable CS0618
             modelBuilder.Entity<CharactersPermission>(entity =>
             {
                 entity.HasKey(e => new
@@ -774,6 +787,7 @@ namespace Hagalaz.Data
                         {
                             0, 0
                         });
+#pragma warning restore CS0618
 
                 entity.ToTable("characters_permissions");
 
@@ -790,6 +804,7 @@ namespace Hagalaz.Data
                 entity.HasOne(d => d.Master).WithMany(p => p.CharactersPermissions).HasForeignKey(d => d.MasterId).HasConstraintName("master_id_foreign_key_7");
             });
 
+            #pragma warning disable CS0618
             modelBuilder.Entity<CharactersPreference>(entity =>
             {
                 entity.HasKey(e => e.MasterId).HasName("PRIMARY");
@@ -878,6 +893,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.XpCounterPopup).HasColumnType("tinyint(3) unsigned").HasColumnName("xp_counter_popup").HasDefaultValueSql("'1'");
             });
+#pragma warning restore CS0618
 
             modelBuilder.Entity<CharactersQuest>(entity =>
             {
@@ -1988,6 +2004,7 @@ namespace Hagalaz.Data
                 entity.Property(e => e.Type).HasColumnType("tinyint(4)").HasColumnName("type");
             });
 
+            #pragma warning disable CS0618
             modelBuilder.Entity<MinigamesBarrow>(entity =>
             {
                 entity.HasKey(e => e.MasterId).HasName("PRIMARY");
@@ -2025,7 +2042,9 @@ namespace Hagalaz.Data
                     .HasForeignKey<MinigamesBarrow>(d => d.MasterId)
                     .HasConstraintName("master_id_foreign_key_20");
             });
+#pragma warning restore CS0618
 
+            #pragma warning disable CS0618
             modelBuilder.Entity<MinigamesDuelArena>(entity =>
             {
                 entity.HasKey(e => e.MasterId).HasName("PRIMARY");
@@ -2045,7 +2064,9 @@ namespace Hagalaz.Data
                     .HasForeignKey<MinigamesDuelArena>(d => d.MasterId)
                     .HasConstraintName("master_id_foreign_key_21");
             });
+#pragma warning restore CS0618
 
+            #pragma warning disable CS0618
             modelBuilder.Entity<MinigamesGodwar>(entity =>
             {
                 entity.HasKey(e => e.MasterId).HasName("PRIMARY");
@@ -2069,7 +2090,9 @@ namespace Hagalaz.Data
                     .HasForeignKey<MinigamesGodwar>(d => d.MasterId)
                     .HasConstraintName("master_id_foreign_key_22");
             });
+#pragma warning restore CS0618
 
+            #pragma warning disable CS0618
             modelBuilder.Entity<MinigamesTzhaarCave>(entity =>
             {
                 entity.HasKey(e => e.MasterId).HasName("PRIMARY");
@@ -2089,6 +2112,7 @@ namespace Hagalaz.Data
                     .HasForeignKey<MinigamesTzhaarCave>(d => d.MasterId)
                     .HasConstraintName("master_id_foreign_key_23");
             });
+#pragma warning restore CS0618
 
             modelBuilder.Entity<MinigamesTzhaarCaveWave>(entity =>
             {

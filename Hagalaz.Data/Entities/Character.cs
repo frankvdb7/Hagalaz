@@ -22,7 +22,9 @@ namespace Hagalaz.Data.Entities
             CharactersNotes = new HashSet<CharactersNote>();
             CharactersOffenceMasters = new HashSet<CharactersOffence>();
             CharactersOffenceModerators = new HashSet<CharactersOffence>();
+            #pragma warning disable CS0618
             CharactersPermissions = new HashSet<CharactersPermission>();
+#pragma warning restore CS0618
             CharactersReportReporteds = new HashSet<CharactersReport>();
             CharactersReportReporters = new HashSet<CharactersReport>();
             CharactersRewards = new HashSet<CharactersReward>();
@@ -63,10 +65,18 @@ namespace Hagalaz.Data.Entities
         public virtual CharactersSlayerTask CharactersSlayerTask { get; set; } = null!;
         public virtual CharactersStatistic CharactersStatistic { get; set; } = null!;
         public virtual ClansMember ClansMemberMaster { get; set; } = null!;
+        #pragma warning disable CS0618
         public virtual MinigamesBarrow MinigamesBarrow { get; set; } = null!;
+#pragma warning restore CS0618
+        #pragma warning disable CS0618
         public virtual MinigamesDuelArena MinigamesDuelArena { get; set; } = null!;
+#pragma warning restore CS0618
+        #pragma warning disable CS0618
         public virtual MinigamesGodwar MinigamesGodwar { get; set; } = null!;
+#pragma warning restore CS0618
+        #pragma warning disable CS0618
         public virtual MinigamesTzhaarCave MinigamesTzhaarCave { get; set; } = null!;
+#pragma warning restore CS0618
         public virtual ICollection<Aspnetuserclaim> Aspnetuserclaims { get; set; }
         public virtual ICollection<Aspnetuserlogin> Aspnetuserlogins { get; set; }
         public virtual ICollection<Aspnetusertoken> Aspnetusertokens { get; set; }
@@ -81,7 +91,9 @@ namespace Hagalaz.Data.Entities
         public virtual ICollection<CharactersNote> CharactersNotes { get; set; }
         public virtual ICollection<CharactersOffence> CharactersOffenceMasters { get; set; }
         public virtual ICollection<CharactersOffence> CharactersOffenceModerators { get; set; }
-        public virtual ICollection<CharactersPermission> CharactersPermissions { get; set; }
+        #pragma warning disable CS0618
+        public virtual ICollection<CharactersPermission> CharactersPermissions { get; set; } = new HashSet<CharactersPermission>();
+#pragma warning restore CS0618
         public virtual ICollection<CharactersReport> CharactersReportReporteds { get; set; }
         public virtual ICollection<CharactersReport> CharactersReportReporters { get; set; }
         public virtual ICollection<CharactersReward> CharactersRewards { get; set; }
