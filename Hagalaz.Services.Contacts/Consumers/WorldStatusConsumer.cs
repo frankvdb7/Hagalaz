@@ -43,7 +43,7 @@ namespace Hagalaz.Services.Contacts.Consumers
             try
             {
                 var offlineMessages = await _contactSessions.ToAsyncEnumerable()
-                    .Select(async session =>
+                    .Select(new Func<ContactSessionContext, CancellationToken, ValueTask<ContactSignOutMessage?>>(async (session, ct) =>
                     {
                         var contact = await _characterService.FindCharacterByIdAsync(session.MasterId);
                         if (contact == null)
@@ -56,7 +56,7 @@ namespace Hagalaz.Services.Contacts.Consumers
                             MasterId = contact.MasterId, DisplayName = contact.DisplayName, PreviousDisplayName = contact.PreviousDisplayName
                         };
                         return new ContactSignOutMessage(dto);
-                    })
+                    }))
                     .OfType<ContactSignOutMessage>()
                     .ToListAsync();
                 await context.PublishBatch(offlineMessages);
