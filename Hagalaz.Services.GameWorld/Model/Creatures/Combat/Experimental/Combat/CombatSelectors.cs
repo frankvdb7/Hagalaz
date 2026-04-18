@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Extensions;
@@ -17,7 +17,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
         public static Func<IList<T>, T> ProbabilitySelector<T>() where T : ICombatRotation =>
             (rotations) =>
             {
-                double hitValue = Random.Shared.Next(rotations.Sum(r => r.Probability));
+                if (rotations.Count == 0)
+                {
+                    throw new InvalidOperationException("Cannot select a rotation from an empty list.");
+                }
+
+                int totalProbability = (int)rotations.Sum(r => r.Probability);
+                double hitValue = Random.Shared.Next(Math.Max(1, totalProbability));
                 double runningValue = 0.0;
                 foreach (T rotation in rotations)
                 {
@@ -28,7 +34,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
                     }
                 }
 
-                return default;
+                return rotations[0];
             };
     }
 }

@@ -105,10 +105,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 characterKiller = character;
             }
 
-            characterKiller?.SendChatMessage(string.Format(
-                GameStrings.ResourceManager.GetString(GameStrings.Combat_VictorKillMessage + RandomStatic.Generator.Next(9)),
-                _character.DisplayName));
-            // TODO
+            var format = GameStrings.ResourceManager.GetString(GameStrings.Combat_VictorKillMessage + RandomStatic.Generator.Next(9));
+            if (format != null)
+            {
+                characterKiller?.SendChatMessage(string.Format(format, _character.DisplayName));
+            }
             //var database = ServiceLocator.Current.GetInstance<ISqlDatabaseManager>();
             //database.ExecuteAsync(new ActivityLogQuery(characterKiller.MasterId, "Player Kill", "I have defeated " + _character.DisplayName + " in combat."));
 

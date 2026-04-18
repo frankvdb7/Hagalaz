@@ -7,16 +7,16 @@ namespace Hagalaz.Cache.Abstractions.Types.Providers
     public class DecodePartRequest
     {
         public int RegionID { get; set; }
-        public int[] XteaKeys { get; set; }
+        public int[] XteaKeys { get; set; } = null!;
         public int MinX { get; set; }
         public int MinY { get; set; }
         public int MaxX { get; set; }
         public int MaxY { get; set; }
         public int PartZ { get; set; }
         public int PartRotation { get; set; }
-        public CalculateObjectPartRotation PartRotationCallback { get; set; }
-        public ObjectDecoded Callback { get; set; }
-        public ImpassibleTerrainDecoded GroundCallback { get; set; }
+        public CalculateObjectPartRotation PartRotationCallback { get; set; } = null!;
+        public ObjectDecoded Callback { get; set; } = null!;
+        public ImpassibleTerrainDecoded GroundCallback { get; set; } = null!;
     }
 
     public interface IMapProvider : ITypeProvider<IMapType>
