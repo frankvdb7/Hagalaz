@@ -43,7 +43,7 @@ namespace Hagalaz.Services.Contacts.Consumers
             try
             {
                 var offlineMessages = await _contactSessions.ToAsyncEnumerable()
-                    .SelectAwait(async session =>
+                    .Select(async session =>
                     {
                         var contact = await _characterService.FindCharacterByIdAsync(session.MasterId);
                         if (contact == null)
