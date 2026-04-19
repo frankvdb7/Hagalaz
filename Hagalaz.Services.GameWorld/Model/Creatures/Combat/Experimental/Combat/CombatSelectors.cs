@@ -34,7 +34,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
                     }
                 }
 
-                return rotations[0];
+                return rotations[^1];
             };
     }
 }

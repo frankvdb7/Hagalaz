@@ -7,7 +7,7 @@ namespace Hagalaz.Cache.Abstractions.Types.Providers
     public class DecodePartRequest
     {
         public int RegionID { get; set; }
-        public int[] XteaKeys { get; set; } = null!;
+        public int[] XteaKeys { get; set; } = [];
         public int MinX { get; set; }
         public int MinY { get; set; }
         public int MaxX { get; set; }
