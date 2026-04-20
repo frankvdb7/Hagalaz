@@ -9,7 +9,6 @@
         /// <summary>
         /// Gets the unique identifier for this NPC type.
         /// </summary>
-        int Id { get; }
 
         /// <summary>
         /// Gets or sets the combat level of the NPC. This value may be adjusted after being loaded from the cache.

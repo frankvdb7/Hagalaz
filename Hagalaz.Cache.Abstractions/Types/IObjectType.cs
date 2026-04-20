@@ -9,7 +9,6 @@
         /// <summary>
         /// Gets the unique identifier for this object type.
         /// </summary>
-        int Id { get; }
 
         /// <summary>
         /// Gets or sets the name of the object as it appears in-game.

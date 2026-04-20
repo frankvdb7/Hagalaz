@@ -46,7 +46,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Contains current animation.
         /// </summary>
-        public IAnimation CurrentAnimation { get; private set; }
+        public IAnimation? CurrentAnimation { get; private set; }
 
         /// <summary>
         /// Create's new rendering information instance.
@@ -56,6 +56,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         {
             _owner = owner;
             _currentGraphics = new IGraphic[4];
+            LastLocation = owner.Location.Clone();
         }
 
         /// <summary>
