@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776530123956,
+  "lastUpdate": 1776709249950,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -7956,6 +7956,354 @@ window.BENCHMARK_DATA = {
             "value": 0.393263559281826,
             "unit": "ns",
             "range": "± 0.00034323744234520575"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d53d3bdd04990070383af955b56c3013633b8a2e",
+          "message": "Fix 5 critical path warnings with test coverage (#270)\n\n* Fix 5 critical path warnings with comprehensive test coverage.\n\n- CombatSelectors: Prevent CS8603 (possible null return) by adding empty check and fallback.\n- CharacterCombat: Prevent CS8604 (possible null format) by validating resource strings.\n- RenderInformation: Fix CS8618/CS8766 by initializing LastLocation and making CurrentAnimation nullable in the base interface.\n- IMapProvider: Fix CS8618 in DecodePartRequest using null! initialization.\n- Cache Interfaces: Fix CS0108 by removing redundant Id declarations in derived interfaces.\n\n* Fix 5 critical path warnings with comprehensive test coverage.\n\n- CombatSelectors: Prevent CS8603 by adding empty check and fallback, using double precision for probabilities.\n- CharacterCombat: Prevent CS8604 by validating resource strings and optimizing null checks.\n- RenderInformation: Fix CS8618/CS8766 by safely initializing LastLocation and making CurrentAnimation nullable in the base interface.\n- IMapProvider: Fix CS8618 in DecodePartRequest using null! initialization.\n- Cache Interfaces: Fix CS0108 by removing redundant Id declarations in derived interfaces.\n\nAll changes are backed by unit tests and verified with a full solution test run.\n\n* Refined fix for 5 critical path warnings with robust test coverage.\n\n- CombatSelectors: Switched to Random.Shared.NextDouble() for continuous distribution and precision in ProbabilitySelector.\n- CharacterCombat: Optimized null checks in OnKilledBy to avoid unnecessary string formatting.\n- RenderInformation: Safely initialized LastLocation from owner's location in constructors (fail-fast) and made CurrentAnimation nullable in the base interface.\n- IMapProvider: Satisfied CS8618 in DecodePartRequest using null! for injected properties.\n- Cache Interfaces: Resolved CS0108 by removing redundant Id property declarations.\n\nVerified with comprehensive unit tests and full solution test run.\n\n* Final refined fix for 5 critical path warnings with robust test coverage.\n\n- CombatSelectors: Switched to Random.Shared.NextDouble() for continuous distribution and precision in ProbabilitySelector. Used rotations[^1] as fallback to handle precision edge cases.\n- CharacterCombat: Optimized null checks in OnKilledBy to avoid unnecessary string formatting when the killer is null.\n- RenderInformation: Safely initialized LastLocation from owner's location in constructors (fail-fast) and made CurrentAnimation nullable in the base interface to correctly reflect entity state.\n- IMapProvider: Satisfied CS8618 in DecodePartRequest using empty collection expression ([]) for XteaKeys and null! for other injected properties.\n- Cache Interfaces: Resolved CS0108 member shadowing by removing redundant Id property declarations in derived interfaces.\n\nVerified with comprehensive unit tests and a full solution test run.\n\n* Final fix for 5 critical path warnings with precision and safety improvements.\n\n- CombatSelectors: Switched to Random.Shared.NextDouble() and used rotations[^1] as fallback for fair distribution and precision.\n- CharacterCombat: Optimized null checks and string formatting in OnKilledBy.\n- RenderInformation: Ensured safe LastLocation initialization (fail-fast) in constructors. Made CurrentAnimation nullable in the base interface.\n- IMapProvider: Used empty collection expression ([]) for XteaKeys initialization in DecodePartRequest.\n- Cache Interfaces: Resolved member shadowing (CS0108) by removing redundant Id declarations.\n\nVerified with comprehensive unit tests and full solution build.",
+          "timestamp": "2026-04-20T20:11:36+02:00",
+          "tree_id": "c9da7543933cceed5405e208b42b6ab7cd142ab4",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/d53d3bdd04990070383af955b56c3013633b8a2e"
+        },
+        "date": 1776709247829,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 8.253639463335276,
+            "unit": "ns",
+            "range": "± 0.006498455701477343"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 3.1719638764858247,
+            "unit": "ns",
+            "range": "± 0.004538467636907685"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 100)",
+            "value": 566.422101020813,
+            "unit": "ns",
+            "range": "± 0.8367342451219677"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 100)",
+            "value": 69.1579259634018,
+            "unit": "ns",
+            "range": "± 0.029841117521440707"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 100)",
+            "value": 932.661731338501,
+            "unit": "ns",
+            "range": "± 4.637259350546572"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 100)",
+            "value": 110.61578403711319,
+            "unit": "ns",
+            "range": "± 0.3517674242215984"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 100)",
+            "value": 801.4482786655426,
+            "unit": "ns",
+            "range": "± 2.202471096435662"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 100)",
+            "value": 115.35639233589173,
+            "unit": "ns",
+            "range": "± 0.9661587405737411"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 100)",
+            "value": 43.09213922023773,
+            "unit": "ns",
+            "range": "± 0.29222361106004624"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small(N: 100)",
+            "value": 1823.8078150749207,
+            "unit": "ns",
+            "range": "± 0.623207234156867"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large(N: 100)",
+            "value": 18011.9080078125,
+            "unit": "ns",
+            "range": "± 35.257534640248224"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small(N: 100)",
+            "value": 661646.711328125,
+            "unit": "ns",
+            "range": "± 23834.512930188404"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large(N: 100)",
+            "value": 793909.353125,
+            "unit": "ns",
+            "range": "± 17326.572404848288"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 100)",
+            "value": 737.1485319137573,
+            "unit": "ns",
+            "range": "± 0.8346161273113437"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 100)",
+            "value": 54.92191812992096,
+            "unit": "ns",
+            "range": "± 0.3516887983053075"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 100)",
+            "value": 4976.809741210937,
+            "unit": "ns",
+            "range": "± 6.617943440514195"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 100)",
+            "value": 4155.623056411743,
+            "unit": "ns",
+            "range": "± 8.006336833815968"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 100)",
+            "value": 2107.305044555664,
+            "unit": "ns",
+            "range": "± 3.463562643515743"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 100)",
+            "value": 4704.903879165649,
+            "unit": "ns",
+            "range": "± 2.887129460788266"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 100)",
+            "value": 1264.4876529693604,
+            "unit": "ns",
+            "range": "± 2.8446969824930957"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 100)",
+            "value": 133.54917030334474,
+            "unit": "ns",
+            "range": "± 0.8743114057630619"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 2140.563424682617,
+            "unit": "ns",
+            "range": "± 6.77379473382048"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 1005.797200012207,
+            "unit": "ns",
+            "range": "± 2.807631544739098"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 100)",
+            "value": 1014.9666986465454,
+            "unit": "ns",
+            "range": "± 3.93301341033694"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 100)",
+            "value": 601.0009227752686,
+            "unit": "ns",
+            "range": "± 10.676076247643582"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 100)",
+            "value": 3437.6081494140626,
+            "unit": "ns",
+            "range": "± 30.733688340752956"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 100)",
+            "value": 0.3902606427669525,
+            "unit": "ns",
+            "range": "± 0.0002554506844203299"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 58.062008649110794,
+            "unit": "ns",
+            "range": "± 0.09143590303565198"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 3.1662925481796265,
+            "unit": "ns",
+            "range": "± 0.004597448818301393"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 1000)",
+            "value": 5233.779975891113,
+            "unit": "ns",
+            "range": "± 3.6175293100189636"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 1000)",
+            "value": 628.6203527450562,
+            "unit": "ns",
+            "range": "± 0.5027871713699194"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 1000)",
+            "value": 9193.935491943359,
+            "unit": "ns",
+            "range": "± 117.40971841551001"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 1000)",
+            "value": 955.3552808761597,
+            "unit": "ns",
+            "range": "± 1.2165125903906013"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 1000)",
+            "value": 7545.857499694825,
+            "unit": "ns",
+            "range": "± 24.742715400008795"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 1000)",
+            "value": 1005.5723834037781,
+            "unit": "ns",
+            "range": "± 0.7522116235207396"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 1000)",
+            "value": 221.96037049293517,
+            "unit": "ns",
+            "range": "± 3.4205256453462063"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small(N: 1000)",
+            "value": 1803.6152620315552,
+            "unit": "ns",
+            "range": "± 0.5279729219265178"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large(N: 1000)",
+            "value": 18197.372180175782,
+            "unit": "ns",
+            "range": "± 94.0451313058302"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small(N: 1000)",
+            "value": 638513.8759765625,
+            "unit": "ns",
+            "range": "± 14970.667225318597"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large(N: 1000)",
+            "value": 781449.2787109375,
+            "unit": "ns",
+            "range": "± 32687.4605678697"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 1000)",
+            "value": 737.3416429519654,
+            "unit": "ns",
+            "range": "± 3.207168018033366"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 1000)",
+            "value": 191.028125166893,
+            "unit": "ns",
+            "range": "± 2.630289566916369"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 1000)",
+            "value": 51660.25583496094,
+            "unit": "ns",
+            "range": "± 324.67258569237896"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 1000)",
+            "value": 42282.44854736328,
+            "unit": "ns",
+            "range": "± 11.357757147117827"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 1000)",
+            "value": 21881.567947387695,
+            "unit": "ns",
+            "range": "± 58.67102288071771"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 1000)",
+            "value": 48830.27791748047,
+            "unit": "ns",
+            "range": "± 107.52677474671488"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 1000)",
+            "value": 14719.461456298828,
+            "unit": "ns",
+            "range": "± 20.028248714371195"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 1000)",
+            "value": 1214.903287410736,
+            "unit": "ns",
+            "range": "± 6.495928414931606"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 10132.540823364257,
+            "unit": "ns",
+            "range": "± 42.16855971300071"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 1000.5042793273926,
+            "unit": "ns",
+            "range": "± 1.0507186146496343"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 1000)",
+            "value": 8430.521063232422,
+            "unit": "ns",
+            "range": "± 41.025589025620015"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 1000)",
+            "value": 4960.427825927734,
+            "unit": "ns",
+            "range": "± 59.02569765402399"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 1000)",
+            "value": 29744.29356640625,
+            "unit": "ns",
+            "range": "± 248.7154937597664"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 1000)",
+            "value": 0.3937248060107231,
+            "unit": "ns",
+            "range": "± 0.00021168455787842273"
           }
         ]
       }
