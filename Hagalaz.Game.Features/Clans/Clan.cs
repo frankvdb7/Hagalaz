@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Features.Clans;
 
 namespace Hagalaz.Game.Features.Clans
@@ -85,7 +85,8 @@ namespace Hagalaz.Game.Features.Clans
         public Clan(string name)
         {
             Name = name;
-            Settings = new ClanSettings();
+            _settings = new ClanSettings();
+            _settings.ClanId = Id;
             ChatChannel = new ClanChatChannel(this);
             _members = new Dictionary<uint, IClanMember>(MaxMembers);
             _bannedMembers = new Dictionary<uint, string>(MaxBannedMembers);
@@ -102,6 +103,9 @@ namespace Hagalaz.Game.Features.Clans
             Name = name;
             _members = members;
             _bannedMembers = bannedMembers;
+            _settings = new ClanSettings();
+            _settings.ClanId = Id;
+            ChatChannel = new ClanChatChannel(this);
         }
 
         /// <summary>
@@ -115,25 +119,6 @@ namespace Hagalaz.Game.Features.Clans
         /// </summary>
         /// <param name="bannedMembers">The banned members.</param>
         public void SetBannedMembers(Dictionary<uint, string> bannedMembers) => _bannedMembers = bannedMembers;
-
-        // /// <summary>
-        // /// Adds a member to the clan.
-        // /// </summary>
-        // /// <param name="member">The member to add.</param>
-        // /// <returns>JoinResponse.</returns>
-        // public JoinResponse AddMember(IClanMember member)
-        // {
-        //     // clan only allow up to 500 members
-        //     if (_members.Count >= 500)
-        //         return JoinResponse.Full;
-        //     if (_members.ContainsKey(member.MasterId))
-        //     {
-        //         return JoinResponse.Error;
-        //     }
-        //
-        //     _members.Add(member.MasterId, member);
-        //     return JoinResponse.Success;
-        // }
 
         /// <summary>
         /// Gets the member.
