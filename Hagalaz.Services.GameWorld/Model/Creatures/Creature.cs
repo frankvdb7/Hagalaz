@@ -738,12 +738,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             // Using ArrayPool for the snapshot to avoid heap allocations.
             var statesCount = States.Count;
             var statesBuffer = ArrayPool<IState>.Shared.Rent(statesCount);
-            Type[]? toRemove = null;
 
             try
             {
                 States.Values.CopyTo(statesBuffer, 0);
-                var removeCount = 0;
 
                 for (var i = 0; i < statesCount; i++)
                 {
@@ -751,25 +749,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     state.Tick();
                     if (state.TicksLeft <= 0)
                     {
-                        toRemove ??= ArrayPool<Type>.Shared.Rent(statesCount);
-                        toRemove[removeCount++] = state.GetType();
-                    }
-                }
-
-                if (toRemove != null)
-                {
-                    for (var i = 0; i < removeCount; i++)
-                    {
-                        RemoveState(toRemove[i]);
+                        RemoveState(state.GetType());
                     }
                 }
             }
             finally
             {
-                if (toRemove != null)
-                {
-                    ArrayPool<Type>.Shared.Return(toRemove, true);
-                }
                 ArrayPool<IState>.Shared.Return(statesBuffer, true);
             }
         }

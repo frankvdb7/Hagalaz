@@ -68,12 +68,10 @@ namespace Hagalaz.Benchmarks
 
             var statesCount = _states.Count;
             var statesBuffer = ArrayPool<IStateMock>.Shared.Rent(statesCount);
-            Type[]? toRemove = null;
 
             try
             {
                 _states.Values.CopyTo(statesBuffer, 0);
-                var removeCount = 0;
 
                 for (var i = 0; i < statesCount; i++)
                 {
@@ -81,28 +79,15 @@ namespace Hagalaz.Benchmarks
                     state.Tick();
                     if (state.TicksLeft <= 0)
                     {
-                        toRemove ??= ArrayPool<Type>.Shared.Rent(statesCount);
-                        toRemove[removeCount++] = state.GetType();
-                    }
-                }
-
-                if (toRemove != null)
-                {
-                    for (var i = 0; i < removeCount; i++)
-                    {
-                        if (_states.Remove(toRemove[i], out var state))
+                        if (_states.Remove(state.GetType(), out var removedState))
                         {
-                            state.OnStateRemoved(state, null!);
+                            removedState.OnStateRemoved(removedState, null!);
                         }
                     }
                 }
             }
             finally
             {
-                if (toRemove != null)
-                {
-                    ArrayPool<Type>.Shared.Return(toRemove, true);
-                }
                 ArrayPool<IStateMock>.Shared.Return(statesBuffer, true);
             }
         }
