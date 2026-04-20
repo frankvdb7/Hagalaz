@@ -9,7 +9,7 @@ namespace Hagalaz.Data
         {
             var options = new DbContextOptionsBuilder<HagalazDbContext>()
                 .UseMySql(MySqlServerVersion.LatestSupportedServerVersion,
-                    options => { options.TranslateParameterizedCollectionsToConstants(); })
+                    options => { options.UseParameterizedCollectionMode(ParameterTranslationMode.Constant); })
                 .UseOpenIddict()
                 .Options;
             return new HagalazDbContext(options);
