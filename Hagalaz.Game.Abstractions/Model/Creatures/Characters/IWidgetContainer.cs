@@ -12,7 +12,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// <summary>
         /// Gets the main top-level widget, or "frame," that is currently open.
         /// </summary>
-        IWidget CurrentFrame { get; }
+        IWidget? CurrentFrame { get; }
         /// <summary>
         /// Gets or sets the current handler for string input dialogs.
         /// </summary>
