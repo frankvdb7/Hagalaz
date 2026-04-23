@@ -45,39 +45,55 @@ namespace Hagalaz.Benchmarks
             if (_fileStore == null) SetupFileStore();
         }
 
-        [Benchmark]
-        public int FileStore_Read_Small()
+        [Benchmark(OperationsPerInvoke = 100)]
+        public int FileStore_Read_Small_v2()
         {
             EnsureFileStoreInitialized();
-            using (var stream = _fileStore!.Read(0, 1))
+            int length = 0;
+            for (int i = 0; i < 100; i++)
             {
-                return (int)stream.Length;
+                using (var stream = _fileStore!.Read(0, 1))
+                {
+                    length = (int)stream.Length;
+                }
             }
+            return length;
         }
 
-        [Benchmark]
-        public int FileStore_Read_Large()
+        [Benchmark(OperationsPerInvoke = 100)]
+        public int FileStore_Read_Large_v2()
         {
             EnsureFileStoreInitialized();
-            using (var stream = _fileStore!.Read(0, 2))
+            int length = 0;
+            for (int i = 0; i < 100; i++)
             {
-                return (int)stream.Length;
+                using (var stream = _fileStore!.Read(0, 2))
+                {
+                    length = (int)stream.Length;
+                }
             }
+            return length;
         }
 
-        [Benchmark]
-        public bool FileStore_Write_Small()
+        [Benchmark(OperationsPerInvoke = 10)]
+        public bool FileStore_Write_Small_v2()
         {
             EnsureFileStoreInitialized();
-            _fileStore!.Write(0, 3, new MemoryStream(_smallData!));
+            for (int i = 0; i < 10; i++)
+            {
+                _fileStore!.Write(0, 3, new MemoryStream(_smallData!));
+            }
             return true;
         }
 
-        [Benchmark]
-        public bool FileStore_Write_Large()
+        [Benchmark(OperationsPerInvoke = 10)]
+        public bool FileStore_Write_Large_v2()
         {
             EnsureFileStoreInitialized();
-            _fileStore!.Write(0, 4, new MemoryStream(_largeData!));
+            for (int i = 0; i < 10; i++)
+            {
+                _fileStore!.Write(0, 4, new MemoryStream(_largeData!));
+            }
             return true;
         }
 
