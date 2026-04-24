@@ -61,7 +61,7 @@ namespace Hagalaz.Services.Characters.Model
             RunecraftingLevel + SlayerLevel + SmithingLevel + StrengthLevel + SummoningLevel + ThievingLevel + WoodcuttingLevel;
 
         public double OverallExperience =>
-            AgilityExp + AttackExp + ConstitutionExp + ConstructionExp + CookingExp + CraftingExp + DefenceExp + DefenceExp + DungeoneeringExp + FarmingExp +
+            (double)AgilityExp + AttackExp + ConstitutionExp + ConstructionExp + CookingExp + CraftingExp + DefenceExp + DungeoneeringExp + FarmingExp +
             FiremakingExp + FishingExp + FletchingExp + HerbloreExp + HunterExp + MagicExp + MiningExp + PrayerExp + RangeExp + RunecraftingExp + SlayerExp +
             SmithingExp + StrengthExp + SummoningExp + ThievingExp + WoodcuttingExp;
     }
