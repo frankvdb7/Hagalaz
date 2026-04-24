@@ -215,9 +215,9 @@ namespace Hagalaz.Security
                 int byteRead;
                 while ((byteRead = stream.ReadByte()) != -1)
                 {
-                    for (var bit = 7; bit >= 0; bit--)
+                    for (var bit = 0; bit < 8; bit++)
                     {
-                        if ((byteRead & (1 << bit)) == 0)
+                        if ((byteRead & 0x80) == 0)
                         {
                             keyIndex++;
                         }
@@ -229,6 +229,8 @@ namespace Hagalaz.Security
                             }
                             keyIndex = _huffmanDecryptKeys[keyIndex];
                         }
+
+                        byteRead <<= 1;
 
                         if (keyIndex < 0 || keyIndex >= _huffmanDecryptKeys.Length)
                         {
@@ -252,6 +254,7 @@ namespace Hagalaz.Security
             }
             catch
             {
+                // Catch-all for legacy compatibility to ensure malformed data never crashes the server.
                 return string.Empty;
             }
             finally
