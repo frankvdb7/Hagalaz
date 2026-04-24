@@ -46,7 +46,7 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark(OperationsPerInvoke = 100)]
-        public int FileStore_Read_Small_v2()
+        public int FileStore_Read_Small_v3()
         {
             EnsureFileStoreInitialized();
             int length = 0;
@@ -61,7 +61,7 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark(OperationsPerInvoke = 100)]
-        public int FileStore_Read_Large_v2()
+        public int FileStore_Read_Large_v3()
         {
             EnsureFileStoreInitialized();
             int length = 0;
@@ -76,7 +76,7 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark(OperationsPerInvoke = 10)]
-        public bool FileStore_Write_Small_v2()
+        public bool FileStore_Write_Small_v3()
         {
             EnsureFileStoreInitialized();
             for (int i = 0; i < 10; i++)
@@ -87,7 +87,7 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark(OperationsPerInvoke = 10)]
-        public bool FileStore_Write_Large_v2()
+        public bool FileStore_Write_Large_v3()
         {
             EnsureFileStoreInitialized();
             for (int i = 0; i < 10; i++)
