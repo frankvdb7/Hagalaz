@@ -81,13 +81,16 @@ namespace Hagalaz.Security.Tests
             Assert.Equal(string.Empty, result);
         }
 
-        [Fact(Skip = "This test is ignored because it exposes a pre-existing bug in Huffman.Decode. The method should return an empty string for invalid data but instead produces garbage output.")]
+        [Fact]
         public void Decode_WithInvalidData_ShouldReturnEmptyString()
         {
             try
             {
                 // Arrange
-                var invalidData = new byte[] { 0xff, 0xff, 0xff, 0xff, 0xff };
+                // 0xff repeated will eventually decode characters, but likely fewer than 5 before the stream ends.
+                // Each 'y' takes some number of bits. 0xff is all 1s.
+                // If we provide 1 byte of 0xff, it might decode one 'y' and leave keyIndex non-zero.
+                var invalidData = new byte[] { 0xff };
                 using var stream = new MemoryStream(invalidData);
 
                 // Act
