@@ -201,167 +201,70 @@ namespace Hagalaz.Security
         /// <returns>The decoded string. Returns an empty string if decoding fails or the length is zero.</returns>
         public static string Decode(MemoryStream stream, int length)
         {
+            if (length <= 0)
+            {
+                return string.Empty;
+            }
+
             try
             {
-                if (length == 0)
-                    return string.Empty;
-                var totalChars = length;
+                var builder = new StringBuilder(length);
                 var charsDecoded = 0;
                 var keyIndex = 0;
-                var value = string.Empty;
-                for (; ; )
+
+                while (stream.Position < stream.Length)
                 {
                     var byteRead = stream.ReadByte();
                     if (byteRead == -1)
                     {
-                        return string.Empty;
+                        break;
                     }
-                    var val = (sbyte)byteRead;
-                    if (val >= 0)
+
+                    for (var bit = 7; bit >= 0; bit--)
                     {
-                        keyIndex++;
-                    }
-                    else
-                    {
-                        keyIndex = _huffmanDecryptKeys[keyIndex];
-                    }
-                    int keyValue;
-                    if ((keyValue = _huffmanDecryptKeys[keyIndex]) < 0)
-                    {
-                        value += (char)(byte)(keyValue ^ 0xffffffff);
-                        if (length <= ++charsDecoded)
+                        if (keyIndex < 0 || keyIndex >= _huffmanDecryptKeys.Length)
                         {
-                            break;
-                        }
-                        keyIndex = 0;
-                    }
-                    if ((int)((val & 0x40) ^ 0xffffffff) != -1)
-                    {
-                        keyIndex = _huffmanDecryptKeys[keyIndex];
-                    }
-                    else
-                    {
-                        keyIndex++;
-                    }
-                    if ((keyValue = _huffmanDecryptKeys[keyIndex]) < 0)
-                    {
-                        value += (char)(byte)(keyValue ^ 0xffffffff);
-                        if (++charsDecoded >= length)
-                        {
-                            break;
-                        }
-                        keyIndex = 0;
-                    }
-                    if ((0x20 & val) == 0)
-                    {
-                        keyIndex++;
-                    }
-                    else
-                    {
-                        keyIndex = _huffmanDecryptKeys[keyIndex];
-                    }
-                    if ((keyValue = _huffmanDecryptKeys[keyIndex]) < 0)
-                    {
-                        value += (char)(byte)(keyValue ^ 0xffffffff);
-                        if (length <= ++charsDecoded)
-                        {
-                            break;
-                        }
-                        keyIndex = 0;
-                    }
-                    if ((int)((0x10 & val) ^ 0xffffffff) == -1)
-                    {
-                        keyIndex++;
-                    }
-                    else
-                    {
-                        keyIndex = _huffmanDecryptKeys[keyIndex];
-                    }
-                    if ((keyValue = _huffmanDecryptKeys[keyIndex]) < 0)
-                    {
-                        value += (char)(byte)(keyValue ^ 0xffffffff);
-                        if (length <= ++charsDecoded)
-                        {
-                            break;
+                            return string.Empty;
                         }
 
-                        keyIndex = 0;
-                    }
-                    if ((int)((0x8 & val) ^ 0xffffffff) != -1)
-                    {
-                        keyIndex = _huffmanDecryptKeys[keyIndex];
-                    }
-                    else
-                    {
-                        keyIndex++;
-                    }
-                    if ((keyValue = _huffmanDecryptKeys[keyIndex]) < 0)
-                    {
-                        value += (char)(byte)(keyValue ^ 0xffffffff);
-                        if (++charsDecoded >= length)
+                        if ((byteRead & (1 << bit)) == 0)
                         {
-                            break;
+                            keyIndex++;
                         }
-                        keyIndex = 0;
-                    }
-                    if ((0x4 & val) == 0)
-                    {
-                        keyIndex++;
-                    }
-                    else
-                    {
-                        keyIndex = _huffmanDecryptKeys[keyIndex];
-                    }
-                    if ((keyValue = _huffmanDecryptKeys[keyIndex]) < 0)
-                    {
-                        value += (char)(byte)(keyValue ^ 0xffffffff);
-                        if (length <= ++charsDecoded)
+                        else
                         {
-                            break;
+                            keyIndex = _huffmanDecryptKeys[keyIndex];
                         }
-                        keyIndex = 0;
-                    }
-                    if ((int)((val & 0x2) ^ 0xffffffff) != -1)
-                    {
-                        keyIndex = _huffmanDecryptKeys[keyIndex];
-                    }
-                    else
-                    {
-                        keyIndex++;
-                    }
-                    if ((keyValue = _huffmanDecryptKeys[keyIndex]) < 0)
-                    {
-                        value += (char)(byte)(keyValue ^ 0xffffffff);
-                        if (length <= ++charsDecoded)
+
+                        if (keyIndex < 0 || keyIndex >= _huffmanDecryptKeys.Length)
                         {
-                            break;
+                            return string.Empty;
                         }
-                        keyIndex = 0;
-                    }
-                    if ((int)((val & 0x1) ^ 0xffffffff) != -1)
-                    {
-                        keyIndex = _huffmanDecryptKeys[keyIndex];
-                    }
-                    else
-                    {
-                        keyIndex++;
-                    }
-                    if ((keyValue = _huffmanDecryptKeys[keyIndex]) < 0)
-                    {
-                        value += (char)(byte)(keyValue ^ 0xffffffff);
-                        if (++charsDecoded >= length)
+
+                        var keyValue = _huffmanDecryptKeys[keyIndex];
+                        if (keyValue < 0)
                         {
-                            break;
+                            var decodedChar = (char)(byte)(keyValue ^ -1);
+                            builder.Append(decodedChar);
+                            charsDecoded++;
+
+                            if (charsDecoded >= length)
+                            {
+                                return builder.ToString();
+                            }
+
+                            keyIndex = 0;
                         }
-                        keyIndex = 0;
                     }
                 }
-                return value;
+
+                // If we reach here and haven't decoded 'length' characters, the input is incomplete/invalid.
+                return string.Empty;
             }
             catch (Exception)
             {
+                return string.Empty;
             }
-            return string.Empty;
         }
 
         /// <summary>

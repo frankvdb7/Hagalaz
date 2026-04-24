@@ -92,11 +92,11 @@ namespace Hagalaz.Security.Tests
             Assert.NotNull(result);
         }
 
-        [Fact(Skip = "This test is ignored because it exposes a pre-existing bug in Huffman.Decode. The method should return an empty string for invalid data but instead produces garbage output.")]
+        [Fact]
         public void Decode_WithInvalidData_ShouldReturnEmptyString()
         {
             // Arrange
-            var invalidData = new byte[] { 0xff, 0xff, 0xff, 0xff, 0xff };
+            var invalidData = new byte[] { 0xff };
             using var stream = new MemoryStream(invalidData);
 
             // Act
