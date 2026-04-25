@@ -213,6 +213,11 @@ namespace Hagalaz.Security
                 var charsDecoded = 0;
                 var keyIndex = 0;
                 int byteRead;
+
+                // Cache keys as a Span to minimize field lookups and potentially assist JIT with bounds-check elimination.
+                ReadOnlySpan<int> keys = _huffmanDecryptKeys;
+                var keysLength = keys.Length;
+
                 while ((byteRead = stream.ReadByte()) != -1)
                 {
                     for (var bit = 0; bit < 8; bit++)
@@ -223,21 +228,21 @@ namespace Hagalaz.Security
                         }
                         else
                         {
-                            if (keyIndex < 0 || keyIndex >= _huffmanDecryptKeys.Length)
+                            if ((uint)keyIndex >= (uint)keysLength)
                             {
                                 return string.Empty;
                             }
-                            keyIndex = _huffmanDecryptKeys[keyIndex];
+                            keyIndex = keys[keyIndex];
                         }
 
                         byteRead <<= 1;
 
-                        if (keyIndex < 0 || keyIndex >= _huffmanDecryptKeys.Length)
+                        if ((uint)keyIndex >= (uint)keysLength)
                         {
                             return string.Empty;
                         }
 
-                        var keyValue = _huffmanDecryptKeys[keyIndex];
+                        var keyValue = keys[keyIndex];
                         if (keyValue < 0)
                         {
                             buffer[charsDecoded++] = (char)(byte)(~keyValue);
@@ -252,7 +257,7 @@ namespace Hagalaz.Security
 
                 return string.Empty;
             }
-            catch
+            catch (Exception)
             {
                 // Catch-all for legacy compatibility to ensure malformed data never crashes the server.
                 return string.Empty;
