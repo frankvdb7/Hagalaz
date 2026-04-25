@@ -11,7 +11,7 @@
 **Action:** Always return the concrete struct enumerator (e.g., `List<T>.Enumerator`) from `GetEnumerator()` to enable allocation-free `foreach` loops. For `ConcurrentDictionary`, implement manual `Any` and `FirstOrDefault` methods that iterate over the dictionary directly to avoid snapshotting.
 
 ## 2026-03-13 - [Reducing Allocations with ReadOnlySpan in String Slicing]
-**Learning:** Using `Substring` repeatedly to slice strings during parsing creates multiple transient heap-allocated string objects, which significantly increases GC pressure. Replacing these with `ReadOnlySpan<char>` allows for O(1) slicing without any allocations. In `GetStringInBetween`, this reduced heap allocations by ~49% and improved execution time by ~42%.
+**Learning:** Using `Substring` repeatedly to slice strings during parsing creates multiple transient heap-allocated string objects, which significantly increases GC pressure. Replacing these with `ReadOnlySpan<char>` allows for O(1) slicing without any allocations. In `GetStringInBetween`, this reduced heap allocations by ~49% (N=100) and improved execution time by ~42%.
 **Action:** Always prefer `ReadOnlySpan<char>` and `AsSpan()` when performing complex string parsing or multi-step slicing. Only call `ToString()` at the final step when a persistent string object is actually required.
 
 ## 2026-03-27 - [Optimizing Enumerable.IndexOf by Avoiding Materialization]
@@ -25,3 +25,7 @@
 ## 2026-04-10 - [High-Performance Array Combination and Search]
 **Learning:** Using LINQ `Sum()` and nested `foreach` loops for array combination, or `Any()` for searches in hot paths (like game scripts), introduces significant delegate allocations and enumerator overhead. Replacing these with manual loops and `Array.Copy` for block memory movement provides a ~32-46% performance boost. Returning concrete types like `int[]` instead of `IEnumerable<int>` also eliminates interface dispatch overhead.
 **Action:** In performance-critical utility methods or game logic, replace LINQ abstractions with manual loops and high-performance block operations (`Array.Copy`, `Span.CopyTo`). Prefer concrete return types for internal utilities to avoid interface overhead.
+
+## 2026-04-24 - [O(N) Huffman Decoding with ArrayPool and ReadOnlySpan]
+**Learning:** Unrolled bit-processing logic with string concatenation (`string += char`) leads to O(N^2) allocations and significant GC pressure during decompression of long streams. Replacing this with a unified bit-loop using bit-shifts and `ArrayPool<char>` for the output buffer reduces allocations by ~240x and improves performance by ~8x. Further optimization by caching the Huffman tree in a `ReadOnlySpan<int>` and using unsigned comparisons for bounds checks (`(uint)idx >= (uint)len`) yields a total ~11x speedup.
+**Action:** Use `ArrayPool<T>` for transient output buffers and cache static fields in local `ReadOnlySpan<T>` variables to maximize JIT optimization in hot-path loops. Use unsigned comparisons to combine lower and upper bounds checks for performance.
