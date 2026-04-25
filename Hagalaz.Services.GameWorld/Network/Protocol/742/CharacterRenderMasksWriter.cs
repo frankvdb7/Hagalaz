@@ -182,6 +182,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
 
         public void WriteItemAppearance(ICharacter character, IByteBufferWriter output)
         {
+            if (_bodyDataRepository == null) return;
             for (var slot = 0; slot < _bodyDataRepository.BodySlotCount; slot++)
             {
                 var part = (BodyPart)slot;
@@ -196,7 +197,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
                     output.WriteByte((byte)ia.Flags);
 
                     var definition = _itemStore.GetOrAdd(ia.ItemId);
-                    if (ia.Flags.HasFlag(ItemUpdateFlags.Model))
+                    if (definition != null && ia.Flags.HasFlag(ItemUpdateFlags.Model))
                     {
                         output.WriteInt32BigEndianSmart(ia.MaleModels[0]); // male worn model1
                         output.WriteInt32BigEndianSmart(ia.FemaleModels[0]); // female worn model1
@@ -213,7 +214,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
                         }
                     }
 
-                    if (ia.Flags.HasFlag(ItemUpdateFlags.Color))
+                    if (definition != null && ia.Flags.HasFlag(ItemUpdateFlags.Color))
                     {
                         int modelParts = 0;
                         byte flag = 0;
@@ -232,7 +233,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
                                 output.WriteInt16BigEndian((short)ia.ModelColors[index]);
                     }
 
-                    if (ia.Flags.HasFlag(ItemUpdateFlags.Texture))
+                    if (definition != null && ia.Flags.HasFlag(ItemUpdateFlags.Texture))
                     {
                         int modelParts = 0;
                         byte flag = 0;
@@ -387,9 +388,10 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
 
             if (updateFlag.HasFlag(Game.Abstractions.Model.Creatures.Characters.UpdateFlags.Animation))
             {
+                var animation = character.RenderInformation.CurrentAnimation;
                 for (int i = 0; i < 4; i++)
-                    output.WriteInt32BigEndianSmart(character.RenderInformation.CurrentAnimation.Id);
-                output.WriteByteA((byte)character.RenderInformation.CurrentAnimation.Delay);
+                    output.WriteInt32BigEndianSmart(animation?.Id ?? 0);
+                output.WriteByteA((byte)(animation?.Delay ?? 0));
             }
 
             if (updateFlag.HasFlag(Game.Abstractions.Model.Creatures.Characters.UpdateFlags.MovementType))

@@ -12,22 +12,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
         /// <summary>
         /// Occurs when [on active].
         /// </summary>
-        public event Action OnActivated;
+        public event Action? OnActivated;
 
         /// <summary>
         /// Occurs when [on deactivated].
         /// </summary>
-        public event Action OnDeactivated;
+        public event Action? OnDeactivated;
 
         /// <summary>
         /// The active rotation
         /// </summary>
-        private T _activeRotation;
+        private T? _activeRotation;
 
         /// <summary>
         /// The rotations
         /// </summary>
-        private readonly List<T> _rotations = null;
+        private readonly List<T> _rotations = [];
 
         /// <summary>
         /// The active
@@ -59,12 +59,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
         /// <value>
         /// The active rotation.
         /// </value>
-        public T ActiveRotation
+        public T? ActiveRotation
         {
             get => _activeRotation;
             set
             {
-                if (_activeRotation == null && value != null || !_activeRotation.Equals(value))
+                if ((_activeRotation == null && value != null) || (_activeRotation != null && !_activeRotation.Equals(value)))
                 {
                     _activeRotation?.Deactivate();
                     _activeRotation = value;

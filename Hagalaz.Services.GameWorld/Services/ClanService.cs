@@ -60,14 +60,14 @@ namespace Hagalaz.Services.GameWorld.Services
         /// </summary>
         /// <param name="clanName">The name.</param>
         /// <returns></returns>
-        public IClan GetClanByName(string clanName)
+        public IClan? GetClanByName(string clanName)
         {
             if (_clans.ContainsKey(clanName))
                 return _clans[clanName];
             return null;
         }
 
-        private Action _clanChangedEventHandler;
+        private Action? _clanChangedEventHandler;
 
         /// <summary>
         /// Registers the event handlers.
@@ -86,7 +86,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="clan">The clan.</param>
         private void UnregisterEventHandlers(IClan clan)
         {
-            if (clan.Settings != null) clan.Settings.OnChanged -= _clanChangedEventHandler;
+            if (clan.Settings != null && _clanChangedEventHandler != null) clan.Settings.OnChanged -= _clanChangedEventHandler;
             _clanChangedEventHandler = null;
         }
 
