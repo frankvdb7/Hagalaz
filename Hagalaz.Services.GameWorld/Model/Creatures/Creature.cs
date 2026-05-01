@@ -898,46 +898,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <param name="otherSize">Size of the other.</param>
         /// <param name="range">The range.</param>
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
-        public bool WithinRange(ILocation otherLocation, int otherSize, int range)
-        {
-            if (Location.Z != otherLocation.Z || Location.Dimension != otherLocation.Dimension)
-                return false;
-
-            // Optimization: Use O(1) axis-aligned bounding box (AABB) distance calculation
-            // instead of O(S1^2 * S2^2) nested loops.
-            // We calculate the minimum X and Y differences (dx, dy) between the two boxes.
-            var myX = Location.X;
-            var myY = Location.Y;
-            var thisSize = Size;
-
-            var otherX = otherLocation.X;
-            var otherY = otherLocation.Y;
-
-            int dx = 0;
-            if (otherX > myX + thisSize - 1)
-            {
-                dx = otherX - (myX + thisSize - 1);
-            }
-            else if (myX > otherX + otherSize - 1)
-            {
-                dx = myX - (otherX + otherSize - 1);
-            }
-
-            int dy = 0;
-            if (otherY > myY + thisSize - 1)
-            {
-                dy = otherY - (myY + thisSize - 1);
-            }
-            else if (myY > otherY + otherSize - 1)
-            {
-                dy = myY - (otherY + otherSize - 1);
-            }
-
-            // Optimization: Compare squared distances to avoid expensive Math.Sqrt calls.
-            // (int)Math.Sqrt(dx*dx + dy*dy) <= range is equivalent to dx*dx + dy*dy < (range + 1)^2.
-            long rangePlusOne = range + 1;
-            return (long)dx * dx + (long)dy * dy < rangePlusOne * rangePlusOne;
-        }
+        public bool WithinRange(ILocation otherLocation, int otherSize, int range) => CreatureRangeHelper.IsWithinRange(Location, Size, otherLocation, otherSize, range);
 
         /// <summary>
         ///     Registers the event handler.
