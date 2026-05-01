@@ -16,10 +16,15 @@ namespace Hagalaz.Services.Authorization.Controllers
         }
 
         [HttpPost("~/captcha/verify"), Produces("application/json")]
-        public async Task<ActionResult<CaptchaVerifyResult>> VerifyCaptcha([FromBody] CaptchaVerifyRequest request)
+        public async Task<ActionResult<CaptchaVerifyResult>> VerifyCaptcha([FromBody] CaptchaVerifyRequest? request)
         {
+            if (request == null)
+            {
+                return BadRequest();
+            }
+
             var result = await _captchaService.Verify(request.Token, HttpContext.Connection.RemoteIpAddress?.ToString());
-            return result.Success ? CaptchaVerifyResult.Success : CaptchaVerifyResult.Fail;
+            return Ok(result.Success ? CaptchaVerifyResult.Success : CaptchaVerifyResult.Fail);
         }
     }
 }
