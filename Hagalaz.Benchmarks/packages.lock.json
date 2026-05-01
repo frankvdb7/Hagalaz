@@ -1239,6 +1239,26 @@
       "hagalaz.game.resources": {
         "type": "Project"
       },
+      "hagalaz.game.scripts": {
+        "type": "Project",
+        "dependencies": {
+          "Hagalaz.Cache": "[1.0.0, )",
+          "Hagalaz.Cache.Abstractions": "[1.0.0, )",
+          "Hagalaz.Collections.Extensions": "[1.0.0, )",
+          "Hagalaz.Configuration": "[1.0.0, )",
+          "Hagalaz.Game": "[1.0.0, )",
+          "Hagalaz.Game.Abstractions": "[1.0.0, )",
+          "Hagalaz.Game.Common": "[1.0.0, )",
+          "Hagalaz.Game.Configuration": "[1.0.0, )",
+          "Hagalaz.Game.Extensions": "[1.0.0, )",
+          "Hagalaz.Game.Features": "[1.0.0, )",
+          "Hagalaz.Game.Resources": "[1.0.0, )",
+          "Hagalaz.Game.Utilities": "[1.0.0, )",
+          "JetBrains.Annotations": "[2025.2.4, )",
+          "Scrutor": "[7.0.0, )",
+          "System.Linq.Async": "[7.0.0, )"
+        }
+      },
       "hagalaz.game.utilities": {
         "type": "Project"
       },
