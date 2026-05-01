@@ -903,23 +903,40 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             if (Location.Z != otherLocation.Z || Location.Dimension != otherLocation.Dimension)
                 return false;
 
-            var thisSize = Size;
+            // Optimization: Use O(1) axis-aligned bounding box (AABB) distance calculation
+            // instead of O(S1^2 * S2^2) nested loops.
+            // We calculate the minimum X and Y differences (dx, dy) between the two boxes.
             var myX = Location.X;
             var myY = Location.Y;
+            var thisSize = Size;
+
             var otherX = otherLocation.X;
             var otherY = otherLocation.Y;
 
-            for (var x1 = 0; x1 < thisSize; x1++)
-                for (var y1 = 0; y1 < thisSize; y1++)
-                    for (var x2 = 0; x2 < otherSize; x2++)
-                        for (var y2 = 0; y2 < otherSize; y2++)
-                        {
-                            var distance = (int)Game.Abstractions.Model.Location.GetDistance(myX + x1, myY + y1, otherX + x2, otherY + y2);
-                            if (distance <= range)
-                                return true;
-                        }
+            int dx = 0;
+            if (otherX > myX + thisSize - 1)
+            {
+                dx = otherX - (myX + thisSize - 1);
+            }
+            else if (myX > otherX + otherSize - 1)
+            {
+                dx = myX - (otherX + otherSize - 1);
+            }
 
-            return false;
+            int dy = 0;
+            if (otherY > myY + thisSize - 1)
+            {
+                dy = otherY - (myY + thisSize - 1);
+            }
+            else if (myY > otherY + otherSize - 1)
+            {
+                dy = myY - (otherY + otherSize - 1);
+            }
+
+            // Optimization: Compare squared distances to avoid expensive Math.Sqrt calls.
+            // (int)Math.Sqrt(dx*dx + dy*dy) <= range is equivalent to dx*dx + dy*dy < (range + 1)^2.
+            long rangePlusOne = range + 1;
+            return (long)dx * dx + (long)dy * dy < rangePlusOne * rangePlusOne;
         }
 
         /// <summary>
