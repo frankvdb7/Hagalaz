@@ -10,7 +10,7 @@ namespace Hagalaz.Game.Abstractions.Features.Clans
         /// </summary>
         /// <param name="clanName">The name of the clan to retrieve.</param>
         /// <returns>The <see cref="IClan"/> object if found; otherwise, <c>null</c>.</returns>
-        IClan GetClanByName(string clanName);
+        IClan? GetClanByName(string clanName);
 
         /// <summary>
         /// Creates or updates a clan in the data store.

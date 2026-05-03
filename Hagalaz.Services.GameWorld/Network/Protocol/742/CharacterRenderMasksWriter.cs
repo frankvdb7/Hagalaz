@@ -182,7 +182,6 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
 
         public void WriteItemAppearance(ICharacter character, IByteBufferWriter output)
         {
-            if (_bodyDataRepository == null) return;
             for (var slot = 0; slot < _bodyDataRepository.BodySlotCount; slot++)
             {
                 var part = (BodyPart)slot;
@@ -194,10 +193,15 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
                 var ia = character.Appearance.GetDrawnItemPart(part);
                 if (ia != null)
                 {
+                    var definition = _itemStore.GetOrAdd(ia.ItemId);
+                    if (definition == null)
+                    {
+                        output.WriteByte(0);
+                        continue;
+                    }
                     output.WriteByte((byte)ia.Flags);
 
-                    var definition = _itemStore.GetOrAdd(ia.ItemId);
-                    if (definition != null && ia.Flags.HasFlag(ItemUpdateFlags.Model))
+                    if (ia.Flags.HasFlag(ItemUpdateFlags.Model))
                     {
                         output.WriteInt32BigEndianSmart(ia.MaleModels[0]); // male worn model1
                         output.WriteInt32BigEndianSmart(ia.FemaleModels[0]); // female worn model1
@@ -214,7 +218,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
                         }
                     }
 
-                    if (definition != null && ia.Flags.HasFlag(ItemUpdateFlags.Color))
+                    if (ia.Flags.HasFlag(ItemUpdateFlags.Color))
                     {
                         int modelParts = 0;
                         byte flag = 0;
@@ -233,7 +237,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
                                 output.WriteInt16BigEndian((short)ia.ModelColors[index]);
                     }
 
-                    if (definition != null && ia.Flags.HasFlag(ItemUpdateFlags.Texture))
+                    if (ia.Flags.HasFlag(ItemUpdateFlags.Texture))
                     {
                         int modelParts = 0;
                         byte flag = 0;
