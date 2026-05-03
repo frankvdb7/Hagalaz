@@ -22,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
         /// <summary>
         /// The active rotation
         /// </summary>
-        private T? _activeRotation;
+        private T? _activeRotation = default;
 
         /// <summary>
         /// The rotations

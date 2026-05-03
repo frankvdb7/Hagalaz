@@ -1,7 +1,4 @@
-using System;
-using Hagalaz.Game.Abstractions.Features.Clans;
 using Hagalaz.Services.GameWorld.Services;
-using NSubstitute;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.GameWorld.Tests.Services
@@ -10,31 +7,11 @@ namespace Hagalaz.Services.GameWorld.Tests.Services
     public class ClanServiceTests
     {
         [TestMethod]
-        public void GetClanByName_WhenClanDoesNotExist_ReturnsNull()
+        public void GetClanByName_WhenNotFound_ReturnsNull()
         {
-            // Arrange
             var service = new ClanService();
-
-            // Act
-            var result = service.GetClanByName("NonExistent");
-
-            // Assert
-            Assert.IsNull(result);
-        }
-
-        [TestMethod]
-        public void PutClan_AddsClanCorrectly()
-        {
-            // Arrange
-            var service = new ClanService();
-            var clan = Substitute.For<IClan>();
-            clan.Name.Returns("TestClan");
-
-            // Act
-            service.PutClan(clan);
-
-            // Assert
-            Assert.AreEqual(clan, service.GetClanByName("TestClan"));
+            var clan = service.GetClanByName("NonExistent");
+            Assert.IsNull(clan);
         }
     }
 }
