@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Features.Clans;
 
@@ -60,7 +60,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// </summary>
         /// <param name="clanName">The name.</param>
         /// <returns></returns>
-        public IClan? GetClanByName(string clanName)
+        public IClan GetClanByName(string clanName)
         {
             if (_clans.ContainsKey(clanName))
                 return _clans[clanName];
