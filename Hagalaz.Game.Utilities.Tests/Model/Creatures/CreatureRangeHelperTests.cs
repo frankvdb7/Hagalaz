@@ -1,8 +1,8 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Utilities.Model.Creatures;
 
-namespace Hagalaz.Game.Abstractions.Tests.Model.Creatures
+namespace Hagalaz.Game.Utilities.Tests.Model.Creatures
 {
     [TestClass]
     public class CreatureRangeHelperTests

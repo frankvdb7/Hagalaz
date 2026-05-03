@@ -1,6 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Utilities.Model.Creatures;
 using System;
 
 namespace Hagalaz.Benchmarks

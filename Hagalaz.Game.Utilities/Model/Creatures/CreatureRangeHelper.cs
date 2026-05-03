@@ -1,6 +1,7 @@
 using System;
+using Hagalaz.Game.Abstractions.Model;
 
-namespace Hagalaz.Game.Abstractions.Model.Creatures
+namespace Hagalaz.Game.Utilities.Model.Creatures
 {
     /// <summary>
     /// Provides utility methods for calculating distances and proximity between creatures and locations.
