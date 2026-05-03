@@ -23,7 +23,7 @@ namespace Hagalaz.Game.Utilities.Model.Creatures
         /// </remarks>
         public static bool IsWithinRange(ILocation loc1, int size1, ILocation loc2, int size2, int range)
         {
-            if (loc1.Z != loc2.Z || loc1.Dimension != loc2.Dimension)
+            if (range < 0 || loc1.Z != loc2.Z || loc1.Dimension != loc2.Dimension)
             {
                 return false;
             }

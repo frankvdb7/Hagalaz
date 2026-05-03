@@ -73,5 +73,24 @@ namespace Hagalaz.Game.Utilities.Tests.Model.Creatures
 
             Assert.IsFalse(CreatureRangeHelper.IsWithinRange(loc1, 1, loc2, 1, 10));
         }
+
+        [TestMethod]
+        public void IsWithinRange_NegativeRange_ReturnsFalse()
+        {
+            var loc = new Location(100, 100, 0, 0);
+            // Even if overlapping, negative range should return false
+            Assert.IsFalse(CreatureRangeHelper.IsWithinRange(loc, 1, loc, 1, -1));
+            Assert.IsFalse(CreatureRangeHelper.IsWithinRange(loc, 1, loc, 1, -2));
+        }
+
+        [TestMethod]
+        public void IsWithinRange_MaxRange_HandlesOverflow()
+        {
+            var loc1 = new Location(0, 0, 0, 0);
+            var loc2 = new Location(10, 10, 0, 0);
+
+            // Should not throw or fail due to overflow in range + 1
+            Assert.IsTrue(CreatureRangeHelper.IsWithinRange(loc1, 1, loc2, 1, int.MaxValue));
+        }
     }
 }
