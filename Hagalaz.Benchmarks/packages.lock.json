@@ -255,6 +255,12 @@
           "Raido.Common": "[1.0.0, )"
         }
       },
+      "hagalaz.game.utilities": {
+        "type": "Project",
+        "dependencies": {
+          "Hagalaz.Game.Abstractions": "[1.0.0, )"
+        }
+      },
       "hagalaz.security": {
         "type": "Project"
       },
