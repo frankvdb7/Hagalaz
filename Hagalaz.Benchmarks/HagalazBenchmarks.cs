@@ -25,7 +25,6 @@ namespace Hagalaz.Benchmarks
             SetupCollections();
             SetupViewport();
             SetupStringParsing();
-            SetupCreatureBenchmarks();
         }
     }
 

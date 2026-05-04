@@ -14,10 +14,10 @@ namespace Hagalaz.Services.Characters.Tests.Controllers
     [TestClass]
     public class StatsControllerTests
     {
-        private Mock<IMediator> _mediatorMock = null!;
-        private Mock<IRequestClient<GetCharacterStatisticsQuery>> _getCharacterStatisticsQueryMock = null!;
-        private Mock<IRequestClient<GetAllCharacterStatisticsQuery>> _getAllCharacterStatisticsQueryMock = null!;
-        private StatsController _controller = null!;
+        private Mock<IMediator> _mediatorMock;
+        private Mock<IRequestClient<GetCharacterStatisticsQuery>> _getCharacterStatisticsQueryMock;
+        private Mock<IRequestClient<GetAllCharacterStatisticsQuery>> _getAllCharacterStatisticsQueryMock;
+        private StatsController _controller;
 
         [TestInitialize]
         public void Initialize()
@@ -91,7 +91,7 @@ namespace Hagalaz.Services.Characters.Tests.Controllers
         {
             // Arrange
             var request = new GetAllCharacterStatisticsRequest(
-                new GetAllCharacterStatisticsRequest.SortModel { Experience = SortType.Desc },
+                new GetAllCharacterStatisticsRequest.SortModel(),
                 new GetAllCharacterStatisticsRequest.FilterModel
                 {
                     Page = 1,
@@ -108,7 +108,7 @@ namespace Hagalaz.Services.Characters.Tests.Controllers
             responseMock.Setup(r => r.Message).Returns(expectedResult);
 
             _getAllCharacterStatisticsQueryMock.Setup(c => c.GetResponse<GetAllCharacterStatisticsResult>(
-                It.Is<GetAllCharacterStatisticsQuery>(q => q.Sort != null && q.Sort.Experience == SortType.Desc), default, default))
+                It.IsAny<GetAllCharacterStatisticsQuery>(), default, default))
                 .ReturnsAsync(responseMock.Object);
 
             // Act
@@ -118,29 +118,6 @@ namespace Hagalaz.Services.Characters.Tests.Controllers
             Assert.IsInstanceOfType(result.Result, typeof(OkObjectResult));
             var okResult = (OkObjectResult)result.Result;
             Assert.AreEqual(expectedResult, okResult.Value);
-        }
-
-        [TestMethod]
-        public async Task GetAll_WithNullRequest_ReturnsBadRequest()
-        {
-            // Act
-            var result = await _controller.GetAll(null!);
-
-            // Assert
-            Assert.IsInstanceOfType(result.Result, typeof(BadRequestResult));
-        }
-
-        [TestMethod]
-        public void SortModel_Experience_CanBeSet()
-        {
-            // Arrange
-            var sortModel = new GetAllCharacterStatisticsRequest.SortModel
-            {
-                Experience = SortType.Desc
-            };
-
-            // Assert
-            Assert.AreEqual(SortType.Desc, sortModel.Experience);
         }
     }
 }

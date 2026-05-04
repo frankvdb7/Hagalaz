@@ -44,7 +44,7 @@ namespace Hagalaz.Services.GameWorld.Builders
             }
             else
             {
-                _parentId ??= _character.Widgets.CurrentFrame.Id;
+                _parentId ??= _character.Widgets.CurrentFrame?.Id ?? 0;
                 _parentSlot ??= 0;
                 widget = new Widget(_character, _id, _parentId.Value, _parentSlot.Value, _transparency, _script);
             }
