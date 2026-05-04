@@ -15,7 +15,7 @@ namespace Hagalaz.Services.Authorization.Controllers
             _captchaService = captchaService;
         }
 
-        [HttpPost("~/captcha/verify"), Produces("application/json")]
+        [HttpPost("~/captcha/verify"), Produces("application/json"), IgnoreAntiforgeryToken]
         public async Task<ActionResult<CaptchaVerifyResult>> VerifyCaptcha([FromBody] CaptchaVerifyRequest request)
         {
             var result = await _captchaService.Verify(request.Token, HttpContext.Connection.RemoteIpAddress?.ToString());
