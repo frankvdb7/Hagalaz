@@ -99,6 +99,12 @@
           "OpenIddict.EntityFrameworkCore.Models": "7.2.0"
         }
       },
+      "OpenTelemetry.Api": {
+        "type": "Direct",
+        "requested": "[1.15.3, )",
+        "resolved": "1.15.3",
+        "contentHash": "fX+fkCysfPut+qCcT3bKqyX4QN9Saf4CgX8HLOHywEVD+Xr7sULtfuypITpoDysjx8R59dn/3mWhgimMH8cm/g=="
+      },
       "Pomelo.EntityFrameworkCore.MySql": {
         "type": "Direct",
         "requested": "[9.0.0, )",
@@ -330,11 +336,6 @@
         "dependencies": {
           "OpenTelemetry.Api.ProviderBuilderExtensions": "1.9.0"
         }
-      },
-      "OpenTelemetry.Api": {
-        "type": "Transitive",
-        "resolved": "1.9.0",
-        "contentHash": "Xz8ZvM1Lm0m7BbtGBnw2JlPo++YKyMp08zMK5p0mf+cIi5jeMt2+QsYu9X6YEAbjCxBQYwEak5Z8sY6Ig2WcwQ=="
       },
       "OpenTelemetry.Api.ProviderBuilderExtensions": {
         "type": "Transitive",
