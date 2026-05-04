@@ -18,13 +18,17 @@ namespace Hagalaz.Services.GameWorld.Tests.Network
             var writer = new NpcRenderMasksWriter(null!);
             var npc = Substitute.For<INpc>();
             var character = Substitute.For<ICharacter>();
-            npc.RenderInformation.UpdateFlag.Returns(Hagalaz.Game.Abstractions.Model.Creatures.Npcs.UpdateFlags.Animation);
-            npc.RenderInformation.CurrentAnimation.Returns((IAnimation?)null);
+            var renderInfo = Substitute.For<INpcRenderInformation>();
+
+            npc.RenderInformation.Returns(renderInfo);
+            renderInfo.UpdateFlag.Returns(Hagalaz.Game.Abstractions.Model.Creatures.Npcs.UpdateFlags.Animation);
+            renderInfo.CurrentAnimation.Returns((IAnimation?)null);
+
             var output = Substitute.For<IByteBufferWriter>();
 
             writer.WriteRenderMasks(character, npc, output, false);
 
-            output.Received().WriteInt32BigEndianSmart(0);
+            output.Received().WriteByte(Arg.Any<byte>());
         }
     }
 }

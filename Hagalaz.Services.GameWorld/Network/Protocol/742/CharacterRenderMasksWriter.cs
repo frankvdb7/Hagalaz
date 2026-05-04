@@ -183,6 +183,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
         public void WriteItemAppearance(ICharacter character, IByteBufferWriter output)
         {
             if (_bodyDataRepository == null) return;
+            if (_bodyDataRepository == null) return;
             for (var slot = 0; slot < _bodyDataRepository.BodySlotCount; slot++)
             {
                 var part = (BodyPart)slot;
@@ -388,9 +389,10 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
 
             if (updateFlag.HasFlag(Game.Abstractions.Model.Creatures.Characters.UpdateFlags.Animation))
             {
-                for (int i = 0; i < 4; i++)
-                    output.WriteInt32BigEndianSmart(character.RenderInformation.CurrentAnimation.Id);
-                output.WriteByteA((byte)character.RenderInformation.CurrentAnimation.Delay);
+                var animation = character.RenderInformation.CurrentAnimation;
+                for (int j = 0; j < 4; j++)
+                    output.WriteInt32BigEndianSmart(animation?.Id ?? 0);
+                output.WriteByteA((byte)(animation?.Delay ?? 0));
             }
 
             if (updateFlag.HasFlag(Game.Abstractions.Model.Creatures.Characters.UpdateFlags.MovementType))
