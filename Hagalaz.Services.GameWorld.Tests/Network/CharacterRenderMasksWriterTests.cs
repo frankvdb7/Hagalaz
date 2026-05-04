@@ -17,16 +17,11 @@ namespace Hagalaz.Services.GameWorld.Tests.Network
             var writer = new CharacterRenderMasksWriter(null!, null!, null!, null!);
             var character = Substitute.For<ICharacter>();
             var renderInfo = Substitute.For<ICharacterRenderInformation>();
-
             character.RenderInformation.Returns(renderInfo);
             renderInfo.UpdateFlag.Returns(UpdateFlags.Animation);
             renderInfo.CurrentAnimation.Returns((IAnimation?)null);
-
             var output = Substitute.For<IByteBufferWriter>();
-
             writer.WriteRenderMasks(character, output, false);
-
-            // Verifying underlying call
             output.Received().WriteByte(Arg.Any<byte>());
         }
     }

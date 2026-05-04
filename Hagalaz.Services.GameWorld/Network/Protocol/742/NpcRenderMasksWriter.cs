@@ -197,7 +197,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
             if ((updateFlag & UpdateFlags.Animation) != 0)
             {
                 var animation = npc.RenderInformation.CurrentAnimation;
-                for (int j = 0; j < 4; j++)
+                for (int i = 0; i < 4; i++)
                     output.WriteInt32BigEndianSmart(animation?.Id ?? 0);
                 output.WriteByteC((byte)(animation?.Delay ?? 0));
             }

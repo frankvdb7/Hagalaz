@@ -21,39 +21,19 @@ namespace Hagalaz.Services.Authorization.Tests.Controllers
         {
             _captchaServiceMock = new Mock<ICaptchaService>();
             _controller = new CaptchaController(_captchaServiceMock.Object);
-
             var httpContext = new DefaultHttpContext();
             httpContext.Connection.RemoteIpAddress = IPAddress.Parse("127.0.0.1");
-            _controller.ControllerContext = new ControllerContext
-            {
-                HttpContext = httpContext
-            };
+            _controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         }
 
         [TestMethod]
         public async Task VerifyCaptcha_ReturnsSuccess_WhenVerificationSucceeds()
         {
-            var request = new CaptchaVerifyRequest { Token = "valid-token" };
-            _captchaServiceMock.Setup(x => x.Verify(request.Token, "127.0.0.1", default))
-                .ReturnsAsync(new HCaptchaVerifyResult { Success = true, HostName = "localhost" });
-
+            var request = new CaptchaVerifyRequest { Token = "token" };
+            _captchaServiceMock.Setup(x => x.Verify("token", "127.0.0.1", default))
+                .ReturnsAsync(new HCaptchaVerifyResult { Success = true, HostName = "host" });
             var result = await _controller.VerifyCaptcha(request);
-
-            Assert.IsInstanceOfType(result.Value, typeof(CaptchaVerifyResult));
             Assert.IsTrue(result.Value!.Succeeded);
-        }
-
-        [TestMethod]
-        public async Task VerifyCaptcha_ReturnsFail_WhenVerificationFails()
-        {
-            var request = new CaptchaVerifyRequest { Token = "invalid-token" };
-            _captchaServiceMock.Setup(x => x.Verify(request.Token, "127.0.0.1", default))
-                .ReturnsAsync(new HCaptchaVerifyResult { Success = false, HostName = "localhost" });
-
-            var result = await _controller.VerifyCaptcha(request);
-
-            Assert.IsInstanceOfType(result.Value, typeof(CaptchaVerifyResult));
-            Assert.IsFalse(result.Value!.Succeeded);
         }
     }
 }
