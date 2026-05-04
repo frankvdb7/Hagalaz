@@ -11,7 +11,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Utilities.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Events.Creatures;
@@ -899,7 +898,29 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <param name="otherSize">Size of the other.</param>
         /// <param name="range">The range.</param>
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
-        public bool WithinRange(ILocation otherLocation, int otherSize, int range) => CreatureRangeHelper.IsWithinRange(Location, Size, otherLocation, otherSize, range);
+        public bool WithinRange(ILocation otherLocation, int otherSize, int range)
+        {
+            if (Location.Z != otherLocation.Z || Location.Dimension != otherLocation.Dimension)
+                return false;
+
+            var thisSize = Size;
+            var myX = Location.X;
+            var myY = Location.Y;
+            var otherX = otherLocation.X;
+            var otherY = otherLocation.Y;
+
+            for (var x1 = 0; x1 < thisSize; x1++)
+                for (var y1 = 0; y1 < thisSize; y1++)
+                    for (var x2 = 0; x2 < otherSize; x2++)
+                        for (var y2 = 0; y2 < otherSize; y2++)
+                        {
+                            var distance = (int)Game.Abstractions.Model.Location.GetDistance(myX + x1, myY + y1, otherX + x2, otherY + y2);
+                            if (distance <= range)
+                                return true;
+                        }
+
+            return false;
+        }
 
         /// <summary>
         ///     Registers the event handler.
