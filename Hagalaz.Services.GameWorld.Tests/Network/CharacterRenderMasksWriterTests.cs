@@ -22,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Network
             renderInfo.CurrentAnimation.Returns((IAnimation?)null);
             var output = Substitute.For<IByteBufferWriter>();
             writer.WriteRenderMasks(character, output, false);
-            output.ReceivedAtLeast(1).WriteByte(Arg.Any<byte>());
+            output.Received().WriteByte(Arg.Any<byte>());
         }
     }
 }
