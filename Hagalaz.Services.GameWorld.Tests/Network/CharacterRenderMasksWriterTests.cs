@@ -1,7 +1,6 @@
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Network.Protocol._742;
-using Hagalaz.Services.GameWorld.Extensions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Raido.Common.Buffers;
@@ -18,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Network
             var character = Substitute.For<ICharacter>();
             var renderInfo = Substitute.For<ICharacterRenderInformation>();
             character.RenderInformation.Returns(renderInfo);
-            renderInfo.UpdateFlag.Returns(UpdateFlags.Animation);
+            renderInfo.UpdateFlag.Returns(Hagalaz.Game.Abstractions.Model.Creatures.Characters.UpdateFlags.Animation);
             renderInfo.CurrentAnimation.Returns((IAnimation?)null);
             var output = Substitute.For<IByteBufferWriter>();
             writer.WriteRenderMasks(character, output, false);
