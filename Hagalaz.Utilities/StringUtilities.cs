@@ -31,10 +31,6 @@ namespace Hagalaz.Utilities
         /// </summary>
         private static readonly Regex _validMail = MyRegex();
 
-        /// <summary>
-        /// A regular expression for validating names, likely usernames, allowing for simple or multi-part names.
-        /// </summary>
-        private static readonly Regex _validName = MyRegex1();
 
         /// <summary>
         /// An array of characters that are considered valid for specific contexts, such as client-side communication or base-37 encoding.
@@ -45,6 +41,22 @@ namespace Hagalaz.Utilities
             'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
             't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2',
             '3', '4', '5', '6', '7', '8', '9'
+        ];
+
+        /// <summary>
+        /// A lookup table for mapping characters to their base-37 values.
+        /// Values are 1-based (1-26 for a-z, 27-36 for 0-9), 0 means invalid.
+        /// </summary>
+        private static ReadOnlySpan<byte> Base37Lookup =>
+        [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 0-15
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 16-31
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 32-47
+            27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 0, 0, 0, 0, 0, 0, // 48-63 (0-9)
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, // 64-79 (@A-O)
+            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 0, 0, 0, 0, 0, // 80-95 (P-Z)
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, // 96-111 (`a-o)
+            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 0, 0, 0, 0, 0  // 112-127 (p-z)
         ];
 
         /// <summary>
@@ -66,7 +78,36 @@ namespace Hagalaz.Utilities
                 return false;
             }
 
-            return _validName.Match(name).Success;
+            // Optimized manual validation to replace Regex MyRegex1:
+            // (^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)
+            int separators = 0;
+            for (int i = 0; i < name.Length; i++)
+            {
+                char c = name[i];
+                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+                {
+                    continue;
+                }
+
+                if (c == ' ' || c == '-')
+                {
+                    // Start or end cannot be a separator, and consecutive separators are not allowed.
+                    if (i == 0 || i == name.Length - 1) return false;
+
+                    char prev = name[i - 1];
+                    if (prev == ' ' || prev == '-') return false;
+
+                    separators++;
+                    // Regex allows a maximum of 2 separators.
+                    if (separators > 2) return false;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -264,15 +305,18 @@ namespace Hagalaz.Utilities
             if (value <= 0L || value >= aLong2320)
                 return null;
 
-            int i = 0;
-            var ac = new char[12];
+            // Use stackalloc to avoid heap allocation, and fill from the end.
+            Span<char> buffer = stackalloc char[12];
+            int count = 0;
             while (value != 0L)
             {
                 long l1 = value;
                 value /= 37L;
-                ac[11 - i++] = _validChars[(int)(l1 - value * 37L)];
+                buffer[11 - count++] = _validChars[(int)(l1 - value * 37L)];
             }
-            return new string(ac, 12 - i, i);
+
+            // Create string from the populated slice of the buffer.
+            return new string(buffer.Slice(12 - count, count));
         }
 
         /// <summary>
@@ -283,23 +327,15 @@ namespace Hagalaz.Utilities
         public static long StringToLong(this string s)
         {
             long l = 0L;
+            var lookup = Base37Lookup;
             for (int i = 0; i < s.Length && i < 12; i++)
             {
                 char c = s[i];
                 l *= 37L;
-                if (c >= 'a' && c <= 'z')
+                if ((uint)c < (uint)lookup.Length)
                 {
-                    l += (c - 'a') + 1;
+                    l += lookup[c];
                 }
-                else if (c >= 'A' && c <= 'Z')
-                {
-                    l += (c - 'A') + 1;
-                }
-                else if (c >= '0' && c <= '9')
-                {
-                    l += (c - '0') + 27;
-                }
-
             }
             while (l % 37L == 0L && l != 0L) l /= 37L;
             return l;
@@ -366,7 +402,5 @@ namespace Hagalaz.Utilities
         public static string FormatNumber(int value) => value.ToString("#,###,##0", CultureInfo.InvariantCulture);
         [GeneratedRegex("^(([^<>()[\\]\\\\.,;:\\s@\"]+(\\.[^<>()[\\]\\\\.,;:\\s@\"]+)*)|(\".+\"))@((\\[[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\])|(([a-zA-Z\\-0-9]+\\.)+[a-zA-Z]{2,}))$", RegexOptions.IgnoreCase, "nl-NL")]
         private static partial Regex MyRegex();
-        [GeneratedRegex(@"(^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)")]
-        private static partial Regex MyRegex1();
     }
 }
