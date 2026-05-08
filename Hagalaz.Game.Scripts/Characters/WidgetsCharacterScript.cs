@@ -57,6 +57,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
         public void OpenMainGameFrame()
         {
+            var wasFrameOpen = Character.Widgets.CurrentFrame != null;
             Character.Widgets.CloseAll();
 
             var gameFrame = _widgetBuilder
@@ -66,7 +67,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 .WithScript<GameFrame>()
                 .AsFrame()
                 .Build();
-            Character.Widgets.OpenFrame(gameFrame);
+            Character.Widgets.OpenFrame(gameFrame, wasFrameOpen);
         }
         
         public void OpenCharacterDesignFrame()
