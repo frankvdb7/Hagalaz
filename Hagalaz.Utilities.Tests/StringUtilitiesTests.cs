@@ -143,6 +143,14 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("some  name", false)]
         [DataRow(null, false)]
         [DataRow(" ", false)]
+        [DataRow("a-b", false)]
+        [DataRow("a-bc", true)]
+        [DataRow("ab-c", false)]
+        [DataRow("a-b-c", true)]
+        [DataRow("a b c", true)]
+        [DataRow("a-b c", true)]
+        [DataRow("a -c", false)]
+        [DataRow("a- c", false)]
         public void IsValidName_ValidatesCorrectly(string name, bool expected)
         {
             // Act

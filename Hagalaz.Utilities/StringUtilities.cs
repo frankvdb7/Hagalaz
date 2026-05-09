@@ -78,9 +78,10 @@ namespace Hagalaz.Utilities
                 return false;
             }
 
-            // Optimized manual validation to replace Regex MyRegex1:
+            // Optimized manual validation to strictly match Regex MyRegex1:
             // (^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)
             int separators = 0;
+            int s1 = -1, s2 = -1;
             for (int i = 0; i < name.Length; i++)
             {
                 char c = name[i];
@@ -91,15 +92,10 @@ namespace Hagalaz.Utilities
 
                 if (c == ' ' || c == '-')
                 {
-                    // Start or end cannot be a separator, and consecutive separators are not allowed.
-                    if (i == 0 || i == name.Length - 1) return false;
-
-                    char prev = name[i - 1];
-                    if (prev == ' ' || prev == '-') return false;
-
                     separators++;
-                    // Regex allows a maximum of 2 separators.
-                    if (separators > 2) return false;
+                    if (separators == 1) s1 = i;
+                    else if (separators == 2) s2 = i;
+                    else return false; // Max 2 separators allowed
                 }
                 else
                 {
@@ -107,7 +103,16 @@ namespace Hagalaz.Utilities
                 }
             }
 
-            return true;
+            if (separators == 0) return true;
+
+            // Branch 2 of regex requires 3 alphanumeric blocks.
+            // If 1 separator: Alpha+ Sep Alpha+ Alpha+  => at least 1 before, 2 after.
+            if (separators == 1) return s1 >= 1 && s1 <= name.Length - 3;
+
+            // If 2 separators: Alpha+ Sep Alpha+ Sep Alpha+ => at least 1 before, 1 between, 1 after.
+            if (separators == 2) return s1 >= 1 && s2 >= s1 + 2 && s2 <= name.Length - 2;
+
+            return false;
         }
 
         /// <summary>
@@ -310,9 +315,8 @@ namespace Hagalaz.Utilities
             int count = 0;
             while (value != 0L)
             {
-                long l1 = value;
-                value /= 37L;
-                buffer[11 - count++] = _validChars[(int)(l1 - value * 37L)];
+                value = Math.DivRem(value, 37L, out long remainder);
+                buffer[11 - count++] = _validChars[(int)remainder];
             }
 
             // Create string from the populated slice of the buffer.
