@@ -54,9 +54,17 @@ namespace Hagalaz.Utilities
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 32-47
             27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 0, 0, 0, 0, 0, 0, // 48-63 (0-9)
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, // 64-79 (@A-O)
-            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 0, 0, 0, 0, 0, // 80-95 (P-Z)
+            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 0, 0, 0, 0, 0, // 80-95 (P-Z, 95 is _)
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, // 96-111 (`a-o)
-            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 0, 0, 0, 0, 0  // 112-127 (p-z)
+            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 0, 0, 0, 0, 0, // 112-127 (p-z)
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         ];
 
         /// <summary>
@@ -73,7 +81,7 @@ namespace Hagalaz.Utilities
         /// <returns><c>true</c> if the name is valid; otherwise, <c>false</c>.</returns>
         public static bool IsValidName(string name)
         {
-            if (string.IsNullOrWhiteSpace(name) || name.Length > 12)
+            if (string.IsNullOrWhiteSpace(name))
             {
                 return false;
             }
@@ -103,7 +111,8 @@ namespace Hagalaz.Utilities
                 }
             }
 
-            if (separators == 0) return true;
+            // Branch 1: Single-part name, length limit 12.
+            if (separators == 0) return name.Length <= 12;
 
             // Branch 2 of regex requires 3 alphanumeric blocks.
             // If 1 separator: Alpha+ Sep Alpha+ Alpha+  => at least 1 before, 2 after.

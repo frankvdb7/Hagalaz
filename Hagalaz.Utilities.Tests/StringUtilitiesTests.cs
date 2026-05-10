@@ -151,6 +151,12 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("a-b c", true)]
         [DataRow("a -c", false)]
         [DataRow("a- c", false)]
+        [DataRow("1234567890123", false)]
+        [DataRow("a-b-c-d", false)]
+        [DataRow("abc d e", true)]
+        [DataRow("abc d e f", false)]
+        [DataRow("very-long-name-parts", false)]
+        [DataRow("123456789012-part", true)]
         public void IsValidName_ValidatesCorrectly(string name, bool expected)
         {
             // Act
@@ -427,6 +433,20 @@ namespace Hagalaz.Utilities.Tests
             Assert.AreEqual(expected, actual);
         }
 
+        [TestMethod]
+        [DataRow("hello")]
+        [DataRow("world")]
+        [DataRow("a")]
+        [DataRow("123456789012")]
+        [DataRow("a_")]
+        [DataRow("a__")]
+        [DataRow("a___")]
+        public void StringLongRoundTrip_IsConsistent(string s)
+        {
+            long encoded = s.StringToLong();
+            string? decoded = encoded.LongToString();
+            Assert.AreEqual(s.ToLowerInvariant().Replace("_", ""), decoded);
+        }
 
         [TestMethod]
         [DataRow(0, "0")]
