@@ -8,6 +8,8 @@ using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Abstractions.Data;
+using Hagalaz.Services.GameWorld.Builders;
+using Hagalaz.Game.Abstractions.Builders.Widget;
 
 namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
 {
@@ -37,6 +39,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             serviceProviderMock.GetService(typeof(IWidgetScriptProvider)).Returns(_widgetScriptProviderMock);
 
             _widgetContainer = new WidgetContainer(_characterMock);
+            _characterMock.Widgets.Returns(_widgetContainer);
         }
 
         [TestMethod]
@@ -94,6 +97,31 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
 
             // Assert
             _sessionMock.Received(1).SendMessage(Arg.Is<DrawFrameComponentMessage>(m => m.Id == 1 && m.ForceRedraw == true));
+        }
+
+        [TestMethod]
+        public void WidgetBuilder_BuildNonFrameWithoutActiveFrame_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var builder = new WidgetBuilder(_widgetScriptProviderMock);
+            _widgetScriptProviderMock.FindScriptTypeById(100).Returns(typeof(IWidgetScript));
+
+            // We need to return a script when GetRequiredService is called
+            var scriptMock = Substitute.For<IWidgetScript>();
+            _characterMock.ServiceProvider.GetService(typeof(IWidgetScript)).Returns(scriptMock);
+
+            // Act & Assert
+            try
+            {
+                builder.ForCharacter(_characterMock)
+                       .WithId(100)
+                       .Build();
+                Assert.Fail("Expected InvalidOperationException was not thrown.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                StringAssert.Contains(ex.Message, "no game frame is currently open");
+            }
         }
     }
 }

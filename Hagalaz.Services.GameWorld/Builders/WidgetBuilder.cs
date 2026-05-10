@@ -44,7 +44,16 @@ namespace Hagalaz.Services.GameWorld.Builders
             }
             else
             {
-                _parentId ??= _character.Widgets.CurrentFrame?.Id ?? 0;
+                if (_parentId == null)
+                {
+                    if (_character.Widgets.CurrentFrame == null)
+                    {
+                        throw new InvalidOperationException($"Cannot build non-frame widget {_id} because no game frame is currently open and no parent ID was provided.");
+                    }
+
+                    _parentId = _character.Widgets.CurrentFrame.Id;
+                }
+
                 _parentSlot ??= 0;
                 widget = new Widget(_character, _id, _parentId.Value, _parentSlot.Value, _transparency, _script);
             }
