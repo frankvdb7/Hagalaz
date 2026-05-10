@@ -115,6 +115,7 @@ namespace Hagalaz.Utilities
             if (separators == 0) return name.Length <= 12;
 
             // Branch 2 of regex requires 3 alphanumeric blocks.
+            // Branch 2 is NOT length-bounded by the original regex.
             // If 1 separator: Alpha+ Sep Alpha+ Alpha+  => at least 1 before, 2 after.
             if (separators == 1) return s1 >= 1 && s1 <= name.Length - 3;
 
