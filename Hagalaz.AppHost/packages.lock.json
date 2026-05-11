@@ -4,9 +4,9 @@
     "net9.0": {
       "Aspire.Dashboard.Sdk.linux-x64": {
         "type": "Direct",
-        "requested": "[13.0.1, )",
-        "resolved": "13.0.1",
-        "contentHash": "f/Vvx1GLmbSr/o6zxpWe+PwA98iVSfKA1yxHsyVHfL5BVaHAqiA+/0KRMFtAJppk3A8JEpCjcZztZfr6H3MeFA=="
+        "requested": "[13.3.0, )",
+        "resolved": "13.3.0",
+        "contentHash": "fgadxJ6tIQLqjcfvzjVnn+x+izI5OyFXEusJrDTVbLu25Vo49h/KnO2cd949nzNtqgFAufXO7pyunLvKX3ITCg=="
       },
       "Aspire.Hosting.AppHost": {
         "type": "Direct",
