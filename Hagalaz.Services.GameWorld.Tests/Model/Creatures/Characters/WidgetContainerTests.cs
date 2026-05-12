@@ -106,7 +106,6 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             var builder = new WidgetBuilder(_widgetScriptProviderMock);
             _widgetScriptProviderMock.FindScriptTypeById(100).Returns(typeof(IWidgetScript));
 
-            // We need to return a script when GetRequiredService is called
             var scriptMock = Substitute.For<IWidgetScript>();
             _characterMock.ServiceProvider.GetService(typeof(IWidgetScript)).Returns(scriptMock);
 
@@ -122,6 +121,27 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             {
                 StringAssert.Contains(ex.Message, "no game frame is currently open");
             }
+        }
+
+        [TestMethod]
+        public void WidgetBuilder_BuildAsFrameWithoutActiveFrame_Succeeds()
+        {
+            // Arrange
+            var builder = new WidgetBuilder(_widgetScriptProviderMock);
+            _widgetScriptProviderMock.FindScriptTypeById(100).Returns(typeof(IWidgetScript));
+
+            var scriptMock = Substitute.For<IWidgetScript>();
+            _characterMock.ServiceProvider.GetService(typeof(IWidgetScript)).Returns(scriptMock);
+
+            // Act
+            var widget = builder.ForCharacter(_characterMock)
+                                .WithId(100)
+                                .AsFrame()
+                                .Build();
+
+            // Assert
+            Assert.IsNotNull(widget);
+            Assert.IsTrue(widget.IsFrame);
         }
     }
 }

@@ -85,6 +85,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 .WithId((int)InterfaceIds.AccountDesignFrame)
                 .WithTransparency(2)
                 .WithScript<DesignFrame>()
+                .AsFrame()
                 .Build();
             Character.Widgets.OpenFrame(designFrame);
         }
