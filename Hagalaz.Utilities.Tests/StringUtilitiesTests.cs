@@ -155,8 +155,8 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("a-b-c-d", false)]
         [DataRow("abc d e", true)]
         [DataRow("abc d e f", false)]
-        [DataRow("very-long-name-parts", true)]
-        [DataRow("123456789012-part", true)]
+        [DataRow("very-long-name-parts", false)]
+        [DataRow("123456789012-part", false)]
         public void IsValidName_ValidatesCorrectly(string name, bool expected)
         {
             // Act

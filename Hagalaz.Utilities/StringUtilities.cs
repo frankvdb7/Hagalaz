@@ -112,7 +112,7 @@ namespace Hagalaz.Utilities
                 }
             }
 
-            // Branch 1: Single-part name.
+            // Branch 1: Single-part name. (Length is already checked globally).
             if (separators == 0) return true;
 
             // Branch 2 of regex requires 3 alphanumeric blocks.
