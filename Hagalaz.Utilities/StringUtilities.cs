@@ -340,6 +340,11 @@ namespace Hagalaz.Utilities
         /// <returns>The decoded 64-bit integer value.</returns>
         public static long StringToLong(this string s)
         {
+            if (string.IsNullOrEmpty(s))
+            {
+                return 0L;
+            }
+
             long l = 0L;
             var lookup = Base37Lookup;
             for (int i = 0; i < s.Length && i < 12; i++)
