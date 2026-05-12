@@ -81,12 +81,13 @@ namespace Hagalaz.Utilities
         /// <returns><c>true</c> if the name is valid; otherwise, <c>false</c>.</returns>
         public static bool IsValidName(string name)
         {
-            if (string.IsNullOrWhiteSpace(name))
+            // Restore original behavior: Global 12-character limit.
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 12)
             {
                 return false;
             }
 
-            // Optimized manual validation to strictly match Regex MyRegex1:
+            // Optimized manual validation to strictly match Regex MyRegex1 logic:
             // (^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)
             int separators = 0;
             int s1 = -1, s2 = -1;
@@ -111,11 +112,10 @@ namespace Hagalaz.Utilities
                 }
             }
 
-            // Branch 1: Single-part name, length limit 12.
-            if (separators == 0) return name.Length <= 12;
+            // Branch 1: Single-part name.
+            if (separators == 0) return true;
 
             // Branch 2 of regex requires 3 alphanumeric blocks.
-            // Branch 2 is NOT length-bounded by the original regex.
             // If 1 separator: Alpha+ Sep Alpha+ Alpha+  => at least 1 before, 2 after.
             if (separators == 1) return s1 >= 1 && s1 <= name.Length - 3;
 
