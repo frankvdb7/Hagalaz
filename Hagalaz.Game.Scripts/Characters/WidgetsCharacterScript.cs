@@ -57,6 +57,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
         public void OpenMainGameFrame()
         {
+            // Capture if a frame was open before clearing, to signal a necessary client redraw.
             var wasFrameOpen = Character.Widgets.CurrentFrame != null;
             Character.Widgets.CloseAll();
 
@@ -78,6 +79,8 @@ namespace Hagalaz.Game.Scripts.Characters
                 return;
             }
 
+            // Capture if a frame was open before clearing, to signal a necessary client redraw.
+            var wasFrameOpen = Character.Widgets.CurrentFrame != null;
             Character.Widgets.CloseAll();
             var designFrame = _widgetBuilder
                 .Create()
@@ -87,7 +90,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 .WithScript<DesignFrame>()
                 .AsFrame()
                 .Build();
-            Character.Widgets.OpenFrame(designFrame);
+            Character.Widgets.OpenFrame(designFrame, wasFrameOpen);
         }
         
         /// <summary>

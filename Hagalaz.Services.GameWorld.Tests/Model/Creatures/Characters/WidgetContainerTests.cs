@@ -110,17 +110,12 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             _characterMock.ServiceProvider.GetService(typeof(IWidgetScript)).Returns(scriptMock);
 
             // Act & Assert
-            try
-            {
+            var ex = Assert.ThrowsExactly<InvalidOperationException>(() =>
                 builder.ForCharacter(_characterMock)
                        .WithId(100)
-                       .Build();
-                Assert.Fail("Expected InvalidOperationException was not thrown.");
-            }
-            catch (InvalidOperationException ex)
-            {
-                StringAssert.Contains(ex.Message, "no game frame is currently open");
-            }
+                       .Build()
+            );
+            StringAssert.Contains(ex.Message, "no game frame is currently open");
         }
 
         [TestMethod]
