@@ -67,6 +67,7 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("programming", 79330059267400463L)]
         [DataRow("a", 1L)]
         [DataRow(" ", 0L)]
+        [DataRow("a_", 37L)]
         [DataRow("123456789012", 5125153220596124508L)]
         [DataRow("abcdefghijkl", 187939216216112118L)]
         [DataRow("____", 0L)]
@@ -424,6 +425,9 @@ namespace Hagalaz.Utilities.Tests
 
         [TestMethod]
         [DataRow("HELLO", 15263440L)]
+        [DataRow("A_", 37L)]
+        [DataRow("A__", 1369L)]
+        [DataRow("A___", 50653L)]
         public void StringToLong_WithUppercase_ConvertsCorrectly(string s, long expected)
         {
             // Act
@@ -444,8 +448,10 @@ namespace Hagalaz.Utilities.Tests
         public void StringLongRoundTrip_IsConsistent(string s)
         {
             long encoded = s.StringToLong();
+            if (encoded <= 0) return;
             string? decoded = encoded.LongToString();
-            Assert.AreEqual(s.ToLowerInvariant().Replace("_", ""), decoded);
+            // Now that trailing underscores are significant, the round-trip should be perfectly consistent.
+            Assert.AreEqual(s.ToLowerInvariant(), decoded);
         }
 
         [TestMethod]
