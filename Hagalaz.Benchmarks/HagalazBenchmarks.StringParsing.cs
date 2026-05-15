@@ -46,5 +46,14 @@ namespace Hagalaz.Benchmarks
 
         [Benchmark]
         public string EncodeBoolValues() => StringUtilities.EncodeValues(_boolArray);
+
+        [Benchmark]
+        public long StringToLong() => "programming".StringToLong();
+
+        [Benchmark]
+        public string? LongToString() => 79330059267400463L.LongToString();
+
+        [Benchmark]
+        public bool IsValidName() => StringUtilities.IsValidName("some name");
     }
 }

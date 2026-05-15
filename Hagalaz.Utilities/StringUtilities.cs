@@ -48,6 +48,27 @@ namespace Hagalaz.Utilities
         ];
 
         /// <summary>
+        /// A lookup table for base-37 character to value mapping.
+        /// </summary>
+        private static readonly byte[] _base37Lookup = CreateBase37Lookup();
+
+        private static byte[] CreateBase37Lookup()
+        {
+            var lookup = new byte[128];
+            Array.Fill(lookup, (byte)255);
+            for (int i = 0; i < _validChars.Length; i++)
+            {
+                char c = _validChars[i];
+                lookup[c] = (byte)i;
+                if (c >= 'a' && c <= 'z')
+                {
+                    lookup[char.ToUpperInvariant(c)] = (byte)i;
+                }
+            }
+            return lookup;
+        }
+
+        /// <summary>
         /// Validates whether the given string is a well-formed email address.
         /// </summary>
         /// <param name="email">The email string to validate.</param>
@@ -66,7 +87,79 @@ namespace Hagalaz.Utilities
                 return false;
             }
 
-            return _validName.Match(name).Success;
+            // Optimized manual validation to replace regex:
+            // (^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)
+
+            // Check if it's purely alphanumeric (single-part name)
+            bool allAlphanumeric = true;
+            for (int i = 0; i < name.Length; i++)
+            {
+                if (!char.IsAsciiLetterOrDigit(name[i]))
+                {
+                    allAlphanumeric = false;
+                    break;
+                }
+            }
+
+            if (allAlphanumeric)
+            {
+                return true; // Already checked length 1-12
+            }
+
+            // Multi-part name validation
+            int alphanumericCount = 0;
+            int separatorCount = 0;
+            int currentPartLength = 0;
+            bool lastWasSeparator = false;
+
+            for (int i = 0; i < name.Length; i++)
+            {
+                char c = name[i];
+                if (char.IsAsciiLetterOrDigit(c))
+                {
+                    alphanumericCount++;
+                    currentPartLength++;
+                    lastWasSeparator = false;
+                }
+                else if (c is ' ' or '-')
+                {
+                    // No leading or consecutive separators.
+                    if (i == 0 || lastWasSeparator)
+                    {
+                        return false;
+                    }
+
+                    separatorCount++;
+                    lastWasSeparator = true;
+                    currentPartLength = 0;
+
+                    if (separatorCount > 2)
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            // No trailing separator and last part must be at least 1 char.
+            if (lastWasSeparator)
+            {
+                return false;
+            }
+
+            // Regex: (^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)
+            if (separatorCount == 1)
+            {
+                // If one separator, the part after it must be at least 2 characters
+                // to satisfy [A-Za-z0-9]+[A-Za-z0-9]+ (Block2 + Block3).
+                int firstSeparatorIndex = name.IndexOfAny([' ', '-']);
+                return name.Length - 1 - firstSeparatorIndex >= 2;
+            }
+
+            return separatorCount == 2;
         }
 
         /// <summary>
@@ -260,19 +353,21 @@ namespace Hagalaz.Utilities
         /// <returns>A base-37 encoded string, or <c>null</c> if the value is out of the valid range.</returns>
         public static string? LongToString(this long value)
         {
-            const long aLong2320 = 0x5b5b57f8a98a5dd1L;
-            if (value <= 0L || value >= aLong2320)
+            const long max = 0x5b5b57f8a98a5dd1L;
+            if (value <= 0L || value >= max)
                 return null;
 
-            int i = 0;
-            var ac = new char[12];
+            Span<char> buffer = stackalloc char[12];
+            int pos = 12;
+            ReadOnlySpan<char> validChars = _validChars;
+
             while (value != 0L)
             {
-                long l1 = value;
-                value /= 37L;
-                ac[11 - i++] = _validChars[(int)(l1 - value * 37L)];
+                value = Math.DivRem(value, 37L, out long remainder);
+                buffer[--pos] = validChars[(int)remainder];
             }
-            return new string(ac, 12 - i, i);
+
+            return new string(buffer[pos..]);
         }
 
         /// <summary>
@@ -282,24 +377,25 @@ namespace Hagalaz.Utilities
         /// <returns>The decoded 64-bit integer value.</returns>
         public static long StringToLong(this string s)
         {
+            if (string.IsNullOrEmpty(s))
+            {
+                return 0L;
+            }
+
             long l = 0L;
+            ReadOnlySpan<byte> lookup = _base37Lookup;
             for (int i = 0; i < s.Length && i < 12; i++)
             {
                 char c = s[i];
                 l *= 37L;
-                if (c >= 'a' && c <= 'z')
+                if ((uint)c < (uint)lookup.Length)
                 {
-                    l += (c - 'a') + 1;
+                    byte val = lookup[c];
+                    if (val != 255)
+                    {
+                        l += val;
+                    }
                 }
-                else if (c >= 'A' && c <= 'Z')
-                {
-                    l += (c - 'A') + 1;
-                }
-                else if (c >= '0' && c <= '9')
-                {
-                    l += (c - '0') + 27;
-                }
-
             }
             while (l % 37L == 0L && l != 0L) l /= 37L;
             return l;
