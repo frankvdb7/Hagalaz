@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777914200382,
+  "lastUpdate": 1779051171168,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -10416,6 +10416,378 @@ window.BENCHMARK_DATA = {
             "value": 0.39370361542701726,
             "unit": "ns",
             "range": "± 0.0008660702153121162"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b744ed41cba2e5aca377cb73ca721ef0a1ee3a7d",
+          "message": "Fix WidgetBuilder crash and improve frame redraw logic (#281)\n\n* Fix potential crash in WidgetBuilder and improve frame redraw handling\n\n- Resolved CS8602 warning in WidgetBuilder.cs by safely handling null CurrentFrame.\n- Added optional forceRedraw parameter to IWidgetContainer.OpenFrame.\n- Updated WidgetsCharacterScript to correctly trigger frame redraw when switching back to the main game frame.\n- Added unit tests for WidgetContainer.OpenFrame redraw logic.\n\n* Fix potential crash in WidgetBuilder and improve frame redraw handling\n\n- Resolved CS8602 and improved error handling in WidgetBuilder.cs by throwing an InvalidOperationException if a non-frame widget is built without an active frame and no parent ID.\n- Added optional forceRedraw parameter to IWidgetContainer.OpenFrame.\n- Updated WidgetsCharacterScript to correctly trigger frame redraw when switching back to the main game frame.\n- Added unit tests for WidgetContainer.OpenFrame redraw logic and WidgetBuilder exception handling.\n\n* Fix potential crash in WidgetBuilder and improve frame redraw handling\n\n- Resolved CS8602 and improved error handling in WidgetBuilder.cs by throwing an InvalidOperationException if a non-frame widget is built without an active frame and no parent ID.\n- Added optional forceRedraw parameter to IWidgetContainer.OpenFrame.\n- Updated WidgetsCharacterScript to correctly trigger frame redraw when switching back to the main game frame.\n- Added unit tests for WidgetContainer.OpenFrame redraw logic and WidgetBuilder exception handling.\n\n* Fix potential crash in WidgetBuilder, improve frame redraw handling, and fix design frame regression\n\n- Resolved CS8602 and improved error handling in WidgetBuilder.cs by throwing an InvalidOperationException if a non-frame widget is built without an active frame and no parent ID.\n- Added optional forceRedraw parameter to IWidgetContainer.OpenFrame to ensure UI synchronization when frames are replaced.\n- Updated WidgetsCharacterScript.OpenMainGameFrame to correctly trigger frame redraw when switching back from other frames.\n- Fixed regression in WidgetsCharacterScript.OpenCharacterDesignFrame by correctly marking the design frame as a frame using .AsFrame().\n- Added comprehensive unit tests for WidgetContainer redraw logic and WidgetBuilder validation.\n\n* Fix potential crash in WidgetBuilder, improve frame redraw handling, and fix design frame regression\n\n- Resolved CS8602 and improved error handling in WidgetBuilder.cs by throwing an InvalidOperationException if a non-frame widget is built without an active frame and no parent ID.\n- Added optional forceRedraw parameter to IWidgetContainer.OpenFrame to ensure UI synchronization when frames are replaced.\n- Updated WidgetsCharacterScript.OpenMainGameFrame to correctly trigger frame redraw when switching back from other frames.\n- Fixed regression in WidgetsCharacterScript.OpenCharacterDesignFrame by correctly marking the design frame as a frame using .AsFrame().\n- Added comprehensive unit tests for WidgetContainer redraw logic and WidgetBuilder validation.\n\n* Fix WidgetBuilder safety and improve frame redraw handling\n\n- Resolved CS8602 by throwing an InvalidOperationException in WidgetBuilder if a non-frame widget is built without a parent frame.\n- Added forceRedraw parameter to IWidgetContainer.OpenFrame to ensure correct UI synchronization.\n- Updated WidgetsCharacterScript to capture frame state and pass forceRedraw when switching frames (Main Game and Character Design).\n- Fixed regression where the design frame was not explicitly marked as a frame in the builder.\n- Added comprehensive unit tests following modern MSTest practices.\n\n* Fix WidgetBuilder safety and improve frame redraw handling\n\n- Resolved CS8602 by throwing an InvalidOperationException in WidgetBuilder if a non-frame widget is built without a parent frame, avoiding magic numbers.\n- Added forceRedraw parameter to IWidgetContainer.OpenFrame to ensure correct UI synchronization.\n- Updated WidgetsCharacterScript to capture frame state and pass forceRedraw when switching frames (Main Game and Character Design).\n- Fixed regression in OpenCharacterDesignFrame by correctly marking it as a frame in the builder pipeline.\n- Added comprehensive unit tests following modern MSTest practices.\n\n* Fix WidgetBuilder safety, improve frame redraw handling, and fix design frame regression\n\n- Resolved CS8602 by throwing a descriptive InvalidOperationException in WidgetBuilder if a non-frame widget is built without a parent frame, using concise syntax.\n- Added forceRedraw parameter to IWidgetContainer.OpenFrame to ensure correct UI synchronization.\n- Updated WidgetsCharacterScript (OpenMainGameFrame and OpenCharacterDesignFrame) to capture frame state and pass forceRedraw when switching frames.\n- Fixed regression in OpenCharacterDesignFrame by correctly marking it as a frame in the builder pipeline using .AsFrame().\n- Added comprehensive unit tests following idiomatic MSTest practices (Assert.ThrowsException<T>).",
+          "timestamp": "2026-05-17T22:42:27+02:00",
+          "tree_id": "819f4ef4a756d92e651d72f7ce920f77b8cfc20e",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/b744ed41cba2e5aca377cb73ca721ef0a1ee3a7d"
+        },
+        "date": 1779051169501,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 8.348996076732874,
+            "unit": "ns",
+            "range": "± 0.011565977527418654"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 3.1847404334694147,
+            "unit": "ns",
+            "range": "± 0.004715828449817008"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 100)",
+            "value": 567.1006717681885,
+            "unit": "ns",
+            "range": "± 0.7299591330714761"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 100)",
+            "value": 69.49870586395264,
+            "unit": "ns",
+            "range": "± 1.2734404911889377"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 100)",
+            "value": 930.7787830352784,
+            "unit": "ns",
+            "range": "± 4.143772375515074"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 100)",
+            "value": 110.6893226146698,
+            "unit": "ns",
+            "range": "± 0.27934740107817496"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 100)",
+            "value": 803.3595432281494,
+            "unit": "ns",
+            "range": "± 3.0279825769794"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 100)",
+            "value": 119.95368784666061,
+            "unit": "ns",
+            "range": "± 0.26832004143652227"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 100)",
+            "value": 41.49168590307236,
+            "unit": "ns",
+            "range": "± 0.27493474144765034"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase(N: 100)",
+            "value": 4.612932700663805,
+            "unit": "ns",
+            "range": "± 0.005106225701955034"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase(N: 100)",
+            "value": 4.70953056588769,
+            "unit": "ns",
+            "range": "± 0.0037815827409107762"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v3(N: 100)",
+            "value": 1793.2238958740236,
+            "unit": "ns",
+            "range": "± 1.7919604822247854"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v3(N: 100)",
+            "value": 18234.229417968752,
+            "unit": "ns",
+            "range": "± 44.653225893244944"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v3(N: 100)",
+            "value": 580495.2787499999,
+            "unit": "ns",
+            "range": "± 14541.700026311586"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v3(N: 100)",
+            "value": 696454.65,
+            "unit": "ns",
+            "range": "± 7315.589202231622"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 100)",
+            "value": 639.3540599346161,
+            "unit": "ns",
+            "range": "± 0.4814651932663768"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 100)",
+            "value": 54.716657757759094,
+            "unit": "ns",
+            "range": "± 0.5398861328202667"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 100)",
+            "value": 5041.891612243652,
+            "unit": "ns",
+            "range": "± 12.136211727661824"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 100)",
+            "value": 4153.722224426269,
+            "unit": "ns",
+            "range": "± 9.184664293252428"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 100)",
+            "value": 2092.327355957031,
+            "unit": "ns",
+            "range": "± 3.968456799837677"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 100)",
+            "value": 4657.655577087402,
+            "unit": "ns",
+            "range": "± 9.248175380123262"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 100)",
+            "value": 1292.6467453002929,
+            "unit": "ns",
+            "range": "± 2.246516528782314"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 100)",
+            "value": 136.0455371618271,
+            "unit": "ns",
+            "range": "± 1.1721859159025667"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 2133.133706665039,
+            "unit": "ns",
+            "range": "± 3.220305049958553"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 1006.9132293701172,
+            "unit": "ns",
+            "range": "± 1.7833418600018585"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 100)",
+            "value": 990.8150974273682,
+            "unit": "ns",
+            "range": "± 11.255880196496307"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 100)",
+            "value": 584.6250622272491,
+            "unit": "ns",
+            "range": "± 4.126264001580729"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 100)",
+            "value": 3391.4776606445316,
+            "unit": "ns",
+            "range": "± 7.50149810922728"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 100)",
+            "value": 0.39307431817054744,
+            "unit": "ns",
+            "range": "± 0.0002675985546528481"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 61.055958890914916,
+            "unit": "ns",
+            "range": "± 3.2143489062168324"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 3.178017447888851,
+            "unit": "ns",
+            "range": "± 0.005153828476550526"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 1000)",
+            "value": 5257.18309173584,
+            "unit": "ns",
+            "range": "± 20.416006887614948"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 1000)",
+            "value": 630.9234460830688,
+            "unit": "ns",
+            "range": "± 2.178475825943961"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 1000)",
+            "value": 9192.166372680664,
+            "unit": "ns",
+            "range": "± 123.23558131706916"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 1000)",
+            "value": 960.0884796142578,
+            "unit": "ns",
+            "range": "± 2.092555988652454"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 1000)",
+            "value": 7696.500886535645,
+            "unit": "ns",
+            "range": "± 70.05546782244235"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 1000)",
+            "value": 1014.1322231292725,
+            "unit": "ns",
+            "range": "± 1.7502197369346622"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 1000)",
+            "value": 225.7925503730774,
+            "unit": "ns",
+            "range": "± 7.757411624429081"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase(N: 1000)",
+            "value": 4.61247451454401,
+            "unit": "ns",
+            "range": "± 0.002867959305476761"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase(N: 1000)",
+            "value": 4.742483520507813,
+            "unit": "ns",
+            "range": "± 0.03783682876056373"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v3(N: 1000)",
+            "value": 1809.6022540283202,
+            "unit": "ns",
+            "range": "± 1.7446880541392724"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v3(N: 1000)",
+            "value": 18437.379578125,
+            "unit": "ns",
+            "range": "± 31.61053295882277"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v3(N: 1000)",
+            "value": 579901.74734375,
+            "unit": "ns",
+            "range": "± 11626.173707156846"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v3(N: 1000)",
+            "value": 717208.0856250001,
+            "unit": "ns",
+            "range": "± 8068.320769894759"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 1000)",
+            "value": 636.7539052963257,
+            "unit": "ns",
+            "range": "± 2.95337176455486"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 1000)",
+            "value": 184.70708513259888,
+            "unit": "ns",
+            "range": "± 1.2319947895116987"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 1000)",
+            "value": 51370.20112304688,
+            "unit": "ns",
+            "range": "± 26.22832427399246"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 1000)",
+            "value": 94140.12434082032,
+            "unit": "ns",
+            "range": "± 12089.099770453406"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 1000)",
+            "value": 22076.88021850586,
+            "unit": "ns",
+            "range": "± 122.79869473777931"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 1000)",
+            "value": 48082.693435668945,
+            "unit": "ns",
+            "range": "± 22.34931737147777"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 1000)",
+            "value": 14930.784454345703,
+            "unit": "ns",
+            "range": "± 19.678908707805622"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 1000)",
+            "value": 1232.2253902435302,
+            "unit": "ns",
+            "range": "± 16.20181017565653"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 10149.58755493164,
+            "unit": "ns",
+            "range": "± 85.0469997167746"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 997.8657470703125,
+            "unit": "ns",
+            "range": "± 0.7691756751112312"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 1000)",
+            "value": 8335.79489440918,
+            "unit": "ns",
+            "range": "± 24.31632560743275"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 1000)",
+            "value": 4800.689903259277,
+            "unit": "ns",
+            "range": "± 21.65135834047629"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 1000)",
+            "value": 29029.130578125,
+            "unit": "ns",
+            "range": "± 152.712251686242"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 1000)",
+            "value": 0.3931639389693737,
+            "unit": "ns",
+            "range": "± 0.00008074582571525114"
           }
         ]
       }
