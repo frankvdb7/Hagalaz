@@ -76,20 +76,27 @@ namespace Hagalaz.Utilities
 
         /// <summary>
         /// Validates whether the given string is a valid name.
-        /// Rules: 1-12 characters; alphanumeric with up to 2 single separators (space or hyphen).
-        /// Multi-part names must consist of exactly three alphanumeric blocks (e.g., 'a-b-c' or 'a-bc').
+        /// <para>
+        /// Rules:
+        /// <list type="bullet">
+        /// <item>Length must be between 1 and 12 characters.</item>
+        /// <item>Only alphanumeric characters, spaces, and hyphens are allowed.</item>
+        /// <item>Cannot start or end with a separator, and consecutive separators are forbidden.</item>
+        /// <item>Single-part names must be purely alphanumeric.</item>
+        /// <item>Two-part names (1 separator) require the second part to be at least 2 characters long (e.g., 'a-bc').</item>
+        /// <item>Three-part names (2 separators) require each part to be at least 1 character long (e.g., 'a-b-c').</item>
+        /// </list>
+        /// </para>
         /// </summary>
         /// <param name="name">The name string to validate.</param>
         /// <returns><c>true</c> if the name is valid; otherwise, <c>false</c>.</returns>
-        public static bool IsValidName(string name)
+        public static bool IsValidName(string? name)
         {
             if (string.IsNullOrWhiteSpace(name) || name.Length > 12)
             {
                 return false;
             }
 
-            // Optimized manual validation to match original regex logic:
-            // (^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)
             int separators = 0;
             int s1 = -1, s2 = -1;
             for (int i = 0; i < name.Length; i++)
@@ -116,7 +123,7 @@ namespace Hagalaz.Utilities
             // Single-part alphanumeric name.
             if (separators == 0) return true;
 
-            // Multi-part name requires at least 3 total alphanumeric characters across 2 or 3 blocks.
+            // Multi-part name validation matching original regex logic.
             // 1 separator case: Block1 (1+) Sep Block2 (2+) => at least 1 char before, 2 after.
             if (separators == 1) return s1 >= 1 && s1 <= name.Length - 3;
 
@@ -339,7 +346,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="s">The base-37 encoded string to convert.</param>
         /// <returns>The decoded 64-bit integer value.</returns>
-        public static long StringToLong(this string s)
+        public static long StringToLong(this string? s)
         {
             if (string.IsNullOrEmpty(s))
             {

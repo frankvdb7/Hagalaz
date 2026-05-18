@@ -73,7 +73,8 @@ namespace Hagalaz.Utilities.Tests
         [DataRow("____", 0L)]
         [DataRow("999999999999", 6582952005840035280L)]
         [DataRow("____________", 0L)]
-        public void StringToLong_ConvertsCorrectly(string s, long expected)
+        [DataRow(null, 0L)]
+        public void StringToLong_ConvertsCorrectly(string? s, long expected)
         {
             // Act
             long actual = StringUtilities.StringToLong(s);
@@ -166,6 +167,7 @@ namespace Hagalaz.Utilities.Tests
             // Assert
             Assert.AreEqual(expected, actual);
         }
+
 
         [TestMethod]
         public void EncodeValues_IntArray_EncodesCorrectly()
