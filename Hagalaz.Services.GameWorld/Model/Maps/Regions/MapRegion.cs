@@ -83,44 +83,91 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Remove(INpc npc) => _npcs.TryRemove(npc.Index);
 
+
+        public int CharacterCount => _characters.Count;
+        public int NpcCount => _npcs.Count;
+        public int CopyCharactersTo(ICharacter[] array, int index) => _characters.CopyValuesTo(array, index);
+        public int CopyNpcsTo(INpc[] array, int index) => _npcs.CopyValuesTo(array, index);
+
         public IEnumerable<ICharacter> FindAllCharacters() => _characters;
 
         public IEnumerable<INpc> FindAllNpcs() => _npcs;
 
-        public int CharacterCount => _characters.Count;
-        public int NpcCount => _npcs.Count;
-        public void CopyCharactersTo(ICharacter[] array, int index) => _characters.CopyValuesTo(array, index);
-        public void CopyNpcsTo(INpc[] array, int index) => _npcs.CopyValuesTo(array, index);
-
         private void ForEachCreature(Action<ICreature> action)
         {
-            var charCount = _characters.Count;
-            if (charCount > 0) {
-                var buffer = ArrayPool<ICharacter>.Shared.Rent(charCount);
-                try { _characters.CopyValuesTo(buffer, 0); for (int i = 0; i < charCount; i++) action(buffer[i]); }
-                finally { ArrayPool<ICharacter>.Shared.Return(buffer); }
+            var maxCharCount = _characters.Count;
+            if (maxCharCount > 0)
+            {
+                var buffer = ArrayPool<ICharacter>.Shared.Rent(maxCharCount);
+                try
+                {
+                    var actualCount = _characters.CopyValuesTo(buffer, 0);
+                    for (int i = 0; i < actualCount; i++)
+                    {
+                        action(buffer[i]);
+                    }
+                }
+                finally
+                {
+                    ArrayPool<ICharacter>.Shared.Return(buffer);
+                }
             }
-            var npcCount = _npcs.Count;
-            if (npcCount > 0) {
-                var buffer = ArrayPool<INpc>.Shared.Rent(npcCount);
-                try { _npcs.CopyValuesTo(buffer, 0); for (int i = 0; i < npcCount; i++) action(buffer[i]); }
-                finally { ArrayPool<INpc>.Shared.Return(buffer); }
+
+            var maxNpcCount = _npcs.Count;
+            if (maxNpcCount > 0)
+            {
+                var buffer = ArrayPool<INpc>.Shared.Rent(maxNpcCount);
+                try
+                {
+                    var actualCount = _npcs.CopyValuesTo(buffer, 0);
+                    for (int i = 0; i < actualCount; i++)
+                    {
+                        action(buffer[i]);
+                    }
+                }
+                finally
+                {
+                    ArrayPool<INpc>.Shared.Return(buffer);
+                }
             }
         }
 
         private async Task ForEachCreatureAsync(Func<ICreature, Task> action)
         {
-            var charCount = _characters.Count;
-            if (charCount > 0) {
-                var buffer = ArrayPool<ICharacter>.Shared.Rent(charCount);
-                try { _characters.CopyValuesTo(buffer, 0); for (int i = 0; i < charCount; i++) await action(buffer[i]); }
-                finally { ArrayPool<ICharacter>.Shared.Return(buffer); }
+            var maxCharCount = _characters.Count;
+            if (maxCharCount > 0)
+            {
+                var buffer = ArrayPool<ICharacter>.Shared.Rent(maxCharCount);
+                try
+                {
+                    var actualCount = _characters.CopyValuesTo(buffer, 0);
+                    for (int i = 0; i < actualCount; i++)
+                    {
+                        await action(buffer[i]);
+                    }
+                }
+                finally
+                {
+                    ArrayPool<ICharacter>.Shared.Return(buffer);
+                }
             }
-            var npcCount = _npcs.Count;
-            if (npcCount > 0) {
-                var buffer = ArrayPool<INpc>.Shared.Rent(npcCount);
-                try { _npcs.CopyValuesTo(buffer, 0); for (int i = 0; i < npcCount; i++) await action(buffer[i]); }
-                finally { ArrayPool<INpc>.Shared.Return(buffer); }
+
+            var maxNpcCount = _npcs.Count;
+            if (maxNpcCount > 0)
+            {
+                var buffer = ArrayPool<INpc>.Shared.Rent(maxNpcCount);
+                try
+                {
+                    var actualCount = _npcs.CopyValuesTo(buffer, 0);
+                    for (int i = 0; i < actualCount; i++)
+                    {
+                        await action(buffer[i]);
+                    }
+                }
+                finally
+                {
+                    ArrayPool<INpc>.Shared.Return(buffer);
+                }
             }
         }
 

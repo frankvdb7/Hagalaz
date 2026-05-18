@@ -9,6 +9,7 @@ using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using AutoMapper;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -39,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void ForEachCreature_IteratesOverAll()
+        public void ForEachCreature_IteratesCorrectlyWithActualCount()
         {
             // Arrange
             var char1 = Substitute.For<ICharacter>();
@@ -53,13 +54,6 @@ namespace Hagalaz.Services.GameWorld.Tests
             var seen = new List<ICreature>();
 
             // Act
-            // Accessing private method via reflection for testing if necessary,
-            // but MapRegion.ForEachCreature is private.
-            // However, MajorUpdateTick calls it.
-            _region.MajorUpdateTick();
-            // Wait, MajorUpdateTick calls ContentTick, Combat.Tick, etc on EACH creature.
-            // Let's just use the public methods if I can or use a private accessor.
-
             var method = typeof(MapRegion).GetMethod("ForEachCreature", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             method!.Invoke(_region, new object[] { (Action<ICreature>)(c => seen.Add(c)) });
 
@@ -70,28 +64,21 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public async Task ForEachCreatureAsync_IteratesOverAll()
+        public void CopyMethods_ReturnActualCount()
         {
             // Arrange
             var char1 = Substitute.For<ICharacter>();
             char1.Index.Returns(1);
-            var npc1 = Substitute.For<INpc>();
-            npc1.Index.Returns(2);
-
             _region.Add(char1);
-            _region.Add(npc1);
 
-            var seen = new List<ICreature>();
+            var charBuffer = new ICharacter[10];
 
             // Act
-            var method = typeof(MapRegion).GetMethod("ForEachCreatureAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var task = (Task)method!.Invoke(_region, new object[] { (Func<ICreature, Task>)(c => { seen.Add(c); return Task.CompletedTask; }) })!;
-            await task;
+            var count = _region.CopyCharactersTo(charBuffer, 0);
 
             // Assert
-            Assert.AreEqual(2, seen.Count);
-            Assert.IsTrue(seen.Contains(char1));
-            Assert.IsTrue(seen.Contains(npc1));
+            Assert.AreEqual(1, count);
+            Assert.AreEqual(char1, charBuffer[0]);
         }
     }
 }

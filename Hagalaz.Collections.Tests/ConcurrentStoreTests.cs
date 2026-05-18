@@ -110,7 +110,8 @@ namespace Hagalaz.Collections.Tests
             store.TryAdd("a", 1);
             store.TryAdd("b", 2);
             var array = new int[2];
-            store.CopyValuesTo(array, 0);
+            var count = store.CopyValuesTo(array, 0);
+            Assert.AreEqual(2, count);
             Assert.IsTrue(array.Contains(1));
             Assert.IsTrue(array.Contains(2));
         }

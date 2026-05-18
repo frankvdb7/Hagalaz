@@ -84,6 +84,27 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// Finds all characters currently in this region.
         /// </summary>
         /// <returns>An enumerable collection of characters.</returns>
+
+        /// <summary>
+        /// Gets the number of characters in the region.
+        /// </summary>
+        int CharacterCount { get; }
+
+        /// <summary>
+        /// Gets the number of NPCs in the region.
+        /// </summary>
+        int NpcCount { get; }
+
+        /// <summary>
+        /// Copies characters in the region to an array and returns the number of elements copied.
+        /// </summary>
+        int CopyCharactersTo(ICharacter[] array, int index);
+
+        /// <summary>
+        /// Copies NPCs in the region to an array and returns the number of elements copied.
+        /// </summary>
+        int CopyNpcsTo(INpc[] array, int index);
+
         IEnumerable<ICharacter> FindAllCharacters();
 
         /// <summary>
@@ -91,11 +112,6 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// </summary>
         /// <returns>An enumerable collection of NPCs.</returns>
         IEnumerable<INpc> FindAllNpcs();
-
-        int CharacterCount { get; }
-        int NpcCount { get; }
-        void CopyCharactersTo(ICharacter[] array, int index);
-        void CopyNpcsTo(INpc[] array, int index);
 
         /// <summary>
         /// Finds all ground items currently in this region.
