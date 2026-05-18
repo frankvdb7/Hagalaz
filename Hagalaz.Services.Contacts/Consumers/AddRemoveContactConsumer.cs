@@ -63,8 +63,8 @@ namespace Hagalaz.Services.Contacts.Consumers
                 WorldId = contactWorldSession?.WorldId,
                 WorldName = contactWorldSession?.WorldName,
                 Rank = FriendsChatRank.Friend,
-                Settings = new ContactSettingsDto(contactSettings?.Availability.Off == true ? ContactAvailability.Off :
-                    contactSettings?.Availability.Friends == true ? ContactAvailability.Friends : ContactAvailability.Everyone)
+                Settings = new ContactSettingsDto(contactSettings?.Availability?.Off == true ? ContactAvailability.Off :
+                    contactSettings?.Availability?.Friends == true ? ContactAvailability.Friends : ContactAvailability.Everyone)
             };
 
             var characterSession = _contactSessions.GetOrDefault(message.MasterId);

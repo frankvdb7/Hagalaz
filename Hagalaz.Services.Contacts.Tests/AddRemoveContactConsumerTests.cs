@@ -112,5 +112,39 @@ namespace Hagalaz.Services.Contacts.Tests
                 m.Contact.Settings != null && m.Contact.Settings.Availability == ContactAvailability.Friends
             ), It.IsAny<CancellationToken>()), Times.Once);
         }
+
+        [TestMethod]
+        public async Task Consume_AddContactRequest_HandlesNullAvailabilityGracefully()
+        {
+            // Arrange
+            uint masterId = 100;
+            uint contactId = 200;
+            string contactName = "ContactUser";
+
+            var masterCharacter = new Hagalaz.Services.Contacts.Services.Model.CharacterDto { MasterId = masterId, DisplayName = "Master" };
+            var contactCharacter = new Hagalaz.Services.Contacts.Services.Model.CharacterDto { MasterId = contactId, DisplayName = contactName };
+
+            _characterServiceMock.Setup(x => x.FindCharacterByIdAsync(masterId)).ReturnsAsync(masterCharacter);
+            _characterServiceMock.Setup(x => x.FindCharacterByDisplayName(contactName)).ReturnsAsync(contactCharacter);
+            _contactServiceMock.Setup(x => x.AddContactAsync(masterId, contactId, false)).ReturnsAsync(Hagalaz.Services.Common.Model.Result.Success);
+
+            // contactSettings is NOT null, but Availability IS null
+            var contactSettings = new ContactSettingsDto { Availability = null! };
+            _contactServiceMock.Setup(x => x.FindContactSettingsAsync(contactId)).ReturnsAsync(contactSettings);
+
+            _mapperMock.Setup(m => m.Map<MsgContactDto>(contactCharacter)).Returns(new MsgContactDto { MasterId = contactId, DisplayName = contactName });
+            _mapperMock.Setup(m => m.Map<MsgContactDto>(masterCharacter)).Returns(new MsgContactDto { MasterId = masterId, DisplayName = "Master" });
+
+            var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
+            contextMock.Setup(x => x.Message).Returns(new AddContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = false });
+
+            // Act
+            await _consumer.Consume(contextMock.Object);
+
+            // Assert
+            contextMock.Verify(x => x.Publish(It.Is<ContactAddedMessage>(m =>
+                m.Contact.Settings != null && m.Contact.Settings.Availability == ContactAvailability.Everyone
+            ), It.IsAny<CancellationToken>()), Times.Once);
+        }
     }
 }
