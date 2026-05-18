@@ -58,8 +58,13 @@ namespace Hagalaz.Services.GameWorld.Tests
             character.Location.Returns(characterLocation);
             character.Appearance.Visible.Returns(true);
 
-            region.FindAllCharacters().Returns(new List<ICharacter> { character });
+            var characters = new List<ICharacter> { character };
+            region.FindAllCharacters().Returns(characters);
+            region.CharacterCount.Returns(characters.Count);
+            region.When(r => r.CopyCharactersTo(Arg.Any<ICharacter[]>(), Arg.Any<int>()))
+                  .Do(info => characters.CopyTo(info.Arg<ICharacter[]>(), info.Arg<int>()));
             region.FindAllNpcs().Returns(new List<INpc>());
+            region.NpcCount.Returns(0);
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
@@ -89,8 +94,13 @@ namespace Hagalaz.Services.GameWorld.Tests
             char2.Location.Returns(Substitute.For<ILocation>());
             char2.Appearance.Visible.Returns(true);
 
-            region.FindAllCharacters().Returns(new List<ICharacter> { char1, char2 });
+            var characters = new List<ICharacter> { char1, char2 };
+            region.FindAllCharacters().Returns(characters);
+            region.CharacterCount.Returns(characters.Count);
+            region.When(r => r.CopyCharactersTo(Arg.Any<ICharacter[]>(), Arg.Any<int>()))
+                  .Do(info => characters.CopyTo(info.Arg<ICharacter[]>(), info.Arg<int>()));
             region.FindAllNpcs().Returns(new List<INpc>());
+            region.NpcCount.Returns(0);
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
@@ -119,8 +129,13 @@ namespace Hagalaz.Services.GameWorld.Tests
             character.Location.Returns(Substitute.For<ILocation>());
             character.Appearance.Visible.Returns(true);
 
-            region.FindAllCharacters().Returns(new List<ICharacter> { character });
+            var characters = new List<ICharacter> { character };
+            region.FindAllCharacters().Returns(characters);
+            region.CharacterCount.Returns(characters.Count);
+            region.When(r => r.CopyCharactersTo(Arg.Any<ICharacter[]>(), Arg.Any<int>()))
+                  .Do(info => characters.CopyTo(info.Arg<ICharacter[]>(), info.Arg<int>()));
             region.FindAllNpcs().Returns(new List<INpc>());
+            region.NpcCount.Returns(0);
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
                 .Returns(new List<IMapRegion> { region });
@@ -131,6 +146,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             // Rebuild with no creatures
             region.FindAllCharacters().Returns(new List<ICharacter>());
+            region.CharacterCount.Returns(0);
             _viewport.UpdateTick();
 
             // Act & Assert

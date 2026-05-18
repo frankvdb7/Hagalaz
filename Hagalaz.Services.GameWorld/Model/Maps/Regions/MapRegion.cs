@@ -1,3 +1,4 @@
+using System.Buffers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -86,16 +87,41 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public IEnumerable<INpc> FindAllNpcs() => _npcs;
 
+        public int CharacterCount => _characters.Count;
+        public int NpcCount => _npcs.Count;
+        public void CopyCharactersTo(ICharacter[] array, int index) => _characters.CopyValuesTo(array, index);
+        public void CopyNpcsTo(INpc[] array, int index) => _npcs.CopyValuesTo(array, index);
+
         private void ForEachCreature(Action<ICreature> action)
         {
-            foreach (var character in _characters) action(character);
-            foreach (var npc in _npcs) action(npc);
+            var charCount = _characters.Count;
+            if (charCount > 0) {
+                var buffer = ArrayPool<ICharacter>.Shared.Rent(charCount);
+                try { _characters.CopyValuesTo(buffer, 0); for (int i = 0; i < charCount; i++) action(buffer[i]); }
+                finally { ArrayPool<ICharacter>.Shared.Return(buffer); }
+            }
+            var npcCount = _npcs.Count;
+            if (npcCount > 0) {
+                var buffer = ArrayPool<INpc>.Shared.Rent(npcCount);
+                try { _npcs.CopyValuesTo(buffer, 0); for (int i = 0; i < npcCount; i++) action(buffer[i]); }
+                finally { ArrayPool<INpc>.Shared.Return(buffer); }
+            }
         }
 
         private async Task ForEachCreatureAsync(Func<ICreature, Task> action)
         {
-            foreach (var character in _characters) await action(character);
-            foreach (var npc in _npcs) await action(npc);
+            var charCount = _characters.Count;
+            if (charCount > 0) {
+                var buffer = ArrayPool<ICharacter>.Shared.Rent(charCount);
+                try { _characters.CopyValuesTo(buffer, 0); for (int i = 0; i < charCount; i++) await action(buffer[i]); }
+                finally { ArrayPool<ICharacter>.Shared.Return(buffer); }
+            }
+            var npcCount = _npcs.Count;
+            if (npcCount > 0) {
+                var buffer = ArrayPool<INpc>.Shared.Rent(npcCount);
+                try { _npcs.CopyValuesTo(buffer, 0); for (int i = 0; i < npcCount; i++) await action(buffer[i]); }
+                finally { ArrayPool<INpc>.Shared.Return(buffer); }
+            }
         }
 
         private bool AnyCreature(Func<ICreature, bool> predicate)

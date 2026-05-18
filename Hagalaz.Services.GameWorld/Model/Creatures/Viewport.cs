@@ -1,3 +1,4 @@
+using System.Buffers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -173,14 +174,35 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             var ownerLocation = _owner.Location;
             foreach (var region in _visibleRegions)
             {
-                ProcessVisibleCreatures(region.FindAllCharacters(), ownerLocation, c => c.Appearance.Visible, _visibleCharacters);
-                ProcessVisibleCreatures(region.FindAllNpcs(), ownerLocation, n => n.Appearance.Visible, _visibleNpcs);
+                var charCount = region.CharacterCount;
+                if (charCount > 0) {
+                    var buffer = ArrayPool<ICharacter>.Shared.Rent(charCount);
+                    try {
+                        region.CopyCharactersTo(buffer, 0);
+                        for (int i = 0; i < charCount; i++) {
+                            var c = buffer[i];
+                            if (InBounds(c.Location) && ownerLocation.WithinDistance(c.Location, CreatureConstants.VisibilityDistance) && c.Appearance.Visible) {
+                                _visibleCreatures.Add(c); _visibleCharacters.Add(c);
+                            }
+                        }
+                    } finally { ArrayPool<ICharacter>.Shared.Return(buffer); }
+                }
+                var npcCount = region.NpcCount;
+                if (npcCount > 0) {
+                    var buffer = ArrayPool<INpc>.Shared.Rent(npcCount);
+                    try {
+                        region.CopyNpcsTo(buffer, 0);
+                        for (int i = 0; i < npcCount; i++) {
+                            var n = buffer[i];
+                            if (InBounds(n.Location) && ownerLocation.WithinDistance(n.Location, CreatureConstants.VisibilityDistance) && n.Appearance.Visible) {
+                                _visibleCreatures.Add(n); _visibleNpcs.Add(n);
+                            }
+                        }
+                    } finally { ArrayPool<INpc>.Shared.Return(buffer); }
+                }
             }
         }
 
-        /// <summary>
-        /// Processes and adds visible creatures from a collection based on proximity and visibility.
-        /// </summary>
         private void ProcessVisibleCreatures<T>(IEnumerable<T> creatures, ILocation ownerLocation, Func<T, bool> visibilityCheck, ListHashSet<T> typeSpecificCollection) where T : ICreature
         {
             foreach (var creature in creatures)

@@ -83,6 +83,8 @@ namespace Hagalaz.Collections
         /// <returns><c>true</c> if the store contains an element with the specified key; otherwise, <c>false</c>.</returns>
         public bool ContainsKey(TKey key) => _values.ContainsKey(key);
 
+        public void CopyValuesTo(TValue[] array, int index) { var i = index; foreach (var kvp in _values) array[i++] = kvp.Value; }
+
         /// <summary>
         /// Determines whether any element of the store satisfies a condition.
         /// </summary>

@@ -92,6 +92,11 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// <returns>An enumerable collection of NPCs.</returns>
         IEnumerable<INpc> FindAllNpcs();
 
+        int CharacterCount { get; }
+        int NpcCount { get; }
+        void CopyCharactersTo(ICharacter[] array, int index);
+        void CopyNpcsTo(INpc[] array, int index);
+
         /// <summary>
         /// Finds all ground items currently in this region.
         /// </summary>
