@@ -52,7 +52,7 @@ namespace Hagalaz.Utilities
         [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 0-15
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 16-31
-            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, // 32 is space (1), 45 is hyphen (1)
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 32-47
             28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 0, 0, 0, 0, 0, 0, // 48-57 (0-9)
             0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, // 65-80 (A-O)
             17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 0, 0, 0, 0, 1, // 81-90 (P-Z), 95 is _
@@ -349,22 +349,20 @@ namespace Hagalaz.Utilities
         /// <returns>The decoded 64-bit integer value.</returns>
         public static long StringToLong(this string? s)
         {
-            if (string.IsNullOrEmpty(s))
+            if (string.IsNullOrEmpty(s) || s.Length > 12)
             {
                 return 0L;
             }
 
             long l = 0L;
             var lookup = Base37Lookup;
-            for (int i = 0; i < s.Length && i < 12; i++)
+            foreach (char c in s)
             {
-                char c = s[i];
-                l *= 37L;
                 if ((uint)c < (uint)lookup.Length)
                 {
                     byte val = lookup[c];
                     if (val == 0) return 0L; // Invalid character found
-                    l += (val - 1);
+                    l = l * 37L + (val - 1);
                 }
                 else
                 {
