@@ -2,6 +2,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Linq;
 using System.Globalization;
 using System.Threading;
+using Hagalaz.Utilities;
 
 namespace Hagalaz.Utilities.Tests
 {
@@ -48,13 +49,12 @@ namespace Hagalaz.Utilities.Tests
             var originalCulture = Thread.CurrentThread.CurrentCulture;
             Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
             var value = 1234567;
-            var expected = "1,234,567";
 
             // Act
             var actual = StringUtilities.FormatNumber(value);
 
             // Assert
-            Assert.AreEqual(expected, actual);
+            Assert.AreEqual("1,234,567", actual);
 
             // Cleanup
             Thread.CurrentThread.CurrentCulture = originalCulture;
@@ -371,7 +371,6 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var value = 1234567;
-            var expected = "1,2,34,567"; // Wait, format was "#,###,##0"
 
             // Act
             var actual = StringUtilities.FormatNumber(value);

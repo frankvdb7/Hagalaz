@@ -75,26 +75,27 @@ namespace Hagalaz.Utilities
 		public static bool IsValidEmail(string email) => email is not null && _validMail.IsMatch(email);
 
         /// <summary>
-        /// Validates whether the given string is a valid name, conforming to length and character constraints.
+        /// Validates whether the given string is a valid name.
+        /// Rules: 1-12 characters; alphanumeric with up to 2 single separators (space or hyphen).
+        /// Multi-part names must consist of exactly three alphanumeric blocks (e.g., 'a-b-c' or 'a-bc').
         /// </summary>
         /// <param name="name">The name string to validate.</param>
         /// <returns><c>true</c> if the name is valid; otherwise, <c>false</c>.</returns>
         public static bool IsValidName(string name)
         {
-            // Restore original behavior: Global 12-character limit.
             if (string.IsNullOrWhiteSpace(name) || name.Length > 12)
             {
                 return false;
             }
 
-            // Optimized manual validation to strictly match Regex MyRegex1 logic:
+            // Optimized manual validation to match original regex logic:
             // (^[A-Za-z0-9]{1,12}$)|(^[A-Za-z0-9]+[\-\s][A-Za-z0-9]+[\-\s]{0,1}[A-Za-z0-9]+$)
             int separators = 0;
             int s1 = -1, s2 = -1;
             for (int i = 0; i < name.Length; i++)
             {
                 char c = name[i];
-                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+                if (char.IsAsciiLetterOrDigit(c))
                 {
                     continue;
                 }
@@ -112,14 +113,14 @@ namespace Hagalaz.Utilities
                 }
             }
 
-            // Branch 1: Single-part name. (Length is already checked globally).
+            // Single-part alphanumeric name.
             if (separators == 0) return true;
 
-            // Branch 2 of regex requires 3 alphanumeric blocks.
-            // If 1 separator: Alpha+ Sep Alpha+ Alpha+  => at least 1 before, 2 after.
+            // Multi-part name requires at least 3 total alphanumeric characters across 2 or 3 blocks.
+            // 1 separator case: Block1 (1+) Sep Block2 (2+) => at least 1 char before, 2 after.
             if (separators == 1) return s1 >= 1 && s1 <= name.Length - 3;
 
-            // If 2 separators: Alpha+ Sep Alpha+ Sep Alpha+ => at least 1 before, 1 between, 1 after.
+            // 2 separators case: Block1 (1+) Sep Block2 (1+) Sep Block3 (1+) => at least 1 before, 1 between, 1 after.
             if (separators == 2) return s1 >= 1 && s2 >= s1 + 2 && s2 <= name.Length - 2;
 
             return false;
