@@ -83,8 +83,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Remove(INpc npc) => _npcs.TryRemove(npc.Index);
 
-
-        public int CharacterCount => _characters.Count;
+                public int CharacterCount => _characters.Count;
         public int NpcCount => _npcs.Count;
         public int CopyCharactersTo(ICharacter[] array, int index) => _characters.CopyValuesTo(array, index);
         public int CopyNpcsTo(INpc[] array, int index) => _npcs.CopyValuesTo(array, index);
@@ -93,7 +92,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public IEnumerable<INpc> FindAllNpcs() => _npcs;
 
-        private void ForEachCreature(Action<ICreature> action)
+                private void ForEachCreature(Action<ICreature> action)
         {
             var maxCharCount = _characters.Count;
             if (maxCharCount > 0)
@@ -102,14 +101,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 try
                 {
                     var actualCount = _characters.CopyValuesTo(buffer, 0);
-                    for (int i = 0; i < actualCount; i++)
-                    {
-                        action(buffer[i]);
-                    }
+                    for (int i = 0; i < actualCount; i++) action(buffer[i]);
                 }
                 finally
                 {
-                    ArrayPool<ICharacter>.Shared.Return(buffer);
+                    ArrayPool<ICharacter>.Shared.Return(buffer, clearArray: true);
                 }
             }
 
@@ -120,19 +116,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 try
                 {
                     var actualCount = _npcs.CopyValuesTo(buffer, 0);
-                    for (int i = 0; i < actualCount; i++)
-                    {
-                        action(buffer[i]);
-                    }
+                    for (int i = 0; i < actualCount; i++) action(buffer[i]);
                 }
                 finally
                 {
-                    ArrayPool<INpc>.Shared.Return(buffer);
+                    ArrayPool<INpc>.Shared.Return(buffer, clearArray: true);
                 }
             }
         }
 
-        private async Task ForEachCreatureAsync(Func<ICreature, Task> action)
+                private async Task ForEachCreatureAsync(Func<ICreature, Task> action)
         {
             var maxCharCount = _characters.Count;
             if (maxCharCount > 0)
@@ -141,14 +134,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 try
                 {
                     var actualCount = _characters.CopyValuesTo(buffer, 0);
-                    for (int i = 0; i < actualCount; i++)
-                    {
-                        await action(buffer[i]);
-                    }
+                    for (int i = 0; i < actualCount; i++) await action(buffer[i]);
                 }
                 finally
                 {
-                    ArrayPool<ICharacter>.Shared.Return(buffer);
+                    ArrayPool<ICharacter>.Shared.Return(buffer, clearArray: true);
                 }
             }
 
@@ -159,14 +149,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 try
                 {
                     var actualCount = _npcs.CopyValuesTo(buffer, 0);
-                    for (int i = 0; i < actualCount; i++)
-                    {
-                        await action(buffer[i]);
-                    }
+                    for (int i = 0; i < actualCount; i++) await action(buffer[i]);
                 }
                 finally
                 {
-                    ArrayPool<INpc>.Shared.Return(buffer);
+                    ArrayPool<INpc>.Shared.Return(buffer, clearArray: true);
                 }
             }
         }

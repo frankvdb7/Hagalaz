@@ -11,7 +11,7 @@ namespace Hagalaz.Services.GameWorld.Data.Model
         /// <summary>
         /// Gets the item's examination quote.
         /// </summary>
-        public string Examine { get; set; }
+        public string Examine { get; set; } = null!;
 
         /// <summary>
         /// Contains item weight.

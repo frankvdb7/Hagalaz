@@ -84,26 +84,25 @@ namespace Hagalaz.Collections
         public bool ContainsKey(TKey key) => _values.ContainsKey(key);
 
         /// <summary>
-        /// Determines whether any element of the store satisfies a condition.
+        /// Copies the values from the store into the provided array starting at the specified index.
+        /// Returns the actual number of values copied.
         /// </summary>
-        /// <param name="predicate">A function to test each element for a condition.</param>
-        /// <returns><c>true</c> if any elements in the store pass the test in the specified predicate; otherwise, <c>false</c>.</returns>
-
-        /// <summary>
-        /// Copies the values of the store to an array and returns the number of elements copied.
-        /// </summary>
-        /// <param name="array">The one-dimensional array that is the destination of the elements copied from the store.</param>
-        /// <param name="index">The zero-based index in array at which copying begins.</param>
         public int CopyValuesTo(TValue[] array, int index)
         {
             var count = 0;
             foreach (var kvp in _values)
             {
+                if (index + count >= array.Length) break;
                 array[index + count++] = kvp.Value;
             }
             return count;
         }
 
+        /// <summary>
+        /// Determines whether any element of the store satisfies a condition.
+        /// </summary>
+        /// <param name="predicate">A function to test each element for a condition.</param>
+        /// <returns><c>true</c> if any elements in the store pass the test in the specified predicate; otherwise, <c>false</c>.</returns>
         public bool Any(Func<TValue, bool> predicate)
         {
             if (predicate == null) throw new ArgumentNullException(nameof(predicate));

@@ -1000,20 +1000,20 @@
       },
       "OpenTelemetry.Instrumentation.EntityFrameworkCore": {
         "type": "Transitive",
-        "resolved": "1.15.1-beta.1",
-        "contentHash": "NmtYLk3HJUUkV0g2VnFLs67/PGIVbI8JXtu0g4f9bk2ZaInp211/AL2+Qcbgkb9ih/uOi8loN6E1Aw2o0YIWag==",
+        "resolved": "1.14.0-beta.2",
+        "contentHash": "XsxsKgMuwi84TWkPN98H8FLOO/yW8vWIo/lxXQ8kWXastTI58+A4nmlFderFPmpLc+tvyhOGjHDlTK/AXWWOpQ==",
         "dependencies": {
           "Microsoft.Extensions.Configuration": "10.0.0",
           "Microsoft.Extensions.Options": "10.0.0",
-          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.15.3, 2.0.0)"
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.14.0, 2.0.0)"
         }
       },
       "OpenTelemetry.Instrumentation.GrpcNetClient": {
         "type": "Transitive",
-        "resolved": "1.15.1-beta.1",
-        "contentHash": "JaWn8xUN2CQQORvYwX7krhEejlGHYjiNO4X1cKVzfrIm5fV3uO4c54um1s/0pNC/5W2xd6ZqcnyzPGMK4GYZiw==",
+        "resolved": "1.14.0-beta.1",
+        "contentHash": "6DT8Q4FeUsNgZh0NyKDOMf/+Xi+a4KwfSfl6m53zhqpOLtctvB/OvPkwblRcl2/EUvHeJKnYcT7qWLLMI+/FoA==",
         "dependencies": {
-          "OpenTelemetry": "[1.15.3, 2.0.0)"
+          "OpenTelemetry": "[1.14.0, 2.0.0)"
         }
       },
       "OpenTelemetry.Instrumentation.Http": {
@@ -1028,18 +1028,18 @@
       },
       "OpenTelemetry.Instrumentation.Process": {
         "type": "Transitive",
-        "resolved": "1.15.1-beta.1",
-        "contentHash": "u9o2+eOow9Aua1NWyvW5ovsnWXmjW/0qzUUdIvrJTd4lIV9WAydtoDg5X34/9gYWoYU+VYjr/Yc5rlHX5geP4w==",
+        "resolved": "1.14.0-beta.2",
+        "contentHash": "a3wmmz3Vrby0BIiHxIJifTQqtKREoWKg4yd+tFgi2aiTJ5oq2uYRRL70EuMYCGQHhGFeT2YSN+jonD1U81XoSA==",
         "dependencies": {
-          "OpenTelemetry.Api": "[1.15.3, 2.0.0)"
+          "OpenTelemetry.Api": "[1.14.0, 2.0.0)"
         }
       },
       "OpenTelemetry.Instrumentation.Runtime": {
         "type": "Transitive",
-        "resolved": "1.15.1",
-        "contentHash": "cpPwlUT5HXcLGPaIgsbSy0W9eFYAPGVbTP1p8/uyQ4Osvf5BJuPpEXE7crL09SmEd44r0DGNKDtsqxaAz0HxQw==",
+        "resolved": "1.14.0",
+        "contentHash": "Z6o4JDOQaKv6bInAYZxuyxxfMKr6hFpwLnKEgQ+q+oBNA9Fm1sysjFCOzRzk7U0WD86LsRPXX+chv1vJIg7cfg==",
         "dependencies": {
-          "OpenTelemetry.Api": "[1.15.3, 2.0.0)"
+          "OpenTelemetry.Api": "[1.14.0, 2.0.0)"
         }
       },
       "Polly": {
@@ -1254,7 +1254,6 @@
           "Microsoft.EntityFrameworkCore.Relational": "[10.0.0, )",
           "MySqlConnector": "[2.5.0, )",
           "OpenIddict.EntityFrameworkCore": "[7.2.0, )",
-          "OpenTelemetry.Api": "[1.15.3, )",
           "Pomelo.EntityFrameworkCore.MySql": "[9.0.0, )"
         }
       },
@@ -1262,8 +1261,7 @@
         "type": "Project",
         "dependencies": {
           "Aspire.Pomelo.EntityFrameworkCore.MySql": "[13.0.1, )",
-          "Hagalaz.Data": "[1.0.0, )",
-          "OpenTelemetry.Api": "[1.15.3, )"
+          "Hagalaz.Data": "[1.0.0, )"
         }
       },
       "hagalaz.dependencyinjection.extensions": {
@@ -1315,14 +1313,14 @@
           "Microsoft.Extensions.Http.Resilience": "[10.0.0, )",
           "Microsoft.Extensions.ServiceDiscovery": "[10.0.0, )",
           "Microsoft.Extensions.ServiceDiscovery.Yarp": "[10.0.0, )",
-          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
-          "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
-          "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
-          "OpenTelemetry.Instrumentation.EntityFrameworkCore": "[1.15.1-beta.1, )",
-          "OpenTelemetry.Instrumentation.GrpcNetClient": "[1.15.1-beta.1, )",
-          "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
-          "OpenTelemetry.Instrumentation.Process": "[1.15.1-beta.1, )",
-          "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.14.0, )",
+          "OpenTelemetry.Extensions.Hosting": "[1.14.0, )",
+          "OpenTelemetry.Instrumentation.AspNetCore": "[1.14.0, )",
+          "OpenTelemetry.Instrumentation.EntityFrameworkCore": "[1.14.0-beta.2, )",
+          "OpenTelemetry.Instrumentation.GrpcNetClient": "[1.14.0-beta.1, )",
+          "OpenTelemetry.Instrumentation.Http": "[1.14.0, )",
+          "OpenTelemetry.Instrumentation.Process": "[1.14.0-beta.2, )",
+          "OpenTelemetry.Instrumentation.Runtime": "[1.14.0, )",
           "Polly": "[8.6.5, )",
           "Scalar.AspNetCore": "[2.11.0, )"
         }
@@ -1344,6 +1342,10 @@
           "MassTransit.RabbitMQ": "[8.5.7, )",
           "OpenIddict.AspNetCore": "[7.2.0, )",
           "OpenIddict.Quartz": "[7.2.0, )",
+          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+          "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+          "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+          "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
           "Quartz.Extensions.DependencyInjection": "[3.15.1, )",
           "Quartz.Extensions.Hosting": "[3.15.1, )",
           "Refit": "[9.0.2, )",

@@ -165,7 +165,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// Happens on update tick.
         /// Refreshe's visible creatures.
         /// </summary>
-        public void UpdateTick()
+                public void UpdateTick()
         {
             _visibleCreatures.Clear();
             _visibleCharacters.Clear();
@@ -181,19 +181,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     try
                     {
                         var actualCount = region.CopyCharactersTo(buffer, 0);
-                        for (int i = 0; i < actualCount; i++)
-                        {
-                            var c = buffer[i];
-                            if (InBounds(c.Location) && ownerLocation.WithinDistance(c.Location, CreatureConstants.VisibilityDistance) && c.Appearance.Visible)
-                            {
-                                _visibleCreatures.Add(c);
-                                _visibleCharacters.Add(c);
-                            }
-                        }
+                        ProcessVisibleCreatures(buffer, actualCount, ownerLocation, c => c.Appearance.Visible, _visibleCharacters);
                     }
                     finally
                     {
-                        ArrayPool<ICharacter>.Shared.Return(buffer);
+                        ArrayPool<ICharacter>.Shared.Return(buffer, clearArray: true);
                     }
                 }
 
@@ -204,30 +196,24 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     try
                     {
                         var actualCount = region.CopyNpcsTo(buffer, 0);
-                        for (int i = 0; i < actualCount; i++)
-                        {
-                            var n = buffer[i];
-                            if (InBounds(n.Location) && ownerLocation.WithinDistance(n.Location, CreatureConstants.VisibilityDistance) && n.Appearance.Visible)
-                            {
-                                _visibleCreatures.Add(n);
-                                _visibleNpcs.Add(n);
-                            }
-                        }
+                        ProcessVisibleCreatures(buffer, actualCount, ownerLocation, n => n.Appearance.Visible, _visibleNpcs);
                     }
                     finally
                     {
-                        ArrayPool<INpc>.Shared.Return(buffer);
+                        ArrayPool<INpc>.Shared.Return(buffer, clearArray: true);
                     }
                 }
             }
         }
+
         /// <summary>
         /// Processes and adds visible creatures from a collection based on proximity and visibility.
         /// </summary>
-        private void ProcessVisibleCreatures<T>(IEnumerable<T> creatures, ILocation ownerLocation, Func<T, bool> visibilityCheck, ListHashSet<T> typeSpecificCollection) where T : ICreature
+                protected virtual void ProcessVisibleCreatures<T>(T[] creatures, int count, ILocation ownerLocation, Func<T, bool> visibilityCheck, ListHashSet<T> typeSpecificCollection) where T : ICreature
         {
-            foreach (var creature in creatures)
+            for (int i = 0; i < count; i++)
             {
+                var creature = creatures[i];
                 var loc = creature.Location;
                 if (InBounds(loc) &&
                     ownerLocation.WithinDistance(loc, CreatureConstants.VisibilityDistance) &&

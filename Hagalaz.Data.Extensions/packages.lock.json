@@ -25,12 +25,6 @@
           "Pomelo.EntityFrameworkCore.MySql": "8.0.3"
         }
       },
-      "OpenTelemetry.Api": {
-        "type": "Direct",
-        "requested": "[1.15.3, )",
-        "resolved": "1.15.3",
-        "contentHash": "fX+fkCysfPut+qCcT3bKqyX4QN9Saf4CgX8HLOHywEVD+Xr7sULtfuypITpoDysjx8R59dn/3mWhgimMH8cm/g=="
-      },
       "Castle.Core": {
         "type": "Transitive",
         "resolved": "5.2.1",
@@ -382,6 +376,11 @@
           "OpenTelemetry.Api.ProviderBuilderExtensions": "1.9.0"
         }
       },
+      "OpenTelemetry.Api": {
+        "type": "Transitive",
+        "resolved": "1.9.0",
+        "contentHash": "Xz8ZvM1Lm0m7BbtGBnw2JlPo++YKyMp08zMK5p0mf+cIi5jeMt2+QsYu9X6YEAbjCxBQYwEak5Z8sY6Ig2WcwQ=="
+      },
       "OpenTelemetry.Api.ProviderBuilderExtensions": {
         "type": "Transitive",
         "resolved": "1.9.0",
@@ -440,7 +439,6 @@
           "Microsoft.EntityFrameworkCore.Relational": "[10.0.0, )",
           "MySqlConnector": "[2.5.0, )",
           "OpenIddict.EntityFrameworkCore": "[7.2.0, )",
-          "OpenTelemetry.Api": "[1.15.3, )",
           "Pomelo.EntityFrameworkCore.MySql": "[9.0.0, )"
         }
       },

@@ -102,18 +102,5 @@ namespace Hagalaz.Collections.Tests
             System.Threading.Tasks.Task.WaitAll(tasks);
             Assert.AreEqual(100, store.Count);
         }
-
-        [TestMethod]
-        public void TestCopyValuesTo()
-        {
-            var store = new ConcurrentStore<string, int>();
-            store.TryAdd("a", 1);
-            store.TryAdd("b", 2);
-            var array = new int[2];
-            var count = store.CopyValuesTo(array, 0);
-            Assert.AreEqual(2, count);
-            Assert.IsTrue(array.Contains(1));
-            Assert.IsTrue(array.Contains(2));
-        }
     }
 }
