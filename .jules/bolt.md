@@ -29,3 +29,7 @@
 ## 2026-04-24 - [O(N) Huffman Decoding with ArrayPool and ReadOnlySpan]
 **Learning:** Unrolled bit-processing logic with string concatenation (`string += char`) leads to O(N^2) allocations and significant GC pressure during decompression of long streams. Replacing this with a unified bit-loop using bit-shifts and `ArrayPool<char>` for the output buffer reduces allocations by ~240x and improves performance by ~8x. Further optimization by caching the Huffman tree in a `ReadOnlySpan<int>` and using unsigned comparisons for bounds checks (`(uint)idx >= (uint)len`) yields a total ~11x speedup.
 **Action:** Use `ArrayPool<T>` for transient output buffers and cache static fields in local `ReadOnlySpan<T>` variables to maximize JIT optimization in hot-path loops. Use unsigned comparisons to combine lower and upper bounds checks for performance.
+
+## 2026-05-15 - [Optimizing Name Validation and Base-37 Conversions]
+**Learning:** Even `GeneratedRegex` in .NET 10 can be ~4x slower than a manual character-by-character loop for short strings (under 12 chars) with complex validation rules. For base-37 conversions, using `stackalloc Span<char>` with `Math.DivRem` eliminates all heap allocations, and an $O(1)$ `ReadOnlySpan<byte>` lookup table significantly outperforms repeated character arithmetic or branching.
+**Action:** Replace `Regex` with manual state-machine loops in high-frequency validation hot paths. Use `stackalloc` for small fixed-size buffers and static lookup tables for character-to-value mappings.
