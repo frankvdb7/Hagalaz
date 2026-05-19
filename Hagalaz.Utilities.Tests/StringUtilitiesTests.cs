@@ -498,11 +498,28 @@ namespace Hagalaz.Utilities.Tests
         [TestMethod]
         public void StringToLong_InvalidCharacters_ReturnsZero()
         {
-            Assert.AreEqual(0L, StringUtilities.StringToLong("abc "));
-            Assert.AreEqual(0L, StringUtilities.StringToLong("abc-"));
             Assert.AreEqual(0L, StringUtilities.StringToLong("abc?"));
             Assert.AreEqual(0L, StringUtilities.StringToLong("abc!"));
             Assert.AreEqual(0L, StringUtilities.StringToLong("abc\u1234"));
+        }
+
+        [TestMethod]
+        public void StringToLong_TrailingUnderscore_IsStripped()
+        {
+            long baseValue = StringUtilities.StringToLong("abc");
+            long extendedValue = StringUtilities.StringToLong("abc_");
+            long doubleExtendedValue = StringUtilities.StringToLong("abc__");
+
+            Assert.AreNotEqual(0L, baseValue);
+            Assert.AreEqual(baseValue, extendedValue);
+            Assert.AreEqual(baseValue, doubleExtendedValue);
+        }
+
+        [TestMethod]
+        public void IsValidName_OtherWhitespace_IsAccepted()
+        {
+            Assert.IsTrue(StringUtilities.IsValidName("abc\tdef"));
+            Assert.IsTrue(StringUtilities.IsValidName("abc\ndef"));
         }
 
         [TestMethod]

@@ -108,7 +108,7 @@ namespace Hagalaz.Utilities
                     continue;
                 }
 
-                if (c == ' ' || c == '-')
+                if (char.IsWhiteSpace(c) || c == '-')
                 {
                     separators++;
                     if (separators == 1) s1 = i;
@@ -369,6 +369,12 @@ namespace Hagalaz.Utilities
                     return 0L; // Character out of range
                 }
             }
+
+            while (l % 37L == 0L && l != 0L)
+            {
+                l /= 37L;
+            }
+
             return l;
         }
 
