@@ -13,6 +13,9 @@ using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
 {
+    /// <summary>
+    /// Represents a creature's viewport, which manages visible entities and regions.
+    /// </summary>
     public class Viewport : IViewport
     {
         private IMapSize _mapSize;
@@ -165,7 +168,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// Happens on update tick.
         /// Refreshe's visible creatures.
         /// </summary>
-                public void UpdateTick()
+        public void UpdateTick()
         {
             _visibleCreatures.Clear();
             _visibleCharacters.Clear();
@@ -209,7 +212,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         /// Processes and adds visible creatures from a collection based on proximity and visibility.
         /// </summary>
-                protected virtual void ProcessVisibleCreatures<T>(T[] creatures, int count, ILocation ownerLocation, Func<T, bool> visibilityCheck, ListHashSet<T> typeSpecificCollection) where T : ICreature
+        /// <typeparam name="T">The type of creature.</typeparam>
+        /// <param name="creatures">The collection of creatures to process.</param>
+        /// <param name="count">The number of creatures in the buffer.</param>
+        /// <param name="ownerLocation">The location of the viewport owner.</param>
+        /// <param name="visibilityCheck">A function to check individual creature visibility.</param>
+        /// <param name="typeSpecificCollection">The type-specific collection to add visible creatures to.</param>
+        protected virtual void ProcessVisibleCreatures<T>(T[] creatures, int count, ILocation ownerLocation, Func<T, bool> visibilityCheck, ListHashSet<T> typeSpecificCollection) where T : ICreature
         {
             for (int i = 0; i < count; i++)
             {

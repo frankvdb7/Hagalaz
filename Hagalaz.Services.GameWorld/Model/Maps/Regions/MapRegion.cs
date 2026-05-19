@@ -83,16 +83,31 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Remove(INpc npc) => _npcs.TryRemove(npc.Index);
 
-                public int CharacterCount => _characters.Count;
+        /// <summary>
+        /// Gets the number of characters in the region.
+        /// </summary>
+        public int CharacterCount => _characters.Count;
+        /// <summary>
+        /// Gets the number of NPCs in the region.
+        /// </summary>
         public int NpcCount => _npcs.Count;
+        /// <summary>
+        /// Copies all characters in this region to the specified array.
+        /// </summary>
         public int CopyCharactersTo(ICharacter[] array, int index) => _characters.CopyValuesTo(array, index);
+        /// <summary>
+        /// Copies all NPCs in this region to the specified array.
+        /// </summary>
         public int CopyNpcsTo(INpc[] array, int index) => _npcs.CopyValuesTo(array, index);
 
         public IEnumerable<ICharacter> FindAllCharacters() => _characters;
 
         public IEnumerable<INpc> FindAllNpcs() => _npcs;
 
-                private void ForEachCreature(Action<ICreature> action)
+        /// <summary>
+        /// Executes an action for each creature in the region.
+        /// </summary>
+        private void ForEachCreature(Action<ICreature> action)
         {
             var maxCharCount = _characters.Count;
             if (maxCharCount > 0)

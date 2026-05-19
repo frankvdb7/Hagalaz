@@ -85,8 +85,10 @@ namespace Hagalaz.Collections
 
         /// <summary>
         /// Copies the values from the store into the provided array starting at the specified index.
-        /// Returns the actual number of values copied.
         /// </summary>
+        /// <param name="array">The destination array.</param>
+        /// <param name="index">The starting index in the destination array.</param>
+        /// <returns>The actual number of values copied.</returns>
         public int CopyValuesTo(TValue[] array, int index)
         {
             var count = 0;
