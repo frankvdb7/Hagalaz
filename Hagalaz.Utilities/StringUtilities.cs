@@ -129,9 +129,7 @@ namespace Hagalaz.Utilities
             if (separators == 1) return s1 >= 1 && s1 <= name.Length - 3;
 
             // 2 separators case: Block1 (1+) Sep Block2 (1+) Sep Block3 (1+) => at least 1 before, 1 between, 1 after.
-            if (separators == 2) return s1 >= 1 && s2 >= s1 + 2 && s2 <= name.Length - 2;
-
-            return false;
+            return s1 >= 1 && s2 >= s1 + 2 && s2 <= name.Length - 2;
         }
 
         /// <summary>
