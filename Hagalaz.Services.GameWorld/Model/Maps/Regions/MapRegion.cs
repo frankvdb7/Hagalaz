@@ -1,4 +1,3 @@
-using System.Buffers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -83,94 +82,30 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Remove(INpc npc) => _npcs.TryRemove(npc.Index);
 
-        /// <summary>
-        /// Gets the number of characters in the region.
-        /// </summary>
-        public int CharacterCount => _characters.Count;
-        /// <summary>
-        /// Gets the number of NPCs in the region.
-        /// </summary>
-        public int NpcCount => _npcs.Count;
-        /// <summary>
-        /// Copies all characters in this region to the specified array.
-        /// </summary>
-        public int CopyCharactersTo(ICharacter[] array, int index) => _characters.CopyValuesTo(array, index);
-        /// <summary>
-        /// Copies all NPCs in this region to the specified array.
-        /// </summary>
-        public int CopyNpcsTo(INpc[] array, int index) => _npcs.CopyValuesTo(array, index);
+        public void ForEachCharacter<TState>(Action<ICharacter, TState> action, TState state)
+        {
+            foreach (var character in _characters) action(character, state);
+        }
+
+        public void ForEachNpc<TState>(Action<INpc, TState> action, TState state)
+        {
+            foreach (var npc in _npcs) action(npc, state);
+        }
 
         public IEnumerable<ICharacter> FindAllCharacters() => _characters;
 
         public IEnumerable<INpc> FindAllNpcs() => _npcs;
 
-        /// <summary>
-        /// Executes an action for each creature in the region.
-        /// </summary>
         private void ForEachCreature(Action<ICreature> action)
         {
-            var maxCharCount = _characters.Count;
-            if (maxCharCount > 0)
-            {
-                var buffer = ArrayPool<ICharacter>.Shared.Rent(maxCharCount);
-                try
-                {
-                    var actualCount = _characters.CopyValuesTo(buffer, 0);
-                    for (int i = 0; i < actualCount; i++) action(buffer[i]);
-                }
-                finally
-                {
-                    ArrayPool<ICharacter>.Shared.Return(buffer, clearArray: true);
-                }
-            }
-
-            var maxNpcCount = _npcs.Count;
-            if (maxNpcCount > 0)
-            {
-                var buffer = ArrayPool<INpc>.Shared.Rent(maxNpcCount);
-                try
-                {
-                    var actualCount = _npcs.CopyValuesTo(buffer, 0);
-                    for (int i = 0; i < actualCount; i++) action(buffer[i]);
-                }
-                finally
-                {
-                    ArrayPool<INpc>.Shared.Return(buffer, clearArray: true);
-                }
-            }
+            foreach (var character in _characters) action(character);
+            foreach (var npc in _npcs) action(npc);
         }
 
-                private async Task ForEachCreatureAsync(Func<ICreature, Task> action)
+        private async Task ForEachCreatureAsync(Func<ICreature, Task> action)
         {
-            var maxCharCount = _characters.Count;
-            if (maxCharCount > 0)
-            {
-                var buffer = ArrayPool<ICharacter>.Shared.Rent(maxCharCount);
-                try
-                {
-                    var actualCount = _characters.CopyValuesTo(buffer, 0);
-                    for (int i = 0; i < actualCount; i++) await action(buffer[i]);
-                }
-                finally
-                {
-                    ArrayPool<ICharacter>.Shared.Return(buffer, clearArray: true);
-                }
-            }
-
-            var maxNpcCount = _npcs.Count;
-            if (maxNpcCount > 0)
-            {
-                var buffer = ArrayPool<INpc>.Shared.Rent(maxNpcCount);
-                try
-                {
-                    var actualCount = _npcs.CopyValuesTo(buffer, 0);
-                    for (int i = 0; i < actualCount; i++) await action(buffer[i]);
-                }
-                finally
-                {
-                    ArrayPool<INpc>.Shared.Return(buffer, clearArray: true);
-                }
-            }
+            foreach (var character in _characters) await action(character);
+            foreach (var npc in _npcs) await action(npc);
         }
 
         private bool AnyCreature(Func<ICreature, bool> predicate)

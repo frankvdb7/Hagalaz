@@ -82,11 +82,11 @@
       },
       "AutoMapper": {
         "type": "Transitive",
-        "resolved": "16.1.1",
-        "contentHash": "VNEky8JA15ci+oIDRGHITOGOpV4dILsf8pnn24QhDl2urtqgJ2IXiS/V2EtGU17P/+f6OeFQPJETaZXV9QOIZg==",
+        "resolved": "15.1.0",
+        "contentHash": "uJXRC0ysO+i3fuW1onh0cUmaLbEwfMWwAZ5nw2eKhYccHwDgRhSC4Qj3rNdBy4vdhnC3r4NinhhldANKNWpH1Q==",
         "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "10.0.0",
-          "Microsoft.Extensions.Options": "10.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+          "Microsoft.Extensions.Options": "8.0.0",
           "Microsoft.IdentityModel.JsonWebTokens": "8.14.0"
         }
       },
@@ -1335,7 +1335,7 @@
       "hagalaz.services.gameworld": {
         "type": "Project",
         "dependencies": {
-          "AutoMapper": "[16.1.1, )",
+          "AutoMapper": "[15.1.0, )",
           "Hagalaz.Authorization.Constants": "[1.0.0, )",
           "Hagalaz.Authorization.Messages": "[1.0.0, )",
           "Hagalaz.Cache": "[1.0.0, )",

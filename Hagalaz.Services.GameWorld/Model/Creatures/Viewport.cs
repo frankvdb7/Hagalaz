@@ -1,4 +1,3 @@
-using System.Buffers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,9 +12,6 @@ using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
 {
-    /// <summary>
-    /// Represents a creature's viewport, which manages visible entities and regions.
-    /// </summary>
     public class Viewport : IViewport
     {
         private IMapSize _mapSize;
@@ -168,7 +164,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// Happens on update tick.
         /// Refreshe's visible creatures.
         /// </summary>
-        public void UpdateTick()
+                public void UpdateTick()
         {
             _visibleCreatures.Clear();
             _visibleCharacters.Clear();
@@ -177,60 +173,38 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             var ownerLocation = _owner.Location;
             foreach (var region in _visibleRegions)
             {
-                var maxCharCount = region.CharacterCount;
-                if (maxCharCount > 0)
-                {
-                    var buffer = ArrayPool<ICharacter>.Shared.Rent(maxCharCount);
-                    try
-                    {
-                        var actualCount = region.CopyCharactersTo(buffer, 0);
-                        ProcessVisibleCreatures(buffer, actualCount, ownerLocation, c => c.Appearance.Visible, _visibleCharacters);
-                    }
-                    finally
-                    {
-                        ArrayPool<ICharacter>.Shared.Return(buffer, clearArray: true);
-                    }
-                }
-
-                var maxNpcCount = region.NpcCount;
-                if (maxNpcCount > 0)
-                {
-                    var buffer = ArrayPool<INpc>.Shared.Rent(maxNpcCount);
-                    try
-                    {
-                        var actualCount = region.CopyNpcsTo(buffer, 0);
-                        ProcessVisibleCreatures(buffer, actualCount, ownerLocation, n => n.Appearance.Visible, _visibleNpcs);
-                    }
-                    finally
-                    {
-                        ArrayPool<INpc>.Shared.Return(buffer, clearArray: true);
-                    }
-                }
+                region.ForEachCharacter((c, viewport) => viewport.ProcessCharacter(c, ownerLocation), this);
+                region.ForEachNpc((n, viewport) => viewport.ProcessNpc(n, ownerLocation), this);
             }
+        }
+
+        protected virtual void ProcessCharacter(ICharacter character, ILocation ownerLocation)
+        {
+            if (InBounds(character.Location) &&
+                ownerLocation.WithinDistance(character.Location, CreatureConstants.VisibilityDistance) &&
+                character.Appearance.Visible)
+            {
+                _visibleCreatures.Add(character);
+                _visibleCharacters.Add(character);
+            }
+        }
+
+        protected virtual void ProcessNpc(INpc npc, ILocation ownerLocation)
+        {
+            if (InBounds(npc.Location) &&
+                ownerLocation.WithinDistance(npc.Location, CreatureConstants.VisibilityDistance) &&
+                npc.Appearance.Visible)
+            {
+                _visibleCreatures.Add(npc);
+                _visibleNpcs.Add(npc);
+            }
+        }
         }
 
         /// <summary>
         /// Processes and adds visible creatures from a collection based on proximity and visibility.
         /// </summary>
-        /// <typeparam name="T">The type of creature.</typeparam>
-        /// <param name="creatures">The collection of creatures to process.</param>
-        /// <param name="count">The number of creatures in the buffer.</param>
-        /// <param name="ownerLocation">The location of the viewport owner.</param>
-        /// <param name="visibilityCheck">A function to check individual creature visibility.</param>
-        /// <param name="typeSpecificCollection">The type-specific collection to add visible creatures to.</param>
-        protected virtual void ProcessVisibleCreatures<T>(T[] creatures, int count, ILocation ownerLocation, Func<T, bool> visibilityCheck, ListHashSet<T> typeSpecificCollection) where T : ICreature
-        {
-            for (int i = 0; i < count; i++)
-            {
-                var creature = creatures[i];
-                var loc = creature.Location;
-                if (InBounds(loc) &&
-                    ownerLocation.WithinDistance(loc, CreatureConstants.VisibilityDistance) &&
-                    visibilityCheck(creature))
-                {
-                    _visibleCreatures.Add(creature);
-                    typeSpecificCollection.Add(creature);
-                }
+
             }
         }
 

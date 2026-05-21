@@ -11,7 +11,7 @@ namespace Hagalaz.Services.GameWorld.Providers
     public class QuestScriptProvider : IQuestScriptProvider
     {
         private readonly ILogger<QuestScriptProvider> _logger;
-        private string[] _loadedQuestScripts = [];
+        private string[] _loadedQuestScripts;
 
         /// <summary>
         /// 
@@ -50,7 +50,7 @@ namespace Hagalaz.Services.GameWorld.Providers
         /// </returns>
         public IQuestScript? MakeQuestScript(Quest quest)
         {
-
+            IQuestScript sc;
             //            if (quest.Definition.Id <= 0 || quest.Definition.Id >= _loadedQuestScripts.Length || _loadedQuestScripts[quest.Definition.Id] == null)
             //                sc = new DefaultQuestScript(quest.Definition.Id);
             //            else
