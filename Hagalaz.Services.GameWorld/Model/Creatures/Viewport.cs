@@ -1,3 +1,4 @@
+using System.Buffers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +13,9 @@ using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
 {
+    /// <summary>
+    /// Represents a creature's viewport, which manages visible entities and regions.
+    /// </summary>
     public class Viewport : IViewport
     {
         private IMapSize _mapSize;
@@ -164,7 +168,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// Happens on update tick.
         /// Refreshe's visible creatures.
         /// </summary>
-                public void UpdateTick()
+        public void UpdateTick()
         {
             _visibleCreatures.Clear();
             _visibleCharacters.Clear();
@@ -178,6 +182,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
         }
 
+        /// <summary>
+        /// Processes a character to check if it should be added to the viewport.
+        /// </summary>
+        /// <param name="character">The character to process.</param>
+        /// <param name="ownerLocation">The location of the viewport owner.</param>
         protected virtual void ProcessCharacter(ICharacter character, ILocation ownerLocation)
         {
             if (InBounds(character.Location) &&
@@ -189,6 +198,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
         }
 
+        /// <summary>
+        /// Processes an NPC to check if it should be added to the viewport.
+        /// </summary>
+        /// <param name="npc">The NPC to process.</param>
+        /// <param name="ownerLocation">The location of the viewport owner.</param>
         protected virtual void ProcessNpc(INpc npc, ILocation ownerLocation)
         {
             if (InBounds(npc.Location) &&
@@ -197,14 +211,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             {
                 _visibleCreatures.Add(npc);
                 _visibleNpcs.Add(npc);
-            }
-        }
-        }
-
-        /// <summary>
-        /// Processes and adds visible creatures from a collection based on proximity and visibility.
-        /// </summary>
-
             }
         }
 
