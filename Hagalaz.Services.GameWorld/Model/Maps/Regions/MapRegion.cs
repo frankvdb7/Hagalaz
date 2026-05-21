@@ -1,4 +1,3 @@
-using System.Buffers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +11,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
@@ -72,7 +72,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _gameObjectBuilder = gameObjectBuilder;
             _groundItemBuilder = groundItemBuilder;
             _mapper = mapper;
-            Size = new Vector3(64, 64, 4);
+            Size = new Location(64, 64, 4, 0);
             _collision = new CollisionFlag[Size.X, Size.Y, Size.Z];
         }
 
@@ -149,88 +149,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _characters.Any(predicate) || _npcs.Any(predicate);
 
         /// <inheritdoc />
-        public void MakeStandard() => IsDynamic = false;
-
-        /// <inheritdoc />
-        public void MakeDynamic() => IsDynamic = true;
-
-        /// <inheritdoc />
-        public void Add(IGroundItem item)
-        {
-            var partHash = item.Location.GetRegionPartHash();
-            _parts.GetOrAdd(partHash, CreateRegionPart).Add(item);
-        }
-
-        /// <inheritdoc />
-        public void Add(IGameObject gameObj)
-        {
-            var partHash = gameObj.Location.GetRegionPartHash();
-            _parts.GetOrAdd(partHash, CreateRegionPart).Add(gameObj);
-        }
-
-        /// <inheritdoc />
-        public void Remove(IGameObject gameObj)
-        {
-            var partHash = gameObj.Location.GetRegionPartHash();
-            if (_parts.TryGetValue(partHash, out var part))
-            {
-                part.Remove(gameObj);
-            }
-        }
-
-        /// <inheritdoc />
-        public void Remove(IGroundItem item)
-        {
-            var partHash = item.Location.GetRegionPartHash();
-            if (_parts.TryGetValue(partHash, out var part))
-            {
-                part.Remove(item);
-            }
-        }
-
-        /// <inheritdoc />
-        public IEnumerable<IGroundItem> FindAllGroundItems()
-        {
-            foreach (var part in _parts)
-            {
-                foreach (var item in part.GroundItems)
-                {
-                    yield return item;
-                }
-            }
-        }
-
-        /// <inheritdoc />
-        public IEnumerable<IGameObject> FindAllGameObjects()
-        {
-            foreach (var part in _parts)
-            {
-                foreach (var obj in part.GameObjects)
-                {
-                    yield return obj;
-                }
-            }
-        }
-
-        /// <inheritdoc />
-        public void FlagCollision(int localX, int localY, int z, CollisionFlag flag) => _collision[localX, localY, z] |= flag;
-
-        /// <inheritdoc />
-        public void UnFlagCollision(int localX, int localY, int z, CollisionFlag flag) => _collision[localX, localY, z] &= ~flag;
-
-        /// <inheritdoc />
-        public void UnFlagCollision(IGameObject gameObject)
-        {
-            // TODO
-        }
-
-        /// <inheritdoc />
-        public void FlagCollision(IGameObject gameObject)
-        {
-            // TODO
-        }
-
-        /// <inheritdoc />
         public async Task MajorUpdateTick()
         {
             await Task.CompletedTask;
@@ -242,14 +160,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             TickGroundItems();
             await ForEachCreatureAsync(c => c.MajorClientPrepareUpdateTickAsync());
-        }
-
-        private void TickGroundItems()
-        {
-            foreach (var part in _parts)
-            {
-                part.TickGroundItems();
-            }
         }
 
         /// <inheritdoc />
@@ -383,55 +293,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             foreach (var part in _parts)
             {
-                part.SendFullUpdates(character);
+                part.SendFullUpdate(character);
             }
         }
-
-        /// <inheritdoc />
-        public IMapRegionPart GetRegionPartData(int partX, int partY, int z)
-        {
-            var partHash = Location.GetRegionPartHash(partX, partY, z);
-            return _parts.GetOrAdd(partHash, CreateRegionPart);
-        }
-
-        /// <inheritdoc />
-        public void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ)
-        {
-            // TODO
-        }
-
-        /// <inheritdoc />
-        public IGameObject? FindStandardGameObject(int localX, int localY, int z)
-        {
-            foreach (var part in _parts)
-            {
-                foreach (var obj in part.GameObjects)
-                {
-                    if (obj.Location.X == localX && obj.Location.Y == localY && obj.Location.Z == z)
-                    {
-                        return obj;
-                    }
-                }
-            }
-            return null;
-        }
-
-        /// <inheritdoc />
-        public IEnumerable<IGameObject> FindGameObjects(int localX, int localY, int z)
-        {
-            foreach (var part in _parts)
-            {
-                foreach (var obj in part.GameObjects)
-                {
-                    if (obj.Location.X == localX && obj.Location.Y == localY && obj.Location.Z == z)
-                    {
-                        yield return obj;
-                    }
-                }
-            }
-        }
-
-        /// <inheritdoc />
-        public CollisionFlag GetCollision(int localX, int localY, int z) => _collision[localX, localY, z];
     }
 }

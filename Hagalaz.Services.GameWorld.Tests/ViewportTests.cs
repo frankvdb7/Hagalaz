@@ -8,6 +8,7 @@ using Hagalaz.Collections;
 using Hagalaz.Services.GameWorld.Model.Creatures;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -34,8 +35,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public void VisibleCreatures_IsListHashSet_Internally()
         {
-            // Assert
-            Assert.IsInstanceOfType(_viewport.VisibleCreatures, typeof(ListHashSet<ICreature>));
+            Assert.IsInstanceOfType(_viewport.VisibleCreatures, typeof(IReadOnlyList<ICreature>));
             Assert.IsInstanceOfType(_viewport.VisibleCharacters, typeof(IReadOnlyCollection<ICharacter>));
             Assert.IsInstanceOfType(_viewport.VisibleNpcs, typeof(IReadOnlyCollection<INpc>));
         }
@@ -43,63 +43,59 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public void Contains_ReturnsTrue_WhenCreatureInViewport()
         {
-            // Arrange
             var character = Substitute.For<ICharacter>();
+            character.Index.Returns(1);
             var region = Substitute.For<IMapRegion>();
 
-            // Set up owner location
-            var ownerLocation = Substitute.For<ILocation>();
-            _owner.Location.Returns(ownerLocation);
-            ownerLocation.WithinDistance(Arg.Any<ILocation>(), Arg.Any<int>()).Returns(true);
-            ownerLocation.Clone().Returns(ownerLocation);
+            var ownerLoc = new Location(3200, 3200, 0, 0);
+            _owner.Location.Returns(ownerLoc);
 
-            // Set up character
-            var characterLocation = Substitute.For<ILocation>();
-            character.Location.Returns(characterLocation);
+            var charLoc = new Location(3205, 3205, 0, 0);
+            character.Location.Returns(charLoc);
             character.Appearance.Visible.Returns(true);
 
-            region.FindAllCharacters().Returns(new List<ICharacter> { character });
-            region.FindAllNpcs().Returns(new List<INpc>());
+            region.When(r => r.ForEachCharacter(Arg.Any<Action<ICharacter, Viewport>>(), Arg.Any<Viewport>()))
+                  .Do(info => info.Arg<Action<ICharacter, Viewport>>()(character, info.Arg<Viewport>()));
 
-            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
-                .Returns(new List<IMapRegion> { region });
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>()).Returns(new List<IMapRegion> { region });
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
 
-            // Act & Assert
             Assert.IsTrue(_viewport.VisibleCreatures.Contains(character));
         }
 
         [TestMethod]
         public void Indexer_ReturnsCorrectCreature_WhenMultipleCreaturesInViewport()
         {
-            // Arrange
             var char1 = Substitute.For<ICharacter>();
+            char1.Index.Returns(1);
             var char2 = Substitute.For<ICharacter>();
+            char2.Index.Returns(2);
             var region = Substitute.For<IMapRegion>();
 
-            var ownerLocation = Substitute.For<ILocation>();
-            _owner.Location.Returns(ownerLocation);
-            ownerLocation.WithinDistance(Arg.Any<ILocation>(), Arg.Any<int>()).Returns(true);
-            ownerLocation.Clone().Returns(ownerLocation);
+            var ownerLoc = new Location(3200, 3200, 0, 0);
+            _owner.Location.Returns(ownerLoc);
 
-            char1.Location.Returns(Substitute.For<ILocation>());
+            char1.Location.Returns(new Location(3201, 3201, 0, 0));
             char1.Appearance.Visible.Returns(true);
-            char2.Location.Returns(Substitute.For<ILocation>());
+            char2.Location.Returns(new Location(3202, 3202, 0, 0));
             char2.Appearance.Visible.Returns(true);
 
-            region.FindAllCharacters().Returns(new List<ICharacter> { char1, char2 });
-            region.FindAllNpcs().Returns(new List<INpc>());
+            region.When(r => r.ForEachCharacter(Arg.Any<Action<ICharacter, Viewport>>(), Arg.Any<Viewport>()))
+                  .Do(info => {
+                      var action = info.Arg<Action<ICharacter, Viewport>>();
+                      var vp = info.Arg<Viewport>();
+                      action(char1, vp);
+                      action(char2, vp);
+                  });
 
-            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
-                .Returns(new List<IMapRegion> { region });
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>()).Returns(new List<IMapRegion> { region });
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
 
-            // Act & Assert
-            Assert.HasCount(2, _viewport.VisibleCreatures);
+            Assert.AreEqual(2, _viewport.VisibleCreatures.Count);
             Assert.AreEqual(char1, _viewport.VisibleCreatures[0]);
             Assert.AreEqual(char2, _viewport.VisibleCreatures[1]);
         }
@@ -107,103 +103,83 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public void VisibleCreatures_Empty_AfterClear()
         {
-            // Arrange
             var character = Substitute.For<ICharacter>();
+            character.Index.Returns(1);
             var region = Substitute.For<IMapRegion>();
 
-            var ownerLocation = Substitute.For<ILocation>();
-            _owner.Location.Returns(ownerLocation);
-            ownerLocation.WithinDistance(Arg.Any<ILocation>(), Arg.Any<int>()).Returns(true);
-            ownerLocation.Clone().Returns(ownerLocation);
+            var ownerLoc = new Location(3200, 3200, 0, 0);
+            _owner.Location.Returns(ownerLoc);
 
-            character.Location.Returns(Substitute.For<ILocation>());
+            character.Location.Returns(new Location(3201, 3201, 0, 0));
             character.Appearance.Visible.Returns(true);
 
-            region.FindAllCharacters().Returns(new List<ICharacter> { character });
-            region.FindAllNpcs().Returns(new List<INpc>());
+            bool shouldReturnCharacter = true;
+            region.When(r => r.ForEachCharacter(Arg.Any<Action<ICharacter, Viewport>>(), Arg.Any<Viewport>()))
+                  .Do(info => {
+                      if (shouldReturnCharacter) {
+                          info.Arg<Action<ICharacter, Viewport>>()(character, info.Arg<Viewport>());
+                      }
+                  });
 
-            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
-                .Returns(new List<IMapRegion> { region });
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>()).Returns(new List<IMapRegion> { region });
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
-            Assert.HasCount(1, _viewport.VisibleCreatures);
+            Assert.AreEqual(1, _viewport.VisibleCreatures.Count);
 
-            // Rebuild with no creatures
-            region.FindAllCharacters().Returns(new List<ICharacter>());
+            shouldReturnCharacter = false;
             _viewport.UpdateTick();
-
-            // Act & Assert
-            Assert.IsEmpty(_viewport.VisibleCreatures);
-            Assert.IsFalse(_viewport.VisibleCreatures.Contains(character));
+            Assert.AreEqual(0, _viewport.VisibleCreatures.Count);
         }
 
         [TestMethod]
         public void InBounds_ReturnsTrue_WhenLocationIsWithinBounds()
         {
-            // Arrange
-            var location = new Location(100, 100, 0, 0);
-
-            _owner.Location.Returns(new Location(100, 100, 0, 0));
+            _owner.Location.Returns(new Location(3200, 3200, 0, 0));
             _viewport.RebuildView();
-
-            // Act & Assert
+            var location = new Location(3200, 3200, 0, 0);
             Assert.IsTrue(_viewport.InBounds(location));
         }
 
         [TestMethod]
         public void InBounds_ReturnsFalse_WhenLocationIsOutsideBounds()
         {
-            // Arrange
-            _owner.Location.Returns(new Location(100, 100, 0, 0));
+            _owner.Location.Returns(new Location(3200, 3200, 0, 0));
             _viewport.RebuildView();
-
-            var location = new Location(200, 200, 0, 0);
-
-            // Act & Assert
+            var location = new Location(3400, 3400, 0, 0);
             Assert.IsFalse(_viewport.InBounds(location));
         }
 
         [TestMethod]
         public void ShouldRebuild_ReturnsTrue_WhenDimensionChanges()
         {
-            // Arrange
-            _owner.Location.Returns(new Location(100, 100, 0, 0));
+            _owner.Location.Returns(new Location(3200, 3200, 0, 0));
             _viewport.RebuildView();
-
-            _owner.Location.Returns(new Location(100, 100, 0, 1)); // Changed dimension
-
-            // Act & Assert
+            _owner.Location.Returns(new Location(3200, 3200, 0, 1));
             Assert.IsTrue(_viewport.ShouldRebuild());
         }
 
         [TestMethod]
         public void ShouldRebuild_ReturnsFalse_WhenOwnerHasNotMovedMuch()
         {
-            // Arrange
-            _owner.Location.Returns(new Location(100, 100, 0, 0));
+            _owner.Location.Returns(new Location(3200, 3200, 0, 0));
             _viewport.RebuildView();
-
-            _owner.Location.Returns(new Location(104, 104, 0, 0)); // Small move
-
-            // Act & Assert
+            _owner.Location.Returns(new Location(3204, 3204, 0, 0));
             Assert.IsFalse(_viewport.ShouldRebuild());
         }
 
         [TestMethod]
         public void InPreviousMapBounds_ReturnsCorrectValue_AfterRebuild()
         {
-            // Arrange
-            var location = new Location(100, 100, 0, 0);
-            _owner.Location.Returns(new Location(100, 100, 0, 0));
-            _viewport.RebuildView(); // Original bounds are around 100,100
+            _owner.Location.Returns(new Location(3200, 3200, 0, 0));
+            _viewport.RebuildView();
+            var oldLoc = new Location(3200, 3200, 0, 0);
 
-            _owner.Location.Returns(new Location(500, 500, 0, 0));
-            _viewport.RebuildView(); // New bounds are around 500,500, previous are 100,100
+            _owner.Location.Returns(new Location(4000, 4000, 0, 0));
+            _viewport.RebuildView();
 
-            // Act & Assert
-            Assert.IsTrue(_viewport.InPreviousMapBounds(location));
-            Assert.IsFalse(_viewport.InPreviousMapBounds(new Location(500, 500, 0, 0)));
+            Assert.IsTrue(_viewport.InPreviousMapBounds(oldLoc));
+            Assert.IsFalse(_viewport.InPreviousMapBounds(new Location(4000, 4000, 0, 0)));
         }
     }
 }
