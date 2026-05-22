@@ -102,5 +102,28 @@ namespace Hagalaz.Services.GameWorld.Tests.Services
             settings1.Received(1).OnChanged -= Arg.Any<Action>(); // Should have been unsubscribed when clan1 was replaced
             settings2.Received(1).OnChanged += Arg.Any<Action>();
         }
+
+        [TestMethod]
+        public void PutClanSettings_UnsubscribesFromOldSettings()
+        {
+            // Arrange
+            var clan = Substitute.For<IClan>();
+            var settings1 = Substitute.For<IClanSettings>();
+            var settings2 = Substitute.For<IClanSettings>();
+
+            clan.Name.Returns("TestClan");
+            clan.Settings.Returns(settings1);
+
+            _clanService.PutClan(clan);
+            settings1.Received(1).OnChanged += Arg.Any<Action>();
+
+            // Act
+            clan.Settings.Returns(settings2);
+            _clanService.PutClanSettings(clan, settings2);
+
+            // Assert
+            settings1.Received(1).OnChanged -= Arg.Any<Action>();
+            settings2.Received(1).OnChanged += Arg.Any<Action>();
+        }
     }
 }
