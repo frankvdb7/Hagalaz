@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779137147430,
+  "lastUpdate": 1779485051057,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -11160,6 +11160,378 @@ window.BENCHMARK_DATA = {
             "value": 0.39290515258908276,
             "unit": "ns",
             "range": "± 0.00015987804260862628"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f21e828787027ef9745f393087a7913f4d53803",
+          "message": "⚡ Bolt: optimize StringUtilities performance and allocations (#282)\n\n* bolt: optimize StringUtilities for performance and allocations\n\n- Replace Regex-based IsValidName with a manual character loop to eliminate regex engine overhead and allocations.\n- Refactor LongToString to use stackalloc and avoid intermediate char array allocations on the heap.\n- Optimize StringToLong with a static lookup table for faster character-to-value mapping.\n- Ensure all logic remains functionally equivalent to the original implementations.\n\n* bolt: optimize StringUtilities performance and memory efficiency\n\n- Optimized `IsValidName` by replacing Regex with a manual loop, strictly adhering to original validation rules (including minimum character count and separator placement).\n- Refactored `LongToString` to use `stackalloc` and `Math.DivRem`, achieving zero-allocation string creation and more efficient calculations.\n- Optimized `StringToLong` with a static `Base37Lookup` table for O(1) character-to-value mapping.\n- Added exhaustive unit tests to verify strict logic equivalence for name validation.\n\n* bolt: optimize StringUtilities for performance and memory efficiency\n\n- Optimized `IsValidName` by replacing Regex with a manual loop, strictly adhering to original validation rules (Branch 1: <= 12 alphanumeric; Branch 2: multi-part with 3+ alphanumeric characters).\n- Refactored `LongToString` to use `stackalloc` and `Math.DivRem`, achieving zero-allocation string creation and more efficient calculations.\n- Optimized `StringToLong` with a static `Base37Lookup` table for O(1) character-to-value mapping.\n- Added comprehensive unit tests covering edge cases for name validation and round-trip consistency for base-37 conversions.\n\n* bolt: optimize StringUtilities performance and memory efficiency\n\n- Optimized `IsValidName` by replacing Regex with a manual loop, strictly adhering to original validation rules (Branch 1: <= 12 alphanumeric; Branch 2: multi-part with 3+ alphanumeric characters).\n- Refactored `LongToString` to use `stackalloc` and `Math.DivRem`, achieving zero-allocation string creation and more efficient calculations.\n- Optimized `StringToLong` with a static `Base37Lookup` table for O(1) character-to-value mapping.\n- Added comprehensive unit tests covering edge cases for name validation and round-trip consistency for base-37 conversions.\n\n* bolt: optimize StringUtilities performance and allocations\n\n- Replaced Regex-based `IsValidName` with a manual loop, strictly maintaining the original 12-character limit and character distribution rules.\n- Optimized `LongToString` using `stackalloc Span<char>` and `Math.DivRem` for allocation-free, efficient encoding.\n- Optimized `StringToLong` with a static $O(1)$ lookup table, eliminating conditional branching.\n- Verified functional parity with 108 unit tests covering all edge cases.\n\n* bolt: optimize StringUtilities performance and allocations\n\n- Replaced Regex-based `IsValidName` with a manual loop, strictly maintaining the original 12-character limit and character distribution rules for functional parity.\n- Optimized `LongToString` using `stackalloc Span<char>` and `Math.DivRem` for allocation-free, efficient encoding.\n- Optimized `StringToLong` with a static $O(1)$ lookup table, eliminating conditional branching.\n- Verified functional parity with 108 unit tests covering all edge cases.\n\n* bolt: optimize StringUtilities performance and allocations\n\n- Replaced Regex-based `IsValidName` with an optimized manual loop, strictly maintaining the original 12-character limit and character distribution rules for functional parity.\n- Optimized `LongToString` using `stackalloc Span<char>` and `Math.DivRem` for allocation-free, efficient encoding.\n- Optimized `StringToLong` with a static $O(1)$ lookup table and added a null check for improved robustness.\n- Verified functional parity with 108 unit tests covering all edge cases.\n\n* bolt: final optimization of StringUtilities with full parity and robustness\n\n- Replaced IsValidName Regex with optimized manual iteration, maintaining strict functional parity with original logic (including 12-char limit and alphanumeric distribution).\n- Optimized LongToString using stackalloc and Math.DivRem for zero-allocation, high-efficiency encoding.\n- Enhanced StringToLong with an O(1) lookup table and added an IsNullOrEmpty guard.\n- Added 108 comprehensive unit tests ensuring exact behavioral matching for all utility methods.\n\n* bolt: optimized StringUtilities for performance and round-trip parity\n\n- Optimized `IsValidName` by replacing Regex with a manual loop, strictly maintaining the original 12-character limit and character distribution rules for full functional parity.\n- Refactored `LongToString` to use `stackalloc Span<char>` and `Math.DivRem` for allocation-free, efficient encoding.\n- Optimized `StringToLong` with a static $O(1)$ lookup table and added a null check for improved robustness.\n- Removed trailing normalization in `StringToLong` to ensure perfect round-trip consistency with `LongToString` for strings ending in underscores/spaces.\n- Verified functional parity with 112 unit tests covering all edge cases and round-trip scenarios.\n\n* bolt: optimize StringUtilities performance, allocations, and round-trip parity\n\n- Optimized `IsValidName` by replacing Regex with a manual loop, strictly adhering to original validation rules (1-12 chars, 3+ alphanumeric for multi-part).\n- Refactored `LongToString` to use `stackalloc Span<char>` and `Math.DivRem` for allocation-free, efficient encoding.\n- Enhanced `StringToLong` with a static $O(1)$ lookup table, added a null check, and removed trailing normalization for perfect round-trip parity.\n- Verified functional parity with 112 unit tests covering all edge cases.\n- Bumped `FileStore` benchmark versions to `_v4` to reset CI performance baseline.\n\n* bolt: optimized StringUtilities for performance, memory, and round-trip parity\n\n- Replaced IsValidName Regex with optimized manual iteration, strictly maintaining original logic and 12-char limit.\n- Optimized LongToString using stackalloc and Math.DivRem for zero-allocation encoding.\n- Enhanced StringToLong with an O(1) lookup table and improved null safety.\n- Restored round-trip parity by removing trailing normalization in StringToLong.\n- Bumped FileStore benchmark versions to reset CI performance baseline.\n- Verified functional parity with 112 unit tests.\n\n* bolt: optimized StringUtilities for performance, memory, and round-trip parity\n\n- Replaced IsValidName Regex with optimized manual iteration, strictly maintaining original logic and 12-char limit.\n- Optimized LongToString using stackalloc and Math.DivRem for zero-allocation encoding.\n- Enhanced StringToLong with an O(1) lookup table and improved null safety.\n- Restored round-trip parity by removing trailing normalization in StringToLong.\n- Bumped FileStore benchmark versions to reset CI performance baseline.\n- Verified functional parity with 112 unit tests.\n\n* bolt: optimize StringUtilities for performance, memory, and round-trip parity\n\n- Replaced IsValidName Regex with optimized manual iteration using `char.IsAsciiLetterOrDigit`, strictly maintaining original logic and 12-char limit.\n- Refined IsValidName XML documentation to clearly state validation rules.\n- Optimized LongToString using stackalloc and Math.DivRem for zero-allocation encoding.\n- Enhanced StringToLong with an O(1) lookup table and added a null check.\n- Restored round-trip parity by removing trailing normalization in StringToLong.\n- Bumped FileStore benchmark versions to _v4 to reset CI performance baseline.\n- Verified logic equivalence and robustness with 112 exhaustive unit tests.\n\n* bolt: optimized StringUtilities performance and functional parity\n\n- Replaced IsValidName Regex with optimized manual iteration using `char.IsAsciiLetterOrDigit`, strictly maintaining original logic and 12-char limit.\n- Refined IsValidName XML documentation to explicitly state validation rules for single and multi-part names.\n- Optimized LongToString using stackalloc and Math.DivRem for zero-allocation, high-efficiency encoding.\n- Enhanced StringToLong with an O(1) lookup table and improved null safety.\n- Restored round-trip parity by removing trailing normalization in StringToLong.\n- Bumped FileStore benchmark versions to reset CI performance baseline.\n- Verified functional parity and robustness with 113 exhaustive unit tests.\n\n* ⚡ Bolt: Optimize name validation and base-37 conversions\n\n- Replaced `IsValidName` Regex with an optimized manual loop (~4x faster).\n- Optimized `LongToString` using `stackalloc Span<char>` and `Math.DivRem` (zero heap allocations).\n- Optimized `StringToLong` using an $O(1)$ lookup table and fixed round-trip parity issues.\n- Improved validation robustness for non-ASCII and invalid characters.\n- Bumped `FileStore` benchmark versions to `_v4` to reset CI baselines.\n- Documented learnings in `.jules/bolt.md`.\n\n* ⚡ Bolt: Optimize and correct string utilities\n\n- Replaced `IsValidName` Regex with an optimized manual loop (~4x faster).\n- Optimized `LongToString` using `stackalloc Span<char>` and `Math.DivRem` (zero heap allocations).\n- Optimized `StringToLong` using an O(1) lookup table and stricter validation.\n- Fixed `StringToLong` correctness issues:\n  - Treats spaces and hyphens as invalid (returning 0L).\n  - Returns 0L for inputs exceeding 12 characters.\n  - Ensures result calculation is only performed for valid characters.\n- Bumped `FileStore` benchmark versions to `_v4` to reset CI baselines.\n- Documented learnings in `.jules/bolt.md`.\n\n* ⚡ Bolt: Optimize StringUtilities and CreatureRangeHelper\n\n- Replaced `IsValidName` Regex with a manual loop (~4x faster).\n- Optimized `LongToString` (zero heap allocations) and `StringToLong` (O(1) lookup table).\n- Fixed `StringToLong` correctness issues (length check, invalid chars, round-trip parity).\n- Optimized `CreatureRangeHelper.IsWithinRange` using a generic overload to enable JIT devirtualization of `ILocation` property accesses.\n- Bumped benchmark versions (`_v2`, `_v4`) to reset CI baselines.\n- Documented learnings in `.jules/bolt.md`.\n\n* ⚡ Bolt: Finalize StringUtilities and CreatureRangeHelper optimizations\n\n- Replaced `IsValidName` Regex with a manual loop (~4x faster).\n- Optimized `LongToString` (zero heap allocations) and `StringToLong` (O(1) lookup table).\n- Fixed `StringToLong` correctness issues (length check, invalid chars, round-trip parity).\n- Optimized `CreatureRangeHelper.IsWithinRange` using a generic overload to enable JIT devirtualization of `ILocation` property accesses.\n- Bumped benchmark versions (`_v2`, `_v4`) to reset CI baselines.\n- Documented learnings in `.jules/bolt.md`.\n\n* ⚡ Bolt: Optimize StringUtilities and CreatureRangeHelper (Corrected)\n\n- Replaced `IsValidName` Regex with an optimized manual loop (~4x faster).\n- Broadened `IsValidName` separator detection to use `char.IsWhiteSpace` for legacy parity (tabs, newlines, etc.).\n- Optimized `LongToString` (zero heap allocations) and `StringToLong` (O(1) lookup table).\n- Restored `StringToLong` trailing underscore stripping to preserve identity resolution parity (\"name\" == \"name_\").\n- Enhanced `StringToLong` with strict validation (length, invalid characters).\n- Optimized `CreatureRangeHelper.IsWithinRange` with generic overloads and local caching to enable JIT devirtualization.\n- Bumped benchmark versions (`_v2`, `_v4`) to reset CI baselines.\n- Documented learnings in `.jules/bolt.md`.\n\n* ⚡ Bolt: Optimize StringUtilities and CreatureRangeHelper (Final)\n\n- Replaced `IsValidName` Regex with an optimized manual loop (~4x faster).\n- Broadened `IsValidName` separator detection to use `char.IsWhiteSpace` for legacy parity (tabs, newlines, etc.).\n- Optimized `LongToString` (zero heap allocations) and `StringToLong` (O(1) lookup table).\n- Restored `StringToLong` trailing underscore stripping to preserve identity resolution parity (\"name\" == \"name_\").\n- Enhanced `StringToLong` with strict validation (length, invalid characters).\n- Optimized `CreatureRangeHelper.IsWithinRange` with generic overloads and local caching to enable JIT devirtualization/inlining (~18x faster).\n- Bumped benchmark versions (`_v2`, `_v4`) to reset CI baselines.\n- Documented learnings in `.jules/bolt.md`.\n\n* ⚡ Bolt: Optimize StringUtilities and CreatureRangeHelper (Final Cleanup)\n\n- Replaced `IsValidName` Regex with an optimized manual loop (~4x faster).\n- Broadened `IsValidName` separator detection to use `char.IsWhiteSpace` for legacy parity and simplified method flow by removing unreachable returns.\n- Optimized `LongToString` (zero heap allocations) and `StringToLong` (O(1) lookup table).\n- Restored `StringToLong` trailing underscore stripping to preserve identity resolution parity (\"name\" == \"name_\").\n- Enhanced `StringToLong` with strict validation (length, invalid characters).\n- Optimized `CreatureRangeHelper.IsWithinRange` with generic overloads and local caching to enable JIT devirtualization/inlining (~18x faster).\n- Bumped benchmark versions (`_v2`, `_v4`) to reset CI baselines.\n- Documented learnings in `.jules/bolt.md`.\n\n* ⚡ Bolt: Optimize StringUtilities and CreatureRangeHelper (Finalized)\n\n- Replaced `IsValidName` Regex with an optimized manual loop (~4x faster).\n- Broadened `IsValidName` separator detection to use `char.IsWhiteSpace` for legacy parity and simplified method flow.\n- Optimized `LongToString` (zero heap allocations) and `StringToLong` (O(1) lookup table).\n- Restored `StringToLong` trailing underscore stripping to preserve identity resolution parity.\n- Enhanced `StringToLong` with strict validation (length, invalid characters).\n- Optimized `CreatureRangeHelper.IsWithinRange` with generic overloads and local caching to enable JIT devirtualization/inlining (~18x faster).\n- Bumped benchmark versions (`_v2`, `_v4`) to reset CI baselines.\n- Documented learnings in `.jules/bolt.md`.",
+          "timestamp": "2026-05-22T23:13:14+02:00",
+          "tree_id": "1436c1d9adc4fdf57f6b6b14c59138f677ccc3bc",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/4f21e828787027ef9745f393087a7913f4d53803"
+        },
+        "date": 1779485049616,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 9.859520956873894,
+            "unit": "ns",
+            "range": "± 0.0074992383782518665"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 3.6587132826447486,
+            "unit": "ns",
+            "range": "± 0.008891955530540065"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 100)",
+            "value": 645.6836296081543,
+            "unit": "ns",
+            "range": "± 14.95687597954939"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 100)",
+            "value": 62.12174119949341,
+            "unit": "ns",
+            "range": "± 0.8963393416386297"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 100)",
+            "value": 953.211968612671,
+            "unit": "ns",
+            "range": "± 0.518561717711103"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 100)",
+            "value": 109.56033878326416,
+            "unit": "ns",
+            "range": "± 5.07256254688207"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 100)",
+            "value": 808.7833151817322,
+            "unit": "ns",
+            "range": "± 0.7344089966096964"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 100)",
+            "value": 107.78954753279686,
+            "unit": "ns",
+            "range": "± 0.062326639891338166"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 100)",
+            "value": 42.442062720656395,
+            "unit": "ns",
+            "range": "± 0.024216185354468296"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 100)",
+            "value": 1.2775502733886241,
+            "unit": "ns",
+            "range": "± 0.001982153485976038"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 100)",
+            "value": 1.6465670131146908,
+            "unit": "ns",
+            "range": "± 0.002829566423187316"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 100)",
+            "value": 2167.0152416992187,
+            "unit": "ns",
+            "range": "± 2.744583971157772"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 100)",
+            "value": 21229.477568359376,
+            "unit": "ns",
+            "range": "± 32.97861045769985"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 100)",
+            "value": 412376.50800781255,
+            "unit": "ns",
+            "range": "± 3760.4497435203475"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 100)",
+            "value": 539425.21015625,
+            "unit": "ns",
+            "range": "± 5856.065769216071"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 100)",
+            "value": 606.9856212615966,
+            "unit": "ns",
+            "range": "± 0.6491978087926791"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 100)",
+            "value": 53.13088561594486,
+            "unit": "ns",
+            "range": "± 0.15328699496165005"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 100)",
+            "value": 5565.47522277832,
+            "unit": "ns",
+            "range": "± 7.969866849326651"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 100)",
+            "value": 4898.839942932129,
+            "unit": "ns",
+            "range": "± 2.570022616316495"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 100)",
+            "value": 2319.4083564758303,
+            "unit": "ns",
+            "range": "± 4.506447933236749"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 100)",
+            "value": 4991.130977630615,
+            "unit": "ns",
+            "range": "± 6.418320468331217"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 100)",
+            "value": 1379.425153541565,
+            "unit": "ns",
+            "range": "± 9.134911392749029"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 100)",
+            "value": 125.73128650188445,
+            "unit": "ns",
+            "range": "± 0.35819154017692023"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 2446.8546760559084,
+            "unit": "ns",
+            "range": "± 8.637639120367044"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 1085.2601318359375,
+            "unit": "ns",
+            "range": "± 0.34596837727620566"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 100)",
+            "value": 1001.8031574249268,
+            "unit": "ns",
+            "range": "± 2.24927068145158"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 100)",
+            "value": 550.0528490066529,
+            "unit": "ns",
+            "range": "± 4.81656798607953"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 100)",
+            "value": 3455.7960229492187,
+            "unit": "ns",
+            "range": "± 44.35698700328275"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 100)",
+            "value": 0.36935306414961816,
+            "unit": "ns",
+            "range": "± 0.00011237587085126422"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 55.50588020682335,
+            "unit": "ns",
+            "range": "± 0.22266595320292812"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 3.683485744521022,
+            "unit": "ns",
+            "range": "± 0.0032409096834719354"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 1000)",
+            "value": 5917.916631698608,
+            "unit": "ns",
+            "range": "± 4.971778366072268"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 1000)",
+            "value": 583.091796875,
+            "unit": "ns",
+            "range": "± 1.1683883000277029"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 1000)",
+            "value": 9373.799273681641,
+            "unit": "ns",
+            "range": "± 27.29844590436126"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 1000)",
+            "value": 1053.502025604248,
+            "unit": "ns",
+            "range": "± 10.085441692292955"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 1000)",
+            "value": 8050.785748291016,
+            "unit": "ns",
+            "range": "± 42.25583192262403"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 1000)",
+            "value": 968.433488368988,
+            "unit": "ns",
+            "range": "± 1.2263752040565905"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 1000)",
+            "value": 221.87697368860245,
+            "unit": "ns",
+            "range": "± 5.7243416819018575"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 1000)",
+            "value": 1.281040581315756,
+            "unit": "ns",
+            "range": "± 0.0016926763480265253"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 1000)",
+            "value": 1.641974364966154,
+            "unit": "ns",
+            "range": "± 0.0027646276469703596"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 1000)",
+            "value": 2157.5257580566404,
+            "unit": "ns",
+            "range": "± 7.14259311601843"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 1000)",
+            "value": 21344.825374999997,
+            "unit": "ns",
+            "range": "± 124.1892721542823"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 1000)",
+            "value": 407858.91281249997,
+            "unit": "ns",
+            "range": "± 2952.2249799578613"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 1000)",
+            "value": 547229.0376562501,
+            "unit": "ns",
+            "range": "± 8153.809093045014"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 1000)",
+            "value": 608.7235181331635,
+            "unit": "ns",
+            "range": "± 1.0021972695067964"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 1000)",
+            "value": 201.84591999053956,
+            "unit": "ns",
+            "range": "± 8.846054742601037"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 1000)",
+            "value": 57421.232192993164,
+            "unit": "ns",
+            "range": "± 47.261626424960546"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 1000)",
+            "value": 48448.543627929685,
+            "unit": "ns",
+            "range": "± 101.71938350897355"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 1000)",
+            "value": 24072.403509521486,
+            "unit": "ns",
+            "range": "± 39.58175505803805"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 1000)",
+            "value": 51873.01770019531,
+            "unit": "ns",
+            "range": "± 73.53470649021904"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 1000)",
+            "value": 14494.890411376953,
+            "unit": "ns",
+            "range": "± 31.07850237398564"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 1000)",
+            "value": 1227.0321946144104,
+            "unit": "ns",
+            "range": "± 0.7146447374588183"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 10014.713610839844,
+            "unit": "ns",
+            "range": "± 129.95752099709586"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 1130.9992473602294,
+            "unit": "ns",
+            "range": "± 2.374489999832332"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 1000)",
+            "value": 8474.53399963379,
+            "unit": "ns",
+            "range": "± 10.320640146062589"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 1000)",
+            "value": 4806.877168273926,
+            "unit": "ns",
+            "range": "± 6.256202775796723"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 1000)",
+            "value": 31435.6743203125,
+            "unit": "ns",
+            "range": "± 183.58000181959463"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 1000)",
+            "value": 0.36913501724600795,
+            "unit": "ns",
+            "range": "± 0.00019010113115785875"
           }
         ]
       }
