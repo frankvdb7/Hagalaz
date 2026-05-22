@@ -13,7 +13,12 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <summary>
         /// Contains the clans.
         /// </summary>
-        private readonly Dictionary<string, IClan> _clans = new Dictionary<string, IClan>();
+        private readonly Dictionary<string, IClan> _clans = new();
+
+        /// <summary>
+        /// Contains the clan handlers.
+        /// </summary>
+        private readonly Dictionary<string, Action> _clanHandlers = new();
 
         /// <summary>
         /// Puts the clan.
@@ -21,10 +26,16 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="clan">The clan.</param>
         public void PutClan(IClan clan)
         {
-            if (_clans.ContainsKey(clan.Name))
+            if (_clans.TryGetValue(clan.Name, out var existingClan))
+            {
+                UnregisterEventHandlers(existingClan);
                 _clans[clan.Name] = clan;
+            }
             else
+            {
                 _clans.Add(clan.Name, clan);
+            }
+
             RegisterEventHandlers(clan);
         }
 
@@ -60,14 +71,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// </summary>
         /// <param name="clanName">The name.</param>
         /// <returns></returns>
-        public IClan GetClanByName(string clanName)
-        {
-            if (_clans.ContainsKey(clanName))
-                return _clans[clanName];
-            return null;
-        }
-
-        private Action _clanChangedEventHandler;
+        public IClan? GetClanByName(string clanName) => _clans.TryGetValue(clanName, out var clan) ? clan : null;
 
         /// <summary>
         /// Registers the event handlers.
@@ -76,8 +80,9 @@ namespace Hagalaz.Services.GameWorld.Services
         private void RegisterEventHandlers(IClan clan)
         {
             UnregisterEventHandlers(clan);
-            _clanChangedEventHandler = () => OnClanSettingsChanged(clan);
-            if (clan.Settings != null) clan.Settings.OnChanged += _clanChangedEventHandler;
+            var handler = () => OnClanSettingsChanged(clan);
+            _clanHandlers[clan.Name] = handler;
+            if (clan.Settings != null) clan.Settings.OnChanged += handler;
         }
 
         /// <summary>
@@ -86,8 +91,10 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="clan">The clan.</param>
         private void UnregisterEventHandlers(IClan clan)
         {
-            if (clan.Settings != null) clan.Settings.OnChanged -= _clanChangedEventHandler;
-            _clanChangedEventHandler = null;
+            if (_clanHandlers.Remove(clan.Name, out var handler))
+            {
+                if (clan.Settings != null) clan.Settings.OnChanged -= handler;
+            }
         }
 
         /// <summary>

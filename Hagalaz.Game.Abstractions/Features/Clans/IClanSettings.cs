@@ -10,7 +10,7 @@ namespace Hagalaz.Game.Abstractions.Features.Clans
         /// <summary>
         /// An event that is raised whenever a setting is changed.
         /// </summary>
-        event Action OnChanged;
+        event Action? OnChanged;
 
         /// <summary>
         /// Gets or sets the unique identifier for the clan.
