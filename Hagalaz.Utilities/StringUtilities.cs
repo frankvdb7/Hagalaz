@@ -48,6 +48,24 @@ namespace Hagalaz.Utilities
         ];
 
         /// <summary>
+        /// A lookup table for base-37 decoding, mapping ASCII characters to their respective values.
+        /// </summary>
+        private static readonly byte[] Base37Lookup = CreateBase37Lookup();
+
+        private static byte[] CreateBase37Lookup()
+        {
+            byte[] lookup = new byte[128];
+            // Initialize with 0 which is the value for '_' and any invalid characters
+            for (int i = 0; i < 128; i++) lookup[i] = 0;
+
+            for (int i = 'a'; i <= 'z'; i++) lookup[i] = (byte)(i - 'a' + 1);
+            for (int i = 'A'; i <= 'Z'; i++) lookup[i] = (byte)(i - 'A' + 1);
+            for (int i = '0'; i <= '9'; i++) lookup[i] = (byte)(i - '0' + 27);
+
+            return lookup;
+        }
+
+        /// <summary>
         /// Validates whether the given string is a well-formed email address.
         /// </summary>
         /// <param name="email">The email string to validate.</param>
@@ -264,15 +282,14 @@ namespace Hagalaz.Utilities
             if (value <= 0L || value >= aLong2320)
                 return null;
 
+            Span<char> ac = stackalloc char[12];
             int i = 0;
-            var ac = new char[12];
             while (value != 0L)
             {
-                long l1 = value;
-                value /= 37L;
-                ac[11 - i++] = _validChars[(int)(l1 - value * 37L)];
+                value = Math.DivRem(value, 37L, out long remainder);
+                ac[11 - i++] = _validChars[(int)remainder];
             }
-            return new string(ac, 12 - i, i);
+            return new string(ac.Slice(12 - i, i));
         }
 
         /// <summary>
@@ -282,26 +299,21 @@ namespace Hagalaz.Utilities
         /// <returns>The decoded 64-bit integer value.</returns>
         public static long StringToLong(this string s)
         {
+            if (string.IsNullOrEmpty(s) || s.Length > 12) return 0L;
+
             long l = 0L;
-            for (int i = 0; i < s.Length && i < 12; i++)
+            // Use local span to avoid repeated field access
+            ReadOnlySpan<byte> lookup = Base37Lookup;
+            for (int i = 0; i < s.Length; i++)
             {
                 char c = s[i];
                 l *= 37L;
-                if (c >= 'a' && c <= 'z')
+                if ((uint)c < 128)
                 {
-                    l += (c - 'a') + 1;
+                    l += lookup[c];
                 }
-                else if (c >= 'A' && c <= 'Z')
-                {
-                    l += (c - 'A') + 1;
-                }
-                else if (c >= '0' && c <= '9')
-                {
-                    l += (c - '0') + 27;
-                }
-
             }
-            while (l % 37L == 0L && l != 0L) l /= 37L;
+            while (l > 0 && l % 37L == 0L) l /= 37L;
             return l;
         }
 

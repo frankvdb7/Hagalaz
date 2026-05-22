@@ -29,3 +29,7 @@
 ## 2026-04-24 - [O(N) Huffman Decoding with ArrayPool and ReadOnlySpan]
 **Learning:** Unrolled bit-processing logic with string concatenation (`string += char`) leads to O(N^2) allocations and significant GC pressure during decompression of long streams. Replacing this with a unified bit-loop using bit-shifts and `ArrayPool<char>` for the output buffer reduces allocations by ~240x and improves performance by ~8x. Further optimization by caching the Huffman tree in a `ReadOnlySpan<int>` and using unsigned comparisons for bounds checks (`(uint)idx >= (uint)len`) yields a total ~11x speedup.
 **Action:** Use `ArrayPool<T>` for transient output buffers and cache static fields in local `ReadOnlySpan<T>` variables to maximize JIT optimization in hot-path loops. Use unsigned comparisons to combine lower and upper bounds checks for performance.
+
+## 2026-05-22 - [Optimizing Base37 Conversions with Lookup Tables and stackalloc]
+**Learning:** Base-37 encoding/decoding is a frequent operation in identity resolution. Using `stackalloc char[12]` instead of a heap-allocated array for intermediate buffers in `LongToString` reduces per-call allocations by ~55% (88B \to 40B). For `StringToLong`, replacing branching logic with a static 128-byte lookup table provides a constant-time mapping and yields an ~8% speedup.
+**Action:** Use stack-allocated buffers for fixed-size string building and lookup tables for character-to-value mapping in high-frequency conversion utilities.
