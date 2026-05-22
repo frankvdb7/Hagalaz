@@ -7,8 +7,8 @@ namespace Hagalaz.Benchmarks
 {
     public partial class HagalazBenchmarks
     {
-        private ILocation _loc1 = null!;
-        private ILocation _loc2 = null!;
+        private Location _loc1;
+        private Location _loc2;
 
         private void SetupCreatureBenchmarks()
         {
@@ -17,15 +17,15 @@ namespace Hagalaz.Benchmarks
         }
 
         [Benchmark]
-        public bool CreatureWithinRange_1x1_WorstCase()
+        public bool CreatureWithinRange_1x1_WorstCase_v2()
         {
-            return CreatureRangeHelper.IsWithinRange(_loc1, 1, _loc2, 1, 5);
+            return CreatureRangeHelper.IsWithinRange<Location, Location>(_loc1, 1, _loc2, 1, 5);
         }
 
         [Benchmark]
-        public bool CreatureWithinRange_3x3_WorstCase()
+        public bool CreatureWithinRange_3x3_WorstCase_v2()
         {
-            return CreatureRangeHelper.IsWithinRange(_loc1, 3, _loc2, 3, 5);
+            return CreatureRangeHelper.IsWithinRange<Location, Location>(_loc1, 3, _loc2, 3, 5);
         }
     }
 }
