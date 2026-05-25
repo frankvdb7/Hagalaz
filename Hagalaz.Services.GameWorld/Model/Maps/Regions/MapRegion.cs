@@ -73,7 +73,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _groundItemBuilder = groundItemBuilder;
             _mapper = mapper;
             Size = new Location(64, 64, 4, 0);
-            _collision = new CollisionFlag[Size.X, Size.Y, Size.Z];
+            _collision = new CollisionFlag[Size.Z, Size.X, Size.Y];
         }
 
         /// <inheritdoc />
@@ -165,9 +165,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <inheritdoc />
         public async Task MajorClientUpdateTick()
         {
-            foreach (var character in _characters)
+            foreach (var part in _parts)
             {
-                foreach (var part in _parts)
+                foreach (var character in _characters)
                 {
                     part.SendUpdates(character);
                 }

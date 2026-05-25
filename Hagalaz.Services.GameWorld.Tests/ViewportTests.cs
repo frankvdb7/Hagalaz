@@ -33,7 +33,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void VisibleCreatures_IsListHashSet_Internally()
+        public void VisibleCreatures_IsReadOnly_Internally()
         {
             Assert.IsInstanceOfType(_viewport.VisibleCreatures, typeof(IReadOnlyList<ICreature>));
             Assert.IsInstanceOfType(_viewport.VisibleCharacters, typeof(IReadOnlyCollection<ICharacter>));
@@ -54,8 +54,12 @@ namespace Hagalaz.Services.GameWorld.Tests
             character.Location.Returns(charLoc);
             character.Appearance.Visible.Returns(true);
 
-            region.When(r => r.ForEachCharacter(Arg.Any<Action<ICharacter, Viewport>>(), Arg.Any<Viewport>()))
-                  .Do(info => info.Arg<Action<ICharacter, Viewport>>()(character, info.Arg<Viewport>()));
+            region.When(r => r.ForEachCharacter(Arg.Any<Action<ICharacter, Viewport.ViewportUpdateState>>(), Arg.Any<Viewport.ViewportUpdateState>()))
+                  .Do(info => {
+                      var action = info.ArgAt<Action<ICharacter, Viewport.ViewportUpdateState>>(0);
+                      var state = info.ArgAt<Viewport.ViewportUpdateState>(1);
+                      action(character, state);
+                  });
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>()).Returns(new List<IMapRegion> { region });
 
@@ -82,12 +86,12 @@ namespace Hagalaz.Services.GameWorld.Tests
             char2.Location.Returns(new Location(3202, 3202, 0, 0));
             char2.Appearance.Visible.Returns(true);
 
-            region.When(r => r.ForEachCharacter(Arg.Any<Action<ICharacter, Viewport>>(), Arg.Any<Viewport>()))
+            region.When(r => r.ForEachCharacter(Arg.Any<Action<ICharacter, Viewport.ViewportUpdateState>>(), Arg.Any<Viewport.ViewportUpdateState>()))
                   .Do(info => {
-                      var action = info.Arg<Action<ICharacter, Viewport>>();
-                      var vp = info.Arg<Viewport>();
-                      action(char1, vp);
-                      action(char2, vp);
+                      var action = info.ArgAt<Action<ICharacter, Viewport.ViewportUpdateState>>(0);
+                      var state = info.ArgAt<Viewport.ViewportUpdateState>(1);
+                      action(char1, state);
+                      action(char2, state);
                   });
 
             _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>()).Returns(new List<IMapRegion> { region });
@@ -114,10 +118,12 @@ namespace Hagalaz.Services.GameWorld.Tests
             character.Appearance.Visible.Returns(true);
 
             bool shouldReturnCharacter = true;
-            region.When(r => r.ForEachCharacter(Arg.Any<Action<ICharacter, Viewport>>(), Arg.Any<Viewport>()))
+            region.When(r => r.ForEachCharacter(Arg.Any<Action<ICharacter, Viewport.ViewportUpdateState>>(), Arg.Any<Viewport.ViewportUpdateState>()))
                   .Do(info => {
                       if (shouldReturnCharacter) {
-                          info.Arg<Action<ICharacter, Viewport>>()(character, info.Arg<Viewport>());
+                          var action = info.ArgAt<Action<ICharacter, Viewport.ViewportUpdateState>>(0);
+                          var state = info.ArgAt<Viewport.ViewportUpdateState>(1);
+                          action(character, state);
                       }
                   });
 
