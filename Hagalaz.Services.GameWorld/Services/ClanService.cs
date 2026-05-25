@@ -26,11 +26,6 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="clan">The clan.</param>
         public void PutClan(IClan clan)
         {
-            if (_clans.TryGetValue(clan.Name, out var existingClan))
-            {
-                UnregisterEventHandlers(existingClan);
-            }
-
             _clans[clan.Name] = clan;
             RegisterEventHandlers(clan);
         }
@@ -53,12 +48,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <returns></returns>
         public bool RemoveClan(string clanName)
         {
-            if (_clans.ContainsKey(clanName))
-            {
-                var clan = _clans[clanName];
-                UnregisterEventHandlers(clan);
-            }
-
+            UnregisterEventHandlers(clanName);
             return _clans.Remove(clanName);
         }
 
@@ -75,7 +65,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <param name="clan">The clan.</param>
         private void RegisterEventHandlers(IClan clan)
         {
-            UnregisterEventHandlers(clan);
+            UnregisterEventHandlers(clan.Name);
             if (clan.Settings == null)
             {
                 return;
@@ -89,10 +79,12 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <summary>
         /// Unregisters the event handlers.
         /// </summary>
-        /// <param name="clan">The clan.</param>
-        private void UnregisterEventHandlers(IClan clan)
+        /// <param name="clanName">Name of the clan.</param>
+        private void UnregisterEventHandlers(string clanName)
         {
-            if (_clanHandlers.Remove(clan.Name, out var entry))
+            // Use the stored settings instance to perform the unsubscription.
+            // This ensures the handler is removed from the correct object even if the property has changed.
+            if (_clanHandlers.Remove(clanName, out var entry))
             {
                 entry.Settings.OnChanged -= entry.Handler;
             }
