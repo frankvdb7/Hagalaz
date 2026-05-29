@@ -33,3 +33,7 @@
 ## 2026-05-15 - [Optimizing Name Validation and Base-37 Conversions]
 **Learning:** Even `GeneratedRegex` in .NET 10 can be ~4x slower than a manual character-by-character loop for short strings (under 12 chars) with complex validation rules. For base-37 conversions, using `stackalloc Span<char>` with `Math.DivRem` eliminates all heap allocations, and an $O(1)$ `ReadOnlySpan<byte>` lookup table significantly outperforms repeated character arithmetic or branching.
 **Action:** Replace `Regex` with manual state-machine loops in high-frequency validation hot paths. Use `stackalloc` for small fixed-size buffers and static lookup tables for character-to-value mappings.
+
+## 2026-05-29 - [Optimizing CSV Parsing with Specific NumberStyles and Fast-Paths]
+**Learning:** Using `NumberStyles.Any` in `int.TryParse` or `double.TryParse` is significantly slower than specific styles like `NumberStyles.Integer` or `NumberStyles.Float` because it must check for currency, parentheses, and thousands separators. In `StringUtilities.SelectIntFromString`, switching to `NumberStyles.Integer` contributed to a ~4x speedup. Furthermore, implementing a manual fast-path for single-character boolean segments ("1"/"0") avoids the entire parsing infrastructure for the most common case.
+**Action:** Always prefer the most restrictive `NumberStyles` possible for parsing. Use manual character checks for high-frequency, single-character data segments to bypass `TryParse` overhead.
