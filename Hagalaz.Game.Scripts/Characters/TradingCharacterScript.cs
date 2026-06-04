@@ -108,6 +108,8 @@ namespace Hagalaz.Game.Scripts.Characters
 
         public TradingCharacterScript(ICharacterContextAccessor contextAccessor, IItemBuilder itemBuilder) : base(contextAccessor)
         {
+            SelfContainer = new TradeContainer();
+            TargetContainer = new TradeContainer();
             _itemBuilder = itemBuilder;
         }
 
@@ -167,7 +169,7 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public override void OnDestroy()
         {
-            if (TradeSession)
+            if (TradeSession && Target != null && SelfInterface != null && TargetInterface != null && SelfOverlay != null && TargetOverlay != null)
             {
                 CancelTradeSession();
             }
@@ -198,7 +200,7 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public override void Tick()
         {
-            if (TradeSession)
+            if (TradeSession && Target != null && SelfInterface != null && TargetInterface != null && SelfOverlay != null && TargetOverlay != null)
             {
                 if (Target.IsDestroyed)
                 {
@@ -221,7 +223,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
 
 
-                if (SelfInterface.Id == 335 || TargetInterface.Id == 335) // trade offer step
+            if (SelfInterface?.Id == 335 || TargetInterface?.Id == 335)
                 {
                     if (!SelfOverlay.IsOpened || !TargetOverlay.IsOpened)
                     {
@@ -275,7 +277,7 @@ namespace Hagalaz.Game.Scripts.Characters
             var characterTradeInterfaceScript = Character.ServiceProvider.GetRequiredService<TradeInterfaceScript>();
             characterTradeInterfaceScript.CloseHandler = () =>
             {
-                if (TradeSession)
+            if (TradeSession && Target != null && SelfInterface != null && TargetInterface != null && SelfOverlay != null && TargetOverlay != null)
                 {
                     Target.SendChatMessage("The other player declined trade.");
                 }
@@ -285,7 +287,7 @@ namespace Hagalaz.Game.Scripts.Characters
             var targetTradeInterfaceScript = Target.ServiceProvider.GetRequiredService<TradeInterfaceScript>();
             targetTradeInterfaceScript.CloseHandler = () =>
             {
-                if (TradeSession)
+            if (TradeSession && Target != null && SelfInterface != null && TargetInterface != null && SelfOverlay != null && TargetOverlay != null)
                 {
                     Character.SendChatMessage("The other player declined trade.");
                 }
@@ -353,8 +355,8 @@ namespace Hagalaz.Game.Scripts.Characters
             SelfContainer = [];
             TargetContainer = [];
 
-            SelfInterface.DrawString(17, "Trading With: " + Target.DisplayName);
-            TargetInterface.DrawString(17, "Trading With: " + Character.DisplayName);
+            SelfInterface?.DrawString(17, "Trading With: " + Target.DisplayName);
+            TargetInterface?.DrawString(17, "Trading With: " + Character.DisplayName);
 
             // IviiiIsssssssss
             // setupInterfaceItemsDisplayFromItemsArrayNonSplit(icomponent,itemsArrayIndex,numRows,numCollumns,dragOptions,dragTarget,option1,option2,option3,option4,option5,option6,option7,option8,option9) : 150
@@ -1163,11 +1165,11 @@ namespace Hagalaz.Game.Scripts.Characters
             {
                 if (self && targetAccepted)
                 {
-                    TargetInterface.DrawString(39, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
+                    TargetInterface?.DrawString(39, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
                 }
                 else if (!self && selfAccepted)
                 {
-                    SelfInterface.DrawString(39, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
+                    SelfInterface?.DrawString(39, "<col=FF0000><b>CHECK OTHER PLAYER'S OFFER!</b></col>");
                 }
 
                 foreach (short slot in slots)
@@ -1261,22 +1263,22 @@ namespace Hagalaz.Game.Scripts.Characters
                 return;
             }
 
-            if (SelfInterface.Id == 335 || TargetInterface.Id == 335)
+            if (SelfInterface?.Id == 335 || TargetInterface?.Id == 335)
             {
                 if (!SelfAccepted && !TargetAccepted)
                 {
-                    SelfInterface.DrawString(39, ""); // turn off Waiting for other player
-                    TargetInterface.DrawString(39, ""); // turn off Waiting for other player
+                    SelfInterface?.DrawString(39, ""); // turn off Waiting for other player
+                    TargetInterface?.DrawString(39, ""); // turn off Waiting for other player
                 }
                 else if (SelfAccepted && !TargetAccepted)
                 {
-                    SelfInterface.DrawString(39, "Waiting for other player...");
-                    TargetInterface.DrawString(39, "The other player has accepted.");
+                    SelfInterface?.DrawString(39, "Waiting for other player...");
+                    TargetInterface?.DrawString(39, "The other player has accepted.");
                 }
                 else if (!SelfAccepted && TargetAccepted)
                 {
-                    SelfInterface.DrawString(39, "The other player has accepted.");
-                    TargetInterface.DrawString(39, "Waiting for other player...");
+                    SelfInterface?.DrawString(39, "The other player has accepted.");
+                    TargetInterface?.DrawString(39, "Waiting for other player...");
                 }
                 else // GOTO next step
                 {
@@ -1287,18 +1289,18 @@ namespace Hagalaz.Game.Scripts.Characters
             {
                 if (!SelfAccepted && !TargetAccepted)
                 {
-                    SelfInterface.DrawString(34, "Are you sure you want to make this trade?");
-                    TargetInterface.DrawString(34, "Are you sure you want to make this trade?");
+                    SelfInterface?.DrawString(34, "Are you sure you want to make this trade?");
+                    TargetInterface?.DrawString(34, "Are you sure you want to make this trade?");
                 }
                 else if (SelfAccepted && !TargetAccepted)
                 {
-                    SelfInterface.DrawString(34, "Waiting for other player...");
-                    TargetInterface.DrawString(34, "The other player has accepted.");
+                    SelfInterface?.DrawString(34, "Waiting for other player...");
+                    TargetInterface?.DrawString(34, "The other player has accepted.");
                 }
                 else if (!SelfAccepted && TargetAccepted)
                 {
-                    SelfInterface.DrawString(34, "The other player has accepted.");
-                    TargetInterface.DrawString(34, "Waiting for other player...");
+                    SelfInterface?.DrawString(34, "The other player has accepted.");
+                    TargetInterface?.DrawString(34, "Waiting for other player...");
                 }
                 else
                 {
@@ -1331,7 +1333,7 @@ namespace Hagalaz.Game.Scripts.Characters
             var characterTradeInterfaceScript = Character.ServiceProvider.GetRequiredService<TradeInterfaceScript>();
             characterTradeInterfaceScript.CloseHandler = () =>
             {
-                if (TradeSession)
+            if (TradeSession && Target != null && SelfInterface != null && TargetInterface != null && SelfOverlay != null && TargetOverlay != null)
                 {
                     Target.SendChatMessage("The other player declined trade.");
                 }
@@ -1350,7 +1352,7 @@ namespace Hagalaz.Game.Scripts.Characters
             var targetTradeInterfaceScript = Target.ServiceProvider.GetRequiredService<TradeInterfaceScript>();
             targetTradeInterfaceScript.CloseHandler = () =>
             {
-                if (TradeSession)
+            if (TradeSession && Target != null && SelfInterface != null && TargetInterface != null && SelfOverlay != null && TargetOverlay != null)
                 {
                     Character.SendChatMessage("The other player declined trade.");
                 }
@@ -1458,7 +1460,7 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public void CancelTradeSession()
         {
-            if (TradeSession)
+            if (TradeSession && Target != null && SelfInterface != null && TargetInterface != null && SelfOverlay != null && TargetOverlay != null)
             {
                 TradeSession = false;
                 if (Character.Widgets.IntInputHandler == SelfIntInputHandler)
@@ -1645,7 +1647,7 @@ namespace Hagalaz.Game.Scripts.Characters
             /// <summary>
             ///     Contains close handler for this trade interface.
             /// </summary>
-            public Action CloseHandler { get; set; }
+            public Action? CloseHandler { get; set; }
 
             public TradeInterfaceScript(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }
 
@@ -1657,7 +1659,7 @@ namespace Hagalaz.Game.Scripts.Characters
             /// <summary>
             ///     Happens when this interface is closed.
             /// </summary>
-            public override void OnClose() => CloseHandler.Invoke();
+            public override void OnClose() => CloseHandler?.Invoke();
         }
 
         /// <summary>

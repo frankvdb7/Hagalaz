@@ -9,7 +9,7 @@
         /// <summary>
         /// Gets the current animation being performed by the creature.
         /// </summary>
-        IAnimation CurrentAnimation { get; }
+        IAnimation? CurrentAnimation { get; }
 
         /// <summary>
         /// Gets a value indicating whether a visual update (e.g., for appearance changes) is required for the creature.

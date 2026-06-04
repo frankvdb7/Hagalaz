@@ -23,7 +23,7 @@ namespace Raido.Common.Tests.Protocol
 
             // Assert
             var result = buffer.ToArray();
-            Assert.AreEqual(4, result.Length);
+            Assert.HasCount(4, result);
             CollectionAssert.AreEqual(new byte[] { 116, 101, 115, 116 }, result);
             MemoryBufferWriter.Return(buffer);
         }

@@ -8,7 +8,7 @@ namespace Hagalaz.Services.Characters.Model
     {
         public record SortModel
         {
-            public SortType? Experience { get; }
+            public SortType? Experience { get; init; }
         }
 
         public record FilterModel

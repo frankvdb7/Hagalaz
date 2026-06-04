@@ -17,5 +17,7 @@
     <ProjectReference Include="..\Hagalaz.Security\Hagalaz.Security.csproj" />
     <ProjectReference Include="..\Hagalaz.Cache\Hagalaz.Cache.csproj" />
     <ProjectReference Include="..\Hagalaz.Cache.Abstractions\Hagalaz.Cache.Abstractions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
+    <ProjectReference Include="..\Hagalaz.Game.Utilities\Hagalaz.Game.Utilities.csproj" />
   </ItemGroup>
 </Project>

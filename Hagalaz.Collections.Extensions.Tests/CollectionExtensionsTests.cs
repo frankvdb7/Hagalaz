@@ -20,7 +20,7 @@ namespace Hagalaz.Collections.Extensions.Tests
             var set = new HashSet<int> { 1, 2 };
             var list = new List<int> { 3, 4 };
             set.AddRange(list);
-            Assert.AreEqual(4, set.Count);
+            Assert.HasCount(4, set);
         }
 
         [TestMethod]

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
@@ -12,12 +12,12 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
         /// <summary>
         /// The callback.
         /// </summary>
-        public Action<bool> Callback { get; set; }
+        public Action<bool> Callback { get; set; } = null!;
 
         /// <summary>
         /// The question.
         /// </summary>
-        public string Question { get; set; }
+        public string Question { get; set; } = null!;
 
         public YesNoDialogueScript(ICharacterContextAccessor contextAccessor) : base(contextAccessor)
         {

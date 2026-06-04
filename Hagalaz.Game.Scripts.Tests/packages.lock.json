@@ -1306,7 +1306,10 @@
         }
       },
       "hagalaz.game.utilities": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "Hagalaz.Game.Abstractions": "[1.0.0, )"
+        }
       },
       "hagalaz.hosting.extensions": {
         "type": "Project",

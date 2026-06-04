@@ -31,7 +31,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var task3 = Substitute.For<ITaskItem>();
             taskService.Schedule(task3);
 
-            Assert.AreEqual(1, taskService.Tasks.Count);
+            Assert.HasCount(1, taskService.Tasks);
             Assert.AreSame(task3, taskService.Tasks[0]);
         }
     }

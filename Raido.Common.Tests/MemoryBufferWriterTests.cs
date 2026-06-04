@@ -73,7 +73,7 @@ namespace Raido.Common.Tests
             var result = writer.ToArray();
 
             // Assert
-            Assert.AreEqual(0, result.Length);
+            Assert.IsEmpty(result);
             MemoryBufferWriter.Return(writer);
         }
 

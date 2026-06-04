@@ -54,7 +54,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains last character location.
         /// </summary>
         /// <value>The last location.</value>
-        public ILocation LastLocation { get; private set; } = default!;
+        public ILocation LastLocation { get; private set; }
 
         /// <summary>
         /// Gets a value indicating whether [large scene view].
@@ -98,7 +98,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains current animation.
         /// </summary>
         /// <value>The current animation.</value>
-        public IAnimation CurrentAnimation { get; private set; }
+        public IAnimation? CurrentAnimation { get; private set; }
 
         public CharacterRenderInformation(ICharacter renderable)
         {
@@ -108,6 +108,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _currentGraphics = new IGraphic[4];
             _characterStore = renderable.ServiceProvider.GetRequiredService<ICharacterStore>();
             _characterLocationMap = renderable.ServiceProvider.GetRequiredService<ICharacterLocationService>();
+            LastLocation = renderable.Location.Clone();
         }
 
         /// <summary>

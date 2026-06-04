@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
+using Hagalaz.Game.Scripts.Dialogues.Generic;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Skills.Fletching
@@ -180,18 +181,32 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             }
 
             var definition = Wood[definitionId];
-            var defaultScript = character.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
-            character.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.InteractiveChatBox, 0, defaultScript, false);
-            var parent = character.Widgets.GetOpenWidget((short)DialogueInterfaces.InteractiveChatBox);
-            if (parent == null)
+            var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
+            dialogue.ProductIds = definition.ProductIDs;
+            dialogue.Options = InteractiveDialogueOptions.Make;
+            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
+            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
-                return false;
-            }
+                if (currentCount > 0)
+                {
+                    var productIndex = Array.IndexOf(definition.ProductIDs, selectedItemID);
+                    TryStartFletching(character, definition, CreateFletchWoodCallback(character, definition), productIndex, 3, currentCount);
+                }
 
-            var fletchingDialogue = character.ServiceProvider.GetRequiredService<FletchingDialogue>();
-            fletchingDialogue.Definition = definition;
-            fletchingDialogue.TickDelay = 3;
-            fletchingDialogue.OnFletchingPerformCallback = productIndex =>
+                return true;
+            };
+
+
+            var count = character.Inventory.GetCountById(definition.ResourceID);
+            dialogue.SetMaxCount(count, false);
+            dialogue.SetCurrentCount(count, false);
+
+            return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
+        }
+
+        private Func<int, bool> CreateFletchWoodCallback(ICharacter character, FletchingDefinition definition)
+        {
+            return productIndex =>
             {
                 var amount = 1;
                 var resource = character.Inventory.GetById(definition.ResourceID);
@@ -227,8 +242,6 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
                 return false;
             };
-            character.Widgets.OpenWidget((short)DialogueInterfaces.InteractiveSelectAmountBox, parent, 4, 0, fletchingDialogue, false);
-            return true;
         }
 
         /// <summary>
@@ -262,19 +275,32 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             }
 
             var definition = Bows[definitionId];
-
-            var defaultScript = character.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
-            character.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.InteractiveChatBox, 0, defaultScript, false);
-            var parent = character.Widgets.GetOpenWidget((short)DialogueInterfaces.InteractiveChatBox);
-            if (parent == null)
+            var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
+            dialogue.ProductIds = definition.ProductIDs;
+            dialogue.Options = InteractiveDialogueOptions.Make;
+            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
+            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
-                return false;
-            }
+                if (currentCount > 0)
+                {
+                    var productIndex = Array.IndexOf(definition.ProductIDs, selectedItemID);
+                    TryStartFletching(character, definition, CreateFletchBowCallback(character, definition), productIndex, 2, currentCount);
+                }
 
-            var fletchingDialogue = character.ServiceProvider.GetRequiredService<FletchingDialogue>();
-            fletchingDialogue.Definition = definition;
-            fletchingDialogue.TickDelay = 2;
-            fletchingDialogue.OnFletchingPerformCallback = productIndex =>
+                return true;
+            };
+
+
+            var count = character.Inventory.GetCountById(definition.ResourceID);
+            dialogue.SetMaxCount(count, false);
+            dialogue.SetCurrentCount(count, false);
+
+            return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
+        }
+
+        private Func<int, bool> CreateFletchBowCallback(ICharacter character, FletchingDefinition definition)
+        {
+            return productIndex =>
             {
                 var resource = character.Inventory.GetById(definition.ResourceID);
                 if (resource == null)
@@ -318,8 +344,6 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex]);
                 return false;
             };
-            character.Widgets.OpenWidget((short)DialogueInterfaces.InteractiveSelectAmountBox, parent, 4, 0, fletchingDialogue, false);
-            return true;
         }
 
         /// <summary>
@@ -353,19 +377,32 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             }
 
             var definition = Ammo[definitionId];
-
-            var defaultScript = character.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
-            character.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.InteractiveChatBox, 0, defaultScript, false);
-            var parent = character.Widgets.GetOpenWidget((short)DialogueInterfaces.InteractiveChatBox);
-            if (parent == null)
+            var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
+            dialogue.ProductIds = definition.ProductIDs;
+            dialogue.Options = InteractiveDialogueOptions.Make;
+            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
+            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
-                return false;
-            }
+                if (currentCount > 0)
+                {
+                    var productIndex = Array.IndexOf(definition.ProductIDs, selectedItemID);
+                    TryStartFletching(character, definition, CreateFletchAmmoCallback(character, definition), productIndex, 1, currentCount);
+                }
 
-            var fletchingDialogue = character.ServiceProvider.GetRequiredService<FletchingDialogue>();
-            fletchingDialogue.Definition = definition;
-            fletchingDialogue.TickDelay = 1;
-            fletchingDialogue.OnFletchingPerformCallback = productIndex =>
+                return true;
+            };
+
+
+            var count = character.Inventory.GetCountById(definition.ResourceID);
+            dialogue.SetMaxCount(count, false);
+            dialogue.SetCurrentCount(count, false);
+
+            return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
+        }
+
+        private Func<int, bool> CreateFletchAmmoCallback(ICharacter character, FletchingDefinition definition)
+        {
+            return productIndex =>
             {
                 var resource = character.Inventory.GetById(definition.ResourceID);
                 if (resource == null)
@@ -428,9 +465,6 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
                 return false;
             };
-
-            character.Widgets.OpenWidget((short)DialogueInterfaces.InteractiveSelectAmountBox, parent, 4, 0, fletchingDialogue, false);
-            return true;
         }
 
         /// <summary>
@@ -464,18 +498,32 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             }
 
             var definition = Tips[definitionId];
-            var defaultScript = character.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
-            character.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.InteractiveChatBox, 0, defaultScript, false);
-            var parent = character.Widgets.GetOpenWidget((short)DialogueInterfaces.InteractiveChatBox);
-            if (parent == null)
+            var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
+            dialogue.ProductIds = definition.ProductIDs;
+            dialogue.Options = InteractiveDialogueOptions.Make;
+            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
+            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
-                return false;
-            }
+                if (currentCount > 0)
+                {
+                    var productIndex = Array.IndexOf(definition.ProductIDs, selectedItemID);
+                    TryStartFletching(character, definition, CreateFletchTipsCallback(character, definition), productIndex, 3, currentCount);
+                }
 
-            var fletchingDialogue = character.ServiceProvider.GetRequiredService<FletchingDialogue>();
-            fletchingDialogue.Definition = definition;
-            fletchingDialogue.TickDelay = 3;
-            fletchingDialogue.OnFletchingPerformCallback = productIndex =>
+                return true;
+            };
+
+
+            var count = character.Inventory.GetCountById(definition.ResourceID);
+            dialogue.SetMaxCount(count, false);
+            dialogue.SetCurrentCount(count, false);
+
+            return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
+        }
+
+        private Func<int, bool> CreateFletchTipsCallback(ICharacter character, FletchingDefinition definition)
+        {
+            return productIndex =>
             {
                 var resource = character.Inventory.GetById(definition.ResourceID);
                 if (resource == null)
@@ -509,14 +557,6 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
                 return false;
             };
-
-            character.Widgets.OpenWidget((int)DialogueInterfaces.InteractiveSelectAmountBox,
-                parent,
-                4,
-                0,
-                fletchingDialogue,
-                false);
-            return true;
         }
 
         /// <summary>

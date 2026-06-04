@@ -78,7 +78,7 @@ namespace Hagalaz.Collections.Tests
             collection.Add(3);
 
             var list = collection.ToList();
-            Assert.AreEqual(3, list.Count);
+            Assert.HasCount(3, list);
             Assert.AreEqual(1, list[0]);
             Assert.AreEqual(2, list[1]);
             Assert.AreEqual(3, list[2]);
@@ -130,7 +130,7 @@ namespace Hagalaz.Collections.Tests
             // Assert
             // ListHashSet should be much faster. We use a conservative 5x check
             // to avoid flakiness while still catching major regressions (like falling back to O(N)).
-            Assert.IsTrue(listHashSetTime < listTime / 5,
+            Assert.IsLessThan(listTime / 5, listHashSetTime,
                 $"Performance regression: ListHashSet.Contains ({listHashSetTime} ticks) should be at least 5x faster than List.Contains ({listTime} ticks)");
         }
     }

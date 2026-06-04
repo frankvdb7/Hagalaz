@@ -99,7 +99,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             _viewport.UpdateTick();
 
             // Act & Assert
-            Assert.AreEqual(2, _viewport.VisibleCreatures.Count);
+            Assert.HasCount(2, _viewport.VisibleCreatures);
             Assert.AreEqual(char1, _viewport.VisibleCreatures[0]);
             Assert.AreEqual(char2, _viewport.VisibleCreatures[1]);
         }
@@ -127,14 +127,14 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             _viewport.RebuildView();
             _viewport.UpdateTick();
-            Assert.AreEqual(1, _viewport.VisibleCreatures.Count);
+            Assert.HasCount(1, _viewport.VisibleCreatures);
 
             // Rebuild with no creatures
             region.FindAllCharacters().Returns(new List<ICharacter>());
             _viewport.UpdateTick();
 
             // Act & Assert
-            Assert.AreEqual(0, _viewport.VisibleCreatures.Count);
+            Assert.IsEmpty(_viewport.VisibleCreatures);
             Assert.IsFalse(_viewport.VisibleCreatures.Contains(character));
         }
 

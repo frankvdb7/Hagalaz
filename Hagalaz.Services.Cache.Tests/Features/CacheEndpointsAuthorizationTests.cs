@@ -30,7 +30,7 @@ public class CacheEndpointsAuthorizationTests
             .Where(endpoint => endpoint.RoutePattern.RawText is not null && endpoint.RoutePattern.RawText.Contains("api/v1/cache"))
             .ToArray();
 
-        Assert.IsTrue(cacheEndpoints.Length > 0);
+        Assert.IsNotEmpty(cacheEndpoints);
         Assert.IsTrue(cacheEndpoints.All(endpoint =>
         {
             var authorizeData = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>();

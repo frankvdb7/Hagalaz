@@ -132,7 +132,7 @@ namespace Hagalaz.Collections.Tests
 
             // Assert
             Assert.AreEqual(3, enumerationCount, "The source should only be enumerated as far as needed.");
-            Assert.AreEqual(3, subset.Count);
+            Assert.HasCount(3, subset);
         }
 
         [TestMethod]
@@ -161,10 +161,10 @@ namespace Hagalaz.Collections.Tests
 
             // Assert
             Assert.AreEqual(100, enumerationCount, "The source should be enumerated exactly once, even with multiple threads.");
-            Assert.AreEqual(10, allElements.Count, "All tasks should complete and add their element lists.");
+            Assert.HasCount(10, allElements, "All tasks should complete and add their element lists.");
             foreach (var elements in allElements)
             {
-                Assert.AreEqual(100, elements.Count, "Each thread should get all the elements.");
+                Assert.HasCount(100, elements, "Each thread should get all the elements.");
                 CollectionAssert.AreEqual(Enumerable.Range(0, 100).ToList(), elements, "The elements should be consistent across all threads.");
             }
         }

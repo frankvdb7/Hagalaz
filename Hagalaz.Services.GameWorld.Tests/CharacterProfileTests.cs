@@ -76,7 +76,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             profile.SetValue("a.b.c.d", 5);
             var dto = profile.Dehydrate();
-            Assert.AreEqual(dto.JsonData, "{\"a\":{\"b\":{\"c\":{\"d\":5}}}}", true);
+            Assert.AreEqual("{\"a\":{\"b\":{\"c\":{\"d\":5}}}}", dto.JsonData, true);
         }
 
         [TestMethod]
@@ -143,7 +143,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             profile.Hydrate(new HydratedProfileDto { JsonData = _json });
 
             var result = profile.TryGetValue<int>("a.b", out var value);
-            Assert.AreEqual(result, true);
+            Assert.IsTrue(result);
             Assert.AreEqual(1, value);
         }
 
@@ -154,7 +154,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             profile.Hydrate(new HydratedProfileDto { JsonData = _json });
 
             var result = profile.TryGetValue("h", out var value);
-            Assert.AreEqual(result, true);
+            Assert.IsTrue(result);
             Assert.AreEqual("stringvalue", value);
         }
 
@@ -186,7 +186,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void Profile_Get_Object_Null()
         {
             var profile = new Profile(_jsonOptions);
-            Assert.AreEqual(null, profile.GetObject<ADto>("b.d.f.g"));
+            Assert.IsNull(profile.GetObject<ADto>("b.d.f.g"));
         }
 
         [TestMethod]
@@ -205,7 +205,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             profile.Hydrate(new HydratedProfileDto { JsonData = _json });
 
             var result = profile.TryGetObject<ADto>("a", out var value);
-            Assert.AreEqual(true, result);
+            Assert.IsTrue(result);
             Assert.AreEqual(value, new ADto { B = 1, C = new CDto { D = 2 } });
         }
 

@@ -177,7 +177,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             }
 
             // growing of plants
-            if (!HasCondition(PatchCondition.Planted) || HasCondition(PatchCondition.Mature))
+            if (!HasCondition(PatchCondition.Planted) || HasCondition(PatchCondition.Mature) || Seed == null)
             {
                 return;
             }
@@ -247,7 +247,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         /// <returns></returns>
         private int GetBaseVarpBitValue()
         {
-            if (!HasCondition(PatchCondition.Planted))
+            if (!HasCondition(PatchCondition.Planted) || Seed == null)
             {
                 return CurrentCycle;
             }
@@ -330,7 +330,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             if (TickCount >= _weedGrowTicks)
             {
                 // weed grow back
-                if (!HasCondition(PatchCondition.Planted))
+            if (!HasCondition(PatchCondition.Planted) || Seed == null)
                 {
                     Grow(true);
                     return;
@@ -381,7 +381,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             // calculate the current cycle
             var timePassed = DateTimeOffset.Now - _owner.LastLogin;
             var ticksPassed = TickCount + (int)(timePassed.TotalMilliseconds / 600);
-            var cyclesPassed = ticksPassed / (HasCondition(PatchCondition.Planted) ? Seed.CycleTicks : _weedGrowTicks);
+            var cyclesPassed = ticksPassed / (HasCondition(PatchCondition.Planted) && Seed != null ? Seed.CycleTicks : _weedGrowTicks);
             for (var cycle = 0; cycle < cyclesPassed; cycle++)
             {
                 if (HasCondition(PatchCondition.Mature) || HasCondition(PatchCondition.Dead))
