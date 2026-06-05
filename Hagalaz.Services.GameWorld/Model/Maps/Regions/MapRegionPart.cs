@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using AutoMapper;
@@ -314,25 +315,70 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
         {
-            var updateables = updates.Where(update => update.CanUpdateFor(character)).ToList();
-            if (updateables.Count == 0)
+            // Optimization: Avoid LINQ and ToList() heap allocations by using ArrayPool and a manual loop.
+            // This method is called frequently during the game world tick for each player in range.
+            int updateCount = updates is IReadOnlyList<IRegionPartUpdate> list ? list.Count : updates.Count();
+            if (updateCount == 0)
             {
                 return;
             }
 
-            var baseLocation = new Location(DrawRegionPartX << 3, DrawRegionPartY << 3, DrawRegionZ, 0);
-            int localX = -1;
-            int localY = -1;
-            character.Viewport.GetLocalPosition(baseLocation, ref localX, ref localY);
-            character.Session.SendMessage(new MapRegionPartUpdateMessage
+            var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(updateCount);
+            try
             {
-                LocalX = localX, LocalY = localY, Z = DrawRegionZ, FullUpdate = fullUpdate
-            });
-            foreach (var update in updateables)
+                int updateableCount = 0;
+                if (updates is IReadOnlyList<IRegionPartUpdate> readOnlyList)
+                {
+                    for (int i = 0; i < updateCount; i++)
+                    {
+                        var update = readOnlyList[i];
+                        if (update.CanUpdateFor(character))
+                        {
+                            buffer[updateableCount++] = update;
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (var update in updates)
+                    {
+                        if (update.CanUpdateFor(character))
+                        {
+                            buffer[updateableCount++] = update;
+                        }
+                    }
+                }
+
+                if (updateableCount == 0)
+                {
+                    return;
+                }
+
+                var baseLocation = new Location(DrawRegionPartX << 3, DrawRegionPartY << 3, DrawRegionZ, 0);
+                int localX = -1;
+                int localY = -1;
+                character.Viewport.GetLocalPosition(baseLocation, ref localX, ref localY);
+                character.Session.SendMessage(new MapRegionPartUpdateMessage
+                {
+                    LocalX = localX,
+                    LocalY = localY,
+                    Z = DrawRegionZ,
+                    FullUpdate = fullUpdate
+                });
+
+                for (int i = 0; i < updateableCount; i++)
+                {
+                    var update = buffer[i];
+                    var message = _mapper.Map<RaidoMessage>(update);
+                    character.Session.SendMessage(message);
+                    update.OnUpdatedFor(character);
+                }
+            }
+            finally
             {
-                var message = _mapper.Map<RaidoMessage>(update);
-                character.Session.SendMessage(message);
-                update.OnUpdatedFor(character);
+                // Crucial: clearArray: true is required for reference types (IRegionPartUpdate)
+                // to prevent memory leaks by allowing the objects to be garbage collected.
+                ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
             }
         }
 
