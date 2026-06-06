@@ -311,25 +311,34 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
         {
-            // Optimization: Avoid LINQ and ToList() heap allocations in the hot path (List<T> or array).
-            // Per-player, per-tick for each nearby region part.
+            // Optimization: Avoid LINQ and ToList() heap allocations for IReadOnlyList (hot path).
+            if (updates is IReadOnlyList<IRegionPartUpdate> readOnlyList)
+            {
+                int count = readOnlyList.Count;
+                if (count == 0) return;
 
-            if (updates is List<IRegionPartUpdate> list)
-            {
-                SendUpdatesFromSpan(character, CollectionsMarshal.AsSpan(list), fullUpdate);
-            }
-            else if (updates is IRegionPartUpdate[] array)
-            {
-                SendUpdatesFromSpan(character, array, fullUpdate);
-            }
-            else if (updates is IReadOnlyList<IRegionPartUpdate> readOnlyList)
-            {
-                FilterAndSend(character, readOnlyList, readOnlyList.Count, fullUpdate);
+                var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);
+                try
+                {
+                    int updateableCount = 0;
+                    for (int i = 0; i < count; i++)
+                    {
+                        var update = readOnlyList[i];
+                        if (update.CanUpdateFor(character)) buffer[updateableCount++] = update;
+                    }
+
+                    if (updateableCount > 0) SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
+                }
+                finally
+                {
+                    // clearArray: true is required for reference types to prevent memory leaks.
+                    ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
+                }
             }
             else
             {
                 // Fallback for pure IEnumerable (e.g. lazy LINQ queries).
-                // Prevents double-enumeration and IndexOutOfRangeException if source is volatile.
+                // Uses ToList() to avoid double-enumeration and potential IndexOutOfRangeException.
                 var updateables = updates.Where(u => u.CanUpdateFor(character)).ToList();
                 if (updateables.Count > 0)
                 {

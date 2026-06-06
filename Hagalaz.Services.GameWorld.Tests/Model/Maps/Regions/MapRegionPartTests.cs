@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -136,12 +137,30 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
         }
 
         [TestMethod]
-        public void SendUpdates_ReadOnlyList_HandledCorrectly()
+        public void SendUpdates_ArrayFastPath_HandledCorrectly()
         {
             // Arrange
             var update = Substitute.For<IRegionPartUpdate>();
             update.CanUpdateFor(_character).Returns(true);
             IRegionPartUpdate[] updates = [ update ];
+            var message = Substitute.For<RaidoMessage>();
+            _mapper.Map<RaidoMessage>(update).Returns(message);
+
+            // Act
+            _mapRegionPart.SendUpdates(_character, updates, false);
+
+            // Assert
+            _session.Received(1).SendMessage(Arg.Any<MapRegionPartUpdateMessage>());
+            update.Received(1).OnUpdatedFor(_character);
+        }
+
+        [TestMethod]
+        public void SendUpdates_GenericReadOnlyList_HandledCorrectly()
+        {
+            // Arrange
+            var update = Substitute.For<IRegionPartUpdate>();
+            update.CanUpdateFor(_character).Returns(true);
+            var updates = new ReadOnlyCollection<IRegionPartUpdate>(new List<IRegionPartUpdate> { update });
             var message = Substitute.For<RaidoMessage>();
             _mapper.Map<RaidoMessage>(update).Returns(message);
 
