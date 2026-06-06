@@ -193,9 +193,15 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
                 var ia = character.Appearance.GetDrawnItemPart(part);
                 if (ia != null)
                 {
+                    var definition = _itemStore.GetOrAdd(ia.ItemId);
+                    if (definition == null)
+                    {
+                        output.WriteByte(0); // write 0 byte for flags to maintain buffer alignment
+                        continue;
+                    }
+
                     output.WriteByte((byte)ia.Flags);
 
-                    var definition = _itemStore.GetOrAdd(ia.ItemId);
                     if (ia.Flags.HasFlag(ItemUpdateFlags.Model))
                     {
                         output.WriteInt32BigEndianSmart(ia.MaleModels[0]); // male worn model1
