@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
@@ -304,76 +305,42 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 return;
             }
-            //var lastLocation = character.LastLocation;
-            //var fullUpdate = lastLocation == null || 
-            //    lastLocation.RegionPartX != DrawRegionPartX || 
-            //    lastLocation.RegionPartY != DrawRegionPartY ||
-            //    lastLocation.Z != DrawRegionZ;
 
             SendUpdates(character, _updates, false);
         }
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
         {
-            // Optimization: Avoid LINQ and ToList() heap allocations by using ArrayPool and a manual loop.
-            // This method is called frequently during the game world tick for each player in range.
+            // Optimization: Avoid LINQ and ToList() heap allocations in the hot path (List<T> or array).
+            // Per-player, per-tick for each nearby region part.
 
-            // Fast path for List<T> to avoid interface dispatch overhead on the indexer.
-            if (updates is List<IRegionPartUpdate> concreteList)
+            if (updates is List<IRegionPartUpdate> list)
             {
-                SendUpdatesFromList(character, concreteList, fullUpdate);
-                return;
+                SendUpdatesFromSpan(character, CollectionsMarshal.AsSpan(list), fullUpdate);
             }
-
-            // Fast path for other IReadOnlyList<T> (e.g. arrays).
-            if (updates is IReadOnlyList<IRegionPartUpdate> readOnlyList)
+            else if (updates is IRegionPartUpdate[] array)
             {
-                SendUpdatesFromReadOnlyList(character, readOnlyList, fullUpdate);
-                return;
+                SendUpdatesFromSpan(character, array, fullUpdate);
             }
-
-            // For pure IEnumerable (like lazy LINQ queries), we MUST avoid double enumeration
-            // and potential IndexOutOfRangeException if the count changes between passes.
-            if (!updates.TryGetNonEnumeratedCount(out int count))
+            else if (updates is IReadOnlyList<IRegionPartUpdate> readOnlyList)
             {
-                // If we can't get the count without enumerating, it's safer and more efficient
-                // for lazy sequences to just ToList() once, rather than double enumerating.
-                var materialized = updates.Where(u => u.CanUpdateFor(character)).ToList();
-                if (materialized.Count > 0)
+                FilterAndSend(character, readOnlyList, readOnlyList.Count, fullUpdate);
+            }
+            else
+            {
+                // Fallback for pure IEnumerable (e.g. lazy LINQ queries).
+                // Prevents double-enumeration and IndexOutOfRangeException if source is volatile.
+                var updateables = updates.Where(u => u.CanUpdateFor(character)).ToList();
+                if (updateables.Count > 0)
                 {
-                    SendUpdateMessages(character, materialized, fullUpdate);
+                    SendUpdateMessages(character, updateables, updateables.Count, fullUpdate);
                 }
-                return;
-            }
-
-            if (count == 0) return;
-
-            var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);
-            try
-            {
-                int updateableCount = 0;
-                foreach (var update in updates)
-                {
-                    if (update.CanUpdateFor(character))
-                    {
-                        buffer[updateableCount++] = update;
-                    }
-                }
-
-                if (updateableCount > 0)
-                {
-                    SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
-                }
-            }
-            finally
-            {
-                ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
             }
         }
 
-        private void SendUpdatesFromList(ICharacter character, List<IRegionPartUpdate> updates, bool fullUpdate)
+        private void SendUpdatesFromSpan(ICharacter character, ReadOnlySpan<IRegionPartUpdate> updates, bool fullUpdate)
         {
-            int count = updates.Count;
+            int count = updates.Length;
             if (count == 0) return;
 
             var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);
@@ -383,16 +350,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 for (int i = 0; i < count; i++)
                 {
                     var update = updates[i];
-                    if (update.CanUpdateFor(character))
-                    {
-                        buffer[updateableCount++] = update;
-                    }
+                    if (update.CanUpdateFor(character)) buffer[updateableCount++] = update;
                 }
-
-                if (updateableCount > 0)
-                {
-                    SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
-                }
+                if (updateableCount > 0) SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
             }
             finally
             {
@@ -400,9 +360,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        private void SendUpdatesFromReadOnlyList(ICharacter character, IReadOnlyList<IRegionPartUpdate> updates, bool fullUpdate)
+        private void FilterAndSend(ICharacter character, IReadOnlyList<IRegionPartUpdate> updates, int count, bool fullUpdate)
         {
-            int count = updates.Count;
             if (count == 0) return;
 
             var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);
@@ -412,41 +371,25 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 for (int i = 0; i < count; i++)
                 {
                     var update = updates[i];
-                    if (update.CanUpdateFor(character))
-                    {
-                        buffer[updateableCount++] = update;
-                    }
+                    if (update.CanUpdateFor(character)) buffer[updateableCount++] = update;
                 }
-
-                if (updateableCount > 0)
-                {
-                    SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
-                }
+                if (updateableCount > 0) SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
             }
             finally
             {
                 ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
             }
-        }
-
-        private void SendUpdateMessages(ICharacter character, IReadOnlyList<IRegionPartUpdate> updateables, bool fullUpdate)
-        {
-            SendUpdateMessages(character, updateables, updateables.Count, fullUpdate);
         }
 
         private void SendUpdateMessages(ICharacter character, IReadOnlyList<IRegionPartUpdate> buffer, int count, bool fullUpdate)
         {
             var baseLocation = new Location(DrawRegionPartX << 3, DrawRegionPartY << 3, DrawRegionZ, 0);
-            int localX = -1;
-            int localY = -1;
+            int localX = -1, localY = -1;
             character.Viewport.GetLocalPosition(baseLocation, ref localX, ref localY);
 
             character.Session.SendMessage(new MapRegionPartUpdateMessage
             {
-                LocalX = localX,
-                LocalY = localY,
-                Z = DrawRegionZ,
-                FullUpdate = fullUpdate
+                LocalX = localX, LocalY = localY, Z = DrawRegionZ, FullUpdate = fullUpdate
             });
 
             for (int i = 0; i < count; i++)
