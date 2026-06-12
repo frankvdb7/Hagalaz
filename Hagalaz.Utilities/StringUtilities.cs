@@ -179,17 +179,23 @@ namespace Hagalaz.Utilities
         {
             if (string.IsNullOrEmpty(input))
             {
-                yield break;
+                return [];
             }
 
+            int count = CountSegments(input.AsSpan(), ',');
+            double[] values = new double[count];
+
             int start = 0;
-            int end;
-            while ((end = input.IndexOf(',', start)) != -1)
+            for (int k = 0; k < count; k++)
             {
-                yield return ParseDouble(input.AsSpan(start, end - start));
+                int end = input.IndexOf(',', start);
+                if (end == -1) end = input.Length;
+
+                values[k] = ParseDouble(input.AsSpan(start, end - start));
                 start = end + 1;
             }
-            yield return ParseDouble(input.AsSpan(start));
+
+            return values;
         }
 
         private static double ParseDouble(ReadOnlySpan<char> segment)
@@ -209,17 +215,23 @@ namespace Hagalaz.Utilities
         {
             if (string.IsNullOrEmpty(input))
             {
-                yield break;
+                return [];
             }
 
+            int count = CountSegments(input.AsSpan(), ',');
+            int[] values = new int[count];
+
             int start = 0;
-            int end;
-            while ((end = input.IndexOf(',', start)) != -1)
+            for (int k = 0; k < count; k++)
             {
-                yield return ParseInt(input.AsSpan(start, end - start));
+                int end = input.IndexOf(',', start);
+                if (end == -1) end = input.Length;
+
+                values[k] = ParseInt(input.AsSpan(start, end - start));
                 start = end + 1;
             }
-            yield return ParseInt(input.AsSpan(start));
+
+            return values;
         }
 
         private static int ParseInt(ReadOnlySpan<char> segment)
@@ -235,18 +247,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="input">The comma-separated string of numbers (e.g., "1,0,1").</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of booleans.</returns>
-        public static IEnumerable<bool> SelectBoolFromString(string input)
-        {
-            if (string.IsNullOrEmpty(input))
-            {
-                yield break; // Return an empty enumerable for an empty or null input.
-            }
-
-            foreach (var number in SelectIntFromString(input))
-            {
-                yield return number == 1;
-            }
-        }
+        public static IEnumerable<bool> SelectBoolFromString(string input) => DecodeValues(input);
 
         /// <summary>
         /// Decodes a separated string into an array of a specified type using a custom parser that accepts spans.
