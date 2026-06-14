@@ -7,8 +7,8 @@ using System.Linq;
 namespace Hagalaz.Benchmarks
 {
     /// <summary>
-    /// Measures the performance of different strategies for filtering region updates.
-    /// This benchmark focuses specifically on the filtering and pool management phase.
+    /// Measures the filtering overhead and pool management for different region update strategies.
+    /// This benchmark focuses specifically on the filtering phase, not the end-to-end network dispatch.
     /// </summary>
     [MemoryDiagnoser]
     public class MapRegionPartBenchmark
@@ -36,64 +36,55 @@ namespace Hagalaz.Benchmarks
         [Benchmark(Baseline = true)]
         public List<IUpdate> List_Some_Linq() => _listSomeAccepted.Where(u => u.CanUpdateFor(_character)).ToList();
 
-        // --- Production Strategy 1: Concrete List Indexing (Matches List<T> branch) ---
+        // --- Production Fast Path: List<T> ---
 
         [Benchmark]
-        public int List_Some_ConcreteIndex_ArrayPool()
+        public int List_Some_Concrete_ArrayPool()
         {
-            List<IUpdate> list = _listSomeAccepted;
-            int count = list.Count;
-            var buffer = ArrayPool<IUpdate>.Shared.Rent(count);
-            try {
-                int found = 0;
-                for (int i = 0; i < count; i++) {
-                    var update = list[i];
-                    if (update.CanUpdateFor(_character)) buffer[found++] = update;
-                }
-                return found;
-            } finally { ArrayPool<IUpdate>.Shared.Return(buffer, clearArray: true); }
+            return FilterAndReturnCount(_listSomeAccepted, _character);
         }
 
-        // --- Production Strategy 2: Array Indexing (Matches T[] branch) ---
+        // --- Production Fast Path: Array ---
 
         [Benchmark]
-        public int Array_Some_ConcreteIndex_ArrayPool()
+        public int Array_Some_Concrete_ArrayPool()
         {
-            IUpdate[] array = _arraySomeAccepted;
-            int count = array.Length;
-            var buffer = ArrayPool<IUpdate>.Shared.Rent(count);
-            try {
-                int found = 0;
-                for (int i = 0; i < count; i++) {
-                    var update = array[i];
-                    if (update.CanUpdateFor(_character)) buffer[found++] = update;
-                }
-                return found;
-            } finally { ArrayPool<IUpdate>.Shared.Return(buffer, clearArray: true); }
+            return FilterAndReturnCount(_arraySomeAccepted, _character);
         }
 
-        // --- Production Strategy 3: IReadOnlyList Indexing (Matches IReadOnlyList fallback) ---
+        // --- Production Fallback: IReadOnlyList (Interface Dispatch) ---
 
         [Benchmark]
-        public int List_Some_ReadOnlyIndex_ArrayPool()
+        public int List_Some_Interface_ArrayPool()
         {
-            IReadOnlyList<IUpdate> readOnlyList = _readOnlyListSomeAccepted;
-            int count = readOnlyList.Count;
-            var buffer = ArrayPool<IUpdate>.Shared.Rent(count);
-            try {
-                int found = 0;
-                for (int i = 0; i < count; i++) {
-                    var update = readOnlyList[i];
-                    if (update.CanUpdateFor(_character)) buffer[found++] = update;
-                }
-                return found;
-            } finally { ArrayPool<IUpdate>.Shared.Return(buffer, clearArray: true); }
+            return FilterAndReturnCount(_readOnlyListSomeAccepted, _character);
         }
 
-        // --- Fallback Strategy: Lazy IEnumerable (Matches pure IEnumerable branch) ---
+        // --- Lazy Fallback ---
 
         [Benchmark]
         public List<IUpdate> Lazy_Some_Linq_Fallback() => _lazySomeAccepted.Where(u => u.CanUpdateFor(_character)).ToList();
+
+        private int FilterAndReturnCount<TList>(TList updates, object character) where TList : IReadOnlyList<IUpdate>
+        {
+            int count = updates.Count;
+            if (count == 0) return 0;
+
+            var buffer = ArrayPool<IUpdate>.Shared.Rent(count);
+            try
+            {
+                int found = 0;
+                for (int i = 0; i < count; i++)
+                {
+                    if (updates[i].CanUpdateFor(character)) buffer[found++] = updates[i];
+                }
+                return found;
+            }
+            finally
+            {
+                ArrayPool<IUpdate>.Shared.Return(buffer, clearArray: true);
+            }
+        }
 
         public interface IUpdate { bool CanUpdateFor(object character); }
         private class MockUpdate : IUpdate {

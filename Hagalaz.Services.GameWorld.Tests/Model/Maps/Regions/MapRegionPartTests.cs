@@ -66,6 +66,10 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
             var message = Substitute.For<RaidoMessage>();
             _mapper.Map<RaidoMessage>(update).Returns(message);
 
+            int localX = 5, localY = 6;
+            _character.Viewport.When(v => v.GetLocalPosition(Arg.Any<ILocation>(), ref Arg.Any<int>(), ref Arg.Any<int>()))
+                .Do(x => { x[1] = localX; x[2] = localY; });
+
             // Act
             _mapRegionPart.SendUpdates(_character, updates, true);
 
@@ -74,7 +78,9 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
             {
                 _session.SendMessage(Arg.Is<MapRegionPartUpdateMessage>(m =>
                     m.FullUpdate == true &&
-                    m.Z == 1));
+                    m.Z == 1 &&
+                    m.LocalX == localX &&
+                    m.LocalY == localY));
                 _session.SendMessage(message);
             });
         }

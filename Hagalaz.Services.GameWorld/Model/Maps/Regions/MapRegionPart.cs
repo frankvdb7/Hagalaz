@@ -310,20 +310,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
         {
-            // Optimization: Avoid LINQ and ToList() heap allocations in the common hot path.
+            // Optimization: Avoid LINQ and ToList() heap allocations in the common hot path (List<T>).
             // Per-player, per-tick for each nearby region part.
 
             if (updates is List<IRegionPartUpdate> list)
             {
-                SendUpdatesFromList(character, list, fullUpdate);
-            }
-            else if (updates is IRegionPartUpdate[] array)
-            {
-                SendUpdatesFromArray(character, array, fullUpdate);
+                FilterAndSend(character, list, list.Count, fullUpdate);
             }
             else if (updates is IReadOnlyList<IRegionPartUpdate> readOnlyList)
             {
-                SendUpdatesFromReadOnlyList(character, readOnlyList, fullUpdate);
+                FilterAndSend(character, readOnlyList, readOnlyList.Count, fullUpdate);
             }
             else
             {
@@ -337,9 +333,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        private void SendUpdatesFromList(ICharacter character, List<IRegionPartUpdate> updates, bool fullUpdate)
+        private void FilterAndSend<TList>(ICharacter character, TList updates, int count, bool fullUpdate)
+            where TList : IReadOnlyList<IRegionPartUpdate>
         {
-            int count = updates.Count;
             if (count == 0) return;
 
             var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);
@@ -356,50 +352,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             finally
             {
                 // clearArray: true is required for reference types to prevent memory leaks.
-                ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
-            }
-        }
-
-        private void SendUpdatesFromArray(ICharacter character, IRegionPartUpdate[] updates, bool fullUpdate)
-        {
-            int count = updates.Length;
-            if (count == 0) return;
-
-            var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);
-            try
-            {
-                int updateableCount = 0;
-                for (int i = 0; i < count; i++)
-                {
-                    var update = updates[i];
-                    if (update.CanUpdateFor(character)) buffer[updateableCount++] = update;
-                }
-                if (updateableCount > 0) SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
-            }
-            finally
-            {
-                ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
-            }
-        }
-
-        private void SendUpdatesFromReadOnlyList(ICharacter character, IReadOnlyList<IRegionPartUpdate> updates, bool fullUpdate)
-        {
-            int count = updates.Count;
-            if (count == 0) return;
-
-            var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);
-            try
-            {
-                int updateableCount = 0;
-                for (int i = 0; i < count; i++)
-                {
-                    var update = updates[i];
-                    if (update.CanUpdateFor(character)) buffer[updateableCount++] = update;
-                }
-                if (updateableCount > 0) SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
-            }
-            finally
-            {
                 ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
             }
         }
