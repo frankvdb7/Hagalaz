@@ -175,14 +175,21 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of doubles.</returns>
-        public static IEnumerable<double> SelectDoubleFromString(string input)
+        public static IEnumerable<double> SelectDoubleFromString(string input) => DecodeDoubleValues(input);
+
+        /// <summary>
+        /// Decodes a comma-separated string of numbers into a double array. Invalid entries default to 0.0.
+        /// </summary>
+        /// <param name="data">The comma-separated string to decode.</param>
+        /// <returns>A double array representing the decoded data.</returns>
+        public static double[] DecodeDoubleValues(string data)
         {
-            if (string.IsNullOrWhiteSpace(input))
+            if (string.IsNullOrWhiteSpace(data))
             {
                 return [];
             }
 
-            ReadOnlySpan<char> span = input.AsSpan();
+            ReadOnlySpan<char> span = data.AsSpan();
             int count = CountSegments(span, ',');
             double[] values = new double[count];
 
@@ -216,14 +223,21 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of integers.</returns>
-        public static IEnumerable<int> SelectIntFromString(string input)
+        public static IEnumerable<int> SelectIntFromString(string input) => DecodeIntValues(input);
+
+        /// <summary>
+        /// Decodes a comma-separated string of numbers into an integer array. Invalid entries default to 0.
+        /// </summary>
+        /// <param name="data">The comma-separated string to decode.</param>
+        /// <returns>An integer array representing the decoded data.</returns>
+        public static int[] DecodeIntValues(string data)
         {
-            if (string.IsNullOrWhiteSpace(input))
+            if (string.IsNullOrWhiteSpace(data))
             {
                 return [];
             }
 
-            ReadOnlySpan<char> span = input.AsSpan();
+            ReadOnlySpan<char> span = data.AsSpan();
             int count = CountSegments(span, ',');
             int[] values = new int[count];
 

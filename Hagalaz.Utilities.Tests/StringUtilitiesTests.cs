@@ -28,6 +28,22 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
+        [DataRow("", new double[0])]
+        [DataRow(" ", new double[0])]
+        [DataRow("1.5,abc,3.25", new double[] { 1.5, 0.0, 3.25 })]
+        [DataRow("1e2,-3.5", new double[] { 100.0, -3.5 })]
+        [DataRow("1,", new double[] { 1.0, 0.0 })]
+        [DataRow(",1", new double[] { 0.0, 1.0 })]
+        public void SelectDoubleFromString_Comprehensive_ReturnsExpected(string input, double[] expected)
+        {
+            // Act
+            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
         public void DecodeValues_MalformedString_ReturnsDefaultValueForInvalid()
         {
             // Arrange
@@ -247,6 +263,18 @@ namespace Hagalaz.Utilities.Tests
 
             // Assert
             Assert.IsEmpty(actual);
+        }
+
+        [TestMethod]
+        [DataRow("1,", new int[] { 1, 0 })]
+        [DataRow(",1", new int[] { 0, 1 })]
+        public void SelectIntFromString_LeadingTrailing_ReturnsExpected(string input, int[] expected)
+        {
+            // Act
+            var actual = StringUtilities.SelectIntFromString(input).ToArray();
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
         }
 
         [TestMethod]

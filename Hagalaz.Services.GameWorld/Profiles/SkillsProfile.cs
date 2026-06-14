@@ -40,11 +40,11 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.TalismanId, opt => opt.MapFrom(src => (int)src.TalismanId))
                 .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.RequiredLevel))
                 .ForMember(dest => dest.Experience, opt => opt.MapFrom(src => (double)src.Experience))
-                .ForMember(dest => dest.AltarLocation, opt => opt.MapFrom(src => ToLocation(StringUtilities.SelectIntFromString(src.AltarLocation).ToArray())))
-                .ForMember(dest => dest.RuinLocation, opt => opt.MapFrom(src => ToLocation(StringUtilities.SelectIntFromString(src.RuinLocation).ToArray())))
-                .ForMember(dest => dest.RiftLocation, opt => opt.MapFrom(src => ToLocation(StringUtilities.SelectIntFromString(src.RiftLocation).ToArray())))
+                .ForMember(dest => dest.AltarLocation, opt => opt.MapFrom(src => ToLocation(StringUtilities.DecodeIntValues(src.AltarLocation))))
+                .ForMember(dest => dest.RuinLocation, opt => opt.MapFrom(src => ToLocation(StringUtilities.DecodeIntValues(src.RuinLocation))))
+                .ForMember(dest => dest.RiftLocation, opt => opt.MapFrom(src => ToLocation(StringUtilities.DecodeIntValues(src.RiftLocation))))
                 .ForMember(dest => dest.LevelCountMultipliers,
-                    opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.LevelCountMultipliers).ToArray()));
+                    opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.LevelCountMultipliers)));
             CreateMap<SkillsCookingFoodDefinition, FoodDto>()
                 .ForMember(dest => dest.ItemId, opt => opt.MapFrom(src => (int)src.ItemId))
                 .ForMember(dest => dest.LeftItemId, opt => opt.MapFrom(src => (int)src.LeftItemId))
@@ -84,11 +84,11 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.EndGraphicId, opt => opt.MapFrom(src => (int)src.EndGraphicId))
                 .ForMember(dest => dest.AutoCastConfig, opt => opt.MapFrom(src => (int)src.AutocastConfig))
                 .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.RequiredLevel))
-                .ForMember(dest => dest.RequiredRunes, opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.RequiredRunes).Cast<RuneType>()))
-                .ForMember(dest => dest.RequiredRunesCounts, opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.RequiredRunesCounts)));
+                .ForMember(dest => dest.RequiredRunes, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.RequiredRunes).Cast<RuneType>()))
+                .ForMember(dest => dest.RequiredRunesCounts, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.RequiredRunesCounts)));
             CreateMap<SkillsMagicEnchantDefinition, EnchantingSpellDto>()
-                .ForMember(dest => dest.RequiredRunes, opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.RequiredRunes).Cast<RuneType>()))
-                .ForMember(dest => dest.RequiredRunesCounts, opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.RequiredRunesCounts)))
+                .ForMember(dest => dest.RequiredRunes, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.RequiredRunes).Cast<RuneType>()))
+                .ForMember(dest => dest.RequiredRunesCounts, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.RequiredRunesCounts)))
                 .ForMember(dest => dest.Experience, opt => opt.MapFrom(src => (double)src.Experience))
                 .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.RequiredLevel))
                 .ForMember(dest => dest.ButtonId, opt => opt.MapFrom(src => (int)src.ButtonId))
@@ -212,7 +212,7 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
                 .ForMember(dest => dest.SlayerMasterId, opt => opt.MapFrom(src => (int)src.SlayerMasterId))
                 .ForMember(dest => dest.CoinCount, opt => opt.MapFrom(src => (int)src.CoinCount))
-                .ForMember(dest => dest.NpcIds, opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.NpcIds).ToArray()));
+                .ForMember(dest => dest.NpcIds, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.NpcIds)));
 
             CreateMap<SkillsFishingSpotDefinition, FishingSpotTable>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => (int)src.Id))
