@@ -60,7 +60,7 @@ namespace Hagalaz.Benchmarks
             return FilterAndReturnCount(_readOnlyListSomeAccepted, _character);
         }
 
-        // --- Lazy Fallback ---
+        // --- Fallback Strategy: Lazy IEnumerable ---
 
         [Benchmark]
         public List<IUpdate> Lazy_Some_Linq_Fallback() => _lazySomeAccepted.Where(u => u.CanUpdateFor(_character)).ToList();
@@ -76,7 +76,8 @@ namespace Hagalaz.Benchmarks
                 int found = 0;
                 for (int i = 0; i < count; i++)
                 {
-                    if (updates[i].CanUpdateFor(character)) buffer[found++] = updates[i];
+                    var update = updates[i];
+                    if (update.CanUpdateFor(character)) buffer[found++] = update;
                 }
                 return found;
             }

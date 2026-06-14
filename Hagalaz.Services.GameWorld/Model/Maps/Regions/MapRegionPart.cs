@@ -310,11 +310,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
         {
-            // Optimization: Avoid LINQ and ToList() heap allocations for common collection types (hot path).
-            // Reduces filtering overhead by using pooled buffers and indexed loops.
+            // Optimization: Avoid LINQ and ToList() heap allocations in the common hot path.
+            // Per-player, per-tick for each nearby region part.
+
             if (updates is List<IRegionPartUpdate> list)
             {
                 FilterAndSend(character, list, fullUpdate);
+            }
+            else if (updates is IRegionPartUpdate[] array)
+            {
+                FilterAndSend(character, array, fullUpdate);
             }
             else if (updates is IReadOnlyList<IRegionPartUpdate> readOnlyList)
             {
