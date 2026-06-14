@@ -196,9 +196,18 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
 
             if ((updateFlag & UpdateFlags.Animation) != 0)
             {
-                for (int i = 0; i < 4; i++)
-                    output.WriteInt32BigEndianSmart(npc.RenderInformation.CurrentAnimation.Id);
-                output.WriteByteC((byte)npc.RenderInformation.CurrentAnimation.Delay);
+                if (npc.RenderInformation.CurrentAnimation != null)
+                {
+                    for (int i = 0; i < 4; i++)
+                        output.WriteInt32BigEndianSmart(npc.RenderInformation.CurrentAnimation.Id);
+                    output.WriteByteC((byte)npc.RenderInformation.CurrentAnimation.Delay);
+                }
+                else
+                {
+                    for (int i = 0; i < 4; i++)
+                        output.WriteInt32BigEndianSmart(0);
+                    output.WriteByteC(0);
+                }
             }
 
             if ((updateFlag & UpdateFlags.Graphic4) != 0)

@@ -95,7 +95,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
 
                     var itemID = part - 0x4000; // 16384
                     var definition = _itemStore.GetOrAdd(itemID);
-                    if (definition.TeamId != 0)
+                    if (definition.Name != "null" && definition.TeamId != 0)
                         teamID = definition.TeamId;
                 }
 
@@ -119,8 +119,15 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
                     else
                         output.WriteInt16BigEndian((short)bodyPart);
 
-                    if (character.Appearance.GetDrawnItemPart(part) != null)
-                        itemAppearanceHash |= 1 << count;
+                    var ia = character.Appearance.GetDrawnItemPart(part);
+                    if (ia != null)
+                    {
+                        var definition = _itemStore.GetOrAdd(ia.ItemId);
+                        if (definition.Name != "null")
+                        {
+                            itemAppearanceHash |= 1 << count;
+                        }
+                    }
 
                     count++;
                 }
@@ -193,9 +200,14 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
                 var ia = character.Appearance.GetDrawnItemPart(part);
                 if (ia != null)
                 {
+                    var definition = _itemStore.GetOrAdd(ia.ItemId);
+                    if (definition.Name == "null")
+                    {
+                        continue;
+                    }
+
                     output.WriteByte((byte)ia.Flags);
 
-                    var definition = _itemStore.GetOrAdd(ia.ItemId);
                     if (ia.Flags.HasFlag(ItemUpdateFlags.Model))
                     {
                         output.WriteInt32BigEndianSmart(ia.MaleModels[0]); // male worn model1
@@ -387,9 +399,18 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
 
             if (updateFlag.HasFlag(Game.Abstractions.Model.Creatures.Characters.UpdateFlags.Animation))
             {
-                for (int i = 0; i < 4; i++)
-                    output.WriteInt32BigEndianSmart(character.RenderInformation.CurrentAnimation.Id);
-                output.WriteByteA((byte)character.RenderInformation.CurrentAnimation.Delay);
+                if (character.RenderInformation.CurrentAnimation != null)
+                {
+                    for (int i = 0; i < 4; i++)
+                        output.WriteInt32BigEndianSmart(character.RenderInformation.CurrentAnimation.Id);
+                    output.WriteByteA((byte)character.RenderInformation.CurrentAnimation.Delay);
+                }
+                else
+                {
+                    for (int i = 0; i < 4; i++)
+                        output.WriteInt32BigEndianSmart(0);
+                    output.WriteByteA(0);
+                }
             }
 
             if (updateFlag.HasFlag(Game.Abstractions.Model.Creatures.Characters.UpdateFlags.MovementType))
