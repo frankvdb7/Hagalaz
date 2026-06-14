@@ -177,22 +177,27 @@ namespace Hagalaz.Utilities
         /// <returns>An <see cref="IEnumerable{T}"/> of doubles.</returns>
         public static IEnumerable<double> SelectDoubleFromString(string input)
         {
-            if (string.IsNullOrEmpty(input))
+            if (string.IsNullOrWhiteSpace(input))
             {
                 return [];
             }
 
-            int count = CountSegments(input.AsSpan(), ',');
+            ReadOnlySpan<char> span = input.AsSpan();
+            int count = CountSegments(span, ',');
             double[] values = new double[count];
 
-            int start = 0;
             for (int k = 0; k < count; k++)
             {
-                int end = input.IndexOf(',', start);
-                if (end == -1) end = input.Length;
-
-                values[k] = ParseDouble(input.AsSpan(start, end - start));
-                start = end + 1;
+                int end = span.IndexOf(',');
+                if (end == -1)
+                {
+                    values[k] = ParseDouble(span);
+                }
+                else
+                {
+                    values[k] = ParseDouble(span.Slice(0, end));
+                    span = span.Slice(end + 1);
+                }
             }
 
             return values;
@@ -213,22 +218,27 @@ namespace Hagalaz.Utilities
         /// <returns>An <see cref="IEnumerable{T}"/> of integers.</returns>
         public static IEnumerable<int> SelectIntFromString(string input)
         {
-            if (string.IsNullOrEmpty(input))
+            if (string.IsNullOrWhiteSpace(input))
             {
                 return [];
             }
 
-            int count = CountSegments(input.AsSpan(), ',');
+            ReadOnlySpan<char> span = input.AsSpan();
+            int count = CountSegments(span, ',');
             int[] values = new int[count];
 
-            int start = 0;
             for (int k = 0; k < count; k++)
             {
-                int end = input.IndexOf(',', start);
-                if (end == -1) end = input.Length;
-
-                values[k] = ParseInt(input.AsSpan(start, end - start));
-                start = end + 1;
+                int end = span.IndexOf(',');
+                if (end == -1)
+                {
+                    values[k] = ParseInt(span);
+                }
+                else
+                {
+                    values[k] = ParseInt(span.Slice(0, end));
+                    span = span.Slice(end + 1);
+                }
             }
 
             return values;
@@ -262,17 +272,22 @@ namespace Hagalaz.Utilities
             if (string.IsNullOrWhiteSpace(data))
                 return [];
 
-            int count = CountSegments(data.AsSpan(), separator);
+            ReadOnlySpan<char> span = data.AsSpan();
+            int count = CountSegments(span, separator);
             T[] values = new T[count];
 
-            int start = 0;
             for (int k = 0; k < count; k++)
             {
-                int end = data.IndexOf(separator, start);
-                if (end == -1) end = data.Length;
-
-                values[k] = parser.Invoke(data.AsSpan(start, end - start));
-                start = end + 1;
+                int end = span.IndexOf(separator);
+                if (end == -1)
+                {
+                    values[k] = parser.Invoke(span);
+                }
+                else
+                {
+                    values[k] = parser.Invoke(span.Slice(0, end));
+                    span = span.Slice(end + 1);
+                }
             }
 
             return values;
@@ -303,17 +318,25 @@ namespace Hagalaz.Utilities
                 return [];
             }
 
-            int count = CountSegments(data.AsSpan(), ',');
+            ReadOnlySpan<char> span = data.AsSpan();
+            int count = CountSegments(span, ',');
             bool[] values = new bool[count];
 
-            int start = 0;
             for (int k = 0; k < count; k++)
             {
-                int end = data.IndexOf(',', start);
-                if (end == -1) end = data.Length;
+                int end = span.IndexOf(',');
+                ReadOnlySpan<char> segment;
+                if (end == -1)
+                {
+                    segment = span;
+                }
+                else
+                {
+                    segment = span.Slice(0, end);
+                    span = span.Slice(end + 1);
+                }
 
                 // Optimization: fast-path for "1" and "0" common segments.
-                ReadOnlySpan<char> segment = data.AsSpan(start, end - start);
                 if (segment.Length == 1)
                 {
                     char c = segment[0];
@@ -325,7 +348,6 @@ namespace Hagalaz.Utilities
                 {
                     values[k] = ParseInt(segment) == 1;
                 }
-                start = end + 1;
             }
 
             return values;

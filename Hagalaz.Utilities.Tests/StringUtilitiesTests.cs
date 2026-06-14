@@ -381,6 +381,19 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
+        public void SelectIntFromString_WhitespaceInput_ReturnsEmpty()
+        {
+            // Arrange
+            var input = " ";
+
+            // Act
+            var actual = StringUtilities.SelectIntFromString(input).ToArray();
+
+            // Assert
+            Assert.IsEmpty(actual);
+        }
+
+        [TestMethod]
         public void SelectIntFromString_InvalidInput_ReturnsZeroForInvalid()
         {
             // Arrange
@@ -399,6 +412,19 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var input = "";
+
+            // Act
+            var actual = StringUtilities.SelectBoolFromString(input).ToArray();
+
+            // Assert
+            Assert.IsEmpty(actual);
+        }
+
+        [TestMethod]
+        public void SelectBoolFromString_WhitespaceInput_ReturnsEmpty()
+        {
+            // Arrange
+            var input = " ";
 
             // Act
             var actual = StringUtilities.SelectBoolFromString(input).ToArray();
