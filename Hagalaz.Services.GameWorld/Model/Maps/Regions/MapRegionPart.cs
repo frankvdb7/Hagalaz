@@ -2,7 +2,6 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
@@ -311,29 +310,20 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
         {
-            // Optimization: Avoid LINQ and ToList() heap allocations for IReadOnlyList (hot path).
-            if (updates is IReadOnlyList<IRegionPartUpdate> readOnlyList)
+            // Optimization: Avoid LINQ and ToList() heap allocations in the common hot path.
+            // Per-player, per-tick for each nearby region part.
+
+            if (updates is List<IRegionPartUpdate> list)
             {
-                int count = readOnlyList.Count;
-                if (count == 0) return;
-
-                var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);
-                try
-                {
-                    int updateableCount = 0;
-                    for (int i = 0; i < count; i++)
-                    {
-                        var update = readOnlyList[i];
-                        if (update.CanUpdateFor(character)) buffer[updateableCount++] = update;
-                    }
-
-                    if (updateableCount > 0) SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
-                }
-                finally
-                {
-                    // clearArray: true is required for reference types to prevent memory leaks.
-                    ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
-                }
+                SendUpdatesFromList(character, list, fullUpdate);
+            }
+            else if (updates is IRegionPartUpdate[] array)
+            {
+                SendUpdatesFromArray(character, array, fullUpdate);
+            }
+            else if (updates is IReadOnlyList<IRegionPartUpdate> readOnlyList)
+            {
+                SendUpdatesFromReadOnlyList(character, readOnlyList, fullUpdate);
             }
             else
             {
@@ -347,7 +337,30 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        private void SendUpdatesFromSpan(ICharacter character, ReadOnlySpan<IRegionPartUpdate> updates, bool fullUpdate)
+        private void SendUpdatesFromList(ICharacter character, List<IRegionPartUpdate> updates, bool fullUpdate)
+        {
+            int count = updates.Count;
+            if (count == 0) return;
+
+            var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);
+            try
+            {
+                int updateableCount = 0;
+                for (int i = 0; i < count; i++)
+                {
+                    var update = updates[i];
+                    if (update.CanUpdateFor(character)) buffer[updateableCount++] = update;
+                }
+                if (updateableCount > 0) SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
+            }
+            finally
+            {
+                // clearArray: true is required for reference types to prevent memory leaks.
+                ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
+            }
+        }
+
+        private void SendUpdatesFromArray(ICharacter character, IRegionPartUpdate[] updates, bool fullUpdate)
         {
             int count = updates.Length;
             if (count == 0) return;
@@ -369,8 +382,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        private void FilterAndSend(ICharacter character, IReadOnlyList<IRegionPartUpdate> updates, int count, bool fullUpdate)
+        private void SendUpdatesFromReadOnlyList(ICharacter character, IReadOnlyList<IRegionPartUpdate> updates, bool fullUpdate)
         {
+            int count = updates.Count;
             if (count == 0) return;
 
             var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);

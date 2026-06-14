@@ -29,7 +29,12 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
         {
             _mapper = Substitute.For<IMapper>();
             _groundItemBuilder = Substitute.For<IGroundItemBuilder>();
-            _mapRegionPart = new MapRegionPart(_mapper, _groundItemBuilder);
+            _mapRegionPart = new MapRegionPart(_mapper, _groundItemBuilder)
+            {
+                DrawRegionPartX = 10,
+                DrawRegionPartY = 20,
+                DrawRegionZ = 1
+            };
             _character = Substitute.For<ICharacter>();
             _session = Substitute.For<IGameSession>();
             _character.Session.Returns(_session);
@@ -52,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
         }
 
         [TestMethod]
-        public void SendUpdates_AcceptedUpdates_SendsUpdateMessageFirst()
+        public void SendUpdates_AcceptedUpdates_SendsUpdateMessageFirstWithCorrectPayload()
         {
             // Arrange
             var update = Substitute.For<IRegionPartUpdate>();
@@ -62,12 +67,14 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
             _mapper.Map<RaidoMessage>(update).Returns(message);
 
             // Act
-            _mapRegionPart.SendUpdates(_character, updates, false);
+            _mapRegionPart.SendUpdates(_character, updates, true);
 
             // Assert
             Received.InOrder(() =>
             {
-                _session.SendMessage(Arg.Any<MapRegionPartUpdateMessage>());
+                _session.SendMessage(Arg.Is<MapRegionPartUpdateMessage>(m =>
+                    m.FullUpdate == true &&
+                    m.Z == 1));
                 _session.SendMessage(message);
             });
         }
