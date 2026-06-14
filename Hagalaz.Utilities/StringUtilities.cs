@@ -172,13 +172,30 @@ namespace Hagalaz.Utilities
 
         /// <summary>
         /// Parses a comma-separated string into an enumerable of doubles. Invalid entries default to 0.0.
+        /// <para>Note: Returns an empty collection for null, empty, or whitespace-only inputs.</para>
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of doubles.</returns>
-        public static IEnumerable<double> SelectDoubleFromString(string input) => DecodeDoubleValues(input);
+        public static IEnumerable<double> SelectDoubleFromString(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                yield break;
+            }
+
+            int start = 0;
+            int end;
+            while ((end = input.IndexOf(',', start)) != -1)
+            {
+                yield return ParseDouble(input.AsSpan(start, end - start));
+                start = end + 1;
+            }
+            yield return ParseDouble(input.AsSpan(start));
+        }
 
         /// <summary>
         /// Decodes a comma-separated string of numbers into a double array. Invalid entries default to 0.0.
+        /// <para>Note: This method is eager and returns an empty array for null, empty, or whitespace-only inputs.</para>
         /// </summary>
         /// <param name="data">The comma-separated string to decode.</param>
         /// <returns>A double array representing the decoded data.</returns>
@@ -220,13 +237,30 @@ namespace Hagalaz.Utilities
 
         /// <summary>
         /// Parses a comma-separated string into an enumerable of integers. Invalid entries default to 0.
+        /// <para>Note: Returns an empty collection for null, empty, or whitespace-only inputs.</para>
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of integers.</returns>
-        public static IEnumerable<int> SelectIntFromString(string input) => DecodeIntValues(input);
+        public static IEnumerable<int> SelectIntFromString(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                yield break;
+            }
+
+            int start = 0;
+            int end;
+            while ((end = input.IndexOf(',', start)) != -1)
+            {
+                yield return ParseInt(input.AsSpan(start, end - start));
+                start = end + 1;
+            }
+            yield return ParseInt(input.AsSpan(start));
+        }
 
         /// <summary>
         /// Decodes a comma-separated string of numbers into an integer array. Invalid entries default to 0.
+        /// <para>Note: This method is eager and returns an empty array for null, empty, or whitespace-only inputs.</para>
         /// </summary>
         /// <param name="data">The comma-separated string to decode.</param>
         /// <returns>An integer array representing the decoded data.</returns>
@@ -268,10 +302,22 @@ namespace Hagalaz.Utilities
 
         /// <summary>
         /// Parses a comma-separated string of numbers into an enumerable of booleans, where "1" is <c>true</c>.
+        /// <para>Note: Returns an empty collection for null, empty, or whitespace-only inputs.</para>
         /// </summary>
         /// <param name="input">The comma-separated string of numbers (e.g., "1,0,1").</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of booleans.</returns>
-        public static IEnumerable<bool> SelectBoolFromString(string input) => DecodeValues(input);
+        public static IEnumerable<bool> SelectBoolFromString(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                yield break;
+            }
+
+            foreach (var number in SelectIntFromString(input))
+            {
+                yield return number == 1;
+            }
+        }
 
         /// <summary>
         /// Decodes a separated string into an array of a specified type using a custom parser that accepts spans.

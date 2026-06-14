@@ -60,5 +60,11 @@ namespace Hagalaz.Benchmarks
 
         [Benchmark]
         public string EncodeBoolValues() => StringUtilities.EncodeValues(_boolArray);
+
+        [Benchmark]
+        public int[] SelectIntFromString_ToArray() => StringUtilities.SelectIntFromString(_csvInts).ToArray();
+
+        [Benchmark]
+        public double[] SelectDoubleFromString_ToArray() => StringUtilities.SelectDoubleFromString(_csvDoubles).ToArray();
     }
 }

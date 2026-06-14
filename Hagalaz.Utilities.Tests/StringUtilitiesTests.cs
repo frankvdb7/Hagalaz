@@ -44,6 +44,35 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
+        [DataRow("1,abc,0,", new bool[] { true, false, false, false })]
+        [DataRow(" ", new bool[0])]
+        public void DecodeValues_Direct_Comprehensive(string input, bool[] expected)
+        {
+            var actual = StringUtilities.DecodeValues(input);
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        [DataRow("1,2,abc,4", new int[] { 1, 2, 0, 4 })]
+        [DataRow(" ", new int[0])]
+        [DataRow("1,", new int[] { 1, 0 })]
+        public void DecodeIntValues_Direct_Comprehensive(string input, int[] expected)
+        {
+            var actual = StringUtilities.DecodeIntValues(input);
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        [DataRow("1.5,abc,3.25", new double[] { 1.5, 0.0, 3.25 })]
+        [DataRow(" ", new double[0])]
+        [DataRow("1.0,", new double[] { 1.0, 0.0 })]
+        public void DecodeDoubleValues_Direct_Comprehensive(string input, double[] expected)
+        {
+            var actual = StringUtilities.DecodeDoubleValues(input);
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
         public void DecodeValues_MalformedString_ReturnsDefaultValueForInvalid()
         {
             // Arrange
