@@ -57,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
         }
 
         [TestMethod]
-        public void SendUpdates_AcceptedUpdates_SendsUpdateMessageFirstWithCorrectPayload()
+        public void SendUpdates_WithAcceptedUpdates_SendsCorrectPayload()
         {
             // Arrange
             var update = Substitute.For<IRegionPartUpdate>();
@@ -109,7 +109,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
         }
 
         [TestMethod]
-        public void SendUpdates_LazyEnumerable_HandledCorrectly()
+        public void SendUpdates_WithLazyEnumerable_SendsAcceptedUpdates()
         {
             // Arrange
             var update = Substitute.For<IRegionPartUpdate>();
@@ -132,7 +132,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
         }
 
         [TestMethod]
-        public void SendUpdates_ListFastPath_HandledCorrectly()
+        public void SendUpdates_WithList_SendsAcceptedUpdates()
         {
             // Arrange
             var update = Substitute.For<IRegionPartUpdate>();
@@ -150,7 +150,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
         }
 
         [TestMethod]
-        public void SendUpdates_ArrayFastPath_HandledCorrectly()
+        public void SendUpdates_WithArray_SendsAcceptedUpdates()
         {
             // Arrange
             var update = Substitute.For<IRegionPartUpdate>();
@@ -168,7 +168,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Maps.Regions
         }
 
         [TestMethod]
-        public void SendUpdates_GenericReadOnlyList_HandledCorrectly()
+        public void SendUpdates_WithReadOnlyCollection_SendsAcceptedUpdates()
         {
             // Arrange
             var update = Substitute.For<IRegionPartUpdate>();

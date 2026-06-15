@@ -7,14 +7,13 @@ using System.Linq;
 namespace Hagalaz.Benchmarks
 {
     /// <summary>
-    /// Measures the filtering overhead and pool management for different region update strategies.
-    /// This benchmark focuses specifically on the filtering phase, not the end-to-end network dispatch.
+    /// Measures the filtering overhead and pool management for the optimized MapRegionPart update strategy.
+    /// This benchmark focuses specifically on the filtering phase, as network dispatch overhead is constant.
     /// </summary>
     [MemoryDiagnoser]
     public class MapRegionPartBenchmark
     {
         private List<IUpdate> _listSomeAccepted = null!;
-        private IUpdate[] _arraySomeAccepted = null!;
         private IReadOnlyList<IUpdate> _readOnlyListSomeAccepted = null!;
         private IEnumerable<IUpdate> _lazySomeAccepted = null!;
         private object _character = new object();
@@ -26,46 +25,45 @@ namespace Hagalaz.Benchmarks
         public void Setup()
         {
             _listSomeAccepted = Enumerable.Range(0, Count).Select(i => (IUpdate)new MockUpdate(i % 2 == 0)).ToList();
-            _arraySomeAccepted = _listSomeAccepted.ToArray();
             _readOnlyListSomeAccepted = _listSomeAccepted.AsReadOnly();
             _lazySomeAccepted = _listSomeAccepted.Select(x => x);
         }
 
-        // --- Baseline (LINQ) ---
+        // --- Baseline ---
 
+        /// <summary>
+        /// Represents the original production implementation using LINQ.
+        /// </summary>
         [Benchmark(Baseline = true)]
-        public List<IUpdate> List_Some_Linq() => _listSomeAccepted.Where(u => u.CanUpdateFor(_character)).ToList();
-
-        // --- Production Fast Path: List<T> ---
-
-        [Benchmark]
-        public int List_Some_Concrete_ArrayPool()
+        public int Baseline_Linq_ToList()
         {
-            return FilterAndReturnCount(_listSomeAccepted, _character);
+            return _listSomeAccepted.Where(u => u.CanUpdateFor(_character)).ToList().Count;
         }
 
-        // --- Production Fast Path: Array ---
+        // --- Production Optimized Path ---
 
+        /// <summary>
+        /// Represents the new optimized path taking IReadOnlyList (interface dispatch).
+        /// This is what production uses for _updates (List) and full updates.
+        /// </summary>
         [Benchmark]
-        public int Array_Some_Concrete_ArrayPool()
+        public int Production_Optimized_IReadOnlyList()
         {
-            return FilterAndReturnCount(_arraySomeAccepted, _character);
+            return FilterUsingPool(_readOnlyListSomeAccepted, _character);
         }
 
-        // --- Production Fallback: IReadOnlyList (Interface Dispatch) ---
+        // --- Production Fallback Path ---
 
+        /// <summary>
+        /// Represents the fallback path for pure IEnumerable.
+        /// </summary>
         [Benchmark]
-        public int List_Some_Interface_ArrayPool()
+        public int Production_Fallback_IEnumerable()
         {
-            return FilterAndReturnCount(_readOnlyListSomeAccepted, _character);
+            return _lazySomeAccepted.Where(u => u.CanUpdateFor(_character)).ToList().Count;
         }
 
-        // --- Fallback Strategy: Lazy IEnumerable ---
-
-        [Benchmark]
-        public List<IUpdate> Lazy_Some_Linq_Fallback() => _lazySomeAccepted.Where(u => u.CanUpdateFor(_character)).ToList();
-
-        private int FilterAndReturnCount<TList>(TList updates, object character) where TList : IReadOnlyList<IUpdate>
+        private int FilterUsingPool(IReadOnlyList<IUpdate> updates, object character)
         {
             int count = updates.Count;
             if (count == 0) return 0;
@@ -77,8 +75,12 @@ namespace Hagalaz.Benchmarks
                 for (int i = 0; i < count; i++)
                 {
                     var update = updates[i];
-                    if (update.CanUpdateFor(character)) buffer[found++] = update;
+                    if (update.CanUpdateFor(character))
+                    {
+                        buffer[found++] = update;
+                    }
                 }
+                // In production, we would iterate 'buffer' here to send messages.
                 return found;
             }
             finally
@@ -88,7 +90,8 @@ namespace Hagalaz.Benchmarks
         }
 
         public interface IUpdate { bool CanUpdateFor(object character); }
-        private class MockUpdate : IUpdate {
+        private class MockUpdate : IUpdate
+        {
             private readonly bool _res;
             public MockUpdate(bool res) => _res = res;
             public bool CanUpdateFor(object character) => _res;

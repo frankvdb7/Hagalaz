@@ -305,41 +305,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return;
             }
 
-            SendUpdates(character, _updates, false);
+            SendUpdates(character, (IReadOnlyList<IRegionPartUpdate>)_updates, false);
         }
 
-        public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
+        public void SendUpdates(ICharacter character, IReadOnlyList<IRegionPartUpdate> updates, bool fullUpdate)
         {
-            // Optimization: Avoid LINQ and ToList() heap allocations in the common hot path.
-            // Per-player, per-tick for each nearby region part.
-
-            if (updates is List<IRegionPartUpdate> list)
-            {
-                FilterAndSend(character, list, fullUpdate);
-            }
-            else if (updates is IRegionPartUpdate[] array)
-            {
-                FilterAndSend(character, array, fullUpdate);
-            }
-            else if (updates is IReadOnlyList<IRegionPartUpdate> readOnlyList)
-            {
-                FilterAndSend(character, readOnlyList, fullUpdate);
-            }
-            else
-            {
-                // Fallback for pure IEnumerable (e.g. lazy LINQ queries).
-                // Uses ToList() to avoid double-enumeration and potential IndexOutOfRangeException.
-                var updateables = updates.Where(u => u.CanUpdateFor(character)).ToList();
-                if (updateables.Count > 0)
-                {
-                    SendUpdateMessages(character, updateables, updateables.Count, fullUpdate);
-                }
-            }
-        }
-
-        private void FilterAndSend<TList>(ICharacter character, TList updates, bool fullUpdate)
-            where TList : IReadOnlyList<IRegionPartUpdate>
-        {
+            // Optimization: Avoid LINQ and ToList() heap allocations for IReadOnlyList (hot path).
+            // Reduces filtering overhead by using pooled buffers and indexed loops.
             int count = updates.Count;
             if (count == 0) return;
 
@@ -359,6 +331,17 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 // clearArray: true is required for reference types to prevent memory leaks.
                 ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
+            }
+        }
+
+        public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
+        {
+            // Fallback for pure IEnumerable (e.g. lazy LINQ queries).
+            // Uses ToList() to avoid double-enumeration and potential IndexOutOfRangeException.
+            var updateables = updates.Where(u => u.CanUpdateFor(character)).ToList();
+            if (updateables.Count > 0)
+            {
+                SendUpdateMessages(character, updateables, updateables.Count, fullUpdate);
             }
         }
 
