@@ -47,7 +47,7 @@ namespace Hagalaz.Benchmarks
         public double[] DecodeDoubleValues() => StringUtilities.DecodeDoubleValues(_csvDoubles);
 
         [Benchmark]
-        public bool[] DecodeBoolValues() => StringUtilities.DecodeValues(_csvBools);
+        public bool[] DecodeBoolValues() => StringUtilities.DecodeBoolValues(_csvBools);
 
         [Benchmark]
         public int[] DecodeIntValues_StringDelegate() => StringUtilities.DecodeValues<int>(_csvInts, (string s) => int.Parse(s));

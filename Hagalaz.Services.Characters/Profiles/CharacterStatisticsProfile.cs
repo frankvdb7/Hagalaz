@@ -77,7 +77,7 @@ namespace Hagalaz.Services.Characters.Profiles
                 .ForMember(dest => dest.PlayTime, opt => opt.MapFrom(src => (long)src.PlayTime))
                 .ForMember(dest => dest.XpCounters, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.XpCounters)))
                 .ForMember(dest => dest.TrackedXpCounters, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.TrackedXpCounters)))
-                .ForMember(dest => dest.EnabledXpCounters, opt => opt.MapFrom(src => StringUtilities.DecodeValues(src.EnabledXpCounters)))
+                .ForMember(dest => dest.EnabledXpCounters, opt => opt.MapFrom(src => StringUtilities.DecodeBoolValues(src.EnabledXpCounters)))
                 .ForMember(dest => dest.TargetSkillLevels, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.TargetSkillLevels)))
                 .ForMember(dest => dest.TargetSkillExperiences, opt => opt.MapFrom(src => StringUtilities.DecodeDoubleValues(src.TargetSkillExperiences)));
             CreateMap<Statistics, StatisticsDto>();

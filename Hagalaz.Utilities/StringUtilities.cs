@@ -172,11 +172,11 @@ namespace Hagalaz.Utilities
 
         /// <summary>
         /// Parses a comma-separated string into an enumerable of doubles. Invalid entries default to 0.0.
-        /// <para>Note: Returns an empty collection for null, empty, or whitespace-only inputs.</para>
+        /// <para>Note: This method is lazy. It returns an empty collection for null, empty, or whitespace-only inputs.</para>
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of doubles.</returns>
-        public static IEnumerable<double> SelectDoubleFromString(string input)
+        public static IEnumerable<double> SelectDoubleFromString(string? input)
         {
             if (string.IsNullOrWhiteSpace(input))
             {
@@ -199,7 +199,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="data">The comma-separated string to decode.</param>
         /// <returns>A double array representing the decoded data.</returns>
-        public static double[] DecodeDoubleValues(string data)
+        public static double[] DecodeDoubleValues(string? data)
         {
             if (string.IsNullOrWhiteSpace(data))
             {
@@ -237,11 +237,11 @@ namespace Hagalaz.Utilities
 
         /// <summary>
         /// Parses a comma-separated string into an enumerable of integers. Invalid entries default to 0.
-        /// <para>Note: Returns an empty collection for null, empty, or whitespace-only inputs.</para>
+        /// <para>Note: This method is lazy. It returns an empty collection for null, empty, or whitespace-only inputs.</para>
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of integers.</returns>
-        public static IEnumerable<int> SelectIntFromString(string input)
+        public static IEnumerable<int> SelectIntFromString(string? input)
         {
             if (string.IsNullOrWhiteSpace(input))
             {
@@ -264,7 +264,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="data">The comma-separated string to decode.</param>
         /// <returns>An integer array representing the decoded data.</returns>
-        public static int[] DecodeIntValues(string data)
+        public static int[] DecodeIntValues(string? data)
         {
             if (string.IsNullOrWhiteSpace(data))
             {
@@ -302,11 +302,11 @@ namespace Hagalaz.Utilities
 
         /// <summary>
         /// Parses a comma-separated string of numbers into an enumerable of booleans, where "1" is <c>true</c>.
-        /// <para>Note: Returns an empty collection for null, empty, or whitespace-only inputs.</para>
+        /// <para>Note: This method is lazy. It returns an empty collection for null, empty, or whitespace-only inputs.</para>
         /// </summary>
         /// <param name="input">The comma-separated string of numbers (e.g., "1,0,1").</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of booleans.</returns>
-        public static IEnumerable<bool> SelectBoolFromString(string input)
+        public static IEnumerable<bool> SelectBoolFromString(string? input)
         {
             if (string.IsNullOrWhiteSpace(input))
             {
@@ -327,7 +327,7 @@ namespace Hagalaz.Utilities
         /// <param name="parser">The delegate function used to parse each string segment span.</param>
         /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
         /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
-        public static T[] DecodeValuesFromSpan<T>(string data, SpanValueParser<T> parser, char separator = ',')
+        public static T[] DecodeValuesFromSpan<T>(string? data, SpanValueParser<T> parser, char separator = ',')
         {
             if (string.IsNullOrWhiteSpace(data))
                 return [];
@@ -361,7 +361,7 @@ namespace Hagalaz.Utilities
         /// <param name="parser">The delegate function used to parse each string segment.</param>
         /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
         /// <returns>An array of type <typeparamref name="T"/> containing the decoded values.</returns>
-        public static T[] DecodeValues<T>(string data, ValueParser<T> parser, char separator = ',')
+        public static T[] DecodeValues<T>(string? data, ValueParser<T> parser, char separator = ',')
         {
             return DecodeValuesFromSpan(data, segment => parser.Invoke(segment.ToString()), separator);
         }
@@ -371,7 +371,15 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="data">The comma-separated string to decode.</param>
         /// <returns>A boolean array representing the decoded data.</returns>
-        public static bool[] DecodeValues(string data)
+        public static bool[] DecodeValues(string? data) => DecodeBoolValues(data);
+
+        /// <summary>
+        /// Decodes a comma-separated string of numbers into a boolean array, where "1" represents <c>true</c>.
+        /// <para>Note: This method is eager and returns an empty array for null, empty, or whitespace-only inputs.</para>
+        /// </summary>
+        /// <param name="data">The comma-separated string to decode.</param>
+        /// <returns>A boolean array representing the decoded data.</returns>
+        public static bool[] DecodeBoolValues(string? data)
         {
             if (string.IsNullOrWhiteSpace(data))
             {

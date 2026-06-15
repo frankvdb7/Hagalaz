@@ -28,13 +28,14 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
+        [DataRow(null, new double[0])]
         [DataRow("", new double[0])]
         [DataRow(" ", new double[0])]
         [DataRow("1.5,abc,3.25", new double[] { 1.5, 0.0, 3.25 })]
         [DataRow("1e2,-3.5", new double[] { 100.0, -3.5 })]
         [DataRow("1,", new double[] { 1.0, 0.0 })]
         [DataRow(",1", new double[] { 0.0, 1.0 })]
-        public void SelectDoubleFromString_Comprehensive_ReturnsExpected(string input, double[] expected)
+        public void SelectDoubleFromString_Comprehensive(string? input, double[] expected)
         {
             // Act
             var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
@@ -44,31 +45,49 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
-        [DataRow("1,abc,0,", new bool[] { true, false, false, false })]
+        [DataRow(null, new bool[0])]
+        [DataRow("", new bool[0])]
         [DataRow(" ", new bool[0])]
-        public void DecodeValues_Direct_Comprehensive(string input, bool[] expected)
+        [DataRow("1,0,2,-1,abc,", new bool[] { true, false, false, false, false, false })]
+        public void DecodeBoolValues_Comprehensive(string? input, bool[] expected)
         {
-            var actual = StringUtilities.DecodeValues(input);
+            var actual = StringUtilities.DecodeBoolValues(input);
             CollectionAssert.AreEqual(expected, actual);
         }
 
         [TestMethod]
-        [DataRow("1,2,abc,4", new int[] { 1, 2, 0, 4 })]
+        [DataRow(null, new int[0])]
+        [DataRow("", new int[0])]
         [DataRow(" ", new int[0])]
+        [DataRow("1,2,abc,4", new int[] { 1, 2, 0, 4 })]
         [DataRow("1,", new int[] { 1, 0 })]
-        public void DecodeIntValues_Direct_Comprehensive(string input, int[] expected)
+        [DataRow(",1", new int[] { 0, 1 })]
+        public void DecodeIntValues_Comprehensive(string? input, int[] expected)
         {
             var actual = StringUtilities.DecodeIntValues(input);
             CollectionAssert.AreEqual(expected, actual);
         }
 
         [TestMethod]
-        [DataRow("1.5,abc,3.25", new double[] { 1.5, 0.0, 3.25 })]
+        [DataRow(null, new double[0])]
+        [DataRow("", new double[0])]
         [DataRow(" ", new double[0])]
+        [DataRow("1.5,abc,3.25", new double[] { 1.5, 0.0, 3.25 })]
+        [DataRow("1e2,-3.5", new double[] { 100.0, -3.5 })]
         [DataRow("1.0,", new double[] { 1.0, 0.0 })]
-        public void DecodeDoubleValues_Direct_Comprehensive(string input, double[] expected)
+        [DataRow(",1.0", new double[] { 0.0, 1.0 })]
+        public void DecodeDoubleValues_Comprehensive(string? input, double[] expected)
         {
             var actual = StringUtilities.DecodeDoubleValues(input);
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void DecodeValues_Wrapper_WorksSameAsDecodeBoolValues()
+        {
+            var input = "1,0,abc";
+            var expected = StringUtilities.DecodeBoolValues(input);
+            var actual = StringUtilities.DecodeValues(input);
             CollectionAssert.AreEqual(expected, actual);
         }
 
@@ -295,9 +314,12 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
+        [DataRow(null, new int[0])]
+        [DataRow("", new int[0])]
+        [DataRow(" ", new int[0])]
         [DataRow("1,", new int[] { 1, 0 })]
         [DataRow(",1", new int[] { 0, 1 })]
-        public void SelectIntFromString_LeadingTrailing_ReturnsExpected(string input, int[] expected)
+        public void SelectIntFromString_Comprehensive(string? input, int[] expected)
         {
             // Act
             var actual = StringUtilities.SelectIntFromString(input).ToArray();
@@ -465,29 +487,17 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
-        public void SelectBoolFromString_EmptyInput_ReturnsEmpty()
+        [DataRow(null, new bool[0])]
+        [DataRow("", new bool[0])]
+        [DataRow(" ", new bool[0])]
+        [DataRow("1,0,abc", new bool[] { true, false, false })]
+        public void SelectBoolFromString_Comprehensive(string? input, bool[] expected)
         {
-            // Arrange
-            var input = "";
-
             // Act
             var actual = StringUtilities.SelectBoolFromString(input).ToArray();
 
             // Assert
-            Assert.IsEmpty(actual);
-        }
-
-        [TestMethod]
-        public void SelectBoolFromString_WhitespaceInput_ReturnsEmpty()
-        {
-            // Arrange
-            var input = " ";
-
-            // Act
-            var actual = StringUtilities.SelectBoolFromString(input).ToArray();
-
-            // Assert
-            Assert.IsEmpty(actual);
+            CollectionAssert.AreEqual(expected, actual);
         }
 
         [TestMethod]
