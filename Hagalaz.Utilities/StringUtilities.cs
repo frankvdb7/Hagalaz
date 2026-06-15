@@ -367,10 +367,12 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
-        /// Decodes a comma-separated string of numbers into a boolean array, where "1" represents <c>true</c>.
+        /// Compatibility wrapper for decoding comma-separated boolean values.
+        /// Prefer <see cref="DecodeBoolValues(string?)"/> for new code.
         /// </summary>
         /// <param name="data">The comma-separated string to decode.</param>
         /// <returns>A boolean array representing the decoded data.</returns>
+        [Obsolete("Use DecodeBoolValues(string?) instead.")]
         public static bool[] DecodeValues(string? data) => DecodeBoolValues(data);
 
         /// <summary>
