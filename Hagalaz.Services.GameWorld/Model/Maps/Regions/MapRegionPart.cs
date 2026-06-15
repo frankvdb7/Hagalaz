@@ -308,7 +308,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             SendUpdates(character, (IReadOnlyList<IRegionPartUpdate>)_updates, false);
         }
 
-        public void SendUpdates(ICharacter character, IReadOnlyList<IRegionPartUpdate> updates, bool fullUpdate)
+        internal void SendUpdates(ICharacter character, IReadOnlyList<IRegionPartUpdate> updates, bool fullUpdate)
         {
             // Optimization: Avoid LINQ and ToList() heap allocations for IReadOnlyList (hot path).
             // Reduces filtering overhead by using pooled buffers and indexed loops.
@@ -334,7 +334,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
+        internal void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
         {
             // Fallback for pure IEnumerable (e.g. lazy LINQ queries).
             // Uses ToList() to avoid double-enumeration and potential IndexOutOfRangeException.

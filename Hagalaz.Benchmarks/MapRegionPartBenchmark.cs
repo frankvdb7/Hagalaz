@@ -7,14 +7,15 @@ using System.Linq;
 namespace Hagalaz.Benchmarks
 {
     /// <summary>
-    /// Measures the filtering overhead and pool management for the optimized MapRegionPart update strategy.
-    /// This benchmark focuses specifically on the filtering phase, as network dispatch overhead is constant.
+    /// Measures filtering and pool-management overhead only.
+    /// This benchmark does not measure local-position calculation, mapping,
+    /// message dispatch, or OnUpdatedFor callbacks.
     /// </summary>
     [MemoryDiagnoser]
     public class MapRegionPartBenchmark
     {
         private List<IUpdate> _listSomeAccepted = null!;
-        private IReadOnlyList<IUpdate> _readOnlyListSomeAccepted = null!;
+        private IReadOnlyList<IUpdate> _listAsReadOnlyList = null!;
         private IEnumerable<IUpdate> _lazySomeAccepted = null!;
         private object _character = new object();
 
@@ -25,7 +26,8 @@ namespace Hagalaz.Benchmarks
         public void Setup()
         {
             _listSomeAccepted = Enumerable.Range(0, Count).Select(i => (IUpdate)new MockUpdate(i % 2 == 0)).ToList();
-            _readOnlyListSomeAccepted = _listSomeAccepted.AsReadOnly();
+            // Production uses List<T> passed as IReadOnlyList<T> for _updates
+            _listAsReadOnlyList = _listSomeAccepted;
             _lazySomeAccepted = _listSomeAccepted.Select(x => x);
         }
 
@@ -43,13 +45,13 @@ namespace Hagalaz.Benchmarks
         // --- Production Optimized Path ---
 
         /// <summary>
-        /// Represents the new optimized path taking IReadOnlyList (interface dispatch).
-        /// This is what production uses for _updates (List) and full updates.
+        /// Represents the new optimized path taking IReadOnlyList.
+        /// This is the actual production shape for _updates (List assigned to IReadOnlyList).
         /// </summary>
         [Benchmark]
         public int Production_Optimized_IReadOnlyList()
         {
-            return FilterUsingPool(_readOnlyListSomeAccepted, _character);
+            return FilterUsingPool(_listAsReadOnlyList, _character);
         }
 
         // --- Production Fallback Path ---
