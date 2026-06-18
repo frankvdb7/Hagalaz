@@ -28,6 +28,70 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
+        [DataRow(null, new double[0])]
+        [DataRow("", new double[0])]
+        [DataRow(" ", new double[0])]
+        [DataRow("1.5,abc,3.25", new double[] { 1.5, 0.0, 3.25 })]
+        [DataRow("1e2,-3.5", new double[] { 100.0, -3.5 })]
+        [DataRow("1,", new double[] { 1.0, 0.0 })]
+        [DataRow(",1", new double[] { 0.0, 1.0 })]
+        public void SelectDoubleFromString_Comprehensive(string? input, double[] expected)
+        {
+            // Act
+            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
+
+            // Assert
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        [DataRow(null, new bool[0])]
+        [DataRow("", new bool[0])]
+        [DataRow(" ", new bool[0])]
+        [DataRow("1,0,2,-1,abc,", new bool[] { true, false, false, false, false, false })]
+        public void DecodeBoolValues_Comprehensive(string? input, bool[] expected)
+        {
+            var actual = StringUtilities.DecodeBoolValues(input);
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        [DataRow(null, new int[0])]
+        [DataRow("", new int[0])]
+        [DataRow(" ", new int[0])]
+        [DataRow("1,2,abc,4", new int[] { 1, 2, 0, 4 })]
+        [DataRow("1,", new int[] { 1, 0 })]
+        [DataRow(",1", new int[] { 0, 1 })]
+        public void DecodeIntValues_Comprehensive(string? input, int[] expected)
+        {
+            var actual = StringUtilities.DecodeIntValues(input);
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        [DataRow(null, new double[0])]
+        [DataRow("", new double[0])]
+        [DataRow(" ", new double[0])]
+        [DataRow("1.5,abc,3.25", new double[] { 1.5, 0.0, 3.25 })]
+        [DataRow("1e2,-3.5", new double[] { 100.0, -3.5 })]
+        [DataRow("1.0,", new double[] { 1.0, 0.0 })]
+        [DataRow(",1.0", new double[] { 0.0, 1.0 })]
+        public void DecodeDoubleValues_Comprehensive(string? input, double[] expected)
+        {
+            var actual = StringUtilities.DecodeDoubleValues(input);
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void DecodeValues_Wrapper_WorksSameAsDecodeBoolValues()
+        {
+            var input = "1,0,abc";
+            var expected = StringUtilities.DecodeBoolValues(input);
+            var actual = StringUtilities.DecodeValues(input);
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
         public void DecodeValues_MalformedString_ReturnsDefaultValueForInvalid()
         {
             // Arrange
@@ -208,54 +272,15 @@ namespace Hagalaz.Utilities.Tests
             Assert.AreEqual(expected, actual);
         }
 
-        [TestMethod]
-        public void SelectDoubleFromString_ValidInput_ReturnsCorrectDoubles()
-        {
-            // Arrange
-            var input = "1.1,2.2,3.3";
-            var expected = new double[] { 1.1, 2.2, 3.3 };
-
-            // Act
-            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
-
-            // Assert
-            CollectionAssert.AreEqual(expected, actual);
-        }
 
         [TestMethod]
-        public void SelectDoubleFromString_InvalidInput_ReturnsZeroForInvalid()
+        [DataRow(null, new int[0])]
+        [DataRow("", new int[0])]
+        [DataRow(" ", new int[0])]
+        [DataRow("1,", new int[] { 1, 0 })]
+        [DataRow(",1", new int[] { 0, 1 })]
+        public void SelectIntFromString_Comprehensive(string? input, int[] expected)
         {
-            // Arrange
-            var input = "1.1,abc,3.3";
-            var expected = new double[] { 1.1, 0.0, 3.3 };
-
-            // Act
-            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
-
-            // Assert
-            CollectionAssert.AreEqual(expected, actual);
-        }
-
-        [TestMethod]
-        public void SelectDoubleFromString_EmptyInput_ReturnsEmpty()
-        {
-            // Arrange
-            var input = "";
-
-            // Act
-            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
-
-            // Assert
-            Assert.IsEmpty(actual);
-        }
-
-        [TestMethod]
-        public void SelectIntFromString_ValidInput_ReturnsCorrectInts()
-        {
-            // Arrange
-            var input = "1,2,3";
-            var expected = new int[] { 1, 2, 3 };
-
             // Act
             var actual = StringUtilities.SelectIntFromString(input).ToArray();
 
@@ -263,19 +288,6 @@ namespace Hagalaz.Utilities.Tests
             CollectionAssert.AreEqual(expected, actual);
         }
 
-        [TestMethod]
-        public void SelectBoolFromString_ValidInput_ReturnsCorrectBools()
-        {
-            // Arrange
-            var input = "1,0,1";
-            var expected = new bool[] { true, false, true };
-
-            // Act
-            var actual = StringUtilities.SelectBoolFromString(input).ToArray();
-
-            // Assert
-            CollectionAssert.AreEqual(expected, actual);
-        }
 
         [TestMethod]
         public void DecodeValues_String_DecodesCorrectly()
@@ -318,19 +330,6 @@ namespace Hagalaz.Utilities.Tests
             Assert.IsEmpty(actual);
         }
 
-        [TestMethod]
-        public void DecodeValues_Bool_DecodesCorrectly()
-        {
-            // Arrange
-            var data = "1,0,1";
-            var expected = new bool[] { true, false, true };
-
-            // Act
-            var actual = StringUtilities.DecodeValues(data);
-
-            // Assert
-            CollectionAssert.AreEqual(expected, actual);
-        }
 
         [TestMethod]
         [DataRow("begin ", " end", "begin THE_STRING end", false, false, "THE_STRING", "")]
@@ -367,44 +366,21 @@ namespace Hagalaz.Utilities.Tests
             Assert.AreEqual("1,234,567", actual);
         }
 
-        [TestMethod]
-        public void SelectIntFromString_EmptyInput_ReturnsEmpty()
-        {
-            // Arrange
-            var input = "";
 
-            // Act
-            var actual = StringUtilities.SelectIntFromString(input).ToArray();
 
-            // Assert
-            Assert.IsEmpty(actual);
-        }
 
         [TestMethod]
-        public void SelectIntFromString_InvalidInput_ReturnsZeroForInvalid()
+        [DataRow(null, new bool[0])]
+        [DataRow("", new bool[0])]
+        [DataRow(" ", new bool[0])]
+        [DataRow("1,0,abc", new bool[] { true, false, false })]
+        public void SelectBoolFromString_Comprehensive(string? input, bool[] expected)
         {
-            // Arrange
-            var input = "1,abc,3";
-            var expected = new int[] { 1, 0, 3 };
-
-            // Act
-            var actual = StringUtilities.SelectIntFromString(input).ToArray();
-
-            // Assert
-            CollectionAssert.AreEqual(expected, actual);
-        }
-
-        [TestMethod]
-        public void SelectBoolFromString_EmptyInput_ReturnsEmpty()
-        {
-            // Arrange
-            var input = "";
-
             // Act
             var actual = StringUtilities.SelectBoolFromString(input).ToArray();
 
             // Assert
-            Assert.IsEmpty(actual);
+            CollectionAssert.AreEqual(expected, actual);
         }
 
         [TestMethod]
@@ -447,53 +423,6 @@ namespace Hagalaz.Utilities.Tests
             Assert.IsEmpty(actual);
         }
 
-        [TestMethod]
-        public void DecodeValues_WhitespaceString_ReturnsEmptyIntArray()
-        {
-            // Arrange
-            var data = " ";
-
-            // Act
-            var actual = StringUtilities.DecodeValues(data, int.Parse);
-
-            // Assert
-            Assert.IsEmpty(actual);
-        }
-
-        [TestMethod]
-        public void DecodeValues_WhitespaceString_ReturnsEmptyBoolArray()
-        {
-            // Arrange
-            var data = " ";
-
-            // Act
-            var actual = StringUtilities.DecodeValues(data);
-
-            // Assert
-            Assert.IsEmpty(actual);
-        }
-    }
-
-    [TestClass]
-    public class StringUtilitiesPerformanceTests
-    {
-        [TestMethod]
-        public void SelectIntFromString_TrailingComma_HandlesCorrectly()
-        {
-            var input = "1,2,";
-            var expected = new int[] { 1, 2, 0 };
-            var actual = StringUtilities.SelectIntFromString(input).ToArray();
-            CollectionAssert.AreEqual(expected, actual);
-        }
-
-        [TestMethod]
-        public void SelectDoubleFromString_TrailingComma_HandlesCorrectly()
-        {
-            var input = "1.1,2.2,";
-            var expected = new double[] { 1.1, 2.2, 0.0 };
-            var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
-            CollectionAssert.AreEqual(expected, actual);
-        }
 
         [TestMethod]
         public void StringToLong_InvalidCharacters_ReturnsZero()

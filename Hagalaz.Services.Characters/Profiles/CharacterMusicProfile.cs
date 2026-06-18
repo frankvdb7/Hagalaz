@@ -13,14 +13,14 @@ namespace Hagalaz.Services.Characters.Profiles
         {
             CreateMap<CharactersMusic, Music>()
                 .ForMember(dest => dest.UnlockedMusicIds, 
-                opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.UnlockedMusic).ToArray()))
+                opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.UnlockedMusic)))
                 .ForMember(dest => dest.PlaylistMusicIds, opt => opt.Ignore())
                 .ForMember(dest => dest.IsShuffleToggled, opt => opt.Ignore())
                 .ForMember(dest => dest.IsPlaylistToggled, opt => opt.Ignore());
             CreateMap<CharactersMusicPlaylist, Music>()
                 .ForMember(dest => dest.UnlockedMusicIds, opt => opt.Ignore())
                 .ForMember(dest => dest.PlaylistMusicIds,
-                opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.Playlist).ToArray()))
+                opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.Playlist)))
                 .ForMember(dest => dest.IsShuffleToggled,
                 opt => opt.MapFrom(src => src.ShuffleToggled == 1))
                 .ForMember(dest => dest.IsPlaylistToggled,
