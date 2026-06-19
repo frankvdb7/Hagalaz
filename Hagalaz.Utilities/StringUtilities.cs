@@ -175,22 +175,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of doubles.</returns>
-        public static IEnumerable<double> SelectDoubleFromString(string input)
-        {
-            if (string.IsNullOrEmpty(input))
-            {
-                yield break;
-            }
-
-            int start = 0;
-            int end;
-            while ((end = input.IndexOf(',', start)) != -1)
-            {
-                yield return ParseDouble(input.AsSpan(start, end - start));
-                start = end + 1;
-            }
-            yield return ParseDouble(input.AsSpan(start));
-        }
+        public static IEnumerable<double> SelectDoubleFromString(string input) => DecodeDoubleValues(input);
 
         private static double ParseDouble(ReadOnlySpan<char> segment)
         {
@@ -205,22 +190,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of integers.</returns>
-        public static IEnumerable<int> SelectIntFromString(string input)
-        {
-            if (string.IsNullOrEmpty(input))
-            {
-                yield break;
-            }
-
-            int start = 0;
-            int end;
-            while ((end = input.IndexOf(',', start)) != -1)
-            {
-                yield return ParseInt(input.AsSpan(start, end - start));
-                start = end + 1;
-            }
-            yield return ParseInt(input.AsSpan(start));
-        }
+        public static IEnumerable<int> SelectIntFromString(string input) => DecodeIntValues(input);
 
         private static int ParseInt(ReadOnlySpan<char> segment)
         {
@@ -235,18 +205,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="input">The comma-separated string of numbers (e.g., "1,0,1").</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of booleans.</returns>
-        public static IEnumerable<bool> SelectBoolFromString(string input)
-        {
-            if (string.IsNullOrEmpty(input))
-            {
-                yield break; // Return an empty enumerable for an empty or null input.
-            }
-
-            foreach (var number in SelectIntFromString(input))
-            {
-                yield return number == 1;
-            }
-        }
+        public static IEnumerable<bool> SelectBoolFromString(string input) => DecodeBoolValues(input);
 
         /// <summary>
         /// Decodes a separated string into an array of a specified type using a custom parser that accepts spans.
@@ -291,11 +250,69 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
+        /// Decodes a separated string of numbers into an integer array. Invalid entries default to 0.
+        /// </summary>
+        /// <param name="data">The separated string of numbers.</param>
+        /// <param name="separator">The character used to separate values. Defaults to a comma.</param>
+        /// <returns>An integer array representing the decoded data.</returns>
+        public static int[] DecodeIntValues(string data, char separator = ',')
+        {
+            if (string.IsNullOrWhiteSpace(data))
+            {
+                return [];
+            }
+
+            int count = CountSegments(data.AsSpan(), separator);
+            int[] values = new int[count];
+
+            int start = 0;
+            for (int k = 0; k < count; k++)
+            {
+                int end = data.IndexOf(separator, start);
+                if (end == -1) end = data.Length;
+
+                values[k] = ParseInt(data.AsSpan(start, end - start));
+                start = end + 1;
+            }
+
+            return values;
+        }
+
+        /// <summary>
+        /// Decodes a separated string of numbers into a double array. Invalid entries default to 0.0.
+        /// </summary>
+        /// <param name="data">The separated string of numbers.</param>
+        /// <param name="separator">The character used to separate values. Defaults to a comma.</param>
+        /// <returns>A double array representing the decoded data.</returns>
+        public static double[] DecodeDoubleValues(string data, char separator = ',')
+        {
+            if (string.IsNullOrWhiteSpace(data))
+            {
+                return [];
+            }
+
+            int count = CountSegments(data.AsSpan(), separator);
+            double[] values = new double[count];
+
+            int start = 0;
+            for (int k = 0; k < count; k++)
+            {
+                int end = data.IndexOf(separator, start);
+                if (end == -1) end = data.Length;
+
+                values[k] = ParseDouble(data.AsSpan(start, end - start));
+                start = end + 1;
+            }
+
+            return values;
+        }
+
+        /// <summary>
         /// Decodes a comma-separated string of numbers into a boolean array, where "1" represents <c>true</c>.
         /// </summary>
         /// <param name="data">The comma-separated string to decode.</param>
         /// <returns>A boolean array representing the decoded data.</returns>
-        public static bool[] DecodeValues(string data)
+        public static bool[] DecodeBoolValues(string data)
         {
             if (string.IsNullOrWhiteSpace(data))
             {
@@ -329,6 +346,13 @@ namespace Hagalaz.Utilities
 
             return values;
         }
+
+        /// <summary>
+        /// Decodes a comma-separated string of numbers into a boolean array, where "1" represents <c>true</c>.
+        /// </summary>
+        /// <param name="data">The comma-separated string to decode.</param>
+        /// <returns>A boolean array representing the decoded data.</returns>
+        public static bool[] DecodeValues(string data) => DecodeBoolValues(data);
 
         /// <summary>
         /// Converts a 64-bit integer into a base-37 encoded string, commonly used for names or identifiers.
