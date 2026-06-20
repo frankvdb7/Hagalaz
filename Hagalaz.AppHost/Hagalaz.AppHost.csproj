@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
-    <PackageReference Include="Aspire.Dashboard.Sdk.linux-x64" Version="13.0.1" />
+    <PackageReference Include="Aspire.Dashboard.Sdk.linux-x64" Version="13.3.0" />
     <PackageReference Include="Aspire.Hosting.Orchestration.linux-x64" Version="13.0.1" />
     <!-- Workaround: https://github.com/dotnet/aspire/issues/5486#issuecomment-2321885874 -->
     
