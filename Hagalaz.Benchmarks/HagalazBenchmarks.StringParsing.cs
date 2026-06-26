@@ -10,8 +10,10 @@ namespace Hagalaz.Benchmarks
     public partial class HagalazBenchmarks
     {
         private string _csvInts = string.Empty;
+        private string _csvDoubles = string.Empty;
         private string _csvBools = string.Empty;
         private int[] _intArray = null!;
+        private double[] _doubleArray = null!;
         private bool[] _boolArray = null!;
         private string _sourceString = string.Empty;
         private string _beginMarker = "[[[";
@@ -20,8 +22,10 @@ namespace Hagalaz.Benchmarks
         private void SetupStringParsing()
         {
             _csvInts = string.Join(",", Enumerable.Range(0, N));
+            _csvDoubles = string.Join(",", Enumerable.Range(0, N).Select(i => (i * 1.1).ToString(CultureInfo.InvariantCulture)));
             _csvBools = string.Join(",", Enumerable.Range(0, N).Select(i => i % 2 == 0 ? "1" : "0"));
             _intArray = Enumerable.Range(0, N).ToArray();
+            _doubleArray = Enumerable.Range(0, N).Select(i => i * 1.1).ToArray();
             _boolArray = Enumerable.Range(0, N).Select(i => i % 2 == 0).ToArray();
             _sourceString = "Some prefix " + _beginMarker + new string('A', N) + _endMarker + " Some suffix";
         }
@@ -31,6 +35,12 @@ namespace Hagalaz.Benchmarks
 
         [Benchmark]
         public List<int> SelectIntFromString() => StringUtilities.SelectIntFromString(_csvInts).ToList();
+
+        [Benchmark]
+        public int[] DecodeIntValues() => StringUtilities.DecodeIntValues(_csvInts);
+
+        [Benchmark]
+        public double[] DecodeDoubleValues() => StringUtilities.DecodeDoubleValues(_csvDoubles);
 
         [Benchmark]
         public bool[] DecodeBoolValues() => StringUtilities.DecodeValues(_csvBools);

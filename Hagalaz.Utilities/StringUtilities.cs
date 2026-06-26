@@ -175,22 +175,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of doubles.</returns>
-        public static IEnumerable<double> SelectDoubleFromString(string input)
-        {
-            if (string.IsNullOrEmpty(input))
-            {
-                yield break;
-            }
-
-            int start = 0;
-            int end;
-            while ((end = input.IndexOf(',', start)) != -1)
-            {
-                yield return ParseDouble(input.AsSpan(start, end - start));
-                start = end + 1;
-            }
-            yield return ParseDouble(input.AsSpan(start));
-        }
+        public static IEnumerable<double> SelectDoubleFromString(string input) => DecodeDoubleValues(input);
 
         private static double ParseDouble(ReadOnlySpan<char> segment)
         {
@@ -205,22 +190,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of integers.</returns>
-        public static IEnumerable<int> SelectIntFromString(string input)
-        {
-            if (string.IsNullOrEmpty(input))
-            {
-                yield break;
-            }
-
-            int start = 0;
-            int end;
-            while ((end = input.IndexOf(',', start)) != -1)
-            {
-                yield return ParseInt(input.AsSpan(start, end - start));
-                start = end + 1;
-            }
-            yield return ParseInt(input.AsSpan(start));
-        }
+        public static IEnumerable<int> SelectIntFromString(string input) => DecodeIntValues(input);
 
         private static int ParseInt(ReadOnlySpan<char> segment)
         {
@@ -328,6 +298,28 @@ namespace Hagalaz.Utilities
             }
 
             return values;
+        }
+
+        /// <summary>
+        /// Decodes a separated string into an array of integers.
+        /// </summary>
+        /// <param name="data">The string data to decode.</param>
+        /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
+        /// <returns>An array of integers containing the decoded values.</returns>
+        public static int[] DecodeIntValues(string data, char separator = ',')
+        {
+            return DecodeValuesFromSpan(data, ParseInt, separator);
+        }
+
+        /// <summary>
+        /// Decodes a separated string into an array of doubles.
+        /// </summary>
+        /// <param name="data">The string data to decode.</param>
+        /// <param name="separator">The character used to separate values in the string. Defaults to a comma.</param>
+        /// <returns>An array of doubles containing the decoded values.</returns>
+        public static double[] DecodeDoubleValues(string data, char separator = ',')
+        {
+            return DecodeValuesFromSpan(data, ParseDouble, separator);
         }
 
         /// <summary>
