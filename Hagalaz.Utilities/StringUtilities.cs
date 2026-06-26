@@ -177,7 +177,7 @@ namespace Hagalaz.Utilities
         /// <returns>An <see cref="IEnumerable{T}"/> of doubles.</returns>
         public static IEnumerable<double> SelectDoubleFromString(string input)
         {
-            if (string.IsNullOrEmpty(input))
+            if (string.IsNullOrWhiteSpace(input))
             {
                 yield break;
             }
@@ -207,7 +207,7 @@ namespace Hagalaz.Utilities
         /// <returns>An <see cref="IEnumerable{T}"/> of integers.</returns>
         public static IEnumerable<int> SelectIntFromString(string input)
         {
-            if (string.IsNullOrEmpty(input))
+            if (string.IsNullOrWhiteSpace(input))
             {
                 yield break;
             }
@@ -237,7 +237,7 @@ namespace Hagalaz.Utilities
         /// <returns>An <see cref="IEnumerable{T}"/> of booleans.</returns>
         public static IEnumerable<bool> SelectBoolFromString(string input)
         {
-            if (string.IsNullOrEmpty(input))
+            if (string.IsNullOrWhiteSpace(input))
             {
                 yield break; // Return an empty enumerable for an empty or null input.
             }
