@@ -95,7 +95,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
 
                     var itemID = part - 0x4000; // 16384
                     var definition = _itemStore.GetOrAdd(itemID);
-                    if (definition.TeamId != 0)
+                    if (definition != null && definition.TeamId != 0)
                         teamID = definition.TeamId;
                 }
 
@@ -193,9 +193,18 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742
                 var ia = character.Appearance.GetDrawnItemPart(part);
                 if (ia != null)
                 {
+                    var definition = _itemStore.GetOrAdd(ia.ItemId);
+                    if (definition == null)
+                    {
+                        // To prevent protocol desynchronization when an IItemDefinition is missing,
+                        // write a 0 byte for the item flags to signal 'no update' and maintain
+                        // buffer alignment for subsequent data.
+                        output.WriteByte(0);
+                        continue;
+                    }
+
                     output.WriteByte((byte)ia.Flags);
 
-                    var definition = _itemStore.GetOrAdd(ia.ItemId);
                     if (ia.Flags.HasFlag(ItemUpdateFlags.Model))
                     {
                         output.WriteInt32BigEndianSmart(ia.MaleModels[0]); // male worn model1

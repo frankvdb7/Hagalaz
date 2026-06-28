@@ -28,9 +28,14 @@ namespace Hagalaz.Services.GameWorld.Store
             _logger = logger;
         }
 
-        private IItemDefinition LoadItemDefinition(int itemId)
+        private IItemDefinition? LoadItemDefinition(int itemId)
         {
             var definition = _itemProvider.Get(itemId);
+            if (definition == null)
+            {
+                return null;
+            }
+
             if (_databaseItems.TryGetValue(itemId, out var item))
             {
                 definition.Examine = item.Examine;
