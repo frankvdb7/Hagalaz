@@ -107,9 +107,9 @@
       },
       "Aspire.Hosting.Orchestration.linux-x64": {
         "type": "Direct",
-        "requested": "[13.0.1, )",
-        "resolved": "13.0.1",
-        "contentHash": "IjSXLhjYSonWRHLIledR6WOYibmGw1YlUNPbcCwYm4B9q8AwkJpyL0ean44fCP38gD76FuBBGHyywyASvEbNHg=="
+        "requested": "[13.3.0, )",
+        "resolved": "13.3.0",
+        "contentHash": "jifQEC5fHk+bS+lZ9N0Zbh2QFvX06CCr3cmwCEpJktdY3Nebe6GiqQGf6GVw0+xJiSNvLoOoR9PEyPRqx2fjSA=="
       },
       "Aspire.Hosting.RabbitMQ": {
         "type": "Direct",
