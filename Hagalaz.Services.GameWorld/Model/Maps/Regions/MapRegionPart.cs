@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using AutoMapper;
@@ -303,33 +304,61 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 return;
             }
-            //var lastLocation = character.LastLocation;
-            //var fullUpdate = lastLocation == null || 
-            //    lastLocation.RegionPartX != DrawRegionPartX || 
-            //    lastLocation.RegionPartY != DrawRegionPartY ||
-            //    lastLocation.Z != DrawRegionZ;
 
-            SendUpdates(character, _updates, false);
+            SendUpdates(character, (IReadOnlyList<IRegionPartUpdate>)_updates, false);
         }
 
-        public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
+        internal void SendUpdates(ICharacter character, IReadOnlyList<IRegionPartUpdate> updates, bool fullUpdate)
         {
-            var updateables = updates.Where(update => update.CanUpdateFor(character)).ToList();
-            if (updateables.Count == 0)
-            {
-                return;
-            }
+            // Optimization: Avoid LINQ and ToList() heap allocations for IReadOnlyList (hot path).
+            // Reduces filtering overhead by using pooled buffers and indexed loops.
+            int count = updates.Count;
+            if (count == 0) return;
 
+            var buffer = ArrayPool<IRegionPartUpdate>.Shared.Rent(count);
+            try
+            {
+                int updateableCount = 0;
+                for (int i = 0; i < count; i++)
+                {
+                    var update = updates[i];
+                    if (update.CanUpdateFor(character)) buffer[updateableCount++] = update;
+                }
+
+                if (updateableCount > 0) SendUpdateMessages(character, buffer, updateableCount, fullUpdate);
+            }
+            finally
+            {
+                // clearArray: true is required for reference types to prevent memory leaks.
+                ArrayPool<IRegionPartUpdate>.Shared.Return(buffer, clearArray: true);
+            }
+        }
+
+        internal void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
+        {
+            // Fallback for pure IEnumerable (e.g. lazy LINQ queries).
+            // Uses ToList() to avoid double-enumeration and potential IndexOutOfRangeException.
+            var updateables = updates.Where(u => u.CanUpdateFor(character)).ToList();
+            if (updateables.Count > 0)
+            {
+                SendUpdateMessages(character, updateables, updateables.Count, fullUpdate);
+            }
+        }
+
+        private void SendUpdateMessages(ICharacter character, IReadOnlyList<IRegionPartUpdate> buffer, int count, bool fullUpdate)
+        {
             var baseLocation = new Location(DrawRegionPartX << 3, DrawRegionPartY << 3, DrawRegionZ, 0);
-            int localX = -1;
-            int localY = -1;
+            int localX = -1, localY = -1;
             character.Viewport.GetLocalPosition(baseLocation, ref localX, ref localY);
+
             character.Session.SendMessage(new MapRegionPartUpdateMessage
             {
                 LocalX = localX, LocalY = localY, Z = DrawRegionZ, FullUpdate = fullUpdate
             });
-            foreach (var update in updateables)
+
+            for (int i = 0; i < count; i++)
             {
+                var update = buffer[i];
                 var message = _mapper.Map<RaidoMessage>(update);
                 character.Session.SendMessage(message);
                 update.OnUpdatedFor(character);

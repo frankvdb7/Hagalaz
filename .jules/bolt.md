@@ -37,3 +37,7 @@
 ## 2026-05-29 - [Optimizing CSV Parsing with Specific NumberStyles and Fast-Paths]
 **Learning:** Using `NumberStyles.Any` in `int.TryParse` or `double.TryParse` is significantly slower than specific styles like `NumberStyles.Integer` or `NumberStyles.Float` because it must check for currency, parentheses, and thousands separators. In `StringUtilities.SelectIntFromString`, switching to `NumberStyles.Integer` contributed to a ~4x speedup. Furthermore, implementing a manual fast-path for single-character boolean segments ("1"/"0") avoids the entire parsing infrastructure for the most common case.
 **Action:** Always prefer the most restrictive `NumberStyles` possible for parsing. Use manual character checks for high-frequency, single-character data segments to bypass `TryParse` overhead.
+
+## 2026-06-06 - [Optimized Hot-Path Filtering with IReadOnlyList and ArrayPool]
+**Learning:** For high-frequency map updates, accepting `IReadOnlyList<IRegionPartUpdate>` directly and filtering with an indexed loop plus `ArrayPool<T>` effectively reduces filtering overhead and eliminates filtering-list allocations. Pure `IEnumerable<T>` sources should retain a safe `.ToList()` fallback to prevent double-enumeration bugs. Do not generalize this pattern without benchmarks for the specific call site.
+**Action:** Use `ArrayPool<T>` with indexed loops for `IReadOnlyList` hot paths. Use `.ToList()` for `IEnumerable` fallbacks.
