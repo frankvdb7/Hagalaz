@@ -1406,12 +1406,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(HydratedStatisticsDto hydration)
         {
-            /*
-                _xpCounters = StringUtilities.DecodeValues((string)row[57], double.Parse);
-                _trackedXpCounters = StringUtilities.DecodeValues((string)row[58], int.Parse);
-                _enabledXpCounters = StringUtilities.DecodeValues((string)row[59]);
-             */
-
             LifePoints = hydration.LifePoints;
             PrayerPoints = hydration.PrayerPoints;
             RunEnergy = hydration.RunEnergy;
@@ -1419,134 +1413,160 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             PoisonAmount = hydration.PoisonAmount;
             PlayTime = TimeSpan.FromMilliseconds(hydration.PlayTime);
 
-            _xpCounters = hydration.XpCounters;
-            _trackedXpCounters = hydration.TrackedXpCounters;
-            _enabledXpCounters = hydration.EnabledXpCounters;
+            _xpCounters = EnsureLength(hydration.XpCounters, 3, 0);
+            _trackedXpCounters = EnsureLength(hydration.TrackedXpCounters, 3, 0);
+            _enabledXpCounters = EnsureLength(hydration.EnabledXpCounters, 3, false);
+
+            var targetSkillLevels = EnsureLength(hydration.TargetSkillLevels, SkillsCount, -1);
+            var targetSkillExperiences = EnsureLength(hydration.TargetSkillExperiences, SkillsCount, -1.0);
 
             _skillData[Agility].Level = hydration.AgilityLevel;
             _skillData[Agility].Experience = hydration.AgilityExp;
-            _skillData[Agility].TargetLevel = hydration.TargetSkillLevels[Agility];
-            _skillData[Agility].TargetExperience = hydration.TargetSkillExperiences[Agility];
+            _skillData[Agility].TargetLevel = targetSkillLevels[Agility];
+            _skillData[Agility].TargetExperience = targetSkillExperiences[Agility];
 
             _skillData[Attack].Level = hydration.AttackLevel;
             _skillData[Attack].Experience = hydration.AttackExp;
-            _skillData[Attack].TargetLevel = hydration.TargetSkillLevels[Attack];
-            _skillData[Attack].TargetExperience = hydration.TargetSkillExperiences[Attack];
+            _skillData[Attack].TargetLevel = targetSkillLevels[Attack];
+            _skillData[Attack].TargetExperience = targetSkillExperiences[Attack];
 
             _skillData[Defence].Level = hydration.DefenceLevel;
             _skillData[Defence].Experience = hydration.DefenceExp;
-            _skillData[Defence].TargetLevel = hydration.TargetSkillLevels[Defence];
-            _skillData[Defence].TargetExperience = hydration.TargetSkillExperiences[Defence];
+            _skillData[Defence].TargetLevel = targetSkillLevels[Defence];
+            _skillData[Defence].TargetExperience = targetSkillExperiences[Defence];
 
             _skillData[Strength].Level = hydration.StrengthLevel;
             _skillData[Strength].Experience = hydration.StrengthExp;
-            _skillData[Strength].TargetLevel = hydration.TargetSkillLevels[Strength];
-            _skillData[Strength].TargetExperience = hydration.TargetSkillExperiences[Strength];
+            _skillData[Strength].TargetLevel = targetSkillLevels[Strength];
+            _skillData[Strength].TargetExperience = targetSkillExperiences[Strength];
 
             _skillData[Constitution].Level = hydration.ConstitutionLevel;
             _skillData[Constitution].Experience = hydration.ConstitutionExp;
-            _skillData[Constitution].TargetLevel = hydration.TargetSkillLevels[Constitution];
-            _skillData[Constitution].TargetExperience = hydration.TargetSkillExperiences[Constitution];
+            _skillData[Constitution].TargetLevel = targetSkillLevels[Constitution];
+            _skillData[Constitution].TargetExperience = targetSkillExperiences[Constitution];
 
             _skillData[Ranged].Level = hydration.RangeLevel;
             _skillData[Ranged].Experience = hydration.RangeExp;
-            _skillData[Ranged].TargetLevel = hydration.TargetSkillLevels[Ranged];
-            _skillData[Ranged].TargetExperience = hydration.TargetSkillExperiences[Ranged];
+            _skillData[Ranged].TargetLevel = targetSkillLevels[Ranged];
+            _skillData[Ranged].TargetExperience = targetSkillExperiences[Ranged];
 
             _skillData[Prayer].Level = hydration.PrayerLevel;
             _skillData[Prayer].Experience = hydration.PrayerExp;
-            _skillData[Prayer].TargetLevel = hydration.TargetSkillLevels[Prayer];
-            _skillData[Prayer].TargetExperience = hydration.TargetSkillExperiences[Prayer];
+            _skillData[Prayer].TargetLevel = targetSkillLevels[Prayer];
+            _skillData[Prayer].TargetExperience = targetSkillExperiences[Prayer];
 
             _skillData[StatisticsConstants.Magic].Level = hydration.MagicLevel;
             _skillData[StatisticsConstants.Magic].Experience = hydration.MagicExp;
-            _skillData[StatisticsConstants.Magic].TargetLevel = hydration.TargetSkillLevels[StatisticsConstants.Magic];
-            _skillData[StatisticsConstants.Magic].TargetExperience = hydration.TargetSkillExperiences[StatisticsConstants.Magic];
+            _skillData[StatisticsConstants.Magic].TargetLevel = targetSkillLevels[StatisticsConstants.Magic];
+            _skillData[StatisticsConstants.Magic].TargetExperience = targetSkillExperiences[StatisticsConstants.Magic];
 
             _skillData[Cooking].Level = hydration.CookingLevel;
             _skillData[Cooking].Experience = hydration.CookingExp;
-            _skillData[Cooking].TargetLevel = hydration.TargetSkillLevels[Cooking];
-            _skillData[Cooking].TargetExperience = hydration.TargetSkillExperiences[Cooking];
+            _skillData[Cooking].TargetLevel = targetSkillLevels[Cooking];
+            _skillData[Cooking].TargetExperience = targetSkillExperiences[Cooking];
 
             _skillData[Woodcutting].Level = hydration.WoodcuttingLevel;
             _skillData[Woodcutting].Experience = hydration.WoodcuttingExp;
-            _skillData[Woodcutting].TargetLevel = hydration.TargetSkillLevels[Woodcutting];
-            _skillData[Woodcutting].TargetExperience = hydration.TargetSkillExperiences[Woodcutting];
+            _skillData[Woodcutting].TargetLevel = targetSkillLevels[Woodcutting];
+            _skillData[Woodcutting].TargetExperience = targetSkillExperiences[Woodcutting];
 
             _skillData[Fletching].Level = hydration.FletchingLevel;
             _skillData[Fletching].Experience = hydration.FletchingExp;
-            _skillData[Fletching].TargetLevel = hydration.TargetSkillLevels[Fletching];
-            _skillData[Fletching].TargetExperience = hydration.TargetSkillExperiences[Fletching];
+            _skillData[Fletching].TargetLevel = targetSkillLevels[Fletching];
+            _skillData[Fletching].TargetExperience = targetSkillExperiences[Fletching];
 
             _skillData[Fishing].Level = hydration.FishingLevel;
             _skillData[Fishing].Experience = hydration.FishingExp;
-            _skillData[Fishing].TargetLevel = hydration.TargetSkillLevels[Fishing];
-            _skillData[Fishing].TargetExperience = hydration.TargetSkillExperiences[Fishing];
+            _skillData[Fishing].TargetLevel = targetSkillLevels[Fishing];
+            _skillData[Fishing].TargetExperience = targetSkillExperiences[Fishing];
 
             _skillData[Firemaking].Level = hydration.FiremakingLevel;
             _skillData[Firemaking].Experience = hydration.FiremakingExp;
-            _skillData[Firemaking].TargetLevel = hydration.TargetSkillLevels[Firemaking];
-            _skillData[Firemaking].TargetExperience = hydration.TargetSkillExperiences[Firemaking];
+            _skillData[Firemaking].TargetLevel = targetSkillLevels[Firemaking];
+            _skillData[Firemaking].TargetExperience = targetSkillExperiences[Firemaking];
 
             _skillData[Crafting].Level = hydration.CraftingLevel;
             _skillData[Crafting].Experience = hydration.CraftingExp;
-            _skillData[Crafting].TargetLevel = hydration.TargetSkillLevels[Crafting];
-            _skillData[Crafting].TargetExperience = hydration.TargetSkillExperiences[Crafting];
+            _skillData[Crafting].TargetLevel = targetSkillLevels[Crafting];
+            _skillData[Crafting].TargetExperience = targetSkillExperiences[Crafting];
 
             _skillData[Smithing].Level = hydration.SmithingLevel;
             _skillData[Smithing].Experience = hydration.SmithingExp;
-            _skillData[Smithing].TargetLevel = hydration.TargetSkillLevels[Smithing];
-            _skillData[Smithing].TargetExperience = hydration.TargetSkillExperiences[Smithing];
+            _skillData[Smithing].TargetLevel = targetSkillLevels[Smithing];
+            _skillData[Smithing].TargetExperience = targetSkillExperiences[Smithing];
 
             _skillData[Mining].Level = hydration.MiningLevel;
             _skillData[Mining].Experience = hydration.MiningExp;
-            _skillData[Mining].TargetLevel = hydration.TargetSkillLevels[Mining];
-            _skillData[Mining].TargetExperience = hydration.TargetSkillExperiences[Mining];
+            _skillData[Mining].TargetLevel = targetSkillLevels[Mining];
+            _skillData[Mining].TargetExperience = targetSkillExperiences[Mining];
 
             _skillData[Herblore].Level = hydration.HerbloreLevel;
             _skillData[Herblore].Experience = hydration.HerbloreExp;
-            _skillData[Herblore].TargetLevel = hydration.TargetSkillLevels[Herblore];
-            _skillData[Herblore].TargetExperience = hydration.TargetSkillExperiences[Herblore];
+            _skillData[Herblore].TargetLevel = targetSkillLevels[Herblore];
+            _skillData[Herblore].TargetExperience = targetSkillExperiences[Herblore];
 
             _skillData[Thieving].Level = hydration.ThievingLevel;
             _skillData[Thieving].Experience = hydration.ThievingExp;
-            _skillData[Thieving].TargetLevel = hydration.TargetSkillLevels[Thieving];
-            _skillData[Thieving].TargetExperience = hydration.TargetSkillExperiences[Thieving];
+            _skillData[Thieving].TargetLevel = targetSkillLevels[Thieving];
+            _skillData[Thieving].TargetExperience = targetSkillExperiences[Thieving];
 
             _skillData[StatisticsConstants.Slayer].Level = hydration.SlayerLevel;
             _skillData[StatisticsConstants.Slayer].Experience = hydration.SlayerExp;
-            _skillData[StatisticsConstants.Slayer].TargetLevel = hydration.TargetSkillLevels[StatisticsConstants.Slayer];
-            _skillData[StatisticsConstants.Slayer].TargetExperience = hydration.TargetSkillExperiences[StatisticsConstants.Slayer];
+            _skillData[StatisticsConstants.Slayer].TargetLevel = targetSkillLevels[StatisticsConstants.Slayer];
+            _skillData[StatisticsConstants.Slayer].TargetExperience = targetSkillExperiences[StatisticsConstants.Slayer];
 
             _skillData[StatisticsConstants.Farming].Level = hydration.FarmingLevel;
             _skillData[StatisticsConstants.Farming].Experience = hydration.FarmingExp;
-            _skillData[StatisticsConstants.Farming].TargetLevel = hydration.TargetSkillLevels[StatisticsConstants.Farming];
-            _skillData[StatisticsConstants.Farming].TargetExperience = hydration.TargetSkillExperiences[StatisticsConstants.Farming];
+            _skillData[StatisticsConstants.Farming].TargetLevel = targetSkillLevels[StatisticsConstants.Farming];
+            _skillData[StatisticsConstants.Farming].TargetExperience = targetSkillExperiences[StatisticsConstants.Farming];
 
             _skillData[Runecrafting].Level = hydration.RunecraftingLevel;
             _skillData[Runecrafting].Experience = hydration.RunecraftingExp;
-            _skillData[Runecrafting].TargetLevel = hydration.TargetSkillLevels[Runecrafting];
-            _skillData[Runecrafting].TargetExperience = hydration.TargetSkillExperiences[Runecrafting];
+            _skillData[Runecrafting].TargetLevel = targetSkillLevels[Runecrafting];
+            _skillData[Runecrafting].TargetExperience = targetSkillExperiences[Runecrafting];
 
             _skillData[Construction].Level = hydration.ConstructionLevel;
             _skillData[Construction].Experience = hydration.ConstructionExp;
-            _skillData[Construction].TargetLevel = hydration.TargetSkillLevels[Construction];
-            _skillData[Construction].TargetExperience = hydration.TargetSkillExperiences[Construction];
+            _skillData[Construction].TargetLevel = targetSkillLevels[Construction];
+            _skillData[Construction].TargetExperience = targetSkillExperiences[Construction];
 
             _skillData[Hunter].Level = hydration.HunterLevel;
             _skillData[Hunter].Experience = hydration.HunterExp;
-            _skillData[Hunter].TargetLevel = hydration.TargetSkillLevels[Hunter];
-            _skillData[Hunter].TargetExperience = hydration.TargetSkillExperiences[Hunter];
+            _skillData[Hunter].TargetLevel = targetSkillLevels[Hunter];
+            _skillData[Hunter].TargetExperience = targetSkillExperiences[Hunter];
 
             _skillData[Summoning].Level = hydration.SummoningLevel;
             _skillData[Summoning].Experience = hydration.SummoningExp;
-            _skillData[Summoning].TargetLevel = hydration.TargetSkillLevels[Summoning];
-            _skillData[Summoning].TargetExperience = hydration.TargetSkillExperiences[Summoning];
+            _skillData[Summoning].TargetLevel = targetSkillLevels[Summoning];
+            _skillData[Summoning].TargetExperience = targetSkillExperiences[Summoning];
 
             _skillData[Dungeoneering].Level = hydration.DungeoneeringLevel;
             _skillData[Dungeoneering].Experience = hydration.DungeoneeringExp;
-            _skillData[Dungeoneering].TargetLevel = hydration.TargetSkillLevels[Dungeoneering];
-            _skillData[Dungeoneering].TargetExperience = hydration.TargetSkillExperiences[Dungeoneering];
+            _skillData[Dungeoneering].TargetLevel = targetSkillLevels[Dungeoneering];
+            _skillData[Dungeoneering].TargetExperience = targetSkillExperiences[Dungeoneering];
+        }
+
+        private static T[] EnsureLength<T>(T[]? input, int expectedLength, T defaultValue)
+        {
+            if (input == null)
+            {
+                var result = new T[expectedLength];
+                Array.Fill(result, defaultValue);
+                return result;
+            }
+
+            if (input.Length >= expectedLength)
+            {
+                return input;
+            }
+
+            var extended = new T[expectedLength];
+            Array.Copy(input, extended, input.Length);
+            for (int i = input.Length; i < expectedLength; i++)
+            {
+                extended[i] = defaultValue;
+            }
+            return extended;
         }
 
         public HydratedStatisticsDto Dehydrate()
