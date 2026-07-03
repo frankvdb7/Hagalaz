@@ -75,11 +75,11 @@ namespace Hagalaz.Services.Characters.Profiles
                 .ForMember(dest => dest.SpecialEnergy, opt => opt.MapFrom(src => (int)src.SpecialEnergy))
                 .ForMember(dest => dest.PoisonAmount, opt => opt.MapFrom(src => (int)src.PoisonAmount))
                 .ForMember(dest => dest.PlayTime, opt => opt.MapFrom(src => (long)src.PlayTime))
-                .ForMember(dest => dest.XpCounters, opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.XpCounters).ToArray()))
-                .ForMember(dest => dest.TrackedXpCounters, opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.TrackedXpCounters).ToArray()))
-                .ForMember(dest => dest.EnabledXpCounters, opt => opt.MapFrom(src => StringUtilities.SelectBoolFromString(src.EnabledXpCounters).ToArray()))
-                .ForMember(dest => dest.TargetSkillLevels, opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.TargetSkillLevels).ToArray()))
-                .ForMember(dest => dest.TargetSkillExperiences, opt => opt.MapFrom(src => StringUtilities.SelectDoubleFromString(src.TargetSkillExperiences).ToArray()));
+                .ForMember(dest => dest.XpCounters, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.XpCounters)))
+                .ForMember(dest => dest.TrackedXpCounters, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.TrackedXpCounters)))
+                .ForMember(dest => dest.EnabledXpCounters, opt => opt.MapFrom(src => StringUtilities.DecodeBoolValues(src.EnabledXpCounters)))
+                .ForMember(dest => dest.TargetSkillLevels, opt => opt.MapFrom(src => StringUtilities.DecodeIntValues(src.TargetSkillLevels)))
+                .ForMember(dest => dest.TargetSkillExperiences, opt => opt.MapFrom(src => StringUtilities.DecodeDoubleValues(src.TargetSkillExperiences)));
             CreateMap<Statistics, StatisticsDto>();
             CreateMap<CharactersStatistic, CharacterStatisticCollectionDto>()
                 .ForMember(dest => dest.DisplayName, opt => opt.Ignore())

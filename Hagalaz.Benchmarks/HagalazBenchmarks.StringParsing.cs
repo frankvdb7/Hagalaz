@@ -33,6 +33,12 @@ namespace Hagalaz.Benchmarks
         public List<int> SelectIntFromString() => StringUtilities.SelectIntFromString(_csvInts).ToList();
 
         [Benchmark]
+        public int[] DecodeIntValues() => StringUtilities.DecodeIntValues(_csvInts);
+
+        [Benchmark]
+        public double[] DecodeDoubleValues() => StringUtilities.DecodeDoubleValues(_csvInts); // Using csvInts for simplicity in benchmark
+
+        [Benchmark]
         public bool[] DecodeBoolValues() => StringUtilities.DecodeValues(_csvBools);
 
         [Benchmark]
