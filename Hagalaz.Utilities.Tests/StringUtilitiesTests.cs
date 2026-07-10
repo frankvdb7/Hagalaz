@@ -28,14 +28,14 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
-        public void DecodeValues_MalformedString_ReturnsDefaultValueForInvalid()
+        public void DecodeBoolValues_MalformedString_ReturnsDefaultValueForInvalid()
         {
             // Arrange
             var data = "1,abc,0";
             var expected = new bool[] { true, false, false };
 
             // Act
-            var actual = StringUtilities.DecodeValues(data);
+            var actual = StringUtilities.DecodeBoolValues(data);
 
             // Assert
             CollectionAssert.AreEqual(expected, actual);
@@ -345,14 +345,14 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
-        public void DecodeValues_Bool_DecodesCorrectly()
+        public void DecodeBoolValues_Bool_DecodesCorrectly()
         {
             // Arrange
             var data = "1,0,1";
             var expected = new bool[] { true, false, true };
 
             // Act
-            var actual = StringUtilities.DecodeValues(data);
+            var actual = StringUtilities.DecodeBoolValues(data);
 
             // Assert
             CollectionAssert.AreEqual(expected, actual);
@@ -474,13 +474,13 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
-        public void DecodeValues_EmptyString_ReturnsEmptyBoolArray()
+        public void DecodeBoolValues_EmptyString_ReturnsEmptyBoolArray()
         {
             // Arrange
             var data = "";
 
             // Act
-            var actual = StringUtilities.DecodeValues(data);
+            var actual = StringUtilities.DecodeBoolValues(data);
 
             // Assert
             Assert.IsEmpty(actual);
@@ -500,16 +500,59 @@ namespace Hagalaz.Utilities.Tests
         }
 
         [TestMethod]
-        public void DecodeValues_WhitespaceString_ReturnsEmptyBoolArray()
+        public void DecodeBoolValues_WhitespaceString_ReturnsEmptyBoolArray()
         {
             // Arrange
             var data = " ";
 
             // Act
-            var actual = StringUtilities.DecodeValues(data);
+            var actual = StringUtilities.DecodeBoolValues(data);
 
             // Assert
             Assert.IsEmpty(actual);
+        }
+
+        [TestMethod]
+        public void DecodeIntValues_ValidInput_ReturnsCorrectInts()
+        {
+            var data = "1,2,3";
+            var expected = new int[] { 1, 2, 3 };
+            var actual = StringUtilities.DecodeIntValues(data);
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void DecodeIntValues_CustomSeparator_ReturnsCorrectInts()
+        {
+            var data = "1;2;3";
+            var expected = new int[] { 1, 2, 3 };
+            var actual = StringUtilities.DecodeIntValues(data, ';');
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void DecodeIntValues_EmptyInput_ReturnsEmptyArray()
+        {
+            Assert.AreEqual(0, StringUtilities.DecodeIntValues("").Length);
+            Assert.AreEqual(0, StringUtilities.DecodeIntValues(" ").Length);
+            Assert.AreEqual(0, StringUtilities.DecodeIntValues(null!).Length);
+        }
+
+        [TestMethod]
+        public void DecodeDoubleValues_ValidInput_ReturnsCorrectDoubles()
+        {
+            var data = "1.1,2.2,3.3";
+            var expected = new double[] { 1.1, 2.2, 3.3 };
+            var actual = StringUtilities.DecodeDoubleValues(data);
+            CollectionAssert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void DecodeDoubleValues_EmptyInput_ReturnsEmptyArray()
+        {
+            Assert.AreEqual(0, StringUtilities.DecodeDoubleValues("").Length);
+            Assert.AreEqual(0, StringUtilities.DecodeDoubleValues(" ").Length);
+            Assert.AreEqual(0, StringUtilities.DecodeDoubleValues(null!).Length);
         }
     }
 

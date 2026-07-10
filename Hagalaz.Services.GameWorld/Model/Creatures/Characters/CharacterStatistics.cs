@@ -1406,12 +1406,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(HydratedStatisticsDto hydration)
         {
-            /*
-                _xpCounters = StringUtilities.DecodeValues((string)row[57], double.Parse);
-                _trackedXpCounters = StringUtilities.DecodeValues((string)row[58], int.Parse);
-                _enabledXpCounters = StringUtilities.DecodeValues((string)row[59]);
-             */
-
             LifePoints = hydration.LifePoints;
             PrayerPoints = hydration.PrayerPoints;
             RunEnergy = hydration.RunEnergy;

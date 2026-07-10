@@ -171,25 +171,24 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
+        /// Decodes a separated string into an array of doubles. Invalid entries default to 0.0.
+        /// </summary>
+        /// <param name="data">The separated string of numbers.</param>
+        /// <param name="separator">The character used to separate values. Defaults to a comma.</param>
+        /// <returns>An array of doubles.</returns>
+        public static double[] DecodeDoubleValues(string data, char separator = ',')
+        {
+            return DecodeValuesFromSpan(data, ParseDouble, separator);
+        }
+
+        /// <summary>
         /// Parses a comma-separated string into an enumerable of doubles. Invalid entries default to 0.0.
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of doubles.</returns>
         public static IEnumerable<double> SelectDoubleFromString(string input)
         {
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                yield break;
-            }
-
-            int start = 0;
-            int end;
-            while ((end = input.IndexOf(',', start)) != -1)
-            {
-                yield return ParseDouble(input.AsSpan(start, end - start));
-                start = end + 1;
-            }
-            yield return ParseDouble(input.AsSpan(start));
+            return DecodeDoubleValues(input);
         }
 
         private static double ParseDouble(ReadOnlySpan<char> segment)
@@ -201,25 +200,24 @@ namespace Hagalaz.Utilities
         }
 
         /// <summary>
+        /// Decodes a separated string into an array of integers. Invalid entries default to 0.
+        /// </summary>
+        /// <param name="data">The separated string of numbers.</param>
+        /// <param name="separator">The character used to separate values. Defaults to a comma.</param>
+        /// <returns>An array of integers.</returns>
+        public static int[] DecodeIntValues(string data, char separator = ',')
+        {
+            return DecodeValuesFromSpan(data, ParseInt, separator);
+        }
+
+        /// <summary>
         /// Parses a comma-separated string into an enumerable of integers. Invalid entries default to 0.
         /// </summary>
         /// <param name="input">The comma-separated string of numbers.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> of integers.</returns>
         public static IEnumerable<int> SelectIntFromString(string input)
         {
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                yield break;
-            }
-
-            int start = 0;
-            int end;
-            while ((end = input.IndexOf(',', start)) != -1)
-            {
-                yield return ParseInt(input.AsSpan(start, end - start));
-                start = end + 1;
-            }
-            yield return ParseInt(input.AsSpan(start));
+            return DecodeIntValues(input);
         }
 
         private static int ParseInt(ReadOnlySpan<char> segment)
@@ -237,15 +235,7 @@ namespace Hagalaz.Utilities
         /// <returns>An <see cref="IEnumerable{T}"/> of booleans.</returns>
         public static IEnumerable<bool> SelectBoolFromString(string input)
         {
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                yield break; // Return an empty enumerable for an empty or null input.
-            }
-
-            foreach (var number in SelectIntFromString(input))
-            {
-                yield return number == 1;
-            }
+            return DecodeBoolValues(input);
         }
 
         /// <summary>
@@ -295,7 +285,7 @@ namespace Hagalaz.Utilities
         /// </summary>
         /// <param name="data">The comma-separated string to decode.</param>
         /// <returns>A boolean array representing the decoded data.</returns>
-        public static bool[] DecodeValues(string data)
+        public static bool[] DecodeBoolValues(string data)
         {
             if (string.IsNullOrWhiteSpace(data))
             {
