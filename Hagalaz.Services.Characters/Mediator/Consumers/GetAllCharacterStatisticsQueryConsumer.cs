@@ -44,7 +44,9 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
 
             if (sort?.Experience != null)
             {
-                //dtoQuery = sort.Experience.Value == SortType.Asc ? dtoQuery.OrderBy(s => s.Statistics.Count) : query.OrderByDescending(s => s.AgilityExp);
+                dtoQuery = sort.Experience.Value == SortType.Asc
+                    ? dtoQuery.OrderBy(s => s.Statistics.First().Experience)
+                    : dtoQuery.OrderByDescending(s => s.Statistics.First().Experience);
             }
 
             if (paging != null)
@@ -64,18 +66,26 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
         private IQueryable<CharacterStatisticCollectionDto> FilterByType(IQueryable<CharactersStatistic> statsQuery, CharacterStatisticType type) =>
             type switch
             {
-                CharacterStatisticType.Overall => _mapper.ProjectTo<CharactersStatisticsDto>(statsQuery)
-                    .OrderByDescending(dto => dto.AgilityExp + dto.AttackExp + dto.ConstitutionExp + dto.ConstructionExp + dto.CookingExp + dto.CraftingExp +
-                                              dto.DefenceExp + dto.DungeoneeringExp + dto.FarmingExp + dto.FiremakingExp + dto.FishingExp +
-                                              dto.FletchingExp + dto.HerbloreExp + dto.HunterExp + dto.MagicExp + dto.MiningExp + dto.PrayerExp + dto.RangeExp +
-                                              dto.RunecraftingExp + dto.SlayerExp + dto.SmithingExp + dto.StrengthExp + dto.SummoningExp + dto.ThievingExp +
-                                              dto.WoodcuttingExp)
-                    .Select(dto => new CharacterStatisticCollectionDto
+                CharacterStatisticType.Overall => statsQuery.OrderByDescending(stats => (long)stats.AgilityExp + stats.AttackExp + stats.ConstitutionExp + stats.ConstructionExp + stats.CookingExp + stats.CraftingExp +
+                                              stats.DefenceExp + stats.DungeoneeringExp + stats.FarmingExp + stats.FiremakingExp + stats.FishingExp +
+                                              stats.FletchingExp + stats.HerbloreExp + stats.HunterExp + stats.MagicExp + stats.MiningExp + stats.PrayerExp + stats.RangeExp +
+                                              stats.RunecraftingExp + stats.SlayerExp + stats.SmithingExp + stats.StrengthExp + stats.SummoningExp + stats.ThievingExp +
+                                              stats.WoodcuttingExp)
+                    .Select(stats => new CharacterStatisticCollectionDto
                     {
-                        DisplayName = dto.DisplayName,
+                        DisplayName = stats.Master.DisplayName,
                         Statistics = new[]
                         {
-                                new CharacterStatisticDetailDto { Type = CharacterStatisticType.Overall, Level = dto.OverallLevel, Experience = dto.OverallExperience }
+                                new CharacterStatisticDetailDto
+                                {
+                                    Type = CharacterStatisticType.Overall,
+                                    Level = stats.AgilityLevel + stats.AttackLevel + stats.ConstitutionLevel + stats.ConstructionLevel + stats.CookingLevel + stats.CraftingLevel + stats.DefenceLevel + stats.DungeoneeringLevel +
+                                            stats.FarmingLevel + stats.FiremakingLevel + stats.FishingLevel + stats.FletchingLevel + stats.HerbloreLevel + stats.HunterLevel + stats.MagicLevel + stats.MiningLevel + stats.PrayerLevel + stats.RangeLevel +
+                                            stats.RunecraftingLevel + stats.SlayerLevel + stats.SmithingLevel + stats.StrengthLevel + stats.SummoningLevel + stats.ThievingLevel + stats.WoodcuttingLevel,
+                                    Experience = (double)stats.AgilityExp + stats.AttackExp + stats.ConstitutionExp + stats.ConstructionExp + stats.CookingExp + stats.CraftingExp + stats.DefenceExp + stats.DungeoneeringExp + stats.FarmingExp +
+                                                 stats.FiremakingExp + stats.FishingExp + stats.FletchingExp + stats.HerbloreExp + stats.HunterExp + stats.MagicExp + stats.MiningExp + stats.PrayerExp + stats.RangeExp + stats.RunecraftingExp + stats.SlayerExp +
+                                                 stats.SmithingExp + stats.StrengthExp + stats.SummoningExp + stats.ThievingExp + stats.WoodcuttingExp
+                                }
                         }
                     }),
                 CharacterStatisticType.Agility => statsQuery.OrderByDescending(stats => stats.AgilityExp)

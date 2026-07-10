@@ -19,7 +19,7 @@ namespace Hagalaz.Services.Characters.Tests.Model
                 ConstructionExp = 10,
                 CookingExp = 10,
                 CraftingExp = 10,
-                DefenceExp = 10, // Only once here
+                DefenceExp = 10,
                 DungeoneeringExp = 10,
                 FarmingExp = 10,
                 FiremakingExp = 10,
@@ -49,6 +49,51 @@ namespace Hagalaz.Services.Characters.Tests.Model
 
             // Assert
             Assert.AreEqual(expected, actual, "OverallExperience calculation is incorrect. It might be double-counting a skill (e.g., DefenceExp).");
+        }
+
+        [TestMethod]
+        public void OverallLevel_ShouldSumAllLevelsCorrectly()
+        {
+            // Arrange
+            var stats = new CharactersStatisticsDto
+            {
+                DisplayName = "TestPlayer",
+                AgilityLevel = 1,
+                AttackLevel = 1,
+                ConstitutionLevel = 1,
+                ConstructionLevel = 1,
+                CookingLevel = 1,
+                CraftingLevel = 1,
+                DefenceLevel = 1,
+                DungeoneeringLevel = 1,
+                FarmingLevel = 1,
+                FiremakingLevel = 1,
+                FishingLevel = 1,
+                FletchingLevel = 1,
+                HerbloreLevel = 1,
+                HunterLevel = 1,
+                MagicLevel = 1,
+                MiningLevel = 1,
+                PrayerLevel = 1,
+                RangeLevel = 1,
+                RunecraftingLevel = 1,
+                SlayerLevel = 1,
+                SmithingLevel = 1,
+                StrengthLevel = 1,
+                SummoningLevel = 1,
+                ThievingLevel = 1,
+                WoodcuttingLevel = 1
+            };
+
+            // There are 25 skills in total.
+            // 25 * 1 = 25
+            int expected = 25;
+
+            // Act
+            int actual = stats.OverallLevel;
+
+            // Assert
+            Assert.AreEqual(expected, actual, "OverallLevel calculation is incorrect.");
         }
     }
 }
