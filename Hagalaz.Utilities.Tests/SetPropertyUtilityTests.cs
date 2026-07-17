@@ -1,3 +1,4 @@
+using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Utilities.Tests
@@ -33,6 +34,19 @@ namespace Hagalaz.Utilities.Tests
             {
                 return Value.GetHashCode();
             }
+        }
+
+        private struct NonEquatableStruct
+        {
+            public int Value { get; set; }
+        }
+
+        private struct EquatableStruct : IEquatable<EquatableStruct>
+        {
+            public int Value { get; set; }
+            public bool Equals(EquatableStruct other) => Value == other.Value;
+            public override bool Equals(object? obj) => obj is EquatableStruct other && Equals(other);
+            public override int GetHashCode() => Value;
         }
 
         [TestMethod]
@@ -117,6 +131,54 @@ namespace Hagalaz.Utilities.Tests
 
             Assert.IsFalse(result);
             Assert.AreEqual(newValue, oldValue);
+        }
+
+        [TestMethod]
+        public void SetStruct_NonEquatableStruct_WhenValueChanged_ReturnsTrue()
+        {
+            var oldValue = new NonEquatableStruct { Value = 10 };
+            var newValue = new NonEquatableStruct { Value = 20 };
+
+            var result = SetPropertyUtility.SetStruct(ref oldValue, newValue);
+
+            Assert.IsTrue(result);
+            Assert.AreEqual(20, oldValue.Value);
+        }
+
+        [TestMethod]
+        public void SetStruct_NonEquatableStruct_WhenValuesAreSame_ReturnsFalse()
+        {
+            var oldValue = new NonEquatableStruct { Value = 10 };
+            var newValue = new NonEquatableStruct { Value = 10 };
+
+            var result = SetPropertyUtility.SetStruct(ref oldValue, newValue);
+
+            Assert.IsFalse(result);
+            Assert.AreEqual(10, oldValue.Value);
+        }
+
+        [TestMethod]
+        public void SetStruct_EquatableStruct_WhenValueChanged_ReturnsTrue()
+        {
+            var oldValue = new EquatableStruct { Value = 100 };
+            var newValue = new EquatableStruct { Value = 200 };
+
+            var result = SetPropertyUtility.SetStruct(ref oldValue, newValue);
+
+            Assert.IsTrue(result);
+            Assert.AreEqual(200, oldValue.Value);
+        }
+
+        [TestMethod]
+        public void SetStruct_EquatableStruct_WhenValuesAreSame_ReturnsFalse()
+        {
+            var oldValue = new EquatableStruct { Value = 100 };
+            var newValue = new EquatableStruct { Value = 100 };
+
+            var result = SetPropertyUtility.SetStruct(ref oldValue, newValue);
+
+            Assert.IsFalse(result);
+            Assert.AreEqual(100, oldValue.Value);
         }
     }
 }

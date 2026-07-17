@@ -1,4 +1,6 @@
-﻿namespace Hagalaz.Utilities
+using System.Collections.Generic;
+
+namespace Hagalaz.Utilities
 {
     /// <summary>
     /// Provides utility methods for efficiently setting property values, often used in view models
@@ -18,7 +20,19 @@
         /// </returns>
         public static bool SetClass<T>(ref T? currentValue, T? newValue) where T : class
         {
-            if ((currentValue == null && newValue == null) || (currentValue != null && currentValue.Equals(newValue)))
+            // Optimization: Fast-path for reference equality (same reference or both null).
+            if (ReferenceEquals(currentValue, newValue))
+                return false;
+
+            // Since they are not reference-equal, if either is null, they are not equal.
+            if (currentValue is null || newValue is null)
+            {
+                currentValue = newValue;
+                return true;
+            }
+
+            // Fall back to Equals only when both are non-null and different references.
+            if (currentValue.Equals(newValue))
                 return false;
 
             currentValue = newValue;
@@ -38,7 +52,10 @@
         /// </returns>
         public static bool SetStruct<T>(ref T currentValue, T newValue) where T : struct
         {
-            if (currentValue.Equals(newValue))
+            // Optimization: Using EqualityComparer<T>.Default.Equals avoids boxing of value types
+            // and bypasses reflection-based comparison for structs that do not override Equals or implement IEquatable<T>.
+            // In JIT compilation, this is devirtualized and compiled into highly efficient CPU instructions.
+            if (EqualityComparer<T>.Default.Equals(currentValue, newValue))
                 return false;
 
             currentValue = newValue;
