@@ -15,14 +15,22 @@ namespace Hagalaz.Benchmarks
         [Params(0, 1, 5, 20)]
         public int StateCount;
 
+        private static readonly Type[] TypesPool = new[]
+        {
+            typeof(int), typeof(uint), typeof(long), typeof(ulong),
+            typeof(short), typeof(ushort), typeof(byte), typeof(sbyte),
+            typeof(double), typeof(float), typeof(decimal), typeof(bool),
+            typeof(char), typeof(string), typeof(object), typeof(DateTime),
+            typeof(Guid), typeof(TimeSpan), typeof(Int128), typeof(UInt128)
+        };
+
         [GlobalSetup]
         public void Setup()
         {
             _statesTemplate = new Dictionary<Type, IStateMock>();
             for (int i = 0; i < StateCount; i++)
             {
-                // Use different types
-                var type = Type.GetType($"System.Int{32 + i}") ?? typeof(int);
+                var type = TypesPool[i % TypesPool.Length];
                 _statesTemplate[type] = new StateMock { TicksLeft = 10 };
             }
 
@@ -67,6 +75,81 @@ namespace Hagalaz.Benchmarks
             if (_states.Count == 0) return;
 
             var statesCount = _states.Count;
+            var statesBuffer = ArrayPool<IStateMock>.Shared.Rent(statesCount);
+
+            try
+            {
+                _states.Values.CopyTo(statesBuffer, 0);
+
+                Type[]? toRemove = null;
+                var removeCount = 0;
+
+                for (var i = 0; i < statesCount; i++)
+                {
+                    var state = statesBuffer[i];
+                    state.Tick();
+                    if (state.TicksLeft <= 0)
+                    {
+                        toRemove ??= ArrayPool<Type>.Shared.Rent(statesCount);
+                        toRemove[removeCount++] = state.GetType();
+                    }
+                }
+
+                if (toRemove != null)
+                {
+                    try
+                    {
+                        for (var i = 0; i < removeCount; i++)
+                        {
+                            if (_states.Remove(toRemove[i], out var state))
+                            {
+                                state.OnStateRemoved(state, null!);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        ArrayPool<Type>.Shared.Return(toRemove, true);
+                    }
+                }
+            }
+            finally
+            {
+                ArrayPool<IStateMock>.Shared.Return(statesBuffer, true);
+            }
+        }
+
+        [Benchmark]
+        public void New_ProcessStates_FastPath_ArrayPool()
+        {
+            var statesCount = _states.Count;
+            if (statesCount == 0) return;
+
+            if (statesCount == 1)
+            {
+                Type? stateType = null;
+                IStateMock? state = null;
+                foreach (var kvp in _states)
+                {
+                    stateType = kvp.Key;
+                    state = kvp.Value;
+                    break;
+                }
+
+                if (state != null && stateType != null)
+                {
+                    state.Tick();
+                    if (state.TicksLeft <= 0)
+                    {
+                        if (_states.Remove(stateType, out var removedState))
+                        {
+                            removedState.OnStateRemoved(removedState, null!);
+                        }
+                    }
+                }
+                return;
+            }
+
             var statesBuffer = ArrayPool<IStateMock>.Shared.Rent(statesCount);
 
             try

@@ -729,15 +729,39 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         private void ProcessStates()
         {
-            if (States.Count == 0)
+            var statesCount = States.Count;
+            if (statesCount == 0)
             {
+                return;
+            }
+
+            // Optimization: Single state fast-path to bypass ArrayPool renting, returning, and clearing overhead.
+            // Extract the single state using a non-allocating foreach-break loop to safely dispose the enumerator before calling Tick().
+            if (statesCount == 1)
+            {
+                Type? stateType = null;
+                IState? state = null;
+                foreach (var kvp in States)
+                {
+                    stateType = kvp.Key;
+                    state = kvp.Value;
+                    break;
+                }
+
+                if (state != null && stateType != null)
+                {
+                    state.Tick();
+                    if (state.TicksLeft <= 0)
+                    {
+                        RemoveState(stateType);
+                    }
+                }
                 return;
             }
 
             // Optimization: Use ArrayPool to track removals, avoiding ToList() heap allocations.
             // We still need a snapshot of values to safely allow state.Tick() to modify the dictionary (add/remove states).
             // Using ArrayPool for the snapshot to avoid heap allocations.
-            var statesCount = States.Count;
             var statesBuffer = ArrayPool<IState>.Shared.Rent(statesCount);
 
             try
