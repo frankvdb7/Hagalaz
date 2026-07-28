@@ -5,16 +5,16 @@
     <UserSecretsId>d5b8bff1-ecfb-4d95-a35d-d779474445e0</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="15.1.0" />
-    <PackageReference Include="MassTransit" Version="8.5.7" />
-    <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.7" />
+    <PackageReference Include="AutoMapper" Version="16.2.0" />
+    <PackageReference Include="MassTransit" Version="9.2.0" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="9.2.0" />
     <PackageReference Include="McMaster.NETCore.Plugins" Version="2.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.0" />
-    <PackageReference Include="Polly.RateLimiting" Version="8.6.5" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.10" />
+    <PackageReference Include="Polly.RateLimiting" Version="8.7.0" />
     <PackageReference Include="Scrutor" Version="7.0.0" />
-    <PackageReference Include="System.Linq.Async" Version="7.0.0" />
-    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.4.0" />
-    <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" Version="2.4.0" />
+    <PackageReference Include="System.Linq.Async" Version="7.0.1" />
+    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.6.0" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" Version="2.6.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Game.Features\Hagalaz.Game.Features.csproj" />

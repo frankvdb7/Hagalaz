@@ -46,7 +46,7 @@ var gameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("
     .WithEndpoint(port: 443, scheme: "tcp", env: "TCP_PORT")
     .WithHttpsEndpoint(port: 7010, env: "HTTPS_PORT")
     .WithHttpEndpoint(port: 5010, env: "HTTP_PORT")
-    .WithHttpsHealthCheck("/health");
+    .WithHttpHealthCheck("/health");
 
 var authService = builder.AddProject<Projects.Hagalaz_Services_Authorization>("hagalaz-services-authorization")
     .WaitFor(messaging)
@@ -54,7 +54,7 @@ var authService = builder.AddProject<Projects.Hagalaz_Services_Authorization>("h
     .WithReference(database)
     .WithReference(messaging)
     .WithScalarDocs()
-    .WithHttpsHealthCheck("/health");
+    .WithHttpHealthCheck("/health");
 
 var contactsService = builder.AddProject<Projects.Hagalaz_Services_Contacts>("hagalaz-services-contacts")
     .WaitFor(messaging)
@@ -63,7 +63,7 @@ var contactsService = builder.AddProject<Projects.Hagalaz_Services_Contacts>("ha
     .WithReference(database)
     .WithReference(messaging)
     .WithScalarDocs()
-    .WithHttpsHealthCheck("/health");
+    .WithHttpHealthCheck("/health");
 
 var charactersService = builder.AddProject<Projects.Hagalaz_Services_Characters>("hagalaz-services-characters")
     .WaitFor(messaging)
@@ -72,23 +72,23 @@ var charactersService = builder.AddProject<Projects.Hagalaz_Services_Characters>
     .WithReference(database)
     .WithReference(messaging)
     .WithScalarDocs()
-    .WithHttpsHealthCheck("/health");
+    .WithHttpHealthCheck("/health");
 
 var cacheService = builder.AddProject<Projects.Hagalaz_Services_Cache>("hagalaz-services-cache")
     .WaitFor(authService)
     .WithReference(authService)
     .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
     .WithScalarDocs()
-    .WithHttpsHealthCheck("/health");
+    .WithHttpHealthCheck("/health");
 
 var gameUpdate = builder.AddProject<Projects.Hagalaz_Services_GameUpdate>("hagalaz-services-gameupdate", launchProfileName: "tcp")
     .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
     .WithEndpoint(port: 43594, scheme: "tcp", env: "TCP_PORT")
     .WithHttpsEndpoint(port: 7005, env: "HTTPS_PORT")
     .WithHttpEndpoint(port: 5008, env: "HTTP_PORT")
-    .WithHttpsHealthCheck("/health");
+    .WithHttpHealthCheck("/health");
 
-var webApp = builder.AddNpmApp("hagalaz-web-app", "../Hagalaz.Web.App", "start:aspire")
+var webApp = builder.AddJavaScriptApp("hagalaz-web-app", "../Hagalaz.Web.App", "start:aspire")
     .WithReference(authService)
     .WithReference(cacheService)
     .WithReference(contactsService)
@@ -97,7 +97,7 @@ var webApp = builder.AddNpmApp("hagalaz-web-app", "../Hagalaz.Web.App", "start:a
     .WithExternalHttpEndpoints()
     .PublishAsDockerFile();
 
-var webAdminApp = builder.AddNpmApp("hagalaz-web-admin", "../Hagalaz.Web.App", "start:aspire:admin")
+var webAdminApp = builder.AddJavaScriptApp("hagalaz-web-admin", "../Hagalaz.Web.App", "start:aspire:admin")
     .WithReference(authService)
     .WithReference(cacheService)
     .WithHttpsEndpoint(targetPort: 4410, env: "PORT")
@@ -114,7 +114,7 @@ var gateway = builder.AddProject<Projects.Hagalaz_Services_Gateway>("hagalaz-ser
     .WithReference(webApp)
     .WithReference(webAdminApp)
     .WithExternalHttpEndpoints()
-    .WithHttpsHealthCheck("/health");
+    .WithHttpHealthCheck("/health");
 
 if (builder.Environment.IsDevelopment() && builder.Configuration["DOTNET_LAUNCH_PROFILE"] == "https")
 {
