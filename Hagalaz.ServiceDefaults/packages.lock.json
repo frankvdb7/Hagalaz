@@ -69,6 +69,12 @@
           "Yarp.ReverseProxy": "2.3.0"
         }
       },
+      "Microsoft.OpenApi": {
+        "type": "Direct",
+        "requested": "[2.11.0, )",
+        "resolved": "2.11.0",
+        "contentHash": "/ignjfdeKT2SGLIR7QEv19KnI0rvoxRG/TYDOZdK9EsWLjKK9IK8i1Mo5NRm9PRV3i64DzlTqnIflWvoyfljLg=="
+      },
       "OpenTelemetry.Exporter.OpenTelemetryProtocol": {
         "type": "Direct",
         "requested": "[1.17.0, )",
@@ -125,11 +131,11 @@
       },
       "OpenTelemetry.Instrumentation.Process": {
         "type": "Direct",
-        "requested": "[1.14.0-beta.2, )",
-        "resolved": "1.14.0-beta.2",
-        "contentHash": "a3wmmz3Vrby0BIiHxIJifTQqtKREoWKg4yd+tFgi2aiTJ5oq2uYRRL70EuMYCGQHhGFeT2YSN+jonD1U81XoSA==",
+        "requested": "[1.17.0-rc.1, )",
+        "resolved": "1.17.0-rc.1",
+        "contentHash": "oN56aaWQ6p+1JRTDXf7QXEOZi8sX7OGVRvBYDlPstPDQ9MAtn695+E68HeJFJeD7F2KhD4CBPiMWieVW2UQK2w==",
         "dependencies": {
-          "OpenTelemetry.Api": "[1.14.0, 2.0.0)"
+          "OpenTelemetry.Api": "[1.17.0, 2.0.0)"
         }
       },
       "OpenTelemetry.Instrumentation.Runtime": {
@@ -240,11 +246,6 @@
         "dependencies": {
           "Microsoft.Extensions.Compliance.Abstractions": "10.8.0"
         }
-      },
-      "Microsoft.OpenApi": {
-        "type": "Transitive",
-        "resolved": "2.0.0",
-        "contentHash": "GGYLfzV/G/ct80OZ45JxnWP7NvMX1BCugn/lX7TH5o0lcVaviavsLMTxmFV2AybXWjbi3h6FF1vgZiTK6PXndw=="
       },
       "OpenTelemetry": {
         "type": "Transitive",
