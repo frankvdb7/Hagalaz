@@ -12,7 +12,7 @@ namespace Hagalaz.Services.GameWorld.Data
     public class QuestManager : IQuestRepository
     {
         private readonly ICacheAPI _cacheApi;
-        private List<QuestDefinition> _loadedQuestDefinitions;
+        private List<QuestDefinition> _loadedQuestDefinitions = [];
 
         /// <summary>
         /// 

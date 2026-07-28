@@ -12,7 +12,6 @@ namespace Hagalaz.Cache.Abstractions.Types
         /// <summary>
         /// Gets the unique identifier for this item type.
         /// </summary>
-        int Id { get; }
 
         /// <summary>
         /// Gets the name of the item as it appears in-game.

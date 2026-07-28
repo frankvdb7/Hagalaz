@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 
@@ -28,9 +28,8 @@ namespace Hagalaz.Game.Scripts.Util
         ///     Writes a string to the text string or stream.
         /// </summary>
         /// <param name="value">The string to write.</param>
-        public override void Write(string value)
+        public override void Write(string? value)
         {
-            base.Write(value);
             _builder.Append(value);
         }
 
@@ -38,9 +37,8 @@ namespace Hagalaz.Game.Scripts.Util
         ///     Writes a string followed by a line terminator to the text string or stream.
         /// </summary>
         /// <param name="value">The string to write. If <paramref name="value" /> is null, only the line terminator is written.</param>
-        public override void WriteLine(string value)
+        public override void WriteLine(string? value)
         {
-            base.WriteLine(value);
             _builder.Append(value);
             _stringWriteCallBack.Invoke(_builder.ToString());
             _builder.Clear();

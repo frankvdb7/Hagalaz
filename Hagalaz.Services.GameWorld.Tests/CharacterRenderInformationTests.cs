@@ -25,6 +25,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         private ICharacterStore _characterStore = null!;
         private ICharacterLocationService _locationService = null!;
         private CharacterRenderInformation _renderInfo = null!;
+        private ILocation _location = null!;
 
         [TestInitialize]
         public void Setup()
@@ -33,8 +34,12 @@ namespace Hagalaz.Services.GameWorld.Tests
             _serviceProvider = Substitute.For<IServiceProvider>();
             _characterStore = Substitute.For<ICharacterStore>();
             _locationService = Substitute.For<ICharacterLocationService>();
+            _location = Substitute.For<ILocation>();
 
             _owner.ServiceProvider.Returns(_serviceProvider);
+            _owner.Location.Returns(_location);
+            _location.Clone().Returns(_location);
+
             _serviceProvider.GetService(typeof(ICharacterStore)).Returns(_characterStore);
             _serviceProvider.GetService(typeof(ICharacterLocationService)).Returns(_locationService);
 
@@ -44,16 +49,11 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public void OnRegistered_InitializesLastLocationAndLocalCharacters()
         {
-            // Arrange
-            var location = Substitute.For<ILocation>();
-            _owner.Location.Returns(location);
-            location.Clone().Returns(location);
-
             // Act
             _renderInfo.OnRegistered();
 
             // Assert
-            Assert.AreEqual(location, _renderInfo.LastLocation);
+            Assert.AreEqual(_location, _renderInfo.LastLocation);
             Assert.Contains(_owner, _renderInfo.LocalCharacters);
             Assert.IsTrue(_renderInfo.IsInViewport(_owner.Index));
         }
@@ -62,9 +62,6 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void Reset_ClearsFlagsAndUpdatesLocation()
         {
             // Arrange
-            var location = Substitute.For<ILocation>();
-            _owner.Location.Returns(location);
-            location.Clone().Returns(location);
             _renderInfo.ScheduleFlagUpdate(Hagalaz.Game.Abstractions.Model.Creatures.Characters.UpdateFlags.Animation);
             _renderInfo.ScheduleItemAppearanceUpdate();
 
@@ -74,7 +71,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             // Assert
             Assert.IsFalse(_renderInfo.FlagUpdateRequired);
             Assert.IsFalse(_renderInfo.ItemAppearanceUpdateRequired);
-            _locationService.Received(1).SetLocationByIndex(_owner.Index, location);
+            _locationService.Received(1).SetLocationByIndex(_owner.Index, _location);
         }
 
         [TestMethod]
@@ -121,6 +118,14 @@ namespace Hagalaz.Services.GameWorld.Tests
             // IdleOnThisLoop is moved to Idle, then cleared
             Assert.IsTrue(_renderInfo.IsIdle(5));
             Assert.IsFalse(_renderInfo.IsIdleOnThisLoop(5));
+        }
+
+        [TestMethod]
+        public void Properties_AreSafe_AfterConstruction()
+        {
+            // Assert
+            Assert.IsNull(_renderInfo.CurrentAnimation, "CurrentAnimation should be null by default.");
+            Assert.IsNotNull(_renderInfo.LastLocation, "LastLocation should be initialized in constructor.");
         }
     }
 }

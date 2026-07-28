@@ -284,8 +284,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Opens frame for character.
         /// </summary>
         /// <param name="frame">The frame.</param>
+        /// <param name="forceRedraw">Whether to force the client to redraw the frame.</param>
         /// <exception cref="Exception"></exception>
-        public void OpenFrame(IWidget frame)
+        public void OpenFrame(IWidget frame, bool forceRedraw = false)
         {
             if (!IsValidInterfaceID(frame.Id))
             {
@@ -297,7 +298,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
-            var forceRedraw = false;
             if (CurrentFrame != null)
             {
                 CloseWidget(CurrentFrame, false);

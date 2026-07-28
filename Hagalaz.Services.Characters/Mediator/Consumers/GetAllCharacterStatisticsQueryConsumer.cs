@@ -66,7 +66,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
             {
                 CharacterStatisticType.Overall => _mapper.ProjectTo<CharactersStatisticsDto>(statsQuery)
                     .OrderByDescending(dto => dto.AgilityExp + dto.AttackExp + dto.ConstitutionExp + dto.ConstructionExp + dto.CookingExp + dto.CraftingExp +
-                                              dto.DefenceExp + dto.DefenceExp + dto.DungeoneeringExp + dto.FarmingExp + dto.FiremakingExp + dto.FishingExp +
+                                              dto.DefenceExp + dto.DungeoneeringExp + dto.FarmingExp + dto.FiremakingExp + dto.FishingExp +
                                               dto.FletchingExp + dto.HerbloreExp + dto.HunterExp + dto.MagicExp + dto.MiningExp + dto.PrayerExp + dto.RangeExp +
                                               dto.RunecraftingExp + dto.SlayerExp + dto.SmithingExp + dto.StrengthExp + dto.SummoningExp + dto.ThievingExp +
                                               dto.WoodcuttingExp)

@@ -8,7 +8,6 @@
         /// <summary>
         /// Gets the unique identifier for this animation type.
         /// </summary>
-        int Id { get; }
 
         /// <summary>
         /// Gets the priority level of the animation. Higher priority animations can override lower priority ones.

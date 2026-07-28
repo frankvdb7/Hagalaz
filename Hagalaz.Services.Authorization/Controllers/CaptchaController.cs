@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Hagalaz.Services.Authorization.Model;
 using Hagalaz.Services.Authorization.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 
 namespace Hagalaz.Services.Authorization.Controllers
 {
@@ -16,10 +17,16 @@ namespace Hagalaz.Services.Authorization.Controllers
         }
 
         [HttpPost("~/captcha/verify"), Produces("application/json")]
-        public async Task<ActionResult<CaptchaVerifyResult>> VerifyCaptcha([FromBody] CaptchaVerifyRequest request)
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult<CaptchaVerifyResult>> VerifyCaptcha([FromBody] CaptchaVerifyRequest? request)
         {
+            if (request == null)
+            {
+                return BadRequest();
+            }
+
             var result = await _captchaService.Verify(request.Token, HttpContext.Connection.RemoteIpAddress?.ToString());
-            return result.Success ? CaptchaVerifyResult.Success : CaptchaVerifyResult.Fail;
+            return Ok(result.Success ? CaptchaVerifyResult.Success : CaptchaVerifyResult.Fail);
         }
     }
 }

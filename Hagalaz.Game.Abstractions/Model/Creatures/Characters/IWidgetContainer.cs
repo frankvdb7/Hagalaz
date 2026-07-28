@@ -12,7 +12,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// <summary>
         /// Gets the main top-level widget, or "frame," that is currently open.
         /// </summary>
-        IWidget CurrentFrame { get; }
+        IWidget? CurrentFrame { get; }
         /// <summary>
         /// Gets or sets the current handler for string input dialogs.
         /// </summary>
@@ -29,7 +29,8 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// Opens a new top-level frame widget.
         /// </summary>
         /// <param name="frame">The frame widget to open.</param>
-        void OpenFrame(IWidget frame);
+        /// <param name="forceRedraw">Whether to force the client to redraw the frame.</param>
+        void OpenFrame(IWidget frame, bool forceRedraw = false);
         /// <summary>
         /// Opens a standard widget.
         /// </summary>
