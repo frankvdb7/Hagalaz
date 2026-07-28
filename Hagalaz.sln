@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.1.32120.378
+# Visual Studio Version 18
+VisualStudioVersion = 18.8.12023.21 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hagalaz.Game", "Hagalaz.Game\Hagalaz.Game.csproj", "{63B7AD58-5EBB-4BB1-9C51-DE95816CB8C0}"
 EndProject
@@ -867,8 +867,16 @@ Global
 		{DD3A63D6-DE1A-443E-9D84-F73832D011B5}.Release|x86.Build.0 = Release|Any CPU
 		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Debug|x64.Build.0 = Debug|Any CPU
+		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Debug|x86.Build.0 = Debug|Any CPU
 		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Release|x64.ActiveCfg = Release|Any CPU
+		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Release|x64.Build.0 = Release|Any CPU
+		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Release|x86.ActiveCfg = Release|Any CPU
+		{A6E0D9E3-3A9B-4A1B-9A4B-8B8E8E8E8E8E}.Release|x86.Build.0 = Release|Any CPU
 		{FA36D6C9-6D1C-4D68-A7D3-87F02E73CA17}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{FA36D6C9-6D1C-4D68-A7D3-87F02E73CA17}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FA36D6C9-6D1C-4D68-A7D3-87F02E73CA17}.Debug|x64.ActiveCfg = Debug|Any CPU
