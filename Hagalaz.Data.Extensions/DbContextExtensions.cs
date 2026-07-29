@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data.Common;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
@@ -26,9 +27,10 @@ namespace Hagalaz.Data.Extensions
             }
 
             builder.Services.AddHagalazIdentity();
+            var oracleConnectionString = NormalizeOracleConnectionString(connectionString, connectionName);
             builder.Services.AddDbContextPool<HagalazDbContext>(options =>
             {
-                options.UseMySQL(connectionString, mysqlOptions => mysqlOptions.EnableRetryOnFailure(6));
+                options.UseMySQL(oracleConnectionString, mysqlOptions => mysqlOptions.EnableRetryOnFailure(6));
                 options.UseLazyLoadingProxies();
                 // Register the entity sets needed by OpenIddict.
                 // Note: use the generic overload if you need
@@ -38,6 +40,35 @@ namespace Hagalaz.Data.Extensions
             builder.Services.AddHealthChecks().AddDbContextCheck<HagalazDbContext>();
 
             return builder;
+        }
+
+        private static string NormalizeOracleConnectionString(string connectionString, string connectionName)
+        {
+            try
+            {
+                var connectionStringBuilder = new DbConnectionStringBuilder
+                {
+                    ConnectionString = connectionString
+                };
+
+                if (connectionStringBuilder.TryGetValue("SslMode", out var sslMode) &&
+                    string.Equals(Convert.ToString(sslMode), "None", StringComparison.OrdinalIgnoreCase))
+                {
+                    // The previous provider used None for an unencrypted connection. Connector/NET
+                    // uses Disabled for the same setting and rejects None before EF can start.
+                    connectionStringBuilder["SslMode"] = "Disabled";
+                    return connectionStringBuilder.ConnectionString;
+                }
+
+                return connectionString;
+            }
+            catch (ArgumentException exception)
+            {
+                throw new InvalidOperationException(
+                    $"The database connection string '{connectionName}' is invalid. " +
+                    "Verify its key/value syntax before starting the service.",
+                    exception);
+            }
         }
 
         public static IServiceCollection AddHagalazIdentity(this IServiceCollection services)

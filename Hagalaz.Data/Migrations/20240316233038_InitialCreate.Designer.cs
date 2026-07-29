@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Hagalaz.Data;
+using MySql.EntityFrameworkCore.Extensions;
 
 #nullable disable
 
@@ -19,12 +20,11 @@ namespace Hagalaz.Data.Migrations
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .UseCollation("utf8mb4_0900_ai_ci")
+            MySQLModelBuilderExtensions.UseCollation(modelBuilder, "utf8mb4_0900_ai_ci")
                 .HasAnnotation("ProductVersion", "8.0.3")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
-            modelBuilder.HasCharSet("utf8mb4");
+            MySQLModelBuilderExtensions.HasCharSet(modelBuilder, "utf8mb4");
 
             modelBuilder.Entity("AspnetroleCharacter", b =>
                 {
@@ -59,8 +59,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("clans_bans", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("GameobjectLootrecursion", b =>
@@ -81,8 +81,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_lootrecursion", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("ItemLootrecursion", b =>
@@ -103,8 +103,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("item_lootrecursion", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("NpcLootrecursion", b =>
@@ -125,8 +125,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_lootrecursion", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreApplication", b =>
@@ -410,8 +410,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("areas", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Aspnetrole", b =>
@@ -590,8 +590,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("blacklist", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Character", b =>
@@ -746,8 +746,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersAppeal", b =>
@@ -774,8 +774,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_appeals", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersContact", b =>
@@ -806,8 +806,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_contacts", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersFamiliar", b =>
@@ -841,8 +841,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_familiars", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersFarmingPatch", b =>
@@ -885,8 +885,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_farming_patches", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersItem", b =>
@@ -911,7 +911,7 @@ namespace Hagalaz.Data.Migrations
                     b.Property<string>("ExtraData")
                         .HasColumnType("longtext")
                         .HasColumnName("extra_data")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("ExtraData").ForMySQLHasCharset("utf8mb4");
 
@@ -933,8 +933,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_items", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersItemsLook", b =>
@@ -986,14 +986,14 @@ namespace Hagalaz.Data.Migrations
                     b.Property<string>("ModelColours")
                         .HasColumnType("longtext")
                         .HasColumnName("model_colours")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("ModelColours").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<string>("TextureColours")
                         .HasColumnType("longtext")
                         .HasColumnName("texture_colours")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("TextureColours").ForMySQLHasCharset("utf8mb4");
 
@@ -1003,8 +1003,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_items_look", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersLook", b =>
@@ -1076,8 +1076,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_look", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersMusic", b =>
@@ -1096,8 +1096,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_music", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersMusicPlaylist", b =>
@@ -1127,8 +1127,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_music_playlists", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersNote", b =>
@@ -1159,8 +1159,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_notes", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersOffence", b =>
@@ -1213,8 +1213,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_offences", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersPermission", b =>
@@ -1226,7 +1226,7 @@ namespace Hagalaz.Data.Migrations
                     b.Property<string>("Permission")
                         .HasColumnType("enum('SystemAdministrator','GameAdministrator','GameModerator','Donator')")
                         .HasColumnName("permission")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("Permission").ForMySQLHasCharset("utf8mb4");
 
@@ -1236,8 +1236,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_permissions", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersPreference", b =>
@@ -1455,8 +1455,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_preferences", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersProfile", b =>
@@ -1478,8 +1478,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_profiles", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersQuest", b =>
@@ -1507,8 +1507,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_quests", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersReport", b =>
@@ -1544,8 +1544,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_reports", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersReward", b =>
@@ -1567,7 +1567,7 @@ namespace Hagalaz.Data.Migrations
                         .IsRequired()
                         .HasColumnType("longtext")
                         .HasColumnName("extra_data")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("ExtraData").ForMySQLHasCharset("utf8mb4");
 
@@ -1589,8 +1589,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_rewards", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersSlayerTask", b =>
@@ -1614,8 +1614,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_slayer_tasks", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersState", b =>
@@ -1638,8 +1638,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_states", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersStatistic", b =>
@@ -1977,8 +1977,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_statistics", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersTicket", b =>
@@ -2005,7 +2005,7 @@ namespace Hagalaz.Data.Migrations
                     b.Property<string>("ResponseText")
                         .HasColumnType("longtext")
                         .HasColumnName("response_text")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("ResponseText").ForMySQLHasCharset("utf8mb4");
 
@@ -2021,7 +2021,7 @@ namespace Hagalaz.Data.Migrations
                         .IsRequired()
                         .HasColumnType("longtext")
                         .HasColumnName("ticket_text")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("TicketText").ForMySQLHasCharset("utf8mb4");
 
@@ -2053,7 +2053,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("varchar(255)")
                         .HasColumnName("string_value")
                         .HasDefaultValueSql("''")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("StringValue").ForMySQLHasCharset("utf8mb4");
 
@@ -2063,8 +2063,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_variables", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharacterscreateinfoItem", b =>
@@ -2091,8 +2091,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characterscreateinfo_items", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Clan", b =>
@@ -2120,8 +2120,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("clans", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ClansMember", b =>
@@ -2151,8 +2151,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("clans_members", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ClansSetting", b =>
@@ -2254,8 +2254,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("clans_settings", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Configuration", b =>
@@ -2283,8 +2283,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("configurations", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Efmigrationshistory", b =>
@@ -2387,8 +2387,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("equipment_bonuses", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.EquipmentDefinition", b =>
@@ -2460,21 +2460,21 @@ namespace Hagalaz.Data.Migrations
                     b.Property<string>("Fullbody")
                         .HasColumnType("enum('false','true')")
                         .HasColumnName("fullbody")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("Fullbody").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<string>("Fullhat")
                         .HasColumnType("enum('false','true')")
                         .HasColumnName("fullhat")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("Fullhat").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<string>("Fullmask")
                         .HasColumnType("enum('false','true')")
                         .HasColumnName("fullmask")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("Fullmask").ForMySQLHasCharset("utf8mb4");
 
@@ -2491,8 +2491,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("equipment_definitions", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameEvent", b =>
@@ -2522,8 +2522,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("game_events", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameobjectDefinition", b =>
@@ -2558,8 +2558,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_definitions", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameobjectLodestone", b =>
@@ -2593,8 +2593,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_lodestones", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameobjectLoot", b =>
@@ -2626,8 +2626,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_loot", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameobjectLootItem", b =>
@@ -2672,8 +2672,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_loot_items", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameobjectSpawn", b =>
@@ -2720,8 +2720,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_spawns", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ItemCombine", b =>
@@ -2832,8 +2832,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("item_combines", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ItemDefinition", b =>
@@ -2882,8 +2882,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("item_definitions", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ItemLoot", b =>
@@ -2917,8 +2917,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("item_loot", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ItemLootItem", b =>
@@ -2963,8 +2963,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("item_loot_items", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ItemSpawn", b =>
@@ -3007,8 +3007,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("item_spawns", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.LogsActivity", b =>
@@ -3042,8 +3042,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("logs_activities", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.LogsChat", b =>
@@ -3081,8 +3081,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("logs_chat", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.LogsConnection", b =>
@@ -3105,7 +3105,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("varchar(40)")
                         .HasColumnName("ip")
                         .HasDefaultValueSql("''")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("Ip").ForMySQLHasCharset("utf8mb4");
 
@@ -3119,8 +3119,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("logs_connections", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.LogsDisplayNameChange", b =>
@@ -3156,8 +3156,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("logs_display_name_changes", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.LogsLoginAttempt", b =>
@@ -3195,8 +3195,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("logs_login_attempts", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesBarrow", b =>
@@ -3254,8 +3254,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("minigames_barrows", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesDuelArena", b =>
@@ -3279,8 +3279,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("minigames_duel_arena", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesGodwar", b =>
@@ -3310,8 +3310,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("minigames_godwars", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesTzhaarCave", b =>
@@ -3331,8 +3331,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("minigames_tzhaar_cave", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesTzhaarCaveWave", b =>
@@ -3359,8 +3359,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("minigames_tzhaar_cave_waves", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MusicDefinition", b =>
@@ -3385,8 +3385,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("music_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MusicLocation", b =>
@@ -3405,8 +3405,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("music_locations", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcBonuse", b =>
@@ -3492,8 +3492,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_bonuses", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcDefinition", b =>
@@ -3625,8 +3625,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_definitions", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcLoot", b =>
@@ -3666,8 +3666,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_loot", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcLootItem", b =>
@@ -3712,8 +3712,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_loot_items", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcSpawn", b =>
@@ -3782,8 +3782,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_spawns", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcStatistic", b =>
@@ -3833,8 +3833,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_statistics", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ProfanityWord", b =>
@@ -3848,8 +3848,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("profanity_words", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Quest", b =>
@@ -4050,8 +4050,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("quests", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ReservedName", b =>
@@ -4068,8 +4068,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("reserved_names", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Shop", b =>
@@ -4113,7 +4113,7 @@ namespace Hagalaz.Data.Migrations
                     b.Property<string>("SampleStockItems")
                         .HasColumnType("longtext")
                         .HasColumnName("sample_stock_items")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("SampleStockItems").ForMySQLHasCharset("utf8mb4");
 
@@ -4121,8 +4121,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("shops", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCookingFoodDefinition", b =>
@@ -4152,8 +4152,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_cooking_food_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCookingRawFoodDefinition", b =>
@@ -4190,8 +4190,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_cooking_raw_food_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingGemDefinition", b =>
@@ -4226,8 +4226,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_gem_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingJewelryDefinition", b =>
@@ -4265,8 +4265,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_jewelry_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingLeatherDefinition", b =>
@@ -4301,8 +4301,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_leather_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingPotteryDefinition", b =>
@@ -4334,8 +4334,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_pottery_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingSilverDefinition", b =>
@@ -4368,8 +4368,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_silver_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingSpinDefinition", b =>
@@ -4398,8 +4398,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_spin_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingTanDefinition", b =>
@@ -4424,8 +4424,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_tan_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFarmingPatchDefinition", b =>
@@ -4444,8 +4444,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_farming_patch_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFarmingSeedDefinition", b =>
@@ -4512,8 +4512,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_farming_seed_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFiremakingDefinition", b =>
@@ -4550,8 +4550,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_firemaking_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFishingFishDefinition", b =>
@@ -4586,8 +4586,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_fishing_fish_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFishingSpotDefinition", b =>
@@ -4644,8 +4644,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_fishing_spot_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFishingSpotNpcDefinition", b =>
@@ -4664,8 +4664,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_fishing_spot_npc_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFishingToolDefinition", b =>
@@ -4687,8 +4687,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_fishing_tool_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFletchingDefinition", b =>
@@ -4742,8 +4742,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_fletching_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsHerbloreHerbDefinition", b =>
@@ -4772,8 +4772,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_herblore_herb_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMagicCombatDefinition", b =>
@@ -4840,8 +4840,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_magic_combat_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMagicEnchantDefinition", b =>
@@ -4880,8 +4880,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_magic_enchant_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMagicEnchantProduct", b =>
@@ -4905,8 +4905,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_magic_enchant_products", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMagicTeleportDefinition", b =>
@@ -4956,7 +4956,7 @@ namespace Hagalaz.Data.Migrations
                         .IsRequired()
                         .HasColumnType("longtext")
                         .HasColumnName("required_runes")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("RequiredRunes").ForMySQLHasCharset("utf8mb4");
 
@@ -4964,7 +4964,7 @@ namespace Hagalaz.Data.Migrations
                         .IsRequired()
                         .HasColumnType("longtext")
                         .HasColumnName("required_runes_count")
-                        .UseCollation("utf8mb4_0900_ai_ci");
+                        .ForMySQLHasCollation("utf8mb4_0900_ai_ci");
 
                     b.Property<string>("RequiredRunesCount").ForMySQLHasCharset("utf8mb4");
 
@@ -4974,8 +4974,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_magic_teleport_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMiningOreDefinition", b =>
@@ -5015,8 +5015,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_mining_ore_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMiningPickaxeDefinition", b =>
@@ -5049,8 +5049,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_mining_pickaxe_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMiningRockDefinition", b =>
@@ -5074,8 +5074,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_mining_rock_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsPrayerDefinition", b =>
@@ -5098,8 +5098,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_prayer_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsRunecraftingDefinition", b =>
@@ -5180,8 +5180,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_runecrafting_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsSlayerMasterDefinition", b =>
@@ -5205,8 +5205,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_slayer_master_definitions", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsSlayerTaskDefinition", b =>
@@ -5270,8 +5270,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_slayer_task_definitions", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsSummoningDefinition", b =>
@@ -5328,8 +5328,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_summoning_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsWoodcuttingHatchetDefinition", b =>
@@ -5366,8 +5366,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_woodcutting_hatchet_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsWoodcuttingLogDefinition", b =>
@@ -5412,8 +5412,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_woodcutting_log_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsWoodcuttingTreeDefinition", b =>
@@ -5437,8 +5437,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_woodcutting_tree_definitions", (string)null);
 
-                    b.HasCharSet("utf8");
-                    b.UseCollation("utf8_general_ci");
+                    b.ForMySQLHasCharset("utf8");
+                    b.ForMySQLHasCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.World", b =>
@@ -5517,8 +5517,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("worlds", (string)null);
 
-                    b.HasCharSet("latin1");
-                    b.UseCollation("latin1_swedish_ci");
+                    b.ForMySQLHasCharset("latin1");
+                    b.ForMySQLHasCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.WorldConfiguration", b =>
@@ -5526,7 +5526,7 @@ namespace Hagalaz.Data.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("varchar(255)")
                         .HasColumnName("id")
-                        .UseCollation("latin1_swedish_ci");
+                        .ForMySQLHasCollation("latin1_swedish_ci");
 
                     b.Property<string>("Id").ForMySQLHasCharset("latin1");
 

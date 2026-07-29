@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Data\Hagalaz.Data.csproj" />
+    <ProjectReference Include="..\Hagalaz.Data.Extensions\Hagalaz.Data.Extensions.csproj" />
+    <ProjectReference Include="..\Hagalaz.ServiceDefaults\Hagalaz.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <ItemGroup>

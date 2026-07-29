@@ -3,6 +3,7 @@ using Hagalaz.Data.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using MySql.EntityFrameworkCore.Extensions;
 
 namespace Hagalaz.Data
 {
@@ -128,13 +129,15 @@ namespace Hagalaz.Data
             // no passkey table. Keep the optional entity out until it is migrated.
             modelBuilder.Ignore<IdentityUserPasskey<uint>>();
 
-            modelBuilder.UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+            MySQLModelBuilderExtensions.HasCharSet(
+                MySQLModelBuilderExtensions.UseCollation(modelBuilder, "utf8mb4_0900_ai_ci"),
+                "utf8mb4");
 
             modelBuilder.Entity<Area>(entity =>
             {
                 entity.ToTable("areas");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("smallint(6) unsigned").HasColumnName("id");
 
@@ -285,7 +288,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("blacklist");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.AppealId, "appeal_id_foreign_key");
 
@@ -320,7 +323,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("characters");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.NormalizedEmail, "EmailIndex");
 
@@ -389,7 +392,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_profiles");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.MasterId, "master_foreign_key_24");
 
@@ -407,7 +410,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("characters_appeals");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.MasterId, "master_foreign_key");
 
@@ -439,7 +442,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_contacts");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.ContactId, "contact_id_foreign_key");
 
@@ -470,7 +473,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_familiars");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.FamiliarId, "familiar_id_foreign_key");
 
@@ -511,7 +514,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_farming_patches");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.HasIndex(e => e.PatchId, "farming_patch_foreign_key");
 
@@ -553,7 +556,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("characters_items");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.MasterId, "master_id_foreign_key_15");
 
@@ -563,7 +566,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.Count).HasColumnName("count").HasDefaultValueSql("'1'");
 
-                entity.Property(e => e.ExtraData).HasColumnName("extra_data").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
+                entity.Property(e => e.ExtraData).HasColumnName("extra_data").ForMySQLHasCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.ItemId).HasColumnName("item_id");
 
@@ -589,7 +592,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_items_look");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.MasterId).HasColumnName("master_id");
 
@@ -607,9 +610,9 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.MaleWornModel3).HasColumnName("male_worn_model_3").HasDefaultValueSql("'-1'");
 
-                entity.Property(e => e.ModelColours).HasColumnName("model_colours").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
+                entity.Property(e => e.ModelColours).HasColumnName("model_colours").ForMySQLHasCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
-                entity.Property(e => e.TextureColours).HasColumnName("texture_colours").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
+                entity.Property(e => e.TextureColours).HasColumnName("texture_colours").ForMySQLHasCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
                 entity.HasOne(d => d.Master).WithMany(p => p.CharactersItemsLooks).HasForeignKey(d => d.MasterId).HasConstraintName("master_id_foreign_key_2");
             });
@@ -620,7 +623,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_look");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.MasterId, "LOOK_MASTER_ID_FOREIGN");
 
@@ -666,7 +669,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_music");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
 
@@ -684,7 +687,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_music_playlists");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
 
@@ -715,7 +718,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_notes");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").HasColumnName("master_id");
 
@@ -732,7 +735,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("characters_offences");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.MasterId, "master_id_foreign_key_5");
 
@@ -782,14 +785,14 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_permissions");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.MasterId).HasColumnName("master_id");
 
                 entity.Property(e => e.Permission)
                     .HasColumnType("enum('SystemAdministrator','GameAdministrator','GameModerator','Donator')")
                     .HasColumnName("permission")
-                    .UseCollation("utf8mb4_0900_ai_ci")
+                    .ForMySQLHasCollation("utf8mb4_0900_ai_ci")
                     .ForMySQLHasCharset("utf8mb4");
 
                 entity.HasOne(d => d.Master).WithMany(p => p.CharactersPermissions).HasForeignKey(d => d.MasterId).HasConstraintName("master_id_foreign_key_7");
@@ -801,7 +804,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_preferences");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
 
@@ -890,7 +893,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_quests");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.QuestId, "quest_id_foreign_key");
 
@@ -918,7 +921,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("characters_reports");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.ReportedId, "reported_id_foreign_key");
 
@@ -949,7 +952,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("characters_rewards");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.MasterId, "master_id_foreign_key_10");
 
@@ -957,7 +960,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.Count).HasColumnName("count").HasDefaultValueSql("'1'");
 
-                entity.Property(e => e.ExtraData).HasColumnName("extra_data").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
+                entity.Property(e => e.ExtraData).HasColumnName("extra_data").ForMySQLHasCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.ItemId).HasColumnName("item_id");
 
@@ -974,7 +977,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_slayer_tasks");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.SlayerTaskId, "slayer_task_id_foreign_key");
 
@@ -1011,7 +1014,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_states");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").HasColumnName("master_id");
 
@@ -1028,7 +1031,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_statistics");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
 
@@ -1178,7 +1181,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.ModeratorId).HasColumnName("moderator_id");
 
-                entity.Property(e => e.ResponseText).HasColumnName("response_text").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
+                entity.Property(e => e.ResponseText).HasColumnName("response_text").ForMySQLHasCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.TicketLastchange)
                     .HasColumnType("timestamp")
@@ -1186,7 +1189,7 @@ namespace Hagalaz.Data
                     .HasColumnName("ticket_lastchange")
                     .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                entity.Property(e => e.TicketText).HasColumnName("ticket_text").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
+                entity.Property(e => e.TicketText).HasColumnName("ticket_text").ForMySQLHasCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
             });
 
             modelBuilder.Entity<CharactersVariable>(entity =>
@@ -1204,7 +1207,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characters_variables");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.MasterId).HasColumnName("master_id");
 
@@ -1216,7 +1219,7 @@ namespace Hagalaz.Data
                     .HasMaxLength(255)
                     .HasColumnName("string_value")
                     .HasDefaultValueSql("''")
-                    .UseCollation("utf8mb4_0900_ai_ci")
+                    .ForMySQLHasCollation("utf8mb4_0900_ai_ci")
                     .ForMySQLHasCharset("utf8mb4");
             });
 
@@ -1235,7 +1238,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("characterscreateinfo_items");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ItemId).HasColumnType("smallint(6) unsigned").HasColumnName("item_id");
 
@@ -1248,7 +1251,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("clans");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.Id).HasColumnType("int(11) unsigned").HasColumnName("id");
 
@@ -1271,7 +1274,7 @@ namespace Hagalaz.Data
                                         0, 0
                                     });
 
-                            j.ToTable("clans_bans").HasCharSet("utf8").UseCollation("utf8_general_ci");
+                            j.ToTable("clans_bans").ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                             j.HasIndex(new[]
                                 {
@@ -1291,7 +1294,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("clans_members");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.HasIndex(e => e.ClanId, "clan_id_foreign_key_46");
 
@@ -1325,7 +1328,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("clans_settings");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ClanId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("clan_id");
 
@@ -1373,7 +1376,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("configurations");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Name).HasColumnName("name").HasDefaultValueSql("''");
 
@@ -1399,7 +1402,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("equipment_bonuses");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.ItemId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("item_id");
 
@@ -1444,7 +1447,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("equipment_definitions");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).ValueGeneratedNever().HasColumnName("id");
 
@@ -1471,19 +1474,19 @@ namespace Hagalaz.Data
                 entity.Property(e => e.Fullbody)
                     .HasColumnType("enum('false','true')")
                     .HasColumnName("fullbody")
-                    .UseCollation("utf8mb4_0900_ai_ci")
+                    .ForMySQLHasCollation("utf8mb4_0900_ai_ci")
                     .ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.Fullhat)
                     .HasColumnType("enum('false','true')")
                     .HasColumnName("fullhat")
-                    .UseCollation("utf8mb4_0900_ai_ci")
+                    .ForMySQLHasCollation("utf8mb4_0900_ai_ci")
                     .ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.Fullmask)
                     .HasColumnType("enum('false','true')")
                     .HasColumnName("fullmask")
-                    .UseCollation("utf8mb4_0900_ai_ci")
+                    .ForMySQLHasCollation("utf8mb4_0900_ai_ci")
                     .ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.Name)
@@ -1497,7 +1500,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("game_events");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("smallint(6) unsigned").HasColumnName("id");
 
@@ -1514,7 +1517,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("gameobject_definitions");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.GameobjectLootId, "gameobject_loot_id_foreign_key");
 
@@ -1539,7 +1542,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("gameobject_lodestones");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.GameobjectId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("gameobject_id");
 
@@ -1558,7 +1561,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("gameobject_loot");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("smallint(6) unsigned").HasColumnName("id");
 
@@ -1589,7 +1592,7 @@ namespace Hagalaz.Data
                                         0, 0
                                     });
 
-                            j.ToTable("gameobject_lootrecursion").HasCharSet("utf8").UseCollation("utf8_general_ci");
+                            j.ToTable("gameobject_lootrecursion").ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                             j.HasIndex(new[]
                                 {
@@ -1625,7 +1628,7 @@ namespace Hagalaz.Data
                                         0, 0
                                     });
 
-                            j.ToTable("gameobject_lootrecursion").HasCharSet("utf8").UseCollation("utf8_general_ci");
+                            j.ToTable("gameobject_lootrecursion");
 
                             j.HasIndex(new[]
                                 {
@@ -1645,7 +1648,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("gameobject_loot_items");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.GameobjectLootId, "gameobject_loot_id_foreign_key_1");
 
@@ -1675,7 +1678,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("gameobject_spawns");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.SpawnId).HasColumnType("int(11)").HasColumnName("spawn_id");
 
@@ -1698,7 +1701,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("item_combines");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ReqItemId1).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("req_item_id_1");
 
@@ -1745,7 +1748,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("item_definitions");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("id");
 
@@ -1768,7 +1771,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("item_loot");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("smallint(6) unsigned").HasColumnName("id");
 
@@ -1793,7 +1796,7 @@ namespace Hagalaz.Data
                                         0, 0
                                     });
 
-                            j.ToTable("item_lootrecursion").HasCharSet("utf8").UseCollation("utf8_general_ci");
+                            j.ToTable("item_lootrecursion").ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                             j.HasIndex(new[]
                                 {
@@ -1821,7 +1824,7 @@ namespace Hagalaz.Data
                                         0, 0
                                     });
 
-                            j.ToTable("item_lootrecursion").HasCharSet("utf8").UseCollation("utf8_general_ci");
+                            j.ToTable("item_lootrecursion");
 
                             j.HasIndex(new[]
                                 {
@@ -1839,7 +1842,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("item_loot_items");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.ItemLootId, "item_loot_id_foreign_key");
 
@@ -1875,7 +1878,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("item_spawns");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.ItemId).HasColumnName("item_id");
 
@@ -1894,7 +1897,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("logs_activities");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("bigint(19) unsigned").HasColumnName("id");
 
@@ -1911,7 +1914,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("logs_chat");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("bigint(19) unsigned").HasColumnName("id");
 
@@ -1941,7 +1944,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("logs_connections");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).ValueGeneratedOnAdd().HasColumnName("id");
 
@@ -1951,7 +1954,7 @@ namespace Hagalaz.Data
                     .HasMaxLength(40)
                     .HasColumnName("ip")
                     .HasDefaultValueSql("''")
-                    .UseCollation("utf8mb4_0900_ai_ci")
+                    .ForMySQLHasCollation("utf8mb4_0900_ai_ci")
                     .ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.Time).HasColumnType("datetime").HasColumnName("time");
@@ -1961,7 +1964,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("logs_display_name_changes");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("bigint(19) unsigned").HasColumnName("id");
 
@@ -1978,7 +1981,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("logs_login_attempts");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("bigint(19) unsigned").HasColumnName("id");
 
@@ -1999,7 +2002,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("minigames_barrows");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
 
@@ -2037,7 +2040,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("minigames_duel_arena");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
 
@@ -2057,7 +2060,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("minigames_godwars");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
 
@@ -2081,7 +2084,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("minigames_tzhaar_cave");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.HasIndex(e => e.CurrentWaveId, "current_wave_id_foreign_key");
 
@@ -2110,7 +2113,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("minigames_tzhaar_cave_waves");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.HasIndex(e => e.WaveId, "wave_id");
 
@@ -2125,7 +2128,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("music_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.Id).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("id");
 
@@ -2149,7 +2152,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("music_locations");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.MusicId).HasColumnType("smallint(6) unsigned").HasColumnName("music_id");
 
@@ -2164,7 +2167,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("npc_bonuses");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.NpcId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("npc_id");
 
@@ -2211,7 +2214,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("npc_definitions");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.NpcLootId, "npc_loot_id_foreign_key");
 
@@ -2274,7 +2277,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("npc_loot");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("smallint(6) unsigned").HasColumnName("id");
 
@@ -2301,7 +2304,7 @@ namespace Hagalaz.Data
                                         0, 0
                                     });
 
-                            j.ToTable("npc_lootrecursion").HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                            j.ToTable("npc_lootrecursion").ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                             j.HasIndex(new[]
                                 {
@@ -2329,7 +2332,7 @@ namespace Hagalaz.Data
                                         0, 0
                                     });
 
-                            j.ToTable("npc_lootrecursion").HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                            j.ToTable("npc_lootrecursion");
 
                             j.HasIndex(new[]
                                 {
@@ -2347,7 +2350,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("npc_loot_items");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.NpcLootId, "npc_loot_id_foreign_key_1");
 
@@ -2374,7 +2377,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("npc_spawns");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.SpawnId).HasColumnName("spawn_id");
 
@@ -2407,7 +2410,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("npc_statistics");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.NpcId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("npc_id");
 
@@ -2430,7 +2433,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("profanity_words");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.Word).HasColumnName("word");
             });
@@ -2439,7 +2442,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("quests");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("id");
 
@@ -2542,7 +2545,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("reserved_names");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.Name).HasMaxLength(64).HasColumnName("name").HasDefaultValueSql("''");
             });
@@ -2551,7 +2554,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("shops");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnName("id");
 
@@ -2565,7 +2568,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.Name).HasMaxLength(48).HasColumnName("name").HasDefaultValueSql("''");
 
-                entity.Property(e => e.SampleStockItems).HasColumnName("sample_stock_items").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
+                entity.Property(e => e.SampleStockItems).HasColumnName("sample_stock_items").ForMySQLHasCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
             });
 
             modelBuilder.Entity<SkillsCookingFoodDefinition>(entity =>
@@ -2574,7 +2577,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_cooking_food_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ItemId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("item_id");
 
@@ -2591,7 +2594,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_cooking_raw_food_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ItemId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("item_id");
 
@@ -2612,7 +2615,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_crafting_gem_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ResourceId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("resource_id");
 
@@ -2631,7 +2634,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_crafting_jewelry_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ChildId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("child_id");
 
@@ -2652,7 +2655,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_crafting_leather_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ProductId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("product_id");
 
@@ -2674,7 +2677,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_crafting_pottery_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.FormedProductId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("formed_product_id");
 
@@ -2693,7 +2696,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_crafting_silver_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ChildId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("child_id");
 
@@ -2712,7 +2715,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_crafting_spin_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ResourceId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("resource_id");
 
@@ -2738,7 +2741,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_crafting_tan_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ResourceId).HasColumnType("smallint(6) unsigned").HasColumnName("resource_id");
 
@@ -2753,7 +2756,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_farming_patch_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ObjectId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("object_id");
 
@@ -2766,7 +2769,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_farming_seed_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ItemId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("item_id");
 
@@ -2797,7 +2800,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_firemaking_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ItemId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("item_id");
 
@@ -2816,7 +2819,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_fishing_fish_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.HasIndex(e => e.SpotId, "spot_id_foreign_key");
 
@@ -2841,7 +2844,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("skills_fishing_spot_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.HasIndex(e => e.ToolId, "tool_id_foreign_key");
 
@@ -2886,7 +2889,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_fishing_spot_npc_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.SpotId).HasColumnType("int(11) unsigned").HasColumnName("spot_id");
 
@@ -2905,7 +2908,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_fishing_tool_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ItemId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("item_id");
 
@@ -2920,7 +2923,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_fletching_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ResourceId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("resource_id");
 
@@ -2943,7 +2946,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_herblore_herb_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.GrimyItemId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("grimy_item_id");
 
@@ -2960,7 +2963,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_magic_combat_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ButtonId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("button_id");
 
@@ -2991,7 +2994,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_magic_enchant_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ButtonId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("button_id");
 
@@ -3012,7 +3015,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_magic_enchant_products");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.HasIndex(e => e.ButtonId, "child_id_foreign_key");
 
@@ -3044,7 +3047,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_magic_teleport_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ButtonId).HasColumnName("button_id");
 
@@ -3065,9 +3068,9 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.RequiredLevel).HasColumnName("required_level").HasDefaultValueSql("'1'");
 
-                entity.Property(e => e.RequiredRunes).HasColumnName("required_runes").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
+                entity.Property(e => e.RequiredRunes).HasColumnName("required_runes").ForMySQLHasCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
-                entity.Property(e => e.RequiredRunesCount).HasColumnName("required_runes_count").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
+                entity.Property(e => e.RequiredRunesCount).HasColumnName("required_runes_count").ForMySQLHasCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
             });
 
             modelBuilder.Entity<SkillsMiningOreDefinition>(entity =>
@@ -3076,7 +3079,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_mining_ore_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ItemId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("item_id");
 
@@ -3106,7 +3109,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_mining_pickaxe_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.Type).HasColumnType("enum('Dragon','Rune','Adamant','Mithril','Steel','Iron','Bronze')").HasColumnName("type");
 
@@ -3125,7 +3128,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_mining_rock_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.HasIndex(e => e.OreId, "ore_foreign_key");
 
@@ -3154,7 +3157,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_prayer_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ItemId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("item_id");
 
@@ -3169,7 +3172,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_runecrafting_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.AltarId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("altar_id");
 
@@ -3204,7 +3207,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_slayer_master_definitions");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.NpcId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("npc_id");
 
@@ -3217,7 +3220,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("skills_slayer_task_definitions");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.HasIndex(e => e.SlayerMasterId, "slayer_master_foreign_key");
 
@@ -3255,7 +3258,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_summoning_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.NpcId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("npc_id");
 
@@ -3293,7 +3296,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_woodcutting_hatchet_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.Type).HasColumnType("enum('Bronze','Iron','Black','Steel','Mithril','Adamant','Rune','Dragon')").HasColumnName("type");
 
@@ -3314,7 +3317,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_woodcutting_log_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ItemId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("item_id");
 
@@ -3339,7 +3342,7 @@ namespace Hagalaz.Data
 
                 entity.ToTable("skills_woodcutting_tree_definitions");
 
-                entity.HasCharSet("utf8").UseCollation("utf8_general_ci");
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.HasIndex(e => e.LogId, "skills_woodcutting_log_id");
 
@@ -3366,7 +3369,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("worlds");
 
-                entity.HasCharSet("latin1").UseCollation("latin1_swedish_ci");
+                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
 
                 entity.Property(e => e.Id).HasColumnName("id");
 
@@ -3401,7 +3404,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("world_configurations");
 
-                entity.Property(e => e.Id).HasColumnName("id").UseCollation("latin1_swedish_ci").ForMySQLHasCharset("latin1");
+                entity.Property(e => e.Id).HasColumnName("id").ForMySQLHasCollation("latin1_swedish_ci").ForMySQLHasCharset("latin1");
 
                 entity.Property(e => e.Value).HasColumnName("value");
             });
