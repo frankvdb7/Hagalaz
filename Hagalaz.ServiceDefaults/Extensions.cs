@@ -201,16 +201,38 @@ public static class Extensions
         {
             await pipeline.ExecuteAsync(async token =>
             {
-                await context.Database.MigrateAsync(token);
-                if (initializationTask != null)
+                await context.Database.OpenConnectionAsync(token);
+                var connection = context.Database.GetDbConnection();
+                await using var lockCommand = connection.CreateCommand();
+                lockCommand.CommandText = "SELECT GET_LOCK('hagalaz-schema-migration', 120);";
+                lockCommand.CommandTimeout = 125;
+                var lockResult = await lockCommand.ExecuteScalarAsync(token);
+                if (Convert.ToInt32(lockResult) != 1)
                 {
-                    await initializationTask(token);
+                    throw new InvalidOperationException("Could not acquire the database migration lock within 120 seconds.");
+                }
+
+                try
+                {
+                    await context.Database.MigrateAsync(token);
+                    if (initializationTask != null)
+                    {
+                        await initializationTask(token);
+                    }
+                }
+                finally
+                {
+                    await using var releaseCommand = connection.CreateCommand();
+                    releaseCommand.CommandText = "SELECT RELEASE_LOCK('hagalaz-schema-migration');";
+                    await releaseCommand.ExecuteScalarAsync(token);
+                    await context.Database.CloseConnectionAsync();
                 }
             });
         }
         catch (Exception ex)
         {
             logger.LogCritical(ex, "Failed to perform database migration");
+            throw;
         }
     }
 

@@ -17,7 +17,11 @@ namespace Hagalaz.Cache.Logic.Codecs
             return animationType;
         }
 
-        private void Decode(AnimationType animationType, MemoryStream buffer)
+        /// <summary>
+        /// Decodes an animation into an existing <see cref="AnimationType"/> instance.
+        /// This lets derived game-world definitions reuse the cache format.
+        /// </summary>
+        public void Decode(AnimationType animationType, MemoryStream buffer)
         {
             while (true)
             {

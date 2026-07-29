@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
+using MySql.EntityFrameworkCore.Metadata;
 
 #nullable disable
 
@@ -13,16 +14,16 @@ namespace Hagalaz.Data.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AlterDatabase()
-                .Annotation("MySql:CharSet", "utf8mb4");
+                .Annotation("MySQL:Charset", "utf8mb4");
 
             migrationBuilder.CreateTable(
                 name: "areas",
                 columns: table => new
                 {
                     id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     name = table.Column<string>(type: "varchar(40)", maxLength: 40, nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     minimum_x = table.Column<short>(type: "smallint(6)", nullable: false),
                     maximum_x = table.Column<short>(type: "smallint(6)", nullable: false),
                     minimum_y = table.Column<short>(type: "smallint(6)", nullable: false),
@@ -40,7 +41,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PK_areas", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -48,19 +49,19 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     Name = table.Column<string>(type: "varchar(256)", maxLength: 256, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     NormalizedName = table.Column<string>(type: "varchar(256)", maxLength: 256, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ConcurrencyStamp = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_aspnetroles", x => x.Id);
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -68,17 +69,17 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     display_name = table.Column<string>(type: "varchar(12)", maxLength: 12, nullable: false, defaultValueSql: "'#Player'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     previous_display_name = table.Column<string>(type: "varchar(12)", maxLength: 12, nullable: true, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     display_name_last_changed = table.Column<DateTime>(type: "datetime", nullable: true),
                     register_ip = table.Column<string>(type: "varchar(40)", maxLength: 40, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     register_date = table.Column<DateTime>(type: "datetime", nullable: true),
                     last_ip = table.Column<string>(type: "varchar(40)", maxLength: 40, nullable: true, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     last_lobby_login = table.Column<DateTimeOffset>(type: "datetime", nullable: true),
                     last_game_login = table.Column<DateTimeOffset>(type: "datetime", nullable: true),
                     birthyear = table.Column<short>(type: "smallint(6)", nullable: false),
@@ -86,22 +87,22 @@ namespace Hagalaz.Data.Migrations
                     coord_y = table.Column<short>(type: "smallint(6)", nullable: false, defaultValueSql: "'3499'"),
                     coord_z = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     username = table.Column<string>(type: "varchar(32)", nullable: true, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     NormalizedUserName = table.Column<string>(type: "varchar(256)", maxLength: 256, nullable: true, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     email = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     NormalizedEmail = table.Column<string>(type: "varchar(256)", maxLength: 256, nullable: true, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     EmailConfirmed = table.Column<ulong>(type: "bit(1)", nullable: false, defaultValueSql: "b'0'"),
                     password = table.Column<string>(type: "longtext", nullable: true, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     SecurityStamp = table.Column<string>(type: "longtext", nullable: true, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     ConcurrencyStamp = table.Column<string>(type: "longtext", nullable: true, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     PhoneNumber = table.Column<string>(type: "longtext", nullable: true, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     PhoneNumberConfirmed = table.Column<ulong>(type: "bit(1)", nullable: false, defaultValueSql: "b'0'"),
                     TwoFactorEnabled = table.Column<ulong>(type: "bit(1)", nullable: false, defaultValueSql: "b'0'"),
                     LockoutEnd = table.Column<DateTimeOffset>(type: "datetime(6)", maxLength: 6, nullable: true),
@@ -112,7 +113,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PK_characters", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -127,21 +128,21 @@ namespace Hagalaz.Data.Migrations
                     filter_profanity = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     running = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     bank_tabs = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false, defaultValueSql: "'0,0,0,0,0,0,0,0'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     bankx = table.Column<int>(type: "int(11)", nullable: false, defaultValueSql: "'1'"),
                     fc_name = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     fc_last_entered = table.Column<string>(type: "varchar(12)", maxLength: 12, nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     fc_rank_enter = table.Column<sbyte>(type: "tinyint(3)", nullable: false, defaultValueSql: "'-1'"),
                     fc_rank_talk = table.Column<sbyte>(type: "tinyint(3)", nullable: false, defaultValueSql: "'-1'"),
                     fc_rank_kick = table.Column<sbyte>(type: "tinyint(3)", nullable: false, defaultValueSql: "'7'"),
                     fc_rank_loot = table.Column<sbyte>(type: "tinyint(3)", nullable: false, defaultValueSql: "'-2'"),
                     fc_loot_share = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     cc_last_entered = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     guest_cc_last_entered = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     pm_availability = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     defensive_casting = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     magic_book = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false, defaultValueSql: "'192'"),
@@ -160,7 +161,7 @@ namespace Hagalaz.Data.Migrations
                     trade_filter = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     public_filter = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     quick_prayers = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false, defaultValueSql: "'0'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     right_click_reporting = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     xp_counter_popup = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'"),
                     xp_counter_display = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'"),
@@ -170,7 +171,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.master_id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -178,14 +179,14 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     master_id = table.Column<uint>(type: "int unsigned", nullable: false),
                     ticket_text = table.Column<string>(type: "longtext", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     response_text = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ticket_lastchange = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.ComputedColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.ComputedColumn),
                     moderator_id = table.Column<uint>(type: "int unsigned", nullable: false),
                     completed = table.Column<byte>(type: "tinyint unsigned", nullable: false)
                 },
@@ -194,7 +195,7 @@ namespace Hagalaz.Data.Migrations
                     table.PrimaryKey("PK_characters_tickets", x => x.id);
                 },
                 comment: "Player System")
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -203,17 +204,17 @@ namespace Hagalaz.Data.Migrations
                 {
                     master_id = table.Column<uint>(type: "int unsigned", nullable: false),
                     variable = table.Column<string>(type: "varchar(255)", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     int_value = table.Column<int>(type: "int", nullable: true),
                     string_value = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true, defaultValueSql: "''", collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.master_id, x.variable })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -227,9 +228,9 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.item_id, x.container_type })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -237,16 +238,16 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     name = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false, defaultValueSql: "''", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     creation_date = table.Column<DateTime>(type: "datetime", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_clans", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -254,17 +255,17 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     name = table.Column<string>(type: "varchar(255)", nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     type = table.Column<string>(type: "varchar(7)", maxLength: 7, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     value = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1")
+                        .Annotation("MySQL:Charset", "latin1")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => x.name);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -295,7 +296,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.item_id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -304,13 +305,13 @@ namespace Hagalaz.Data.Migrations
                 {
                     id = table.Column<ushort>(type: "smallint unsigned", nullable: false),
                     name = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false, defaultValueSql: "''", comment: "This field is updated automatically by the server.", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     fullbody = table.Column<string>(type: "enum('false','true')", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     fullhat = table.Column<string>(type: "enum('false','true')", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     fullmask = table.Column<string>(type: "enum('false','true')", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     defence_anim = table.Column<short>(type: "smallint", nullable: false, defaultValueSql: "'-1'"),
                     attackanim1 = table.Column<short>(type: "smallint", nullable: false, defaultValueSql: "'-1'"),
                     attackanim2 = table.Column<short>(type: "smallint", nullable: false, defaultValueSql: "'-1'"),
@@ -326,7 +327,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PK_equipment_definitions", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -334,9 +335,9 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     name = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     start_time = table.Column<DateTime>(type: "datetime", nullable: false),
                     end_time = table.Column<DateTime>(type: "datetime", nullable: false)
                 },
@@ -344,7 +345,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PK_game_events", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -362,7 +363,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.gameobject_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -370,9 +371,9 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     name = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     maximum_loot_count = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     randomize_loot_count = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'")
                 },
@@ -380,7 +381,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PK_gameobject_loot", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -388,7 +389,7 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     spawn_id = table.Column<int>(type: "int(11)", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     gameobject_id = table.Column<uint>(type: "int(8) unsigned", nullable: false),
                     coord_x = table.Column<short>(type: "smallint(6)", nullable: false, defaultValueSql: "'3200'"),
                     coord_y = table.Column<short>(type: "smallint(6)", nullable: false, defaultValueSql: "'3200'"),
@@ -400,7 +401,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.spawn_id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -432,7 +433,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.req_item_id_1);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -441,9 +442,9 @@ namespace Hagalaz.Data.Migrations
                 {
                     id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     name = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false, defaultValueSql: "'unknown'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     examine = table.Column<string>(type: "text", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     trade_price = table.Column<int>(type: "int(10)", nullable: false),
                     low_alchemy_value = table.Column<int>(type: "int(10)", nullable: false),
                     high_alchemy_value = table.Column<int>(type: "int(10)", nullable: false),
@@ -454,7 +455,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PK_item_definitions", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -462,9 +463,9 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     name = table.Column<string>(type: "varchar(24)", maxLength: 24, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     maximum_loot_count = table.Column<uint>(type: "int(11) unsigned", nullable: false, defaultValueSql: "'1'"),
                     randomize_loot_count = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'")
                 },
@@ -472,7 +473,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PK_item_loot", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -489,9 +490,9 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.item_id, x.coord_x, x.coord_y, x.coord_z })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0, 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0, 0, 0 });
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -499,19 +500,19 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ulong>(type: "bigint(19) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     date = table.Column<DateTime>(type: "datetime", nullable: false),
                     short_desc = table.Column<string>(type: "tinytext", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     full_desc = table.Column<string>(type: "tinytext", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1")
+                        .Annotation("MySQL:Charset", "latin1")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_logs_activities", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -519,19 +520,19 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ulong>(type: "bigint(19) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     date = table.Column<DateTime>(type: "datetime", nullable: true),
                     type = table.Column<byte>(type: "tinyint(4) unsigned", nullable: false),
                     receiver_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     message = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1")
+                        .Annotation("MySQL:Charset", "latin1")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_logs_chat", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -539,18 +540,18 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     port = table.Column<int>(type: "int", nullable: false),
                     ip = table.Column<string>(type: "varchar(40)", maxLength: 40, nullable: false, defaultValueSql: "''", collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     time = table.Column<DateTime>(type: "datetime", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.id, x.port })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -558,19 +559,19 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ulong>(type: "bigint(19) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     previous_display_name = table.Column<string>(type: "varchar(12)", maxLength: 12, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     new_display_name = table.Column<string>(type: "varchar(12)", maxLength: 12, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     date_changed = table.Column<DateTime>(type: "datetime", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_logs_display_name_changes", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -578,11 +579,11 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ulong>(type: "bigint(19) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     date = table.Column<DateTime>(type: "datetime", nullable: true),
                     ip = table.Column<string>(type: "varchar(40)", maxLength: 40, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     attempt = table.Column<sbyte>(type: "tinyint(4)", nullable: false),
                     type = table.Column<sbyte>(type: "tinyint(4)", nullable: false)
                 },
@@ -590,7 +591,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PK_logs_login_attempts", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -604,9 +605,9 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.wave_id, x.npc_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -615,15 +616,15 @@ namespace Hagalaz.Data.Migrations
                 {
                     id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     name = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     hint = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_music_definitions", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -654,7 +655,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.npc_id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -662,9 +663,9 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     name = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     maximum_loot_count = table.Column<int>(type: "int(11)", nullable: false, defaultValueSql: "'1'"),
                     randomize_loot_count = table.Column<byte>(type: "tinyint(1) unsigned", nullable: false, defaultValueSql: "'1'"),
                     always = table.Column<byte>(type: "tinyint(1) unsigned", nullable: false)
@@ -673,7 +674,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PK_npc_loot", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -681,7 +682,7 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     spawn_id = table.Column<uint>(type: "int unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     npc_id = table.Column<ushort>(type: "smallint unsigned", nullable: false),
                     coord_x = table.Column<short>(type: "smallint", nullable: false, defaultValueSql: "'3222'"),
                     coord_y = table.Column<short>(type: "smallint", nullable: false, defaultValueSql: "'3222'"),
@@ -698,7 +699,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.spawn_id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -717,7 +718,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.npc_id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -725,43 +726,43 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "varchar(255)", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ApplicationType = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ClientId = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ClientSecret = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ClientType = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ConcurrencyToken = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ConsentType = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     DisplayName = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     DisplayNames = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     JsonWebKeySet = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Permissions = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     PostLogoutRedirectUris = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Properties = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     RedirectUris = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Requirements = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Settings = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_OpenIddictApplications", x => x.Id);
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -769,29 +770,29 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "varchar(255)", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ConcurrencyToken = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Description = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Descriptions = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     DisplayName = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     DisplayNames = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Name = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Properties = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Resources = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_OpenIddictScopes", x => x.Id);
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -799,13 +800,13 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     word = table.Column<string>(type: "varchar(255)", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => x.word);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -814,7 +815,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     name = table.Column<string>(type: "varchar(40)", maxLength: 40, nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     req_quest_id_1 = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     req_quest_id_2 = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     req_quest_id_3 = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
@@ -865,7 +866,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PK_quests", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -873,13 +874,13 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     name = table.Column<string>(type: "varchar(64)", maxLength: 64, nullable: false, defaultValueSql: "''", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => x.name);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -887,22 +888,22 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ushort>(type: "smallint unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     name = table.Column<string>(type: "varchar(48)", maxLength: 48, nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     capacity = table.Column<byte>(type: "tinyint unsigned", nullable: false, defaultValueSql: "'1'"),
                     currency_id = table.Column<ushort>(type: "smallint unsigned", nullable: false, defaultValueSql: "'995'"),
                     main_stock_items = table.Column<string>(type: "text", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     sample_stock_items = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     general_store = table.Column<byte>(type: "tinyint unsigned", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_shops", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -918,7 +919,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.item_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -936,7 +937,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.item_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -953,7 +954,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.resource_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -962,7 +963,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     child_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     type = table.Column<string>(type: "enum('Amulet','Necklace','Bracelet','Ring')", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     resource_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     product_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     required_level = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'"),
@@ -972,7 +973,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.child_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -989,7 +990,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.product_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1006,7 +1007,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.formed_product_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1023,7 +1024,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.child_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1039,7 +1040,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.resource_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1053,9 +1054,9 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.resource_id, x.product_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1064,13 +1065,13 @@ namespace Hagalaz.Data.Migrations
                 {
                     object_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     type = table.Column<string>(type: "enum('Herb','Tree','Bush','FruitTree','Flower','Hop','Allotment')", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => x.object_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1088,13 +1089,13 @@ namespace Hagalaz.Data.Migrations
                     max_cycles = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'4'"),
                     cycle_ticks = table.Column<uint>(type: "int(11) unsigned", nullable: false, defaultValueSql: "'100'"),
                     type = table.Column<string>(type: "enum('Herb','Bush','FruitTree','Flower','Hop','Tree','Allotment')", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => x.item_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1111,7 +1112,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.item_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1126,7 +1127,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.item_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1136,20 +1137,20 @@ namespace Hagalaz.Data.Migrations
                     resource_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     tool_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     product_ids = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false, defaultValueSql: "'0,0,0,0'", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     product_counts = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false, defaultValueSql: "'1,1,1,1'", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     product_experiences = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false, defaultValueSql: "'0,0,0,0'", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     required_levels = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false, defaultValueSql: "'1,1,1,1'", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     animation_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => x.resource_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1165,7 +1166,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.grimy_item_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1177,9 +1178,9 @@ namespace Hagalaz.Data.Migrations
                     required_level = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'"),
                     base_experience = table.Column<decimal>(type: "decimal(11,2)", precision: 11, scale: 2, nullable: false),
                     required_runes = table.Column<string>(type: "text", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     required_runes_counts = table.Column<string>(type: "text", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     cast_animation_id = table.Column<short>(type: "smallint(6)", nullable: false, defaultValueSql: "'-1'"),
                     cast_graphic_id = table.Column<short>(type: "smallint(6)", nullable: false, defaultValueSql: "'-1'"),
                     end_graphic_id = table.Column<short>(type: "smallint(6)", nullable: false, defaultValueSql: "'-1'"),
@@ -1190,7 +1191,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.button_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1199,9 +1200,9 @@ namespace Hagalaz.Data.Migrations
                 {
                     button_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     required_runes = table.Column<string>(type: "text", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     required_runes_counts = table.Column<string>(type: "text", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     required_level = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'"),
                     experience = table.Column<decimal>(type: "decimal(11,2)", precision: 11, scale: 2, nullable: false),
                     graphic_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false)
@@ -1210,7 +1211,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.button_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1219,7 +1220,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     button_id = table.Column<short>(type: "smallint", nullable: false),
                     spell_book = table.Column<string>(type: "enum('StandartBook','AncientBook','LunarBook','DungeoneeringBook')", nullable: false, defaultValueSql: "'StandartBook'", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     coord_x = table.Column<ushort>(type: "smallint unsigned", nullable: false, defaultValueSql: "'3222'"),
                     coord_y = table.Column<ushort>(type: "smallint unsigned", nullable: false, defaultValueSql: "'3222'"),
                     coord_z = table.Column<byte>(type: "tinyint unsigned", nullable: false),
@@ -1227,16 +1228,16 @@ namespace Hagalaz.Data.Migrations
                     required_level = table.Column<byte>(type: "tinyint unsigned", nullable: false, defaultValueSql: "'1'"),
                     experience = table.Column<decimal>(type: "decimal(11,2)", precision: 11, scale: 2, nullable: false),
                     required_runes = table.Column<string>(type: "longtext", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     required_runes_count = table.Column<string>(type: "longtext", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.button_id, x.spell_book })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1254,7 +1255,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.item_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1262,7 +1263,7 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     type = table.Column<string>(type: "enum('Dragon','Rune','Adamant','Mithril','Steel','Iron','Bronze')", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     item_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     animation_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     required_level = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'"),
@@ -1271,9 +1272,9 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.type, x.item_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1283,13 +1284,13 @@ namespace Hagalaz.Data.Migrations
                     item_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     experience = table.Column<decimal>(type: "decimal(11,2)", nullable: false),
                     type = table.Column<string>(type: "enum('Ashes','Bones')", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => x.item_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1306,19 +1307,19 @@ namespace Hagalaz.Data.Migrations
                     required_level = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'"),
                     experience = table.Column<decimal>(type: "decimal(11,2)", precision: 11, scale: 2, nullable: false),
                     level_count_multipliers = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false, defaultValueSql: "'-1'", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     altar_location = table.Column<string>(type: "varchar(12)", maxLength: 12, nullable: false, defaultValueSql: "'3222,3222,0'", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     ruin_location = table.Column<string>(type: "varchar(12)", maxLength: 12, nullable: false, defaultValueSql: "'3222,3222,0'", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     rift_location = table.Column<string>(type: "varchar(12)", maxLength: 12, nullable: false, defaultValueSql: "'3222,3222,0'", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => x.altar_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1327,14 +1328,14 @@ namespace Hagalaz.Data.Migrations
                 {
                     npc_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     name = table.Column<string>(type: "varchar(24)", maxLength: 24, nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     base_slayer_reward_points = table.Column<uint>(type: "int(11) unsigned", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => x.npc_id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1356,7 +1357,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.npc_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1364,7 +1365,7 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     type = table.Column<string>(type: "enum('Bronze','Iron','Black','Steel','Mithril','Adamant','Rune','Dragon')", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     item_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     chop_animation_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     canoue_animation_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
@@ -1374,9 +1375,9 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.type, x.item_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1394,7 +1395,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     table.PrimaryKey("PRIMARY", x => x.item_id);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1402,15 +1403,15 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<string>(type: "varchar(255)", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     value = table.Column<string>(type: "longtext", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_world_configurations", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -1418,9 +1419,9 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ushort>(type: "smallint unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     name = table.Column<string>(type: "tinytext", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     members_only = table.Column<byte>(type: "tinyint unsigned", nullable: false, defaultValueSql: "'1'"),
                     quick_chat_allowed = table.Column<byte>(type: "tinyint unsigned", nullable: false),
                     high_risk = table.Column<byte>(type: "tinyint unsigned", nullable: false),
@@ -1432,14 +1433,14 @@ namespace Hagalaz.Data.Migrations
                     account_creation_enabled = table.Column<byte>(type: "tinyint unsigned", nullable: false, defaultValueSql: "'1'"),
                     direct_login_enabled = table.Column<byte>(type: "tinyint unsigned", nullable: false),
                     region = table.Column<string>(type: "varchar(5)", maxLength: 5, nullable: false, defaultValueSql: "'PT'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     country = table.Column<ushort>(type: "smallint unsigned", nullable: false, defaultValueSql: "'12'")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_worlds", x => x.id);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1447,12 +1448,12 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int(11)", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     RoleId = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     ClaimType = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ClaimValue = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
@@ -1464,7 +1465,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -1490,7 +1491,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -1498,12 +1499,12 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int(11)", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     UserId = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     ClaimType = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ClaimValue = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
@@ -1515,7 +1516,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -1523,17 +1524,17 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     LoginProvider = table.Column<string>(type: "varchar(255)", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ProviderKey = table.Column<string>(type: "varchar(255)", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ProviderDisplayName = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     UserId = table.Column<uint>(type: "int(11) unsigned", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.LoginProvider, x.ProviderKey })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "FK_AspNetUserLogins_characters_UserId",
                         column: x => x.UserId,
@@ -1541,7 +1542,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -1567,7 +1568,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -1576,16 +1577,16 @@ namespace Hagalaz.Data.Migrations
                 {
                     UserId = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     LoginProvider = table.Column<string>(type: "varchar(255)", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Name = table.Column<string>(type: "varchar(255)", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Value = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.UserId, x.LoginProvider, x.Name })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0, 0 });
                     table.ForeignKey(
                         name: "FK_AspNetUserTokens_characters_UserId",
                         column: x => x.UserId,
@@ -1593,7 +1594,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -1601,10 +1602,10 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     data = table.Column<string>(type: "text", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1")
+                        .Annotation("MySQL:Charset", "latin1")
                 },
                 constraints: table =>
                 {
@@ -1615,7 +1616,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "characters",
                         principalColumn: "id");
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1630,7 +1631,7 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.master_id, x.contact_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "contact_id_foreign_key",
                         column: x => x.contact_id,
@@ -1644,7 +1645,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1652,14 +1653,14 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     item_id = table.Column<ushort>(type: "smallint unsigned", nullable: false),
                     count = table.Column<int>(type: "int", nullable: false, defaultValueSql: "'1'"),
                     slot_id = table.Column<ushort>(type: "smallint unsigned", nullable: false),
                     container_type = table.Column<sbyte>(type: "tinyint", nullable: false),
                     extra_data = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
@@ -1671,7 +1672,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1687,14 +1688,14 @@ namespace Hagalaz.Data.Migrations
                     male_worn_model_3 = table.Column<int>(type: "int", nullable: false, defaultValueSql: "'-1'"),
                     female_worn_model_3 = table.Column<int>(type: "int", nullable: false, defaultValueSql: "'-1'"),
                     model_colours = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     texture_colours = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.master_id, x.item_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "master_id_foreign_key_2",
                         column: x => x.master_id,
@@ -1702,7 +1703,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1735,7 +1736,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1744,7 +1745,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     unlocked_music = table.Column<string>(type: "text", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
@@ -1756,7 +1757,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1767,7 +1768,7 @@ namespace Hagalaz.Data.Migrations
                     playlist_toggled = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     shuffle_toggled = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     playlist = table.Column<string>(type: "varchar(56)", maxLength: 56, nullable: false, defaultValueSql: "''", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
@@ -1779,7 +1780,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1790,12 +1791,12 @@ namespace Hagalaz.Data.Migrations
                     note_id = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     colour = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     text = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false, defaultValueSql: "''", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.master_id, x.note_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "master_id_foreign_key_6",
                         column: x => x.master_id,
@@ -1803,7 +1804,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -1811,14 +1812,14 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     offence_type = table.Column<byte>(type: "tinyint(4) unsigned", nullable: false),
                     date = table.Column<DateTime>(type: "datetime", nullable: false),
                     expire_date = table.Column<DateTime>(type: "datetime", nullable: false),
                     moderator_id = table.Column<uint>(type: "int(10) unsigned", nullable: false),
                     reason = table.Column<string>(type: "text", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     appeal_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     expired = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false)
                 },
@@ -1838,7 +1839,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1847,12 +1848,12 @@ namespace Hagalaz.Data.Migrations
                 {
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     permission = table.Column<string>(type: "enum('SystemAdministrator','GameAdministrator','GameModerator','Donator')", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.master_id, x.permission })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "master_id_foreign_key_7",
                         column: x => x.master_id,
@@ -1860,7 +1861,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1869,7 +1870,7 @@ namespace Hagalaz.Data.Migrations
                 {
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     data = table.Column<string>(type: "json", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1")
+                        .Annotation("MySQL:Charset", "latin1")
                 },
                 constraints: table =>
                 {
@@ -1881,7 +1882,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1889,7 +1890,7 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     reporter_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     reported_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     type = table.Column<byte>(type: "tinyint(4) unsigned", nullable: false),
@@ -1911,7 +1912,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1919,12 +1920,12 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     item_id = table.Column<ushort>(type: "smallint unsigned", nullable: false),
                     count = table.Column<int>(type: "int", nullable: false, defaultValueSql: "'1'"),
                     extra_data = table.Column<string>(type: "longtext", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     loaded = table.Column<byte>(type: "tinyint unsigned", nullable: false)
                 },
                 constraints: table =>
@@ -1937,7 +1938,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -1951,7 +1952,7 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.master_id, x.state_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "master_id_foreign_key_17",
                         column: x => x.master_id,
@@ -1959,7 +1960,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2024,15 +2025,15 @@ namespace Hagalaz.Data.Migrations
                     poison_amount = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     play_time = table.Column<ulong>(type: "bigint(19) unsigned", nullable: false),
                     xp_counters = table.Column<string>(type: "varchar(72)", maxLength: 72, nullable: false, defaultValueSql: "'0,0,0'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     tracked_xp_counters = table.Column<string>(type: "varchar(12)", maxLength: 12, nullable: false, defaultValueSql: "'30,0,0'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     enabled_xp_counters = table.Column<string>(type: "varchar(12)", maxLength: 12, nullable: false, defaultValueSql: "'1,0,0'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     target_skill_levels = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false, defaultValueSql: "'-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     target_skill_experiences = table.Column<string>(type: "varchar(312)", maxLength: 312, nullable: false, defaultValueSql: "'-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1")
+                        .Annotation("MySQL:Charset", "latin1")
                 },
                 constraints: table =>
                 {
@@ -2044,7 +2045,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2074,7 +2075,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2083,9 +2084,9 @@ namespace Hagalaz.Data.Migrations
                 {
                     master_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     previous_rules = table.Column<string>(type: "text", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     favourite_rules = table.Column<string>(type: "text", nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8")
+                        .Annotation("MySQL:Charset", "utf8")
                 },
                 constraints: table =>
                 {
@@ -2097,7 +2098,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2120,7 +2121,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2140,7 +2141,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2153,7 +2154,7 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.clan_id, x.master_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "clan_id_foreign_key_3",
                         column: x => x.clan_id,
@@ -2167,7 +2168,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2201,7 +2202,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2212,10 +2213,10 @@ namespace Hagalaz.Data.Migrations
                     world_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false, defaultValueSql: "'1'"),
                     recruiting = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'"),
                     motto = table.Column<string>(type: "varchar(80)", maxLength: 80, nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     national_flag = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     thread_id = table.Column<string>(type: "varchar(128)", maxLength: 128, nullable: false, collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     time_zone = table.Column<short>(type: "smallint(6)", nullable: false, defaultValueSql: "'-1'"),
                     clan_time = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
                     mottif_top = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false),
@@ -2238,7 +2239,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2247,9 +2248,9 @@ namespace Hagalaz.Data.Migrations
                 {
                     gameobject_id = table.Column<uint>(type: "int unsigned", nullable: false),
                     name = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false, defaultValueSql: "'unknown'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     examine = table.Column<string>(type: "text", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     gameobject_loot_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: true, defaultValueSql: "'0'")
                 },
                 constraints: table =>
@@ -2262,7 +2263,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2270,7 +2271,7 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     gameobject_loot_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     item_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     minimum_count = table.Column<uint>(type: "int(11) unsigned", nullable: false),
@@ -2288,7 +2289,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2301,7 +2302,7 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.gameobject_loot_child_id, x.gameobject_loot_parent_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "gameobject_loot_child_id_foreign_key",
                         column: x => x.gameobject_loot_child_id,
@@ -2315,7 +2316,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2323,7 +2324,7 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     item_loot_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     item_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     minimum_count = table.Column<uint>(type: "int(11) unsigned", nullable: false),
@@ -2341,7 +2342,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2354,7 +2355,7 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.item_loot_child_id, x.item_loot_parent_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "item_loot_table_child_id_foreign_key",
                         column: x => x.item_loot_child_id,
@@ -2368,7 +2369,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2381,7 +2382,7 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.music_id, x.region_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "music_id_foreign_key",
                         column: x => x.music_id,
@@ -2389,7 +2390,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2398,9 +2399,9 @@ namespace Hagalaz.Data.Migrations
                 {
                     npc_id = table.Column<ushort>(type: "smallint unsigned", nullable: false),
                     name = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false, defaultValueSql: "'unknown'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     examine = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false, defaultValueSql: "'It''s an npc.'", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     respawn_time = table.Column<uint>(type: "int unsigned", nullable: false, defaultValueSql: "'100'"),
                     combat_level = table.Column<ushort>(type: "smallint unsigned", nullable: false, defaultValueSql: "'1'"),
                     reaction_type = table.Column<byte>(type: "tinyint unsigned", nullable: false),
@@ -2435,7 +2436,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2443,7 +2444,7 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     npc_loot_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     item_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     minimum_count = table.Column<uint>(type: "int(11) unsigned", nullable: false),
@@ -2461,7 +2462,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2474,7 +2475,7 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.npc_loot_child_id, x.npc_loot_parent_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "npc_loot_child_foreign_key",
                         column: x => x.npc_loot_child_id,
@@ -2488,7 +2489,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2496,22 +2497,22 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "varchar(255)", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ApplicationId = table.Column<string>(type: "varchar(255)", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ConcurrencyToken = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     CreationDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     Properties = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Scopes = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Status = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Subject = table.Column<string>(type: "varchar(400)", maxLength: 400, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Type = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
@@ -2522,7 +2523,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "OpenIddictApplications",
                         principalColumn: "Id");
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -2549,7 +2550,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "quests",
                         principalColumn: "id");
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2567,7 +2568,7 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.master_id, x.patch_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "farming_patch_foreign_key",
                         column: x => x.patch_id,
@@ -2585,7 +2586,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "skills_farming_seed_definitions",
                         principalColumn: "item_id");
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2593,9 +2594,9 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     click_type = table.Column<string>(type: "enum('Option1Click','Option2Click','Option3Click','Option4Click','Option5Click')", nullable: false, defaultValueSql: "'Option1Click'", collation: "utf8_general_ci")
-                        .Annotation("MySql:CharSet", "utf8"),
+                        .Annotation("MySQL:Charset", "utf8"),
                     exhaust_chance = table.Column<decimal>(type: "decimal(11,2)", precision: 11, scale: 2, nullable: false),
                     base_catch_chance = table.Column<decimal>(type: "decimal(11,3)", precision: 11, scale: 3, nullable: false),
                     respawn_time = table.Column<decimal>(type: "decimal(11,2)", nullable: false, defaultValueSql: "'1.00'"),
@@ -2612,7 +2613,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "skills_fishing_tool_definitions",
                         principalColumn: "item_id");
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2632,7 +2633,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "skills_magic_enchant_definitions",
                         principalColumn: "button_id");
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2640,12 +2641,12 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     name = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     slayer_master_id = table.Column<ushort>(type: "smallint(6) unsigned", nullable: false),
                     npc_ids = table.Column<string>(type: "text", nullable: false, comment: "The NPC IDs that can be slayed for slayer experience.", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     minimum_count = table.Column<int>(type: "int(11)", nullable: false, defaultValueSql: "'1'"),
                     maximum_count = table.Column<int>(type: "int(6)", nullable: false, defaultValueSql: "'1'"),
                     level_requirement = table.Column<byte>(type: "tinyint(3) unsigned", nullable: false, defaultValueSql: "'1'"),
@@ -2661,7 +2662,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "skills_slayer_master_definitions",
                         principalColumn: "npc_id");
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2669,12 +2670,12 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<uint>(type: "int(10) unsigned", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     ip_address = table.Column<string>(type: "varchar(40)", maxLength: 40, nullable: false, defaultValueSql: "''", collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     moderator_id = table.Column<uint>(type: "int(11) unsigned", nullable: false),
                     reason = table.Column<string>(type: "text", nullable: false, collation: "latin1_swedish_ci")
-                        .Annotation("MySql:CharSet", "latin1"),
+                        .Annotation("MySQL:Charset", "latin1"),
                     date = table.Column<DateTime>(type: "datetime", nullable: false),
                     appeal_id = table.Column<uint>(type: "int(11) unsigned", nullable: false)
                 },
@@ -2692,7 +2693,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "characters",
                         principalColumn: "id");
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2717,7 +2718,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "skills_mining_ore_definitions",
                         principalColumn: "item_id");
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2742,7 +2743,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "gameobject_definitions",
                         principalColumn: "gameobject_id");
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2770,7 +2771,7 @@ namespace Hagalaz.Data.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateTable(
@@ -2778,28 +2779,28 @@ namespace Hagalaz.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "varchar(255)", nullable: false, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ApplicationId = table.Column<string>(type: "varchar(255)", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     AuthorizationId = table.Column<string>(type: "varchar(255)", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     ConcurrencyToken = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     CreationDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     ExpirationDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     Payload = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Properties = table.Column<string>(type: "longtext", nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     RedemptionDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     ReferenceId = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Status = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Subject = table.Column<string>(type: "varchar(400)", maxLength: 400, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("MySQL:Charset", "utf8mb4"),
                     Type = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true, collation: "utf8mb4_0900_ai_ci")
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("MySQL:Charset", "utf8mb4")
                 },
                 constraints: table =>
                 {
@@ -2815,7 +2816,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "OpenIddictAuthorizations",
                         principalColumn: "Id");
                 })
-                .Annotation("MySql:CharSet", "utf8mb4")
+                .Annotation("MySQL:Charset", "utf8mb4")
                 .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
@@ -2837,7 +2838,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "skills_fishing_spot_definitions",
                         principalColumn: "id");
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2850,14 +2851,14 @@ namespace Hagalaz.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PRIMARY", x => new { x.spot_id, x.npc_id })
-                        .Annotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .Annotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
                     table.ForeignKey(
                         name: "spot_id_foreign_key_11",
                         column: x => x.spot_id,
                         principalTable: "skills_fishing_spot_definitions",
                         principalColumn: "id");
                 })
-                .Annotation("MySql:CharSet", "utf8")
+                .Annotation("MySQL:Charset", "utf8")
                 .Annotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.CreateTable(
@@ -2883,7 +2884,7 @@ namespace Hagalaz.Data.Migrations
                         principalTable: "skills_slayer_task_definitions",
                         principalColumn: "id");
                 })
-                .Annotation("MySql:CharSet", "latin1")
+                .Annotation("MySQL:Charset", "latin1")
                 .Annotation("Relational:Collation", "latin1_swedish_ci");
 
             migrationBuilder.CreateIndex(
@@ -3111,10 +3112,12 @@ namespace Hagalaz.Data.Migrations
                 column: "ClientId",
                 unique: true);
 
-            migrationBuilder.CreateIndex(
-                name: "IX_OpenIddictAuthorizations_ApplicationId_Status_Subject_Type",
-                table: "OpenIddictAuthorizations",
-                columns: new[] { "ApplicationId", "Status", "Subject", "Type" });
+            // Connector/NET does not emit IndexPrefixLength annotations for
+            // composite OpenIddict indexes. Keep the existing searchable prefix
+            // contract while staying below InnoDB's 3072-byte key limit.
+            migrationBuilder.Sql(
+                "CREATE INDEX `IX_OpenIddictAuthorizations_ApplicationId_Status_Subject_Type` " +
+                "ON `OpenIddictAuthorizations` (`ApplicationId`(191), `Status`(50), `Subject`(191), `Type`(50));");
 
             migrationBuilder.CreateIndex(
                 name: "IX_OpenIddictScopes_Name",
@@ -3122,10 +3125,9 @@ namespace Hagalaz.Data.Migrations
                 column: "Name",
                 unique: true);
 
-            migrationBuilder.CreateIndex(
-                name: "IX_OpenIddictTokens_ApplicationId_Status_Subject_Type",
-                table: "OpenIddictTokens",
-                columns: new[] { "ApplicationId", "Status", "Subject", "Type" });
+            migrationBuilder.Sql(
+                "CREATE INDEX `IX_OpenIddictTokens_ApplicationId_Status_Subject_Type` " +
+                "ON `OpenIddictTokens` (`ApplicationId`(191), `Status`(50), `Subject`(191), `Type`(50));");
 
             migrationBuilder.CreateIndex(
                 name: "IX_OpenIddictTokens_AuthorizationId",

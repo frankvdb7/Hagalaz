@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AutoMapper;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Services.Abstractions;
 using Hagalaz.Services.GameWorld.Data;
 using Microsoft.EntityFrameworkCore;
@@ -18,19 +20,21 @@ namespace Hagalaz.Services.GameWorld.Store
     {
         private Dictionary<int, Hagalaz.Data.Entities.ItemDefinition> _databaseItems = new();
         private readonly IServiceProvider _serviceProvider;
-        private readonly ITypeProvider<IItemDefinition> _itemProvider;
+        private readonly ITypeProvider<IItemType> _itemTypeProvider;
+        private readonly IMapper _mapper;
         private readonly ILogger<ItemStore> _logger;
 
-        public ItemStore(IServiceProvider serviceProvider, ITypeProvider<IItemDefinition> itemProvider, ILogger<ItemStore> logger)
+        public ItemStore(IServiceProvider serviceProvider, ITypeProvider<IItemType> itemTypeProvider, IMapper mapper, ILogger<ItemStore> logger)
         {
             _serviceProvider = serviceProvider;
-            _itemProvider = itemProvider;
+            _itemTypeProvider = itemTypeProvider;
+            _mapper = mapper;
             _logger = logger;
         }
 
         private IItemDefinition LoadItemDefinition(int itemId)
         {
-            var definition = _itemProvider.Get(itemId);
+            var definition = _mapper.Map<IItemDefinition>(_itemTypeProvider.Get(itemId));
             if (_databaseItems.TryGetValue(itemId, out var item))
             {
                 definition.Examine = item.Examine;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
@@ -7,13 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Hagalaz.Data.Entities;
 using Hagalaz.Data.Users;
-using Aspire.Pomelo.EntityFrameworkCore.MySql;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Hosting;
-using MySqlConnector;
 using Microsoft.Extensions.Configuration;
-using Pomelo.EntityFrameworkCore.MySql.Infrastructure.Internal;
 
 namespace Hagalaz.Data.Extensions
 {
@@ -21,32 +16,26 @@ namespace Hagalaz.Data.Extensions
     {
         public static IHostApplicationBuilder AddHagalazDbContextPool(this IHostApplicationBuilder builder, string connectionName)
         {
-            builder.Services.AddHagalazIdentity();
-            builder.AddMySqlDbContext<HagalazDbContext>(connectionName,
-                settings =>
-                {
-                    settings.ServerVersion = MySqlServerVersion.LatestSupportedServerVersion.ToString();
-#if DEBUG
-                    settings.DisableTracing = false;
-#endif
-                    settings.DisableMetrics = false;
-                    settings.DisableHealthChecks = false;
-                    settings.DisableRetry = false;
-                },
-                options =>
-                {
-                    var extension = options.Options.FindExtension<MySqlOptionsExtension>();
-                    if (extension != null)
-                    {
-                        ((IDbContextOptionsBuilderInfrastructure)options).AddOrUpdateExtension(extension.WithPrimitiveCollectionsSupport(enable: true));
-                    }
+            ArgumentNullException.ThrowIfNull(builder);
+            ArgumentException.ThrowIfNullOrWhiteSpace(connectionName);
 
-                    options.UseLazyLoadingProxies();
-                    // Register the entity sets needed by OpenIddict.
-                    // Note: use the generic overload if you need
-                    // to replace the default OpenIddict entities.
-                    options.UseOpenIddict();
-                });
+            var connectionString = builder.Configuration.GetConnectionString(connectionName);
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException($"The database connection string '{connectionName}' was not configured.");
+            }
+
+            builder.Services.AddHagalazIdentity();
+            builder.Services.AddDbContextPool<HagalazDbContext>(options =>
+            {
+                options.UseMySQL(connectionString, mysqlOptions => mysqlOptions.EnableRetryOnFailure(6));
+                options.UseLazyLoadingProxies();
+                // Register the entity sets needed by OpenIddict.
+                // Note: use the generic overload if you need
+                // to replace the default OpenIddict entities.
+                options.UseOpenIddict();
+            });
+            builder.Services.AddHealthChecks().AddDbContextCheck<HagalazDbContext>();
 
             return builder;
         }
@@ -71,7 +60,6 @@ namespace Hagalaz.Data.Extensions
         public static OpenIddictBuilder AddHagalazOpenIddictCore(this OpenIddictBuilder builder, Action<OpenIddictCoreBuilder> configuration) =>
             builder.AddCore(options =>
             {
-                // https://github.com/PomeloFoundation/Pomelo.EntityFrameworkCore.MySql/issues/1903
                 options.UseEntityFrameworkCore()
                     .DisableBulkOperations()
                     .UseDbContext<HagalazDbContext>();

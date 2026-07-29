@@ -24,8 +24,7 @@ namespace Hagalaz.Data.Migrations
                 .HasAnnotation("ProductVersion", "8.0.3")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
-            MySqlModelBuilderExtensions.HasCharSet(modelBuilder, "utf8mb4");
-            MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+            modelBuilder.HasCharSet("utf8mb4");
 
             modelBuilder.Entity("AspnetroleCharacter", b =>
                 {
@@ -54,14 +53,14 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("ClanId", "MasterId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.HasIndex(new[] { "MasterId" }, "master_id_foreign_key_18");
 
                     b.ToTable("clans_bans", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("GameobjectLootrecursion", b =>
@@ -76,14 +75,14 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("GameobjectLootChildId", "GameobjectLootParentId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.HasIndex(new[] { "GameobjectLootParentId" }, "gameobject_loot_parent_id_foreign_key");
 
                     b.ToTable("gameobject_lootrecursion", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("ItemLootrecursion", b =>
@@ -98,14 +97,14 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("ItemLootChildId", "ItemLootParentId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.HasIndex(new[] { "ItemLootParentId" }, "item_loot_table_parent_id_foreign_key");
 
                     b.ToTable("item_lootrecursion", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("NpcLootrecursion", b =>
@@ -120,14 +119,14 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("NpcLootChildId", "NpcLootParentId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.HasIndex(new[] { "NpcLootParentId" }, "npc_loot_parent_foreign_key");
 
                     b.ToTable("npc_lootrecursion", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreApplication", b =>
@@ -345,7 +344,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("smallint(6) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ushort>("Id"));
+                    b.Property<ushort>("Id").ValueGeneratedOnAdd();
 
                     b.Property<byte>("CannonAllowed")
                         .ValueGeneratedOnAdd()
@@ -411,8 +410,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("areas", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Aspnetrole", b =>
@@ -421,7 +420,7 @@ namespace Hagalaz.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int(11) unsigned");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<string>("ConcurrencyStamp")
                         .HasColumnType("longtext");
@@ -448,7 +447,7 @@ namespace Hagalaz.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int(11)");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    b.Property<int>("Id").ValueGeneratedOnAdd();
 
                     b.Property<string>("ClaimType")
                         .HasColumnType("longtext");
@@ -472,7 +471,7 @@ namespace Hagalaz.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int(11)");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    b.Property<int>("Id").ValueGeneratedOnAdd();
 
                     b.Property<string>("ClaimType")
                         .HasColumnType("longtext");
@@ -506,7 +505,7 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("LoginProvider", "ProviderKey")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.HasIndex(new[] { "UserId" }, "IX_AspNetUserLogins_UserId");
 
@@ -544,7 +543,7 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0, 0 });
 
                     b.ToTable("aspnetusertokens", (string)null);
                 });
@@ -556,7 +555,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(10) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<uint>("AppealId")
                         .HasColumnType("int(11) unsigned")
@@ -591,8 +590,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("blacklist", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Character", b =>
@@ -602,7 +601,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int(11)");
@@ -747,8 +746,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersAppeal", b =>
@@ -758,7 +757,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<string>("Data")
                         .IsRequired()
@@ -775,8 +774,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_appeals", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersContact", b =>
@@ -799,7 +798,7 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("MasterId", "ContactId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.HasIndex(new[] { "ContactId" }, "contact_id_foreign_key");
 
@@ -807,8 +806,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_contacts", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersFamiliar", b =>
@@ -842,8 +841,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_familiars", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersFarmingPatch", b =>
@@ -878,7 +877,7 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("MasterId", "PatchId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.HasIndex(new[] { "PatchId" }, "farming_patch_foreign_key");
 
@@ -886,8 +885,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_farming_patches", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersItem", b =>
@@ -897,7 +896,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<sbyte>("ContainerType")
                         .HasColumnType("tinyint")
@@ -914,7 +913,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("extra_data")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("ExtraData"), "utf8mb4");
+                    b.Property<string>("ExtraData").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<ushort>("ItemId")
                         .HasColumnType("smallint unsigned")
@@ -934,8 +933,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_items", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersItemsLook", b =>
@@ -989,23 +988,23 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("model_colours")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("ModelColours"), "utf8mb4");
+                    b.Property<string>("ModelColours").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<string>("TextureColours")
                         .HasColumnType("longtext")
                         .HasColumnName("texture_colours")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("TextureColours"), "utf8mb4");
+                    b.Property<string>("TextureColours").ForMySQLHasCharset("utf8mb4");
 
                     b.HasKey("MasterId", "ItemId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("characters_items_look", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersLook", b =>
@@ -1077,8 +1076,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_look", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersMusic", b =>
@@ -1097,8 +1096,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_music", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersMusicPlaylist", b =>
@@ -1128,8 +1127,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_music_playlists", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersNote", b =>
@@ -1156,12 +1155,12 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("MasterId", "NoteId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("characters_notes", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersOffence", b =>
@@ -1171,7 +1170,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<uint>("AppealId")
                         .HasColumnType("int(11) unsigned")
@@ -1214,8 +1213,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_offences", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersPermission", b =>
@@ -1229,16 +1228,16 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("permission")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("Permission"), "utf8mb4");
+                    b.Property<string>("Permission").ForMySQLHasCharset("utf8mb4");
 
                     b.HasKey("MasterId", "Permission")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("characters_permissions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersPreference", b =>
@@ -1456,8 +1455,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_preferences", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersProfile", b =>
@@ -1479,8 +1478,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_profiles", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersQuest", b =>
@@ -1508,8 +1507,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_quests", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersReport", b =>
@@ -1519,7 +1518,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime")
@@ -1545,8 +1544,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_reports", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersReward", b =>
@@ -1556,7 +1555,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<int>("Count")
                         .ValueGeneratedOnAdd()
@@ -1570,7 +1569,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("extra_data")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("ExtraData"), "utf8mb4");
+                    b.Property<string>("ExtraData").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<ushort>("ItemId")
                         .HasColumnType("smallint unsigned")
@@ -1590,8 +1589,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_rewards", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersSlayerTask", b =>
@@ -1615,8 +1614,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_slayer_tasks", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersState", b =>
@@ -1635,12 +1634,12 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("MasterId", "StateId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("characters_states", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersStatistic", b =>
@@ -1978,8 +1977,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("characters_statistics", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersTicket", b =>
@@ -1989,7 +1988,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<byte>("Completed")
                         .HasColumnType("tinyint unsigned")
@@ -2008,7 +2007,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("response_text")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("ResponseText"), "utf8mb4");
+                    b.Property<string>("ResponseText").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<DateTime>("TicketLastchange")
                         .ValueGeneratedOnAddOrUpdate()
@@ -2016,7 +2015,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("ticket_lastchange")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlComputedColumn(b.Property<DateTime>("TicketLastchange"));
+                    b.Property<DateTime>("TicketLastchange").ValueGeneratedOnAddOrUpdate();
 
                     b.Property<string>("TicketText")
                         .IsRequired()
@@ -2024,7 +2023,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("ticket_text")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("TicketText"), "utf8mb4");
+                    b.Property<string>("TicketText").ForMySQLHasCharset("utf8mb4");
 
                     b.HasKey("Id");
 
@@ -2056,16 +2055,16 @@ namespace Hagalaz.Data.Migrations
                         .HasDefaultValueSql("''")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("StringValue"), "utf8mb4");
+                    b.Property<string>("StringValue").ForMySQLHasCharset("utf8mb4");
 
                     b.HasKey("MasterId", "Variable")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("characters_variables", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharacterscreateinfoItem", b =>
@@ -2088,12 +2087,12 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("ItemId", "ContainerType")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("characterscreateinfo_items", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Clan", b =>
@@ -2103,7 +2102,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<DateTime?>("CreationDate")
                         .HasColumnType("datetime")
@@ -2121,8 +2120,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("clans", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ClansMember", b =>
@@ -2152,8 +2151,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("clans_members", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ClansSetting", b =>
@@ -2255,8 +2254,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("clans_settings", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Configuration", b =>
@@ -2284,8 +2283,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("configurations", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Efmigrationshistory", b =>
@@ -2388,8 +2387,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("equipment_bonuses", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.EquipmentDefinition", b =>
@@ -2463,21 +2462,21 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("fullbody")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("Fullbody"), "utf8mb4");
+                    b.Property<string>("Fullbody").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<string>("Fullhat")
                         .HasColumnType("enum('false','true')")
                         .HasColumnName("fullhat")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("Fullhat"), "utf8mb4");
+                    b.Property<string>("Fullhat").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<string>("Fullmask")
                         .HasColumnType("enum('false','true')")
                         .HasColumnName("fullmask")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("Fullmask"), "utf8mb4");
+                    b.Property<string>("Fullmask").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -2492,8 +2491,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("equipment_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameEvent", b =>
@@ -2503,7 +2502,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("smallint(6) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ushort>("Id"));
+                    b.Property<ushort>("Id").ValueGeneratedOnAdd();
 
                     b.Property<DateTime>("EndTime")
                         .HasColumnType("datetime")
@@ -2523,8 +2522,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("game_events", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameobjectDefinition", b =>
@@ -2559,8 +2558,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameobjectLodestone", b =>
@@ -2594,8 +2593,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_lodestones", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameobjectLoot", b =>
@@ -2605,7 +2604,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("smallint(6) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ushort>("Id"));
+                    b.Property<ushort>("Id").ValueGeneratedOnAdd();
 
                     b.Property<uint>("MaximumLootCount")
                         .HasColumnType("int(11) unsigned")
@@ -2627,8 +2626,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_loot", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameobjectLootItem", b =>
@@ -2638,7 +2637,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<byte>("Always")
                         .HasColumnType("tinyint(1) unsigned")
@@ -2673,8 +2672,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_loot_items", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.GameobjectSpawn", b =>
@@ -2684,7 +2683,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11)")
                         .HasColumnName("spawn_id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("SpawnId"));
+                    b.Property<int>("SpawnId").ValueGeneratedOnAdd();
 
                     b.Property<short>("CoordX")
                         .ValueGeneratedOnAdd()
@@ -2721,8 +2720,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("gameobject_spawns", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ItemCombine", b =>
@@ -2833,8 +2832,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("item_combines", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ItemDefinition", b =>
@@ -2883,8 +2882,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("item_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ItemLoot", b =>
@@ -2894,7 +2893,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("smallint(6) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ushort>("Id"));
+                    b.Property<ushort>("Id").ValueGeneratedOnAdd();
 
                     b.Property<uint>("MaximumLootCount")
                         .ValueGeneratedOnAdd()
@@ -2918,8 +2917,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("item_loot", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ItemLootItem", b =>
@@ -2929,7 +2928,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<byte>("Always")
                         .HasColumnType("tinyint(1) unsigned")
@@ -2964,8 +2963,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("item_loot_items", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ItemSpawn", b =>
@@ -3004,12 +3003,12 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("ItemId", "CoordX", "CoordY", "CoordZ")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0, 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0, 0, 0 });
 
                     b.ToTable("item_spawns", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.LogsActivity", b =>
@@ -3019,7 +3018,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("bigint(19) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ulong>("Id"));
+                    b.Property<ulong>("Id").ValueGeneratedOnAdd();
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime")
@@ -3043,8 +3042,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("logs_activities", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.LogsChat", b =>
@@ -3054,7 +3053,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("bigint(19) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ulong>("Id"));
+                    b.Property<ulong>("Id").ValueGeneratedOnAdd();
 
                     b.Property<DateTime?>("Date")
                         .HasColumnType("datetime")
@@ -3082,8 +3081,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("logs_chat", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.LogsConnection", b =>
@@ -3093,7 +3092,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+                    b.Property<long>("Id").ValueGeneratedOnAdd();
 
                     b.Property<int>("Port")
                         .HasColumnType("int")
@@ -3108,7 +3107,7 @@ namespace Hagalaz.Data.Migrations
                         .HasDefaultValueSql("''")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("Ip"), "utf8mb4");
+                    b.Property<string>("Ip").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<DateTime?>("Time")
                         .HasColumnType("datetime")
@@ -3116,12 +3115,12 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("Id", "Port")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("logs_connections", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.LogsDisplayNameChange", b =>
@@ -3131,7 +3130,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("bigint(19) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ulong>("Id"));
+                    b.Property<ulong>("Id").ValueGeneratedOnAdd();
 
                     b.Property<DateTime>("DateChanged")
                         .HasColumnType("datetime")
@@ -3157,8 +3156,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("logs_display_name_changes", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.LogsLoginAttempt", b =>
@@ -3168,7 +3167,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("bigint(19) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ulong>("Id"));
+                    b.Property<ulong>("Id").ValueGeneratedOnAdd();
 
                     b.Property<sbyte>("Attempt")
                         .HasColumnType("tinyint(4)")
@@ -3196,8 +3195,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("logs_login_attempts", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesBarrow", b =>
@@ -3255,8 +3254,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("minigames_barrows", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesDuelArena", b =>
@@ -3280,8 +3279,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("minigames_duel_arena", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesGodwar", b =>
@@ -3311,8 +3310,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("minigames_godwars", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesTzhaarCave", b =>
@@ -3332,8 +3331,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("minigames_tzhaar_cave", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesTzhaarCaveWave", b =>
@@ -3354,14 +3353,14 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("WaveId", "NpcId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.HasIndex(new[] { "WaveId" }, "wave_id");
 
                     b.ToTable("minigames_tzhaar_cave_waves", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MusicDefinition", b =>
@@ -3386,8 +3385,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("music_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MusicLocation", b =>
@@ -3402,12 +3401,12 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("MusicId", "RegionId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("music_locations", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcBonuse", b =>
@@ -3493,8 +3492,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_bonuses", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcDefinition", b =>
@@ -3626,8 +3625,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcLoot", b =>
@@ -3637,7 +3636,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("smallint(6) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ushort>("Id"));
+                    b.Property<ushort>("Id").ValueGeneratedOnAdd();
 
                     b.Property<byte>("Always")
                         .HasColumnType("tinyint(1) unsigned")
@@ -3667,8 +3666,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_loot", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcLootItem", b =>
@@ -3678,7 +3677,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<byte>("Always")
                         .HasColumnType("tinyint(1) unsigned")
@@ -3713,8 +3712,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_loot_items", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcSpawn", b =>
@@ -3724,7 +3723,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int unsigned")
                         .HasColumnName("spawn_id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("SpawnId"));
+                    b.Property<uint>("SpawnId").ValueGeneratedOnAdd();
 
                     b.Property<short>("CoordX")
                         .ValueGeneratedOnAdd()
@@ -3783,8 +3782,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_spawns", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.NpcStatistic", b =>
@@ -3834,8 +3833,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("npc_statistics", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ProfanityWord", b =>
@@ -3849,8 +3848,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("profanity_words", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Quest", b =>
@@ -4051,8 +4050,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("quests", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.ReservedName", b =>
@@ -4069,8 +4068,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("reserved_names", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.Shop", b =>
@@ -4080,7 +4079,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("smallint unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ushort>("Id"));
+                    b.Property<ushort>("Id").ValueGeneratedOnAdd();
 
                     b.Property<byte>("Capacity")
                         .ValueGeneratedOnAdd()
@@ -4116,14 +4115,14 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("sample_stock_items")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("SampleStockItems"), "utf8mb4");
+                    b.Property<string>("SampleStockItems").ForMySQLHasCharset("utf8mb4");
 
                     b.HasKey("Id");
 
                     b.ToTable("shops", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCookingFoodDefinition", b =>
@@ -4153,8 +4152,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_cooking_food_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCookingRawFoodDefinition", b =>
@@ -4191,8 +4190,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_cooking_raw_food_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingGemDefinition", b =>
@@ -4227,8 +4226,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_gem_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingJewelryDefinition", b =>
@@ -4266,8 +4265,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_jewelry_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingLeatherDefinition", b =>
@@ -4302,8 +4301,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_leather_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingPotteryDefinition", b =>
@@ -4335,8 +4334,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_pottery_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingSilverDefinition", b =>
@@ -4369,8 +4368,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_silver_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingSpinDefinition", b =>
@@ -4399,8 +4398,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_crafting_spin_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCraftingTanDefinition", b =>
@@ -4421,12 +4420,12 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("ResourceId", "ProductId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("skills_crafting_tan_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFarmingPatchDefinition", b =>
@@ -4445,8 +4444,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_farming_patch_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFarmingSeedDefinition", b =>
@@ -4513,8 +4512,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_farming_seed_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFiremakingDefinition", b =>
@@ -4551,8 +4550,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_firemaking_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFishingFishDefinition", b =>
@@ -4587,8 +4586,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_fishing_fish_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFishingSpotDefinition", b =>
@@ -4598,7 +4597,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("int(11) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<uint>("Id"));
+                    b.Property<uint>("Id").ValueGeneratedOnAdd();
 
                     b.Property<ushort?>("BaitId")
                         .HasColumnType("smallint(6) unsigned")
@@ -4645,8 +4644,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_fishing_spot_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFishingSpotNpcDefinition", b =>
@@ -4661,12 +4660,12 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("SpotId", "NpcId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("skills_fishing_spot_npc_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFishingToolDefinition", b =>
@@ -4688,8 +4687,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_fishing_tool_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsFletchingDefinition", b =>
@@ -4743,8 +4742,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_fletching_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsHerbloreHerbDefinition", b =>
@@ -4773,8 +4772,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_herblore_herb_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMagicCombatDefinition", b =>
@@ -4841,8 +4840,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_magic_combat_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMagicEnchantDefinition", b =>
@@ -4881,8 +4880,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_magic_enchant_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMagicEnchantProduct", b =>
@@ -4906,8 +4905,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_magic_enchant_products", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMagicTeleportDefinition", b =>
@@ -4959,7 +4958,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("required_runes")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("RequiredRunes"), "utf8mb4");
+                    b.Property<string>("RequiredRunes").ForMySQLHasCharset("utf8mb4");
 
                     b.Property<string>("RequiredRunesCount")
                         .IsRequired()
@@ -4967,16 +4966,16 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("required_runes_count")
                         .UseCollation("utf8mb4_0900_ai_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("RequiredRunesCount"), "utf8mb4");
+                    b.Property<string>("RequiredRunesCount").ForMySQLHasCharset("utf8mb4");
 
                     b.HasKey("ButtonId", "SpellBook")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("skills_magic_teleport_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMiningOreDefinition", b =>
@@ -5016,8 +5015,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_mining_ore_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMiningPickaxeDefinition", b =>
@@ -5046,12 +5045,12 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("Type", "ItemId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("skills_mining_pickaxe_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMiningRockDefinition", b =>
@@ -5075,8 +5074,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_mining_rock_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsPrayerDefinition", b =>
@@ -5099,8 +5098,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_prayer_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsRunecraftingDefinition", b =>
@@ -5181,8 +5180,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_runecrafting_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsSlayerMasterDefinition", b =>
@@ -5206,8 +5205,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_slayer_master_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsSlayerTaskDefinition", b =>
@@ -5217,7 +5216,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("smallint(6) unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ushort>("Id"));
+                    b.Property<ushort>("Id").ValueGeneratedOnAdd();
 
                     b.Property<uint>("CoinCount")
                         .HasColumnType("int(11) unsigned")
@@ -5271,8 +5270,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_slayer_task_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsSummoningDefinition", b =>
@@ -5329,8 +5328,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_summoning_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsWoodcuttingHatchetDefinition", b =>
@@ -5363,12 +5362,12 @@ namespace Hagalaz.Data.Migrations
 
                     b.HasKey("Type", "ItemId")
                         .HasName("PRIMARY")
-                        .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("skills_woodcutting_hatchet_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsWoodcuttingLogDefinition", b =>
@@ -5413,8 +5412,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_woodcutting_log_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsWoodcuttingTreeDefinition", b =>
@@ -5438,8 +5437,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("skills_woodcutting_tree_definitions", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "utf8");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "utf8_general_ci");
+                    b.HasCharSet("utf8");
+                    b.UseCollation("utf8_general_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.World", b =>
@@ -5449,7 +5448,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("smallint unsigned")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ushort>("Id"));
+                    b.Property<ushort>("Id").ValueGeneratedOnAdd();
 
                     b.Property<byte>("AccountCreationEnabled")
                         .ValueGeneratedOnAdd()
@@ -5518,8 +5517,8 @@ namespace Hagalaz.Data.Migrations
 
                     b.ToTable("worlds", (string)null);
 
-                    MySqlEntityTypeBuilderExtensions.HasCharSet(b, "latin1");
-                    MySqlEntityTypeBuilderExtensions.UseCollation(b, "latin1_swedish_ci");
+                    b.HasCharSet("latin1");
+                    b.UseCollation("latin1_swedish_ci");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.WorldConfiguration", b =>
@@ -5529,7 +5528,7 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnName("id")
                         .UseCollation("latin1_swedish_ci");
 
-                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("Id"), "latin1");
+                    b.Property<string>("Id").ForMySQLHasCharset("latin1");
 
                     b.Property<string>("Value")
                         .IsRequired()

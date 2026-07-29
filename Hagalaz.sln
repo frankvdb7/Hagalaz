@@ -161,6 +161,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hagalaz.Services.Cache.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hagalaz.Services.Authorization.Tests", "Hagalaz.Services.Authorization.Tests\Hagalaz.Services.Authorization.Tests.csproj", "{77A788C3-8B25-47DA-AE31-027D3A30EC6C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hagalaz.Data.IntegrationTests", "Hagalaz.Data.IntegrationTests\Hagalaz.Data.IntegrationTests.csproj", "{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1047,6 +1049,18 @@ Global
 		{77A788C3-8B25-47DA-AE31-027D3A30EC6C}.Release|x64.Build.0 = Release|Any CPU
 		{77A788C3-8B25-47DA-AE31-027D3A30EC6C}.Release|x86.ActiveCfg = Release|Any CPU
 		{77A788C3-8B25-47DA-AE31-027D3A30EC6C}.Release|x86.Build.0 = Release|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Debug|x64.Build.0 = Debug|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Debug|x86.Build.0 = Debug|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Release|x64.ActiveCfg = Release|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Release|x64.Build.0 = Release|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Release|x86.ActiveCfg = Release|Any CPU
+		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

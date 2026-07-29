@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AutoMapper;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -21,19 +22,21 @@ namespace Hagalaz.Services.GameWorld.Store
         private Dictionary<int, Hagalaz.Data.Entities.NpcStatistic> _databaseNpcStatistics = new();
         private Dictionary<int, Hagalaz.Data.Entities.NpcBonuses> _databaseNpcBonuses = new();
         private readonly IServiceProvider _serviceProvider;
-        private readonly ITypeProvider<INpcDefinition> _npcProvider;
+        private readonly ITypeProvider<INpcType> _npcTypeProvider;
+        private readonly IMapper _mapper;
         private readonly ILogger<NpcDefinitionStore> _logger;
 
-        public NpcDefinitionStore(IServiceProvider serviceProvider, ITypeProvider<INpcDefinition> npcProvider, ILogger<NpcDefinitionStore> logger)
+        public NpcDefinitionStore(IServiceProvider serviceProvider, ITypeProvider<INpcType> npcTypeProvider, IMapper mapper, ILogger<NpcDefinitionStore> logger)
         {
             _serviceProvider = serviceProvider;
-            _npcProvider = npcProvider;
+            _npcTypeProvider = npcTypeProvider;
+            _mapper = mapper;
             _logger = logger;
         }
 
         private INpcDefinition LoadNpcDefinition(int npcId)
         {
-            var type = _npcProvider.Get(npcId);
+            var type = _mapper.Map<INpcDefinition>(_npcTypeProvider.Get(npcId));
             if (_databaseNpcs.TryGetValue(npcId, out var npc))
             {
                 type.DisplayName = npc.Name;

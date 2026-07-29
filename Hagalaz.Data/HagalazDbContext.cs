@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Hagalaz.Data.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -123,7 +124,11 @@ namespace Hagalaz.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4", DelegationModes.ApplyToAll);
+            // EF10 discovers Identity passkey metadata, but this legacy schema has
+            // no passkey table. Keep the optional entity out until it is migrated.
+            modelBuilder.Ignore<IdentityUserPasskey<uint>>();
+
+            modelBuilder.UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
 
             modelBuilder.Entity<Area>(entity =>
             {
@@ -212,7 +217,7 @@ namespace Hagalaz.Data
                         e.LoginProvider, e.ProviderKey
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -237,7 +242,7 @@ namespace Hagalaz.Data
                         e.UserId, e.LoginProvider, e.Name
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0, 0
@@ -353,7 +358,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.LockoutEnabled).HasColumnType("bit(1)").HasDefaultValueSql("b'0'");
 
-                entity.Property(e => e.LockoutEnd).HasMaxLength(6);
+                entity.Property(e => e.LockoutEnd).HasColumnType("datetime(6)").HasMaxLength(6);
 
                 entity.Property(e => e.NormalizedEmail).HasMaxLength(256);
 
@@ -426,7 +431,7 @@ namespace Hagalaz.Data
                         e.MasterId, e.ContactId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -498,7 +503,7 @@ namespace Hagalaz.Data
                         e.MasterId, e.PatchId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -558,7 +563,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.Count).HasColumnName("count").HasDefaultValueSql("'1'");
 
-                entity.Property(e => e.ExtraData).HasColumnName("extra_data").UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+                entity.Property(e => e.ExtraData).HasColumnName("extra_data").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.ItemId).HasColumnName("item_id");
 
@@ -576,7 +581,7 @@ namespace Hagalaz.Data
                         e.MasterId, e.ItemId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -602,9 +607,9 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.MaleWornModel3).HasColumnName("male_worn_model_3").HasDefaultValueSql("'-1'");
 
-                entity.Property(e => e.ModelColours).HasColumnName("model_colours").UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+                entity.Property(e => e.ModelColours).HasColumnName("model_colours").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
-                entity.Property(e => e.TextureColours).HasColumnName("texture_colours").UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+                entity.Property(e => e.TextureColours).HasColumnName("texture_colours").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
                 entity.HasOne(d => d.Master).WithMany(p => p.CharactersItemsLooks).HasForeignKey(d => d.MasterId).HasConstraintName("master_id_foreign_key_2");
             });
@@ -702,7 +707,7 @@ namespace Hagalaz.Data
                         e.MasterId, e.NoteId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -769,7 +774,7 @@ namespace Hagalaz.Data
                         e.MasterId, e.Permission
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -785,7 +790,7 @@ namespace Hagalaz.Data
                     .HasColumnType("enum('SystemAdministrator','GameAdministrator','GameModerator','Donator')")
                     .HasColumnName("permission")
                     .UseCollation("utf8mb4_0900_ai_ci")
-                    .HasCharSet("utf8mb4");
+                    .ForMySQLHasCharset("utf8mb4");
 
                 entity.HasOne(d => d.Master).WithMany(p => p.CharactersPermissions).HasForeignKey(d => d.MasterId).HasConstraintName("master_id_foreign_key_7");
             });
@@ -952,7 +957,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.Count).HasColumnName("count").HasDefaultValueSql("'1'");
 
-                entity.Property(e => e.ExtraData).HasColumnName("extra_data").UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+                entity.Property(e => e.ExtraData).HasColumnName("extra_data").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.ItemId).HasColumnName("item_id");
 
@@ -998,7 +1003,7 @@ namespace Hagalaz.Data
                         e.MasterId, e.StateId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -1173,7 +1178,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.ModeratorId).HasColumnName("moderator_id");
 
-                entity.Property(e => e.ResponseText).HasColumnName("response_text").UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+                entity.Property(e => e.ResponseText).HasColumnName("response_text").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.TicketLastchange)
                     .HasColumnType("timestamp")
@@ -1181,7 +1186,7 @@ namespace Hagalaz.Data
                     .HasColumnName("ticket_lastchange")
                     .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                entity.Property(e => e.TicketText).HasColumnName("ticket_text").UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+                entity.Property(e => e.TicketText).HasColumnName("ticket_text").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
             });
 
             modelBuilder.Entity<CharactersVariable>(entity =>
@@ -1191,7 +1196,7 @@ namespace Hagalaz.Data
                         e.MasterId, e.Variable
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -1212,7 +1217,7 @@ namespace Hagalaz.Data
                     .HasColumnName("string_value")
                     .HasDefaultValueSql("''")
                     .UseCollation("utf8mb4_0900_ai_ci")
-                    .HasCharSet("utf8mb4");
+                    .ForMySQLHasCharset("utf8mb4");
             });
 
             modelBuilder.Entity<CharacterscreateinfoItem>(entity =>
@@ -1222,7 +1227,7 @@ namespace Hagalaz.Data
                         e.ItemId, e.ContainerType
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -1260,7 +1265,7 @@ namespace Hagalaz.Data
                         {
                             j.HasKey("ClanId", "MasterId")
                                 .HasName("PRIMARY")
-                                .HasAnnotation("MySql:IndexPrefixLength",
+                                .HasAnnotation("MySQL:IndexPrefixLength",
                                     new[]
                                     {
                                         0, 0
@@ -1467,19 +1472,19 @@ namespace Hagalaz.Data
                     .HasColumnType("enum('false','true')")
                     .HasColumnName("fullbody")
                     .UseCollation("utf8mb4_0900_ai_ci")
-                    .HasCharSet("utf8mb4");
+                    .ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.Fullhat)
                     .HasColumnType("enum('false','true')")
                     .HasColumnName("fullhat")
                     .UseCollation("utf8mb4_0900_ai_ci")
-                    .HasCharSet("utf8mb4");
+                    .ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.Fullmask)
                     .HasColumnType("enum('false','true')")
                     .HasColumnName("fullmask")
                     .UseCollation("utf8mb4_0900_ai_ci")
-                    .HasCharSet("utf8mb4");
+                    .ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.Name)
                     .HasMaxLength(50)
@@ -1578,7 +1583,7 @@ namespace Hagalaz.Data
                         {
                             j.HasKey("GameobjectLootChildId", "GameobjectLootParentId")
                                 .HasName("PRIMARY")
-                                .HasAnnotation("MySql:IndexPrefixLength",
+                                .HasAnnotation("MySQL:IndexPrefixLength",
                                     new[]
                                     {
                                         0, 0
@@ -1614,7 +1619,7 @@ namespace Hagalaz.Data
                         {
                             j.HasKey("GameobjectLootChildId", "GameobjectLootParentId")
                                 .HasName("PRIMARY")
-                                .HasAnnotation("MySql:IndexPrefixLength",
+                                .HasAnnotation("MySQL:IndexPrefixLength",
                                     new[]
                                     {
                                         0, 0
@@ -1782,7 +1787,7 @@ namespace Hagalaz.Data
                         {
                             j.HasKey("ItemLootChildId", "ItemLootParentId")
                                 .HasName("PRIMARY")
-                                .HasAnnotation("MySql:IndexPrefixLength",
+                                .HasAnnotation("MySQL:IndexPrefixLength",
                                     new[]
                                     {
                                         0, 0
@@ -1810,7 +1815,7 @@ namespace Hagalaz.Data
                         {
                             j.HasKey("ItemLootChildId", "ItemLootParentId")
                                 .HasName("PRIMARY")
-                                .HasAnnotation("MySql:IndexPrefixLength",
+                                .HasAnnotation("MySQL:IndexPrefixLength",
                                     new[]
                                     {
                                         0, 0
@@ -1862,7 +1867,7 @@ namespace Hagalaz.Data
                         e.ItemId, e.CoordX, e.CoordY, e.CoordZ
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0, 0, 0
@@ -1928,7 +1933,7 @@ namespace Hagalaz.Data
                         e.Id, e.Port
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -1947,7 +1952,7 @@ namespace Hagalaz.Data
                     .HasColumnName("ip")
                     .HasDefaultValueSql("''")
                     .UseCollation("utf8mb4_0900_ai_ci")
-                    .HasCharSet("utf8mb4");
+                    .ForMySQLHasCharset("utf8mb4");
 
                 entity.Property(e => e.Time).HasColumnType("datetime").HasColumnName("time");
             });
@@ -2097,7 +2102,7 @@ namespace Hagalaz.Data
                         e.WaveId, e.NpcId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -2136,7 +2141,7 @@ namespace Hagalaz.Data
                         e.MusicId, e.RegionId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -2290,7 +2295,7 @@ namespace Hagalaz.Data
                         {
                             j.HasKey("NpcLootChildId", "NpcLootParentId")
                                 .HasName("PRIMARY")
-                                .HasAnnotation("MySql:IndexPrefixLength",
+                                .HasAnnotation("MySQL:IndexPrefixLength",
                                     new[]
                                     {
                                         0, 0
@@ -2318,7 +2323,7 @@ namespace Hagalaz.Data
                         {
                             j.HasKey("NpcLootChildId", "NpcLootParentId")
                                 .HasName("PRIMARY")
-                                .HasAnnotation("MySql:IndexPrefixLength",
+                                .HasAnnotation("MySQL:IndexPrefixLength",
                                     new[]
                                     {
                                         0, 0
@@ -2560,7 +2565,7 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.Name).HasMaxLength(48).HasColumnName("name").HasDefaultValueSql("''");
 
-                entity.Property(e => e.SampleStockItems).HasColumnName("sample_stock_items").UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+                entity.Property(e => e.SampleStockItems).HasColumnName("sample_stock_items").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
             });
 
             modelBuilder.Entity<SkillsCookingFoodDefinition>(entity =>
@@ -2725,7 +2730,7 @@ namespace Hagalaz.Data
                         e.ResourceId, e.ProductId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -2873,7 +2878,7 @@ namespace Hagalaz.Data
                         e.SpotId, e.NpcId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -3031,7 +3036,7 @@ namespace Hagalaz.Data
                         e.ButtonId, e.SpellBook
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -3060,9 +3065,9 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.RequiredLevel).HasColumnName("required_level").HasDefaultValueSql("'1'");
 
-                entity.Property(e => e.RequiredRunes).HasColumnName("required_runes").UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+                entity.Property(e => e.RequiredRunes).HasColumnName("required_runes").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
 
-                entity.Property(e => e.RequiredRunesCount).HasColumnName("required_runes_count").UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+                entity.Property(e => e.RequiredRunesCount).HasColumnName("required_runes_count").UseCollation("utf8mb4_0900_ai_ci").ForMySQLHasCharset("utf8mb4");
             });
 
             modelBuilder.Entity<SkillsMiningOreDefinition>(entity =>
@@ -3093,7 +3098,7 @@ namespace Hagalaz.Data
                         e.Type, e.ItemId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -3280,7 +3285,7 @@ namespace Hagalaz.Data
                         e.Type, e.ItemId
                     })
                     .HasName("PRIMARY")
-                    .HasAnnotation("MySql:IndexPrefixLength",
+                    .HasAnnotation("MySQL:IndexPrefixLength",
                         new[]
                         {
                             0, 0
@@ -3396,7 +3401,7 @@ namespace Hagalaz.Data
             {
                 entity.ToTable("world_configurations");
 
-                entity.Property(e => e.Id).HasColumnName("id").UseCollation("latin1_swedish_ci").HasCharSet("latin1");
+                entity.Property(e => e.Id).HasColumnName("id").UseCollation("latin1_swedish_ci").ForMySQLHasCharset("latin1");
 
                 entity.Property(e => e.Value).HasColumnName("value");
             });

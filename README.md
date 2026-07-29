@@ -16,6 +16,7 @@ This repository is a comprehensive application built using modern development te
 - **Frontend**: Angular, Electron
 - **Orchestration**: .NET Aspire
 - **Infrastructure**: Docker, MySQL, RabbitMQ, Redis
+- **Data access**: Oracle `MySql.EntityFrameworkCore` 10 with EF Core 10; local and integration databases use MySQL 8.4.
 - **Communication**: REST APIs, gRPC, WebSockets
 
 ### Key Libraries & Standards
@@ -86,7 +87,19 @@ The easiest way to get the entire application running is by using the .NET Aspir
 
 Most of the service discovery and configuration is handled automatically by .NET Aspire. However, service-specific settings can be found and modified in the `appsettings.json` file of each individual service project (e.g., `Hagalaz.Services.GameWorld/appsettings.json`).
 
-### 3. Development Workflow
+### 3. Database migrations
+
+The EF tool is pinned in `.config/dotnet-tools.json` and uses Oracle's MySQL provider. Supply a design-time connection with `--connection=<value>` (or `ConnectionStrings__hagalaz-db`) when running these commands:
+
+```bash
+dotnet tool restore
+dotnet ef migrations list --project Hagalaz.Data/Hagalaz.Data.csproj -- --connection="Server=localhost;Database=hagalaz-db;User=root;Password=..."
+dotnet ef migrations script --project Hagalaz.Data/Hagalaz.Data.csproj -- --connection="Server=localhost;Database=hagalaz-db;User=root;Password=..."
+dotnet ef database update --project Hagalaz.Data/Hagalaz.Data.csproj -- --connection="Server=localhost;Database=hagalaz-db;User=root;Password=..."
+dotnet ef migrations has-pending-model-changes --project Hagalaz.Data/Hagalaz.Data.csproj -- --connection="Server=localhost;Database=hagalaz-db;User=root;Password=..."
+```
+
+### 4. Development Workflow
 
 A typical workflow for adding a new feature might look like this:
 

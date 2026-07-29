@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 var builder = DistributedApplication.CreateBuilder(args);
 
 var database = builder.AddMySql("mysql")
+    .WithImage("mysql", "8.4")
     .WithEnvironment("MYSQL_DATABASE", "hagalaz-db")
     .WithBindMount("../Data", "/docker-entrypoint-initdb.d")
     .WithDataVolume()

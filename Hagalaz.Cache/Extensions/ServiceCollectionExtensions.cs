@@ -60,12 +60,14 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<IItemTypeCodec, ItemTypeCodec>();
             services.TryAddTransient<INpcTypeCodec, NpcTypeCodec>();
             services.TryAddTransient<IObjectTypeCodec, ObjectTypeCodec>();
+            services.TryAddTransient<ObjectTypeCodec>();
             services.TryAddTransient<ISpriteTypeCodec, SpriteTypeCodec>();
             services.TryAddTransient<ITypeProvider<IItemType>, ItemTypeProvider>();
             services.TryAddTransient<ITypeProvider<INpcType>, NpcTypeProvider>();
             services.TryAddTransient<ITypeProvider<ISpriteType>, SpriteTypeProvider>();
             services.TryAddTransient<IQuestTypeCodec, QuestTypeCodec>();
             services.TryAddTransient<IAnimationTypeCodec, AnimationTypeCodec>();
+            services.TryAddTransient<AnimationTypeCodec>();
             services.TryAddTransient<ITypeProvider<IQuestType>>(provider =>
                 new TypeProvider<IQuestType, QuestTypeData>(
                     provider.GetRequiredService<ICacheAPI>(),
@@ -98,7 +100,9 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ITypeFactory<IGraphicType>, GraphicTypeFactory>();
             services.TryAddTransient<ICs2DefinitionCodec, Cs2DefinitionCodec>();
             services.TryAddTransient<ITypeProvider<ICs2Definition>, Cs2DefinitionProvider>();
-            services.TryAddTransient<ITypeFactory<ICs2Definition>, Cs2DefinitionFactory>();
+            services.TryAddTransient<Cs2DefinitionFactory>();
+            services.TryAddTransient<ITypeFactory<ICs2Definition>>(provider =>
+                provider.GetRequiredService<Cs2DefinitionFactory>());
             services.TryAddTransient<ICs2IntDefinitionCodec, Cs2IntDefinitionCodec>();
             services.TryAddTransient<ITypeFactory<ICs2IntDefinition>, Cs2IntDefinitionFactory>();
             services.TryAddTransient<ICs2IntDefinitionProvider, Cs2IntDefinitionProvider>();
