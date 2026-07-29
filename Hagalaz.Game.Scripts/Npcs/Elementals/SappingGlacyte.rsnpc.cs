@@ -14,12 +14,13 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <summary>
         ///     The glacor.
         /// </summary>
-        private INpc _glacor = default!;
+        private readonly INpc _glacor;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="SappingGlacyte" /> class.
         /// </summary>
-        protected override void Initialize() => _glacor = Owner;
+        /// <param name="glacor">The parent glacor.</param>
+        public SappingGlacyte(INpc glacor) => _glacor = glacor;
 
         /// <summary>
         ///     Called when [set target].

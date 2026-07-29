@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Npcs.Elementals
 {
@@ -34,19 +33,19 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <summary>
         ///     The glacor
         /// </summary>
-        private INpc _glacor = default!;
+        private readonly INpc _glacor;
 
-        private IHitSplatBuilder _hitSplatBuilder = default!;
+        private readonly IHitSplatBuilder _hitSplatBuilder;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="UnstableGlacyte" /> class.
         /// </summary>
-        public UnstableGlacyte() { }
-
-        protected override void Initialize()
+        /// <param name="glacor">The parent glacor.</param>
+        /// <param name="hitSplatBuilder">The hit splat builder.</param>
+        public UnstableGlacyte(INpc glacor, IHitSplatBuilder hitSplatBuilder)
         {
-            _glacor = Owner;
-            _hitSplatBuilder = Owner.ServiceProvider.GetRequiredService<IHitSplatBuilder>();
+            _glacor = glacor;
+            _hitSplatBuilder = hitSplatBuilder;
         }
 
         /// <summary>

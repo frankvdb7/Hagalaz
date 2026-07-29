@@ -397,7 +397,8 @@ namespace Hagalaz.Services.GameWorld
                 new TypeProvider<GameObjectDefinition, ObjectTypeData>(
                     provider.GetRequiredService<ICacheAPI>(),
                     provider.GetRequiredService<ITypeFactory<GameObjectDefinition>>(),
-                    provider.GetRequiredService<ITypeCodec<GameObjectDefinition>>()));
+                    provider.GetRequiredService<ITypeCodec<GameObjectDefinition>>(),
+                    provider.GetRequiredService<ITypeEventHook<GameObjectDefinition>>()));
             services.AddTransient<ITypeProvider<IAnimationDefinition>>(provider =>
                 new TypeProvider<IAnimationDefinition, AnimationTypeData>(
                     provider.GetRequiredService<ICacheAPI>(),

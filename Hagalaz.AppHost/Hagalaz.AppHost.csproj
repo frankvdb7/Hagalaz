@@ -9,6 +9,8 @@
     <Nullable>enable</Nullable>
     <IsAspireHost>true</IsAspireHost>
     <UserSecretsId>06166c2f-a345-4a3c-bd89-84e2ca26428e</UserSecretsId>
+    <!-- Aspire resolves its implicit dashboard and orchestration packages for the host OS. -->
+    <NuGetLockFilePath Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(MSBuildProjectDirectory)/packages.lock.windows.json</NuGetLockFilePath>
   </PropertyGroup>
 
   <ItemGroup>    

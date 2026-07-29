@@ -15,8 +15,13 @@ namespace Hagalaz.Services.GameWorld.Factories
     public class NpcScriptMetaDataFactory : INpcScriptFactory
     {
         private readonly IServiceDescriptorProvider _serviceDescriptorProvider;
+        private readonly IServiceProvider _serviceProvider;
 
-        public NpcScriptMetaDataFactory(IServiceDescriptorProvider serviceDescriptorProvider) => _serviceDescriptorProvider = serviceDescriptorProvider;
+        public NpcScriptMetaDataFactory(IServiceDescriptorProvider serviceDescriptorProvider, IServiceProvider serviceProvider)
+        {
+            _serviceDescriptorProvider = serviceDescriptorProvider;
+            _serviceProvider = serviceProvider;
+        }
 
         public async IAsyncEnumerable<(int npcId, Type scriptType)> GetScripts([EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
@@ -39,6 +44,16 @@ namespace Hagalaz.Services.GameWorld.Factories
                     {
                         yield return (npcId, scriptType);
                     }
+                }
+                else
+                {
+#pragma warning disable CS0618 // Type or member is obsolete
+                    var script = (INpcScript)_serviceProvider.GetRequiredService(scriptType);
+                    foreach (var npcId in script.GetSuitableNpcs())
+                    {
+                        yield return (npcId, scriptType);
+                    }
+#pragma warning restore CS0618 // Type or member is obsolete
                 }
             }
         }
