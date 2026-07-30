@@ -5,8 +5,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Characters.Messages;
+using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -16,18 +19,35 @@ namespace Hagalaz.Services.GameWorld.Services
 {
     public class CharacterDehydrationWorkerService : BackgroundService
     {
+        private static readonly TimeSpan DefaultShutdownTimeout = TimeSpan.FromSeconds(30);
         private readonly ILogger<CharacterDehydrationWorkerService> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly ICharacterStore _characterStore;
+        private readonly TimeSpan _shutdownTimeout;
 
         public CharacterDehydrationWorkerService(
             ILogger<CharacterDehydrationWorkerService> logger,
             IServiceProvider serviceProvider,
             ICharacterStore characterStore)
+            : this(logger, serviceProvider, characterStore, DefaultShutdownTimeout)
         {
+        }
+
+        internal CharacterDehydrationWorkerService(
+            ILogger<CharacterDehydrationWorkerService> logger,
+            IServiceProvider serviceProvider,
+            ICharacterStore characterStore,
+            TimeSpan shutdownTimeout)
+        {
+            if (shutdownTimeout <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(shutdownTimeout));
+            }
+
             _logger = logger;
             _serviceProvider = serviceProvider;
             _characterStore = characterStore;
+            _shutdownTimeout = shutdownTimeout;
         }
 
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -51,23 +71,31 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
-            // Let the worker finish its cancellation path before flushing. The flush itself must
-            // not use the host timeout token because the durable handoff is the final data-safety step.
-            await base.StopAsync(CancellationToken.None);
+            using var shutdownCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            shutdownCts.CancelAfter(_shutdownTimeout);
+            var shutdownToken = shutdownCts.Token;
 
             try
             {
+                await base.StopAsync(shutdownToken);
                 _logger.LogInformation("Flushing active character snapshots before shutdown");
-                await FlushAsync(force: true, CancellationToken.None);
+                await FlushAsync(force: true, shutdownToken);
+            }
+            catch (OperationCanceledException exception) when (shutdownToken.IsCancellationRequested)
+            {
+                _logger.LogCritical(exception,
+                    "Character snapshot shutdown exceeded the {ShutdownTimeout} deadline; durable handoff remains incomplete",
+                    _shutdownTimeout);
+                throw;
             }
             catch (Exception exception)
             {
-                _logger.LogCritical(exception, "Character snapshot shutdown flush failed; host shutdown cannot safely continue");
+                _logger.LogCritical(exception, "Character snapshot shutdown flush failed; durable handoff remains incomplete");
                 throw;
             }
         }
 
-        private async Task FlushAsync(bool force, CancellationToken cancellationToken)
+        internal async Task FlushAsync(bool force, CancellationToken cancellationToken)
         {
             var characters = new List<ICharacter>();
             await foreach (var character in _characterStore.FindAllAsync().WithCancellation(cancellationToken))
@@ -86,8 +114,27 @@ namespace Hagalaz.Services.GameWorld.Services
                 await using var scope = _serviceProvider.CreateAsyncScope();
                 try
                 {
-                    await scope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>()
-                        .PersistAsync(character, force, token);
+                    var persistenceService = scope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>();
+                    var pendingLogout = persistenceService.IsPendingLogout(character);
+                    await persistenceService.PersistAsync(character, force || pendingLogout, token);
+
+                    if (pendingLogout)
+                    {
+                        var removed = await scope.ServiceProvider.GetRequiredService<ICharacterService>().RemoveAsync(character);
+                        if (!removed)
+                        {
+                            throw new InvalidOperationException($"Failed to remove character '{character.MasterId}' from the character store after pending logout persistence.");
+                        }
+
+                        persistenceService.Forget(character.MasterId);
+                        if (!character.IsDestroyed)
+                        {
+                            character.Destroy();
+                        }
+
+                        scope.ServiceProvider.GetRequiredService<IGameMediator>()
+                            .Publish(new WorldSignOutCommand(character.MasterId));
+                    }
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {

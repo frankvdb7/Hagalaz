@@ -302,6 +302,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     // cannot destroy a character that remains registered in the store.
                     if (character != null)
                     {
+                        _characterPersistenceService.TrackPendingLogout(character);
                         await _characterPersistenceService.PersistAsync(character, force: true, cancellationToken: cancellationToken);
                         persistenceSucceeded = true;
                     }

@@ -67,6 +67,10 @@ namespace Hagalaz.Services.GameWorld.Services
             _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
         }
 
+        public void TrackPendingLogout(ICharacter character) => _state.TrackPendingLogout(character);
+
+        public bool IsPendingLogout(ICharacter character) => _state.IsPendingLogout(character);
+
         public void Forget(uint masterId) => _state.Forget(masterId);
 
         internal static PersistCharacterCommand CreateCommand(IMapper mapper, CharacterModel model, uint masterId, long snapshotRevision) =>
@@ -94,6 +98,7 @@ namespace Hagalaz.Services.GameWorld.Services
     public sealed class CharacterPersistenceState
     {
         private readonly ConcurrentDictionary<uint, string> _persistedFingerprints = new();
+        private readonly ConcurrentDictionary<uint, ICharacter> _pendingLogouts = new();
         private readonly Dictionary<uint, LockEntry> _locks = new();
         private readonly object _lockRegistryGate = new();
 
@@ -142,7 +147,14 @@ namespace Hagalaz.Services.GameWorld.Services
         public void Forget(uint masterId)
         {
             _persistedFingerprints.TryRemove(masterId, out _);
+            _pendingLogouts.TryRemove(masterId, out _);
         }
+
+        public void TrackPendingLogout(ICharacter character) => _pendingLogouts[character.MasterId] = character;
+
+        public bool IsPendingLogout(ICharacter character) =>
+            _pendingLogouts.TryGetValue(character.MasterId, out var pendingCharacter) &&
+            ReferenceEquals(pendingCharacter, character);
 
         private void Release(uint masterId, LockEntry entry)
         {

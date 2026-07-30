@@ -52,6 +52,7 @@ public sealed class AuthenticationLogoutTests
             () => service.SignOutAsync());
 
         Assert.AreSame(persistenceFailure, exception);
+        persistenceService.Received(1).TrackPendingLogout(character);
         await gameSessionService.Received(1).RemoveSession("connection");
         await characterService.DidNotReceive().RemoveAsync(character);
     }
