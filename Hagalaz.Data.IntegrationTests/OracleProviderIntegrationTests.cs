@@ -66,10 +66,11 @@ public sealed class OracleProviderIntegrationTests
 
         await using var context = CreateContext();
         var applied = await context.Database.GetAppliedMigrationsAsync();
-        Assert.HasCount(3, applied);
+        Assert.HasCount(4, applied);
         Assert.Contains("20240316233038_InitialCreate", applied);
         Assert.Contains("20250721222703_UpdateOpenIddict7", applied);
         Assert.Contains("20251119194916_UpdateStateId", applied);
+        Assert.Contains("20260730191421_AddCharacterSnapshotRevision", applied);
     }
 
     [TestMethod]

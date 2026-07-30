@@ -25,5 +25,6 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters.States
         public string CurrentState { get; set; } = default!;
 
         public uint MasterId { get; set; }
+        public long SnapshotRevision { get; set; }
     }
 }

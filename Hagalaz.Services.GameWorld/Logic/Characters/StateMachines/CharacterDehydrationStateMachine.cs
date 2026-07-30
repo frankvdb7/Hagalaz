@@ -22,6 +22,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters.StateMachines
                     .Then(context =>
                     {
                         context.Saga.MasterId = context.Message.MasterId;
+                        context.Saga.SnapshotRevision = context.Message.SnapshotRevision;
                         context.Saga.CorrelationId = context.Message.CorrelationId;
                         context.Saga.UpdateCharacterRequestId = Guid.NewGuid();
                         context.Saga.RequestId = context.RequestId;
@@ -53,7 +54,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters.StateMachines
                         var slayer = mapper.Map<SlayerDto>(context.Saga.Slayer);
                         var music = mapper.Map<MusicDto>(context.Saga.Music);
                         var state = mapper.Map<StateDto>(context.Saga.State);
-                        return new UpdateCharacterRequest(context.Saga.CorrelationId, context.Saga.MasterId, appearance, details, statistics, items, familiar, music, farming, slayer, notes, profile, itemAppearanceCollection, state);
+                        return new UpdateCharacterRequest(context.Saga.CorrelationId, context.Saga.MasterId, appearance, details, statistics, items, familiar, music, farming, slayer, notes, profile, itemAppearanceCollection, state, context.Saga.SnapshotRevision);
                     })
                     .TransitionTo(Requested));
 

@@ -19,6 +19,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IClientFactory _clientFactory;
         private readonly IServiceProvider _serviceProvider;
         private readonly ICharacterStore _characterStore;
+        private readonly SnapshotRevisionGenerator _snapshotRevisionGenerator = new();
 
         public CharacterDehydrationWorkerService(ILogger<CharacterDehydrationWorkerService> logger,
                                             IMapper mapper,
@@ -45,7 +46,6 @@ namespace Hagalaz.Services.GameWorld.Services
                     {
                         using (_logger.BeginScope("Dehydrating characters"))
                         {
-                            var correlationId = Guid.NewGuid();
                             var dehydrationService = scope.ServiceProvider.GetRequiredService<ICharacterDehydrationService>();
                             var requestClient = scope.ServiceProvider.CreateRequestClient<DehydrateCharacter>();
                             var options = new ParallelOptions
@@ -57,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Services
                             await Parallel.ForEachAsync(_characterStore.FindAllAsync(), options, async (character, token) =>
                             {
                                 var model = await dehydrationService.DehydrateAsync(character);
-                                var request = _mapper.Map<DehydrateCharacter>(model) with { MasterId = character.MasterId, CorrelationId = correlationId };
+                                var request = CreateRequest(_mapper, model, character.MasterId, _snapshotRevisionGenerator.Next());
                                 var response = await requestClient.GetResponse<CharacterDehydrated>(request, token);
                             });
                             watch.Stop();
@@ -74,5 +74,14 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
             }
         }
+
+        internal static DehydrateCharacter CreateRequest(IMapper mapper, Services.Model.CharacterModel model, uint masterId, long snapshotRevision) =>
+            mapper.Map<DehydrateCharacter>(model) with
+            {
+                MasterId = masterId,
+                CorrelationId = Guid.NewGuid(),
+                SnapshotRevision = snapshotRevision
+            };
+
     }
 }

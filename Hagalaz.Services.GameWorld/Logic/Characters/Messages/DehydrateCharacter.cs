@@ -6,6 +6,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters.Messages
     public record DehydrateCharacter
     {
         public required uint MasterId { get; init; }
+        public required long SnapshotRevision { get; init; }
         public Guid CorrelationId { get; init; } = Guid.NewGuid();
         public required HydratedAppearanceDto Appearance { get; init; }
         public required HydratedDetailsDto Details { get; init; }
