@@ -4,6 +4,9 @@ namespace Hagalaz.Services.Characters.Data
 {
     public interface ICharacterUnitOfWork : IUnitOfWork
     {
+        void Add<TEntity>(TEntity entity) where TEntity : class;
+        void Remove<TEntity>(TEntity entity) where TEntity : class;
+
         public ICharacterRepository CharacterRepository { get; }
         public ICharacterStatisticsRepository CharacterStatisticsRepository { get; }
         public ICharacterItemRepository CharacterItemRepository { get; }
