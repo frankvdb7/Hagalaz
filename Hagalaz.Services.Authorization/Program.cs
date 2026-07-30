@@ -34,7 +34,7 @@ namespace Hagalaz.Services.Authorization
             var builder = WebApplication.CreateBuilder(args);
 
             // aspire
-            builder.AddServiceDefaults();
+            builder.AddServiceDefaults(requireTrustedForwardedHeaders: !builder.Environment.IsDevelopment());
             builder.AddHagalazDbContextPool("hagalaz-db");
 
             // captcha

@@ -11,6 +11,7 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 builder.AddDefaultHealthChecks().ConfigureOpenTelemetry();
 builder.Services.AddServiceDiscovery();
 builder.Configuration.AddEnvironmentVariables(EnvironmentVariables.Prefix);
+builder.AddForwardedHeaders(requireTrustedForwardedHeaders: !builder.Environment.IsDevelopment());
 
 // Add services to the container.
 builder.Services
@@ -23,6 +24,7 @@ builder.Services.AddResponseCompression();
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.MapDefaultEndpoints();
 
 app.Use(async (context, next) =>
