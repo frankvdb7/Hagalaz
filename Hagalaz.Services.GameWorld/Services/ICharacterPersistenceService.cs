@@ -9,6 +9,7 @@ namespace Hagalaz.Services.GameWorld.Services
         Task PersistAsync(ICharacter character, bool force, CancellationToken cancellationToken = default);
         void TrackPendingLogout(ICharacter character);
         bool IsPendingLogout(ICharacter character);
+        void Acknowledge(uint masterId, long snapshotRevision);
         void Forget(uint masterId);
     }
 }

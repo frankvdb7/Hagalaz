@@ -60,11 +60,21 @@ namespace Hagalaz.Services.Characters.Consumers
 
             if (message.SnapshotRevision <= character.SnapshotRevision)
             {
+                await PublishAcknowledgementAsync(context, message);
                 return;
             }
 
             await ApplySnapshotAsync(message, character);
+            await PublishAcknowledgementAsync(context, message);
         }
+
+        private static Task PublishAcknowledgementAsync(
+            ConsumeContext<PersistCharacterCommand> context,
+            PersistCharacterCommand message) =>
+            context.Publish(new PersistCharacterAcknowledged(
+                message.CorrelationId,
+                message.MasterId,
+                message.SnapshotRevision));
 
         private async Task ApplySnapshotAsync(ICharacterPersistenceMessage message, Hagalaz.Data.Entities.Character character)
         {

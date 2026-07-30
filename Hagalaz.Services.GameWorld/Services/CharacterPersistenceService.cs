@@ -63,13 +63,15 @@ namespace Hagalaz.Services.GameWorld.Services
             // the database, while an outbox database failure is still visible to the caller.
             await _publishEndpoint.Publish(command, cancellationToken);
             await _outboxDbContext.SaveChangesAsync(cancellationToken);
-            _state.MarkPersisted(character.MasterId, fingerprint);
+            _state.MarkPending(character.MasterId, fingerprint, snapshotRevision);
             _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
         }
 
         public void TrackPendingLogout(ICharacter character) => _state.TrackPendingLogout(character);
 
         public bool IsPendingLogout(ICharacter character) => _state.IsPendingLogout(character);
+
+        public void Acknowledge(uint masterId, long snapshotRevision) => _state.Acknowledge(masterId, snapshotRevision);
 
         public void Forget(uint masterId) => _state.Forget(masterId);
 
@@ -98,6 +100,7 @@ namespace Hagalaz.Services.GameWorld.Services
     public sealed class CharacterPersistenceState
     {
         private readonly ConcurrentDictionary<uint, string> _persistedFingerprints = new();
+        private readonly ConcurrentDictionary<uint, PendingSnapshot> _pendingSnapshots = new();
         private readonly ConcurrentDictionary<uint, ICharacter> _pendingLogouts = new();
         private readonly Dictionary<uint, LockEntry> _locks = new();
         private readonly object _lockRegistryGate = new();
@@ -142,11 +145,27 @@ namespace Hagalaz.Services.GameWorld.Services
         public bool IsPersisted(uint masterId, string fingerprint) =>
             _persistedFingerprints.TryGetValue(masterId, out var persistedFingerprint) && persistedFingerprint == fingerprint;
 
-        public void MarkPersisted(uint masterId, string fingerprint) => _persistedFingerprints[masterId] = fingerprint;
+        public void MarkPending(uint masterId, string fingerprint, long snapshotRevision) =>
+            _pendingSnapshots[masterId] = new PendingSnapshot(fingerprint, snapshotRevision);
+
+        public void Acknowledge(uint masterId, long snapshotRevision)
+        {
+            if (!_pendingSnapshots.TryGetValue(masterId, out var pending) || pending.SnapshotRevision != snapshotRevision)
+            {
+                return;
+            }
+
+            var pendingPair = new KeyValuePair<uint, PendingSnapshot>(masterId, pending);
+            if (((ICollection<KeyValuePair<uint, PendingSnapshot>>)_pendingSnapshots).Remove(pendingPair))
+            {
+                _persistedFingerprints[masterId] = pending.Fingerprint;
+            }
+        }
 
         public void Forget(uint masterId)
         {
             _persistedFingerprints.TryRemove(masterId, out _);
+            _pendingSnapshots.TryRemove(masterId, out _);
             _pendingLogouts.TryRemove(masterId, out _);
         }
 
@@ -155,6 +174,8 @@ namespace Hagalaz.Services.GameWorld.Services
         public bool IsPendingLogout(ICharacter character) =>
             _pendingLogouts.TryGetValue(character.MasterId, out var pendingCharacter) &&
             ReferenceEquals(pendingCharacter, character);
+
+        private sealed record PendingSnapshot(string Fingerprint, long SnapshotRevision);
 
         private void Release(uint masterId, LockEntry entry)
         {

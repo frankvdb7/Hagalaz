@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +21,7 @@ using MassTransit;
 using NSubstitute;
 using Polly;
 using Raido.Server;
+using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -53,6 +55,48 @@ public sealed class AuthenticationLogoutTests
 
         Assert.AreSame(persistenceFailure, exception);
         persistenceService.Received(1).TrackPendingLogout(character);
+        await gameSessionService.Received(1).RemoveSession("connection");
+        await characterService.DidNotReceive().RemoveAsync(character);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignOutAsync_WhenTokenRevocationFails_TracksPendingLogoutBeforeFailure()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        var characterService = Substitute.For<ICharacterService>();
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        var revokeFailure = new InvalidOperationException("Token service is unavailable.");
+        var revokeTokenRequestClient = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
+        revokeTokenRequestClient
+            .GetResponse<RevokeTokenResponseMessage>(Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Response<RevokeTokenResponseMessage>>(revokeFailure));
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession("connection").Returns(Task.FromResult(true));
+        var contextAccessor = CreateContextAccessor(
+            character,
+            session,
+            new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+            {
+                ClientId = "world-client",
+                Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
+            });
+        var service = CreateAuthenticationService(
+            characterService,
+            persistenceService,
+            gameSessionService,
+            contextAccessor,
+            revokeTokenRequestClient);
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => service.SignOutAsync());
+
+        Assert.AreSame(revokeFailure, exception);
+        persistenceService.Received(1).TrackPendingLogout(character);
+        await persistenceService.DidNotReceive().PersistAsync(Arg.Any<ICharacter>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         await gameSessionService.Received(1).RemoveSession("connection");
         await characterService.DidNotReceive().RemoveAsync(character);
     }
@@ -94,7 +138,8 @@ public sealed class AuthenticationLogoutTests
         ICharacterService characterService,
         ICharacterPersistenceService persistenceService,
         IGameSessionService gameSessionService,
-        IRaidoCallerContextAccessor contextAccessor) =>
+        IRaidoCallerContextAccessor contextAccessor,
+        IRequestClient<RevokeTokenRequestMessage>? revokeTokenRequestClient = null) =>
         new(
             NullLogger<AuthenticationService>.Instance,
             Substitute.For<AutoMapper.IMapper>(),
@@ -105,7 +150,7 @@ public sealed class AuthenticationLogoutTests
             gameSessionService,
             Substitute.For<IRequestClient<SignInUserRequestMessage>>(),
             Substitute.For<IRequestClient<GetUserInfoRequestMessage>>(),
-            Substitute.For<IRequestClient<RevokeTokenRequestMessage>>(),
+            revokeTokenRequestClient ?? Substitute.For<IRequestClient<RevokeTokenRequestMessage>>(),
             Substitute.For<IRequestClient<HydrateCharacter>>(),
             Substitute.For<IClaimsPrincipalFactory>(),
             contextAccessor,
@@ -113,19 +158,33 @@ public sealed class AuthenticationLogoutTests
             new ResiliencePipelineBuilder().Build(),
             new ResiliencePipelineBuilder().Build());
 
-    private static IRaidoCallerContextAccessor CreateContextAccessor(ICharacter character, IGameSession session)
+    private static IRaidoCallerContextAccessor CreateContextAccessor(
+        ICharacter character,
+        IGameSession session,
+        Hagalaz.Services.GameWorld.Features.AuthenticationProperties? authenticationProperties = null)
     {
         var accessor = Substitute.For<IRaidoCallerContextAccessor>();
-        var context = CreateContext(character, session);
+        var context = CreateContext(character, session, authenticationProperties);
         accessor.Context.Returns(context);
         return accessor;
     }
 
-    private static RaidoCallerContext CreateContext(ICharacter character, IGameSession? session)
+    private static RaidoCallerContext CreateContext(
+        ICharacter character,
+        IGameSession? session,
+        Hagalaz.Services.GameWorld.Features.AuthenticationProperties? authenticationProperties = null)
     {
         var context = Substitute.For<RaidoCallerContext>();
         var features = new FeatureCollection();
         features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
+        if (authenticationProperties != null)
+        {
+            features.Set<Hagalaz.Services.GameWorld.Features.IAuthenticationFeature>(new Hagalaz.Services.GameWorld.Features.AuthenticationFeature
+            {
+                AuthenticationProperties = authenticationProperties
+            });
+        }
+
         if (session != null)
         {
             features.Set<Hagalaz.Services.GameWorld.Features.ISessionFeature>(new SessionFeature { Session = session });

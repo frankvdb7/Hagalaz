@@ -87,6 +87,8 @@ public sealed class CharacterUpdateRequestConsumerTests
         await harness.Bus.Publish(staleCommand);
 
         Assert.IsTrue(await harness.Consumed.Any<PersistCharacterCommand>(x => x.Context.Message.MasterId == command.MasterId));
+        Assert.IsTrue(await harness.Published.Any<PersistCharacterAcknowledged>(x => x.Context.Message.SnapshotRevision == command.SnapshotRevision));
+        Assert.IsTrue(await harness.Published.Any<PersistCharacterAcknowledged>(x => x.Context.Message.SnapshotRevision == staleCommand.SnapshotRevision));
         await harness.Stop();
 
         await using var verificationContext = CreateContext(databaseName);

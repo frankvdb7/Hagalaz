@@ -284,6 +284,11 @@ namespace Hagalaz.Services.GameWorld.Services
                 var character = context.GetCharacter();
                 var session = context.GetSession();
                 var persistenceSucceeded = character == null;
+                if (character != null)
+                {
+                    _characterPersistenceService.TrackPendingLogout(character);
+                }
+
                 try
                 {
                     if (masterId != null && properties?.ClientId != null)
@@ -302,7 +307,6 @@ namespace Hagalaz.Services.GameWorld.Services
                     // cannot destroy a character that remains registered in the store.
                     if (character != null)
                     {
-                        _characterPersistenceService.TrackPendingLogout(character);
                         await _characterPersistenceService.PersistAsync(character, force: true, cancellationToken: cancellationToken);
                         persistenceSucceeded = true;
                     }

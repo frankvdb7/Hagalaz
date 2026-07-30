@@ -679,6 +679,7 @@ namespace Hagalaz.Services.GameWorld
                 x.AddConsumer<WorldOnlineConsumer>();
                 x.AddConsumer<WorldOfflineConsumer>();
                 x.AddConsumer<ContactMessageNotificationConsumer>();
+                x.AddConsumer<CharacterPersistenceAcknowledgedConsumer>();
             });
             // Register after MassTransit so shutdown flushes run while the message bus is still available.
             services.AddHostedService<CharacterDehydrationWorkerService>();

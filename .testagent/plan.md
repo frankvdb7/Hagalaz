@@ -10,3 +10,6 @@
 8. Run focused tests, character consumer tests, full build, and diff validation.
 9. Track failed logout cleanup and complete it after a later durable persistence flush, with regression coverage for removal and world signout.
 10. Bound worker shutdown and final flush with a host-linked deadline, report cancellation, and test a blocked durable handoff.
+11. Move pending logout tracking before token revocation and test the revocation-failure ordering.
+12. Add durable persistence acknowledgement, retain producer pending state until matching revision acknowledgement, and test redrive after retry exhaustion.
+13. Make the shutdown deadline regression deterministic with an invocation gate and validate the affected GameWorld suite.

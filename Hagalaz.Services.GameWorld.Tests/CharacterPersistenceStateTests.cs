@@ -8,6 +8,21 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CharacterPersistenceStateTests
 {
     [TestMethod]
+    public void Acknowledge_MarksOnlyMatchingPendingRevisionAsPersisted()
+    {
+        var state = new CharacterPersistenceState();
+        state.MarkPending(42, "fingerprint", 7);
+
+        Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
+
+        state.Acknowledge(42, 6);
+        Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
+
+        state.Acknowledge(42, 7);
+        Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
+    }
+
+    [TestMethod]
     public async Task AcquireAsync_AfterCharacterChurn_RetiresAllLockEntries()
     {
         var state = new CharacterPersistenceState();

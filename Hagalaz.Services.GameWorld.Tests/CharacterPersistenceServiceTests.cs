@@ -18,16 +18,16 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class CharacterPersistenceServiceTests
 {
     [TestMethod]
-    public async Task PersistAsync_PublishesDurableOneWayCommandAndSkipsUnchangedSnapshot()
+    public async Task PersistAsync_RedrivesUnacknowledgedSnapshotUntilAcknowledged()
     {
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.DehydrateAsync(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>())
             .Returns(Task.FromResult(new CharacterModel()));
         var publishEndpoint = Substitute.For<IPublishEndpoint>();
-        PersistCharacterCommand? publishedCommand = null;
+        var publishedCommands = new System.Collections.Generic.List<PersistCharacterCommand>();
         publishEndpoint
             .When(endpoint => endpoint.Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>()))
-            .Do(callInfo => publishedCommand = callInfo.Arg<PersistCharacterCommand>());
+            .Do(callInfo => publishedCommands.Add(callInfo.Arg<PersistCharacterCommand>()!));
 
         await using var outboxDbContext = CreateOutboxDbContext();
         using var mapperProvider = new ServiceCollection()
@@ -37,6 +37,7 @@ public sealed class CharacterPersistenceServiceTests
         var mapper = mapperProvider.GetRequiredService<AutoMapper.IMapper>();
         var character = Substitute.For<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>();
         character.MasterId.Returns(42u);
+        var state = new CharacterPersistenceState();
         var service = new CharacterPersistenceService(
             NullLogger<CharacterPersistenceService>.Instance,
             mapper,
@@ -44,15 +45,20 @@ public sealed class CharacterPersistenceServiceTests
             outboxDbContext,
             dehydrationService,
             new SnapshotRevisionGenerator(),
-            new CharacterPersistenceState());
+            state);
 
         await service.PersistAsync(character, force: false);
         await service.PersistAsync(character, force: false);
 
-        Assert.IsNotNull(publishedCommand);
-        Assert.AreEqual(42u, publishedCommand.MasterId);
-        Assert.IsGreaterThan(0L, publishedCommand.SnapshotRevision);
-        await publishEndpoint.Received(1).Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>());
+        Assert.HasCount(2, publishedCommands);
+        Assert.AreEqual(42u, publishedCommands[0].MasterId);
+        Assert.IsGreaterThan(0L, publishedCommands[0].SnapshotRevision);
+        Assert.AreNotEqual(publishedCommands[0].SnapshotRevision, publishedCommands[1].SnapshotRevision);
+
+        state.Acknowledge(42, publishedCommands[1].SnapshotRevision);
+        await service.PersistAsync(character, force: false);
+
+        await publishEndpoint.Received(2).Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

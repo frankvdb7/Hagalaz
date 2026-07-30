@@ -18,3 +18,6 @@ Acceptance checklist:
 - Same-character persistence remains serialized while lock entries are being retired.
 - A logout persistence failure is tracked and a later successful periodic flush removes the character, destroys it, clears persistence state, and publishes world signout.
 - Shutdown must pass a bounded, host-linked cancellation token to both worker stop and the final durable handoff flush, and must log cancellation as an incomplete handoff.
+- Pending logout tracking must occur before token revocation so revocation failures cannot bypass deferred cleanup.
+- Producer fingerprints must remain pending until a matching durable character-service acknowledgement; consumer retry exhaustion must be recoverable by later flush redrive.
+- Shutdown deadline regression must synchronize on persistence entry before asserting cancellation so CI scheduling cannot cancel the flush before the callback is invoked.

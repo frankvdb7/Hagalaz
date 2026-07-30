@@ -58,8 +58,13 @@ public sealed class CharacterDehydrationWorkerServiceTests
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
-            .Returns(callInfo => Task.Delay(Timeout.InfiniteTimeSpan, callInfo.Arg<CancellationToken>()));
+            .Returns(callInfo =>
+            {
+                persistenceStarted.TrySetResult(true);
+                return Task.Delay(Timeout.InfiniteTimeSpan, callInfo.Arg<CancellationToken>());
+            });
         var store = new SingleCharacterStore(character);
 
         using var provider = new ServiceCollection()
@@ -69,10 +74,12 @@ public sealed class CharacterDehydrationWorkerServiceTests
             NullLogger<CharacterDehydrationWorkerService>.Instance,
             provider,
             store,
-            TimeSpan.FromMilliseconds(50));
+            TimeSpan.FromMilliseconds(250));
 
-        await Assert.ThrowsAsync<OperationCanceledException>(
-            () => worker.StopAsync(CancellationToken.None));
+        var stopTask = worker.StopAsync(CancellationToken.None);
+        await persistenceStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => stopTask);
 
         await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
     }
