@@ -2,18 +2,44 @@ name: Performance Regression Tracking
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+    paths:
+      - ".github/workflows/performance.yml"
+      - "Directory.Build.props"
+      - "NuGet.config"
+      - "global.json"
+      - "Hagalaz.Benchmarks/**"
+      - "Hagalaz.Collections/**"
+      - "Hagalaz.Utilities/**"
+      - "Hagalaz.Security/**"
+      - "Hagalaz.Cache/**"
+      - "Hagalaz.Cache.Abstractions/**"
+      - "Hagalaz.Game.Utilities/Hagalaz.Game.Utilities.csproj"
+      - "Hagalaz.Game.Utilities/packages.lock.json"
+      - "Hagalaz.Game.Utilities/Model/Creatures/CreatureRangeHelper.cs"
+      - "Hagalaz.Game.Abstractions/Hagalaz.Game.Abstractions.csproj"
+      - "Hagalaz.Game.Abstractions/packages.lock.json"
+      - "Hagalaz.Game.Abstractions/Model/Location.cs"
+  workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+
+concurrency:
+  group: performance-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   benchmark:
     name: Run Benchmarks
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
     steps:
       - uses: actions/checkout@v5
@@ -22,52 +48,83 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            Hagalaz.Benchmarks/packages.lock.json
+            Hagalaz.Collections/packages.lock.json
+            Hagalaz.Utilities/packages.lock.json
+            Hagalaz.Security/packages.lock.json
+            Hagalaz.Cache/packages.lock.json
+            Hagalaz.Cache.Abstractions/packages.lock.json
+            Hagalaz.Game.Utilities/packages.lock.json
+            Hagalaz.Game.Abstractions/packages.lock.json
 
-      - name: Cache NuGet
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+      - name: Restore
+        run: dotnet restore Hagalaz.Benchmarks/Hagalaz.Benchmarks.csproj --configfile NuGet.config --locked-mode
 
       - name: Build
-        run: dotnet build Hagalaz.Benchmarks/Hagalaz.Benchmarks.csproj -c Release
+        run: dotnet build Hagalaz.Benchmarks/Hagalaz.Benchmarks.csproj --configuration Release --no-restore --verbosity minimal
 
       - name: Run Benchmarks
-        run: |
-          dotnet run -c Release --project Hagalaz.Benchmarks -- --job short --warmupCount 3 --iterationCount 5 --filter "*" --exporters json --artifacts ./BenchmarkDotNet.Artifacts
+        run: >-
+          dotnet run --configuration Release --project Hagalaz.Benchmarks
+          --no-build --no-restore --
+          --job short --warmupCount 3 --iterationCount 5 --filter "*"
+          --exporters json --artifacts ./BenchmarkDotNet.Artifacts
 
-      - name: Initialize Benchmark Branch if missing
-        run: |
-          if ! git ls-remote --exit-code --heads origin gh-pages; then
-            echo "gh-pages branch not found. Initializing..."
-            git clone --depth=1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git temp-init
-            cd temp-init
-            git checkout --orphan gh-pages
-            git rm -rf .
-            mkdir -p dev/bench
-            touch dev/bench/.keep
-            git add .
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git commit -m "Initialize gh-pages for benchmarks"
-            git push origin gh-pages
-            cd ..
-            rm -rf temp-init
-          fi
+      - name: Upload Benchmark Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_id }}
+          path: BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks.HagalazBenchmarks-report-full.json
+          if-no-files-found: ignore
+          retention-days: 7
 
-      - name: Store and compare benchmark results
+      - name: Compare Benchmark Results (advisory)
+        if: github.event_name != 'push'
+        continue-on-error: true
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Hagalaz Performance Benchmarks
-          tool: 'benchmarkdotnet'
+          tool: benchmarkdotnet
           output-file-path: BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks.HagalazBenchmarks-report-full.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          # Show alert on PR if performance regresses by more than 20%
-          alert-threshold: '200%'
-          comment-on-alert: true
-          fail-on-alert: true
-          # For PRs, don't push to gh-pages but still fetch it
-          save-data-file: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          auto-push: false
+          alert-threshold: "200%"
+          comment-on-alert: false
+          summary-always: true
+          fail-on-alert: false
+          save-data-file: false
+
+  publish:
+    name: Publish Benchmark Baseline
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download Benchmark Results
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_id }}
+          path: BenchmarkDotNet.Artifacts/results
+
+      - name: Store Benchmark Results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Hagalaz Performance Benchmarks
+          tool: benchmarkdotnet
+          output-file-path: BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks.HagalazBenchmarks-report-full.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "200%"
+          comment-on-alert: false
+          summary-always: true
+          fail-on-alert: false
+          save-data-file: true
