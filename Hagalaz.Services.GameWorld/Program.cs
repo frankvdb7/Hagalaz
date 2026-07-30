@@ -18,6 +18,7 @@ using Hagalaz.Data;
 using Hagalaz.Game.Abstractions.Scripts;
 using Hagalaz.Services.GameWorld.Network;
 using Hagalaz.Services.GameWorld.Providers;
+using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.ServiceDefaults;
 
 namespace Hagalaz.Services.GameWorld
@@ -83,6 +84,7 @@ namespace Hagalaz.Services.GameWorld
             startup.Configure(app, app.Environment, app.Services.GetRequiredService<IMapper>());
 
             await app.MigrateDatabase<HagalazDbContext>();
+            await app.MigrateDatabase<CharacterPersistenceOutboxDbContext>();
 
             ServiceLocator.SetLocatorProvider(app.Services); // TODO - when services are refactored, remove the service locator
 

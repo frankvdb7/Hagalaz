@@ -18,6 +18,41 @@ namespace Hagalaz.Services.Characters.Tests;
 public sealed class CharacterUpdateRequestConsumerTests
 {
     [TestMethod]
+    public async Task Consume_PersistCommand_IsOneWayAndIgnoresStaleRevision()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName);
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+
+        var command = CreateCommand();
+        var staleCommand = command with
+        {
+            SnapshotRevision = 1,
+            Details = new DetailsDto(3999, 3998, 1)
+        };
+        await harness.Bus.Publish(command);
+        await harness.Bus.Publish(staleCommand);
+
+        Assert.IsTrue(await harness.Consumed.Any<PersistCharacterCommand>(x => x.Context.Message.MasterId == command.MasterId));
+        await harness.Stop();
+
+        await using var verificationContext = CreateContext(databaseName);
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == command.MasterId);
+        Assert.AreEqual(command.SnapshotRevision, character.SnapshotRevision);
+        Assert.AreEqual(command.Details.CoordX, character.CoordX);
+        Assert.AreEqual(command.Details.CoordY, character.CoordY);
+    }
+
+    [TestMethod]
     public async Task Consume_ExistingCharacter_PersistsSnapshotBeforeResponding()
     {
         var databaseName = Guid.NewGuid().ToString();
@@ -284,6 +319,27 @@ public sealed class CharacterUpdateRequestConsumerTests
         new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 40, MaleModels = [1, 2, 3], FemaleModels = [4, 5, 6], ModelColors = [7, 8], TextureColors = [9, 10] }] },
         new StateDto { StatesEx = [new StateDto.StateExDto { Id = 50, TicksLeft = 51 }] },
         2);
+
+    private static PersistCharacterCommand CreateCommand()
+    {
+        var request = CreateRequest();
+        return new PersistCharacterCommand(
+            request.CorrelationId,
+            request.MasterId,
+            request.Appearance,
+            request.Details,
+            request.Statistics,
+            request.ItemCollection,
+            request.Familiar,
+            request.Music,
+            request.Farming,
+            request.Slayer,
+            request.Notes,
+            request.Profile,
+            request.ItemAppearanceCollection,
+            request.State,
+            request.SnapshotRevision);
+    }
 
     private static async Task SeedCharacterAsync(string databaseName)
     {

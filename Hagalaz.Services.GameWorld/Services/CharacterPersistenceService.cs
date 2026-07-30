@@ -11,36 +11,36 @@ using Hagalaz.Characters.Messages.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Services.Model;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
     public sealed class CharacterPersistenceService : ICharacterPersistenceService
     {
-        private const int MaxAttempts = 3;
         private readonly ILogger<CharacterPersistenceService> _logger;
         private readonly IMapper _mapper;
-        private readonly IClientFactory _clientFactory;
+        private readonly IPublishEndpoint _publishEndpoint;
+        private readonly CharacterPersistenceOutboxDbContext _outboxDbContext;
         private readonly ICharacterDehydrationService _dehydrationService;
         private readonly SnapshotRevisionGenerator _snapshotRevisionGenerator;
-        private readonly CharacterPersistenceOutbox _outbox;
         private readonly CharacterPersistenceState _state;
 
         public CharacterPersistenceService(
             ILogger<CharacterPersistenceService> logger,
             IMapper mapper,
-            IClientFactory clientFactory,
+            IPublishEndpoint publishEndpoint,
+            CharacterPersistenceOutboxDbContext outboxDbContext,
             ICharacterDehydrationService dehydrationService,
             SnapshotRevisionGenerator snapshotRevisionGenerator,
-            CharacterPersistenceOutbox outbox,
             CharacterPersistenceState state)
         {
             _logger = logger;
             _mapper = mapper;
-            _clientFactory = clientFactory;
+            _publishEndpoint = publishEndpoint;
+            _outboxDbContext = outboxDbContext;
             _dehydrationService = dehydrationService;
             _snapshotRevisionGenerator = snapshotRevisionGenerator;
-            _outbox = outbox;
             _state = state;
         }
 
@@ -56,127 +56,20 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             var snapshotRevision = _snapshotRevisionGenerator.Next();
-            var request = CreateRequest(_mapper, model, character.MasterId, snapshotRevision);
+            var command = CreateCommand(_mapper, model, character.MasterId, snapshotRevision);
 
-            try
-            {
-                await SendWithRetriesAsync(request, cancellationToken);
-                _state.MarkPersisted(character.MasterId, fingerprint);
-                await _outbox.RemoveUpToAsync(character.MasterId, snapshotRevision, cancellationToken);
-                _logger.LogDebug("Persisted character {MasterId} at snapshot revision {SnapshotRevision}", character.MasterId, snapshotRevision);
-                return;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                await EnqueueAfterFailureAsync(request, character.MasterId, snapshotRevision);
-                throw;
-            }
-            catch (Exception exception)
-            {
-                await EnqueueAfterFailureAsync(request, character.MasterId, snapshotRevision, exception);
-            }
-        }
-
-        public async Task ReplayPendingAsync(CancellationToken cancellationToken = default)
-        {
-            foreach (var pending in await _outbox.ReadAsync(cancellationToken))
-            {
-                try
-                {
-                    await SendWithRetriesAsync(pending.Request, cancellationToken);
-                    await _outbox.RemoveUpToAsync(
-                        pending.Request.MasterId,
-                        pending.Request.SnapshotRevision,
-                        cancellationToken);
-                    _logger.LogInformation(
-                        "Replayed character {MasterId} snapshot revision {SnapshotRevision} from the persistence outbox",
-                        pending.Request.MasterId,
-                        pending.Request.SnapshotRevision);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogError(exception,
-                        "Could not replay character {MasterId} snapshot revision {SnapshotRevision} from the persistence outbox; it will remain queued",
-                        pending.Request.MasterId,
-                        pending.Request.SnapshotRevision);
-                }
-            }
-        }
-
-        private async Task SendWithRetriesAsync(UpdateCharacterRequest request, CancellationToken cancellationToken)
-        {
-            var requestClient = _clientFactory.CreateRequestClient<UpdateCharacterRequest>();
-            Exception? lastException = null;
-
-            for (var attempt = 1; attempt <= MaxAttempts; attempt++)
-            {
-                try
-                {
-                    var response = await requestClient.GetResponse<UpdateCharacterResponse, CharacterNotFound>(request, cancellationToken);
-                    if (response.Is<CharacterNotFound>(out _))
-                    {
-                        throw new InvalidOperationException($"Character '{request.MasterId}' was not found while persisting its snapshot.");
-                    }
-
-                    return;
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception exception) when (attempt < MaxAttempts)
-                {
-                    lastException = exception;
-                    var delay = TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt - 1));
-                    _logger.LogWarning(exception,
-                        "Character {MasterId} persistence attempt {Attempt} of {MaxAttempts} failed; retrying in {DelayMilliseconds} ms",
-                        request.MasterId, attempt, MaxAttempts, delay.TotalMilliseconds);
-                    await Task.Delay(delay, cancellationToken);
-                }
-                catch (Exception exception)
-                {
-                    lastException = exception;
-                }
-            }
-
-            throw lastException ?? new InvalidOperationException($"Character '{request.MasterId}' persistence failed.");
-        }
-
-        private async Task EnqueueAfterFailureAsync(
-            UpdateCharacterRequest request,
-            uint masterId,
-            long snapshotRevision,
-            Exception? persistenceException = null)
-        {
-            try
-            {
-                // A shutdown cancellation token must not interrupt the durable handoff.
-                await _outbox.EnqueueAsync(request, CancellationToken.None);
-                _logger.LogWarning(persistenceException,
-                    "Character {MasterId} snapshot revision {SnapshotRevision} was not sent to the character service and is durably queued for replay",
-                    masterId,
-                    snapshotRevision);
-            }
-            catch (Exception outboxException)
-            {
-                _logger.LogCritical(outboxException,
-                    "Character {MasterId} snapshot revision {SnapshotRevision} could not be sent or durably queued",
-                    masterId,
-                    snapshotRevision);
-                var exceptions = persistenceException is null
-                    ? new[] { outboxException }
-                    : new[] { persistenceException, outboxException };
-                throw new AggregateException(exceptions);
-            }
+            // Publish through the scoped bus outbox and commit its row before updating the
+            // in-memory fingerprint. A broker outage therefore leaves the command durable in
+            // the database, while an outbox database failure is still visible to the caller.
+            await _publishEndpoint.Publish(command, cancellationToken);
+            await _outboxDbContext.SaveChangesAsync(cancellationToken);
+            _state.MarkPersisted(character.MasterId, fingerprint);
+            _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
         }
 
         public void Forget(uint masterId) => _state.Forget(masterId);
 
-        internal static UpdateCharacterRequest CreateRequest(IMapper mapper, CharacterModel model, uint masterId, long snapshotRevision) =>
+        internal static PersistCharacterCommand CreateCommand(IMapper mapper, CharacterModel model, uint masterId, long snapshotRevision) =>
             new(
                 Guid.NewGuid(),
                 masterId,

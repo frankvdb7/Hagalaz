@@ -89,6 +89,8 @@ using Hagalaz.Services.GameWorld.Logic.Skills;
 using Hagalaz.Services.GameWorld.Services.Cache;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
+using Microsoft.EntityFrameworkCore;
+using Hagalaz.Data;
 using Polly;
 using Polly.CircuitBreaker;
 using ZiggyCreatures.Caching.Fusion;
@@ -108,6 +110,20 @@ namespace Hagalaz.Services.GameWorld
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddHealthChecks();
+
+            var databaseConnection = Configuration.GetConnectionString("hagalaz-db");
+            if (string.IsNullOrWhiteSpace(databaseConnection))
+            {
+                throw new InvalidOperationException("The database connection string 'hagalaz-db' was not configured.");
+            }
+
+            databaseConnection = MySqlConnectionStringCompatibility.NormalizeForOracle(databaseConnection, "'hagalaz-db'");
+            services.AddDbContext<CharacterPersistenceOutboxDbContext>(options =>
+                options.UseMySQL(databaseConnection, mysqlOptions =>
+                {
+                    mysqlOptions.EnableRetryOnFailure(6);
+                    mysqlOptions.MigrationsHistoryTable("__MassTransitOutboxMigrationsHistory");
+                }));
 
             // fusion cache
             services.AddFusionCache()
@@ -190,9 +206,6 @@ namespace Hagalaz.Services.GameWorld
 
             services.AddScoped<ICharacterDehydrationService, CharacterDehydrationService>();
             services.AddScoped<ICharacterPersistenceService, CharacterPersistenceService>();
-            services.AddSingleton(new CharacterPersistenceOutbox(
-                Configuration["CharacterPersistence:OutboxPath"] ??
-                System.IO.Path.Combine(AppContext.BaseDirectory, "Saved", "CharacterPersistenceOutbox")));
             services.AddSingleton<CharacterPersistenceState>();
             services.AddSingleton<SnapshotRevisionGenerator>();
             services.AddScoped<ICharacterDehydrator, AppearanceDehydrator>();
@@ -631,6 +644,11 @@ namespace Hagalaz.Services.GameWorld
             services.AddMassTransit(x =>
             {
                 x.AddDelayedMessageScheduler();
+                x.AddEntityFrameworkOutbox<CharacterPersistenceOutboxDbContext>(options =>
+                {
+                    options.UseMySql();
+                    options.UseBusOutbox();
+                });
                 x.UsingRabbitMq((context, cfg) =>
                 {
                     var host = Configuration.GetConnectionString("messaging");

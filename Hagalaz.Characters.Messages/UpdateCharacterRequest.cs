@@ -16,5 +16,5 @@ namespace Hagalaz.Characters.Messages
                                        ProfileDto Profile,
                                        ItemAppearanceCollectionDto ItemAppearanceCollection,
                                        StateDto State,
-                                       long SnapshotRevision);
+                                       long SnapshotRevision) : ICharacterPersistenceMessage;
 }

@@ -1,9 +1,9 @@
 # Test plan
 
-1. Add a MassTransit harness consumer that faults the first two update requests and responds on the third.
-2. Add an always-failing harness consumer and a temporary durable persistence outbox.
-3. Exercise `CharacterPersistenceService.PersistAsync` with dehydrated character models.
-4. Assert retry success, request metadata, and durable queue creation after broker failure.
-5. Exercise logout persistence failure with a live Raido context and assert session cleanup without character removal.
-6. Exercise `ConnectionHub` success and failure paths and assert destruction occurs only after successful sign-out.
-7. Exercise lock-entry churn and same-character contention; assert registry retirement and serialization.
+1. Replace the local JSON outbox test scenarios with scoped bus-outbox command publication and fingerprint behavior tests.
+2. Verify the owned EF outbox model exposes the three MassTransit persistence tables.
+3. Preserve and compile the legacy request/response consumer tests while adding the command consumer path.
+4. Exercise logout persistence failure with a live Raido context and assert session cleanup without character removal.
+5. Exercise `ConnectionHub` success and failure paths and assert destruction occurs only after successful sign-out.
+6. Exercise lock-entry churn and same-character contention; assert registry retirement and serialization.
+7. Run focused tests, character consumer tests, full build, and diff validation.

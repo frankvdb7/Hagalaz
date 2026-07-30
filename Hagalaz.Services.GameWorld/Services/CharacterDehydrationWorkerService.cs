@@ -36,7 +36,6 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 try
                 {
-                    await ReplayPendingAsync(cancellationToken);
                     await Task.Delay(TimeSpan.FromMinutes(5), cancellationToken);
                     await FlushAsync(force: false, cancellationToken);
                 }
@@ -70,9 +69,6 @@ namespace Hagalaz.Services.GameWorld.Services
 
         private async Task FlushAsync(bool force, CancellationToken cancellationToken)
         {
-            using var scope = _serviceProvider.CreateScope();
-            var persistenceService = scope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>();
-            await persistenceService.ReplayPendingAsync(cancellationToken);
             var characters = new List<ICharacter>();
             await foreach (var character in _characterStore.FindAllAsync().WithCancellation(cancellationToken))
             {
@@ -87,9 +83,11 @@ namespace Hagalaz.Services.GameWorld.Services
             var failures = new ConcurrentBag<Exception>();
             await Parallel.ForEachAsync(characters, options, async (character, token) =>
             {
+                await using var scope = _serviceProvider.CreateAsyncScope();
                 try
                 {
-                    await persistenceService.PersistAsync(character, force, token);
+                    await scope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>()
+                        .PersistAsync(character, force, token);
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {
@@ -101,7 +99,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     if (!force)
                     {
                         _logger.LogError(exception,
-                            "Failed to persist character {MasterId}; it will be retried on the next flush or from the durable outbox",
+                            "Failed to queue character {MasterId} in the EF bus outbox; it will be retried on the next flush",
                             character.MasterId);
                     }
                 }
@@ -111,14 +109,6 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 throw new AggregateException("One or more character snapshots could not be durably handed off during shutdown.", failures);
             }
-        }
-
-        private async Task ReplayPendingAsync(CancellationToken cancellationToken)
-        {
-            using var scope = _serviceProvider.CreateScope();
-            await scope.ServiceProvider
-                .GetRequiredService<ICharacterPersistenceService>()
-                .ReplayPendingAsync(cancellationToken);
         }
 
         // Kept as a compatibility helper for existing dehydration request tests.
