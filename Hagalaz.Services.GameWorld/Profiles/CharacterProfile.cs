@@ -77,7 +77,9 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.CorrelationId, opt => opt.Ignore());
             CreateMap<CharacterModel, DehydrateCharacter>()
                 .ForMember(dest => dest.MasterId, opt => opt.Ignore())
-                .ForMember(dest => dest.CorrelationId, opt => opt.Ignore());
+                .ForMember(dest => dest.CorrelationId, opt => opt.Ignore())
+                // SnapshotRevision is producer metadata assigned by CharacterDehydrationWorkerService.
+                .ForMember(dest => dest.SnapshotRevision, opt => opt.Ignore());
         }
     }
 }
