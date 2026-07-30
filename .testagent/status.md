@@ -1,3 +1,3 @@
 # Test status
 
-The Oracle provider integration tests pass against Docker Desktop with MySQL 8.4. Explicit OpenIddict composite-index prefixes were required for the generated migration DDL.
+Retry regression test added. The focused persistence regression suite passes 7/7 and the full solution build passes.

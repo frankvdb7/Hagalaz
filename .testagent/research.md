@@ -1,4 +1,10 @@
 # Test research
 
-- Target: Oracle MySQL EF Core migration compatibility in `Hagalaz.Data`.
-- Test seam: `HagalazDbContext` configured with Oracle `UseMySQL` and a disposable MySQL 8.4 container.
+Target: `CharacterPersistenceService` in `Hagalaz.Services.GameWorld`.
+
+Existing conventions: MSTest 4, sealed test classes, async test methods, MassTransit test harnesses, and NSubstitute for isolated collaborators.
+
+Acceptance checklist:
+
+- A failed character update is retried and eventually succeeds.
+- A character snapshot request carries the character id and snapshot revision.

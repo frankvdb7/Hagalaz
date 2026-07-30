@@ -131,7 +131,6 @@ namespace Hagalaz.Services.GameWorld
             services.AddHostedService<WorldStatusService>();
             services.AddHostedService<QueuedHostedService>();
             services.AddHostedService<GameWorkerService>();
-            services.AddHostedService<CharacterDehydrationWorkerService>();
             services.AddSingleton<InMemoryEventBus>();
             services.AddSingleton<IEventBus>(provider => provider.GetRequiredService<InMemoryEventBus>());
             services.AddSingleton<IEventManager>(provider => provider.GetRequiredService<InMemoryEventBus>());
@@ -190,6 +189,9 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ICharacterHydrator, StateHydrator>();
 
             services.AddScoped<ICharacterDehydrationService, CharacterDehydrationService>();
+            services.AddScoped<ICharacterPersistenceService, CharacterPersistenceService>();
+            services.AddSingleton<CharacterPersistenceState>();
+            services.AddSingleton<SnapshotRevisionGenerator>();
             services.AddScoped<ICharacterDehydrator, AppearanceDehydrator>();
             services.AddScoped<ICharacterDehydrator, DetailsDehydrator>();
             services.AddScoped<ICharacterDehydrator, StatisticsDehydrator>();
@@ -643,8 +645,6 @@ namespace Hagalaz.Services.GameWorld
 
                 x.AddSagaStateMachine<CharacterHydrationStateMachine, CharacterHydrationState>()
                     .InMemoryRepository();
-                x.AddSagaStateMachine<CharacterDehydrationStateMachine, CharacterDehydrationState>()
-                    .InMemoryRepository();
 
                 x.AddConsumer<WorldUserSignInConsumer>();
                 x.AddConsumer<WorldUserSignOutConsumer>();
@@ -659,6 +659,8 @@ namespace Hagalaz.Services.GameWorld
                 x.AddConsumer<WorldOfflineConsumer>();
                 x.AddConsumer<ContactMessageNotificationConsumer>();
             });
+            // Register after MassTransit so shutdown flushes run while the message bus is still available.
+            services.AddHostedService<CharacterDehydrationWorkerService>();
             services.AddMediator(options =>
             {
                 options.AddScoped<IScopedGameMediator, ScopedGameMediator>();

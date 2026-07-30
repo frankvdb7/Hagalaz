@@ -45,6 +45,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ICharacterService _characterService;
         private readonly ICharacterFactory _characterFactory;
         private readonly ICharacterHydrationService _characterHydrationService;
+        private readonly ICharacterPersistenceService _characterPersistenceService;
         private readonly IGameSessionService _gameSessionService;
         private readonly IRequestClient<SignInUserRequestMessage> _signInUserRequestClient;
         private readonly IRequestClient<GetUserInfoRequestMessage> _getUserInfoRequestClient;
@@ -62,6 +63,7 @@ namespace Hagalaz.Services.GameWorld.Services
             ICharacterService characterService,
             ICharacterFactory characterFactory,
             ICharacterHydrationService characterHydrator,
+            ICharacterPersistenceService characterPersistenceService,
             IGameSessionService gameSessionService,
             IRequestClient<SignInUserRequestMessage> signInUserRequestClient,
             IRequestClient<GetUserInfoRequestMessage> getUserInfoRequestClient,
@@ -80,6 +82,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _characterService = characterService;
             _characterFactory = characterFactory;
             _characterHydrationService = characterHydrator;
+            _characterPersistenceService = characterPersistenceService;
             _gameSessionService = gameSessionService;
             _signInUserRequestClient = signInUserRequestClient;
             _getUserInfoRequestClient = getUserInfoRequestClient;
@@ -289,6 +292,15 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
                 }
 
+                var character = context.GetCharacter();
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+                if (character != null)
+                {
+                    // Persist before removing the only in-memory copy. A failed persistence leaves the
+                    // character in the store so the periodic worker can retry it.
+                    await _characterPersistenceService.PersistAsync(character, force: true, cancellationToken: cancellationToken);
+                }
+
                 var session = context.GetSession();
                 // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
                 if (session != null)
@@ -296,13 +308,18 @@ namespace Hagalaz.Services.GameWorld.Services
                     await _gameSessionService.RemoveSession(session.ConnectionId);
                 }
 
-                var character = context.GetCharacter();
                 // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
                 if (character != null)
                 {
-                    if (!await _characterService.RemoveAsync(character))
+                    var removed = await _characterService.RemoveAsync(character);
+                    if (!removed)
                     {
                         _logger.LogWarning("Failed to remove character '{character}'", character);
+                    }
+
+                    if (removed)
+                    {
+                        _characterPersistenceService.Forget(character.MasterId);
                     }
 
                     _mediator.Publish(new WorldSignOutCommand(character.MasterId));
