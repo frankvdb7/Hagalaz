@@ -46,7 +46,6 @@ namespace Hagalaz.Services.GameWorld.Services
                     {
                         using (_logger.BeginScope("Dehydrating characters"))
                         {
-                            var correlationId = Guid.NewGuid();
                             var dehydrationService = scope.ServiceProvider.GetRequiredService<ICharacterDehydrationService>();
                             var requestClient = scope.ServiceProvider.CreateRequestClient<DehydrateCharacter>();
                             var options = new ParallelOptions
@@ -61,7 +60,7 @@ namespace Hagalaz.Services.GameWorld.Services
                                 var request = _mapper.Map<DehydrateCharacter>(model) with
                                 {
                                     MasterId = character.MasterId,
-                                    CorrelationId = correlationId,
+                                    CorrelationId = Guid.NewGuid(),
                                     SnapshotRevision = _snapshotRevisionGenerator.Next()
                                 };
                                 var response = await requestClient.GetResponse<CharacterDehydrated>(request, token);

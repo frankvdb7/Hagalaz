@@ -219,6 +219,35 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public async Task Should_dehydrate_concurrent_characters_independently()
+        {
+            await using var provider = new ServiceCollection()
+                .AddAutoMapper(x => x.AddProfile<CharacterProfile>())
+                .AddMassTransitTestHarness(x =>
+                {
+                    x.AddConsumer<UpdateCharacterRequestConsumer>();
+                    x.AddSagaStateMachine<CharacterDehydrationStateMachine, CharacterDehydrationState>();
+                })
+                .BuildServiceProvider(true);
+
+            var harness = provider.GetTestHarness();
+            await harness.Start();
+
+            var client = harness.GetRequestClient<DehydrateCharacter>();
+            var responses = await Task.WhenAll(
+                client.GetResponse<CharacterDehydrated>(CreateDehydrateCharacter(1, 1)),
+                client.GetResponse<CharacterDehydrated>(CreateDehydrateCharacter(2, 2)));
+
+            CollectionAssert.AreEquivalent(new uint[] { 1, 2 }, responses.Select(x => x.Message.MasterId).ToArray());
+
+            var consumerHarness = harness.GetConsumerHarness<UpdateCharacterRequestConsumer>();
+            Assert.IsTrue(await consumerHarness.Consumed.Any<UpdateCharacterRequest>(x => x.Context.Message.MasterId == 1));
+            Assert.IsTrue(await consumerHarness.Consumed.Any<UpdateCharacterRequest>(x => x.Context.Message.MasterId == 2));
+
+            await harness.Stop();
+        }
+
+        [TestMethod]
         public async Task Should_not_dehydrate_notfound_character()
         {
             await using var provider = new ServiceCollection()
@@ -280,5 +309,24 @@ namespace Hagalaz.Services.GameWorld.Tests
                 await context.RespondAsync(new CharacterNotFound(message.CorrelationId, message.MasterId));
             }
         }
+
+        private DehydrateCharacter CreateDehydrateCharacter(uint masterId, long snapshotRevision) => new()
+        {
+            MasterId = masterId,
+            CorrelationId = Guid.NewGuid(),
+            SnapshotRevision = snapshotRevision,
+            Appearance = _appearanceMock,
+            Details = _detailsMock,
+            ItemCollection = _itemsMock,
+            Statistics = _statisticsMock,
+            Familiar = _familiarMock,
+            Music = _musicMock,
+            Farming = _farmingMock,
+            Slayer = _slayerMock,
+            Notes = _notesMock,
+            Profile = _profileMock,
+            ItemAppearanceCollection = _itemAppearanceCollectionMock,
+            State = _stateMock
+        };
     }
 }
