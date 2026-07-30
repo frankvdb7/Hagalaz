@@ -16,6 +16,13 @@ namespace Hagalaz.Cache.Logic.Codecs
             return objectType;
         }
 
+        /// <summary>
+        /// Decodes an object into an existing <see cref="ObjectType"/> instance.
+        /// This lets derived game-world definitions reuse the cache format without
+        /// losing their additional properties.
+        /// </summary>
+        public void Decode(ObjectType objectType, MemoryStream stream) => DecodeCore(objectType, stream);
+
         public MemoryStream Encode(IObjectType type)
         {
             var obj = (ObjectType)type;
@@ -495,7 +502,7 @@ namespace Hagalaz.Cache.Logic.Codecs
             return writer;
         }
 
-        private void Decode(ObjectType objectType, MemoryStream buffer)
+        private void DecodeCore(ObjectType objectType, MemoryStream buffer)
         {
             while (true)
             {

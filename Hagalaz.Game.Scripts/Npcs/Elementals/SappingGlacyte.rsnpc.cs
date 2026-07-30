@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <summary>
         ///     Initializes a new instance of the <see cref="SappingGlacyte" /> class.
         /// </summary>
-        /// <param name="glacor">The glacor.</param>
+        /// <param name="glacor">The parent glacor.</param>
         public SappingGlacyte(INpc glacor) => _glacor = glacor;
 
         /// <summary>

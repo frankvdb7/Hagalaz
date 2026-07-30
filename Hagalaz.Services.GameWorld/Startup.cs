@@ -10,6 +10,8 @@ using System.Threading.RateLimiting;
 using AutoMapper;
 using Hagalaz.Cache;
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Abstractions.Logic.Codecs;
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Types.Data;
@@ -140,7 +142,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IHitSplatRenderTypeProvider, HitSplatRenderTypeProvider>();
             services.AddScoped<IRatesService, RatesService>();
             services.AddScoped<IStateService, StateService>();
-            services.AddSingleton<IStateProvider, StateProvider>();
+            services.AddSingleton<StateProvider>();
+            services.AddSingleton<IStateProvider>(provider => provider.GetRequiredService<StateProvider>());
             services.AddScoped<IStateFactory, StateMetaDataFactory>();
 
             services.AddScoped<IGameSessionService, GameSessionService>();
@@ -380,6 +383,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddTransient<ITypeFactory<INpcDefinition>, NpcDefinitionFactory>();
             services.AddTransient<ITypeFactory<GameObjectDefinition>, GameObjectDefinitionFactory>();
             services.AddTransient<ITypeFactory<IAnimationDefinition>, AnimationDefinitionFactory>();
+            services.AddTransient<ITypeCodec<GameObjectDefinition>, GameObjectDefinitionCodec>();
+            services.AddTransient<ITypeCodec<IAnimationDefinition>, AnimationDefinitionCodec>();
 
             services.AddTransient<ITypeEventHook<INpcDefinition>, NpcDefinitionEventHook>();
             services.AddTransient<ITypeEventHook<IItemDefinition>, ItemTypeEventHook>();
@@ -388,8 +393,17 @@ namespace Hagalaz.Services.GameWorld
             services.AddTransient<ITypeProvider<IItemType>, ItemTypeProvider>();
             services.AddTransient<ITypeProvider<IItemDefinition>, ItemDefinitionProvider>();
             services.AddTransient<ITypeProvider<INpcDefinition>, NpcDefinitionProvider>();
-            services.AddTransient<ITypeProvider<GameObjectDefinition>, TypeProvider<GameObjectDefinition, ObjectTypeData>>();
-            services.AddTransient<ITypeProvider<IAnimationDefinition>, TypeProvider<IAnimationDefinition, AnimationTypeData>>();
+            services.AddTransient<ITypeProvider<GameObjectDefinition>>(provider =>
+                new TypeProvider<GameObjectDefinition, ObjectTypeData>(
+                    provider.GetRequiredService<ICacheAPI>(),
+                    provider.GetRequiredService<ITypeFactory<GameObjectDefinition>>(),
+                    provider.GetRequiredService<ITypeCodec<GameObjectDefinition>>(),
+                    provider.GetRequiredService<ITypeEventHook<GameObjectDefinition>>()));
+            services.AddTransient<ITypeProvider<IAnimationDefinition>>(provider =>
+                new TypeProvider<IAnimationDefinition, AnimationTypeData>(
+                    provider.GetRequiredService<ICacheAPI>(),
+                    provider.GetRequiredService<ITypeFactory<IAnimationDefinition>>(),
+                    provider.GetRequiredService<ITypeCodec<IAnimationDefinition>>()));
 
             // world options
             services.Configure<WorldOptions>(Configuration.GetSection(WorldOptions.Key), options => options.BindNonPublicProperties = true);

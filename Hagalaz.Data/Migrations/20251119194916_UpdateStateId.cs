@@ -18,7 +18,7 @@ namespace Hagalaz.Data.Migrations
                 collation: "utf8_general_ci",
                 oldClrType: typeof(uint),
                 oldType: "int(11) unsigned")
-                .Annotation("MySql:CharSet", "utf8");
+                .Annotation("MySQL:Charset", "utf8");
 
             migrationBuilder.AlterColumn<string>(
                 name: "state_id",
@@ -28,7 +28,7 @@ namespace Hagalaz.Data.Migrations
                 collation: "utf8_general_ci",
                 oldClrType: typeof(int),
                 oldType: "int(11)")
-                .Annotation("MySql:CharSet", "utf8");
+                .Annotation("MySQL:Charset", "utf8");
         }
 
         /// <inheritdoc />
@@ -43,7 +43,7 @@ namespace Hagalaz.Data.Migrations
                 oldClrType: typeof(string),
                 oldType: "varchar(255)",
                 oldNullable: true)
-                .OldAnnotation("MySql:CharSet", "utf8")
+                .OldAnnotation("MySQL:Charset", "utf8")
                 .OldAnnotation("Relational:Collation", "utf8_general_ci");
 
             migrationBuilder.AlterColumn<int>(
@@ -53,7 +53,7 @@ namespace Hagalaz.Data.Migrations
                 nullable: false,
                 oldClrType: typeof(string),
                 oldType: "varchar(255)")
-                .OldAnnotation("MySql:CharSet", "utf8")
+                .OldAnnotation("MySQL:Charset", "utf8")
                 .OldAnnotation("Relational:Collation", "utf8_general_ci");
         }
     }

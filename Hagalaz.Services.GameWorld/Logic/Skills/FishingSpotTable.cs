@@ -55,6 +55,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
         /// <value>
         /// The NPC ids.
         /// </value>
-        public required IReadOnlySet<int> NpcIds { get; init; }
+        public required HashSet<int> NpcIds { get; init; }
+
+        IReadOnlySet<int> IFishingSpotTable.NpcIds => NpcIds;
     }
 }
