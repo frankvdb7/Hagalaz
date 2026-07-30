@@ -20,6 +20,8 @@ namespace Hagalaz.Data
                     "A design-time MySQL connection string is required. Set ConnectionStrings__hagalaz-db or pass --connection=<connection-string>.");
             }
 
+            connectionString = MySqlConnectionStringCompatibility.NormalizeForOracle(connectionString, "design-time");
+
             var options = new DbContextOptionsBuilder<HagalazDbContext>()
                 .UseMySQL(connectionString, options => options.EnableRetryOnFailure(6))
                 .UseOpenIddict()

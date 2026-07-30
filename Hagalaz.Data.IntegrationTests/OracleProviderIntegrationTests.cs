@@ -80,7 +80,7 @@ public sealed class OracleProviderIntegrationTests
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["ConnectionStrings:hagalaz-db"] = $"{database.GetConnectionString()};SslMode=None"
+            ["ConnectionStrings:hagalaz-db"] = $"{database.GetConnectionString()};SSL Mode=None"
         });
         builder.AddHagalazDbContextPool("hagalaz-db");
 
