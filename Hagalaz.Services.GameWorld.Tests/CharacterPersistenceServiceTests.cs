@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Characters.Messages;
@@ -23,6 +25,7 @@ public sealed class CharacterPersistenceServiceTests
     public async Task PersistAsync_RetriesTransientUpdateFailureAndPersistsSnapshot()
     {
         RetryUpdateConsumer.Attempts = 0;
+        var outboxPath = CreateOutboxPath();
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.DehydrateAsync(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>())
             .Returns(Task.FromResult(new CharacterModel()));
@@ -32,6 +35,7 @@ public sealed class CharacterPersistenceServiceTests
             .AddSingleton(dehydrationService)
             .AddAutoMapper(x => x.AddProfile<CharacterProfile>())
             .AddMassTransitTestHarness(x => x.AddConsumer<RetryUpdateConsumer>())
+            .AddSingleton(new CharacterPersistenceOutbox(outboxPath))
             .AddSingleton<CharacterPersistenceState>()
             .AddSingleton<SnapshotRevisionGenerator>()
             .AddScoped<ICharacterPersistenceService, CharacterPersistenceService>()
@@ -57,6 +61,62 @@ public sealed class CharacterPersistenceServiceTests
         finally
         {
             await harness.Stop();
+            DeleteOutboxPath(outboxPath);
+        }
+    }
+
+    [TestMethod]
+    [Timeout(10000)]
+    public async Task PersistAsync_QueuesSnapshotWhenCharacterServiceIsUnavailable()
+    {
+        AlwaysFailUpdateConsumer.Attempts = 0;
+        var outboxPath = CreateOutboxPath();
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.DehydrateAsync(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>())
+            .Returns(Task.FromResult(new CharacterModel()));
+
+        await using var provider = new ServiceCollection()
+            .AddLogging()
+            .AddSingleton(dehydrationService)
+            .AddAutoMapper(x => x.AddProfile<CharacterProfile>())
+            .AddMassTransitTestHarness(x => x.AddConsumer<AlwaysFailUpdateConsumer>())
+            .AddSingleton(new CharacterPersistenceOutbox(outboxPath))
+            .AddSingleton<CharacterPersistenceState>()
+            .AddSingleton<SnapshotRevisionGenerator>()
+            .AddScoped<ICharacterPersistenceService, CharacterPersistenceService>()
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+        try
+        {
+            using var scope = provider.CreateScope();
+            var character = Substitute.For<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>();
+            character.MasterId.Returns(42u);
+
+            await scope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>()
+                .PersistAsync(character, force: true, cancellationToken: _testContext.CancellationToken);
+
+            var pending = await provider.GetRequiredService<CharacterPersistenceOutbox>().ReadAsync();
+            Assert.AreEqual(3, AlwaysFailUpdateConsumer.Attempts);
+            Assert.AreEqual(1, pending.Count);
+            Assert.AreEqual(42u, pending[0].Request.MasterId);
+            Assert.IsGreaterThan(0L, pending[0].Request.SnapshotRevision);
+        }
+        finally
+        {
+            await harness.Stop();
+            DeleteOutboxPath(outboxPath);
+        }
+    }
+
+    private static string CreateOutboxPath() => Path.Combine(Path.GetTempPath(), "hagalaz-tests", Guid.NewGuid().ToString("N"));
+
+    private static void DeleteOutboxPath(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            Directory.Delete(path, recursive: true);
         }
     }
 
@@ -75,6 +135,17 @@ public sealed class CharacterPersistenceServiceTests
             }
 
             await context.RespondAsync(new UpdateCharacterResponse(context.Message.CorrelationId, context.Message.MasterId));
+        }
+    }
+
+    private sealed class AlwaysFailUpdateConsumer : IConsumer<UpdateCharacterRequest>
+    {
+        public static int Attempts;
+
+        public Task Consume(ConsumeContext<UpdateCharacterRequest> context)
+        {
+            Interlocked.Increment(ref Attempts);
+            throw new InvalidOperationException("Character service is unavailable.");
         }
     }
 }

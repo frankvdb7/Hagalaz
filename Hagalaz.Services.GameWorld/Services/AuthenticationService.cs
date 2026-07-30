@@ -281,47 +281,57 @@ namespace Hagalaz.Services.GameWorld.Services
                 var masterId = context.GetMasterId();
                 var authentication = context.GetAuthentication();
                 var properties = authentication?.AuthenticationProperties;
-                if (masterId != null && properties?.ClientId != null)
-                {
-                    var response = await _revokeTokenRequestClient.GetResponse<RevokeTokenResponseMessage>(
-                        new RevokeTokenRequestMessage(properties.ClientId, masterId.Value.ToString()),
-                        cancellationToken);
-                    if (!response.Message.Succeeded)
-                    {
-                        _logger.LogWarning("Failed to revoke token '{error}'", response.Message.Error);
-                    }
-                }
-
                 var character = context.GetCharacter();
-                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-                if (character != null)
-                {
-                    // Persist before removing the only in-memory copy. A failed persistence leaves the
-                    // character in the store so the periodic worker can retry it.
-                    await _characterPersistenceService.PersistAsync(character, force: true, cancellationToken: cancellationToken);
-                }
-
                 var session = context.GetSession();
-                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-                if (session != null)
+                var persistenceSucceeded = character == null;
+                try
                 {
-                    await _gameSessionService.RemoveSession(session.ConnectionId);
+                    if (masterId != null && properties?.ClientId != null)
+                    {
+                        var response = await _revokeTokenRequestClient.GetResponse<RevokeTokenResponseMessage>(
+                            new RevokeTokenRequestMessage(properties.ClientId, masterId.Value.ToString()),
+                            cancellationToken);
+                        if (!response.Message.Succeeded)
+                        {
+                            _logger.LogWarning("Failed to revoke token '{error}'", response.Message.Error);
+                        }
+                    }
+
+                    // Persist before removing the only in-memory copy.
+                    // Cleanup below is guaranteed even when persistence fails, so ConnectionHub
+                    // cannot destroy a character that remains registered in the store.
+                    if (character != null)
+                    {
+                        await _characterPersistenceService.PersistAsync(character, force: true, cancellationToken: cancellationToken);
+                        persistenceSucceeded = true;
+                    }
+                }
+                finally
+                {
+                    try
+                    {
+                        if (session != null)
+                        {
+                            await _gameSessionService.RemoveSession(session.ConnectionId);
+                        }
+                    }
+                    finally
+                    {
+                        if (character != null && persistenceSucceeded)
+                        {
+                            var removed = await _characterService.RemoveAsync(character);
+                            if (!removed)
+                            {
+                                throw new InvalidOperationException($"Failed to remove character '{character}' from the character store during sign out.");
+                            }
+
+                            _characterPersistenceService.Forget(character.MasterId);
+                        }
+                    }
                 }
 
-                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
                 if (character != null)
                 {
-                    var removed = await _characterService.RemoveAsync(character);
-                    if (!removed)
-                    {
-                        _logger.LogWarning("Failed to remove character '{character}'", character);
-                    }
-
-                    if (removed)
-                    {
-                        _characterPersistenceService.Forget(character.MasterId);
-                    }
-
                     _mediator.Publish(new WorldSignOutCommand(character.MasterId));
                 }
                 else if (masterId != null)

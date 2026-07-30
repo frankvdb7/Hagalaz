@@ -1,3 +1,3 @@
 # Test status
 
-Retry regression test added. The focused persistence regression suite passes 7/7 and the full solution build passes.
+Retry, durable-outbox, logout lifecycle, and lock-lifecycle regression tests added. Lock tests and the combined focused suite are pending validation.

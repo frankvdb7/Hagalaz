@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -22,6 +23,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IClientFactory _clientFactory;
         private readonly ICharacterDehydrationService _dehydrationService;
         private readonly SnapshotRevisionGenerator _snapshotRevisionGenerator;
+        private readonly CharacterPersistenceOutbox _outbox;
         private readonly CharacterPersistenceState _state;
 
         public CharacterPersistenceService(
@@ -30,6 +32,7 @@ namespace Hagalaz.Services.GameWorld.Services
             IClientFactory clientFactory,
             ICharacterDehydrationService dehydrationService,
             SnapshotRevisionGenerator snapshotRevisionGenerator,
+            CharacterPersistenceOutbox outbox,
             CharacterPersistenceState state)
         {
             _logger = logger;
@@ -37,6 +40,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _clientFactory = clientFactory;
             _dehydrationService = dehydrationService;
             _snapshotRevisionGenerator = snapshotRevisionGenerator;
+            _outbox = outbox;
             _state = state;
         }
 
@@ -52,6 +56,59 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             var snapshotRevision = _snapshotRevisionGenerator.Next();
+            var request = CreateRequest(_mapper, model, character.MasterId, snapshotRevision);
+
+            try
+            {
+                await SendWithRetriesAsync(request, cancellationToken);
+                _state.MarkPersisted(character.MasterId, fingerprint);
+                await _outbox.RemoveUpToAsync(character.MasterId, snapshotRevision, cancellationToken);
+                _logger.LogDebug("Persisted character {MasterId} at snapshot revision {SnapshotRevision}", character.MasterId, snapshotRevision);
+                return;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                await EnqueueAfterFailureAsync(request, character.MasterId, snapshotRevision);
+                throw;
+            }
+            catch (Exception exception)
+            {
+                await EnqueueAfterFailureAsync(request, character.MasterId, snapshotRevision, exception);
+            }
+        }
+
+        public async Task ReplayPendingAsync(CancellationToken cancellationToken = default)
+        {
+            foreach (var pending in await _outbox.ReadAsync(cancellationToken))
+            {
+                try
+                {
+                    await SendWithRetriesAsync(pending.Request, cancellationToken);
+                    await _outbox.RemoveUpToAsync(
+                        pending.Request.MasterId,
+                        pending.Request.SnapshotRevision,
+                        cancellationToken);
+                    _logger.LogInformation(
+                        "Replayed character {MasterId} snapshot revision {SnapshotRevision} from the persistence outbox",
+                        pending.Request.MasterId,
+                        pending.Request.SnapshotRevision);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception,
+                        "Could not replay character {MasterId} snapshot revision {SnapshotRevision} from the persistence outbox; it will remain queued",
+                        pending.Request.MasterId,
+                        pending.Request.SnapshotRevision);
+                }
+            }
+        }
+
+        private async Task SendWithRetriesAsync(UpdateCharacterRequest request, CancellationToken cancellationToken)
+        {
             var requestClient = _clientFactory.CreateRequestClient<UpdateCharacterRequest>();
             Exception? lastException = null;
 
@@ -59,15 +116,12 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 try
                 {
-                    var request = CreateRequest(_mapper, model, character.MasterId, snapshotRevision);
                     var response = await requestClient.GetResponse<UpdateCharacterResponse, CharacterNotFound>(request, cancellationToken);
                     if (response.Is<CharacterNotFound>(out _))
                     {
-                        throw new InvalidOperationException($"Character '{character.MasterId}' was not found while persisting its snapshot.");
+                        throw new InvalidOperationException($"Character '{request.MasterId}' was not found while persisting its snapshot.");
                     }
 
-                    _state.MarkPersisted(character.MasterId, fingerprint);
-                    _logger.LogDebug("Persisted character {MasterId} at snapshot revision {SnapshotRevision}", character.MasterId, snapshotRevision);
                     return;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -80,7 +134,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     var delay = TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt - 1));
                     _logger.LogWarning(exception,
                         "Character {MasterId} persistence attempt {Attempt} of {MaxAttempts} failed; retrying in {DelayMilliseconds} ms",
-                        character.MasterId, attempt, MaxAttempts, delay.TotalMilliseconds);
+                        request.MasterId, attempt, MaxAttempts, delay.TotalMilliseconds);
                     await Task.Delay(delay, cancellationToken);
                 }
                 catch (Exception exception)
@@ -89,10 +143,35 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
             }
 
-            _logger.LogError(lastException,
-                "Character {MasterId} snapshot revision {SnapshotRevision} could not be persisted after {MaxAttempts} attempts",
-                character.MasterId, snapshotRevision, MaxAttempts);
-            throw lastException ?? new InvalidOperationException($"Character '{character.MasterId}' persistence failed.");
+            throw lastException ?? new InvalidOperationException($"Character '{request.MasterId}' persistence failed.");
+        }
+
+        private async Task EnqueueAfterFailureAsync(
+            UpdateCharacterRequest request,
+            uint masterId,
+            long snapshotRevision,
+            Exception? persistenceException = null)
+        {
+            try
+            {
+                // A shutdown cancellation token must not interrupt the durable handoff.
+                await _outbox.EnqueueAsync(request, CancellationToken.None);
+                _logger.LogWarning(persistenceException,
+                    "Character {MasterId} snapshot revision {SnapshotRevision} was not sent to the character service and is durably queued for replay",
+                    masterId,
+                    snapshotRevision);
+            }
+            catch (Exception outboxException)
+            {
+                _logger.LogCritical(outboxException,
+                    "Character {MasterId} snapshot revision {SnapshotRevision} could not be sent or durably queued",
+                    masterId,
+                    snapshotRevision);
+                var exceptions = persistenceException is null
+                    ? new[] { outboxException }
+                    : new[] { persistenceException, outboxException };
+                throw new AggregateException(exceptions);
+            }
         }
 
         public void Forget(uint masterId) => _state.Forget(masterId);
@@ -122,12 +201,44 @@ namespace Hagalaz.Services.GameWorld.Services
     public sealed class CharacterPersistenceState
     {
         private readonly ConcurrentDictionary<uint, string> _persistedFingerprints = new();
-        private readonly ConcurrentDictionary<uint, SemaphoreSlim> _locks = new();
+        private readonly Dictionary<uint, LockEntry> _locks = new();
+        private readonly object _lockRegistryGate = new();
 
-        public Task<IDisposable> AcquireAsync(uint masterId, CancellationToken cancellationToken)
+        public async Task<IDisposable> AcquireAsync(uint masterId, CancellationToken cancellationToken)
         {
-            var semaphore = _locks.GetOrAdd(masterId, static _ => new SemaphoreSlim(1, 1));
-            return AcquireCoreAsync(semaphore, cancellationToken);
+            LockEntry entry;
+            lock (_lockRegistryGate)
+            {
+                if (!_locks.TryGetValue(masterId, out entry!))
+                {
+                    entry = new LockEntry();
+                    _locks.Add(masterId, entry);
+                }
+
+                entry.References++;
+            }
+
+            try
+            {
+                await entry.Semaphore.WaitAsync(cancellationToken);
+                return new Releaser(this, masterId, entry);
+            }
+            catch
+            {
+                ReleaseReference(masterId, entry);
+                throw;
+            }
+        }
+
+        internal int LockCount
+        {
+            get
+            {
+                lock (_lockRegistryGate)
+                {
+                    return _locks.Count;
+                }
+            }
         }
 
         public bool IsPersisted(uint masterId, string fingerprint) =>
@@ -140,19 +251,57 @@ namespace Hagalaz.Services.GameWorld.Services
             _persistedFingerprints.TryRemove(masterId, out _);
         }
 
-        private static async Task<IDisposable> AcquireCoreAsync(SemaphoreSlim semaphore, CancellationToken cancellationToken)
+        private void Release(uint masterId, LockEntry entry)
         {
-            await semaphore.WaitAsync(cancellationToken);
-            return new Releaser(semaphore);
+            entry.Semaphore.Release();
+            ReleaseReference(masterId, entry);
+        }
+
+        private void ReleaseReference(uint masterId, LockEntry entry)
+        {
+            LockEntry? entryToDispose = null;
+            lock (_lockRegistryGate)
+            {
+                entry.References--;
+                if (entry.References == 0 && _locks.Remove(masterId))
+                {
+                    entryToDispose = entry;
+                }
+            }
+
+            if (entryToDispose != null)
+            {
+                entryToDispose.Semaphore.Dispose();
+            }
+        }
+
+        private sealed class LockEntry
+        {
+            public SemaphoreSlim Semaphore { get; } = new(1, 1);
+            public int References { get; set; }
         }
 
         private sealed class Releaser : IDisposable
         {
-            private readonly SemaphoreSlim _semaphore;
+            private readonly CharacterPersistenceState _owner;
+            private readonly uint _masterId;
+            private readonly LockEntry _entry;
+            private int _released;
 
-            public Releaser(SemaphoreSlim semaphore) => _semaphore = semaphore;
+            public Releaser(CharacterPersistenceState owner, uint masterId, LockEntry entry)
+            {
+                _owner = owner;
+                _masterId = masterId;
+                _entry = entry;
+            }
 
-            public void Dispose() => _semaphore.Release();
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _released, 1) == 0)
+                {
+                    _owner.Release(_masterId, _entry);
+                }
+            }
         }
     }
 }

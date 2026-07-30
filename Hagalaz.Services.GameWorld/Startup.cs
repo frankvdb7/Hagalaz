@@ -190,6 +190,9 @@ namespace Hagalaz.Services.GameWorld
 
             services.AddScoped<ICharacterDehydrationService, CharacterDehydrationService>();
             services.AddScoped<ICharacterPersistenceService, CharacterPersistenceService>();
+            services.AddSingleton(new CharacterPersistenceOutbox(
+                Configuration["CharacterPersistence:OutboxPath"] ??
+                System.IO.Path.Combine(AppContext.BaseDirectory, "Saved", "CharacterPersistenceOutbox")));
             services.AddSingleton<CharacterPersistenceState>();
             services.AddSingleton<SnapshotRevisionGenerator>();
             services.AddScoped<ICharacterDehydrator, AppearanceDehydrator>();

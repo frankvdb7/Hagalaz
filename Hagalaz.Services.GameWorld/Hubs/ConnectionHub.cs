@@ -17,18 +17,21 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
+            var signOutSucceeded = false;
             try
             {
                 await _authenticationService.SignOutAsync();
-            }
-            catch(Exception)
-            {
-                throw;
+                signOutSucceeded = true;
             }
             finally
             {
                 var character = Context.GetCharacter();
-                character?.Destroy();
+                // A failed sign out leaves the live character registered so a later persistence
+                // attempt can retry it. Never destroy that instance while it remains in the store.
+                if (signOutSucceeded && character is { IsDestroyed: false })
+                {
+                    character.Destroy();
+                }
             }
         }
     }

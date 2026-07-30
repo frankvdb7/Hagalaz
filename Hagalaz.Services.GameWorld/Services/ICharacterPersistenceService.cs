@@ -7,6 +7,7 @@ namespace Hagalaz.Services.GameWorld.Services
     public interface ICharacterPersistenceService
     {
         Task PersistAsync(ICharacter character, bool force, CancellationToken cancellationToken = default);
+        Task ReplayPendingAsync(CancellationToken cancellationToken = default);
         void Forget(uint masterId);
     }
 }
