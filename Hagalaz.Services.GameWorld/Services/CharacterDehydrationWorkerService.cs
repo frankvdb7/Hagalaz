@@ -57,12 +57,7 @@ namespace Hagalaz.Services.GameWorld.Services
                             await Parallel.ForEachAsync(_characterStore.FindAllAsync(), options, async (character, token) =>
                             {
                                 var model = await dehydrationService.DehydrateAsync(character);
-                                var request = _mapper.Map<DehydrateCharacter>(model) with
-                                {
-                                    MasterId = character.MasterId,
-                                    CorrelationId = Guid.NewGuid(),
-                                    SnapshotRevision = _snapshotRevisionGenerator.Next()
-                                };
+                                var request = CreateRequest(_mapper, model, character.MasterId, _snapshotRevisionGenerator.Next());
                                 var response = await requestClient.GetResponse<CharacterDehydrated>(request, token);
                             });
                             watch.Stop();
@@ -79,6 +74,14 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
             }
         }
+
+        internal static DehydrateCharacter CreateRequest(IMapper mapper, Services.Model.CharacterModel model, uint masterId, long snapshotRevision) =>
+            mapper.Map<DehydrateCharacter>(model) with
+            {
+                MasterId = masterId,
+                CorrelationId = Guid.NewGuid(),
+                SnapshotRevision = snapshotRevision
+            };
 
     }
 }
