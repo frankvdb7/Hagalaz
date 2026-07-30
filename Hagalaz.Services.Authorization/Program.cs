@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Quartz;
 using Refit;
@@ -22,6 +23,7 @@ using Hagalaz.Services.Authorization.Data;
 using Hagalaz.Services.Authorization.Identity;
 using Hagalaz.Services.Authorization.Mediator.Consumers;
 using Hagalaz.Services.Authorization.Services;
+using OpenIddict.Server.AspNetCore;
 
 namespace Hagalaz.Services.Authorization
 {
@@ -99,15 +101,22 @@ namespace Hagalaz.Services.Authorization
                     // Enable the password and refresh token  flows.
                     options.AllowPasswordFlow().AllowRefreshTokenFlow().RequireProofKeyForCodeExchange();
 
-                    // Register the signing credentials.
-                    options.AddDevelopmentSigningCertificate().AddDevelopmentEncryptionCertificate();
+                    // Development certificates are intentionally limited to local development.
+                    OpenIddictServerConfiguration.ConfigureCredentials(
+                        options,
+                        builder.Configuration,
+                        builder.Environment.IsDevelopment());
 
                     // Register the ASP.NET Core host and configure the ASP.NET Core-specific options.
-                    options.UseAspNetCore()
+                    var aspNetCore = options.UseAspNetCore()
                         .EnableEndSessionEndpointPassthrough()
                         .EnableTokenEndpointPassthrough()
-                        .EnableUserInfoEndpointPassthrough()
-                        .DisableTransportSecurityRequirement();
+                        .EnableUserInfoEndpointPassthrough();
+
+                    if (builder.Environment.IsDevelopment())
+                    {
+                        aspNetCore.DisableTransportSecurityRequirement();
+                    }
 
                     builder.Services.AddSingleton<OpenIddictServerPocoEvents.RequirePocoRequest>();
                     foreach (var descriptor in OpenIddictServerPocoHandlers.DefaultHandlers)
