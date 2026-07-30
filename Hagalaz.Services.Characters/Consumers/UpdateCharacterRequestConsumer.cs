@@ -37,6 +37,14 @@ namespace Hagalaz.Services.Characters.Consumers
                 return;
             }
 
+            if (message.SnapshotRevision <= character.SnapshotRevision)
+            {
+                await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId));
+                return;
+            }
+
+            character.SnapshotRevision = message.SnapshotRevision;
+
             character.CoordX = checked((short)message.Details.CoordX);
             character.CoordY = checked((short)message.Details.CoordY);
             character.CoordZ = checked((byte)message.Details.CoordZ);
@@ -75,7 +83,8 @@ namespace Hagalaz.Services.Characters.Consumers
         private async Task UpdateFamiliarAsync(UpdateCharacterRequest message)
         {
             var familiar = await _unitOfWork.CharacterFamiliarRepository.FindById(message.MasterId).SingleOrDefaultAsync();
-            if (message.Familiar == null)
+            // Game-world dehydration returns the default DTO (FamiliarId = 0) when no familiar script is active.
+            if (message.Familiar == null || message.Familiar.FamiliarId <= 0)
             {
                 if (familiar != null)
                 {
@@ -125,7 +134,8 @@ namespace Hagalaz.Services.Characters.Consumers
         private async Task UpdateSlayerAsync(UpdateCharacterRequest message)
         {
             var slayer = await _unitOfWork.CharacterSlayerRepository.FindById(message.MasterId).SingleOrDefaultAsync();
-            if (message.Slayer.Task == null)
+            // Game-world dehydration represents an inactive Slayer task as a task with Id = -1.
+            if (message.Slayer.Task == null || message.Slayer.Task.Id < 0)
             {
                 if (slayer != null)
                 {
@@ -278,6 +288,8 @@ namespace Hagalaz.Services.Characters.Consumers
             ArgumentNullException.ThrowIfNull(message.Profile);
             ArgumentNullException.ThrowIfNull(message.ItemAppearanceCollection);
             ArgumentNullException.ThrowIfNull(message.State);
+
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(message.SnapshotRevision);
 
             ArgumentNullException.ThrowIfNull(message.ItemCollection.Bank);
             ArgumentNullException.ThrowIfNull(message.ItemCollection.Inventory);

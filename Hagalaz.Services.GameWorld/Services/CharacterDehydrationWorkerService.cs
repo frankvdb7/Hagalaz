@@ -19,6 +19,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IClientFactory _clientFactory;
         private readonly IServiceProvider _serviceProvider;
         private readonly ICharacterStore _characterStore;
+        private readonly SnapshotRevisionGenerator _snapshotRevisionGenerator = new();
 
         public CharacterDehydrationWorkerService(ILogger<CharacterDehydrationWorkerService> logger,
                                             IMapper mapper,
@@ -57,7 +58,12 @@ namespace Hagalaz.Services.GameWorld.Services
                             await Parallel.ForEachAsync(_characterStore.FindAllAsync(), options, async (character, token) =>
                             {
                                 var model = await dehydrationService.DehydrateAsync(character);
-                                var request = _mapper.Map<DehydrateCharacter>(model) with { MasterId = character.MasterId, CorrelationId = correlationId };
+                                var request = _mapper.Map<DehydrateCharacter>(model) with
+                                {
+                                    MasterId = character.MasterId,
+                                    CorrelationId = correlationId,
+                                    SnapshotRevision = _snapshotRevisionGenerator.Next()
+                                };
                                 var response = await requestClient.GetResponse<CharacterDehydrated>(request, token);
                             });
                             watch.Stop();
@@ -74,5 +80,6 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
             }
         }
+
     }
 }

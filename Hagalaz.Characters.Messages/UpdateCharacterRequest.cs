@@ -15,5 +15,6 @@ namespace Hagalaz.Characters.Messages
                                        NotesDto Notes,
                                        ProfileDto Profile,
                                        ItemAppearanceCollectionDto ItemAppearanceCollection,
-                                       StateDto State);
+                                       StateDto State,
+                                       long SnapshotRevision);
 }

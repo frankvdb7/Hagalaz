@@ -186,6 +186,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var response = await client.GetResponse<CharacterDehydrated>(new DehydrateCharacter
             { 
                 MasterId = 1,
+                SnapshotRevision = 1,
                 Appearance = _appearanceMock, 
                 Details = _detailsMock, 
                 ItemCollection = _itemsMock, 
@@ -212,6 +213,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsNotNull(consumerRequestMessage.ItemCollection);
             Assert.IsNotNull(consumerRequestMessage.Appearance);
             Assert.IsNotNull(consumerRequestMessage.Statistics);
+            Assert.AreEqual(1L, consumerRequestMessage.SnapshotRevision);
 
             await harness.Stop();
         }
@@ -236,6 +238,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var response = await client.GetResponse<CharacterDehydrated, CharacterNotFound>(new DehydrateCharacter
             {
                 MasterId = 1,
+                SnapshotRevision = 1,
                 Appearance = _appearanceMock,
                 Details = _detailsMock,
                 ItemCollection = _itemsMock,

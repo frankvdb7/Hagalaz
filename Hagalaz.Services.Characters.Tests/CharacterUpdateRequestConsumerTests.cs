@@ -10,6 +10,7 @@ using MassTransit.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using Testcontainers.MySql;
 
 namespace Hagalaz.Services.Characters.Tests;
 
@@ -57,6 +58,61 @@ public sealed class CharacterUpdateRequestConsumerTests
     }
 
     [TestMethod]
+    public async Task Consume_StaleSnapshot_DoesNotReplaceNewerChildCollections()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName);
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+        var client = harness.GetRequestClient<UpdateCharacterRequest>();
+
+        var currentRequest = CreateRequest();
+        await client.GetResponse<UpdateCharacterResponse>(currentRequest);
+
+        var staleRequest = CreateRequest() with
+        {
+            SnapshotRevision = 1,
+            Details = new DetailsDto(3999, 3998, 1),
+            ItemCollection = new ItemCollectionDto
+            {
+                Bank = [new ItemDto(999, 1, 2, "bank")], Inventory = [], FamiliarInventory = [], Equipment = [], Rewards = [], MoneyPouch = []
+            },
+            Farming = new FarmingDto { Patches = [new FarmingDto.PatchDto { Id = 999, SeedId = 999 }] },
+            Notes = new NotesDto { Notes = [new NotesDto.NoteDto { Id = 999, Text = "stale" }] },
+            ItemAppearanceCollection = new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 999 }] },
+            State = new StateDto { StatesEx = [new StateDto.StateExDto { Id = 999, TicksLeft = 999 }] }
+        };
+        var response = await client.GetResponse<UpdateCharacterResponse>(staleRequest);
+
+        Assert.AreEqual(staleRequest.MasterId, response.Message.MasterId);
+        await harness.Stop();
+
+        await using var verificationContext = CreateContext(databaseName);
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == currentRequest.MasterId);
+        var item = await verificationContext.CharactersItems.SingleAsync(x => x.MasterId == currentRequest.MasterId);
+        var farmingPatch = await verificationContext.CharactersFarmingPatches.SingleAsync(x => x.MasterId == currentRequest.MasterId);
+        var note = await verificationContext.CharactersNotes.SingleAsync(x => x.MasterId == currentRequest.MasterId);
+        var itemAppearance = await verificationContext.CharactersItemsLooks.SingleAsync(x => x.MasterId == currentRequest.MasterId);
+        var state = await verificationContext.CharactersStates.SingleAsync(x => x.MasterId == currentRequest.MasterId);
+
+        Assert.AreEqual(currentRequest.SnapshotRevision, character.SnapshotRevision);
+        Assert.AreEqual(currentRequest.Details.CoordX, character.CoordX);
+        Assert.AreEqual(currentRequest.ItemCollection.Bank[0].ItemId, item.ItemId);
+        Assert.AreEqual((uint)currentRequest.Farming.Patches[0].Id, farmingPatch.PatchId);
+        Assert.AreEqual(currentRequest.Notes.Notes[0].Id, note.NoteId);
+        Assert.AreEqual(currentRequest.ItemAppearanceCollection.Appearances[0].Id, itemAppearance.ItemId);
+        Assert.AreEqual(currentRequest.State.StatesEx[0].Id.ToString(), state.StateId);
+    }
+
+    [TestMethod]
     public async Task Consume_UnknownCharacter_RespondsCharacterNotFound()
     {
         var databaseName = Guid.NewGuid().ToString();
@@ -79,6 +135,96 @@ public sealed class CharacterUpdateRequestConsumerTests
     }
 
     [TestMethod]
+    public async Task Consume_InactiveSlayerSentinel_RemovesExistingTaskAndCommits()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName);
+        await using (var seedContext = CreateContext(databaseName))
+        {
+            seedContext.CharactersSlayerTasks.Add(new CharactersSlayerTask { MasterId = 1, SlayerTaskId = 30, KillCount = 10 });
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+
+        var request = CreateRequest() with
+        {
+            Slayer = new SlayerDto { Task = new SlayerDto.SlayerTaskDto { Id = -1, KillCount = 0 } }
+        };
+        var client = harness.GetRequestClient<UpdateCharacterRequest>();
+        var response = await client.GetResponse<UpdateCharacterResponse>(request);
+
+        Assert.AreEqual(request.MasterId, response.Message.MasterId);
+        await harness.Stop();
+
+        await using var verificationContext = CreateContext(databaseName);
+        Assert.IsFalse(await verificationContext.CharactersSlayerTasks.AnyAsync(x => x.MasterId == request.MasterId));
+    }
+
+    [TestMethod]
+    [Timeout(120_000)]
+    public async Task Consume_DefaultFamiliarSentinel_DoesNotPersistFamiliar()
+    {
+        await using var database = new MySqlBuilder("mysql:8.4")
+            .WithDatabase("hagalaz-characters-test")
+            .WithUsername("root")
+            .WithPassword("hagalaz-characters-test")
+            .WithCommand(
+                "--character-set-server=utf8mb4",
+                "--collation-server=utf8mb4_0900_ai_ci")
+            .Build();
+        await database.StartAsync();
+
+        await using (var seedContext = CreateMySqlContext(database))
+        {
+            await seedContext.Database.MigrateAsync();
+            seedContext.Characters.Add(new Character
+            {
+                Id = 1,
+                UserName = "test-character",
+                NormalizedUserName = "TEST-CHARACTER",
+                DisplayName = "Test",
+                RegisterIp = "127.0.0.1"
+            });
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateMySqlContext(database))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+
+        var request = CreateRequest() with
+        {
+            Familiar = new FamiliarDto(0, 0, false, 0),
+            Farming = new FarmingDto { Patches = [] },
+            Slayer = new SlayerDto()
+        };
+        var client = harness.GetRequestClient<UpdateCharacterRequest>();
+        var response = await client.GetResponse<UpdateCharacterResponse>(request);
+
+        Assert.AreEqual(request.MasterId, response.Message.MasterId);
+        await harness.Stop();
+
+        await using var verificationContext = CreateMySqlContext(database);
+        Assert.IsFalse(await verificationContext.CharactersFamiliars.AnyAsync(x => x.MasterId == request.MasterId));
+        Assert.IsFalse(await verificationContext.CharactersFamiliars.AnyAsync(x => x.FamiliarId == 0));
+    }
+
+    [TestMethod]
     public async Task Consume_WhenCommitFails_PropagatesFailureWithoutSuccessResponse()
     {
         var databaseName = Guid.NewGuid().ToString();
@@ -93,6 +239,18 @@ public sealed class CharacterUpdateRequestConsumerTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => consumer.Consume(consumeContext.Object));
 
         Assert.AreEqual("The character update could not be committed.", exception.Message);
+        Assert.IsFalse(consumeContext.Invocations.Any(invocation => invocation.Method.Name == "RespondAsync"));
+    }
+
+    [TestMethod]
+    public async Task Consume_NonPositiveSnapshotRevision_RejectsRequest()
+    {
+        var consumer = new UpdateCharacterRequestConsumer(new Mock<ICharacterUnitOfWork>().Object, CreateMapper());
+        var consumeContext = new Mock<ConsumeContext<UpdateCharacterRequest>>();
+        consumeContext.SetupGet(x => x.Message).Returns(CreateRequest() with { SnapshotRevision = 0 });
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => consumer.Consume(consumeContext.Object));
+
         Assert.IsFalse(consumeContext.Invocations.Any(invocation => invocation.Method.Name == "RespondAsync"));
     }
 
@@ -124,7 +282,8 @@ public sealed class CharacterUpdateRequestConsumerTests
         new NotesDto { Notes = [new NotesDto.NoteDto { Id = 32, Color = 33, Text = "note" }] },
         new ProfileDto { JsonData = "{\"changed\":true}" },
         new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 40, MaleModels = [1, 2, 3], FemaleModels = [4, 5, 6], ModelColors = [7, 8], TextureColors = [9, 10] }] },
-        new StateDto { StatesEx = [new StateDto.StateExDto { Id = 50, TicksLeft = 51 }] });
+        new StateDto { StatesEx = [new StateDto.StateExDto { Id = 50, TicksLeft = 51 }] },
+        2);
 
     private static async Task SeedCharacterAsync(string databaseName)
     {
@@ -147,6 +306,11 @@ public sealed class CharacterUpdateRequestConsumerTests
     private static HagalazDbContext CreateContext(string databaseName) => new(
         new DbContextOptionsBuilder<HagalazDbContext>()
             .UseInMemoryDatabase(databaseName)
+            .Options);
+
+    private static HagalazDbContext CreateMySqlContext(MySqlContainer database) => new(
+        new DbContextOptionsBuilder<HagalazDbContext>()
+            .UseMySQL(database.GetConnectionString())
             .Options);
 
     private static IMapper CreateMapper()
