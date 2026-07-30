@@ -4,7 +4,7 @@ using MySql.EntityFrameworkCore.Metadata;
 
 #nullable disable
 
-namespace Hagalaz.Services.GameWorld.Migrations
+namespace Hagalaz.Data.Migrations
 {
     /// <inheritdoc />
     public partial class AddMassTransitCharacterPersistenceOutbox : Migration
@@ -12,9 +12,6 @@ namespace Hagalaz.Services.GameWorld.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterDatabase()
-                .Annotation("MySQL:Charset", "utf8mb4");
-
             migrationBuilder.CreateTable(
                 name: "InboxState",
                 columns: table => new
@@ -38,7 +35,8 @@ namespace Hagalaz.Services.GameWorld.Migrations
                     table.PrimaryKey("PK_InboxState", x => x.Id);
                     table.UniqueConstraint("AK_InboxState_MessageId_ConsumerId", x => new { x.MessageId, x.ConsumerId });
                 })
-                .Annotation("MySQL:Charset", "utf8mb4");
+                .Annotation("MySQL:Charset", "utf8mb4")
+                .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
                 name: "OutboxState",
@@ -56,7 +54,8 @@ namespace Hagalaz.Services.GameWorld.Migrations
                 {
                     table.PrimaryKey("PK_OutboxState", x => x.OutboxId);
                 })
-                .Annotation("MySQL:Charset", "utf8mb4");
+                .Annotation("MySQL:Charset", "utf8mb4")
+                .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateTable(
                 name: "OutboxMessage",
@@ -99,7 +98,8 @@ namespace Hagalaz.Services.GameWorld.Migrations
                         principalTable: "OutboxState",
                         principalColumn: "OutboxId");
                 })
-                .Annotation("MySQL:Charset", "utf8mb4");
+                .Annotation("MySQL:Charset", "utf8mb4")
+                .Annotation("Relational:Collation", "utf8mb4_0900_ai_ci");
 
             migrationBuilder.CreateIndex(
                 name: "IX_InboxState_Delivered",

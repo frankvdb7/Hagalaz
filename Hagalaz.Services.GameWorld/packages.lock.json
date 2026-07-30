@@ -902,6 +902,7 @@
         "type": "Project",
         "dependencies": {
           "Hagalaz.Security": "[1.0.0, )",
+          "MassTransit.EntityFrameworkCore": "[8.5.10, )",
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "[10.0.10, )",
           "Microsoft.EntityFrameworkCore": "[10.0.10, )",
           "Microsoft.EntityFrameworkCore.Proxies": "[10.0.10, )",

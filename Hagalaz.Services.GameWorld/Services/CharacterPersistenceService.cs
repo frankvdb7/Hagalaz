@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Characters.Messages;
+using Hagalaz.Data;
 using Hagalaz.Characters.Messages.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Services.Model;
@@ -21,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ILogger<CharacterPersistenceService> _logger;
         private readonly IMapper _mapper;
         private readonly IPublishEndpoint _publishEndpoint;
-        private readonly CharacterPersistenceOutboxDbContext _outboxDbContext;
+        private readonly HagalazDbContext _dbContext;
         private readonly ICharacterDehydrationService _dehydrationService;
         private readonly SnapshotRevisionGenerator _snapshotRevisionGenerator;
         private readonly CharacterPersistenceState _state;
@@ -30,7 +31,7 @@ namespace Hagalaz.Services.GameWorld.Services
             ILogger<CharacterPersistenceService> logger,
             IMapper mapper,
             IPublishEndpoint publishEndpoint,
-            CharacterPersistenceOutboxDbContext outboxDbContext,
+            HagalazDbContext dbContext,
             ICharacterDehydrationService dehydrationService,
             SnapshotRevisionGenerator snapshotRevisionGenerator,
             CharacterPersistenceState state)
@@ -38,7 +39,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _logger = logger;
             _mapper = mapper;
             _publishEndpoint = publishEndpoint;
-            _outboxDbContext = outboxDbContext;
+            _dbContext = dbContext;
             _dehydrationService = dehydrationService;
             _snapshotRevisionGenerator = snapshotRevisionGenerator;
             _state = state;
@@ -62,7 +63,7 @@ namespace Hagalaz.Services.GameWorld.Services
             // in-memory fingerprint. A broker outage therefore leaves the command durable in
             // the database, while an outbox database failure is still visible to the caller.
             await _publishEndpoint.Publish(command, cancellationToken);
-            await _outboxDbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
             _state.MarkPending(character.MasterId, fingerprint, snapshotRevision);
             _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
         }

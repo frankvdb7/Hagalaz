@@ -84,7 +84,6 @@ namespace Hagalaz.Services.GameWorld
             startup.Configure(app, app.Environment, app.Services.GetRequiredService<IMapper>());
 
             await app.MigrateDatabase<HagalazDbContext>();
-            await app.MigrateDatabase<CharacterPersistenceOutboxDbContext>();
 
             ServiceLocator.SetLocatorProvider(app.Services); // TODO - when services are refactored, remove the service locator
 

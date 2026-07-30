@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Characters.Messages;
+using Hagalaz.Data;
 using Hagalaz.Services.GameWorld.Profiles;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
@@ -29,7 +30,7 @@ public sealed class CharacterPersistenceServiceTests
             .When(endpoint => endpoint.Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>()))
             .Do(callInfo => publishedCommands.Add(callInfo.Arg<PersistCharacterCommand>()!));
 
-        await using var outboxDbContext = CreateOutboxDbContext();
+        await using var dbContext = CreateSharedDbContext();
         using var mapperProvider = new ServiceCollection()
             .AddLogging()
             .AddAutoMapper(configuration => configuration.AddProfile<CharacterProfile>())
@@ -42,7 +43,7 @@ public sealed class CharacterPersistenceServiceTests
             NullLogger<CharacterPersistenceService>.Instance,
             mapper,
             publishEndpoint,
-            outboxDbContext,
+            dbContext,
             dehydrationService,
             new SnapshotRevisionGenerator(),
             state);
@@ -68,7 +69,7 @@ public sealed class CharacterPersistenceServiceTests
         dehydrationService.DehydrateAsync(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>())
             .Returns(Task.FromResult(new CharacterModel()));
         var publishEndpoint = Substitute.For<IPublishEndpoint>();
-        await using var outboxDbContext = CreateOutboxDbContext();
+        await using var dbContext = CreateSharedDbContext();
         using var mapperProvider = new ServiceCollection()
             .AddLogging()
             .AddAutoMapper(configuration => configuration.AddProfile<CharacterProfile>())
@@ -80,7 +81,7 @@ public sealed class CharacterPersistenceServiceTests
             NullLogger<CharacterPersistenceService>.Instance,
             mapper,
             publishEndpoint,
-            outboxDbContext,
+            dbContext,
             dehydrationService,
             new SnapshotRevisionGenerator(),
             new CharacterPersistenceState());
@@ -92,9 +93,9 @@ public sealed class CharacterPersistenceServiceTests
     }
 
     [TestMethod]
-    public void OutboxDbContext_ContainsMassTransitInboxAndOutboxEntities()
+    public void SharedDbContext_ContainsMassTransitInboxAndOutboxEntities()
     {
-        using var context = CreateOutboxDbContext();
+        using var context = CreateSharedDbContext();
         var tableNames = context.Model.GetEntityTypes()
             .Select(entityType => entityType.GetTableName())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -104,11 +105,11 @@ public sealed class CharacterPersistenceServiceTests
         Assert.Contains("OutboxState", tableNames);
     }
 
-    private static CharacterPersistenceOutboxDbContext CreateOutboxDbContext()
+    private static HagalazDbContext CreateSharedDbContext()
     {
-        var options = new DbContextOptionsBuilder<CharacterPersistenceOutboxDbContext>()
+        var options = new DbContextOptionsBuilder<HagalazDbContext>()
             .UseMySQL("Server=localhost;Database=hagalaz;User=root;Password=;")
             .Options;
-        return new CharacterPersistenceOutboxDbContext(options);
+        return new HagalazDbContext(options);
     }
 }

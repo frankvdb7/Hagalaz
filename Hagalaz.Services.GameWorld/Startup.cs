@@ -111,20 +111,6 @@ namespace Hagalaz.Services.GameWorld
         {
             services.AddHealthChecks();
 
-            var databaseConnection = Configuration.GetConnectionString("hagalaz-db");
-            if (string.IsNullOrWhiteSpace(databaseConnection))
-            {
-                throw new InvalidOperationException("The database connection string 'hagalaz-db' was not configured.");
-            }
-
-            databaseConnection = MySqlConnectionStringCompatibility.NormalizeForOracle(databaseConnection, "'hagalaz-db'");
-            services.AddDbContext<CharacterPersistenceOutboxDbContext>(options =>
-                options.UseMySQL(databaseConnection, mysqlOptions =>
-                {
-                    mysqlOptions.EnableRetryOnFailure(6);
-                    mysqlOptions.MigrationsHistoryTable("__MassTransitOutboxMigrationsHistory");
-                }));
-
             // fusion cache
             services.AddFusionCache()
                 .WithDefaultEntryOptions(options => options.Duration = TimeSpan.FromMinutes(5))
@@ -644,7 +630,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddMassTransit(x =>
             {
                 x.AddDelayedMessageScheduler();
-                x.AddEntityFrameworkOutbox<CharacterPersistenceOutboxDbContext>(options =>
+                x.AddEntityFrameworkOutbox<HagalazDbContext>(options =>
                 {
                     options.UseMySql();
                     options.UseBusOutbox();
