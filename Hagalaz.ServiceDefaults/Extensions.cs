@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Asp.Versioning;
@@ -9,17 +11,26 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.HttpOverrides;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Polly;
 using Scalar.AspNetCore;
+using ForwardedHeadersNetwork = System.Net.IPNetwork;
 
 namespace Hagalaz.ServiceDefaults;
 
 public static class Extensions
 {
     public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
+    {
+        return builder.AddServiceDefaults(requireTrustedForwardedHeaders: false);
+    }
+
+    public static IHostApplicationBuilder AddServiceDefaults(
+        this IHostApplicationBuilder builder,
+        bool requireTrustedForwardedHeaders)
     {
         builder.Services.AddCors();
 
@@ -33,13 +44,14 @@ public static class Extensions
             });
         builder.Services.AddAuthorization();
 
+        builder.Configuration.AddEnvironmentVariables(EnvironmentVariables.Prefix);
+        builder.AddForwardedHeaders(requireTrustedForwardedHeaders);
+
         builder.ConfigureOpenTelemetry();
 
         builder.AddDefaultHealthChecks();
 
         builder.Services.AddServiceDiscovery();
-
-        builder.Configuration.AddEnvironmentVariables(EnvironmentVariables.Prefix);
 
         builder.Services.AddResiliencePipelineRegistry<string>();
 
@@ -68,6 +80,93 @@ public static class Extensions
         });
 
         return builder;
+    }
+
+    public static IHostApplicationBuilder AddForwardedHeaders(
+        this IHostApplicationBuilder builder,
+        bool requireTrustedForwardedHeaders = false)
+    {
+        var knownProxies = ParseKnownProxies(builder.Configuration);
+        var knownNetworks = ParseKnownNetworks(builder.Configuration);
+        var hasExplicitTrust = knownProxies.Count > 0 || knownNetworks.Count > 0;
+
+        if (requireTrustedForwardedHeaders && !hasExplicitTrust)
+        {
+            throw new InvalidOperationException(
+                "Forwarded headers are required outside Development, but no trusted proxy or network is configured. " +
+                "Configure ForwardedHeaders:KnownProxies or ForwardedHeaders:KnownNetworks.");
+        }
+
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
+            options.ForwardLimit = 1;
+
+            if (!hasExplicitTrust)
+            {
+                return;
+            }
+
+            options.KnownProxies.Clear();
+            options.KnownIPNetworks.Clear();
+
+            foreach (var proxy in knownProxies)
+            {
+                options.KnownProxies.Add(proxy);
+            }
+
+            foreach (var network in knownNetworks)
+            {
+                options.KnownIPNetworks.Add(network);
+            }
+        });
+
+        return builder;
+    }
+
+    private static List<IPAddress> ParseKnownProxies(IConfiguration configuration)
+    {
+        var proxies = new List<IPAddress>();
+        foreach (var child in configuration.GetSection("ForwardedHeaders:KnownProxies").GetChildren())
+        {
+            if (string.IsNullOrWhiteSpace(child.Value) || !IPAddress.TryParse(child.Value, out var address))
+            {
+                throw new InvalidOperationException(
+                    $"The forwarded-header trusted proxy '{child.Value}' is not a valid IP address.");
+            }
+
+            proxies.Add(address);
+        }
+
+        return proxies;
+    }
+
+    private static List<ForwardedHeadersNetwork> ParseKnownNetworks(IConfiguration configuration)
+    {
+        var networks = new List<ForwardedHeadersNetwork>();
+        foreach (var child in configuration.GetSection("ForwardedHeaders:KnownNetworks").GetChildren())
+        {
+            var value = child.Value;
+            var parts = value?.Split('/', 2, StringSplitOptions.TrimEntries);
+            if (parts is not { Length: 2 } ||
+                !IPAddress.TryParse(parts[0], out var prefix) ||
+                !int.TryParse(parts[1], out var prefixLength))
+            {
+                throw new InvalidOperationException(
+                    $"The forwarded-header trusted network '{value}' is not a valid CIDR network.");
+            }
+
+            var maximumPrefixLength = prefix.AddressFamily == AddressFamily.InterNetwork ? 32 : 128;
+            if (prefixLength < 0 || prefixLength > maximumPrefixLength)
+            {
+                throw new InvalidOperationException(
+                    $"The forwarded-header trusted network '{value}' has an invalid prefix length.");
+            }
+
+            networks.Add(new ForwardedHeadersNetwork(prefix, prefixLength));
+        }
+
+        return networks;
     }
 
     public static IHostApplicationBuilder ConfigureOpenTelemetry(this IHostApplicationBuilder builder)
@@ -159,12 +258,11 @@ public static class Extensions
 
     public static WebApplication UseServiceDefaults(this WebApplication app)
     {
-        app.UseHttpsRedirection();
+        app.UseForwardedHeaders();
         app.UseRouting();
         if (app.Environment.IsDevelopment())
         {
             app.UseDeveloperExceptionPage();
-            app.UseForwardedHeaders();
             app.UseCors(builder => { builder.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod().AllowCredentials(); });
             app.MapOpenApi();
             app.MapScalarApiReference();
@@ -172,10 +270,11 @@ public static class Extensions
         else
         {
             app.UseExceptionHandler("/error");
-            app.UseForwardedHeaders();
             app.UseHsts();
             app.UseCors();
         }
+
+        app.UseHttpsRedirection();
 
         app.UseAuthentication();
         app.UseAuthorization();
