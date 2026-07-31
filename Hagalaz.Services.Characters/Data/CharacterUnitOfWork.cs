@@ -37,6 +37,7 @@ namespace Hagalaz.Services.Characters.Data
         public CharacterUnitOfWork(HagalazDbContext context) => _context = context;
         public void Add<TEntity>(TEntity entity) where TEntity : class => _context.Set<TEntity>().Add(entity);
         public void Remove<TEntity>(TEntity entity) where TEntity : class => _context.Set<TEntity>().Remove(entity);
+        public void Reset() => _context.ChangeTracker.Clear();
         public async ValueTask CommitAsync() => await _context.SaveChangesAsync();
         public ValueTask RollbackAsync() => _context.DisposeAsync();
     }

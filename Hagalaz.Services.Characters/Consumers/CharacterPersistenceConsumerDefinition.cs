@@ -1,4 +1,5 @@
 using System;
+using Hagalaz.Data;
 using MassTransit;
 
 namespace Hagalaz.Services.Characters.Consumers;
@@ -24,6 +25,10 @@ public sealed class CharacterPersistenceConsumerDefinition : ConsumerDefinition<
         // queue instead of being silently discarded.
         endpointConfigurator.ConfigureDefaultErrorTransport();
         endpointConfigurator.ConfigureDefaultDeadLetterTransport();
+        if (context.GetService(typeof(IEntityFrameworkOutboxConfigurator)) != null)
+        {
+            endpointConfigurator.UseEntityFrameworkOutbox<HagalazDbContext>(context);
+        }
         endpointConfigurator.UseMessageRetry(retry =>
             retry.Exponential(
                 retryLimit: 5,

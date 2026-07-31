@@ -62,6 +62,54 @@ public sealed class CharacterUpdateRequestConsumerTests
     }
 
     [TestMethod]
+    [Timeout(15000)]
+    public async Task Consume_PersistCommand_ResetsTrackingAfterConcurrencyFailure()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName);
+        var remainingFailures = 1;
+        var resetCount = 0;
+        var totalCommits = 0;
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork>(serviceProvider =>
+                new FailingCharacterUnitOfWork(
+                    new CharacterUnitOfWork(serviceProvider.GetRequiredService<HagalazDbContext>()),
+                    () =>
+                    {
+                        Interlocked.Increment(ref totalCommits);
+                        return Interlocked.Exchange(ref remainingFailures, 0) == 1
+                            ? new DbUpdateConcurrencyException("The character snapshot was updated concurrently.")
+                            : null;
+                    },
+                    () => Interlocked.Increment(ref resetCount)))
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x =>
+                x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+
+        var command = CreateCommand();
+        await harness.Bus.Publish(command);
+
+        for (var attempt = 0; attempt < 50 && totalCommits < 2; attempt++)
+        {
+            await Task.Delay(100);
+        }
+
+        await harness.Stop();
+
+        Assert.AreEqual(2, totalCommits);
+        Assert.AreEqual(1, resetCount);
+        await using var verificationContext = CreateContext(databaseName);
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == command.MasterId);
+        Assert.AreEqual(command.SnapshotRevision, character.SnapshotRevision);
+    }
+
+    [TestMethod]
     public async Task Consume_PersistCommand_IsOneWayAndIgnoresStaleRevision()
     {
         var databaseName = Guid.NewGuid().ToString();
@@ -437,7 +485,8 @@ public sealed class CharacterUpdateRequestConsumerTests
     private sealed class FailingCharacterUnitOfWork : ICharacterUnitOfWork
     {
         private readonly ICharacterUnitOfWork _inner;
-        private readonly Func<bool> _shouldFail;
+        private readonly Func<Exception?> _failureFactory;
+        private readonly Action? _onReset;
 
         public FailingCharacterUnitOfWork(ICharacterUnitOfWork inner)
             : this(inner, static () => true)
@@ -445,9 +494,23 @@ public sealed class CharacterUpdateRequestConsumerTests
         }
 
         public FailingCharacterUnitOfWork(ICharacterUnitOfWork inner, Func<bool> shouldFail)
+            : this(
+                inner,
+                () => shouldFail()
+                    ? new InvalidOperationException("The character update could not be committed.")
+                    : null,
+                null)
+        {
+        }
+
+        public FailingCharacterUnitOfWork(
+            ICharacterUnitOfWork inner,
+            Func<Exception?> failureFactory,
+            Action? onReset)
         {
             _inner = inner;
-            _shouldFail = shouldFail;
+            _failureFactory = failureFactory;
+            _onReset = onReset;
         }
 
         public ICharacterRepository CharacterRepository => _inner.CharacterRepository;
@@ -466,12 +529,19 @@ public sealed class CharacterUpdateRequestConsumerTests
 
         public void Add<TEntity>(TEntity entity) where TEntity : class => _inner.Add(entity);
         public void Remove<TEntity>(TEntity entity) where TEntity : class => _inner.Remove(entity);
+        public void Reset()
+        {
+            _inner.Reset();
+            _onReset?.Invoke();
+        }
+
         public ValueTask RollbackAsync() => _inner.RollbackAsync();
         public ValueTask CommitAsync()
         {
-            if (_shouldFail())
+            var failure = _failureFactory();
+            if (failure != null)
             {
-                return ValueTask.FromException(new InvalidOperationException("The character update could not be committed."));
+                return ValueTask.FromException(failure);
             }
 
             return _inner.CommitAsync();
