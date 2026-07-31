@@ -19,6 +19,11 @@ public sealed class CharacterPersistenceConsumerDefinition : ConsumerDefinition<
         IConsumerConfigurator<UpdateCharacterRequestConsumer> consumerConfigurator,
         IRegistrationContext context)
     {
+        // Keep failed commands durably available in RabbitMQ's endpoint error
+        // queue after retries. Skipped/unmatched messages use the dead-letter
+        // queue instead of being silently discarded.
+        endpointConfigurator.ConfigureDefaultErrorTransport();
+        endpointConfigurator.ConfigureDefaultDeadLetterTransport();
         endpointConfigurator.UseMessageRetry(retry =>
             retry.Exponential(
                 retryLimit: 5,

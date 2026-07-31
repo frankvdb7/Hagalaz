@@ -11,6 +11,7 @@
     <PackageReference Include="AutoMapper" Version="16.2.0" />
     <PackageReference Include="FluentResults" Version="4.0.0" />
     <PackageReference Include="MassTransit" Version="8.5.10" />
+    <PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.5.10" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.10" />
     <PackageReference Include="OpenIddict.AspNetCore" Version="7.6.0" />
   </ItemGroup>

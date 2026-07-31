@@ -335,6 +335,16 @@ public sealed class CharacterUpdateRequestConsumerTests
         Assert.IsFalse(consumeContext.Invocations.Any(invocation => invocation.Method.Name == "RespondAsync"));
     }
 
+    [TestMethod]
+    public void SnapshotRevision_IsConfiguredAsAnOptimisticConcurrencyToken()
+    {
+        using var context = CreateContext(Guid.NewGuid().ToString());
+        var property = context.Model.FindEntityType(typeof(Character))!.FindProperty(nameof(Character.SnapshotRevision));
+
+        Assert.IsNotNull(property);
+        Assert.IsTrue(property.IsConcurrencyToken);
+    }
+
     private static UpdateCharacterRequest CreateRequest() => new(
         Guid.NewGuid(),
         1,

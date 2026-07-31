@@ -12,6 +12,7 @@ using Hagalaz.Data.Extensions;
 using Hagalaz.Services.Characters.Consumers;
 using Hagalaz.Services.Characters.Data;
 using Hagalaz.Services.Characters.Mediator.Consumers;
+using Hagalaz.Services.Characters.Metrics;
 using Hagalaz.Services.Characters.Services;
 using Hagalaz.ServiceDefaults;
 
@@ -58,9 +59,16 @@ namespace Hagalaz.Services.Characters
             // unit of work
             builder.Services.AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>();
             builder.Services.AddScoped<ICharacterService, CharacterService>();
+            builder.Services.AddSingleton<CharacterPersistenceMetrics>();
 
             builder.Services.AddMassTransit(x =>
             {
+                x.AddEntityFrameworkOutbox<HagalazDbContext>(options =>
+                {
+                    options.UseMySql();
+                    options.UseBusOutbox();
+                });
+
                 x.UsingRabbitMq((context, cfg) =>
                 {
                     var host = builder.Configuration.GetConnectionString("messaging");
@@ -74,6 +82,7 @@ namespace Hagalaz.Services.Characters
 
                 x.AddConsumer<GetCharacterRequestConsumer>();
                 x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>();
+                x.AddConsumer<CharacterPersistenceFaultConsumer>();
             });
 
             builder.Services.AddMediator(c =>

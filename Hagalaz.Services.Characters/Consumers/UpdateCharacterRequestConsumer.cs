@@ -9,6 +9,7 @@ using Hagalaz.Characters.Messages.Model;
 using Hagalaz.Data.Entities;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Services.Characters.Data;
+using Hagalaz.Services.Characters.Metrics;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,63 +19,108 @@ namespace Hagalaz.Services.Characters.Consumers
     {
         private readonly ICharacterUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly CharacterPersistenceMetrics _metrics;
+        private readonly IPublishEndpoint? _publishEndpoint;
 
-        public UpdateCharacterRequestConsumer(ICharacterUnitOfWork unitOfWork, IMapper mapper)
+        public UpdateCharacterRequestConsumer(
+            ICharacterUnitOfWork unitOfWork,
+            IMapper mapper,
+            CharacterPersistenceMetrics? metrics = null,
+            IPublishEndpoint? publishEndpoint = null)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _metrics = metrics ?? new CharacterPersistenceMetrics();
+            _publishEndpoint = publishEndpoint;
         }
 
         public async Task Consume(ConsumeContext<UpdateCharacterRequest> context)
         {
-            var message = context.Message;
-            Validate(message);
-
-            var character = await _unitOfWork.CharacterRepository.FindById(message.MasterId).SingleOrDefaultAsync();
-            if (character == null)
+            try
             {
-                await context.RespondAsync(new CharacterNotFound(message.CorrelationId, message.MasterId));
-                return;
-            }
+                var message = context.Message;
+                Validate(message);
 
-            if (message.SnapshotRevision <= character.SnapshotRevision)
-            {
+                var character = await _unitOfWork.CharacterRepository.FindById(message.MasterId).SingleOrDefaultAsync();
+                if (character == null)
+                {
+                    _metrics.RecordUnknownCharacter();
+                    await context.RespondAsync(new CharacterNotFound(message.CorrelationId, message.MasterId));
+                    return;
+                }
+
+                if (message.SnapshotRevision <= character.SnapshotRevision)
+                {
+                    _metrics.RecordDuplicateOrStale();
+                    await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId));
+                    return;
+                }
+
+                await ApplySnapshotAsync(message, character);
+                await _unitOfWork.CommitAsync();
+                _metrics.RecordApplied();
                 await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId));
-                return;
             }
-
-            await ApplySnapshotAsync(message, character);
-            await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId));
+            catch
+            {
+                _metrics.RecordFailure();
+                throw;
+            }
         }
 
         public async Task Consume(ConsumeContext<PersistCharacterCommand> context)
         {
-            var message = context.Message;
-            Validate(message);
-
-            var character = await _unitOfWork.CharacterRepository.FindById(message.MasterId).SingleOrDefaultAsync();
-            if (character == null)
+            try
             {
-                throw new InvalidOperationException($"Character '{message.MasterId}' was not found while applying a persistence command.");
-            }
+                var message = context.Message;
+                Validate(message);
 
-            if (message.SnapshotRevision <= character.SnapshotRevision)
-            {
+                var character = await _unitOfWork.CharacterRepository.FindById(message.MasterId).SingleOrDefaultAsync();
+                if (character == null)
+                {
+                    _metrics.RecordUnknownCharacter();
+                    throw new InvalidOperationException($"Character '{message.MasterId}' was not found while applying a persistence command.");
+                }
+
+                if (message.SnapshotRevision <= character.SnapshotRevision)
+                {
+                    _metrics.RecordDuplicateOrStale();
+                    await PublishAcknowledgementAsync(context, message);
+                    await _unitOfWork.CommitAsync();
+                    return;
+                }
+
+                // SnapshotRevision is configured as an EF concurrency token. The
+                // acknowledgement is added to the EF bus outbox before this commit,
+                // making the state change and durable acknowledgement one transaction.
+                await ApplySnapshotAsync(message, character);
                 await PublishAcknowledgementAsync(context, message);
-                return;
+                await _unitOfWork.CommitAsync();
+                _metrics.RecordApplied();
             }
-
-            await ApplySnapshotAsync(message, character);
-            await PublishAcknowledgementAsync(context, message);
+            catch
+            {
+                _metrics.RecordFailure();
+                throw;
+            }
         }
 
-        private static Task PublishAcknowledgementAsync(
+        private Task PublishAcknowledgementAsync(
             ConsumeContext<PersistCharacterCommand> context,
-            PersistCharacterCommand message) =>
-            context.Publish(new PersistCharacterAcknowledged(
+            PersistCharacterCommand message)
+        {
+            var acknowledgement = new PersistCharacterAcknowledged(
                 message.CorrelationId,
                 message.MasterId,
-                message.SnapshotRevision));
+                message.SnapshotRevision);
+
+            // The scoped publish endpoint is backed by the EF bus outbox in the
+            // running service. Keep the consume-context fallback for isolated
+            // unit tests and callers that construct the consumer directly.
+            return _publishEndpoint == null
+                ? context.Publish(acknowledgement)
+                : _publishEndpoint.Publish(acknowledgement);
+        }
 
         private async Task ApplySnapshotAsync(ICharacterPersistenceMessage message, Hagalaz.Data.Entities.Character character)
         {
@@ -110,8 +156,6 @@ namespace Hagalaz.Services.Characters.Consumers
             await UpdateMusicAsync(message);
             await UpdateProfileAsync(message);
             await UpdateSlayerAsync(message);
-
-            await _unitOfWork.CommitAsync();
         }
 
         private async Task UpdateFamiliarAsync(ICharacterPersistenceMessage message)
