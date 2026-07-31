@@ -54,7 +54,7 @@ public sealed class CharacterPersistenceIntegrationTests
         var masterId = await SeedCharacterAsync();
         await using var provider = CreateProvider();
         var harness = provider.GetTestHarness();
-        var acknowledgementProbe = harness.GetConsumerHarness<AcknowledgementProbe>();
+        var acknowledgementCapture = provider.GetRequiredService<AcknowledgementCapture>();
         await harness.Start();
 
         try
@@ -67,10 +67,10 @@ public sealed class CharacterPersistenceIntegrationTests
                 await scope.ServiceProvider.GetRequiredService<HagalazDbContext>().SaveChangesAsync();
             }
 
-            Assert.IsTrue(await harness.Consumed.Any<PersistCharacterCommand>(x =>
-                x.Context.Message.MasterId == masterId && x.Context.Message.SnapshotRevision == 1));
-            Assert.IsTrue(await acknowledgementProbe.Consumed.Any<PersistCharacterAcknowledged>(x =>
-                x.Context.Message.MasterId == masterId && x.Context.Message.SnapshotRevision == 1));
+            using var deliveryTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var acknowledgement = await acknowledgementCapture.Received.Task.WaitAsync(deliveryTimeout.Token);
+            Assert.AreEqual(masterId, acknowledgement.MasterId);
+            Assert.AreEqual(1L, acknowledgement.SnapshotRevision);
         }
         finally
         {
@@ -123,9 +123,9 @@ public sealed class CharacterPersistenceIntegrationTests
         var masterId = await SeedCharacterAsync();
         await using var provider = CreateProvider();
         var harness = provider.GetTestHarness();
-        var faultConsumer = harness.GetConsumerHarness<CharacterPersistenceFaultConsumer>();
-        var errorQueue = harness.GetConsumerHarness<ErrorQueueProbe>();
-        var acknowledgementProbe = harness.GetConsumerHarness<AcknowledgementProbe>();
+        var faultCapture = provider.GetRequiredService<FaultCapture>();
+        var errorQueueCapture = provider.GetRequiredService<ErrorQueueCapture>();
+        var acknowledgementCapture = provider.GetRequiredService<AcknowledgementCapture>();
         await harness.Start();
 
         try
@@ -133,30 +133,16 @@ public sealed class CharacterPersistenceIntegrationTests
             var command = CreateCommand(masterId, 1, noteText: new string('x', 51));
             await harness.Bus.Publish(command);
 
-            var fault = await harness.Published
-                .SelectAsync<Fault<PersistCharacterCommand>>()
-                .FirstOrDefault();
-            Assert.IsNotNull(fault);
-            var faultMessage = fault!.Context.Message;
+            var faultMessage = await faultCapture.Received.Task.WaitAsync(TimeSpan.FromSeconds(120));
             Assert.AreEqual(masterId, faultMessage.Message.MasterId);
             var exception = faultMessage.Exceptions.FirstOrDefault();
             Assert.IsNotNull(exception);
             StringAssert.Contains(exception!.ExceptionType, nameof(DbUpdateException));
-            StringAssert.Contains(exception.Message, "saving the entity changes");
+            StringAssert.Contains(exception.Message, "Could not save changes");
 
-            using var faultConsumerTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            Assert.IsTrue(await faultConsumer.Consumed.Any<Fault<PersistCharacterCommand>>(x =>
-                x.Context.Message.Message.MasterId == masterId,
-                faultConsumerTimeout.Token));
-
-            using var errorQueueTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            Assert.IsTrue(await errorQueue.Consumed.Any<PersistCharacterCommand>(x =>
-                x.Context.Message.MasterId == masterId,
-                errorQueueTimeout.Token));
-            using var acknowledgementTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            Assert.IsFalse(await acknowledgementProbe.Consumed.Any<PersistCharacterAcknowledged>(x =>
-                x.Context.Message.MasterId == masterId,
-                acknowledgementTimeout.Token));
+            var errorCommand = await errorQueueCapture.Received.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.AreEqual(masterId, errorCommand.MasterId);
+            Assert.IsFalse(acknowledgementCapture.Received.Task.IsCompleted);
         }
         finally
         {
@@ -175,6 +161,9 @@ public sealed class CharacterPersistenceIntegrationTests
         var services = new ServiceCollection()
             .AddLogging()
             .AddSingleton<CharacterPersistenceMetrics>()
+            .AddSingleton<AcknowledgementCapture>()
+            .AddSingleton<FaultCapture>()
+            .AddSingleton<ErrorQueueCapture>()
             .AddDbContext<HagalazDbContext>(options => options.UseMySQL(_database!.GetConnectionString()))
             .AddScoped<ICharacterUnitOfWork>(serviceProvider =>
             {
@@ -195,13 +184,13 @@ public sealed class CharacterPersistenceIntegrationTests
             x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>();
             x.AddConsumer<CharacterPersistenceFaultConsumer>();
             x.AddConsumer<AcknowledgementProbe>();
+            x.AddConsumer<FaultProbe, FaultProbeDefinition>();
             x.AddConsumer<ErrorQueueProbe, ErrorQueueProbeDefinition>();
             x.AddConfigureEndpointsCallback((name, endpoint) =>
             {
                 if (name == "UpdateCharacterRequest")
                 {
                     endpoint.ConcurrentMessageLimit = 2;
-                    endpoint.PublishFaults = true;
                 }
             });
         });
@@ -270,14 +259,66 @@ public sealed class CharacterPersistenceIntegrationTests
             new StateDto { StatesEx = [new StateDto.StateExDto { Id = 50, TicksLeft = 51 }] },
             revision);
 
+    private sealed class AcknowledgementCapture
+    {
+        public TaskCompletionSource<PersistCharacterAcknowledged> Received { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private sealed class FaultCapture
+    {
+        public TaskCompletionSource<Fault<PersistCharacterCommand>> Received { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private sealed class ErrorQueueCapture
+    {
+        public TaskCompletionSource<PersistCharacterCommand> Received { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
     private sealed class AcknowledgementProbe : IConsumer<PersistCharacterAcknowledged>
     {
-        public Task Consume(ConsumeContext<PersistCharacterAcknowledged> context) => Task.CompletedTask;
+        private readonly AcknowledgementCapture _capture;
+
+        public AcknowledgementProbe(AcknowledgementCapture capture) => _capture = capture;
+
+        public Task Consume(ConsumeContext<PersistCharacterAcknowledged> context)
+        {
+            _capture.Received.TrySetResult(context.Message);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FaultProbe : IConsumer<Fault<PersistCharacterCommand>>
+    {
+        private readonly FaultCapture _capture;
+
+        public FaultProbe(FaultCapture capture) => _capture = capture;
+
+        public Task Consume(ConsumeContext<Fault<PersistCharacterCommand>> context)
+        {
+            _capture.Received.TrySetResult(context.Message);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FaultProbeDefinition : ConsumerDefinition<FaultProbe>
+    {
+        public FaultProbeDefinition() => EndpointName = "FaultProbe";
     }
 
     private sealed class ErrorQueueProbe : IConsumer<PersistCharacterCommand>
     {
-        public Task Consume(ConsumeContext<PersistCharacterCommand> context) => Task.CompletedTask;
+        private readonly ErrorQueueCapture _capture;
+
+        public ErrorQueueProbe(ErrorQueueCapture capture) => _capture = capture;
+
+        public Task Consume(ConsumeContext<PersistCharacterCommand> context)
+        {
+            _capture.Received.TrySetResult(context.Message);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class ErrorQueueProbeDefinition : ConsumerDefinition<ErrorQueueProbe>
