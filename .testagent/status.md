@@ -1,3 +1,3 @@
 # Test status
 
-The Oracle provider integration tests pass against Docker Desktop with MySQL 8.4. Explicit OpenIddict composite-index prefixes were required for the generated migration DDL.
+The local JSON outbox scenarios were replaced with command publication, EF outbox model, logout lifecycle, lock-lifecycle, consumer-retry, deferred logout-cleanup, bounded-shutdown, revocation-ordering, and durable-acknowledgement regression tests. The Characters consumer now uses exponential MassTransit message retry before faulting. Durable acknowledgement keeps producer fingerprints pending until a matching applied-or-already-current revision acknowledgement arrives. The shutdown deadline regression now gates on persistence entry before asserting cancellation; the focused worker suite passes.

@@ -73,7 +73,7 @@ namespace Hagalaz.Services.Characters
                 });
 
                 x.AddConsumer<GetCharacterRequestConsumer>();
-                x.AddConsumer<UpdateCharacterRequestConsumer>();
+                x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>();
             });
 
             builder.Services.AddMediator(c =>

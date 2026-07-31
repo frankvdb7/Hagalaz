@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Hagalaz.Data.Entities;
+using MassTransit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -125,6 +126,9 @@ namespace Hagalaz.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.AddInboxStateEntity();
+            modelBuilder.AddOutboxMessageEntity();
+            modelBuilder.AddOutboxStateEntity();
             // EF10 discovers Identity passkey metadata, but this legacy schema has
             // no passkey table. Keep the optional entity out until it is migrated.
             modelBuilder.Ignore<IdentityUserPasskey<uint>>();

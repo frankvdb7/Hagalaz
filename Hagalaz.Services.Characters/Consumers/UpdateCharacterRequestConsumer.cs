@@ -14,7 +14,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Hagalaz.Services.Characters.Consumers
 {
-    public class UpdateCharacterRequestConsumer : IConsumer<UpdateCharacterRequest>
+    public class UpdateCharacterRequestConsumer : IConsumer<UpdateCharacterRequest>, IConsumer<PersistCharacterCommand>
     {
         private readonly ICharacterUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
@@ -43,6 +43,41 @@ namespace Hagalaz.Services.Characters.Consumers
                 return;
             }
 
+            await ApplySnapshotAsync(message, character);
+            await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId));
+        }
+
+        public async Task Consume(ConsumeContext<PersistCharacterCommand> context)
+        {
+            var message = context.Message;
+            Validate(message);
+
+            var character = await _unitOfWork.CharacterRepository.FindById(message.MasterId).SingleOrDefaultAsync();
+            if (character == null)
+            {
+                throw new InvalidOperationException($"Character '{message.MasterId}' was not found while applying a persistence command.");
+            }
+
+            if (message.SnapshotRevision <= character.SnapshotRevision)
+            {
+                await PublishAcknowledgementAsync(context, message);
+                return;
+            }
+
+            await ApplySnapshotAsync(message, character);
+            await PublishAcknowledgementAsync(context, message);
+        }
+
+        private static Task PublishAcknowledgementAsync(
+            ConsumeContext<PersistCharacterCommand> context,
+            PersistCharacterCommand message) =>
+            context.Publish(new PersistCharacterAcknowledged(
+                message.CorrelationId,
+                message.MasterId,
+                message.SnapshotRevision));
+
+        private async Task ApplySnapshotAsync(ICharacterPersistenceMessage message, Hagalaz.Data.Entities.Character character)
+        {
             character.SnapshotRevision = message.SnapshotRevision;
 
             character.CoordX = checked((short)message.Details.CoordX);
@@ -77,10 +112,9 @@ namespace Hagalaz.Services.Characters.Consumers
             await UpdateSlayerAsync(message);
 
             await _unitOfWork.CommitAsync();
-            await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId));
         }
 
-        private async Task UpdateFamiliarAsync(UpdateCharacterRequest message)
+        private async Task UpdateFamiliarAsync(ICharacterPersistenceMessage message)
         {
             var familiar = await _unitOfWork.CharacterFamiliarRepository.FindById(message.MasterId).SingleOrDefaultAsync();
             // Game-world dehydration returns the default DTO (FamiliarId = 0) when no familiar script is active.
@@ -101,7 +135,7 @@ namespace Hagalaz.Services.Characters.Consumers
             _mapper.Map(message.Familiar, familiar);
         }
 
-        private async Task UpdateMusicAsync(UpdateCharacterRequest message)
+        private async Task UpdateMusicAsync(ICharacterPersistenceMessage message)
         {
             var music = await _unitOfWork.CharacterMusicRepository.FindById(message.MasterId).SingleOrDefaultAsync();
             if (music == null)
@@ -120,7 +154,7 @@ namespace Hagalaz.Services.Characters.Consumers
             _mapper.Map(message.Music, playlist);
         }
 
-        private async Task UpdateProfileAsync(UpdateCharacterRequest message)
+        private async Task UpdateProfileAsync(ICharacterPersistenceMessage message)
         {
             var profile = await _unitOfWork.CharacterProfileRepository.FindProfileById(message.MasterId).SingleOrDefaultAsync();
             if (profile == null)
@@ -131,7 +165,7 @@ namespace Hagalaz.Services.Characters.Consumers
             _mapper.Map(message.Profile, profile);
         }
 
-        private async Task UpdateSlayerAsync(UpdateCharacterRequest message)
+        private async Task UpdateSlayerAsync(ICharacterPersistenceMessage message)
         {
             var slayer = await _unitOfWork.CharacterSlayerRepository.FindById(message.MasterId).SingleOrDefaultAsync();
             // Game-world dehydration represents an inactive Slayer task as a task with Id = -1.
@@ -152,7 +186,7 @@ namespace Hagalaz.Services.Characters.Consumers
             _mapper.Map(message.Slayer.Task, slayer);
         }
 
-        private async Task ReplaceItemsAsync(UpdateCharacterRequest message)
+        private async Task ReplaceItemsAsync(ICharacterPersistenceMessage message)
         {
             var existing = await _unitOfWork.CharacterItemRepository.FindByMasterId(message.MasterId).ToListAsync();
             foreach (var item in existing)
@@ -179,7 +213,7 @@ namespace Hagalaz.Services.Characters.Consumers
             }
         }
 
-        private async Task ReplaceFarmingAsync(UpdateCharacterRequest message)
+        private async Task ReplaceFarmingAsync(ICharacterPersistenceMessage message)
         {
             var existing = await _unitOfWork.CharacterFarmingRepository.FindById(message.MasterId).ToListAsync();
             var incoming = message.Farming.Patches.ToDictionary(patch => checked((uint)patch.Id));
@@ -203,7 +237,7 @@ namespace Hagalaz.Services.Characters.Consumers
             }
         }
 
-        private async Task ReplaceNotesAsync(UpdateCharacterRequest message)
+        private async Task ReplaceNotesAsync(ICharacterPersistenceMessage message)
         {
             var existing = await _unitOfWork.CharacterNotesRepository.FindById(message.MasterId).ToListAsync();
             var incoming = message.Notes.Notes.ToDictionary(note => checked((byte)note.Id));
@@ -227,7 +261,7 @@ namespace Hagalaz.Services.Characters.Consumers
             }
         }
 
-        private async Task ReplaceItemAppearancesAsync(UpdateCharacterRequest message)
+        private async Task ReplaceItemAppearancesAsync(ICharacterPersistenceMessage message)
         {
             var existing = await _unitOfWork.CharacterItemLookRepository.FindById(message.MasterId).ToListAsync();
             var incoming = message.ItemAppearanceCollection.Appearances.ToDictionary(appearance => checked((ushort)appearance.Id));
@@ -251,7 +285,7 @@ namespace Hagalaz.Services.Characters.Consumers
             }
         }
 
-        private async Task ReplaceStatesAsync(UpdateCharacterRequest message)
+        private async Task ReplaceStatesAsync(ICharacterPersistenceMessage message)
         {
             var existing = await _unitOfWork.CharacterStateRepository.FindAll().Where(s => s.MasterId == message.MasterId).ToListAsync();
             var incoming = message.State.StatesEx.ToDictionary(state => state.Id.ToString(CultureInfo.InvariantCulture));
@@ -275,7 +309,7 @@ namespace Hagalaz.Services.Characters.Consumers
             }
         }
 
-        private static void Validate(UpdateCharacterRequest message)
+        private static void Validate(ICharacterPersistenceMessage message)
         {
             ArgumentNullException.ThrowIfNull(message.Appearance);
             ArgumentNullException.ThrowIfNull(message.Details);

@@ -1,14 +1,121 @@
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Messages.Mediator;
 using AutoMapper;
 using Hagalaz.Services.GameWorld.Profiles;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
 [TestClass]
 public sealed class CharacterDehydrationWorkerServiceTests
 {
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task FlushAsync_WhenPendingLogoutPersistenceSucceeds_RemovesCharacterAndPublishesWorldSignOut()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        character.IsDestroyed.Returns(false);
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        persistenceService.IsPendingLogout(character).Returns(true);
+        persistenceService.IsPersistenceAcknowledged(character).Returns(true);
+        var characterService = new RecordingCharacterService();
+        var mediator = Substitute.For<IGameMediator>();
+        var characterLogoutService = Substitute.For<ICharacterLogoutService>();
+        var store = new SingleCharacterStore(character);
+
+        using var provider = new ServiceCollection()
+            .AddScoped(_ => persistenceService)
+            .AddScoped<ICharacterService>(_ => characterService)
+            .AddScoped(_ => mediator)
+            .AddScoped(_ => characterLogoutService)
+            .BuildServiceProvider();
+        var worker = new CharacterDehydrationWorkerService(
+            NullLogger<CharacterDehydrationWorkerService>.Instance,
+            provider,
+            store);
+
+        await worker.FlushAsync(force: false, CancellationToken.None);
+
+        await persistenceService.Received(1).PersistAsync(character, false, Arg.Any<CancellationToken>());
+        await characterLogoutService.Received(1).DetachAsync(character, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task FlushAsync_WhenPendingLogoutPersistenceIsUnacknowledged_LeavesCharacterForRedrive()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        persistenceService.IsPendingLogout(character).Returns(true);
+        persistenceService.IsPersistenceAcknowledged(character).Returns(false);
+        var characterService = new RecordingCharacterService();
+        var mediator = Substitute.For<IGameMediator>();
+        var store = new SingleCharacterStore(character);
+
+        using var provider = new ServiceCollection()
+            .AddScoped(_ => persistenceService)
+            .AddScoped<ICharacterService>(_ => characterService)
+            .AddScoped(_ => mediator)
+            .BuildServiceProvider();
+        var worker = new CharacterDehydrationWorkerService(
+            NullLogger<CharacterDehydrationWorkerService>.Instance,
+            provider,
+            store);
+
+        await worker.FlushAsync(force: false, CancellationToken.None);
+
+        await persistenceService.Received(1).PersistAsync(character, false, Arg.Any<CancellationToken>());
+        Assert.IsNull(characterService.RemovedCharacter);
+        persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
+        character.DidNotReceive().Destroy();
+        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+    }
+
+    [TestMethod]
+    [Timeout(10000)]
+    public async Task StopAsync_WhenDurableHandoffExceedsDeadline_CancelsAndReportsFailure()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        persistenceService.PersistAsync(character, true, Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                persistenceStarted.TrySetResult(true);
+                return Task.Delay(Timeout.InfiniteTimeSpan, callInfo.Arg<CancellationToken>());
+            });
+        var store = new SingleCharacterStore(character);
+
+        using var provider = new ServiceCollection()
+            .AddScoped(_ => persistenceService)
+            .BuildServiceProvider();
+        var worker = new CharacterDehydrationWorkerService(
+            NullLogger<CharacterDehydrationWorkerService>.Instance,
+            provider,
+            store,
+            TimeSpan.FromSeconds(5));
+
+        var stopTask = worker.StopAsync(CancellationToken.None);
+        await persistenceStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => stopTask);
+
+        await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
+    }
+
     [TestMethod]
     public void CreateRequest_GeneratesUniqueCorrelationIdsPerCharacter()
     {
@@ -26,5 +133,41 @@ public sealed class CharacterDehydrationWorkerServiceTests
         Assert.AreEqual(2u, second.MasterId);
         Assert.AreEqual(10L, first.SnapshotRevision);
         Assert.AreEqual(11L, second.SnapshotRevision);
+    }
+
+    private sealed class SingleCharacterStore : ICharacterStore
+    {
+        private readonly ICharacter _character;
+
+        public SingleCharacterStore(ICharacter character) => _character = character;
+
+        public async IAsyncEnumerable<ICharacter> FindAllAsync()
+        {
+            yield return _character;
+            await Task.CompletedTask;
+        }
+
+        public ValueTask<int> CountAsync() => throw new System.NotImplementedException();
+        public ValueTask<bool> AddAsync(ICharacter character) => throw new System.NotImplementedException();
+        public ValueTask<bool> RemoveAsync(ICharacter character) => throw new System.NotImplementedException();
+        public ValueTask<ICharacter?> FindAsync(System.Func<ICharacter, bool> predicate) => throw new System.NotImplementedException();
+        public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new System.NotImplementedException();
+    }
+
+    private sealed class RecordingCharacterService : ICharacterService
+    {
+        public ICharacter? RemovedCharacter { get; private set; }
+
+        public ValueTask<bool> RemoveAsync(ICharacter character)
+        {
+            RemovedCharacter = character;
+            return new ValueTask<bool>(true);
+        }
+
+        public ValueTask<ICharacter?> FindByMasterId(uint masterId) => throw new System.NotImplementedException();
+        public ValueTask<ICharacter?> FindByIndex(int index) => throw new System.NotImplementedException();
+        public IAsyncEnumerable<ICharacter> FindAll() => throw new System.NotImplementedException();
+        public ValueTask<bool> AddAsync(ICharacter character) => throw new System.NotImplementedException();
+        public ValueTask<int> CountAsync() => throw new System.NotImplementedException();
     }
 }

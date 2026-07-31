@@ -45,6 +45,8 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ICharacterService _characterService;
         private readonly ICharacterFactory _characterFactory;
         private readonly ICharacterHydrationService _characterHydrationService;
+        private readonly ICharacterPersistenceService _characterPersistenceService;
+        private readonly ICharacterLogoutService _characterLogoutService;
         private readonly IGameSessionService _gameSessionService;
         private readonly IRequestClient<SignInUserRequestMessage> _signInUserRequestClient;
         private readonly IRequestClient<GetUserInfoRequestMessage> _getUserInfoRequestClient;
@@ -62,6 +64,8 @@ namespace Hagalaz.Services.GameWorld.Services
             ICharacterService characterService,
             ICharacterFactory characterFactory,
             ICharacterHydrationService characterHydrator,
+            ICharacterPersistenceService characterPersistenceService,
+            ICharacterLogoutService characterLogoutService,
             IGameSessionService gameSessionService,
             IRequestClient<SignInUserRequestMessage> signInUserRequestClient,
             IRequestClient<GetUserInfoRequestMessage> getUserInfoRequestClient,
@@ -80,6 +84,8 @@ namespace Hagalaz.Services.GameWorld.Services
             _characterService = characterService;
             _characterFactory = characterFactory;
             _characterHydrationService = characterHydrator;
+            _characterPersistenceService = characterPersistenceService;
+            _characterLogoutService = characterLogoutService;
             _gameSessionService = gameSessionService;
             _signInUserRequestClient = signInUserRequestClient;
             _getUserInfoRequestClient = getUserInfoRequestClient;
@@ -278,36 +284,55 @@ namespace Hagalaz.Services.GameWorld.Services
                 var masterId = context.GetMasterId();
                 var authentication = context.GetAuthentication();
                 var properties = authentication?.AuthenticationProperties;
-                if (masterId != null && properties?.ClientId != null)
-                {
-                    var response = await _revokeTokenRequestClient.GetResponse<RevokeTokenResponseMessage>(
-                        new RevokeTokenRequestMessage(properties.ClientId, masterId.Value.ToString()),
-                        cancellationToken);
-                    if (!response.Message.Succeeded)
-                    {
-                        _logger.LogWarning("Failed to revoke token '{error}'", response.Message.Error);
-                    }
-                }
-
-                var session = context.GetSession();
-                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-                if (session != null)
-                {
-                    await _gameSessionService.RemoveSession(session.ConnectionId);
-                }
-
                 var character = context.GetCharacter();
-                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+                var session = context.GetSession();
+                var persistenceSucceeded = character == null;
                 if (character != null)
                 {
-                    if (!await _characterService.RemoveAsync(character))
+                    _characterPersistenceService.TrackPendingLogout(character);
+                }
+
+                try
+                {
+                    if (masterId != null && properties?.ClientId != null)
                     {
-                        _logger.LogWarning("Failed to remove character '{character}'", character);
+                        var response = await _revokeTokenRequestClient.GetResponse<RevokeTokenResponseMessage>(
+                            new RevokeTokenRequestMessage(properties.ClientId, masterId.Value.ToString()),
+                            cancellationToken);
+                        if (!response.Message.Succeeded)
+                        {
+                            _logger.LogWarning("Failed to revoke token '{error}'", response.Message.Error);
+                        }
                     }
 
-                    _mediator.Publish(new WorldSignOutCommand(character.MasterId));
+                    // Persist before removing the only registered copy. The EF bus outbox is
+                    // the durable handoff boundary; consumer acknowledgement is asynchronous
+                    // and is completed by the dehydration worker.
+                    if (character != null)
+                    {
+                        await _characterPersistenceService.PersistAsync(character, force: true, cancellationToken: cancellationToken);
+                        persistenceSucceeded = true;
+                    }
                 }
-                else if (masterId != null)
+                finally
+                {
+                    try
+                    {
+                        if (session != null)
+                        {
+                            await _gameSessionService.RemoveSession(session.ConnectionId);
+                        }
+                    }
+                    finally
+                    {
+                        if (character != null && persistenceSucceeded)
+                        {
+                            await _characterLogoutService.DetachAsync(character);
+                        }
+                    }
+                }
+
+                if (character == null && masterId != null)
                 {
                     _mediator.Publish(new LobbySignOutCommand(masterId.Value));
                 }
