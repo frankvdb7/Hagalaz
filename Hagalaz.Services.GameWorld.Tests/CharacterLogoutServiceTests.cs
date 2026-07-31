@@ -52,6 +52,6 @@ public sealed class CharacterLogoutServiceTests
         Assert.IsFalse(await coordinator.CompleteAsync(42u));
 
         character.Received(1).Destroy();
-        mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message is { MasterId: 42u }));
+        mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message != null && message.MasterId == 42u));
     }
 }
