@@ -31,12 +31,14 @@ public sealed class CharacterDehydrationWorkerServiceTests
         persistenceService.IsPersistenceAcknowledged(character).Returns(true);
         var characterService = new RecordingCharacterService();
         var mediator = Substitute.For<IGameMediator>();
+        var characterLogoutService = Substitute.For<ICharacterLogoutService>();
         var store = new SingleCharacterStore(character);
 
         using var provider = new ServiceCollection()
             .AddScoped(_ => persistenceService)
             .AddScoped<ICharacterService>(_ => characterService)
             .AddScoped(_ => mediator)
+            .AddScoped(_ => characterLogoutService)
             .BuildServiceProvider();
         var worker = new CharacterDehydrationWorkerService(
             NullLogger<CharacterDehydrationWorkerService>.Instance,
@@ -46,10 +48,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
         await worker.FlushAsync(force: false, CancellationToken.None);
 
         await persistenceService.Received(1).PersistAsync(character, false, Arg.Any<CancellationToken>());
-        Assert.AreSame(character, characterService.RemovedCharacter);
-        persistenceService.Received(1).Forget(42u);
-        character.Received(1).Destroy();
-        mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message != null && message.MasterId == 42u));
+        await characterLogoutService.Received(1).DetachAsync(character, Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

@@ -46,6 +46,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ICharacterFactory _characterFactory;
         private readonly ICharacterHydrationService _characterHydrationService;
         private readonly ICharacterPersistenceService _characterPersistenceService;
+        private readonly ICharacterLogoutService _characterLogoutService;
         private readonly IGameSessionService _gameSessionService;
         private readonly IRequestClient<SignInUserRequestMessage> _signInUserRequestClient;
         private readonly IRequestClient<GetUserInfoRequestMessage> _getUserInfoRequestClient;
@@ -64,6 +65,7 @@ namespace Hagalaz.Services.GameWorld.Services
             ICharacterFactory characterFactory,
             ICharacterHydrationService characterHydrator,
             ICharacterPersistenceService characterPersistenceService,
+            ICharacterLogoutService characterLogoutService,
             IGameSessionService gameSessionService,
             IRequestClient<SignInUserRequestMessage> signInUserRequestClient,
             IRequestClient<GetUserInfoRequestMessage> getUserInfoRequestClient,
@@ -83,6 +85,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _characterFactory = characterFactory;
             _characterHydrationService = characterHydrator;
             _characterPersistenceService = characterPersistenceService;
+            _characterLogoutService = characterLogoutService;
             _gameSessionService = gameSessionService;
             _signInUserRequestClient = signInUserRequestClient;
             _getUserInfoRequestClient = getUserInfoRequestClient;
@@ -324,25 +327,12 @@ namespace Hagalaz.Services.GameWorld.Services
                     {
                         if (character != null && persistenceSucceeded)
                         {
-                            var removed = await _characterService.RemoveAsync(character);
-                            if (!removed)
-                            {
-                                throw new InvalidOperationException($"Failed to remove character '{character}' from the character store during sign out.");
-                            }
-
-                            if (_characterPersistenceService.IsPersistenceAcknowledged(character))
-                            {
-                                _characterPersistenceService.Forget(character.MasterId);
-                            }
+                            await _characterLogoutService.DetachAsync(character);
                         }
                     }
                 }
 
-                if (character != null)
-                {
-                    _mediator.Publish(new WorldSignOutCommand(character.MasterId));
-                }
-                else if (masterId != null)
+                if (character == null && masterId != null)
                 {
                     _mediator.Publish(new LobbySignOutCommand(masterId.Value));
                 }

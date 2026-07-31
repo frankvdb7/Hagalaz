@@ -132,16 +132,8 @@ namespace Hagalaz.Services.GameWorld.Services
 
                     if (pendingLogout && persistenceService.IsPersistenceAcknowledged(character))
                     {
-                        await scope.ServiceProvider.GetRequiredService<ICharacterService>().RemoveAsync(character);
-
-                        persistenceService.Forget(character.MasterId);
-                        if (!character.IsDestroyed)
-                        {
-                            character.Destroy();
-                        }
-
-                        scope.ServiceProvider.GetRequiredService<IGameMediator>()
-                            .Publish(new WorldSignOutCommand(character.MasterId));
+                        await scope.ServiceProvider.GetRequiredService<ICharacterLogoutService>()
+                            .DetachAsync(character, token);
                     }
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)

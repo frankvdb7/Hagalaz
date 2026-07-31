@@ -70,24 +70,26 @@ public sealed class AuthenticationLogoutTests
         var characterService = Substitute.For<ICharacterService>();
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         persistenceService.IsPersistenceAcknowledged(character).Returns(false);
+        var mediator = Substitute.For<IGameMediator>();
+        var characterLogoutService = Substitute.For<ICharacterLogoutService>();
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession("connection").Returns(Task.FromResult(true));
-#pragma warning disable CA2012 // NSubstitute requires invoking the ValueTask-returning member for setup.
-        characterService.RemoveAsync(character).Returns(_ => new ValueTask<bool>(true));
-#pragma warning restore CA2012
         var service = CreateAuthenticationService(
             characterService,
             persistenceService,
             gameSessionService,
-            CreateContextAccessor(character, session));
+            CreateContextAccessor(character, session),
+            mediator: mediator,
+            characterLogoutService: characterLogoutService);
 
         await service.SignOutAsync();
 
         persistenceService.Received(1).TrackPendingLogout(character);
         await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
         await gameSessionService.Received(1).RemoveSession("connection");
-        await characterService.Received(1).RemoveAsync(character);
+        await characterLogoutService.Received(1).DetachAsync(character, Arg.Any<CancellationToken>());
         persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
+        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
     }
 
     [TestMethod]
@@ -151,32 +153,13 @@ public sealed class AuthenticationLogoutTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task OnDisconnectedAsync_WhenSignOutSucceeds_DestroysCharacter()
+    public async Task OnDisconnectedAsync_WhenSignOutSucceeds_LeavesCleanupToCoordinator()
     {
         var character = Substitute.For<ICharacter>();
         character.IsDestroyed.Returns(false);
         var authenticationService = Substitute.For<IAuthenticationService>();
         authenticationService.SignOutAsync().Returns(Task.CompletedTask);
         var hub = new ConnectionHub(authenticationService);
-        SetContext(hub, CreateContext(character, session: null));
-
-        await hub.OnDisconnectedAsync(null);
-
-        character.Received(1).Destroy();
-    }
-
-    [TestMethod]
-    [Timeout(5000)]
-    public async Task OnDisconnectedAsync_WhenLogoutAwaitsAcknowledgement_KeepsDetachedCharacterLive()
-    {
-        var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        character.IsDestroyed.Returns(false);
-        var authenticationService = Substitute.For<IAuthenticationService>();
-        authenticationService.SignOutAsync().Returns(Task.CompletedTask);
-        var persistenceService = Substitute.For<ICharacterPersistenceService>();
-        persistenceService.IsPendingLogout(character).Returns(true);
-        var hub = new ConnectionHub(authenticationService, persistenceService);
         SetContext(hub, CreateContext(character, session: null));
 
         await hub.OnDisconnectedAsync(null);
@@ -189,7 +172,9 @@ public sealed class AuthenticationLogoutTests
         ICharacterPersistenceService persistenceService,
         IGameSessionService gameSessionService,
         IRaidoCallerContextAccessor contextAccessor,
-        IRequestClient<RevokeTokenRequestMessage>? revokeTokenRequestClient = null) =>
+        IRequestClient<RevokeTokenRequestMessage>? revokeTokenRequestClient = null,
+        IGameMediator? mediator = null,
+        ICharacterLogoutService? characterLogoutService = null) =>
         new(
             NullLogger<AuthenticationService>.Instance,
             Substitute.For<AutoMapper.IMapper>(),
@@ -197,6 +182,7 @@ public sealed class AuthenticationLogoutTests
             Substitute.For<ICharacterFactory>(),
             Substitute.For<ICharacterHydrationService>(),
             persistenceService,
+            characterLogoutService ?? Substitute.For<ICharacterLogoutService>(),
             gameSessionService,
             Substitute.For<IRequestClient<SignInUserRequestMessage>>(),
             Substitute.For<IRequestClient<GetUserInfoRequestMessage>>(),
@@ -204,7 +190,7 @@ public sealed class AuthenticationLogoutTests
             Substitute.For<IRequestClient<HydrateCharacter>>(),
             Substitute.For<IClaimsPrincipalFactory>(),
             contextAccessor,
-            Substitute.For<IGameMediator>(),
+            mediator ?? Substitute.For<IGameMediator>(),
             new ResiliencePipelineBuilder().Build(),
             new ResiliencePipelineBuilder().Build());
 
