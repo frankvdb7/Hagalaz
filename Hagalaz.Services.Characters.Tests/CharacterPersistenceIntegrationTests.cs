@@ -121,7 +121,7 @@ public sealed class CharacterPersistenceIntegrationTests
     public async Task FailedDatabaseCommit_RollsBackAcknowledgementAndReachesErrorAndFaultPaths()
     {
         var masterId = await SeedCharacterAsync();
-        await using var provider = CreateProvider(fastFailure: true);
+        await using var provider = CreateProvider();
         var harness = provider.GetTestHarness();
         var faultConsumer = harness.GetConsumerHarness<CharacterPersistenceFaultConsumer>();
         var errorQueue = harness.GetConsumerHarness<ErrorQueueProbe>();
@@ -133,25 +133,30 @@ public sealed class CharacterPersistenceIntegrationTests
             var command = CreateCommand(masterId, 1, noteText: new string('x', 51));
             await harness.Bus.Publish(command);
 
-            using var consumedTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            Assert.IsTrue(await harness.Consumed.Any<PersistCharacterCommand>(x =>
-                x.Context.Message.MasterId == masterId,
-                consumedTimeout.Token));
+            var fault = await harness.Published
+                .SelectAsync<Fault<PersistCharacterCommand>>()
+                .FirstOrDefault();
+            Assert.IsNotNull(fault);
+            var faultMessage = fault!.Context.Message;
+            Assert.AreEqual(masterId, faultMessage.Message.MasterId);
+            var exception = faultMessage.Exceptions.FirstOrDefault();
+            Assert.IsNotNull(exception);
+            StringAssert.Contains(exception!.ExceptionType, nameof(DbUpdateException));
+            StringAssert.Contains(exception.Message, "saving the entity changes");
+
+            using var faultConsumerTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            Assert.IsTrue(await faultConsumer.Consumed.Any<Fault<PersistCharacterCommand>>(x =>
+                x.Context.Message.Message.MasterId == masterId,
+                faultConsumerTimeout.Token));
+
+            using var errorQueueTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             Assert.IsTrue(await errorQueue.Consumed.Any<PersistCharacterCommand>(x =>
                 x.Context.Message.MasterId == masterId,
-                consumedTimeout.Token));
+                errorQueueTimeout.Token));
             using var acknowledgementTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             Assert.IsFalse(await acknowledgementProbe.Consumed.Any<PersistCharacterAcknowledged>(x =>
                 x.Context.Message.MasterId == masterId,
                 acknowledgementTimeout.Token));
-            await harness.Bus.Publish<Fault<PersistCharacterCommand>>(new
-            {
-                Message = command
-            });
-            using var faultConsumerTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            Assert.IsTrue(await faultConsumer.Consumed.Any<Fault<PersistCharacterCommand>>(x =>
-                x.Context.Message.Message.MasterId == masterId,
-                faultConsumerTimeout.Token));
         }
         finally
         {
@@ -165,9 +170,7 @@ public sealed class CharacterPersistenceIntegrationTests
         Assert.AreEqual("old note", note.Text);
     }
 
-    private static ServiceProvider CreateProvider(
-        CommitBarrier? barrier = null,
-        bool fastFailure = false)
+    private static ServiceProvider CreateProvider(CommitBarrier? barrier = null)
     {
         var services = new ServiceCollection()
             .AddLogging()
@@ -189,20 +192,10 @@ public sealed class CharacterPersistenceIntegrationTests
                 options.UseMySql();
                 options.UseBusOutbox();
             });
-            if (fastFailure)
-            {
-                x.AddConsumer<UpdateCharacterRequestConsumer, FastCharacterPersistenceConsumerDefinition>();
-            }
-            else
-            {
-                x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>();
-            }
+            x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>();
             x.AddConsumer<CharacterPersistenceFaultConsumer>();
             x.AddConsumer<AcknowledgementProbe>();
-            if (fastFailure)
-            {
-                x.AddConsumer<ErrorQueueProbe, ErrorQueueProbeDefinition>();
-            }
+            x.AddConsumer<ErrorQueueProbe, ErrorQueueProbeDefinition>();
             x.AddConfigureEndpointsCallback((name, endpoint) =>
             {
                 if (name == "UpdateCharacterRequest")
@@ -316,22 +309,6 @@ public sealed class CharacterPersistenceIntegrationTests
             }
 
             await _released.Task.WaitAsync(TimeSpan.FromSeconds(15));
-        }
-    }
-
-    private sealed class FastCharacterPersistenceConsumerDefinition : ConsumerDefinition<UpdateCharacterRequestConsumer>
-    {
-        public FastCharacterPersistenceConsumerDefinition() => EndpointName = "UpdateCharacterRequest";
-
-        protected override void ConfigureConsumer(
-            IReceiveEndpointConfigurator endpointConfigurator,
-            IConsumerConfigurator<UpdateCharacterRequestConsumer> consumerConfigurator,
-            IRegistrationContext context)
-        {
-            endpointConfigurator.ConfigureDefaultErrorTransport();
-            endpointConfigurator.ConfigureDefaultDeadLetterTransport();
-            endpointConfigurator.UseEntityFrameworkOutbox<HagalazDbContext>(context);
-            endpointConfigurator.UseMessageRetry(retry => retry.Immediate(1));
         }
     }
 

@@ -38,7 +38,9 @@ public sealed class CharacterUpdateRequestConsumerTests
                     }))
             .AddAutoMapper(_ => { }, typeof(Program))
             .AddMassTransitTestHarness(x =>
-                x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>())
+            {
+                x.AddConsumer<UpdateCharacterRequestConsumer, TestCharacterPersistenceConsumerDefinition>();
+            })
             .BuildServiceProvider(true);
 
         var harness = provider.GetTestHarness();
@@ -86,7 +88,9 @@ public sealed class CharacterUpdateRequestConsumerTests
                     () => Interlocked.Increment(ref resetCount)))
             .AddAutoMapper(_ => { }, typeof(Program))
             .AddMassTransitTestHarness(x =>
-                x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>())
+            {
+                x.AddConsumer<UpdateCharacterRequestConsumer, TestCharacterPersistenceConsumerDefinition>();
+            })
             .BuildServiceProvider(true);
 
         var harness = provider.GetTestHarness();
@@ -480,6 +484,22 @@ public sealed class CharacterUpdateRequestConsumerTests
             .AddAutoMapper(_ => { }, typeof(Program))
             .BuildServiceProvider();
         return provider.GetRequiredService<IMapper>();
+    }
+
+    private sealed class TestCharacterPersistenceConsumerDefinition : ConsumerDefinition<UpdateCharacterRequestConsumer>
+    {
+        protected override void ConfigureConsumer(
+            IReceiveEndpointConfigurator endpointConfigurator,
+            IConsumerConfigurator<UpdateCharacterRequestConsumer> consumerConfigurator,
+            IRegistrationContext context)
+        {
+            endpointConfigurator.UseMessageRetry(retry =>
+                retry.Exponential(
+                    retryLimit: 5,
+                    minInterval: TimeSpan.FromSeconds(1),
+                    maxInterval: TimeSpan.FromSeconds(30),
+                    intervalDelta: TimeSpan.FromSeconds(5)));
+        }
     }
 
     private sealed class FailingCharacterUnitOfWork : ICharacterUnitOfWork
