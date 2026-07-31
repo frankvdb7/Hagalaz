@@ -116,9 +116,9 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     var persistenceService = scope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>();
                     var pendingLogout = persistenceService.IsPendingLogout(character);
-                    await persistenceService.PersistAsync(character, force || pendingLogout, token);
+                    await persistenceService.PersistAsync(character, force, token);
 
-                    if (pendingLogout)
+                    if (pendingLogout && persistenceService.IsPersistenceAcknowledged(character))
                     {
                         var removed = await scope.ServiceProvider.GetRequiredService<ICharacterService>().RemoveAsync(character);
                         if (!removed)

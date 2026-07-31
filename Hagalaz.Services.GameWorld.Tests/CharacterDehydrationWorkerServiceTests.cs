@@ -28,6 +28,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
         character.IsDestroyed.Returns(false);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         persistenceService.IsPendingLogout(character).Returns(true);
+        persistenceService.IsPersistenceAcknowledged(character).Returns(true);
         var characterService = new RecordingCharacterService();
         var mediator = Substitute.For<IGameMediator>();
         var store = new SingleCharacterStore(character);
@@ -44,7 +45,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
 
         await worker.FlushAsync(force: false, CancellationToken.None);
 
-        await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
+        await persistenceService.Received(1).PersistAsync(character, false, Arg.Any<CancellationToken>());
         Assert.AreSame(character, characterService.RemovedCharacter);
         persistenceService.Received(1).Forget(42u);
         character.Received(1).Destroy();
@@ -53,6 +54,38 @@ public sealed class CharacterDehydrationWorkerServiceTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task FlushAsync_WhenPendingLogoutPersistenceIsUnacknowledged_LeavesCharacterForRedrive()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        persistenceService.IsPendingLogout(character).Returns(true);
+        persistenceService.IsPersistenceAcknowledged(character).Returns(false);
+        var characterService = new RecordingCharacterService();
+        var mediator = Substitute.For<IGameMediator>();
+        var store = new SingleCharacterStore(character);
+
+        using var provider = new ServiceCollection()
+            .AddScoped(_ => persistenceService)
+            .AddScoped<ICharacterService>(_ => characterService)
+            .AddScoped(_ => mediator)
+            .BuildServiceProvider();
+        var worker = new CharacterDehydrationWorkerService(
+            NullLogger<CharacterDehydrationWorkerService>.Instance,
+            provider,
+            store);
+
+        await worker.FlushAsync(force: false, CancellationToken.None);
+
+        await persistenceService.Received(1).PersistAsync(character, false, Arg.Any<CancellationToken>());
+        Assert.IsNull(characterService.RemovedCharacter);
+        persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
+        character.DidNotReceive().Destroy();
+        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+    }
+
+    [TestMethod]
+    [Timeout(10000)]
     public async Task StopAsync_WhenDurableHandoffExceedsDeadline_CancelsAndReportsFailure()
     {
         var character = Substitute.For<ICharacter>();
@@ -74,7 +107,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
             NullLogger<CharacterDehydrationWorkerService>.Instance,
             provider,
             store,
-            TimeSpan.FromMilliseconds(250));
+            TimeSpan.FromSeconds(5));
 
         var stopTask = worker.StopAsync(CancellationToken.None);
         await persistenceStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));

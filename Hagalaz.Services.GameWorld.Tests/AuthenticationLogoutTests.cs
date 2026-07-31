@@ -61,6 +61,36 @@ public sealed class AuthenticationLogoutTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task SignOutAsync_WhenPersistenceAwaitsAcknowledgement_LeavesCharacterForRedrive()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        var characterService = Substitute.For<ICharacterService>();
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        persistenceService.IsPersistenceAcknowledged(character).Returns(false);
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession("connection").Returns(Task.FromResult(true));
+        var service = CreateAuthenticationService(
+            characterService,
+            persistenceService,
+            gameSessionService,
+            CreateContextAccessor(character, session));
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => service.SignOutAsync());
+
+        StringAssert.Contains(exception.Message, "awaiting acknowledgement");
+        persistenceService.Received(1).TrackPendingLogout(character);
+        await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
+        await gameSessionService.Received(1).RemoveSession("connection");
+        await characterService.DidNotReceive().RemoveAsync(character);
+        persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignOutAsync_WhenTokenRevocationFails_TracksPendingLogoutBeforeFailure()
     {
         var character = Substitute.For<ICharacter>();

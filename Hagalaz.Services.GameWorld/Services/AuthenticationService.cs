@@ -308,7 +308,12 @@ namespace Hagalaz.Services.GameWorld.Services
                     if (character != null)
                     {
                         await _characterPersistenceService.PersistAsync(character, force: true, cancellationToken: cancellationToken);
-                        persistenceSucceeded = true;
+                        persistenceSucceeded = _characterPersistenceService.IsPersistenceAcknowledged(character);
+                        if (!persistenceSucceeded)
+                        {
+                            throw new InvalidOperationException(
+                                $"Character '{character.MasterId}' persistence is awaiting acknowledgement from the Characters service.");
+                        }
                     }
                 }
                 finally

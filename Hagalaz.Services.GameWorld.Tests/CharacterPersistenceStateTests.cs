@@ -23,6 +23,21 @@ public sealed class CharacterPersistenceStateTests
     }
 
     [TestMethod]
+    public void IsPersistenceAcknowledged_RemainsFalseUntilMatchingAcknowledgement()
+    {
+        var state = new CharacterPersistenceState();
+        state.MarkPending(42, "fingerprint", 7);
+
+        Assert.IsFalse(state.IsPersistenceAcknowledged(42));
+
+        state.Acknowledge(42, 6);
+        Assert.IsFalse(state.IsPersistenceAcknowledged(42));
+
+        state.Acknowledge(42, 7);
+        Assert.IsTrue(state.IsPersistenceAcknowledged(42));
+    }
+
+    [TestMethod]
     public async Task AcquireAsync_AfterCharacterChurn_RetiresAllLockEntries()
     {
         var state = new CharacterPersistenceState();

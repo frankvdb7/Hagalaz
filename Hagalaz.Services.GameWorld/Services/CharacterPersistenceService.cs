@@ -59,18 +59,20 @@ namespace Hagalaz.Services.GameWorld.Services
             var snapshotRevision = _snapshotRevisionGenerator.Next();
             var command = CreateCommand(_mapper, model, character.MasterId, snapshotRevision);
 
-            // Publish through the scoped bus outbox and commit its row before updating the
-            // in-memory fingerprint. A broker outage therefore leaves the command durable in
-            // the database, while an outbox database failure is still visible to the caller.
+            // Record the snapshot as pending before committing the outbox row so a fast
+            // acknowledgement cannot arrive before the producer has state to match it. If
+            // the outbox commit fails, the pending snapshot remains eligible for redrive.
             await _publishEndpoint.Publish(command, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
             _state.MarkPending(character.MasterId, fingerprint, snapshotRevision);
+            await _dbContext.SaveChangesAsync(cancellationToken);
             _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
         }
 
         public void TrackPendingLogout(ICharacter character) => _state.TrackPendingLogout(character);
 
         public bool IsPendingLogout(ICharacter character) => _state.IsPendingLogout(character);
+
+        public bool IsPersistenceAcknowledged(ICharacter character) => _state.IsPersistenceAcknowledged(character.MasterId);
 
         public void Acknowledge(uint masterId, long snapshotRevision) => _state.Acknowledge(masterId, snapshotRevision);
 
@@ -175,6 +177,8 @@ namespace Hagalaz.Services.GameWorld.Services
         public bool IsPendingLogout(ICharacter character) =>
             _pendingLogouts.TryGetValue(character.MasterId, out var pendingCharacter) &&
             ReferenceEquals(pendingCharacter, character);
+
+        public bool IsPersistenceAcknowledged(uint masterId) => !_pendingSnapshots.ContainsKey(masterId);
 
         private sealed record PendingSnapshot(string Fingerprint, long SnapshotRevision);
 
