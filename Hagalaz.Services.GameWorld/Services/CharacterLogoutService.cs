@@ -33,7 +33,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
 
     public async Task DetachAsync(ICharacter character, CancellationToken cancellationToken = default)
     {
-        if (_state.IsLogoutCompleted(character.MasterId))
+        if (!_state.TryGetPendingLogout(character.MasterId, out _))
         {
             return;
         }
@@ -79,13 +79,20 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             return Task.FromResult(false);
         }
 
-        _state.Forget(masterId);
-        if (!character.IsDestroyed)
+        try
         {
-            character.Destroy();
-        }
+            _state.Forget(masterId);
+            if (!character.IsDestroyed)
+            {
+                character.Destroy();
+            }
 
-        _mediator.Publish(new WorldSignOutCommand(masterId));
+            _mediator.Publish(new WorldSignOutCommand(masterId));
+        }
+        finally
+        {
+            _state.EndLogoutCompletion(masterId);
+        }
         return Task.FromResult(true);
     }
 }

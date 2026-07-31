@@ -113,7 +113,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ConcurrentDictionary<uint, PendingSnapshot> _pendingSnapshots = new();
         private readonly ConcurrentDictionary<uint, ICharacter> _pendingLogouts = new();
         private readonly ConcurrentDictionary<uint, byte> _removedPendingLogouts = new();
-        private readonly ConcurrentDictionary<uint, byte> _completedLogouts = new();
+        private readonly ConcurrentDictionary<uint, byte> _completingLogouts = new();
         private readonly Dictionary<uint, LockEntry> _locks = new();
         private readonly object _lockRegistryGate = new();
 
@@ -186,7 +186,6 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             _pendingLogouts[character.MasterId] = character;
             _removedPendingLogouts.TryRemove(character.MasterId, out _);
-            _completedLogouts.TryRemove(character.MasterId, out _);
         }
 
         public bool IsPendingLogout(ICharacter character) =>
@@ -205,9 +204,9 @@ namespace Hagalaz.Services.GameWorld.Services
             _pendingLogouts.TryGetValue(masterId, out character!);
 
         public bool TryBeginLogoutCompletion(uint masterId) =>
-            _completedLogouts.TryAdd(masterId, 0);
+            _completingLogouts.TryAdd(masterId, 0);
 
-        public bool IsLogoutCompleted(uint masterId) => _completedLogouts.ContainsKey(masterId);
+        public void EndLogoutCompletion(uint masterId) => _completingLogouts.TryRemove(masterId, out _);
 
         private sealed record PendingSnapshot(string Fingerprint, long SnapshotRevision);
 
