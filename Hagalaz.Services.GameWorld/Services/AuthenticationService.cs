@@ -302,18 +302,13 @@ namespace Hagalaz.Services.GameWorld.Services
                         }
                     }
 
-                    // Persist before removing the only in-memory copy.
-                    // Cleanup below is guaranteed even when persistence fails, so ConnectionHub
-                    // cannot destroy a character that remains registered in the store.
+                    // Persist before removing the only registered copy. The EF bus outbox is
+                    // the durable handoff boundary; consumer acknowledgement is asynchronous
+                    // and is completed by the dehydration worker.
                     if (character != null)
                     {
                         await _characterPersistenceService.PersistAsync(character, force: true, cancellationToken: cancellationToken);
-                        persistenceSucceeded = _characterPersistenceService.IsPersistenceAcknowledged(character);
-                        if (!persistenceSucceeded)
-                        {
-                            throw new InvalidOperationException(
-                                $"Character '{character.MasterId}' persistence is awaiting acknowledgement from the Characters service.");
-                        }
+                        persistenceSucceeded = true;
                     }
                 }
                 finally
@@ -335,7 +330,10 @@ namespace Hagalaz.Services.GameWorld.Services
                                 throw new InvalidOperationException($"Failed to remove character '{character}' from the character store during sign out.");
                             }
 
-                            _characterPersistenceService.Forget(character.MasterId);
+                            if (_characterPersistenceService.IsPersistenceAcknowledged(character))
+                            {
+                                _characterPersistenceService.Forget(character.MasterId);
+                            }
                         }
                     }
                 }

@@ -61,7 +61,7 @@ public sealed class AuthenticationLogoutTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignOutAsync_WhenPersistenceAwaitsAcknowledgement_LeavesCharacterForRedrive()
+    public async Task SignOutAsync_WhenPersistenceAwaitsAcknowledgement_CompletesLogoutAndDefersCleanup()
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
@@ -72,20 +72,21 @@ public sealed class AuthenticationLogoutTests
         persistenceService.IsPersistenceAcknowledged(character).Returns(false);
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession("connection").Returns(Task.FromResult(true));
+#pragma warning disable CA2012 // NSubstitute requires invoking the ValueTask-returning member for setup.
+        characterService.RemoveAsync(character).Returns(_ => new ValueTask<bool>(true));
+#pragma warning restore CA2012
         var service = CreateAuthenticationService(
             characterService,
             persistenceService,
             gameSessionService,
             CreateContextAccessor(character, session));
 
-        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => service.SignOutAsync());
+        await service.SignOutAsync();
 
-        StringAssert.Contains(exception.Message, "awaiting acknowledgement");
         persistenceService.Received(1).TrackPendingLogout(character);
         await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
         await gameSessionService.Received(1).RemoveSession("connection");
-        await characterService.DidNotReceive().RemoveAsync(character);
+        await characterService.Received(1).RemoveAsync(character);
         persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
     }
 
@@ -162,6 +163,25 @@ public sealed class AuthenticationLogoutTests
         await hub.OnDisconnectedAsync(null);
 
         character.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task OnDisconnectedAsync_WhenLogoutAwaitsAcknowledgement_KeepsDetachedCharacterLive()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        character.IsDestroyed.Returns(false);
+        var authenticationService = Substitute.For<IAuthenticationService>();
+        authenticationService.SignOutAsync().Returns(Task.CompletedTask);
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        persistenceService.IsPendingLogout(character).Returns(true);
+        var hub = new ConnectionHub(authenticationService, persistenceService);
+        SetContext(hub, CreateContext(character, session: null));
+
+        await hub.OnDisconnectedAsync(null);
+
+        character.DidNotReceive().Destroy();
     }
 
     private static AuthenticationService CreateAuthenticationService(

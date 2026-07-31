@@ -103,6 +103,18 @@ namespace Hagalaz.Services.GameWorld.Services
                 characters.Add(character);
             }
 
+            await using (var pendingScope = _serviceProvider.CreateAsyncScope())
+            {
+                var pendingPersistence = pendingScope.ServiceProvider.GetRequiredService<ICharacterPersistenceService>();
+                foreach (var pendingCharacter in pendingPersistence.GetPendingLogouts() ?? Array.Empty<ICharacter>())
+                {
+                    if (!characters.Contains(pendingCharacter))
+                    {
+                        characters.Add(pendingCharacter);
+                    }
+                }
+            }
+
             var options = new ParallelOptions
             {
                 MaxDegreeOfParallelism = 8,
@@ -120,11 +132,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                     if (pendingLogout && persistenceService.IsPersistenceAcknowledged(character))
                     {
-                        var removed = await scope.ServiceProvider.GetRequiredService<ICharacterService>().RemoveAsync(character);
-                        if (!removed)
-                        {
-                            throw new InvalidOperationException($"Failed to remove character '{character.MasterId}' from the character store after pending logout persistence.");
-                        }
+                        await scope.ServiceProvider.GetRequiredService<ICharacterService>().RemoveAsync(character);
 
                         persistenceService.Forget(character.MasterId);
                         if (!character.IsDestroyed)

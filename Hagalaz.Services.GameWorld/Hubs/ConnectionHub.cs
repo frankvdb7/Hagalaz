@@ -9,10 +9,19 @@ namespace Hagalaz.Services.GameWorld.Hubs
     public class ConnectionHub : RaidoHub
     {
         private readonly IAuthenticationService _authenticationService;
+        private readonly ICharacterPersistenceService? _characterPersistenceService;
 
         public ConnectionHub(IAuthenticationService authenticationService)
+            : this(authenticationService, null)
+        {
+        }
+
+        public ConnectionHub(
+            IAuthenticationService authenticationService,
+            ICharacterPersistenceService? characterPersistenceService)
         {
             _authenticationService = authenticationService;
+            _characterPersistenceService = characterPersistenceService;
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
@@ -26,9 +35,10 @@ namespace Hagalaz.Services.GameWorld.Hubs
             finally
             {
                 var character = Context.GetCharacter();
-                // A failed sign out leaves the live character registered so a later persistence
-                // attempt can retry it. Never destroy that instance while it remains in the store.
-                if (signOutSucceeded && character is { IsDestroyed: false })
+                // A successful outbox handoff may still await consumer acknowledgement. Keep
+                // detached pending characters alive for the worker to redrive and clean up.
+                if (signOutSucceeded && character is { IsDestroyed: false } &&
+                    (_characterPersistenceService is null || !_characterPersistenceService.IsPendingLogout(character)))
                 {
                     character.Destroy();
                 }

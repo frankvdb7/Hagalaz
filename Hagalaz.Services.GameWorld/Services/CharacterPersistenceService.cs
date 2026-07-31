@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -71,6 +72,8 @@ namespace Hagalaz.Services.GameWorld.Services
         public void TrackPendingLogout(ICharacter character) => _state.TrackPendingLogout(character);
 
         public bool IsPendingLogout(ICharacter character) => _state.IsPendingLogout(character);
+
+        public IReadOnlyCollection<ICharacter> GetPendingLogouts() => _state.GetPendingLogouts();
 
         public bool IsPersistenceAcknowledged(ICharacter character) => _state.IsPersistenceAcknowledged(character.MasterId);
 
@@ -177,6 +180,8 @@ namespace Hagalaz.Services.GameWorld.Services
         public bool IsPendingLogout(ICharacter character) =>
             _pendingLogouts.TryGetValue(character.MasterId, out var pendingCharacter) &&
             ReferenceEquals(pendingCharacter, character);
+
+        public IReadOnlyCollection<ICharacter> GetPendingLogouts() => _pendingLogouts.Values.ToArray();
 
         public bool IsPersistenceAcknowledged(uint masterId) => !_pendingSnapshots.ContainsKey(masterId);
 
