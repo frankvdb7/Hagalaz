@@ -4,6 +4,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsTestProject>true</IsTestProject>
+    <!-- Aspire resolves its implicit dashboard and orchestration packages for the host OS. -->
+    <NuGetLockFilePath Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(MSBuildProjectDirectory)/packages.lock.windows.json</NuGetLockFilePath>
   </PropertyGroup>
 
   <ItemGroup>
