@@ -68,8 +68,6 @@ namespace Hagalaz.Services.Contacts
                 mapper.ConfigurationProvider.AssertConfigurationIsValid();
             }
 
-            await app.MigrateDatabase<HagalazDbContext>();
-
             await app.RunAsync();
         }
     }
