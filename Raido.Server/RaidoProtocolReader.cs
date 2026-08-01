@@ -97,6 +97,7 @@ namespace Raido.Server
                     new RaidoProtocolReadResult<TReadMessage>(protocolMessage, _isCanceled, isCompleted: false));
             }
 
+            var unconsumed = _buffer.Slice(_consumed);
             // We couldn't parse the message so advance the input so we can read
             _reader.AdvanceTo(_consumed, _examined);
 
@@ -114,7 +115,7 @@ namespace Raido.Server
             _examined = default;
 
             // If we're complete then short-circuit
-            if (!_buffer.IsEmpty)
+            if (!unconsumed.IsEmpty)
             {
                 throw new InvalidDataException("Connection terminated while reading a message.");
             }
@@ -207,6 +208,7 @@ namespace Raido.Server
                 return (false, true);
             }
 
+            var unconsumed = result.Buffer.Slice(_consumed);
             _reader.AdvanceTo(_consumed, _examined);
 
             // Reset the state since we're done consuming this buffer
@@ -219,7 +221,7 @@ namespace Raido.Server
                 _consumed = default;
                 _examined = default;
 
-                if (!_buffer.IsEmpty)
+                if (!unconsumed.IsEmpty)
                 {
                     throw new InvalidDataException("Connection terminated while reading a message.");
                 }

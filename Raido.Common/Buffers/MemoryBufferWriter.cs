@@ -143,6 +143,11 @@ namespace Raido.Common.Buffers
         /// <param name="destination">The destination <see cref="IBufferWriter{T}"/>.</param>
         public void CopyTo(IBufferWriter<byte> destination)
         {
+            if (_currentSegment == null)
+            {
+                return;
+            }
+
             if (_completedSegments != null)
             {
                 // Copy completed segments
