@@ -284,7 +284,10 @@ public static class Extensions
         return app;
     }
 
-    public static async Task MigrateDatabase<TContext>(this WebApplication app, Func<CancellationToken, Task>? initializationTask = null)
+    public static async Task MigrateDatabase<TContext>(
+        this IHost app,
+        Func<CancellationToken, Task>? initializationTask = null,
+        CancellationToken cancellationToken = default)
         where TContext : DbContext
     {
         using var scope = app.Services.CreateScope();
@@ -326,7 +329,7 @@ public static class Extensions
                     await releaseCommand.ExecuteScalarAsync(token);
                     await context.Database.CloseConnectionAsync();
                 }
-            });
+            }, cancellationToken);
         }
         catch (Exception ex)
         {

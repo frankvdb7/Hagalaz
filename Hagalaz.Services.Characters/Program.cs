@@ -103,8 +103,6 @@ namespace Hagalaz.Services.Characters
 
             app.UseServiceDefaults();
 
-            await app.MigrateDatabase<HagalazDbContext>();
-
             await app.RunAsync();
         }
     }

@@ -26,6 +26,7 @@
     <ProjectReference Include="..\Hagalaz.Services.Cache\Hagalaz.Services.Cache.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.Characters\Hagalaz.Services.Characters.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.Contacts\Hagalaz.Services.Contacts.csproj" />
+    <ProjectReference Include="..\Hagalaz.Database.Migrations\Hagalaz.Database.Migrations.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.GameUpdate\Hagalaz.Services.GameUpdate.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.GameWorld\Hagalaz.Services.GameWorld.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.Gateway\Hagalaz.Services.Gateway.csproj" />

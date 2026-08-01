@@ -23,6 +23,10 @@ var cache = builder.AddRedis("cache")
     .WithDataVolume()
     .WithLifetime(ContainerLifetime.Persistent);
 
+var migrations = builder.AddProject<Projects.Hagalaz_Database_Migrations>("hagalaz-database-migrations")
+    .WithReference(database)
+    .WaitFor(database);
+
 var prometheus = builder.AddContainer("prometheus", "prom/prometheus")
     .WithBindMount("Configs/prometheus", "/etc/prometheus", isReadOnly: true)
     .WithArgs("--web.enable-otlp-receiver", "--config.file=/etc/prometheus/prometheus.yml")
@@ -38,7 +42,7 @@ var grafana = builder.AddContainer("grafana", "grafana/grafana")
 
 var gameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("hagalaz-services-gameworld", launchProfileName: "tcp")
     .WaitFor(messaging)
-    .WaitFor(database)
+    .WaitForCompletion(migrations)
     .WaitFor(cache)
     .WithReference(database)
     .WithReference(messaging)
@@ -51,7 +55,7 @@ var gameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("
 
 var authService = builder.AddProject<Projects.Hagalaz_Services_Authorization>("hagalaz-services-authorization")
     .WaitFor(messaging)
-    .WaitFor(database)
+    .WaitForCompletion(migrations)
     .WithReference(database)
     .WithReference(messaging)
     .WithScalarDocs()
@@ -59,7 +63,7 @@ var authService = builder.AddProject<Projects.Hagalaz_Services_Authorization>("h
 
 var contactsService = builder.AddProject<Projects.Hagalaz_Services_Contacts>("hagalaz-services-contacts")
     .WaitFor(messaging)
-    .WaitFor(database)
+    .WaitForCompletion(migrations)
     .WithReference(authService)
     .WithReference(database)
     .WithReference(messaging)
@@ -68,7 +72,7 @@ var contactsService = builder.AddProject<Projects.Hagalaz_Services_Contacts>("ha
 
 var charactersService = builder.AddProject<Projects.Hagalaz_Services_Characters>("hagalaz-services-characters")
     .WaitFor(messaging)
-    .WaitFor(database)
+    .WaitForCompletion(migrations)
     .WithReference(authService)
     .WithReference(database)
     .WithReference(messaging)

@@ -89,6 +89,24 @@ Most of the service discovery and configuration is handled automatically by .NET
 
 ### 3. Database migrations
 
+Database schema changes are owned by `Hagalaz.Database.Migrations`, a one-shot executable.
+In local Aspire development it waits for MySQL, applies all pending migrations, and the
+database-dependent services wait for its successful completion before starting.
+
+For a production rollout, publish and run the migrator once as a deployment step or
+Kubernetes Job, then start or update the application services only after it exits with code
+`0`:
+
+```bash
+dotnet publish Hagalaz.Database.Migrations/Hagalaz.Database.Migrations.csproj -c Release -o ./publish/migrations
+ConnectionStrings__hagalaz-db="Server=...;Database=hagalaz-db;User=...;Password=..." \
+  dotnet ./publish/migrations/Hagalaz.Database.Migrations.dll
+```
+
+Do not run a migration init container on every application replica; that recreates the
+multiple-migrator startup race. The migrator retains the MySQL advisory lock as defense in
+depth for accidental duplicate execution.
+
 The EF tool is pinned in `.config/dotnet-tools.json` and uses Oracle's MySQL provider. Supply a design-time connection with `--connection=<value>` (or `ConnectionStrings__hagalaz-db`) when running these commands:
 
 ```bash

@@ -169,8 +169,6 @@ namespace Hagalaz.Services.Authorization
 
             app.UseServiceDefaults();
 
-            await app.MigrateDatabase<HagalazDbContext>();
-
             await app.RunAsync();
         }
     }
