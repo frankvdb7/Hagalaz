@@ -180,30 +180,49 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
 
                 var session = await _gameSessionService.AddSession(masterId, context.ConnectionId);
-                var character = _characterFactory.Create(session, signInRequest.GameClient);
-                if (!await _characterHydrationService.HydrateAsync(character, characterModel))
+                var signInSucceeded = false;
+                try
                 {
-                    _logger.LogWarning("Unable to hydrate character '{character}'", character);
-                    return SignInResult.Fail;
-                }
+                    var character = _characterFactory.Create(session, signInRequest.GameClient);
+                    if (!await _characterHydrationService.HydrateAsync(character, characterModel))
+                    {
+                        _logger.LogWarning("Unable to hydrate character '{character}'", character);
+                        return SignInResult.Fail;
+                    }
 
-                if (!await _characterService.AddAsync(character))
-                {
-                    _logger.LogWarning("Unable to add character '{character}'", character);
-                    return SignInResult.Fail;
-                }
+                    if (!await _characterService.AddAsync(character))
+                    {
+                        _logger.LogWarning("Unable to add character '{character}'", character);
+                        return SignInResult.Fail;
+                    }
 
-                context.Features.Set<ICharacterFeature>(new CharacterFeature
+                    context.Features.Set<ICharacterFeature>(new CharacterFeature
+                    {
+                        Character = character
+                    });
+                    context.Features.Set<ISessionFeature>(new SessionFeature
+                    {
+                        Session = session
+                    });
+                    context.Features.Set<IContactsFeature>(new WorldContactsFeature(character));
+                    context.Features.Set<IUserProfileFeature>(new UserProfileFeature()); // TODO
+                    signInSucceeded = true;
+                    return result;
+                }
+                finally
                 {
-                    Character = character
-                });
-                context.Features.Set<ISessionFeature>(new SessionFeature
-                {
-                    Session = session
-                });
-                context.Features.Set<IContactsFeature>(new WorldContactsFeature(character));
-                context.Features.Set<IUserProfileFeature>(new UserProfileFeature()); // TODO
-                return result;
+                    if (!signInSucceeded)
+                    {
+                        try
+                        {
+                            await _gameSessionService.RemoveSession(session.ConnectionId);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to remove game session '{connectionId}' after world sign-in failed", session.ConnectionId);
+                        }
+                    }
+                }
             });
 
         private async ValueTask<SignInResult> SignInAsync(
