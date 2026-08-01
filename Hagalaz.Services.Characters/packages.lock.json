@@ -26,6 +26,16 @@
           "MassTransit.Abstractions": "8.5.10"
         }
       },
+      "MassTransit.EntityFrameworkCore": {
+        "type": "Direct",
+        "requested": "[8.5.10, )",
+        "resolved": "8.5.10",
+        "contentHash": "eCfWj3l4WMlDOc64I48yq3jePQMaQ+07hGIpWngvYW8/ey7qbayO4osHeO0m/FKBPUIfNJqTMRqAqWMn/xV+ww==",
+        "dependencies": {
+          "MassTransit": "8.5.10",
+          "Microsoft.EntityFrameworkCore.Relational": "10.0.0"
+        }
+      },
       "MassTransit.RabbitMQ": {
         "type": "Direct",
         "requested": "[8.5.10, )",
@@ -110,15 +120,6 @@
         "type": "Transitive",
         "resolved": "8.5.10",
         "contentHash": "nZnm2YNH+NcVwY6yC114sJy8J9LtKdFjfKUm/A5HfmzOlZ8ksjgHaPBg5XCG1VAqKDRDFnaudIcesVultKJD7g=="
-      },
-      "MassTransit.EntityFrameworkCore": {
-        "type": "Transitive",
-        "resolved": "8.5.10",
-        "contentHash": "eCfWj3l4WMlDOc64I48yq3jePQMaQ+07hGIpWngvYW8/ey7qbayO4osHeO0m/FKBPUIfNJqTMRqAqWMn/xV+ww==",
-        "dependencies": {
-          "MassTransit": "8.5.10",
-          "Microsoft.EntityFrameworkCore.Relational": "10.0.0"
-        }
       },
       "Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore": {
         "type": "Transitive",

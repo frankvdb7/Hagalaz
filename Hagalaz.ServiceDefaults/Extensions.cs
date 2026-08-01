@@ -339,7 +339,8 @@ public static class Extensions
         meterProviderBuilder.AddMeter("System.Net.Http",
             "MassTransit",
             "Polly",
-            "Raido.Server");
+            "Raido.Server",
+            "Hagalaz.Services.Characters.Persistence");
 
     public static string? GetServiceConfigurationValue(this IConfiguration configuration, string serviceName, string key, string? fallbackKey = null)
     {

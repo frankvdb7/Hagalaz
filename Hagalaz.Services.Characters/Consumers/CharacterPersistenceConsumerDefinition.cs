@@ -1,4 +1,5 @@
 using System;
+using Hagalaz.Data;
 using MassTransit;
 
 namespace Hagalaz.Services.Characters.Consumers;
@@ -19,6 +20,13 @@ public sealed class CharacterPersistenceConsumerDefinition : ConsumerDefinition<
         IConsumerConfigurator<UpdateCharacterRequestConsumer> consumerConfigurator,
         IRegistrationContext context)
     {
+        // Keep failed commands durably available in RabbitMQ's endpoint error
+        // queue after retries. Skipped/unmatched messages use the dead-letter
+        // queue instead of being silently discarded.
+        endpointConfigurator.ConfigureDefaultErrorTransport();
+        endpointConfigurator.ConfigureDefaultDeadLetterTransport();
+        endpointConfigurator.PublishFaults = true;
+        endpointConfigurator.UseEntityFrameworkOutbox<HagalazDbContext>(context);
         endpointConfigurator.UseMessageRetry(retry =>
             retry.Exponential(
                 retryLimit: 5,

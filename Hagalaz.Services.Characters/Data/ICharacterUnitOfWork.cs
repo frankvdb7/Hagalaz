@@ -7,6 +7,12 @@ namespace Hagalaz.Services.Characters.Data
         void Add<TEntity>(TEntity entity) where TEntity : class;
         void Remove<TEntity>(TEntity entity) where TEntity : class;
 
+        /// <summary>
+        /// Discards tracked changes after a failed persistence attempt so
+        /// endpoint retries query fresh values from the database.
+        /// </summary>
+        void Reset();
+
         public ICharacterRepository CharacterRepository { get; }
         public ICharacterStatisticsRepository CharacterStatisticsRepository { get; }
         public ICharacterItemRepository CharacterItemRepository { get; }

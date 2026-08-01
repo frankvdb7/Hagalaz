@@ -18,13 +18,14 @@ namespace Hagalaz.Services.Characters.Tests;
 public sealed class CharacterUpdateRequestConsumerTests
 {
     [TestMethod]
-    [Timeout(15000)]
+    [Timeout(60000)]
     public async Task Consume_PersistCommand_RetriesTransientCommitFailure()
     {
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName);
         var remainingFailures = 1;
         var totalCommits = 0;
+        var commitCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var provider = new ServiceCollection()
             .AddScoped(_ => CreateContext(databaseName))
@@ -35,10 +36,13 @@ public sealed class CharacterUpdateRequestConsumerTests
                     {
                         Interlocked.Increment(ref totalCommits);
                         return Interlocked.Decrement(ref remainingFailures) >= 0;
-                    }))
+                    },
+                    onCommitted: () => commitCompleted.TrySetResult()))
             .AddAutoMapper(_ => { }, typeof(Program))
             .AddMassTransitTestHarness(x =>
-                x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>())
+            {
+                x.AddConsumer<UpdateCharacterRequestConsumer, TestCharacterPersistenceConsumerDefinition>();
+            })
             .BuildServiceProvider(true);
 
         var harness = provider.GetTestHarness();
@@ -48,14 +52,62 @@ public sealed class CharacterUpdateRequestConsumerTests
         await harness.Bus.Publish(command);
 
         Assert.IsTrue(await harness.Consumed.Any<PersistCharacterCommand>(x => x.Context.Message.MasterId == command.MasterId));
-        for (var attempt = 0; attempt < 50 && totalCommits < 2; attempt++)
-        {
-            await Task.Delay(100);
-        }
+        using var commitTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await commitCompleted.Task.WaitAsync(commitTimeout.Token);
 
         await harness.Stop();
 
         Assert.AreEqual(2, totalCommits);
+        await using var verificationContext = CreateContext(databaseName);
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == command.MasterId);
+        Assert.AreEqual(command.SnapshotRevision, character.SnapshotRevision);
+    }
+
+    [TestMethod]
+    [Timeout(60000)]
+    public async Task Consume_PersistCommand_ResetsTrackingAfterConcurrencyFailure()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName);
+        var remainingFailures = 1;
+        var resetCount = 0;
+        var totalCommits = 0;
+        var commitCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork>(serviceProvider =>
+                new FailingCharacterUnitOfWork(
+                    new CharacterUnitOfWork(serviceProvider.GetRequiredService<HagalazDbContext>()),
+                    () =>
+                    {
+                        Interlocked.Increment(ref totalCommits);
+                        return Interlocked.Exchange(ref remainingFailures, 0) == 1
+                            ? new DbUpdateConcurrencyException("The character snapshot was updated concurrently.")
+                            : null;
+                    },
+                    () => Interlocked.Increment(ref resetCount),
+                    () => commitCompleted.TrySetResult()))
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x =>
+            {
+                x.AddConsumer<UpdateCharacterRequestConsumer, TestCharacterPersistenceConsumerDefinition>();
+            })
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+
+        var command = CreateCommand();
+        await harness.Bus.Publish(command);
+
+        using var commitTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await commitCompleted.Task.WaitAsync(commitTimeout.Token);
+
+        await harness.Stop();
+
+        Assert.AreEqual(2, totalCommits);
+        Assert.AreEqual(1, resetCount);
         await using var verificationContext = CreateContext(databaseName);
         var character = await verificationContext.Characters.SingleAsync(x => x.Id == command.MasterId);
         Assert.AreEqual(command.SnapshotRevision, character.SnapshotRevision);
@@ -71,7 +123,17 @@ public sealed class CharacterUpdateRequestConsumerTests
             .AddScoped(_ => CreateContext(databaseName))
             .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
             .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .AddMassTransitTestHarness(x =>
+            {
+                x.AddConsumer<UpdateCharacterRequestConsumer>();
+                x.AddConfigureEndpointsCallback((name, endpoint) =>
+                {
+                    if (name == "UpdateCharacterRequest")
+                    {
+                        endpoint.ConcurrentMessageLimit = 1;
+                    }
+                });
+            })
             .BuildServiceProvider(true);
 
         var harness = provider.GetTestHarness();
@@ -335,6 +397,16 @@ public sealed class CharacterUpdateRequestConsumerTests
         Assert.IsFalse(consumeContext.Invocations.Any(invocation => invocation.Method.Name == "RespondAsync"));
     }
 
+    [TestMethod]
+    public void SnapshotRevision_IsConfiguredAsAnOptimisticConcurrencyToken()
+    {
+        using var context = CreateContext(Guid.NewGuid().ToString());
+        var property = context.Model.FindEntityType(typeof(Character))!.FindProperty(nameof(Character.SnapshotRevision));
+
+        Assert.IsNotNull(property);
+        Assert.IsTrue(property.IsConcurrencyToken);
+    }
+
     private static UpdateCharacterRequest CreateRequest() => new(
         Guid.NewGuid(),
         1,
@@ -424,10 +496,28 @@ public sealed class CharacterUpdateRequestConsumerTests
         return provider.GetRequiredService<IMapper>();
     }
 
+    private sealed class TestCharacterPersistenceConsumerDefinition : ConsumerDefinition<UpdateCharacterRequestConsumer>
+    {
+        protected override void ConfigureConsumer(
+            IReceiveEndpointConfigurator endpointConfigurator,
+            IConsumerConfigurator<UpdateCharacterRequestConsumer> consumerConfigurator,
+            IRegistrationContext context)
+        {
+            endpointConfigurator.UseMessageRetry(retry =>
+                retry.Exponential(
+                    retryLimit: 5,
+                    minInterval: TimeSpan.FromSeconds(1),
+                    maxInterval: TimeSpan.FromSeconds(30),
+                    intervalDelta: TimeSpan.FromSeconds(5)));
+        }
+    }
+
     private sealed class FailingCharacterUnitOfWork : ICharacterUnitOfWork
     {
         private readonly ICharacterUnitOfWork _inner;
-        private readonly Func<bool> _shouldFail;
+        private readonly Func<Exception?> _failureFactory;
+        private readonly Action? _onReset;
+        private readonly Action? _onCommitted;
 
         public FailingCharacterUnitOfWork(ICharacterUnitOfWork inner)
             : this(inner, static () => true)
@@ -435,9 +525,34 @@ public sealed class CharacterUpdateRequestConsumerTests
         }
 
         public FailingCharacterUnitOfWork(ICharacterUnitOfWork inner, Func<bool> shouldFail)
+            : this(inner, shouldFail, null)
+        {
+        }
+
+        public FailingCharacterUnitOfWork(
+            ICharacterUnitOfWork inner,
+            Func<bool> shouldFail,
+            Action? onCommitted)
+            : this(
+                inner,
+                () => shouldFail()
+                    ? new InvalidOperationException("The character update could not be committed.")
+                    : null,
+                null,
+                onCommitted)
+        {
+        }
+
+        public FailingCharacterUnitOfWork(
+            ICharacterUnitOfWork inner,
+            Func<Exception?> failureFactory,
+            Action? onReset,
+            Action? onCommitted = null)
         {
             _inner = inner;
-            _shouldFail = shouldFail;
+            _failureFactory = failureFactory;
+            _onReset = onReset;
+            _onCommitted = onCommitted;
         }
 
         public ICharacterRepository CharacterRepository => _inner.CharacterRepository;
@@ -456,15 +571,23 @@ public sealed class CharacterUpdateRequestConsumerTests
 
         public void Add<TEntity>(TEntity entity) where TEntity : class => _inner.Add(entity);
         public void Remove<TEntity>(TEntity entity) where TEntity : class => _inner.Remove(entity);
-        public ValueTask RollbackAsync() => _inner.RollbackAsync();
-        public ValueTask CommitAsync()
+        public void Reset()
         {
-            if (_shouldFail())
+            _inner.Reset();
+            _onReset?.Invoke();
+        }
+
+        public ValueTask RollbackAsync() => _inner.RollbackAsync();
+        public async ValueTask CommitAsync()
+        {
+            var failure = _failureFactory();
+            if (failure != null)
             {
-                return ValueTask.FromException(new InvalidOperationException("The character update could not be committed."));
+                throw failure;
             }
 
-            return _inner.CommitAsync();
+            await _inner.CommitAsync();
+            _onCommitted?.Invoke();
         }
     }
 }

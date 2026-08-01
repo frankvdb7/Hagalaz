@@ -1448,6 +1448,7 @@
           "Hagalaz.ServiceDefaults": "[1.0.0, )",
           "Hagalaz.Services.Common": "[1.0.0, )",
           "MassTransit": "[8.5.10, )",
+          "MassTransit.EntityFrameworkCore": "[8.5.10, )",
           "MassTransit.RabbitMQ": "[8.5.10, )",
           "OpenIddict.AspNetCore": "[7.6.0, )"
         }
