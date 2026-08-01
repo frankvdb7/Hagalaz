@@ -8,6 +8,50 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoMessagePipeReaderAdditionalTests
 {
+    private sealed class OneByteMessageReader : IRaidoMessageReader<ReadOnlySequence<byte>>
+    {
+        public bool TryParseMessage(
+            in ReadOnlySequence<byte> input,
+            ref SequencePosition consumed,
+            ref SequencePosition examined,
+            out ReadOnlySequence<byte> message)
+        {
+            if (input.IsEmpty)
+            {
+                message = default;
+                return false;
+            }
+
+            consumed = input.GetPosition(1);
+            examined = input.End;
+            message = input.Slice(input.Start, 1);
+            return true;
+        }
+    }
+
+    [TestMethod]
+    public async Task ReadAsync_DoesNotReportCompletionBeforeCoalescedMessagesAreConsumed()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        underlying.ReadAsync(Arg.Any<CancellationToken>()).Returns(
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1, 2 }), false, true)),
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 2 }), false, true)));
+        var reader = new RaidoMessagePipeReader(underlying, new OneByteMessageReader());
+
+        var first = await reader.ReadAsync();
+        Assert.AreEqual(1, first.Buffer.Length);
+        Assert.IsFalse(first.IsCompleted);
+        reader.AdvanceTo(first.Buffer.End);
+
+        var second = await reader.ReadAsync();
+        Assert.AreEqual(1, second.Buffer.Length);
+        Assert.IsTrue(second.IsCompleted);
+        reader.AdvanceTo(second.Buffer.End);
+        reader.Complete();
+
+        await underlying.Received(2).ReadAsync(Arg.Any<CancellationToken>());
+    }
+
     [TestMethod]
     public async Task ReadAsync_HandlesCanceledAndCompletedReads()
     {

@@ -168,7 +168,8 @@ namespace Raido.Server
         {
             var buffer = underlyingReadResult.Buffer;
             _isCanceled = underlyingReadResult.IsCanceled;
-            _isCompleted = underlyingReadResult.IsCompleted && !_isCanceled;
+            var underlyingCompleted = underlyingReadResult.IsCompleted && !_isCanceled;
+            _isCompleted = underlyingCompleted;
 
             if (_isCanceled)
             {
@@ -182,11 +183,16 @@ namespace Raido.Server
             _examined = buffer.End;
             if (_messageReader.TryParseMessage(buffer, ref _consumed, ref _examined, out _message))
             {
+                // A completed underlying read can still contain messages after the one just parsed.
+                // Do not surface completion until those bytes, and any buffered backlog, have been consumed.
+                _isCompleted = underlyingCompleted
+                    && buffer.Slice(_consumed).IsEmpty
+                    && _backlog.UnconsumedWrittenCount == 0;
+
                 if (_message.IsEmpty)
                 {
                     // The message is empty, so there's no need for the underlying reader to hold on to the bytes.
                     AdvanceTo(_consumed, _examined);
-                    _isCompleted = true;
                 }
 
                 if (_backlog.UnconsumedWrittenCount > 0)
