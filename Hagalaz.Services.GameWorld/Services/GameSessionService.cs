@@ -17,11 +17,16 @@ namespace Hagalaz.Services.GameWorld.Services
             _gameSessionFactory = gameSessionFactory;
         }
 
-        public async Task<IGameSession> AddSession(uint masterId, string connectionId)
+        public Task<(IGameSession Session, bool Created)> AddSession(uint masterId, string connectionId)
         {
-            await Task.CompletedTask;
-            var session = _sessions.GetOrAdd(connectionId, _ => _gameSessionFactory.Create(masterId, connectionId));
-            return session;
+            if (_sessions.TryGetValue(connectionId, out var existingSession))
+            {
+                return Task.FromResult((existingSession, Created: false));
+            }
+
+            var createdSession = _gameSessionFactory.Create(masterId, connectionId);
+            var session = _sessions.GetOrAdd(connectionId, _ => createdSession);
+            return Task.FromResult((session, Created: ReferenceEquals(session, createdSession)));
         }
 
         public Task<bool> RemoveSession(string connectionId) => Task.FromResult(_sessions.TryRemove(connectionId));

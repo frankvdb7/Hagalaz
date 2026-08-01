@@ -115,7 +115,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
 
                 var masterId = Convert.ToUInt32(subject);
-                var session = await _gameSessionService.AddSession(masterId, context.ConnectionId);
+                var session = (await _gameSessionService.AddSession(masterId, context.ConnectionId)).Session;
                 context.Features.Set<ISessionFeature>(new SessionFeature
                 {
                     Session = session
@@ -179,7 +179,8 @@ namespace Hagalaz.Services.GameWorld.Services
                     return SignInResult.Fail;
                 }
 
-                var session = await _gameSessionService.AddSession(masterId, context.ConnectionId);
+                var sessionRegistration = await _gameSessionService.AddSession(masterId, context.ConnectionId);
+                var session = sessionRegistration.Session;
                 var signInSucceeded = false;
                 try
                 {
@@ -211,7 +212,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
                 finally
                 {
-                    if (!signInSucceeded)
+                    if (!signInSucceeded && sessionRegistration.Created)
                     {
                         try
                         {

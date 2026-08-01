@@ -13,6 +13,7 @@ using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
+using Hagalaz.Services.GameWorld.Store;
 using MassTransit;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,7 +34,7 @@ public sealed class AuthenticationSignInTests
         var gameSessionService = Substitute.For<IGameSessionService>();
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
-        gameSessionService.AddSession(42, "connection").Returns(Task.FromResult(session));
+        gameSessionService.AddSession(42, "connection").Returns(Task.FromResult((session, Created: true)));
         gameSessionService.RemoveSession("connection").Returns(Task.FromResult(true));
 
         var characterHydrationService = Substitute.For<ICharacterHydrationService>();
@@ -57,7 +58,7 @@ public sealed class AuthenticationSignInTests
         var gameSessionService = Substitute.For<IGameSessionService>();
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
-        gameSessionService.AddSession(42, "connection").Returns(Task.FromResult(session));
+        gameSessionService.AddSession(42, "connection").Returns(Task.FromResult((session, Created: true)));
         gameSessionService.RemoveSession("connection").Returns(Task.FromResult(true));
 
         var characterService = new TestCharacterService(addResult: false);
@@ -74,12 +75,49 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task SignInWorldAsync_WhenCharacterRegistrationFailsForExistingSession_PreservesSession()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var existingSession = Substitute.For<IGameSession>();
+        existingSession.ConnectionId.Returns("connection");
+        gameSessionService.AddSession(42, "connection")
+            .Returns(Task.FromResult((existingSession, Created: false)));
+
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            characterService: new TestCharacterService(addResult: false));
+
+        var result = await service.SignInWorldAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<string>());
+    }
+
+    [TestMethod]
+    public async Task GameSessionService_AddSession_ReportsOwnershipOnlyForNewSession()
+    {
+        var session = Substitute.For<IGameSession>();
+        var gameSessionFactory = Substitute.For<IGameSessionFactory>();
+        gameSessionFactory.Create(42, "connection").Returns(session);
+        var service = new GameSessionService(new GameSessionStore(), gameSessionFactory);
+
+        var firstRegistration = await service.AddSession(42, "connection");
+        var secondRegistration = await service.AddSession(42, "connection");
+
+        Assert.IsTrue(firstRegistration.Created);
+        Assert.IsFalse(secondRegistration.Created);
+        Assert.AreSame(session, firstRegistration.Session);
+        Assert.AreSame(session, secondRegistration.Session);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignInWorldAsync_WhenCharacterRegistrationSucceeds_KeepsSession()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
-        gameSessionService.AddSession(42, "connection").Returns(Task.FromResult(session));
+        gameSessionService.AddSession(42, "connection").Returns(Task.FromResult((session, Created: true)));
         var characterService = new TestCharacterService(addResult: true);
         var characterHydrationService = Substitute.For<ICharacterHydrationService>();
         characterHydrationService.HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>()).Returns(Task.FromResult(true));
