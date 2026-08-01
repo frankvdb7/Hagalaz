@@ -41,6 +41,45 @@ public sealed class RaidoProtocolAndExtensionsTests
         }
     }
 
+    private sealed class ReaderThatParsesAfterFirstAttempt : IRaidoMessageReader<TestMessage>
+    {
+        private int _attempts;
+
+        public bool TryParseMessage(in ReadOnlySequence<byte> input, ref SequencePosition consumed, ref SequencePosition examined, out TestMessage? message)
+        {
+            examined = input.End;
+            if (++_attempts == 1)
+            {
+                message = null;
+                return false;
+            }
+
+            consumed = input.End;
+            message = new TestMessage();
+            return true;
+        }
+    }
+
+    private sealed class ReaderThatLeavesTrailingBytes : IRaidoMessageReader<TestMessage>
+    {
+        private bool _parsed;
+
+        public bool TryParseMessage(in ReadOnlySequence<byte> input, ref SequencePosition consumed, ref SequencePosition examined, out TestMessage? message)
+        {
+            examined = input.End;
+            if (_parsed || input.Length == 0)
+            {
+                message = null;
+                return false;
+            }
+
+            _parsed = true;
+            consumed = input.GetPosition(1);
+            message = new TestMessage();
+            return true;
+        }
+    }
+
     private sealed class NoopMessageWriter : IRaidoMessageWriter<TestMessage>
     {
         public void WriteMessage(TestMessage message, IBufferWriter<byte> output) { }
@@ -131,6 +170,24 @@ public sealed class RaidoProtocolAndExtensionsTests
     }
 
     [TestMethod]
+    public async Task ProtocolWriter_WriteManyHandlesCanceledAndCompletedFlushes()
+    {
+        var pipeWriter = Substitute.For<PipeWriter>();
+        pipeWriter.FlushAsync(Arg.Any<CancellationToken>()).Returns(new ValueTask<FlushResult>(new FlushResult(true, false)));
+        await using (var writer = new RaidoProtocolWriter(pipeWriter))
+        {
+            await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
+                writer.WriteManyAsync(new NoopMessageWriter(), new[] { new TestMessage() }).AsTask());
+        }
+
+        pipeWriter = Substitute.For<PipeWriter>();
+        pipeWriter.FlushAsync(Arg.Any<CancellationToken>()).Returns(new ValueTask<FlushResult>(new FlushResult(false, true)));
+        await using var completedWriter = new RaidoProtocolWriter(pipeWriter);
+        await completedWriter.WriteManyAsync(new NoopMessageWriter(), new[] { new TestMessage() });
+        await completedWriter.WriteManyAsync(new NoopMessageWriter(), new[] { new TestMessage() });
+    }
+
+    [TestMethod]
     public async Task ProtocolReader_ParsesMessagesAdvancesAndCompletes()
     {
         var pipe = new Pipe();
@@ -172,6 +229,42 @@ public sealed class RaidoProtocolAndExtensionsTests
     }
 
     [TestMethod]
+    public async Task ProtocolReader_AwaitsAnIncompleteUnderlyingRead()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        var pendingRead = new TaskCompletionSource<ReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        underlying.ReadAsync(Arg.Any<CancellationToken>()).Returns(new ValueTask<ReadResult>(pendingRead.Task));
+        await using var reader = new RaidoProtocolReader(underlying);
+
+        var pending = reader.ReadAsync(new MessageReader()).AsTask();
+        Assert.IsFalse(pending.IsCompleted);
+
+        pendingRead.SetResult(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1 }), false, false));
+        var result = await pending;
+
+        Assert.IsInstanceOfType<TestMessage>(result.Message);
+        reader.Advance();
+    }
+
+    [TestMethod]
+    public async Task ProtocolReader_ContinuesAfterAnIncompleteUnparsedRead()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        var pendingRead = new TaskCompletionSource<ReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        underlying.ReadAsync(Arg.Any<CancellationToken>()).Returns(
+            new ValueTask<ReadResult>(pendingRead.Task),
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1 }), false, false)));
+        await using var reader = new RaidoProtocolReader(underlying);
+
+        var pending = reader.ReadAsync(new ReaderThatParsesAfterFirstAttempt()).AsTask();
+        pendingRead.SetResult(new ReadResult(ReadOnlySequence<byte>.Empty, false, false));
+        var result = await pending;
+
+        Assert.IsInstanceOfType<TestMessage>(result.Message);
+        reader.Advance();
+    }
+
+    [TestMethod]
     public async Task ProtocolReader_PropagatesCanceledUnderlyingRead()
     {
         var underlying = Substitute.For<PipeReader>();
@@ -184,6 +277,66 @@ public sealed class RaidoProtocolAndExtensionsTests
         Assert.IsTrue(result.IsCanceled);
         Assert.IsFalse(result.IsCompleted);
         reader.Advance();
+    }
+
+    [TestMethod]
+    public async Task ProtocolReader_RejectsUnparseableCompletedInput()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        underlying.ReadAsync(Arg.Any<CancellationToken>()).Returns(
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1 }), false, true)));
+        await using var reader = new RaidoProtocolReader(underlying);
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
+            reader.ReadAsync(new MessageReader { Parse = false }).AsTask());
+    }
+
+    [TestMethod]
+    public async Task ProtocolReader_RejectsTrailingBytesAfterCompletedMessage()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        underlying.ReadAsync(Arg.Any<CancellationToken>()).Returns(
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1, 2 }), false, true)));
+        await using var reader = new RaidoProtocolReader(underlying);
+        var messageReader = new ReaderThatLeavesTrailingBytes();
+
+        var message = await reader.ReadAsync(messageReader);
+        Assert.IsInstanceOfType<TestMessage>(message.Message);
+        reader.Advance();
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => reader.ReadAsync(messageReader).AsTask());
+    }
+
+    [TestMethod]
+    public async Task ProtocolReader_ResumesAfterCanceledRead()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        underlying.ReadAsync(Arg.Any<CancellationToken>()).Returns(
+            new ValueTask<ReadResult>(new ReadResult(ReadOnlySequence<byte>.Empty, true, false)),
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1 }), false, false)));
+        await using var reader = new RaidoProtocolReader(underlying);
+
+        var canceled = await reader.ReadAsync(new MessageReader());
+        Assert.IsTrue(canceled.IsCanceled);
+        reader.Advance();
+
+        var message = await reader.ReadAsync(new MessageReader());
+        Assert.IsInstanceOfType<TestMessage>(message.Message);
+        reader.Advance();
+    }
+
+    [TestMethod]
+    public async Task ProtocolReader_AllowsMessageAtTheMaximumSize()
+    {
+        var pipe = new Pipe();
+        await pipe.Writer.WriteAsync(new byte[] { 1, 2 });
+        await using var reader = new RaidoProtocolReader(pipe.Reader);
+
+        var result = await reader.ReadAsync(new MessageReader(), maximumMessageSize: 2);
+
+        Assert.IsInstanceOfType<TestMessage>(result.Message);
+        reader.Advance();
+        await pipe.Reader.CompleteAsync();
     }
 
     [TestMethod]

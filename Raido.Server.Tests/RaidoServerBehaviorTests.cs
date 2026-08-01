@@ -110,6 +110,80 @@ public sealed class RaidoServerBehaviorTests
     }
 
     [TestMethod]
+    public void ActivityCreator_UsesValidRemoteContextAndLinks()
+    {
+        var source = new ActivitySource("Raido.Server.Tests.RemoteContext");
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = candidate => candidate.Name == source.Name,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData
+        };
+        var headers = new Dictionary<string, object?>
+        {
+            ["traceparent"] = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+            ["tracestate"] = "vendor=value",
+            ["baggage"] = "request=remote"
+        };
+
+        static void GetHeader(object? carrier, string fieldName, out string? fieldValue, out IEnumerable<string>? fieldValues)
+        {
+            fieldValues = null;
+            var values = (Dictionary<string, object?>)carrier!;
+            fieldValue = values.TryGetValue(fieldName, out var value) ? value?.ToString() : null;
+        }
+
+        using var parent = new Activity("parent").Start();
+        using var activity = ActivityCreator.CreateFromRemote(
+            source,
+            DistributedContextPropagator.Current,
+            headers,
+            GetHeader,
+            "remote-operation",
+            ActivityKind.Server,
+            new[] { new KeyValuePair<string, object?>("source", "remote") },
+            new[] { new ActivityLink(parent.Context) },
+            diagnosticsOrLoggingEnabled: true);
+
+        Assert.IsNotNull(activity);
+        Assert.AreEqual("vendor=value", activity!.TraceStateString);
+        Assert.AreEqual("remote", activity.GetTagItem("source"));
+        Assert.AreEqual("remote", activity.GetBaggageItem("request"));
+        Assert.AreEqual(1, activity.Links.Count());
+    }
+
+    [TestMethod]
+    public void ActivityCreator_AddsBaggageWhenNoTraceParentExists()
+    {
+        var source = new ActivitySource("Raido.Server.Tests.BaggageOnly");
+        var headers = new Dictionary<string, object?>
+        {
+            ["baggage"] = "request=untraced"
+        };
+
+        static void GetHeader(object? carrier, string fieldName, out string? fieldValue, out IEnumerable<string>? fieldValues)
+        {
+            fieldValues = null;
+            var values = (Dictionary<string, object?>)carrier!;
+            fieldValue = values.TryGetValue(fieldName, out var value) ? value?.ToString() : null;
+        }
+
+        using var activity = ActivityCreator.CreateFromRemote(
+            source,
+            DistributedContextPropagator.Current,
+            headers,
+            GetHeader,
+            "baggage-only",
+            ActivityKind.Internal,
+            null,
+            null,
+            diagnosticsOrLoggingEnabled: true);
+
+        Assert.IsNotNull(activity);
+        Assert.IsNull(activity!.ParentId);
+        Assert.AreEqual("untraced", activity.GetBaggageItem("request"));
+    }
+
+    [TestMethod]
     public void EventSource_InitializesCountersAndEmitsConnectionEvents()
     {
         using var listener = new RecordingEventListener();

@@ -37,6 +37,15 @@ public sealed class RaidoServerInfrastructureTests
         }
     }
 
+    private sealed class FailingDecoder : IRaidoMessageDecoder
+    {
+        public bool TryDecodeMessage(in ReadOnlySequence<byte> input, out RaidoMessage? message)
+        {
+            message = null;
+            return false;
+        }
+    }
+
     private sealed class Protocol : IRaidoProtocol
     {
         public string Name => "test";
@@ -121,9 +130,11 @@ public sealed class RaidoServerInfrastructureTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<Decoder>();
+        services.AddSingleton<FailingDecoder>();
         services.AddSingleton<Encoder>();
         var store = new RaidoCodecStore<Protocol>();
         store.AddDecoder<Decoder>(1);
+        store.AddDecoder<FailingDecoder>(3);
         store.AddEncoder<Encoder>();
         using var provider = services.BuildServiceProvider();
         var factory = new DefaultRaidoCodecFactory<Protocol>(provider, store);
@@ -134,6 +145,7 @@ public sealed class RaidoServerInfrastructureTests
         Assert.IsNull(factory.GetMessageEncoder(typeof(PingMessage)));
         Assert.IsTrue(codec.TryDecodeMessage(1, new ReadOnlySequence<byte>(new byte[] { 1 }), out var decoded));
         Assert.IsInstanceOfType<TestMessage>(decoded);
+        Assert.IsFalse(codec.TryDecodeMessage(3, ReadOnlySequence<byte>.Empty, out _));
         Assert.IsFalse(codec.TryDecodeMessage(2, ReadOnlySequence<byte>.Empty, out _));
         Assert.IsTrue(codec.TryEncodeMessage(new TestMessage(), new RaidoMessageBinaryWriter(MemoryBufferWriter.Get())));
         Assert.IsFalse(codec.TryEncodeMessage(PingMessage.Instance, new RaidoMessageBinaryWriter(MemoryBufferWriter.Get())));

@@ -192,6 +192,22 @@ namespace Raido.Server.Tests
         }
 
         [TestMethod]
+        public async Task ConnectAsync_WhenDispatchFails_DisconnectsTheDispatcherAndLifetimeOnce()
+        {
+            var message = new TestMessage();
+            var exception = new InvalidOperationException("Dispatch failed");
+            _connection.Protocol = new TestProtocol { MessageToReturn = message };
+            _pipeReader.ReadAsync(Arg.Any<CancellationToken>()).Returns(
+                new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1 }), false, false)));
+            _dispatcher.DispatchMessageAsync(_connection, message).Returns(Task.FromException(exception));
+
+            await _connectionHandler.ConnectAsync(_connection);
+
+            await _dispatcher.Received(1).OnDisconnectedAsync(_connection, exception);
+            await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
+        }
+
+        [TestMethod]
         public async Task DispatchMessagesAsync_WhenReadIsCanceled_ShouldStopGracefully()
         {
             // Arrange

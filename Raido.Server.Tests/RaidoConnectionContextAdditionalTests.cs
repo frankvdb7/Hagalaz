@@ -13,6 +13,30 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoConnectionContextAdditionalTests
 {
+    private sealed class ControlledPipeWriter : PipeWriter
+    {
+        private readonly ArrayBufferWriter<byte> _buffer = new();
+        private readonly TaskCompletionSource<FlushResult> _flushSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void CompleteFlush() => _flushSource.TrySetResult(new FlushResult(false, false));
+
+        public void FailFlush(Exception exception) => _flushSource.TrySetException(exception);
+
+        public override void Advance(int bytes) => _buffer.Advance(bytes);
+
+        public override Memory<byte> GetMemory(int sizeHint = 0) => _buffer.GetMemory(sizeHint);
+
+        public override Span<byte> GetSpan(int sizeHint = 0) => _buffer.GetSpan(sizeHint);
+
+        public override void CancelPendingFlush() { }
+
+        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default) =>
+            new(_flushSource.Task);
+
+        public override void Complete(Exception? exception = null) { }
+    }
+
     private sealed class WritingProtocol : IRaidoProtocol
     {
         public string Name => "writing";
@@ -104,6 +128,42 @@ public sealed class RaidoConnectionContextAdditionalTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
+    public async Task Context_CompletesAnAsynchronousFlushAndReleasesWriteLock()
+    {
+        var output = new ControlledPipeWriter();
+        var context = CreateContext(output);
+
+        var pending = context.WriteAsync(new TestMessage());
+        Assert.IsFalse(pending.IsCompleted);
+
+        output.CompleteFlush();
+        await pending;
+
+        output.CompleteFlush();
+        await context.WriteAsync(new TestMessage());
+        await context.AbortAsync();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task Context_RecordsAsynchronousFlushFailureAndAborts()
+    {
+        var output = new ControlledPipeWriter();
+        var context = CreateContext(output);
+        var exception = new InvalidOperationException("flush");
+
+        var pending = context.WriteAsync(new TestMessage());
+        output.FailFlush(exception);
+
+        await pending;
+
+        Assert.AreSame(exception, context.CloseException);
+        await context.AbortAsync();
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+    }
+
+    [TestMethod]
     public async Task Context_RegistersHeartbeatsAndTimeoutState()
     {
         var (context, _, features) = CreateContext(keepAlive: TimeSpan.Zero, timeout: TimeSpan.Zero);
@@ -118,5 +178,21 @@ public sealed class RaidoConnectionContextAdditionalTests
         await context.AbortAsync();
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
         context.StopClientTimeout();
+    }
+
+    private static RaidoConnectionContext CreateContext(PipeWriter output)
+    {
+        var transport = Substitute.For<IDuplexPipe>();
+        transport.Input.Returns(Substitute.For<PipeReader>());
+        transport.Output.Returns(output);
+        var connection = Substitute.For<ConnectionContext>();
+        connection.ConnectionId.Returns("controlled");
+        connection.Transport.Returns(transport);
+        connection.Features.Returns(new FeatureCollection());
+        connection.ConnectionClosed.Returns(CancellationToken.None);
+        return new RaidoConnectionContext(connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
+        {
+            Protocol = new WritingProtocol()
+        };
     }
 }

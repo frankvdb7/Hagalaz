@@ -53,6 +53,68 @@ public sealed class RaidoMessagePipeReaderAdditionalTests
     }
 
     [TestMethod]
+    public async Task ReadAsync_PreservesUnconsumedMessagesInBacklog()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        underlying.ReadAsync(Arg.Any<CancellationToken>()).Returns(
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1 }), false, false)),
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 2 }), false, true)));
+        var reader = new RaidoMessagePipeReader(underlying, new OneByteMessageReader());
+
+        var first = await reader.ReadAsync();
+        reader.AdvanceTo(first.Buffer.Start, first.Buffer.End);
+
+        var combined = await reader.ReadAsync();
+
+        Assert.AreEqual(2, combined.Buffer.Length);
+        Assert.IsFalse(combined.IsCompleted);
+        reader.AdvanceTo(combined.Buffer.End);
+        reader.Complete();
+    }
+
+    [TestMethod]
+    public void TryRead_ReturnsFalseAfterCompletedBufferWasFullyExamined()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        var bytes = new ReadOnlySequence<byte>(new byte[] { 1 });
+        underlying.TryRead(out Arg.Any<ReadResult>()).Returns(x =>
+        {
+            x[0] = new ReadResult(bytes, false, true);
+            return true;
+        });
+        var reader = new RaidoMessagePipeReader(underlying, new OneByteMessageReader());
+
+        Assert.IsTrue(reader.TryRead(out var result));
+        Assert.IsTrue(result.IsCompleted);
+        reader.AdvanceTo(result.Buffer.End);
+
+        Assert.IsFalse(reader.TryRead(out _));
+        reader.Complete();
+    }
+
+    [TestMethod]
+    public void TryRead_ReturnsUnexaminedCompletedBacklog()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        var bytes = new ReadOnlySequence<byte>(new byte[] { 1 });
+        underlying.TryRead(out Arg.Any<ReadResult>()).Returns(x =>
+        {
+            x[0] = new ReadResult(bytes, false, true);
+            return true;
+        });
+        var reader = new RaidoMessagePipeReader(underlying, new OneByteMessageReader());
+
+        Assert.IsTrue(reader.TryRead(out var result));
+        reader.AdvanceTo(result.Buffer.Start, result.Buffer.Start);
+
+        Assert.IsTrue(reader.TryRead(out var backlog));
+        Assert.AreEqual(1, backlog.Buffer.Length);
+        Assert.IsTrue(backlog.IsCompleted);
+        reader.AdvanceTo(backlog.Buffer.End);
+        reader.Complete();
+    }
+
+    [TestMethod]
     public async Task ReadAsync_HandlesCanceledAndCompletedReads()
     {
         var underlying = Substitute.For<PipeReader>();

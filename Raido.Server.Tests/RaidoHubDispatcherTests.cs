@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Security.Claims;
@@ -218,6 +219,7 @@ public sealed class RaidoHubDispatcherTests
             ShouldListenTo = source => source.Name == RaidoServerActivitySource.Name,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData
         };
+        ActivitySource.AddActivityListener(listener);
         using var provider = CreateProvider().Provider;
         var dispatcher = CreateDispatcher(provider);
         var connection = CreateConnection();
@@ -227,6 +229,50 @@ public sealed class RaidoHubDispatcherTests
 
         connection.OriginalActivity.Stop();
         Assert.AreEqual(1, DispatchHub.Invoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_CreatesActivitiesForLifecycleCallbacks()
+    {
+        var started = new ConcurrentBag<string>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = _ => true,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStarted = activity => started.Add(activity.OperationName)
+        };
+        ActivitySource.AddActivityListener(listener);
+        using var provider = CreateProvider().Provider;
+        var dispatcher = CreateDispatcher(provider);
+        var connection = CreateConnection();
+
+        await dispatcher.OnConnectedAsync(connection);
+        await dispatcher.OnDisconnectedAsync(connection, null);
+
+        Assert.Contains(RaidoServerActivitySource.OnConnected, started);
+        Assert.Contains(RaidoServerActivitySource.OnDisconnected, started);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_MarksHandlerFailureActivityAsError()
+    {
+        var stopped = new ConcurrentBag<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = _ => true,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity => stopped.Add(activity)
+        };
+        ActivitySource.AddActivityListener(listener);
+        using var provider = CreateProvider().Provider;
+        var dispatcher = CreateDispatcher(provider);
+        DispatchHub.ThrowFromHandler = true;
+
+        await dispatcher.DispatchMessageAsync(CreateConnection(), new DispatchMessage());
+
+        var activity = stopped.Single(candidate => candidate.OperationName == RaidoServerActivitySource.DispatchMessage);
+        Assert.AreEqual(ActivityStatusCode.Error, activity.Status);
+        Assert.AreEqual(typeof(InvalidOperationException).FullName, activity.GetTagItem("error.type"));
     }
 
     [TestMethod]
