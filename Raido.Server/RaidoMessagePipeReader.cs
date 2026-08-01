@@ -168,7 +168,7 @@ namespace Raido.Server
         {
             var buffer = underlyingReadResult.Buffer;
             _isCanceled = underlyingReadResult.IsCanceled;
-            _isCompleted = underlyingReadResult.IsCompleted && underlyingReadResult.Buffer.IsEmpty && !_isCanceled;
+            _isCompleted = underlyingReadResult.IsCompleted && !_isCanceled;
 
             if (_isCanceled)
             {
