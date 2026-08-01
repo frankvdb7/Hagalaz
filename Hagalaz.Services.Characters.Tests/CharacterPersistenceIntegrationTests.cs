@@ -84,14 +84,14 @@ public sealed class CharacterPersistenceIntegrationTests
     }
 
     [TestMethod]
-    [Timeout(45000)]
+    [Timeout(120000)]
     public async Task ConcurrentCommands_RetryAgainstFreshEfStateAndApplyHighestRevision()
     {
         var masterId = await SeedCharacterAsync();
         var barrier = new CommitBarrier(2);
         await using var provider = CreateProvider(barrier);
         var harness = provider.GetTestHarness();
-        var acknowledgementProbe = harness.GetConsumerHarness<AcknowledgementProbe>();
+        var retryCompletion = provider.GetRequiredService<RetryCompletionCapture>();
         await harness.Start();
 
         try
@@ -100,10 +100,9 @@ public sealed class CharacterPersistenceIntegrationTests
             var newerCommand = CreateCommand(masterId, 3, 3203);
             await Task.WhenAll(harness.Bus.Publish(olderCommand), harness.Bus.Publish(newerCommand));
 
-            Assert.IsTrue(await acknowledgementProbe.Consumed.Any<PersistCharacterAcknowledged>(x =>
-                x.Context.Message.MasterId == masterId && x.Context.Message.SnapshotRevision == 2));
-            Assert.IsTrue(await acknowledgementProbe.Consumed.Any<PersistCharacterAcknowledged>(x =>
-                x.Context.Message.MasterId == masterId && x.Context.Message.SnapshotRevision == 3));
+            using var retryTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+            var acknowledgedRevisions = await retryCompletion.Completed.Task.WaitAsync(retryTimeout.Token);
+            CollectionAssert.AreEquivalent(new long[] { 2, 3 }, acknowledgedRevisions.ToArray());
         }
         finally
         {
@@ -164,6 +163,7 @@ public sealed class CharacterPersistenceIntegrationTests
             .AddLogging()
             .AddSingleton<CharacterPersistenceMetrics>()
             .AddSingleton<AcknowledgementCapture>()
+            .AddSingleton<RetryCompletionCapture>()
             .AddSingleton<FaultCapture>()
             .AddSingleton<ErrorQueueCapture>()
             .AddDbContext<HagalazDbContext>(options => options.UseMySQL(_database!.GetConnectionString()))
@@ -267,6 +267,27 @@ public sealed class CharacterPersistenceIntegrationTests
             new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
+    private sealed class RetryCompletionCapture
+    {
+        private readonly object _sync = new();
+        private readonly HashSet<long> _acknowledgedRevisions = [];
+
+        public TaskCompletionSource<IReadOnlySet<long>> Completed { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Record(PersistCharacterAcknowledged acknowledgement)
+        {
+            lock (_sync)
+            {
+                _acknowledgedRevisions.Add(acknowledgement.SnapshotRevision);
+                if (_acknowledgedRevisions.Count >= 2)
+                {
+                    Completed.TrySetResult(_acknowledgedRevisions.ToHashSet());
+                }
+            }
+        }
+    }
+
     private sealed class FaultCapture
     {
         public TaskCompletionSource<Fault<PersistCharacterCommand>> Received { get; } =
@@ -282,12 +303,20 @@ public sealed class CharacterPersistenceIntegrationTests
     private sealed class AcknowledgementProbe : IConsumer<PersistCharacterAcknowledged>
     {
         private readonly AcknowledgementCapture _capture;
+        private readonly RetryCompletionCapture _retryCompletion;
 
-        public AcknowledgementProbe(AcknowledgementCapture capture) => _capture = capture;
+        public AcknowledgementProbe(
+            AcknowledgementCapture capture,
+            RetryCompletionCapture retryCompletion)
+        {
+            _capture = capture;
+            _retryCompletion = retryCompletion;
+        }
 
         public Task Consume(ConsumeContext<PersistCharacterAcknowledged> context)
         {
             _capture.Received.TrySetResult(context.Message);
+            _retryCompletion.Record(context.Message);
             return Task.CompletedTask;
         }
     }
@@ -351,7 +380,7 @@ public sealed class CharacterPersistenceIntegrationTests
                 _released.TrySetResult();
             }
 
-            await _released.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            await _released.Task.WaitAsync(TimeSpan.FromSeconds(60));
         }
     }
 

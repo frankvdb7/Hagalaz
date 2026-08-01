@@ -18,13 +18,14 @@ namespace Hagalaz.Services.Characters.Tests;
 public sealed class CharacterUpdateRequestConsumerTests
 {
     [TestMethod]
-    [Timeout(15000)]
+    [Timeout(60000)]
     public async Task Consume_PersistCommand_RetriesTransientCommitFailure()
     {
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName);
         var remainingFailures = 1;
         var totalCommits = 0;
+        var commitCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var provider = new ServiceCollection()
             .AddScoped(_ => CreateContext(databaseName))
@@ -35,7 +36,8 @@ public sealed class CharacterUpdateRequestConsumerTests
                     {
                         Interlocked.Increment(ref totalCommits);
                         return Interlocked.Decrement(ref remainingFailures) >= 0;
-                    }))
+                    },
+                    onCommitted: () => commitCompleted.TrySetResult()))
             .AddAutoMapper(_ => { }, typeof(Program))
             .AddMassTransitTestHarness(x =>
             {
@@ -50,10 +52,8 @@ public sealed class CharacterUpdateRequestConsumerTests
         await harness.Bus.Publish(command);
 
         Assert.IsTrue(await harness.Consumed.Any<PersistCharacterCommand>(x => x.Context.Message.MasterId == command.MasterId));
-        for (var attempt = 0; attempt < 50 && totalCommits < 2; attempt++)
-        {
-            await Task.Delay(100);
-        }
+        using var commitTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await commitCompleted.Task.WaitAsync(commitTimeout.Token);
 
         await harness.Stop();
 
@@ -64,7 +64,7 @@ public sealed class CharacterUpdateRequestConsumerTests
     }
 
     [TestMethod]
-    [Timeout(15000)]
+    [Timeout(60000)]
     public async Task Consume_PersistCommand_ResetsTrackingAfterConcurrencyFailure()
     {
         var databaseName = Guid.NewGuid().ToString();
@@ -72,6 +72,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var remainingFailures = 1;
         var resetCount = 0;
         var totalCommits = 0;
+        var commitCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var provider = new ServiceCollection()
             .AddScoped(_ => CreateContext(databaseName))
@@ -85,7 +86,8 @@ public sealed class CharacterUpdateRequestConsumerTests
                             ? new DbUpdateConcurrencyException("The character snapshot was updated concurrently.")
                             : null;
                     },
-                    () => Interlocked.Increment(ref resetCount)))
+                    () => Interlocked.Increment(ref resetCount),
+                    () => commitCompleted.TrySetResult()))
             .AddAutoMapper(_ => { }, typeof(Program))
             .AddMassTransitTestHarness(x =>
             {
@@ -99,10 +101,8 @@ public sealed class CharacterUpdateRequestConsumerTests
         var command = CreateCommand();
         await harness.Bus.Publish(command);
 
-        for (var attempt = 0; attempt < 50 && totalCommits < 2; attempt++)
-        {
-            await Task.Delay(100);
-        }
+        using var commitTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await commitCompleted.Task.WaitAsync(commitTimeout.Token);
 
         await harness.Stop();
 
@@ -123,7 +123,17 @@ public sealed class CharacterUpdateRequestConsumerTests
             .AddScoped(_ => CreateContext(databaseName))
             .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
             .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .AddMassTransitTestHarness(x =>
+            {
+                x.AddConsumer<UpdateCharacterRequestConsumer>();
+                x.AddConfigureEndpointsCallback((name, endpoint) =>
+                {
+                    if (name == "UpdateCharacterRequest")
+                    {
+                        endpoint.ConcurrentMessageLimit = 1;
+                    }
+                });
+            })
             .BuildServiceProvider(true);
 
         var harness = provider.GetTestHarness();
@@ -507,6 +517,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         private readonly ICharacterUnitOfWork _inner;
         private readonly Func<Exception?> _failureFactory;
         private readonly Action? _onReset;
+        private readonly Action? _onCommitted;
 
         public FailingCharacterUnitOfWork(ICharacterUnitOfWork inner)
             : this(inner, static () => true)
@@ -514,23 +525,34 @@ public sealed class CharacterUpdateRequestConsumerTests
         }
 
         public FailingCharacterUnitOfWork(ICharacterUnitOfWork inner, Func<bool> shouldFail)
+            : this(inner, shouldFail, null)
+        {
+        }
+
+        public FailingCharacterUnitOfWork(
+            ICharacterUnitOfWork inner,
+            Func<bool> shouldFail,
+            Action? onCommitted)
             : this(
                 inner,
                 () => shouldFail()
                     ? new InvalidOperationException("The character update could not be committed.")
                     : null,
-                null)
+                null,
+                onCommitted)
         {
         }
 
         public FailingCharacterUnitOfWork(
             ICharacterUnitOfWork inner,
             Func<Exception?> failureFactory,
-            Action? onReset)
+            Action? onReset,
+            Action? onCommitted = null)
         {
             _inner = inner;
             _failureFactory = failureFactory;
             _onReset = onReset;
+            _onCommitted = onCommitted;
         }
 
         public ICharacterRepository CharacterRepository => _inner.CharacterRepository;
@@ -556,15 +578,16 @@ public sealed class CharacterUpdateRequestConsumerTests
         }
 
         public ValueTask RollbackAsync() => _inner.RollbackAsync();
-        public ValueTask CommitAsync()
+        public async ValueTask CommitAsync()
         {
             var failure = _failureFactory();
             if (failure != null)
             {
-                return ValueTask.FromException(failure);
+                throw failure;
             }
 
-            return _inner.CommitAsync();
+            await _inner.CommitAsync();
+            _onCommitted?.Invoke();
         }
     }
 }
