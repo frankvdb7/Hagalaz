@@ -133,14 +133,16 @@ public sealed class CharacterPersistenceIntegrationTests
             var command = CreateCommand(masterId, 1, noteText: new string('x', 51));
             await harness.Bus.Publish(command);
 
-            var faultMessage = await faultCapture.Received.Task.WaitAsync(TimeSpan.FromSeconds(120));
+            using var faultTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+            var faultMessage = await faultCapture.Received.Task.WaitAsync(faultTimeout.Token);
             Assert.AreEqual(masterId, faultMessage.Message.MasterId);
             var exception = faultMessage.Exceptions.FirstOrDefault();
             Assert.IsNotNull(exception);
             StringAssert.Contains(exception!.ExceptionType, nameof(DbUpdateException));
             StringAssert.Contains(exception.Message, "Could not save changes");
 
-            var errorCommand = await errorQueueCapture.Received.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            using var errorQueueTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var errorCommand = await errorQueueCapture.Received.Task.WaitAsync(errorQueueTimeout.Token);
             Assert.AreEqual(masterId, errorCommand.MasterId);
             Assert.IsFalse(acknowledgementCapture.Received.Task.IsCompleted);
         }
