@@ -6,7 +6,7 @@ namespace Hagalaz.AppHost;
 
 public static class AppHostConfiguration
 {
-    public static void Configure(IDistributedApplicationBuilder builder)
+    public static void Configure(IDistributedApplicationBuilder builder, bool includeHealthChecks = true)
     {
         var database = builder.AddMySql("mysql")
             .WithImage("mysql", "8.4")
@@ -54,16 +54,24 @@ public static class AppHostConfiguration
             .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
             .WithEndpoint(port: 443, scheme: "tcp", env: "TCP_PORT")
             .WithHttpsEndpoint(port: 7010, env: "HTTPS_PORT")
-            .WithHttpEndpoint(port: 5010, env: "HTTP_PORT")
-            .WithHttpHealthCheck("/health");
+            .WithHttpEndpoint(port: 5010, env: "HTTP_PORT");
+
+        if (includeHealthChecks)
+        {
+            gameWorldService.WithHttpHealthCheck("/health");
+        }
 
         var authService = builder.AddProject<Projects.Hagalaz_Services_Authorization>("hagalaz-services-authorization")
             .WaitFor(messaging)
             .WaitForCompletion(migrations)
             .WithReference(database)
             .WithReference(messaging)
-            .WithScalarDocs()
-            .WithHttpHealthCheck("/health");
+            .WithScalarDocs();
+
+        if (includeHealthChecks)
+        {
+            authService.WithHttpHealthCheck("/health");
+        }
 
         var contactsService = builder.AddProject<Projects.Hagalaz_Services_Contacts>("hagalaz-services-contacts")
             .WaitFor(messaging)
@@ -71,8 +79,12 @@ public static class AppHostConfiguration
             .WithReference(authService)
             .WithReference(database)
             .WithReference(messaging)
-            .WithScalarDocs()
-            .WithHttpHealthCheck("/health");
+            .WithScalarDocs();
+
+        if (includeHealthChecks)
+        {
+            contactsService.WithHttpHealthCheck("/health");
+        }
 
         var charactersService = builder.AddProject<Projects.Hagalaz_Services_Characters>("hagalaz-services-characters")
             .WaitFor(messaging)
@@ -80,22 +92,34 @@ public static class AppHostConfiguration
             .WithReference(authService)
             .WithReference(database)
             .WithReference(messaging)
-            .WithScalarDocs()
-            .WithHttpHealthCheck("/health");
+            .WithScalarDocs();
+
+        if (includeHealthChecks)
+        {
+            charactersService.WithHttpHealthCheck("/health");
+        }
 
         var cacheService = builder.AddProject<Projects.Hagalaz_Services_Cache>("hagalaz-services-cache")
             .WaitFor(authService)
             .WithReference(authService)
             .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
-            .WithScalarDocs()
-            .WithHttpHealthCheck("/health");
+            .WithScalarDocs();
+
+        if (includeHealthChecks)
+        {
+            cacheService.WithHttpHealthCheck("/health");
+        }
 
         var gameUpdate = builder.AddProject<Projects.Hagalaz_Services_GameUpdate>("hagalaz-services-gameupdate", launchProfileName: "tcp")
             .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
             .WithEndpoint(port: 43594, scheme: "tcp", env: "TCP_PORT")
             .WithHttpsEndpoint(port: 7005, env: "HTTPS_PORT")
-            .WithHttpEndpoint(port: 5008, env: "HTTP_PORT")
-            .WithHttpHealthCheck("/health");
+            .WithHttpEndpoint(port: 5008, env: "HTTP_PORT");
+
+        if (includeHealthChecks)
+        {
+            gameUpdate.WithHttpHealthCheck("/health");
+        }
 
         var webApp = builder.AddJavaScriptApp("hagalaz-web-app", "../Hagalaz.Web.App", "start:aspire")
             .WithReference(authService)
@@ -122,8 +146,12 @@ public static class AppHostConfiguration
             .WithReference(gameUpdate)
             .WithReference(webApp)
             .WithReference(webAdminApp)
-            .WithExternalHttpEndpoints()
-            .WithHttpHealthCheck("/health");
+            .WithExternalHttpEndpoints();
+
+        if (includeHealthChecks)
+        {
+            gateway.WithHttpHealthCheck("/health");
+        }
 
         if (builder.Environment.IsDevelopment() && builder.Configuration["DOTNET_LAUNCH_PROFILE"] == "https")
         {

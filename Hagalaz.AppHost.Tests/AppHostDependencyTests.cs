@@ -12,8 +12,7 @@ public sealed class AppHostDependencyTests
     public async Task DatabaseDependentServices_WaitForSuccessfulMigrationCompletion()
     {
         var builder = DistributedApplication.CreateBuilder(["--disable-dashboard"]);
-        builder.Configuration["DOTNET_LAUNCH_PROFILE"] = "https";
-        AppHostConfiguration.Configure(builder);
+        AppHostConfiguration.Configure(builder, includeHealthChecks: false);
 
         await using var application = builder.Build();
         var model = application.Services.GetRequiredService<DistributedApplicationModel>();
