@@ -730,16 +730,9 @@ namespace Hagalaz.Services.GameWorld
 
                     builder.InstanceName = "SignIn";
                     builder
-                        .AddRateLimiter(new RateLimiterStrategyOptions
-                        {
-                            Name = "PartitionedSignInRateLimiter",
-                            RateLimiter = args => partitionedLimiter.AcquireAsync(args.Context, 1, args.Context.CancellationToken),
-                            OnRejected = _ =>
-                            {
-                                metrics.RecordPartitionRejected();
-                                return default;
-                            }
-                        })
+                        // Polly adds the first strategy as the outermost strategy. Keep the
+                        // shared zero-queue backstop outside the per-IP queues so queued work
+                        // remains globally bounded under a distributed attack.
                         .AddRateLimiter(new RateLimiterStrategyOptions
                         {
                             Name = "GlobalSignInSafetyCap",
@@ -747,6 +740,16 @@ namespace Hagalaz.Services.GameWorld
                             OnRejected = _ =>
                             {
                                 metrics.RecordGlobalRejected();
+                                return default;
+                            }
+                        })
+                        .AddRateLimiter(new RateLimiterStrategyOptions
+                        {
+                            Name = "PartitionedSignInRateLimiter",
+                            RateLimiter = args => partitionedLimiter.AcquireAsync(args.Context, 1, args.Context.CancellationToken),
+                            OnRejected = _ =>
+                            {
+                                metrics.RecordPartitionRejected();
                                 return default;
                             }
                         })
