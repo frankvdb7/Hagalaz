@@ -374,7 +374,10 @@ namespace Raido.Server.Internal
                 }
 
                 var executor = ObjectMethodExecutor.Create(methodInfo, hubTypeInfo);
-                var authorizeAttributes = methodInfo.GetCustomAttributes<AuthorizeAttribute>(inherit: true);
+                var authorizeAttributes = methodInfo.GetCustomAttribute<AllowAnonymousAttribute>(inherit: true) is not null
+                    ? Array.Empty<AuthorizeAttribute>()
+                    : hubTypeInfo.GetCustomAttributes<AuthorizeAttribute>(inherit: true)
+                        .Concat(methodInfo.GetCustomAttributes<AuthorizeAttribute>(inherit: true));
                 _messageHandlers[messageType] = new RaidoHubMethodDescriptor(executor, serviceProviderIsService, authorizeAttributes);
 
                 Log.HubMethodBound(_logger, hubName, methodInfo.Name);
