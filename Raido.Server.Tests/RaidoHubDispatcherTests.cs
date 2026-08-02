@@ -26,6 +26,14 @@ public sealed class RaidoHubDispatcherTests
     private sealed class OtherMessage : RaidoMessage { }
     private sealed class TaskMessage : RaidoMessage { }
     private sealed class ValueTaskMessage : RaidoMessage { }
+    private sealed class ClassAuthorizedMessage : RaidoMessage { }
+    private sealed class SecondClassAuthorizedMessage : RaidoMessage { }
+    private sealed class RoleProtectedMessage : RaidoMessage { }
+    private sealed class MethodRoleProtectedMessage : RaidoMessage { }
+    private sealed class CombinedAuthorizationMessage : RaidoMessage { }
+    private sealed class InheritedAuthorizationMessage : RaidoMessage { }
+    private sealed class MultiplePolicyMessage : RaidoMessage { }
+    private sealed class AllowAnonymousMessage : RaidoMessage { }
 
     private sealed class DispatchHub : RaidoHub
     {
@@ -96,21 +104,104 @@ public sealed class RaidoHubDispatcherTests
         public Task OnDisconnectedAsync(RaidoHubLifetimeContext context, Exception? exception, Func<RaidoHubLifetimeContext, Exception?, Task> next) => next(context, exception);
     }
 
+    [Authorize]
+    private sealed class ClassAuthorizedHub : RaidoHub
+    {
+        public static int Invoked;
+
+        [RaidoMessageHandler(typeof(ClassAuthorizedMessage))]
+        public void Handle(ClassAuthorizedMessage message) => Invoked++;
+
+        [RaidoMessageHandler(typeof(SecondClassAuthorizedMessage))]
+        public void HandleSecond(SecondClassAuthorizedMessage message) => Invoked++;
+    }
+
+    [Authorize(Roles = "admin")]
+    private sealed class RoleProtectedHub : RaidoHub
+    {
+        public static int Invoked;
+
+        [RaidoMessageHandler(typeof(RoleProtectedMessage))]
+        public void Handle(RoleProtectedMessage message) => Invoked++;
+    }
+
+    private sealed class MethodRoleProtectedHub : RaidoHub
+    {
+        public static int Invoked;
+
+        [Authorize(Roles = "admin")]
+        [RaidoMessageHandler(typeof(MethodRoleProtectedMessage))]
+        public void Handle(MethodRoleProtectedMessage message) => Invoked++;
+    }
+
+    [Authorize]
+    private sealed class CombinedAuthorizationHub : RaidoHub
+    {
+        public static int Invoked;
+
+        [Authorize(Roles = "admin")]
+        [RaidoMessageHandler(typeof(CombinedAuthorizationMessage))]
+        public void Handle(CombinedAuthorizationMessage message) => Invoked++;
+    }
+
+    [Authorize]
+    private abstract class BaseAuthorizedHub : RaidoHub
+    {
+        public static int Invoked;
+
+        [RaidoMessageHandler(typeof(InheritedAuthorizationMessage))]
+        public void Handle(InheritedAuthorizationMessage message) => Invoked++;
+    }
+
+    private sealed class InheritedAuthorizationHub : BaseAuthorizedHub
+    {
+    }
+
+    [AllowAnonymous]
+    private sealed class ClassAllowAnonymousOverrideHub : BaseAuthorizedHub
+    {
+    }
+
+    [Authorize(Roles = "admin")]
+    [Authorize(Policy = "trusted")]
+    private sealed class MultiplePolicyHub : RaidoHub
+    {
+        public static int Invoked;
+
+        [RaidoMessageHandler(typeof(MultiplePolicyMessage))]
+        public void Handle(MultiplePolicyMessage message) => Invoked++;
+    }
+
+    [Authorize]
+    private sealed class AllowAnonymousOverrideHub : RaidoHub
+    {
+        public static int Invoked;
+
+        [AllowAnonymous]
+        [RaidoMessageHandler(typeof(AllowAnonymousMessage))]
+        public void Handle(AllowAnonymousMessage message) => Invoked++;
+    }
+
     private static (ServiceProvider Provider, IRaidoContext Context) CreateProvider(bool withFilter = false)
+        => CreateProvider<DispatchHub>(withFilter);
+
+    private static (ServiceProvider Provider, IRaidoContext Context) CreateProvider<THub>(
+        bool withFilter = false,
+        Action<AuthorizationOptions>? configureAuthorization = null) where THub : RaidoHub
     {
         var services = new ServiceCollection();
         var context = Substitute.For<IRaidoContext>();
         context.Clients.Returns(Substitute.For<IRaidoClients>());
         services.AddSingleton(context);
         services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Trace));
-        services.AddAuthorization();
+        services.AddAuthorization(configureAuthorization ?? (_ => { }));
         services.AddSingleton(new RaidoServerActivitySource());
         services.AddScoped<IRaidoCallerContextAccessor, DefaultRaidoCallerContextAccessor>();
-        services.AddScoped<IRaidoHubActivator<DispatchHub>, DefaultRaidoHubActivator<DispatchHub>>();
-        services.AddOptions<RaidoHubOptions<DispatchHub>>();
+        services.AddScoped<IRaidoHubActivator<THub>, DefaultRaidoHubActivator<THub>>();
+        services.AddOptions<RaidoHubOptions<THub>>();
         if (withFilter)
         {
-            services.Configure<RaidoHubOptions<DispatchHub>>(options => options.AddFilter(new DispatchFilter()));
+            services.Configure<RaidoHubOptions<THub>>(options => options.AddFilter(new DispatchFilter()));
         }
         return (services.BuildServiceProvider(), context);
     }
@@ -134,12 +225,15 @@ public sealed class RaidoHubDispatcherTests
     }
 
     private static DefaultRaidoHubDispatcher<DispatchHub> CreateDispatcher(ServiceProvider provider)
+        => CreateDispatcher<DispatchHub>(provider);
+
+    private static DefaultRaidoHubDispatcher<THub> CreateDispatcher<THub>(ServiceProvider provider) where THub : RaidoHub
     {
-        var options = provider.GetRequiredService<IOptions<RaidoHubOptions<DispatchHub>>>();
-        return new DefaultRaidoHubDispatcher<DispatchHub>(
+        var options = provider.GetRequiredService<IOptions<RaidoHubOptions<THub>>>();
+        return new DefaultRaidoHubDispatcher<THub>(
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<IRaidoContext>(),
-            provider.GetRequiredService<ILogger<DefaultRaidoHubDispatcher<DispatchHub>>>(),
+            provider.GetRequiredService<ILogger<DefaultRaidoHubDispatcher<THub>>>(),
             options);
     }
 
@@ -154,6 +248,13 @@ public sealed class RaidoHubDispatcherTests
         DispatchHub.TaskInvoked = 0;
         DispatchHub.ValueTaskInvoked = 0;
         DispatchHub.ThrowFromHandler = false;
+        ClassAuthorizedHub.Invoked = 0;
+        RoleProtectedHub.Invoked = 0;
+        MethodRoleProtectedHub.Invoked = 0;
+        CombinedAuthorizationHub.Invoked = 0;
+        BaseAuthorizedHub.Invoked = 0;
+        MultiplePolicyHub.Invoked = 0;
+        AllowAnonymousOverrideHub.Invoked = 0;
     }
 
     [TestMethod]
@@ -298,6 +399,209 @@ public sealed class RaidoHubDispatcherTests
         await dispatcher.DispatchMessageAsync(connection, new OtherMessage());
 
         Assert.AreEqual(1, DispatchHub.AuthorizedInvoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_EnforcesClassLevelAuthorizeAttributeForAllHandlers()
+    {
+        using var provider = CreateProvider<ClassAuthorizedHub>().Provider;
+        var dispatcher = CreateDispatcher<ClassAuthorizedHub>(provider);
+
+        var anonymousConnection = CreateConnection();
+        await dispatcher.DispatchMessageAsync(anonymousConnection, new ClassAuthorizedMessage());
+        await dispatcher.DispatchMessageAsync(anonymousConnection, new SecondClassAuthorizedMessage());
+
+        Assert.AreEqual(0, ClassAuthorizedHub.Invoked);
+
+        var authenticatedConnection = CreateConnection();
+        authenticatedConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity("test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(authenticatedConnection, new ClassAuthorizedMessage());
+        await dispatcher.DispatchMessageAsync(authenticatedConnection, new SecondClassAuthorizedMessage());
+
+        Assert.AreEqual(2, ClassAuthorizedHub.Invoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_EnforcesClassLevelRoleAuthorizeAttribute()
+    {
+        using var provider = CreateProvider<RoleProtectedHub>().Provider;
+        var dispatcher = CreateDispatcher<RoleProtectedHub>(provider);
+
+        var nonAdminConnection = CreateConnection();
+        nonAdminConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Role, "user") }, "test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(nonAdminConnection, new RoleProtectedMessage());
+
+        Assert.AreEqual(0, RoleProtectedHub.Invoked);
+
+        var adminConnection = CreateConnection();
+        adminConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Role, "admin") }, "test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(adminConnection, new RoleProtectedMessage());
+
+        Assert.AreEqual(1, RoleProtectedHub.Invoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_EnforcesMethodLevelRoleAuthorizeAttribute()
+    {
+        using var provider = CreateProvider<MethodRoleProtectedHub>().Provider;
+        var dispatcher = CreateDispatcher<MethodRoleProtectedHub>(provider);
+
+        var nonAdminConnection = CreateConnection();
+        nonAdminConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Role, "user") }, "test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(nonAdminConnection, new MethodRoleProtectedMessage());
+
+        Assert.AreEqual(0, MethodRoleProtectedHub.Invoked);
+
+        var adminConnection = CreateConnection();
+        adminConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Role, "admin") }, "test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(adminConnection, new MethodRoleProtectedMessage());
+
+        Assert.AreEqual(1, MethodRoleProtectedHub.Invoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_CombinesClassAndMethodAuthorizeAttributes()
+    {
+        using var provider = CreateProvider<CombinedAuthorizationHub>().Provider;
+        var dispatcher = CreateDispatcher<CombinedAuthorizationHub>(provider);
+
+        await dispatcher.DispatchMessageAsync(CreateConnection(), new CombinedAuthorizationMessage());
+
+        var nonAdminConnection = CreateConnection();
+        nonAdminConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Role, "user") }, "test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(nonAdminConnection, new CombinedAuthorizationMessage());
+
+        Assert.AreEqual(0, CombinedAuthorizationHub.Invoked);
+
+        var adminConnection = CreateConnection();
+        adminConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Role, "admin") }, "test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(adminConnection, new CombinedAuthorizationMessage());
+
+        Assert.AreEqual(1, CombinedAuthorizationHub.Invoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_EnforcesInheritedClassLevelAuthorizeAttribute()
+    {
+        using var provider = CreateProvider<InheritedAuthorizationHub>().Provider;
+        var dispatcher = CreateDispatcher<InheritedAuthorizationHub>(provider);
+
+        await dispatcher.DispatchMessageAsync(CreateConnection(), new InheritedAuthorizationMessage());
+
+        Assert.AreEqual(0, BaseAuthorizedHub.Invoked);
+
+        var authenticatedConnection = CreateConnection();
+        authenticatedConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity("test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(authenticatedConnection, new InheritedAuthorizationMessage());
+
+        Assert.AreEqual(1, BaseAuthorizedHub.Invoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_AllowsClassLevelAllowAnonymousToOverrideInheritedAuthorization()
+    {
+        using var provider = CreateProvider<ClassAllowAnonymousOverrideHub>().Provider;
+        var dispatcher = CreateDispatcher<ClassAllowAnonymousOverrideHub>(provider);
+
+        await dispatcher.DispatchMessageAsync(CreateConnection(), new InheritedAuthorizationMessage());
+
+        Assert.AreEqual(1, BaseAuthorizedHub.Invoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_CombinesMultipleClassLevelAuthorizePolicies()
+    {
+        using var provider = CreateProvider<MultiplePolicyHub>(configureAuthorization: options =>
+            options.AddPolicy("trusted", policy => policy.RequireClaim("trusted", "yes"))).Provider;
+        var dispatcher = CreateDispatcher<MultiplePolicyHub>(provider);
+
+        var trustedNonAdminConnection = CreateConnection();
+        trustedNonAdminConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[]
+                {
+                    new Claim(ClaimTypes.Role, "user"),
+                    new Claim("trusted", "yes")
+                }, "test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(trustedNonAdminConnection, new MultiplePolicyMessage());
+
+        var untrustedAdminConnection = CreateConnection();
+        untrustedAdminConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Role, "admin") }, "test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(untrustedAdminConnection, new MultiplePolicyMessage());
+
+        Assert.AreEqual(0, MultiplePolicyHub.Invoked);
+
+        var trustedAdminConnection = CreateConnection();
+        trustedAdminConnection.Features.Set<IConnectionUserFeature>(new UserFeature
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[]
+                {
+                    new Claim(ClaimTypes.Role, "admin"),
+                    new Claim("trusted", "yes")
+                }, "test"))
+        });
+
+        await dispatcher.DispatchMessageAsync(trustedAdminConnection, new MultiplePolicyMessage());
+
+        Assert.AreEqual(1, MultiplePolicyHub.Invoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_AllowsMethodLevelAllowAnonymousToOverrideHubAuthorization()
+    {
+        using var provider = CreateProvider<AllowAnonymousOverrideHub>().Provider;
+        var dispatcher = CreateDispatcher<AllowAnonymousOverrideHub>(provider);
+
+        await dispatcher.DispatchMessageAsync(CreateConnection(), new AllowAnonymousMessage());
+
+        Assert.AreEqual(1, AllowAnonymousOverrideHub.Invoked);
     }
 
     [TestMethod]
