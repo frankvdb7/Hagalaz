@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using Polly;
+using Polly.RateLimiting;
 using Hagalaz.Services.GameWorld.Services;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -83,6 +84,50 @@ public sealed class AuthenticationRateLimitingTests
             ResilienceContextPool.Shared.Return(secondClient);
         }
     }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task CombinedLimiter_PerIpRejection_DoesNotConsumeGlobalWindowPermit()
+    {
+        using var globalAdmissionLimiter = AuthenticationRateLimiting.CreateGlobalAdmissionLimiter(permitLimit: 1);
+        using var partitionedLimiter = AuthenticationRateLimiting.CreatePartitionedLimiter(permitLimit: 1, queueLimit: 0);
+        using var globalLimiter = AuthenticationRateLimiting.CreateGlobalLimiter(permitLimit: 2);
+        var pipeline = new ResiliencePipelineBuilder()
+            .AddRateLimiter(new RateLimiterStrategyOptions
+            {
+                RateLimiter = args => globalAdmissionLimiter.AcquireAsync(1, args.Context.CancellationToken)
+            })
+            .AddRateLimiter(new RateLimiterStrategyOptions
+            {
+                RateLimiter = args => partitionedLimiter.AcquireAsync(args.Context, 1, args.Context.CancellationToken)
+            })
+            .AddRateLimiter(new RateLimiterStrategyOptions
+            {
+                RateLimiter = args => globalLimiter.AcquireAsync(1, args.Context.CancellationToken)
+            })
+            .Build();
+
+        var firstClient = CreateContext("ip:192.0.2.30");
+        var secondClient = CreateContext("ip:192.0.2.31");
+        var thirdClient = CreateContext("ip:192.0.2.32");
+
+        try
+        {
+            await ExecuteAsync(pipeline, firstClient);
+            await Assert.ThrowsAsync<RateLimiterRejectedException>(() => ExecuteAsync(pipeline, firstClient));
+            await ExecuteAsync(pipeline, secondClient);
+            await Assert.ThrowsAsync<RateLimiterRejectedException>(() => ExecuteAsync(pipeline, thirdClient));
+        }
+        finally
+        {
+            ResilienceContextPool.Shared.Return(firstClient);
+            ResilienceContextPool.Shared.Return(secondClient);
+            ResilienceContextPool.Shared.Return(thirdClient);
+        }
+    }
+
+    private static Task ExecuteAsync(ResiliencePipeline pipeline, ResilienceContext context) =>
+        pipeline.ExecuteAsync(_ => ValueTask.CompletedTask, context).AsTask();
 
     private static ResilienceContext CreateContext(string partitionKey)
     {

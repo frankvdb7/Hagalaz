@@ -8,6 +8,7 @@ internal static class AuthenticationRateLimiting
 {
     internal const int PartitionPermitLimit = 5;
     internal const int PartitionQueueLimit = 10;
+    internal const int GlobalAdmissionPermitLimit = 1_000;
     internal const int GlobalPermitLimit = 1_000;
 
     internal static readonly ResiliencePropertyKey<string> PartitionKey = new("auth-sign-in-partition");
@@ -28,9 +29,18 @@ internal static class AuthenticationRateLimiting
                     AutoReplenishment = true
                 }));
 
-    internal static SlidingWindowRateLimiter CreateGlobalLimiter() => new(new SlidingWindowRateLimiterOptions
+    internal static ConcurrencyLimiter CreateGlobalAdmissionLimiter(
+        int permitLimit = GlobalAdmissionPermitLimit) => new(new ConcurrencyLimiterOptions
     {
-        PermitLimit = GlobalPermitLimit,
+        PermitLimit = permitLimit,
+        QueueLimit = 0,
+        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+    });
+
+    internal static SlidingWindowRateLimiter CreateGlobalLimiter(
+        int permitLimit = GlobalPermitLimit) => new(new SlidingWindowRateLimiterOptions
+    {
+        PermitLimit = permitLimit,
         QueueLimit = 0,
         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
         Window = TimeSpan.FromMinutes(1),

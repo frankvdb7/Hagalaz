@@ -720,26 +720,27 @@ namespace Hagalaz.Services.GameWorld
                 (builder, context) =>
                 {
                     var metrics = context.ServiceProvider.GetRequiredService<AuthenticationRateLimitingMetrics>();
+                    var globalAdmissionLimiter = AuthenticationRateLimiting.CreateGlobalAdmissionLimiter();
                     var partitionedLimiter = AuthenticationRateLimiting.CreatePartitionedLimiter();
                     var globalLimiter = AuthenticationRateLimiting.CreateGlobalLimiter();
                     context.OnPipelineDisposed(() =>
                     {
+                        globalAdmissionLimiter.Dispose();
                         partitionedLimiter.Dispose();
                         globalLimiter.Dispose();
                     });
 
                     builder.InstanceName = "SignIn";
                     builder
-                        // Polly adds the first strategy as the outermost strategy. Keep the
-                        // shared zero-queue backstop outside the per-IP queues so queued work
-                        // remains globally bounded under a distributed attack.
+                        // Polly adds the first strategy as the outermost strategy. The shared,
+                        // zero-queue admission gate bounds aggregate work before per-IP queues.
                         .AddRateLimiter(new RateLimiterStrategyOptions
                         {
-                            Name = "GlobalSignInSafetyCap",
-                            RateLimiter = args => globalLimiter.AcquireAsync(1, args.Context.CancellationToken),
+                            Name = "GlobalSignInAdmission",
+                            RateLimiter = args => globalAdmissionLimiter.AcquireAsync(1, args.Context.CancellationToken),
                             OnRejected = _ =>
                             {
-                                metrics.RecordGlobalRejected();
+                                metrics.RecordGlobalAdmissionRejected();
                                 return default;
                             }
                         })
@@ -750,6 +751,18 @@ namespace Hagalaz.Services.GameWorld
                             OnRejected = _ =>
                             {
                                 metrics.RecordPartitionRejected();
+                                return default;
+                            }
+                        })
+                        // The global sliding-window budget must be after the partitioned
+                        // limiter so a locally rejected request does not spend a global permit.
+                        .AddRateLimiter(new RateLimiterStrategyOptions
+                        {
+                            Name = "GlobalSignInSafetyCap",
+                            RateLimiter = args => globalLimiter.AcquireAsync(1, args.Context.CancellationToken),
+                            OnRejected = _ =>
+                            {
+                                metrics.RecordGlobalRejected();
                                 return default;
                             }
                         })
