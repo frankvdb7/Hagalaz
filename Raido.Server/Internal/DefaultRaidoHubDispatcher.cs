@@ -374,7 +374,9 @@ namespace Raido.Server.Internal
                 }
 
                 var executor = ObjectMethodExecutor.Create(methodInfo, hubTypeInfo);
-                var authorizeAttributes = methodInfo.GetCustomAttribute<AllowAnonymousAttribute>(inherit: true) is not null
+                var allowAnonymous = hubTypeInfo.GetCustomAttribute<AllowAnonymousAttribute>(inherit: true) is not null
+                    || methodInfo.GetCustomAttribute<AllowAnonymousAttribute>(inherit: true) is not null;
+                var authorizeAttributes = allowAnonymous
                     ? Array.Empty<AuthorizeAttribute>()
                     : hubTypeInfo.GetCustomAttributes<AuthorizeAttribute>(inherit: true)
                         .Concat(methodInfo.GetCustomAttributes<AuthorizeAttribute>(inherit: true));

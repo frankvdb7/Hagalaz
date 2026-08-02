@@ -157,6 +157,11 @@ public sealed class RaidoHubDispatcherTests
     {
     }
 
+    [AllowAnonymous]
+    private sealed class ClassAllowAnonymousOverrideHub : BaseAuthorizedHub
+    {
+    }
+
     [Authorize(Roles = "admin")]
     [Authorize(Policy = "trusted")]
     private sealed class MultiplePolicyHub : RaidoHub
@@ -526,6 +531,17 @@ public sealed class RaidoHubDispatcherTests
         });
 
         await dispatcher.DispatchMessageAsync(authenticatedConnection, new InheritedAuthorizationMessage());
+
+        Assert.AreEqual(1, BaseAuthorizedHub.Invoked);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_AllowsClassLevelAllowAnonymousToOverrideInheritedAuthorization()
+    {
+        using var provider = CreateProvider<ClassAllowAnonymousOverrideHub>().Provider;
+        var dispatcher = CreateDispatcher<ClassAllowAnonymousOverrideHub>(provider);
+
+        await dispatcher.DispatchMessageAsync(CreateConnection(), new InheritedAuthorizationMessage());
 
         Assert.AreEqual(1, BaseAuthorizedHub.Invoked);
     }
