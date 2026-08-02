@@ -99,7 +99,7 @@ namespace Hagalaz.Services.GameWorld.Services
         }
 
         public async ValueTask<SignInResult> SignInLobbyAsync(SignInRequest signInRequest) =>
-            await _authLoginPipeline.ExecuteAsync(async (cancellationToken) =>
+            await ExecuteSignInAsync(async cancellationToken =>
             {
                 var result = await SignInAsync(signInRequest, Constants.OAuth.LobbyClientId, _lobbyClientScopes, cancellationToken);
                 if (!result.Succeeded)
@@ -126,7 +126,7 @@ namespace Hagalaz.Services.GameWorld.Services
             });
 
         public async ValueTask<SignInResult> SignInWorldAsync(SignInRequest signInRequest) =>
-            await _authLoginPipeline.ExecuteAsync(async cancellationToken =>
+            await ExecuteSignInAsync(async cancellationToken =>
             {
                 var characterCount = await _characterService.CountAsync();
                 // TODO - character count / give donators extra queue
@@ -225,6 +225,30 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
                 }
             });
+
+        private async ValueTask<SignInResult> ExecuteSignInAsync(
+            Func<CancellationToken, ValueTask<SignInResult>> signIn)
+        {
+            var resilienceContext = ResilienceContextPool.Shared.Get();
+            resilienceContext.Properties.Set(AuthenticationRateLimiting.PartitionKey, GetSignInPartitionKey());
+            try
+            {
+                return await _authLoginPipeline.ExecuteAsync(
+                    context => signIn(context.CancellationToken), resilienceContext);
+            }
+            finally
+            {
+                ResilienceContextPool.Shared.Return(resilienceContext);
+            }
+        }
+
+        private string GetSignInPartitionKey()
+        {
+            var context = _contextAccessor.Context;
+            return context.RemoteIPEndPoint?.Address is { } address
+                ? $"ip:{address}"
+                : $"connection:{context.ConnectionId}";
+        }
 
         private async ValueTask<SignInResult> SignInAsync(
             SignInRequest signInRequest, string clientId, ImmutableArray<string> clientScopes, CancellationToken cancellationToken)

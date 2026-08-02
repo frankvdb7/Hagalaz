@@ -93,6 +93,7 @@ using Microsoft.EntityFrameworkCore;
 using Hagalaz.Data;
 using Polly;
 using Polly.CircuitBreaker;
+using Polly.RateLimiting;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
 
@@ -714,20 +715,57 @@ namespace Hagalaz.Services.GameWorld
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<StateProvider>());
 
             // policies
+            services.AddSingleton<AuthenticationRateLimitingMetrics>();
             services.AddResiliencePipeline(Constants.Pipeline.AuthSignInPipeline,
-                builder =>
+                (builder, context) =>
                 {
+                    var metrics = context.ServiceProvider.GetRequiredService<AuthenticationRateLimitingMetrics>();
+                    var globalAdmissionLimiter = AuthenticationRateLimiting.CreateGlobalAdmissionLimiter();
+                    var partitionedLimiter = AuthenticationRateLimiting.CreatePartitionedLimiter();
+                    var globalLimiter = AuthenticationRateLimiting.CreateGlobalLimiter();
+                    context.OnPipelineDisposed(() =>
+                    {
+                        globalAdmissionLimiter.Dispose();
+                        partitionedLimiter.Dispose();
+                        globalLimiter.Dispose();
+                    });
+
                     builder.InstanceName = "SignIn";
                     builder
-                        .AddRateLimiter(new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions
+                        // Polly adds the first strategy as the outermost strategy. The shared,
+                        // zero-queue admission gate bounds aggregate work before per-IP queues.
+                        .AddRateLimiter(new RateLimiterStrategyOptions
                         {
-                            Window = TimeSpan.FromMinutes(1), // Specifies the minimum period between replenishments (e.g., 1 minute).
-                            SegmentsPerWindow = 10, // Specifies the maximum number of segments a window is divided into (e.g., 10 segments).
-                            AutoReplenishment = true, // Specifies whether the limiter automatically replenishes request counters (true by default).
-                            PermitLimit = 5, // Maximum number of requests that can be served in a window (e.g., 5 requests).
-                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst, // Determines the behavior when not enough resources are available.
-                            QueueLimit = 10, // Maximum cumulative permit count of queued acquisition requests (e.g., 10 permits).
-                        }))
+                            Name = "GlobalSignInAdmission",
+                            RateLimiter = args => globalAdmissionLimiter.AcquireAsync(1, args.Context.CancellationToken),
+                            OnRejected = _ =>
+                            {
+                                metrics.RecordGlobalAdmissionRejected();
+                                return default;
+                            }
+                        })
+                        .AddRateLimiter(new RateLimiterStrategyOptions
+                        {
+                            Name = "PartitionedSignInRateLimiter",
+                            RateLimiter = args => partitionedLimiter.AcquireAsync(args.Context, 1, args.Context.CancellationToken),
+                            OnRejected = _ =>
+                            {
+                                metrics.RecordPartitionRejected();
+                                return default;
+                            }
+                        })
+                        // The global sliding-window budget must be after the partitioned
+                        // limiter so a locally rejected request does not spend a global permit.
+                        .AddRateLimiter(new RateLimiterStrategyOptions
+                        {
+                            Name = "GlobalSignInSafetyCap",
+                            RateLimiter = args => globalLimiter.AcquireAsync(1, args.Context.CancellationToken),
+                            OnRejected = _ =>
+                            {
+                                metrics.RecordGlobalRejected();
+                                return default;
+                            }
+                        })
                         .AddTimeout(TimeSpan.FromSeconds(10))
                         .AddCircuitBreaker(new CircuitBreakerStrategyOptions
                         {

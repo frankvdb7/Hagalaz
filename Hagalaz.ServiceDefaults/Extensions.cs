@@ -343,7 +343,8 @@ public static class Extensions
             "MassTransit",
             "Polly",
             "Raido.Server",
-            "Hagalaz.Services.Characters.Persistence");
+            "Hagalaz.Services.Characters.Persistence",
+            "Hagalaz.Services.GameWorld.Authentication");
 
     public static string? GetServiceConfigurationValue(this IConfiguration configuration, string serviceName, string key, string? fallbackKey = null)
     {
