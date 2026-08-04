@@ -19,6 +19,7 @@
     <PackageReference Include="Scrutor" Version="7.0.0" />
     <PackageReference Include="System.Linq.Async" Version="7.0.1" />
     <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.6.0" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.Locking.Distributed.Redis" Version="2.6.0" />
     <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" Version="2.6.0" />
   </ItemGroup>
   <ItemGroup>

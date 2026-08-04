@@ -62,6 +62,11 @@ namespace Hagalaz.Services.GameWorld.Store
         {
             using (await _lock.WriterLockAsync())
             {
+                if (_characters.Any(existing => existing.MasterId == character.MasterId))
+                {
+                    return false;
+                }
+
                 return _characters.Add(character);
             }
         }

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.8.12023.21 stable
+VisualStudioVersion = 18.8.12023.21
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hagalaz.Game", "Hagalaz.Game\Hagalaz.Game.csproj", "{63B7AD58-5EBB-4BB1-9C51-DE95816CB8C0}"
 EndProject
@@ -168,6 +168,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hagalaz.Services.Authorization.Tests", "Hagalaz.Services.Authorization.Tests\Hagalaz.Services.Authorization.Tests.csproj", "{77A788C3-8B25-47DA-AE31-027D3A30EC6C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hagalaz.Data.IntegrationTests", "Hagalaz.Data.IntegrationTests\Hagalaz.Data.IntegrationTests.csproj", "{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hagalaz.Services.GameWorld.IntegrationTests", "Hagalaz.Services.GameWorld.IntegrationTests\Hagalaz.Services.GameWorld.IntegrationTests.csproj", "{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -1103,6 +1105,18 @@ Global
 		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Release|x64.Build.0 = Release|Any CPU
 		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Release|x86.ActiveCfg = Release|Any CPU
 		{FE4A2F5C-3F53-434B-9177-EABAE4ADAFC8}.Release|x86.Build.0 = Release|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Debug|x64.Build.0 = Debug|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Debug|x86.Build.0 = Debug|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Release|x64.ActiveCfg = Release|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Release|x64.Build.0 = Release|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Release|x86.ActiveCfg = Release|Any CPU
+		{95BBD368-9C20-4A28-B2DD-AC7A25A4E22A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
