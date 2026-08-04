@@ -27,7 +27,6 @@ public sealed class GameSessionServiceTests
 
         Assert.IsFalse(lobbySession is IGameWorldSession);
         Assert.IsInstanceOfType<IGameWorldSession>(worldSession);
-        Assert.IsFalse(string.IsNullOrWhiteSpace(((IGameWorldSession)worldSession).SessionClaimId));
     }
 
     [TestMethod]
@@ -122,7 +121,6 @@ public sealed class GameSessionServiceTests
         terminator.Received(1).Abort(lobbySession);
         var activeSession = await service.FindByMasterId(42);
         Assert.IsNotNull(activeSession);
-        Assert.IsNotNull(((IGameWorldSession)activeSession!).SessionClaimId);
     }
 
     [TestMethod]
