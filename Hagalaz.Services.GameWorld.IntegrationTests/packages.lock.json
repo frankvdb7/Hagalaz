@@ -25,6 +25,15 @@
           "Microsoft.Testing.Extensions.TrxReport": "2.3.3"
         }
       },
+      "NSubstitute": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "0gvKMbiJ+/WrfbcfBfqRZZrvfLJcd3rqkqVMjjlY5dtmLRVzMY+o/K/rJUStofQ2haSr9Vd04YDfvZtVVGS3/A==",
+        "dependencies": {
+          "Castle.Core": "5.1.1"
+        }
+      },
       "Testcontainers.Redis": {
         "type": "Direct",
         "requested": "[4.13.0, )",

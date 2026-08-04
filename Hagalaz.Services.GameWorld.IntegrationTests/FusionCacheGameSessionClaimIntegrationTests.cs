@@ -1,8 +1,27 @@
-using Hagalaz.Services.GameWorld.Store;
+using System.Collections.Generic;
+using System.Net;
+using System.Security.Claims;
+using AutoMapper;
+using Hagalaz.Authorization.Messages;
+using Hagalaz.Characters.Messages;
+using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Services.GameWorld.Factories;
+using Hagalaz.Services.GameWorld.Features;
+using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Hagalaz.Services.GameWorld.Services;
+using Hagalaz.Services.GameWorld.Services.Model;
+using Hagalaz.Services.GameWorld.Store;
+using MassTransit;
+using Microsoft.AspNetCore.Connections.Features;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using Raido.Server;
 using Testcontainers.Redis;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Locking.Distributed;
@@ -73,6 +92,50 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         var current = await cache.TryGetAsync<string>(Key(42), EntryOptions());
         Assert.IsTrue(current.HasValue);
         Assert.IsTrue(current.Value is "world-1" or "world-2");
+    }
+
+    [TestMethod]
+    [Timeout(120000)]
+    public async Task SignInWorldAsync_IsExclusiveAcrossIndependentProviders_AndClaimCanBeReclaimed()
+    {
+        const uint masterId = 47;
+        await using var gate = new SignInRaceGate();
+        var firstHarness = CreateSignInHarness("world-1", gate);
+        var secondHarness = CreateSignInHarness("world-2", gate);
+        await using var firstProvider = CreateProvider(firstHarness);
+        await using var secondProvider = CreateProvider(secondHarness);
+        await ClearClaimAsync(firstProvider, masterId);
+
+        await using var firstScope = firstProvider.CreateAsyncScope();
+        await using var secondScope = secondProvider.CreateAsyncScope();
+        var firstAuthentication = firstScope.ServiceProvider.GetRequiredService<IAuthenticationService>();
+        var secondAuthentication = secondScope.ServiceProvider.GetRequiredService<IAuthenticationService>();
+
+        var firstAttempt = firstAuthentication.SignInWorldAsync(CreateSignInRequest()).AsTask();
+        var secondAttempt = secondAuthentication.SignInWorldAsync(CreateSignInRequest()).AsTask();
+        var results = await Task.WhenAll(firstAttempt, secondAttempt);
+
+        Assert.AreEqual(1, results.Count(result => result.Succeeded));
+        Assert.AreEqual(1, results.Count(result => result.IsAlreadyLoggedOn));
+        Assert.AreEqual(1, firstHarness.HydrationCalls + secondHarness.HydrationCalls);
+        Assert.AreEqual(1, firstHarness.CharacterAddCalls + secondHarness.CharacterAddCalls);
+
+        var winner = results[0].Succeeded ? firstAuthentication : secondAuthentication;
+        await winner.SignOutAsync();
+        Assert.IsFalse((await firstProvider.GetRequiredService<IFusionCache>()
+            .TryGetAsync<string>(Key(masterId), EntryOptions())).HasValue);
+
+        var reclaimHarness = CreateSignInHarness("world-reclaim", new SignInRaceGate(1));
+        await using var reclaimProvider = CreateProvider(reclaimHarness);
+        await using var reclaimScope = reclaimProvider.CreateAsyncScope();
+        var reclaimAuthentication = reclaimScope.ServiceProvider.GetRequiredService<IAuthenticationService>();
+        var reclaimResult = await reclaimAuthentication.SignInWorldAsync(CreateSignInRequest());
+
+        Assert.IsTrue(reclaimResult.Succeeded);
+        Assert.AreEqual(1, reclaimHarness.HydrationCalls);
+        Assert.AreEqual(1, reclaimHarness.CharacterAddCalls);
+        await reclaimAuthentication.SignOutAsync();
+        await ClearClaimAsync(reclaimProvider, masterId);
     }
 
     [TestMethod]
@@ -170,7 +233,7 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         Assert.IsTrue(await claimStore.ReleaseAsync(45, "startup-world"));
     }
 
-    private static ServiceProvider CreateProvider()
+    private static ServiceProvider CreateProvider(SignInHarness? harness = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -180,8 +243,191 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
             .Build();
         var services = new ServiceCollection();
         new Hagalaz.Services.GameWorld.Startup(configuration).ConfigureServices(services);
+        if (harness != null)
+        {
+            services.AddSingleton(harness.CharacterService);
+            services.AddSingleton(harness.CharacterFactory);
+            services.AddSingleton(harness.CharacterHydrationService);
+            services.AddSingleton(harness.CharacterPersistenceService);
+            services.AddSingleton(harness.CharacterLogoutService);
+            services.AddSingleton(harness.Mapper);
+            services.AddSingleton(harness.ClaimsPrincipalFactory);
+            services.AddSingleton(harness.ContextAccessor);
+            services.AddSingleton(harness.Mediator);
+            services.AddSingleton(harness.SignInUserRequestClient);
+            services.AddSingleton(harness.GetUserInfoRequestClient);
+            services.AddSingleton(harness.RevokeTokenRequestClient);
+            services.AddSingleton(harness.GetCharacterRequestClient);
+        }
         services.AddLogging();
         return services.BuildServiceProvider();
+    }
+
+    private static SignInHarness CreateSignInHarness(string connectionId, SignInRaceGate gate)
+    {
+        var harness = new SignInHarness(connectionId);
+        var mapper = harness.Mapper;
+        mapper.Map<CharacterModel>(Arg.Any<CharacterHydrated>()).Returns(new CharacterModel());
+        mapper.Map<HydratedClaims>(Arg.Any<AuthenticationProperties>()).Returns(new HydratedClaims());
+
+        // NSubstitute requires observing the ValueTask returned by each member while configuring it.
+#pragma warning disable CA2012
+        SubstituteExtensions.Returns(harness.CharacterService.CountAsync(), ValueTask.FromResult(0));
+        SubstituteExtensions.Returns(
+            harness.CharacterService.AddAsync(Arg.Any<ICharacter>()),
+            _ =>
+            {
+                Interlocked.Increment(ref harness.CharacterAddCalls);
+                return ValueTask.FromResult(true);
+            });
+        SubstituteExtensions.Returns(harness.CharacterService.RemoveAsync(Arg.Any<ICharacter>()), ValueTask.FromResult(true));
+#pragma warning restore CA2012
+        harness.CharacterHydrationService.HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>())
+            .Returns(_ =>
+            {
+                Interlocked.Increment(ref harness.HydrationCalls);
+                return Task.FromResult(true);
+            });
+        harness.CharacterFactory.Create(Arg.Any<IGameSession>(), Arg.Any<IGameClient>())
+            .Returns(harness.Character);
+        harness.PersistenceServiceSetup();
+
+        var signInResponse = CreateResponse(new SignInUserResponseMessage
+        {
+            Succeeded = true,
+            IdToken = "id-token",
+            AccessToken = "access-token",
+            Scope = "openid",
+            ExpireDate = DateTimeOffset.UtcNow.AddMinutes(5),
+            TokenType = "Bearer"
+        });
+        harness.SignInUserRequestClient
+            .GetResponse<SignInUserResponseMessage>(Arg.Any<SignInUserRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(_ => gate.WaitForSignInAsync(signInResponse));
+        var userInfoResponse = CreateResponse(new GetUserInfoResponseMessage
+        {
+            Succeeded = true,
+            Claims = new Dictionary<string, object> { [OpenIddict.Abstractions.OpenIddictConstants.Claims.Subject] = "47" }
+        });
+        harness.GetUserInfoRequestClient
+            .GetResponse<GetUserInfoResponseMessage>(Arg.Any<GetUserInfoRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .ReturnsForAnyArgs(Task.FromResult(userInfoResponse));
+        var characterResponse = CreateResponse<CharacterHydrated, CharacterNotFound>(CreateCharacterHydrated());
+        harness.GetCharacterRequestClient
+            .GetResponse<CharacterHydrated, CharacterNotFound>(Arg.Any<HydrateCharacter>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .ReturnsForAnyArgs(Task.FromResult(characterResponse));
+        var revokeTokenResponse = CreateResponse(new RevokeTokenResponseMessage { Succeeded = true });
+        harness.RevokeTokenRequestClient
+            .GetResponse<RevokeTokenResponseMessage>(Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .ReturnsForAnyArgs(Task.FromResult(revokeTokenResponse));
+
+        return harness;
+    }
+
+    private static SignInRequest CreateSignInRequest() => new()
+    {
+        Login = "login",
+        Password = "password",
+        GameClient = Substitute.For<IGameClient>()
+    };
+
+    private static CharacterHydrated CreateCharacterHydrated() => new()
+    {
+        MasterId = 47,
+        CorrelationId = Guid.NewGuid(),
+        Appearance = null!,
+        Details = null!,
+        Statistics = null!,
+        ItemCollection = null!,
+        Familiar = null!,
+        Music = null!,
+        Farming = null!,
+        Slayer = null!,
+        Notes = null!,
+        Profile = null!,
+        ItemAppearanceCollection = null!,
+        State = null!
+    };
+
+    private static Response<T> CreateResponse<T>(T message) where T : class
+    {
+        var response = Substitute.For<Response<T>>();
+        response.Message.Returns(message);
+        ((Response)response).Message.Returns(message);
+        return response;
+    }
+
+    private static Response<T1, T2> CreateResponse<T1, T2>(T1 message)
+        where T1 : class
+        where T2 : class
+    {
+        var firstResponse = CreateResponse(message);
+        var secondResponseTask = new TaskCompletionSource<Response<T2>>().Task;
+        return new Response<T1, T2>(Task.FromResult(firstResponse), secondResponseTask);
+    }
+
+    private sealed class SignInRaceGate : IAsyncDisposable
+    {
+        private readonly int _participants;
+        private readonly TaskCompletionSource _bothReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _ready;
+
+        public SignInRaceGate(int participants = 2)
+        {
+            _participants = participants;
+        }
+
+        public async Task<Response<SignInUserResponseMessage>> WaitForSignInAsync(Response<SignInUserResponseMessage> response)
+        {
+            if (Interlocked.Increment(ref _ready) == _participants)
+            {
+                _bothReady.TrySetResult();
+            }
+
+            await _bothReady.Task;
+            return response;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class SignInHarness
+    {
+        public SignInHarness(string connectionId)
+        {
+            var context = Substitute.For<RaidoCallerContext>();
+            context.ConnectionId.Returns(connectionId);
+            context.RemoteIPEndPoint.Returns(new IPEndPoint(IPAddress.Loopback, 43594));
+            context.Features.Returns(new FeatureCollection());
+            ContextAccessor.Context.Returns(context);
+            ClaimsPrincipalFactory.Create(Arg.Any<IDictionary<string, object>>())
+                .Returns(new ClaimsPrincipal(new ClaimsIdentity("integration")));
+        }
+
+        public ICharacterService CharacterService { get; } = Substitute.For<ICharacterService>();
+        public ICharacterFactory CharacterFactory { get; } = Substitute.For<ICharacterFactory>();
+        public ICharacterHydrationService CharacterHydrationService { get; } = Substitute.For<ICharacterHydrationService>();
+        public ICharacterPersistenceService CharacterPersistenceService { get; } = Substitute.For<ICharacterPersistenceService>();
+        public ICharacterLogoutService CharacterLogoutService { get; } = Substitute.For<ICharacterLogoutService>();
+        public IMapper Mapper { get; } = Substitute.For<IMapper>();
+        public IClaimsPrincipalFactory ClaimsPrincipalFactory { get; } = Substitute.For<IClaimsPrincipalFactory>();
+        public IRaidoCallerContextAccessor ContextAccessor { get; } = Substitute.For<IRaidoCallerContextAccessor>();
+        public IGameMediator Mediator { get; } = Substitute.For<IGameMediator>();
+        public IRequestClient<SignInUserRequestMessage> SignInUserRequestClient { get; } = Substitute.For<IRequestClient<SignInUserRequestMessage>>();
+        public IRequestClient<GetUserInfoRequestMessage> GetUserInfoRequestClient { get; } = Substitute.For<IRequestClient<GetUserInfoRequestMessage>>();
+        public IRequestClient<RevokeTokenRequestMessage> RevokeTokenRequestClient { get; } = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
+        public IRequestClient<HydrateCharacter> GetCharacterRequestClient { get; } = Substitute.For<IRequestClient<HydrateCharacter>>();
+        public ICharacter Character { get; } = Substitute.For<ICharacter>();
+        public int HydrationCalls;
+        public int CharacterAddCalls;
+
+        public void PersistenceServiceSetup()
+        {
+            CharacterPersistenceService.PersistAsync(Arg.Any<ICharacter>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.CompletedTask);
+            CharacterLogoutService.DetachAsync(Arg.Any<ICharacter>(), Arg.Any<CancellationToken>())
+                .Returns(Task.CompletedTask);
+        }
     }
 
     private static async Task ClearClaimAsync(ServiceProvider provider, uint masterId) =>
