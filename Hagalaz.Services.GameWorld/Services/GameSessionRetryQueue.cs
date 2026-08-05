@@ -26,8 +26,7 @@ public sealed class GameSessionRetryQueue : BackgroundService
     private readonly SemaphoreSlim _retrySlots;
     private readonly TimeSpan _retryBackoff;
     private readonly object _overflowGate = new();
-    private readonly Dictionary<ClaimReleaseWorkItem, ClaimReleaseWorkItem> _overflowClaimReleases = new();
-    private readonly Dictionary<string, IConnectionAbortWorkItem> _overflowConnectionAborts = new();
+    private readonly Dictionary<RetryWorkKey, IRetryWorkItem> _overflowItems = new();
     private readonly int _overflowCapacity;
     private int _pendingCount;
 
@@ -80,8 +79,7 @@ public sealed class GameSessionRetryQueue : BackgroundService
             lock (_overflowGate)
             {
                 return Volatile.Read(ref _pendingCount) +
-                    _overflowClaimReleases.Count +
-                    _overflowConnectionAborts.Count;
+                    _overflowItems.Count;
             }
         }
     }
@@ -111,12 +109,7 @@ public sealed class GameSessionRetryQueue : BackgroundService
         // Lease reconciliation must not wait for the bounded primary queue. Keep one
         // retry per connection in a bounded overflow registry and let the worker
         // admit it as soon as a retry slot becomes available.
-        return workItem switch
-        {
-            ClaimReleaseWorkItem claimRelease => TryQueueOverflowClaimRelease(claimRelease),
-            IConnectionAbortWorkItem connectionAbort => TryQueueOverflowConnectionAbort(connectionAbort),
-            _ => throw new ArgumentOutOfRangeException(nameof(workItem))
-        };
+        return TryQueueOverflow(workItem);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -162,34 +155,30 @@ public sealed class GameSessionRetryQueue : BackgroundService
             var moved = false;
             lock (_overflowGate)
             {
-                ClaimReleaseWorkItem? claimCandidate = null;
-                foreach (var entry in _overflowClaimReleases)
+                KeyValuePair<RetryWorkKey, IRetryWorkItem>? candidate = null;
+                foreach (var entry in _overflowItems)
                 {
-                    claimCandidate = entry.Value;
-                    break;
-                }
-
-                if (claimCandidate != null && _items.Writer.TryWrite(claimCandidate))
-                {
-                    _overflowClaimReleases.Remove(claimCandidate);
-                    Interlocked.Increment(ref _pendingCount);
-                    moved = true;
-                }
-                else if (claimCandidate == null)
-                {
-                    KeyValuePair<string, IConnectionAbortWorkItem>? connectionCandidate = null;
-                    foreach (var entry in _overflowConnectionAborts)
+                    if (entry.Value is ClaimReleaseWorkItem)
                     {
-                        connectionCandidate = entry;
+                        candidate = entry;
                         break;
                     }
+                }
 
-                    if (connectionCandidate.HasValue && _items.Writer.TryWrite(connectionCandidate.Value.Value))
+                if (!candidate.HasValue)
+                {
+                    foreach (var entry in _overflowItems)
                     {
-                        _overflowConnectionAborts.Remove(connectionCandidate.Value.Key);
-                        Interlocked.Increment(ref _pendingCount);
-                        moved = true;
+                        candidate = entry;
+                        break;
                     }
+                }
+
+                if (candidate.HasValue && _items.Writer.TryWrite(candidate.Value.Value))
+                {
+                    _overflowItems.Remove(candidate.Value.Key);
+                    Interlocked.Increment(ref _pendingCount);
+                    moved = true;
                 }
             }
 
@@ -201,63 +190,54 @@ public sealed class GameSessionRetryQueue : BackgroundService
         }
     }
 
-    private bool TryQueueOverflowClaimRelease(ClaimReleaseWorkItem retry)
+    private bool TryQueueOverflow(IRetryWorkItem retry)
     {
         var accepted = false;
         var coalesced = false;
         lock (_overflowGate)
         {
-            if (_overflowClaimReleases.ContainsKey(retry))
+            if (_overflowItems.ContainsKey(retry.Key))
             {
+                if (retry is PendingAbortWorkItem &&
+                    _overflowItems[retry.Key] is ConnectionAbortWorkItem)
+                {
+                    _overflowItems[retry.Key] = retry;
+                }
+
                 coalesced = true;
             }
-            else if (_overflowClaimReleases.Count + _overflowConnectionAborts.Count < _overflowCapacity)
+            else if (_overflowItems.Count < _overflowCapacity)
             {
-                _overflowClaimReleases.Add(retry, retry);
+                _overflowItems.Add(retry.Key, retry);
                 accepted = true;
             }
         }
 
         if (!accepted && !coalesced)
         {
-            _logger.LogError(
-                "Rejected world-session claim-release retry for account '{masterId}' because the overflow cleanup capacity of {overflowCapacity} is full.",
-                retry.MasterId,
-                _overflowCapacity);
+            LogRejectedOverflow(retry);
         }
 
         return accepted || coalesced;
     }
 
-    private bool TryQueueOverflowConnectionAbort(
-        IConnectionAbortWorkItem retry)
+    private void LogRejectedOverflow(IRetryWorkItem retry)
     {
-        var accepted = false;
-        var coalesced = false;
-        lock (_overflowGate)
+        switch (retry)
         {
-            if (_overflowConnectionAborts.ContainsKey(retry.Session.ConnectionId))
-            {
-                coalesced = true;
-            }
-            else if (_overflowClaimReleases.Count + _overflowConnectionAborts.Count < _overflowCapacity)
-            {
-                _overflowConnectionAborts.Add(
-                    retry.Session.ConnectionId,
-                    retry);
-                accepted = true;
-            }
+            case ClaimReleaseWorkItem claimRelease:
+                _logger.LogError(
+                    "Rejected world-session claim-release retry for account '{masterId}' because the overflow cleanup capacity of {overflowCapacity} is full.",
+                    claimRelease.MasterId,
+                    _overflowCapacity);
+                break;
+            case IConnectionAbortWorkItem connectionAbort:
+                _logger.LogError(
+                    "Rejected connection-abort retry for session '{connectionId}' because the overflow cleanup capacity of {overflowCapacity} is full.",
+                    connectionAbort.Session.ConnectionId,
+                    _overflowCapacity);
+                break;
         }
-
-        if (!accepted && !coalesced)
-        {
-            _logger.LogError(
-                "Rejected connection-abort retry for session '{connectionId}' because the overflow cleanup capacity of {overflowCapacity} is full.",
-                retry.Session.ConnectionId,
-                _overflowCapacity);
-        }
-
-        return accepted || coalesced;
     }
 
     private async ValueTask ExecuteClaimReleaseAttemptAsync(uint masterId, string claimId, CancellationToken stoppingToken)
@@ -393,6 +373,7 @@ public sealed class GameSessionRetryQueue : BackgroundService
 
     private interface IRetryWorkItem
     {
+        RetryWorkKey Key { get; }
         ValueTask ExecuteAsync(GameSessionRetryQueue queue, CancellationToken stoppingToken);
     }
 
@@ -403,19 +384,37 @@ public sealed class GameSessionRetryQueue : BackgroundService
 
     private sealed record ClaimReleaseWorkItem(uint MasterId, string ClaimId) : IRetryWorkItem
     {
+        public RetryWorkKey Key => new(RetryWorkKind.ClaimRelease, MasterId, ClaimId, null);
+
         public ValueTask ExecuteAsync(GameSessionRetryQueue queue, CancellationToken stoppingToken) =>
             queue.ExecuteClaimReleaseAttemptAsync(MasterId, ClaimId, stoppingToken);
     }
 
     private sealed record ConnectionAbortWorkItem(IGameSession Session) : IConnectionAbortWorkItem
     {
+        public RetryWorkKey Key => new(RetryWorkKind.ConnectionAbort, 0, null, Session.ConnectionId);
+
         public ValueTask ExecuteAsync(GameSessionRetryQueue queue, CancellationToken stoppingToken) =>
             queue.ExecuteConnectionAbortAttemptAsync(Session, stoppingToken);
     }
 
     private sealed record PendingAbortWorkItem(IGameSession Session) : IConnectionAbortWorkItem
     {
+        public RetryWorkKey Key => new(RetryWorkKind.ConnectionAbort, 0, null, Session.ConnectionId);
+
         public ValueTask ExecuteAsync(GameSessionRetryQueue queue, CancellationToken stoppingToken) =>
             queue.ExecutePendingAbortAttemptAsync(Session, stoppingToken);
     }
+
+    private enum RetryWorkKind
+    {
+        ClaimRelease,
+        ConnectionAbort
+    }
+
+    private readonly record struct RetryWorkKey(
+        RetryWorkKind Kind,
+        uint MasterId,
+        string? ClaimId,
+        string? ConnectionId);
 }

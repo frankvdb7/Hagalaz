@@ -1,3 +1,5 @@
+#pragma warning disable CA2012 // NSubstitute configures ValueTask-returning members through the call specification.
+
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Hagalaz.Services.GameWorld.Services;
@@ -15,13 +17,13 @@ public sealed class FusionCacheGameSessionClaimStoreTests
         var (store, cache, locker) = CreateStore();
         FusionCacheEntryOptions? options = null;
         cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(MaybeValue<string>.None));
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.None));
         cache.SetAsync(
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Do<FusionCacheEntryOptions>(value => options = value),
                 Arg.Any<CancellationToken>())
-            .Returns(ValueTask.CompletedTask);
+            .Returns(new ValueTask());
 
         Assert.IsTrue(await store.TryClaimAsync(42, "claim"));
         await cache.Received(1).SetAsync(
@@ -50,7 +52,7 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     {
         var (store, cache, _) = CreateStore();
         cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(MaybeValue<string>.FromValue("existing")));
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("existing")));
 
         Assert.IsFalse(await store.TryClaimAsync(42, "replacement"));
         await cache.DidNotReceive().SetAsync(
@@ -65,7 +67,7 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     {
         var (store, cache, _) = CreateStore();
         cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(MaybeValue<string>.FromValue("owner")));
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("owner")));
 
         Assert.IsFalse(await store.ReleaseAsync(42, "other"));
         await cache.DidNotReceive().RemoveAsync(
@@ -85,7 +87,7 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     {
         var (store, cache, _) = CreateStore();
         cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(MaybeValue<string>.FromValue("owner")));
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("owner")));
 
         Assert.IsTrue(await store.RenewAsync(42, "owner"));
         await cache.Received(1).SetAsync(
@@ -100,13 +102,13 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     {
         var (store, cache, locker) = CreateStore();
         cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(MaybeValue<string>.FromValue("owner")));
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("owner")));
         cache.SetAsync(
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<FusionCacheEntryOptions>(),
                 Arg.Any<CancellationToken>())
-            .Returns(ValueTask.CompletedTask);
+            .Returns(new ValueTask());
         locker.ReleaseLockAsync(
                 Arg.Any<string>(),
                 Arg.Any<string>(),
@@ -116,7 +118,7 @@ public sealed class FusionCacheGameSessionClaimStoreTests
                 Arg.Any<object>(),
                 Arg.Any<ILogger>(),
                 Arg.Any<CancellationToken>())
-            .Returns(_ => ValueTask.FromException(new InvalidOperationException("Lock release failed.")));
+            .Returns(_ => new ValueTask(Task.FromException(new InvalidOperationException("Lock release failed."))));
 
         var callbackCalled = false;
         var result = await store.ExecuteIfOwnerAsync(42, "owner", _ =>
@@ -149,13 +151,13 @@ public sealed class FusionCacheGameSessionClaimStoreTests
         var (store, cache, locker) = CreateStore();
         var cancellationToken = new CancellationTokenSource().Token;
         cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), cancellationToken)
-            .Returns(ValueTask.FromResult(MaybeValue<string>.None));
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.None));
         cache.SetAsync(
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<FusionCacheEntryOptions>(),
                 cancellationToken)
-            .Returns(ValueTask.CompletedTask);
+            .Returns(new ValueTask());
 
         Assert.IsTrue(await store.TryClaimAsync(42, "claim", cancellationToken));
 
@@ -211,7 +213,7 @@ public sealed class FusionCacheGameSessionClaimStoreTests
                 Arg.Any<object>(),
                 Arg.Any<ILogger>(),
                 Arg.Any<CancellationToken>())
-            .Returns(ValueTask.CompletedTask);
+            .Returns(new ValueTask());
 
         return (
             new FusionCacheGameSessionClaimStore(
@@ -222,3 +224,5 @@ public sealed class FusionCacheGameSessionClaimStoreTests
             locker);
     }
 }
+
+#pragma warning restore CA2012

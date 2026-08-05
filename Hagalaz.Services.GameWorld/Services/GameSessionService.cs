@@ -12,6 +12,7 @@ namespace Hagalaz.Services.GameWorld.Services
     public class GameSessionService : IGameSessionService
     {
         private readonly IGameSessionStore _sessions;
+        private readonly IGameSessionAbortStore _abortSessions;
         private readonly IGameSessionFactory _gameSessionFactory;
         private readonly IGameSessionClaimStore _claims;
         private readonly IGameSessionConnectionTerminator _connectionTerminator;
@@ -20,6 +21,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public GameSessionService(
             IGameSessionStore sessions,
+            IGameSessionAbortStore abortSessions,
             IGameSessionFactory gameSessionFactory,
             IGameSessionClaimStore claims,
             IGameSessionConnectionTerminator connectionTerminator,
@@ -27,6 +29,7 @@ namespace Hagalaz.Services.GameWorld.Services
             GameSessionRetryQueue retryQueue)
         {
             _sessions = sessions;
+            _abortSessions = abortSessions;
             _gameSessionFactory = gameSessionFactory;
             _claims = claims;
             _connectionTerminator = connectionTerminator;
@@ -143,7 +146,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 !ReferenceEquals(replacedSession, expectedSession) &&
                 replacedSession.ConnectionId != expectedSession.ConnectionId)
             {
-                if (!await _sessions.TryBeginPendingSessionAbort(replacedSession))
+                if (!await _abortSessions.TryBeginPendingSessionAbort(replacedSession))
                 {
                     _logger.LogCritical(
                         "Could not claim the pending abort for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
@@ -155,7 +158,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 try
                 {
                     _connectionTerminator.Abort(replacedSession);
-                    if (!await _sessions.TryCompletePendingSessionAbort(replacedSession))
+                    if (!await _abortSessions.TryCompletePendingSessionAbort(replacedSession))
                     {
                         _logger.LogCritical(
                             "Could not clear the completed abort reservation for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
@@ -165,7 +168,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
                 catch (Exception ex)
                 {
-                    await _sessions.TryReleasePendingSessionAbort(replacedSession);
+                    await _abortSessions.TryReleasePendingSessionAbort(replacedSession);
                     _logger.LogWarning(ex,
                         "Failed to abort replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
                         replacedSession.ConnectionId,

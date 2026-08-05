@@ -85,8 +85,9 @@ public sealed class AuthenticationSignInTests
         var laterSession = CreateSession("connection-2", "claim-2");
         factory.CreateWorld(42, "connection-1").Returns(initialSession);
         factory.CreateWorld(42, "connection-2").Returns(laterSession);
+        var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(
-            new GameSessionStore(), factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+            store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
         var hydrationService = Substitute.For<ICharacterHydrationService>();
         hydrationService.HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>())
             .Returns(Task.FromResult(false));
@@ -144,8 +145,10 @@ public sealed class AuthenticationSignInTests
         factory.Create(42, "lobby-connection").Returns(lobbySession);
         factory.CreateWorld(42, "world-connection").Returns(worldSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(
-            new GameSessionStore(),
+            store,
+            store,
             factory,
             new TestGameSessionClaimStore(),
             terminator);
@@ -174,8 +177,10 @@ public sealed class AuthenticationSignInTests
         factory.Create(42, "lobby-connection").Returns(lobbySession);
         factory.CreateWorld(42, "world-connection").Returns(worldSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(
-            new GameSessionStore(),
+            store,
+            store,
             factory,
             new TestGameSessionClaimStore(),
             terminator);
@@ -206,8 +211,10 @@ public sealed class AuthenticationSignInTests
         factory.Create(42, "lobby-connection").Returns(lobbySession);
         factory.CreateWorld(42, "world-connection").Returns(worldSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(
-            new GameSessionStore(),
+            store,
+            store,
             factory,
             new TestGameSessionClaimStore(),
             terminator);
@@ -267,8 +274,10 @@ public sealed class AuthenticationSignInTests
         var lobbySession = CreateLobbySession("lobby-connection");
         factory.CreateWorld(42, "world-connection").Returns(worldSession);
         factory.Create(42, "lobby-connection").Returns(lobbySession);
+        var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(
-            new GameSessionStore(),
+            store,
+            store,
             factory,
             new TestGameSessionClaimStore(),
             Substitute.For<IGameSessionConnectionTerminator>());
@@ -336,7 +345,8 @@ public sealed class AuthenticationSignInTests
         factory.CreateWorld(42, "connection-1").Returns(firstSession);
         factory.CreateWorld(42, "connection-2").Returns(secondSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
-        var gameSessionService = GameSessionTestDependencies.CreateService(new GameSessionStore(), factory, claims, terminator);
+        var store = new GameSessionStore();
+        var gameSessionService = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         await gameSessionService.AddSession(42, "lobby-connection");
         var firstHydrator = new TrackingHydrationService();
         var secondHydrator = new TrackingHydrationService();
@@ -373,8 +383,10 @@ public sealed class AuthenticationSignInTests
         var session = Substitute.For<IGameSession>();
         var gameSessionFactory = Substitute.For<IGameSessionFactory>();
         gameSessionFactory.Create(42, "connection").Returns(session);
+        var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(
-            new GameSessionStore(),
+            store,
+            store,
             gameSessionFactory,
             new TestGameSessionClaimStore(),
             Substitute.For<IGameSessionConnectionTerminator>());

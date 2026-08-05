@@ -11,7 +11,7 @@ namespace Hagalaz.Services.GameWorld.Store;
 /// Stores local sessions while enforcing one account per process.
 /// Distributed ownership is enforced by <see cref="Services.IGameSessionClaimStore"/>.
 /// </summary>
-public class GameSessionStore : IGameSessionStore
+public class GameSessionStore : IGameSessionStore, IGameSessionAbortStore
 {
     private readonly AsyncReaderWriterLock _lock = new();
     private readonly Dictionary<string, SessionSlot> _slots = new();

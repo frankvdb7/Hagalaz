@@ -6,7 +6,7 @@ using Hagalaz.Services.GameWorld.Model;
 
 namespace Hagalaz.Services.GameWorld.Store
 {
-    public interface IGameSessionStore : IGameSessionAbortStore
+    public interface IGameSessionStore
     {
         ValueTask<bool> TryAdd(IGameSession session);
 

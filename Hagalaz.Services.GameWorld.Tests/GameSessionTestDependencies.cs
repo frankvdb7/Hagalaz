@@ -11,6 +11,7 @@ internal static class GameSessionTestDependencies
 {
     public static GameSessionService CreateService(
         IGameSessionStore sessions,
+        IGameSessionAbortStore abortSessions,
         IGameSessionFactory factory,
         IGameSessionClaimStore claims,
         IGameSessionConnectionTerminator terminator)
@@ -19,9 +20,10 @@ internal static class GameSessionTestDependencies
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
-            sessions);
+            abortSessions);
         return new GameSessionService(
             sessions,
+            abortSessions,
             factory,
             claims,
             terminator,
@@ -31,6 +33,7 @@ internal static class GameSessionTestDependencies
 
     public static GameSessionLeaseService CreateLeaseService(
         IGameSessionStore sessions,
+        IGameSessionAbortStore abortSessions,
         IGameSessionClaimStore claims,
         IGameSessionConnectionTerminator terminator)
     {
@@ -38,10 +41,10 @@ internal static class GameSessionTestDependencies
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
-            sessions);
+            abortSessions);
         return new GameSessionLeaseService(
             sessions,
-            sessions,
+            abortSessions,
             claims,
             terminator,
             NullLogger<GameSessionLeaseService>.Instance,
