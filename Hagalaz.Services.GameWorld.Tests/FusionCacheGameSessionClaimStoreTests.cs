@@ -149,7 +149,8 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     public async Task TryClaimAsync_PropagatesCancellationTokenToLockAndCacheOperations()
     {
         var (store, cache, locker) = CreateStore();
-        var cancellationToken = new CancellationTokenSource().Token;
+        using var cancellationSource = new CancellationTokenSource();
+        var cancellationToken = cancellationSource.Token;
         cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), cancellationToken)
             .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.None));
         cache.SetAsync(

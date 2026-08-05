@@ -123,7 +123,7 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
                     _logger,
                     CancellationToken.None);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex,
                     "Failed to release distributed game-session claim lock for account '{masterId}'.",

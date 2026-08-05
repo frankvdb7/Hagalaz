@@ -74,28 +74,14 @@ namespace Hagalaz.Services.GameWorld.Services
                     ? (createdSession, true)
                     : (await _sessions.FindWorldSessionByMasterId(masterId), false);
             }
-            catch
+            catch (OperationCanceledException)
             {
-                try
-                {
-                    // TryClaimAsync may have persisted the claim before an infrastructure
-                    // exception escaped (for example while releasing its distributed lock).
-                    // The value check in ReleaseAsync prevents this cleanup from removing a
-                    // claim acquired by another owner.
-                    if (!await _claims.ReleaseAsync(masterId, createdSession.SessionClaimId, CancellationToken.None))
-                    {
-                        retainPendingForCleanup = true;
-                    }
-                }
-                catch (Exception releaseException)
-                {
-                    _logger.LogWarning(releaseException,
-                        "Failed to release world-session claim '{sessionClaimId}' after claim acquisition failed for account '{masterId}'; retaining it for lease reconciliation.",
-                        createdSession.SessionClaimId,
-                        masterId);
-                    retainPendingForCleanup = true;
-                }
-
+                retainPendingForCleanup = await RetainFailedClaimAsync(masterId, createdSession);
+                throw;
+            }
+            catch (Exception acquisitionException) when (acquisitionException is not OperationCanceledException)
+            {
+                retainPendingForCleanup = await RetainFailedClaimAsync(masterId, createdSession);
                 throw;
             }
             finally
@@ -244,7 +230,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 await RetainWorldSessionForCleanupAsync(expectedSession, "after claim release cancellation");
                 throw;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex,
                     "Failed to release world-session claim '{sessionClaimId}' for account '{masterId}' {operation}; retaining exact-owner cleanup for retry.",
@@ -252,6 +238,30 @@ namespace Hagalaz.Services.GameWorld.Services
                     masterId,
                     operation);
                 return ClaimCleanupResult.Deferred;
+            }
+        }
+
+        private async Task<bool> RetainFailedClaimAsync(uint masterId, IGameWorldSession session)
+        {
+            try
+            {
+                // TryClaimAsync may have persisted the claim before an infrastructure
+                // exception escaped (for example while releasing its distributed lock).
+                // The value check in ReleaseAsync prevents this cleanup from removing a
+                // claim acquired by another owner.
+                return !await _claims.ReleaseAsync(masterId, session.SessionClaimId, CancellationToken.None);
+            }
+            catch (OperationCanceledException)
+            {
+                return true;
+            }
+            catch (Exception releaseException) when (releaseException is not OperationCanceledException)
+            {
+                _logger.LogWarning(releaseException,
+                    "Failed to release world-session claim '{sessionClaimId}' after claim acquisition failed for account '{masterId}'; retaining it for lease reconciliation.",
+                    session.SessionClaimId,
+                    masterId);
+                return true;
             }
         }
 

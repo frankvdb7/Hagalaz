@@ -242,7 +242,11 @@ namespace Hagalaz.Services.GameWorld.Services
                             {
                                 await _characterService.RemoveAsync(registeredCharacter!);
                             }
-                            catch (Exception ex)
+                            catch (OperationCanceledException ex)
+                            {
+                                _logger.LogError(ex, "Character removal was canceled after world sign-in failed");
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
                             {
                                 _logger.LogError(ex, "Failed to remove character after world sign-in failed");
                             }
@@ -254,7 +258,11 @@ namespace Hagalaz.Services.GameWorld.Services
                             // acquired claim cannot remain until its lease expires.
                             await _gameSessionService.RemoveSession(sessionRegistration.Session, CancellationToken.None);
                         }
-                        catch (Exception ex)
+                        catch (OperationCanceledException ex)
+                        {
+                            _logger.LogError(ex, "Game-session removal was canceled after world sign-in failed");
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
                         {
                             _logger.LogError(ex, "Failed to remove game session '{connectionId}' after world sign-in failed", session.ConnectionId);
                         }

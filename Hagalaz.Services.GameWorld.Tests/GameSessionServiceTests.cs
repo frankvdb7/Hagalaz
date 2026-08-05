@@ -740,7 +740,8 @@ public sealed class GameSessionServiceTests
         factory.CreateWorld(42, "connection").Returns(session);
         var gameSessions = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         claims.TryClaimAsync(42, "claim").Returns(Task.FromResult(true));
-        var cancellationToken = new CancellationTokenSource().Token;
+        using var cancellationSource = new CancellationTokenSource();
+        var cancellationToken = cancellationSource.Token;
         await gameSessions.TryAddWorldSession(42, "connection");
         claims.RenewAsync(42, "claim", cancellationToken).Returns(Task.FromResult(true));
 
