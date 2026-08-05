@@ -335,6 +335,8 @@ public sealed class GameSessionServiceTests
 
         Assert.AreEqual(2, terminator.Attempts);
         Assert.AreSame(lobbySession, terminator.LastAbortedSession);
+        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+        Assert.IsTrue(await store.TryAdd(CreateLobbySession(43, lobbySession.ConnectionId)));
     }
 
     [TestMethod]
@@ -374,7 +376,7 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
-    public async Task CommitWorldSession_WhenAbortRetryQueueIsHeavilyLoaded_RetainsReplacedSessionRetry()
+    public async Task CommitWorldSession_WhenQueuedAbortSucceeds_ClearsReservationAndAllowsConnectionReuse()
     {
         var store = new GameSessionStore();
         var claims = new InMemoryGameSessionClaimStore();

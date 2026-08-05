@@ -161,7 +161,9 @@ namespace Hagalaz.Services.GameWorld.Services
                         "Failed to abort replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
                         replacedSession.ConnectionId,
                         expectedSession.ConnectionId);
-                    if (!_retryQueue.TryQueueConnectionAbort(replacedSession))
+                    if (!_retryQueue.TryQueueConnectionAbort(
+                            replacedSession,
+                            () => _sessions.TryRemovePendingSessionAbort(replacedSession)))
                     {
                         _logger.LogWarning(
                             "Could not enqueue a retry for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'; retaining its atomic abort reservation for lease-worker reconciliation.",

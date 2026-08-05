@@ -192,7 +192,9 @@ public sealed class GameSessionLeaseService : BackgroundService
             }
         }
 
-        if (abortFailed && !_retryQueue.TryQueueConnectionAbort(session))
+        if (abortFailed && !_retryQueue.TryQueueConnectionAbort(
+                session,
+                () => _sessions.TryRemovePendingSessionAbort(session)))
         {
             _logger.LogWarning(
                 "Could not queue a retry for lost game session '{connectionId}' because the cleanup retry capacity is full; retaining its atomic abort reservation for lease-worker reconciliation.",
