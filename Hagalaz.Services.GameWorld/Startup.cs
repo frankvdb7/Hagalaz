@@ -166,12 +166,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IGameSessionAbortStore>(serviceProvider => serviceProvider.GetRequiredService<GameSessionStore>());
             services.AddSingleton<IGameSessionClaimStore, FusionCacheGameSessionClaimStore>();
             services.AddSingleton<IGameSessionConnectionTerminator, GameSessionConnectionTerminator>();
-            services.AddSingleton<GameSessionRetryQueue>(provider => new GameSessionRetryQueue(
-                provider.GetRequiredService<IGameSessionClaimStore>(),
-                provider.GetRequiredService<IGameSessionConnectionTerminator>(),
-                provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GameSessionRetryQueue>>(),
-                provider.GetRequiredService<IGameSessionAbortStore>()));
-            services.AddHostedService(provider => provider.GetRequiredService<GameSessionRetryQueue>());
+            services.AddSingleton<GameSessionAbortCoordinator>();
             services.AddHostedService<GameSessionLeaseService>();
 
             // character

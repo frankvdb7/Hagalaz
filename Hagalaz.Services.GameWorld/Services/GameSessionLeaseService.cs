@@ -29,24 +29,21 @@ public sealed class GameSessionLeaseService : BackgroundService
     private readonly IGameSessionStore _sessions;
     private readonly IGameSessionAbortStore _abortSessions;
     private readonly IGameSessionClaimStore _claims;
-    private readonly IGameSessionConnectionTerminator _connectionTerminator;
     private readonly ILogger<GameSessionLeaseService> _logger;
-    private readonly GameSessionRetryQueue _retryQueue;
+    private readonly GameSessionAbortCoordinator _abortCoordinator;
 
     public GameSessionLeaseService(
         IGameSessionStore sessions,
         IGameSessionAbortStore abortSessions,
         IGameSessionClaimStore claims,
-        IGameSessionConnectionTerminator connectionTerminator,
         ILogger<GameSessionLeaseService> logger,
-        GameSessionRetryQueue retryQueue)
+        GameSessionAbortCoordinator abortCoordinator)
     {
         _sessions = sessions;
         _abortSessions = abortSessions;
         _claims = claims;
-        _connectionTerminator = connectionTerminator;
         _logger = logger;
-        _retryQueue = retryQueue;
+        _abortCoordinator = abortCoordinator;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -83,13 +80,13 @@ public sealed class GameSessionLeaseService : BackgroundService
 
                 _logger.LogWarning("Lost active game-session claim for account '{masterId}' and session '{sessionClaimId}'. Aborting the connection.",
                     worldSession.MasterId, worldSession.SessionClaimId);
-                await AbortAndReconcileLostSession(worldSession);
+                await AbortAndReconcileLostSession(worldSession, cancellationToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Failed to renew active game-session claim for account '{masterId}'. Aborting the connection.",
                     worldSession.MasterId);
-                await AbortAndReconcileLostSession(worldSession);
+                await AbortAndReconcileLostSession(worldSession, cancellationToken);
             }
         }
 
@@ -140,81 +137,27 @@ public sealed class GameSessionLeaseService : BackgroundService
         foreach (var session in deferredSessions)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!await _abortSessions.TryBeginPendingSessionAbort(session))
-            {
-                continue;
-            }
-
-            var currentSession = await _sessions.TryGetValue(session.ConnectionId);
-            if (currentSession.Found && !ReferenceEquals(currentSession.Session, session))
-            {
-                await _abortSessions.TryReleasePendingSessionAbort(session);
-                _logger.LogCritical(
-                    "Cannot reconcile deferred abort for connection '{connectionId}' because a different session is active; retaining the abort record until the connection ID is available.",
-                    session.ConnectionId);
-                continue;
-            }
-
             try
             {
-                _connectionTerminator.Abort(session);
-                if (!await _abortSessions.TryCompletePendingSessionAbort(session))
-                {
-                    _logger.LogCritical(
-                        "Could not clear the completed abort reservation for deferred session '{connectionId}'.",
-                        session.ConnectionId);
-                }
+                await _abortCoordinator.AbortPendingSessionAsync(session, cancellationToken);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                await _abortSessions.TryReleasePendingSessionAbort(session);
-                _logger.LogWarning(ex,
-                    "Failed to reconcile deferred abort for connection '{connectionId}'; it will be retried on the next lease cycle.",
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to reconcile deferred connection abort for '{connectionId}'; it will be retried on the next lease cycle.",
                     session.ConnectionId);
             }
         }
     }
 
-    private async Task AbortAndReconcileLostSession(IGameWorldSession session)
+    private async Task AbortAndReconcileLostSession(
+        IGameWorldSession session,
+        CancellationToken cancellationToken)
     {
-        if (!await _abortSessions.TryMoveToPendingAbort(session))
-        {
-            _logger.LogCritical(
-                "Could not reserve lost game session '{connectionId}' for abort reconciliation; the session was not removed.",
-                session.ConnectionId);
-            return;
-        }
-
-        if (!await _abortSessions.TryBeginPendingSessionAbort(session))
-        {
-            _logger.LogCritical(
-                "Could not claim lost game session '{connectionId}' for abort reconciliation.",
-                session.ConnectionId);
-            return;
-        }
-
-        try
-        {
-            _connectionTerminator.Abort(session);
-            if (!await _abortSessions.TryCompletePendingSessionAbort(session))
-            {
-                _logger.LogCritical(
-                    "Could not clear the completed abort reservation for lost game session '{connectionId}'.",
-                    session.ConnectionId);
-            }
-        }
-        catch (Exception ex)
-        {
-            await _abortSessions.TryReleasePendingSessionAbort(session);
-            _logger.LogWarning(ex,
-                "Failed to abort lost game session '{connectionId}'. The abort will be retried.",
-                session.ConnectionId);
-            if (!_retryQueue.TryQueuePendingAbort(session))
-            {
-                _logger.LogWarning(
-                    "Could not queue a retry for lost game session '{connectionId}' because the cleanup retry capacity is full; retaining its atomic abort reservation for lease-worker reconciliation.",
-                    session.ConnectionId);
-            }
-        }
+        await _abortCoordinator.ReserveAndAbortLostSessionAsync(session, cancellationToken);
     }
 }

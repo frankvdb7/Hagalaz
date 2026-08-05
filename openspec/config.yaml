@@ -1,0 +1,38 @@
+schema: spec-driven
+
+context: |
+  Tech stack: .NET 10, ASP.NET Core, .NET Aspire, MySQL/EF Core, Redis, RabbitMQ, Angular, and Electron.
+  Backend validation: use focused dotnet test commands, integration tests for distributed boundaries, and a solution build when appropriate.
+  Architecture: prefer existing stores, lease workers, BCL primitives, dependency injection, and established project services.
+  Scope: one change must have one concrete goal; related work that changes the goal belongs in a separate change.
+
+rules:
+  proposal:
+    - State exactly one concrete goal.
+    - Include explicit in-scope behavior, non-goals, acceptance criteria, and stop conditions.
+    - Treat a changed intent or materially expanded scope as a new change, not a silent proposal revision.
+    - Identify existing mechanisms that will be reused before proposing new workers, queues, stores, dependencies, or frameworks.
+  specs:
+    - Describe behavior, not implementation details.
+    - Use testable Given/When/Then scenarios for happy paths, failure paths, cancellation, ownership, and retry behavior where relevant.
+    - Keep deltas limited to behavior required by the proposal.
+  design:
+    - Name the owner of each state transition and the single retry/reconciliation owner.
+    - Record rejected simpler alternatives and why the selected design is necessary.
+    - Do not introduce a second mechanism for an existing responsibility without a measurable requirement.
+  tasks:
+    - Every task must map to an acceptance criterion or required regression test.
+    - Keep tasks narrowly scoped and do not add unrelated cleanup or refactoring.
+
+operations:
+  apply:
+    guidance:
+      - Read the proposal, delta spec, design, and tasks before editing code.
+      - If implementation reveals work outside the proposal, pause and recommend a follow-up change instead of expanding scope silently.
+      - Keep code changes minimal, preserve existing ownership boundaries, and update tasks immediately after completing them.
+      - Do not mark a task complete based only on compilation; verify its acceptance behavior.
+  archive:
+    guidance:
+      - Do not archive with unresolved tasks or unverified acceptance criteria.
+      - Sync delta specifications into the current specs before archiving.
+      - Summarize any deferred follow-up work without adding it to the completed change.

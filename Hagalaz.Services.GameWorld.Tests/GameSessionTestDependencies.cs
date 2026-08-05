@@ -16,19 +16,17 @@ internal static class GameSessionTestDependencies
         IGameSessionClaimStore claims,
         IGameSessionConnectionTerminator terminator)
     {
-        var retryQueue = new GameSessionRetryQueue(
-            claims,
-            terminator,
-            NullLogger<GameSessionRetryQueue>.Instance,
-            abortSessions);
-        return new GameSessionService(
+        var abortCoordinator = new GameSessionAbortCoordinator(
             sessions,
             abortSessions,
+            terminator,
+            NullLogger<GameSessionAbortCoordinator>.Instance);
+        return new GameSessionService(
+            sessions,
             factory,
             claims,
-            terminator,
             NullLogger<GameSessionService>.Instance,
-            retryQueue);
+            abortCoordinator);
     }
 
     public static GameSessionLeaseService CreateLeaseService(
@@ -37,17 +35,16 @@ internal static class GameSessionTestDependencies
         IGameSessionClaimStore claims,
         IGameSessionConnectionTerminator terminator)
     {
-        var retryQueue = new GameSessionRetryQueue(
-            claims,
+        var abortCoordinator = new GameSessionAbortCoordinator(
+            sessions,
+            abortSessions,
             terminator,
-            NullLogger<GameSessionRetryQueue>.Instance,
-            abortSessions);
+            NullLogger<GameSessionAbortCoordinator>.Instance);
         return new GameSessionLeaseService(
             sessions,
             abortSessions,
             claims,
-            terminator,
             NullLogger<GameSessionLeaseService>.Instance,
-            retryQueue);
+            abortCoordinator);
     }
 }
