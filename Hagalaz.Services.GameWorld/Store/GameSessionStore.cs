@@ -211,37 +211,34 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         }
     }
 
-    public async ValueTask<(bool Began, Guid ProcessingToken)> TryBeginPendingSessionAbort(
-        IGameSession expectedSession)
+    public async ValueTask<AbortProcessingLease?> TryBeginPendingSessionAbort(IGameSession expectedSession)
     {
         using (await _lock.WriterLockAsync())
         {
             if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
                 slot.PendingAbort is not { } pendingAbort ||
                 !ReferenceEquals(pendingAbort.Session, expectedSession) ||
-                pendingAbort.Processing && !IsProcessingLeaseExpired(pendingAbort))
+                pendingAbort.ProcessingLease is not null && !IsProcessingLeaseExpired(pendingAbort))
             {
-                return (false, Guid.Empty);
+                return null;
             }
 
-            pendingAbort.Processing = true;
-            pendingAbort.ProcessingToken = Guid.NewGuid();
-            pendingAbort.ProcessingStartedAtUtc = _timeProvider.GetUtcNow();
-            return (true, pendingAbort.ProcessingToken.Value);
+            var processingLease = new AbortProcessingLease(Guid.NewGuid(), _timeProvider.GetUtcNow());
+            pendingAbort.ProcessingLease = processingLease;
+            return processingLease;
         }
     }
 
     public async ValueTask<bool> TryCompletePendingSessionAbort(
         IGameSession expectedSession,
-        Guid processingToken)
+        AbortProcessingLease processingLease)
     {
         using (await _lock.WriterLockAsync())
         {
             if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
                 slot.PendingAbort is not { } pendingAbort ||
                 !ReferenceEquals(pendingAbort.Session, expectedSession) ||
-                !pendingAbort.Processing ||
-                pendingAbort.ProcessingToken != processingToken)
+                pendingAbort.ProcessingLease != processingLease)
             {
                 return false;
             }
@@ -254,22 +251,19 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
 
     public async ValueTask<bool> TryReleasePendingSessionAbort(
         IGameSession expectedSession,
-        Guid processingToken)
+        AbortProcessingLease processingLease)
     {
         using (await _lock.WriterLockAsync())
         {
             if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
                 slot.PendingAbort is not { } pendingAbort ||
                 !ReferenceEquals(pendingAbort.Session, expectedSession) ||
-                !pendingAbort.Processing ||
-                pendingAbort.ProcessingToken != processingToken)
+                pendingAbort.ProcessingLease != processingLease)
             {
                 return false;
             }
 
-            pendingAbort.Processing = false;
-            pendingAbort.ProcessingToken = null;
-            pendingAbort.ProcessingStartedAtUtc = null;
+            pendingAbort.ProcessingLease = null;
             return true;
         }
     }
@@ -279,8 +273,8 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         using (await _lock.ReaderLockAsync())
         {
             return _slots.Values
-                .Where(slot => slot.PendingAbort is { Processing: false } ||
-                               slot.PendingAbort is { } pendingAbort && IsProcessingLeaseExpired(pendingAbort))
+                .Where(slot => slot.PendingAbort is { } pendingAbort &&
+                               (pendingAbort.ProcessingLease is null || IsProcessingLeaseExpired(pendingAbort)))
                 .Select(slot => slot.PendingAbort!.Session)
                 .ToArray();
         }
@@ -364,9 +358,8 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
             .FirstOrDefault(session => session?.MasterId == masterId);
 
     private bool IsProcessingLeaseExpired(PendingSessionAbort pendingAbort) =>
-        pendingAbort.Processing &&
-        pendingAbort.ProcessingStartedAtUtc is { } startedAtUtc &&
-        startedAtUtc + GameSessionAbortOptions.ProcessingTimeout <= _timeProvider.GetUtcNow();
+        pendingAbort.ProcessingLease is { } processingLease &&
+        processingLease.StartedAtUtc + GameSessionAbortOptions.ProcessingTimeout <= _timeProvider.GetUtcNow();
 
     private bool TryRemovePendingWorldSessionUnsafe(IGameSession expectedSession)
     {
@@ -407,8 +400,6 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         public PendingSessionAbort(IGameSession session) => Session = session;
 
         public IGameSession Session { get; }
-        public bool Processing { get; set; }
-        public Guid? ProcessingToken { get; set; }
-        public DateTimeOffset? ProcessingStartedAtUtc { get; set; }
+        public AbortProcessingLease? ProcessingLease { get; set; }
     }
 }

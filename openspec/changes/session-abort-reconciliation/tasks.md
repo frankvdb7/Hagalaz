@@ -22,4 +22,4 @@
 - [x] Run GameWorld integration tests.
 - [x] Resolve any behavior change where deferred cleanup is reported as logical session removal failure.
 - [x] Ensure a failed completion cannot strand a processing abort reservation.
-- [ ] Update the current behavior specification after the remaining review findings are resolved.
+- [x] Update the current behavior specification after the remaining review findings are resolved.

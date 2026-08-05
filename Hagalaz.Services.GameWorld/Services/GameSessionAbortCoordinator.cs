@@ -51,7 +51,7 @@ public sealed class GameSessionAbortCoordinator
         CancellationToken cancellationToken)
     {
         var processingLease = await _abortSessions.TryBeginPendingSessionAbort(session);
-        if (!processingLease.Began)
+        if (processingLease is not { } lease)
         {
             return false;
         }
@@ -59,7 +59,7 @@ public sealed class GameSessionAbortCoordinator
         var currentSession = await _sessions.TryGetValue(session.ConnectionId);
         if (currentSession.Found && !ReferenceEquals(currentSession.Session, session))
         {
-            await ReleaseProcessingMarkerAsync(session, processingLease.ProcessingToken);
+            await ReleaseProcessingMarkerAsync(session, lease);
             _logger.LogCritical(
                 "Cannot reconcile deferred abort for connection '{connectionId}' because a different session is active; retaining the abort record until the connection ID is available.",
                 session.ConnectionId);
@@ -69,12 +69,12 @@ public sealed class GameSessionAbortCoordinator
         try
         {
             _connectionTerminator.Abort(session);
-            if (!await _abortSessions.TryCompletePendingSessionAbort(session, processingLease.ProcessingToken))
+            if (!await _abortSessions.TryCompletePendingSessionAbort(session, lease))
             {
                 _logger.LogCritical(
                     "Could not clear the completed abort reservation for session '{connectionId}'.",
                     session.ConnectionId);
-                await ReleaseProcessingMarkerAsync(session, processingLease.ProcessingToken);
+                await ReleaseProcessingMarkerAsync(session, lease);
                 return false;
             }
 
@@ -82,12 +82,12 @@ public sealed class GameSessionAbortCoordinator
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            await ReleaseProcessingMarkerAsync(session, processingLease.ProcessingToken);
+            await ReleaseProcessingMarkerAsync(session, lease);
             throw;
         }
         catch (OperationCanceledException ex)
         {
-            await ReleaseProcessingMarkerAsync(session, processingLease.ProcessingToken);
+            await ReleaseProcessingMarkerAsync(session, lease);
             _logger.LogWarning(ex,
                 "Abort of game session '{connectionId}' was canceled by the connection terminator; it will be retried on the next lease cycle.",
                 session.ConnectionId);
@@ -95,7 +95,7 @@ public sealed class GameSessionAbortCoordinator
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            await ReleaseProcessingMarkerAsync(session, processingLease.ProcessingToken);
+            await ReleaseProcessingMarkerAsync(session, lease);
             _logger.LogWarning(ex,
                 "Failed to abort game session '{connectionId}'; it will be retried on the next lease cycle.",
                 session.ConnectionId);
@@ -103,11 +103,11 @@ public sealed class GameSessionAbortCoordinator
         }
     }
 
-    private async Task ReleaseProcessingMarkerAsync(IGameSession session, Guid processingToken)
+    private async Task ReleaseProcessingMarkerAsync(IGameSession session, AbortProcessingLease processingLease)
     {
         try
         {
-            if (!await _abortSessions.TryReleasePendingSessionAbort(session, processingToken))
+            if (!await _abortSessions.TryReleasePendingSessionAbort(session, processingLease))
             {
                 _logger.LogCritical(
                     "Could not release the processing marker for pending abort '{connectionId}'.",

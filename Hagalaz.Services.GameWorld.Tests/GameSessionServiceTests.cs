@@ -101,10 +101,11 @@ public sealed class GameSessionServiceTests
 
         await Task.WhenAll(firstTask, secondTask);
 
-        Assert.AreNotEqual(firstTask.Result.Began, secondTask.Result.Began);
-        Assert.IsTrue(firstTask.Result.Began || secondTask.Result.Began);
-        var processingLease = firstTask.Result.Began ? firstTask.Result : secondTask.Result;
-        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, processingLease.ProcessingToken));
+        Assert.AreNotEqual(firstTask.Result.HasValue, secondTask.Result.HasValue);
+        Assert.IsTrue(firstTask.Result.HasValue || secondTask.Result.HasValue);
+        var processingLease = firstTask.Result ?? secondTask.Result ??
+            throw new InvalidOperationException("One coordinator must claim the pending abort reservation.");
+        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, processingLease));
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
     }
 
@@ -119,16 +120,16 @@ public sealed class GameSessionServiceTests
         Assert.IsTrue(await store.TryMoveToPendingAbort(session));
 
         var firstLease = await store.TryBeginPendingSessionAbort(session);
-        Assert.IsTrue(firstLease.Began);
+        Assert.IsTrue(firstLease.HasValue);
 
         timeProvider.Advance(GameSessionAbortOptions.ProcessingTimeout + TimeSpan.FromSeconds(1));
 
         Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
         var secondLease = await store.TryBeginPendingSessionAbort(session);
-        Assert.IsTrue(secondLease.Began);
-        Assert.AreNotEqual(firstLease.ProcessingToken, secondLease.ProcessingToken);
-        Assert.IsFalse(await store.TryCompletePendingSessionAbort(session, firstLease.ProcessingToken));
-        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, secondLease.ProcessingToken));
+        Assert.IsTrue(secondLease.HasValue);
+        Assert.AreNotEqual(firstLease.Value.Token, secondLease.Value.Token);
+        Assert.IsFalse(await store.TryCompletePendingSessionAbort(session, firstLease.Value));
+        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, secondLease.Value));
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
     }
 
@@ -938,10 +939,12 @@ public sealed class GameSessionServiceTests
         public ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession) =>
             _store.TryMoveToPendingAbort(expectedSession);
 
-        public ValueTask<(bool Began, Guid ProcessingToken)> TryBeginPendingSessionAbort(IGameSession expectedSession) =>
+        public ValueTask<AbortProcessingLease?> TryBeginPendingSessionAbort(IGameSession expectedSession) =>
             _store.TryBeginPendingSessionAbort(expectedSession);
 
-        public ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession, Guid processingToken)
+        public ValueTask<bool> TryCompletePendingSessionAbort(
+            IGameSession expectedSession,
+            AbortProcessingLease processingLease)
         {
             if (_failCompletion)
             {
@@ -949,13 +952,15 @@ public sealed class GameSessionServiceTests
                 return new(false);
             }
 
-            return _store.TryCompletePendingSessionAbort(expectedSession, processingToken);
+            return _store.TryCompletePendingSessionAbort(expectedSession, processingLease);
         }
 
-        public ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession, Guid processingToken)
+        public ValueTask<bool> TryReleasePendingSessionAbort(
+            IGameSession expectedSession,
+            AbortProcessingLease processingLease)
         {
             ReleaseCalls++;
-            return _store.TryReleasePendingSessionAbort(expectedSession, processingToken);
+            return _store.TryReleasePendingSessionAbort(expectedSession, processingLease);
         }
 
         public ValueTask<IReadOnlyList<IGameSession>> FindSessionsPendingAbort() =>
