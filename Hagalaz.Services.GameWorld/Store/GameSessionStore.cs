@@ -24,6 +24,7 @@ namespace Hagalaz.Services.GameWorld.Store
             using (await _lock.WriterLockAsync())
             {
                 if (_sessions.ContainsKey(session.ConnectionId) ||
+                    _pendingSessionAborts.ContainsKey(session.ConnectionId) ||
                     _sessions.Values.Any(existing => existing.MasterId == session.MasterId) ||
                     _pendingWorldSessions.Values.Any(existing => existing.Session.MasterId == session.MasterId))
                 {
@@ -40,6 +41,7 @@ namespace Hagalaz.Services.GameWorld.Store
             using (await _lock.WriterLockAsync())
             {
                 if (_pendingWorldSessions.ContainsKey(session.ConnectionId) ||
+                    _pendingSessionAborts.ContainsKey(session.ConnectionId) ||
                     _sessions.ContainsKey(session.ConnectionId) &&
                     !_sessions[session.ConnectionId].MasterId.Equals(session.MasterId) ||
                     _pendingWorldSessions.Values.Any(existing => existing.CleanupRequested &&
@@ -81,7 +83,17 @@ namespace Hagalaz.Services.GameWorld.Store
 
                 if (currentSession != null)
                 {
+                    if (currentSession.ConnectionId != expectedSession.ConnectionId &&
+                        _pendingSessionAborts.ContainsKey(currentSession.ConnectionId))
+                    {
+                        return (false, null);
+                    }
+
                     _sessions.Remove(currentSession.ConnectionId);
+                    if (currentSession.ConnectionId != expectedSession.ConnectionId)
+                    {
+                        _pendingSessionAborts.Add(currentSession.ConnectionId, currentSession);
+                    }
                 }
 
                 _pendingWorldSessions.Remove(expectedSession.ConnectionId);
@@ -154,16 +166,31 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
-        public async ValueTask<bool> TryRetainSessionForAbort(IGameSession session)
+        public async ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession)
         {
             using (await _lock.WriterLockAsync())
             {
-                if (_pendingSessionAborts.TryGetValue(session.ConnectionId, out var existing))
+                if (_pendingSessionAborts.TryGetValue(expectedSession.ConnectionId, out var pendingSession))
                 {
-                    return ReferenceEquals(existing, session);
+                    return ReferenceEquals(pendingSession, expectedSession);
                 }
 
-                _pendingSessionAborts.Add(session.ConnectionId, session);
+                if (!_sessions.TryGetValue(expectedSession.ConnectionId, out var currentSession) ||
+                    !ReferenceEquals(currentSession, expectedSession))
+                {
+                    if (!_pendingWorldSessions.TryGetValue(expectedSession.ConnectionId, out var pendingWorldSession) ||
+                        !ReferenceEquals(pendingWorldSession.Session, expectedSession))
+                    {
+                        return false;
+                    }
+
+                    _pendingWorldSessions.Remove(expectedSession.ConnectionId);
+                    _pendingSessionAborts.Add(expectedSession.ConnectionId, expectedSession);
+                    return true;
+                }
+
+                _sessions.Remove(expectedSession.ConnectionId);
+                _pendingSessionAborts.Add(expectedSession.ConnectionId, expectedSession);
                 return true;
             }
         }

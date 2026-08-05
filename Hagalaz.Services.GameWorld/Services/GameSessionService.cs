@@ -106,7 +106,7 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 if (!claimAcquired && retainPendingForCleanup)
                 {
-                    await _sessions.TryRetainWorldSessionForCleanup(createdSession);
+                    await RetainWorldSessionForCleanupAsync(createdSession, "after claim acquisition failed");
                 }
                 else if (!claimAcquired)
                 {
@@ -147,6 +147,13 @@ namespace Hagalaz.Services.GameWorld.Services
                 try
                 {
                     _connectionTerminator.Abort(replacedSession);
+                    if (!await _sessions.TryRemovePendingSessionAbort(replacedSession))
+                    {
+                        _logger.LogCritical(
+                            "Could not clear the completed abort reservation for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
+                            replacedSession.ConnectionId,
+                            expectedSession.ConnectionId);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -156,9 +163,8 @@ namespace Hagalaz.Services.GameWorld.Services
                         expectedSession.ConnectionId);
                     if (!_retryQueue.TryQueueConnectionAbort(replacedSession))
                     {
-                        await _sessions.TryRetainSessionForAbort(replacedSession);
-                        _logger.LogCritical(
-                            "Could not enqueue the failed abort for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'; retaining it for lease-worker reconciliation.",
+                        _logger.LogWarning(
+                            "Could not enqueue a retry for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'; retaining its atomic abort reservation for lease-worker reconciliation.",
                             replacedSession.ConnectionId,
                             expectedSession.ConnectionId);
                     }
@@ -199,7 +205,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     expectedSession);
                 if (cleanup == ClaimCleanupResult.Deferred)
                 {
-                    await _sessions.TryRetainWorldSessionForCleanup(expectedSession);
+                    await RetainWorldSessionForCleanupAsync(expectedSession, "during pending-session cleanup");
                     return false;
                 }
 
@@ -217,7 +223,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     expectedSession);
                 if (cleanup == ClaimCleanupResult.Deferred)
                 {
-                    await _sessions.TryRetainWorldSessionForCleanup(expectedSession);
+                    await RetainWorldSessionForCleanupAsync(expectedSession, "during session cleanup");
                     return false;
                 }
 
@@ -264,7 +270,7 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 if (!QueueClaimRelease(masterId, claimId))
                 {
-                    await _sessions.TryRetainWorldSessionForCleanup(expectedSession);
+                    await RetainWorldSessionForCleanupAsync(expectedSession, "after claim release cancellation");
                 }
 
                 throw;
@@ -296,7 +302,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     "World-session claim '{sessionClaimId}' was not released after commit failed for account '{masterId}'; retaining the pending reservation for independent cleanup reconciliation.",
                     worldSession.SessionClaimId,
                     worldSession.MasterId);
-                await _sessions.TryRetainWorldSessionForCleanup(worldSession);
+                await RetainWorldSessionForCleanupAsync(worldSession, "after commit failed");
                 return false;
             }
 
@@ -316,6 +322,20 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             return queued;
+        }
+
+        private async Task<bool> RetainWorldSessionForCleanupAsync(IGameSession expectedSession, string operation)
+        {
+            var retained = await _sessions.TryRetainWorldSessionForCleanup(expectedSession);
+            if (!retained)
+            {
+                _logger.LogCritical(
+                    "Could not retain world session for cleanup '{connectionId}' {operation}; no local reconciliation record exists.",
+                    expectedSession.ConnectionId,
+                    operation);
+            }
+
+            return retained;
         }
 
         private enum ClaimCleanupResult

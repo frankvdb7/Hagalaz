@@ -22,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Store
 
         ValueTask<IReadOnlyList<IGameWorldSession>> FindWorldSessionsPendingCleanup();
 
-        ValueTask<bool> TryRetainSessionForAbort(IGameSession session);
+        ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession);
 
         ValueTask<bool> TryRemovePendingSessionAbort(IGameSession expectedSession);
 

@@ -58,6 +58,7 @@ public sealed class GameSessionLeaseService : BackgroundService
     internal async Task RenewSessionsAsync(CancellationToken cancellationToken)
     {
         var pendingCleanupSessions = await _sessions.FindWorldSessionsPendingCleanup();
+        var deferredAbortSessions = await _sessions.FindSessionsPendingAbort();
         var pendingCleanupSet = pendingCleanupSessions.Count == 0
             ? null
             : new HashSet<IGameWorldSession>(pendingCleanupSessions, ReferenceEqualityComparer.Instance);
@@ -90,7 +91,7 @@ public sealed class GameSessionLeaseService : BackgroundService
         }
 
         await ReconcileDeferredClaimReleasesAsync(pendingCleanupSessions, cancellationToken);
-        await ReconcileDeferredConnectionAbortsAsync(cancellationToken);
+        await ReconcileDeferredConnectionAbortsAsync(deferredAbortSessions, cancellationToken);
     }
 
     private async Task ReconcileDeferredClaimReleasesAsync(
@@ -129,15 +130,19 @@ public sealed class GameSessionLeaseService : BackgroundService
         }
     }
 
-    private async Task ReconcileDeferredConnectionAbortsAsync(CancellationToken cancellationToken)
+    private async Task ReconcileDeferredConnectionAbortsAsync(
+        IReadOnlyList<IGameSession> deferredSessions,
+        CancellationToken cancellationToken)
     {
-        foreach (var session in await _sessions.FindSessionsPendingAbort())
+        foreach (var session in deferredSessions)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var currentSession = await _sessions.TryGetValue(session.ConnectionId);
-            if (currentSession.Found)
+            if (currentSession.Found && !ReferenceEquals(currentSession.Session, session))
             {
-                await _sessions.TryRemovePendingSessionAbort(session);
+                _logger.LogCritical(
+                    "Cannot reconcile deferred abort for connection '{connectionId}' because a different session is active; retaining the abort record until the connection ID is available.",
+                    session.ConnectionId);
                 continue;
             }
 
@@ -157,6 +162,14 @@ public sealed class GameSessionLeaseService : BackgroundService
 
     private async Task AbortAndReconcileLostSession(IGameWorldSession session)
     {
+        if (!await _sessions.TryMoveToPendingAbort(session))
+        {
+            _logger.LogCritical(
+                "Could not reserve lost game session '{connectionId}' for abort reconciliation; the session was not removed.",
+                session.ConnectionId);
+            return;
+        }
+
         var abortFailed = false;
         try
         {
@@ -171,25 +184,19 @@ public sealed class GameSessionLeaseService : BackgroundService
         }
         finally
         {
-            await ReconcileLostSession(session);
+            if (!abortFailed && !await _sessions.TryRemovePendingSessionAbort(session))
+            {
+                _logger.LogCritical(
+                    "Could not clear the completed abort reservation for lost game session '{connectionId}'.",
+                    session.ConnectionId);
+            }
         }
 
         if (abortFailed && !_retryQueue.TryQueueConnectionAbort(session))
         {
-            await _sessions.TryRetainSessionForAbort(session);
             _logger.LogWarning(
-                "Could not queue a retry for lost game session '{connectionId}' because the cleanup retry capacity is full; retaining it for lease-worker reconciliation.",
+                "Could not queue a retry for lost game session '{connectionId}' because the cleanup retry capacity is full; retaining its atomic abort reservation for lease-worker reconciliation.",
                 session.ConnectionId);
-        }
-    }
-
-    private async Task ReconcileLostSession(IGameWorldSession session)
-    {
-        var removedSession = await _sessions.TryRemove(session);
-        if (removedSession.Removed)
-        {
-            _logger.LogInformation("Removed local game session for account '{masterId}' after losing session claim '{sessionClaimId}'.",
-                session.MasterId, session.SessionClaimId);
         }
     }
 }

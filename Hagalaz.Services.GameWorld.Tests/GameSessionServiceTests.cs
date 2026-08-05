@@ -30,6 +30,54 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
+    public async Task GameSessionStore_PendingAbortBlocksConnectionIdReuse()
+    {
+        var store = new GameSessionStore();
+        var retainedSession = CreateLobbySession(42, "reused-connection");
+        var replacementLobbySession = CreateLobbySession(43, "reused-connection");
+        var replacementWorldSession = CreateSession(43, "reused-connection", "replacement-claim");
+
+        Assert.IsTrue(await store.TryAdd(retainedSession));
+        Assert.IsTrue(await store.TryMoveToPendingAbort(retainedSession));
+
+        Assert.IsFalse(await store.TryAdd(replacementLobbySession));
+        Assert.IsFalse(await store.TryReserveWorldSession(replacementWorldSession));
+        Assert.IsFalse(await store.TryMoveToPendingAbort(replacementLobbySession));
+        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task GameSessionStore_MoveToPendingAbort_IsAtomicWithConnectionIdReuse()
+    {
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            var store = new GameSessionStore();
+            var retainedSession = CreateLobbySession(42, $"reused-connection-{attempt}");
+            var replacementSession = CreateLobbySession(43, retainedSession.ConnectionId);
+            Assert.IsTrue(await store.TryAdd(retainedSession));
+
+            using var startGate = new Barrier(2);
+            var moveTask = Task.Run(async () =>
+            {
+                startGate.SignalAndWait();
+                return await store.TryMoveToPendingAbort(retainedSession);
+            });
+            var addTask = Task.Run(async () =>
+            {
+                startGate.SignalAndWait();
+                return await store.TryAdd(replacementSession);
+            });
+
+            await Task.WhenAll(moveTask, addTask);
+
+            Assert.IsTrue(moveTask.Result);
+            Assert.IsFalse(addTask.Result);
+            Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
+        }
+    }
+
+    [TestMethod]
     public async Task TryAddWorldSession_ConcurrentWorlds_OnlyOneClaimsAccount()
     {
         var claims = new BarrierGameSessionClaimStore();
