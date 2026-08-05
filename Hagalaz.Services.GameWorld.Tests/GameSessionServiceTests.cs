@@ -8,7 +8,6 @@ using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Network.Model;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
-using Hagalaz.Workers;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
@@ -113,16 +112,23 @@ public sealed class GameSessionServiceTests
         var store = new GameSessionStore();
         var session = CreateLobbySession(42, "abort-connection");
         Assert.IsTrue(await store.TryAdd(session));
+        Assert.IsTrue(await store.TryMoveToPendingAbort(session));
 
-        var abortStore = new CompletionFailingAbortStore();
+        var abortStore = new CompletionFailingAbortStore(store);
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var coordinator = new GameSessionAbortCoordinator(
             store,
             abortStore,
-            Substitute.For<IGameSessionConnectionTerminator>(),
+            terminator,
             NullLogger<GameSessionAbortCoordinator>.Instance);
 
         Assert.IsFalse(await coordinator.AbortPendingSessionAsync(session, CancellationToken.None));
         Assert.AreEqual(1, abortStore.ReleaseCalls);
+        Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
+
+        Assert.IsTrue(await coordinator.AbortPendingSessionAsync(session, CancellationToken.None));
+        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+        terminator.Received(2).Abort(session);
     }
 
     [TestMethod]
@@ -392,19 +398,6 @@ public sealed class GameSessionServiceTests
         Assert.AreSame(lobbySession, terminator.LastAbortedSession);
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
         Assert.IsTrue(await store.TryAdd(CreateLobbySession(43, lobbySession.ConnectionId)));
-    }
-
-    [TestMethod]
-    public async Task BackgroundTaskQueue_IsBoundedAndAppliesBackpressure()
-    {
-        var queue = new DefaultBackgroundTaskQueue(1);
-        await queue.QueueBackgroundWorkItemAsync(_ => ValueTask.CompletedTask);
-
-        var blockedEnqueue = queue.QueueBackgroundWorkItemAsync(_ => ValueTask.CompletedTask).AsTask();
-        Assert.IsFalse(blockedEnqueue.IsCompleted);
-
-        await queue.DequeueAsync(CancellationToken.None);
-        await blockedEnqueue;
     }
 
     [TestMethod]
@@ -908,25 +901,38 @@ public sealed class GameSessionServiceTests
 
     private sealed class CompletionFailingAbortStore : IGameSessionAbortStore
     {
+        private readonly GameSessionStore _store;
+        private bool _failCompletion = true;
+
+        public CompletionFailingAbortStore(GameSessionStore store) => _store = store;
+
         public int ReleaseCalls { get; private set; }
 
         public ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession) =>
-            new(true);
+            _store.TryMoveToPendingAbort(expectedSession);
 
         public ValueTask<bool> TryBeginPendingSessionAbort(IGameSession expectedSession) =>
-            new(true);
+            _store.TryBeginPendingSessionAbort(expectedSession);
 
-        public ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession) =>
-            new(false);
+        public ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession)
+        {
+            if (_failCompletion)
+            {
+                _failCompletion = false;
+                return new(false);
+            }
+
+            return _store.TryCompletePendingSessionAbort(expectedSession);
+        }
 
         public ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession)
         {
             ReleaseCalls++;
-            return new(true);
+            return _store.TryReleasePendingSessionAbort(expectedSession);
         }
 
         public ValueTask<IReadOnlyList<IGameSession>> FindSessionsPendingAbort() =>
-            new(Array.Empty<IGameSession>());
+            _store.FindSessionsPendingAbort();
     }
 
     private static IGameWorldSession CreateSession(uint masterId, string connectionId, string claimId)

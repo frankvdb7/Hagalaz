@@ -71,6 +71,7 @@ public sealed class GameSessionLeaseService : BackgroundService
                 continue;
             }
 
+            var claimWasLost = false;
             try
             {
                 if (await _claims.RenewAsync(worldSession.MasterId, worldSession.SessionClaimId, cancellationToken))
@@ -80,13 +81,34 @@ public sealed class GameSessionLeaseService : BackgroundService
 
                 _logger.LogWarning("Lost active game-session claim for account '{masterId}' and session '{sessionClaimId}'. Aborting the connection.",
                     worldSession.MasterId, worldSession.SessionClaimId);
-                await AbortAndReconcileLostSession(worldSession, cancellationToken);
+                claimWasLost = true;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Failed to renew active game-session claim for account '{masterId}'. Aborting the connection.",
                     worldSession.MasterId);
+                claimWasLost = true;
+            }
+
+            if (!claimWasLost)
+            {
+                continue;
+            }
+
+            try
+            {
                 await AbortAndReconcileLostSession(worldSession, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to reconcile the lost game-session connection for account '{masterId}' and session '{sessionClaimId}'.",
+                    worldSession.MasterId,
+                    worldSession.SessionClaimId);
             }
         }
 

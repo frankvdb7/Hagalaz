@@ -20,6 +20,6 @@
 - [x] Cover connection-ID reuse after reconciliation.
 - [x] Run GameWorld unit tests.
 - [x] Run GameWorld integration tests.
-- [ ] Resolve any behavior change where deferred cleanup is reported as logical session removal failure.
-- [ ] Ensure a failed completion cannot strand a processing abort reservation.
+- [x] Resolve any behavior change where deferred cleanup is reported as logical session removal failure.
+- [x] Ensure a failed completion cannot strand a processing abort reservation.
 - [ ] Update the current behavior specification after the remaining review findings are resolved.

@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Services.GameWorld.Model;
+using Hagalaz.Services.GameWorld.Services;
 using Nito.AsyncEx;
 
 namespace Hagalaz.Services.GameWorld.Store;
@@ -206,12 +208,13 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortStore
             if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
                 slot.PendingAbort is not { } pendingAbort ||
                 !ReferenceEquals(pendingAbort.Session, expectedSession) ||
-                pendingAbort.Processing)
+                pendingAbort.Processing && !IsProcessingLeaseExpired(pendingAbort))
             {
                 return false;
             }
 
             pendingAbort.Processing = true;
+            pendingAbort.ProcessingStartedAtUtc = DateTimeOffset.UtcNow;
             return true;
         }
     }
@@ -247,6 +250,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortStore
             }
 
             pendingAbort.Processing = false;
+            pendingAbort.ProcessingStartedAtUtc = null;
             return true;
         }
     }
@@ -256,7 +260,8 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortStore
         using (await _lock.ReaderLockAsync())
         {
             return _slots.Values
-                .Where(slot => slot.PendingAbort is { Processing: false })
+                .Where(slot => slot.PendingAbort is { Processing: false } ||
+                               slot.PendingAbort is { } pendingAbort && IsProcessingLeaseExpired(pendingAbort))
                 .Select(slot => slot.PendingAbort!.Session)
                 .ToArray();
         }
@@ -339,6 +344,11 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortStore
             .Select(slot => slot.ActiveSession)
             .FirstOrDefault(session => session?.MasterId == masterId);
 
+    private static bool IsProcessingLeaseExpired(PendingSessionAbort pendingAbort) =>
+        pendingAbort.Processing &&
+        pendingAbort.ProcessingStartedAtUtc is { } startedAtUtc &&
+        startedAtUtc + GameSessionClaimOptions.LeaseDuration <= DateTimeOffset.UtcNow;
+
     private bool TryRemovePendingWorldSessionUnsafe(IGameSession expectedSession)
     {
         if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
@@ -379,5 +389,6 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortStore
 
         public IGameSession Session { get; }
         public bool Processing { get; set; }
+        public DateTimeOffset? ProcessingStartedAtUtc { get; set; }
     }
 }
