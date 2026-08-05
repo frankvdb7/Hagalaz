@@ -11,7 +11,7 @@ internal static class GameSessionTestDependencies
 {
     public static GameSessionService CreateService(
         IGameSessionStore sessions,
-        IGameSessionAbortStore abortSessions,
+        IGameSessionAbortState abortSessions,
         IGameSessionFactory factory,
         IGameSessionClaimStore claims,
         IGameSessionConnectionTerminator terminator)
@@ -31,7 +31,7 @@ internal static class GameSessionTestDependencies
 
     public static GameSessionLeaseService CreateLeaseService(
         IGameSessionStore sessions,
-        IGameSessionAbortStore abortSessions,
+        IGameSessionAbortState abortSessions,
         IGameSessionClaimStore claims,
         IGameSessionConnectionTerminator terminator)
     {

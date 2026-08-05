@@ -27,14 +27,14 @@ public sealed class GameSessionConnectionTerminator : IGameSessionConnectionTerm
 public sealed class GameSessionLeaseService : BackgroundService
 {
     private readonly IGameSessionStore _sessions;
-    private readonly IGameSessionAbortStore _abortSessions;
+    private readonly IGameSessionAbortState _abortSessions;
     private readonly IGameSessionClaimStore _claims;
     private readonly ILogger<GameSessionLeaseService> _logger;
     private readonly GameSessionAbortCoordinator _abortCoordinator;
 
     public GameSessionLeaseService(
         IGameSessionStore sessions,
-        IGameSessionAbortStore abortSessions,
+        IGameSessionAbortState abortSessions,
         IGameSessionClaimStore claims,
         ILogger<GameSessionLeaseService> logger,
         GameSessionAbortCoordinator abortCoordinator)
