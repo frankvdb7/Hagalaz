@@ -6,7 +6,7 @@ using Hagalaz.Services.GameWorld.Model;
 
 namespace Hagalaz.Services.GameWorld.Store
 {
-    public interface IGameSessionStore
+    public interface IGameSessionStore : IGameSessionAbortStore
     {
         ValueTask<bool> TryAdd(IGameSession session);
 
@@ -21,16 +21,6 @@ namespace Hagalaz.Services.GameWorld.Store
         ValueTask<bool> TryRemovePendingWorldSession(IGameSession expectedSession);
 
         ValueTask<IReadOnlyList<IGameWorldSession>> FindWorldSessionsPendingCleanup();
-
-        ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession);
-
-        ValueTask<bool> TryBeginPendingSessionAbort(IGameSession expectedSession);
-
-        ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession);
-
-        ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession);
-
-        ValueTask<IReadOnlyList<IGameSession>> FindSessionsPendingAbort();
 
         ValueTask<(bool Found, IGameSession? Session)> TryGetValue(string connectionId);
 

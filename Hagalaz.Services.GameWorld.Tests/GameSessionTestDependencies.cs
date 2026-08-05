@@ -41,6 +41,7 @@ internal static class GameSessionTestDependencies
             sessions);
         return new GameSessionLeaseService(
             sessions,
+            sessions,
             claims,
             terminator,
             NullLogger<GameSessionLeaseService>.Instance,

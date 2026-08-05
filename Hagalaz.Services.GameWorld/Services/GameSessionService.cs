@@ -5,7 +5,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Store;
-using Hagalaz.Workers;
 using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Services.GameWorld.Services

@@ -18,16 +18,16 @@ public sealed class GameSessionRetryQueue : BackgroundService
     public const int DefaultCapacity = 100;
     public const int DefaultOverflowCapacity = 100;
 
-    private readonly Channel<Func<CancellationToken, ValueTask>> _items;
+    private readonly Channel<IRetryWorkItem> _items;
     private readonly IGameSessionClaimStore _claims;
     private readonly IGameSessionConnectionTerminator _connectionTerminator;
-    private readonly IGameSessionStore _sessions;
+    private readonly IGameSessionAbortStore _abortSessions;
     private readonly ILogger<GameSessionRetryQueue> _logger;
     private readonly SemaphoreSlim _retrySlots;
     private readonly TimeSpan _retryBackoff;
     private readonly object _overflowGate = new();
-    private readonly Dictionary<ClaimReleaseRetry, ClaimReleaseRetry> _overflowClaimReleases = new();
-    private readonly Dictionary<string, ConnectionAbortRetry> _overflowConnectionAborts = new();
+    private readonly Dictionary<ClaimReleaseWorkItem, ClaimReleaseWorkItem> _overflowClaimReleases = new();
+    private readonly Dictionary<string, IConnectionAbortWorkItem> _overflowConnectionAborts = new();
     private readonly int _overflowCapacity;
     private int _pendingCount;
 
@@ -35,12 +35,12 @@ public sealed class GameSessionRetryQueue : BackgroundService
         IGameSessionClaimStore claims,
         IGameSessionConnectionTerminator connectionTerminator,
         ILogger<GameSessionRetryQueue> logger,
-        IGameSessionStore sessions)
+        IGameSessionAbortStore abortSessions)
         : this(
             claims,
             connectionTerminator,
             logger,
-            sessions,
+            abortSessions,
             DefaultCapacity,
             GameSessionClaimOptions.RenewalInterval,
             DefaultOverflowCapacity)
@@ -51,7 +51,7 @@ public sealed class GameSessionRetryQueue : BackgroundService
         IGameSessionClaimStore claims,
         IGameSessionConnectionTerminator connectionTerminator,
         ILogger<GameSessionRetryQueue> logger,
-        IGameSessionStore sessions,
+        IGameSessionAbortStore abortSessions,
         int capacity,
         TimeSpan retryBackoff,
         int overflowCapacity)
@@ -60,12 +60,12 @@ public sealed class GameSessionRetryQueue : BackgroundService
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(overflowCapacity);
         _claims = claims;
         _connectionTerminator = connectionTerminator;
-        _sessions = sessions;
+        _abortSessions = abortSessions;
         _logger = logger;
         _retrySlots = new SemaphoreSlim(capacity, capacity);
         _retryBackoff = retryBackoff;
         _overflowCapacity = overflowCapacity;
-        _items = Channel.CreateBounded<Func<CancellationToken, ValueTask>>(new BoundedChannelOptions(capacity)
+        _items = Channel.CreateBounded<IRetryWorkItem>(new BoundedChannelOptions(capacity)
         {
             FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
@@ -87,37 +87,19 @@ public sealed class GameSessionRetryQueue : BackgroundService
     }
 
     public bool TryQueueClaimRelease(uint masterId, string claimId)
-    {
-        if (_retrySlots.Wait(0))
-        {
-            if (_items.Writer.TryWrite(stoppingToken => ExecuteClaimReleaseAttemptAsync(masterId, claimId, stoppingToken)))
-            {
-                Interlocked.Increment(ref _pendingCount);
-                return true;
-            }
-
-            _retrySlots.Release();
-        }
-
-        return TryQueueOverflowClaimRelease(masterId, claimId);
-    }
+        => TryQueueWorkItem(new ClaimReleaseWorkItem(masterId, claimId));
 
     public bool TryQueueConnectionAbort(IGameSession session) =>
-        TryQueueAbort(session, clearPendingReservation: false);
+        TryQueueWorkItem(new ConnectionAbortWorkItem(session));
 
     public bool TryQueuePendingAbort(IGameSession session) =>
-        TryQueueAbort(session, clearPendingReservation: true);
+        TryQueueWorkItem(new PendingAbortWorkItem(session));
 
-    private bool TryQueueAbort(
-        IGameSession session,
-        bool clearPendingReservation)
+    private bool TryQueueWorkItem(IRetryWorkItem workItem)
     {
         if (_retrySlots.Wait(0))
         {
-            if (_items.Writer.TryWrite(stoppingToken => ExecuteConnectionAbortAttemptAsync(
-                    session,
-                    clearPendingReservation,
-                    stoppingToken)))
+            if (_items.Writer.TryWrite(workItem))
             {
                 Interlocked.Increment(ref _pendingCount);
                 return true;
@@ -129,7 +111,12 @@ public sealed class GameSessionRetryQueue : BackgroundService
         // Lease reconciliation must not wait for the bounded primary queue. Keep one
         // retry per connection in a bounded overflow registry and let the worker
         // admit it as soon as a retry slot becomes available.
-        return TryQueueOverflowConnectionAbort(session, clearPendingReservation);
+        return workItem switch
+        {
+            ClaimReleaseWorkItem claimRelease => TryQueueOverflowClaimRelease(claimRelease),
+            IConnectionAbortWorkItem connectionAbort => TryQueueOverflowConnectionAbort(connectionAbort),
+            _ => throw new ArgumentOutOfRangeException(nameof(workItem))
+        };
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -145,7 +132,7 @@ public sealed class GameSessionRetryQueue : BackgroundService
             while (_items.Reader.TryRead(out var workItem))
             {
                 Interlocked.Decrement(ref _pendingCount);
-                await workItem(stoppingToken);
+                await workItem.ExecuteAsync(this, stoppingToken);
                 DrainOverflow();
             }
         }
@@ -156,12 +143,12 @@ public sealed class GameSessionRetryQueue : BackgroundService
         DrainOverflow();
         var workItem = await _items.Reader.ReadAsync(cancellationToken);
         Interlocked.Decrement(ref _pendingCount);
-        await workItem(cancellationToken);
+        await workItem.ExecuteAsync(this, cancellationToken);
         DrainOverflow();
     }
 
     private async ValueTask EnqueueAsync(
-        Func<CancellationToken, ValueTask> workItem,
+        IRetryWorkItem workItem,
         CancellationToken cancellationToken)
     {
         await _items.Writer.WriteAsync(workItem, cancellationToken);
@@ -175,37 +162,29 @@ public sealed class GameSessionRetryQueue : BackgroundService
             var moved = false;
             lock (_overflowGate)
             {
-                ClaimReleaseRetry? claimCandidate = null;
+                ClaimReleaseWorkItem? claimCandidate = null;
                 foreach (var entry in _overflowClaimReleases)
                 {
                     claimCandidate = entry.Value;
                     break;
                 }
 
-                if (claimCandidate.HasValue &&
-                    _items.Writer.TryWrite(stoppingToken => ExecuteClaimReleaseAttemptAsync(
-                        claimCandidate.Value.MasterId,
-                        claimCandidate.Value.ClaimId,
-                        stoppingToken)))
+                if (claimCandidate != null && _items.Writer.TryWrite(claimCandidate))
                 {
-                    _overflowClaimReleases.Remove(claimCandidate.Value);
+                    _overflowClaimReleases.Remove(claimCandidate);
                     Interlocked.Increment(ref _pendingCount);
                     moved = true;
                 }
-                else if (!claimCandidate.HasValue)
+                else if (claimCandidate == null)
                 {
-                    KeyValuePair<string, ConnectionAbortRetry>? connectionCandidate = null;
+                    KeyValuePair<string, IConnectionAbortWorkItem>? connectionCandidate = null;
                     foreach (var entry in _overflowConnectionAborts)
                     {
                         connectionCandidate = entry;
                         break;
                     }
 
-                    if (connectionCandidate.HasValue &&
-                        _items.Writer.TryWrite(stoppingToken => ExecuteConnectionAbortAttemptAsync(
-                            connectionCandidate.Value.Value.Session,
-                            connectionCandidate.Value.Value.ClearPendingReservation,
-                            stoppingToken)))
+                    if (connectionCandidate.HasValue && _items.Writer.TryWrite(connectionCandidate.Value.Value))
                     {
                         _overflowConnectionAborts.Remove(connectionCandidate.Value.Key);
                         Interlocked.Increment(ref _pendingCount);
@@ -222,9 +201,8 @@ public sealed class GameSessionRetryQueue : BackgroundService
         }
     }
 
-    private bool TryQueueOverflowClaimRelease(uint masterId, string claimId)
+    private bool TryQueueOverflowClaimRelease(ClaimReleaseWorkItem retry)
     {
-        var retry = new ClaimReleaseRetry(masterId, claimId);
         var accepted = false;
         var coalesced = false;
         lock (_overflowGate)
@@ -244,7 +222,7 @@ public sealed class GameSessionRetryQueue : BackgroundService
         {
             _logger.LogError(
                 "Rejected world-session claim-release retry for account '{masterId}' because the overflow cleanup capacity of {overflowCapacity} is full.",
-                masterId,
+                retry.MasterId,
                 _overflowCapacity);
         }
 
@@ -252,22 +230,21 @@ public sealed class GameSessionRetryQueue : BackgroundService
     }
 
     private bool TryQueueOverflowConnectionAbort(
-        IGameSession session,
-        bool clearPendingReservation)
+        IConnectionAbortWorkItem retry)
     {
         var accepted = false;
         var coalesced = false;
         lock (_overflowGate)
         {
-            if (_overflowConnectionAborts.ContainsKey(session.ConnectionId))
+            if (_overflowConnectionAborts.ContainsKey(retry.Session.ConnectionId))
             {
                 coalesced = true;
             }
             else if (_overflowClaimReleases.Count + _overflowConnectionAborts.Count < _overflowCapacity)
             {
                 _overflowConnectionAborts.Add(
-                    session.ConnectionId,
-                    new ConnectionAbortRetry(session, clearPendingReservation));
+                    retry.Session.ConnectionId,
+                    retry);
                 accepted = true;
             }
         }
@@ -276,7 +253,7 @@ public sealed class GameSessionRetryQueue : BackgroundService
         {
             _logger.LogError(
                 "Rejected connection-abort retry for session '{connectionId}' because the overflow cleanup capacity of {overflowCapacity} is full.",
-                session.ConnectionId,
+                retry.Session.ConnectionId,
                 _overflowCapacity);
         }
 
@@ -314,19 +291,41 @@ public sealed class GameSessionRetryQueue : BackgroundService
 
     private async ValueTask ExecuteConnectionAbortAttemptAsync(
         IGameSession session,
-        bool clearPendingReservation,
         CancellationToken stoppingToken)
     {
         try
         {
-            if (clearPendingReservation && !await _sessions.TryBeginPendingSessionAbort(session))
+            _connectionTerminator.Abort(session);
+            _retrySlots.Release();
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            _retrySlots.Release();
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Retry failed while aborting replaced game session '{connectionId}'. The abort will be retried.",
+                session.ConnectionId);
+            _ = RequeueAsync(new ConnectionAbortWorkItem(session), stoppingToken);
+        }
+    }
+
+    private async ValueTask ExecutePendingAbortAttemptAsync(
+        IGameSession session,
+        CancellationToken stoppingToken)
+    {
+        try
+        {
+            if (!await _abortSessions.TryBeginPendingSessionAbort(session))
             {
                 _retrySlots.Release();
                 return;
             }
 
             _connectionTerminator.Abort(session);
-            if (clearPendingReservation && !await _sessions.TryCompletePendingSessionAbort(session))
+            if (!await _abortSessions.TryCompletePendingSessionAbort(session))
             {
                 _logger.LogCritical(
                     "Connection-abort retry succeeded for session '{connectionId}', but its pending-abort reservation could not be cleared.",
@@ -337,25 +336,17 @@ public sealed class GameSessionRetryQueue : BackgroundService
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            if (clearPendingReservation)
-            {
-                await _sessions.TryReleasePendingSessionAbort(session);
-            }
-
+            await _abortSessions.TryReleasePendingSessionAbort(session);
             _retrySlots.Release();
             throw;
         }
         catch (Exception ex)
         {
-            if (clearPendingReservation)
-            {
-                await _sessions.TryReleasePendingSessionAbort(session);
-            }
-
+            await _abortSessions.TryReleasePendingSessionAbort(session);
             _logger.LogWarning(ex,
                 "Retry failed while aborting replaced game session '{connectionId}'. The abort will be retried.",
                 session.ConnectionId);
-            _ = RequeueConnectionAbortAsync(session, clearPendingReservation, stoppingToken);
+            _ = RequeueAsync(new PendingAbortWorkItem(session), stoppingToken);
         }
     }
 
@@ -364,9 +355,7 @@ public sealed class GameSessionRetryQueue : BackgroundService
         try
         {
             await Task.Delay(_retryBackoff, stoppingToken);
-            await EnqueueAsync(
-                token => ExecuteClaimReleaseAttemptAsync(masterId, claimId, token),
-                stoppingToken);
+            await EnqueueAsync(new ClaimReleaseWorkItem(masterId, claimId), stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -381,17 +370,14 @@ public sealed class GameSessionRetryQueue : BackgroundService
         }
     }
 
-    private async Task RequeueConnectionAbortAsync(
-        IGameSession session,
-        bool clearPendingReservation,
+    private async Task RequeueAsync(
+        IRetryWorkItem workItem,
         CancellationToken stoppingToken)
     {
         try
         {
             await Task.Delay(_retryBackoff, stoppingToken);
-            await EnqueueAsync(
-                token => ExecuteConnectionAbortAttemptAsync(session, clearPendingReservation, token),
-                stoppingToken);
+            await EnqueueAsync(workItem, stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -400,15 +386,36 @@ public sealed class GameSessionRetryQueue : BackgroundService
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
-                "Unable to requeue abort for replaced game session '{connectionId}'. The cleanup retry is being dropped.",
-                session.ConnectionId);
+                "Unable to requeue session cleanup work. The cleanup retry is being dropped.");
             _retrySlots.Release();
         }
     }
 
-    private readonly record struct ClaimReleaseRetry(uint MasterId, string ClaimId);
+    private interface IRetryWorkItem
+    {
+        ValueTask ExecuteAsync(GameSessionRetryQueue queue, CancellationToken stoppingToken);
+    }
 
-    private readonly record struct ConnectionAbortRetry(
-        IGameSession Session,
-        bool ClearPendingReservation);
+    private interface IConnectionAbortWorkItem : IRetryWorkItem
+    {
+        IGameSession Session { get; }
+    }
+
+    private sealed record ClaimReleaseWorkItem(uint MasterId, string ClaimId) : IRetryWorkItem
+    {
+        public ValueTask ExecuteAsync(GameSessionRetryQueue queue, CancellationToken stoppingToken) =>
+            queue.ExecuteClaimReleaseAttemptAsync(MasterId, ClaimId, stoppingToken);
+    }
+
+    private sealed record ConnectionAbortWorkItem(IGameSession Session) : IConnectionAbortWorkItem
+    {
+        public ValueTask ExecuteAsync(GameSessionRetryQueue queue, CancellationToken stoppingToken) =>
+            queue.ExecuteConnectionAbortAttemptAsync(Session, stoppingToken);
+    }
+
+    private sealed record PendingAbortWorkItem(IGameSession Session) : IConnectionAbortWorkItem
+    {
+        public ValueTask ExecuteAsync(GameSessionRetryQueue queue, CancellationToken stoppingToken) =>
+            queue.ExecutePendingAbortAttemptAsync(Session, stoppingToken);
+    }
 }

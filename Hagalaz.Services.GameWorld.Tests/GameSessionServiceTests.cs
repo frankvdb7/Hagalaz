@@ -522,6 +522,7 @@ public sealed class GameSessionServiceTests
 
         var leaseService = new GameSessionLeaseService(
             store,
+            store,
             claims,
             terminator,
             NullLogger<GameSessionLeaseService>.Instance,
@@ -643,6 +644,7 @@ public sealed class GameSessionServiceTests
 
         var leaseService = new GameSessionLeaseService(
             store,
+            store,
             claims,
             terminator,
             NullLogger<GameSessionLeaseService>.Instance,
@@ -682,6 +684,7 @@ public sealed class GameSessionServiceTests
             NullLogger<GameSessionRetryQueue>.Instance,
             store);
         var leaseService = new GameSessionLeaseService(
+            store,
             store,
             claims,
             terminator,
@@ -1006,7 +1009,7 @@ public sealed class GameSessionServiceTests
         claims.RenewAsync(42, "claim").Returns(Task.FromResult(false));
 
         var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
-        var leaseService = new GameSessionLeaseService(store, claims, terminator, NullLogger<GameSessionLeaseService>.Instance, retryQueue);
+        var leaseService = new GameSessionLeaseService(store, store, claims, terminator, NullLogger<GameSessionLeaseService>.Instance, retryQueue);
         await leaseService.RenewSessionsAsync(CancellationToken.None);
 
         Assert.IsNull(await gameSessions.FindByMasterId(42));
@@ -1028,7 +1031,7 @@ public sealed class GameSessionServiceTests
         claims.RenewAsync(42, "claim").Returns(Task.FromException<bool>(new InvalidOperationException("Redis unavailable.")));
 
         var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
-        var leaseService = new GameSessionLeaseService(store, claims, terminator, NullLogger<GameSessionLeaseService>.Instance, retryQueue);
+        var leaseService = new GameSessionLeaseService(store, store, claims, terminator, NullLogger<GameSessionLeaseService>.Instance, retryQueue);
         await leaseService.RenewSessionsAsync(CancellationToken.None);
 
         Assert.IsNull(await gameSessions.FindByMasterId(42));
@@ -1096,6 +1099,7 @@ public sealed class GameSessionServiceTests
         Assert.IsTrue(await store.TryAdd(laterSession));
         var leaseService = new GameSessionLeaseService(
             store,
+            store,
             claims,
             terminator,
             NullLogger<GameSessionLeaseService>.Instance,
@@ -1141,6 +1145,7 @@ public sealed class GameSessionServiceTests
 
         Assert.IsTrue(await store.TryAdd(lostSession));
         var leaseService = new GameSessionLeaseService(
+            store,
             store,
             claims,
             terminator,

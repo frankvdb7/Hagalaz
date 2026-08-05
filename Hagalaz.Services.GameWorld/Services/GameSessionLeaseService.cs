@@ -27,6 +27,7 @@ public sealed class GameSessionConnectionTerminator : IGameSessionConnectionTerm
 public sealed class GameSessionLeaseService : BackgroundService
 {
     private readonly IGameSessionStore _sessions;
+    private readonly IGameSessionAbortStore _abortSessions;
     private readonly IGameSessionClaimStore _claims;
     private readonly IGameSessionConnectionTerminator _connectionTerminator;
     private readonly ILogger<GameSessionLeaseService> _logger;
@@ -34,12 +35,14 @@ public sealed class GameSessionLeaseService : BackgroundService
 
     public GameSessionLeaseService(
         IGameSessionStore sessions,
+        IGameSessionAbortStore abortSessions,
         IGameSessionClaimStore claims,
         IGameSessionConnectionTerminator connectionTerminator,
         ILogger<GameSessionLeaseService> logger,
         GameSessionRetryQueue retryQueue)
     {
         _sessions = sessions;
+        _abortSessions = abortSessions;
         _claims = claims;
         _connectionTerminator = connectionTerminator;
         _logger = logger;
@@ -58,7 +61,7 @@ public sealed class GameSessionLeaseService : BackgroundService
     internal async Task RenewSessionsAsync(CancellationToken cancellationToken)
     {
         var pendingCleanupSessions = await _sessions.FindWorldSessionsPendingCleanup();
-        var deferredAbortSessions = await _sessions.FindSessionsPendingAbort();
+        var deferredAbortSessions = await _abortSessions.FindSessionsPendingAbort();
         var pendingCleanupSet = pendingCleanupSessions.Count == 0
             ? null
             : new HashSet<IGameWorldSession>(pendingCleanupSessions, ReferenceEqualityComparer.Instance);
@@ -137,7 +140,7 @@ public sealed class GameSessionLeaseService : BackgroundService
         foreach (var session in deferredSessions)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!await _sessions.TryBeginPendingSessionAbort(session))
+            if (!await _abortSessions.TryBeginPendingSessionAbort(session))
             {
                 continue;
             }
@@ -145,7 +148,7 @@ public sealed class GameSessionLeaseService : BackgroundService
             var currentSession = await _sessions.TryGetValue(session.ConnectionId);
             if (currentSession.Found && !ReferenceEquals(currentSession.Session, session))
             {
-                await _sessions.TryReleasePendingSessionAbort(session);
+                await _abortSessions.TryReleasePendingSessionAbort(session);
                 _logger.LogCritical(
                     "Cannot reconcile deferred abort for connection '{connectionId}' because a different session is active; retaining the abort record until the connection ID is available.",
                     session.ConnectionId);
@@ -155,7 +158,7 @@ public sealed class GameSessionLeaseService : BackgroundService
             try
             {
                 _connectionTerminator.Abort(session);
-                if (!await _sessions.TryCompletePendingSessionAbort(session))
+                if (!await _abortSessions.TryCompletePendingSessionAbort(session))
                 {
                     _logger.LogCritical(
                         "Could not clear the completed abort reservation for deferred session '{connectionId}'.",
@@ -164,7 +167,7 @@ public sealed class GameSessionLeaseService : BackgroundService
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                await _sessions.TryReleasePendingSessionAbort(session);
+                await _abortSessions.TryReleasePendingSessionAbort(session);
                 _logger.LogWarning(ex,
                     "Failed to reconcile deferred abort for connection '{connectionId}'; it will be retried on the next lease cycle.",
                     session.ConnectionId);
@@ -174,7 +177,7 @@ public sealed class GameSessionLeaseService : BackgroundService
 
     private async Task AbortAndReconcileLostSession(IGameWorldSession session)
     {
-        if (!await _sessions.TryMoveToPendingAbort(session))
+        if (!await _abortSessions.TryMoveToPendingAbort(session))
         {
             _logger.LogCritical(
                 "Could not reserve lost game session '{connectionId}' for abort reconciliation; the session was not removed.",
@@ -182,7 +185,7 @@ public sealed class GameSessionLeaseService : BackgroundService
             return;
         }
 
-        if (!await _sessions.TryBeginPendingSessionAbort(session))
+        if (!await _abortSessions.TryBeginPendingSessionAbort(session))
         {
             _logger.LogCritical(
                 "Could not claim lost game session '{connectionId}' for abort reconciliation.",
@@ -193,7 +196,7 @@ public sealed class GameSessionLeaseService : BackgroundService
         try
         {
             _connectionTerminator.Abort(session);
-            if (!await _sessions.TryCompletePendingSessionAbort(session))
+            if (!await _abortSessions.TryCompletePendingSessionAbort(session))
             {
                 _logger.LogCritical(
                     "Could not clear the completed abort reservation for lost game session '{connectionId}'.",
@@ -202,7 +205,7 @@ public sealed class GameSessionLeaseService : BackgroundService
         }
         catch (Exception ex)
         {
-            await _sessions.TryReleasePendingSessionAbort(session);
+            await _abortSessions.TryReleasePendingSessionAbort(session);
             _logger.LogWarning(ex,
                 "Failed to abort lost game session '{connectionId}'. The abort will be retried.",
                 session.ConnectionId);
