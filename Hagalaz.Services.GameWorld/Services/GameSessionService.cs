@@ -144,10 +144,19 @@ namespace Hagalaz.Services.GameWorld.Services
                 !ReferenceEquals(replacedSession, expectedSession) &&
                 replacedSession.ConnectionId != expectedSession.ConnectionId)
             {
+                if (!await _sessions.TryBeginPendingSessionAbort(replacedSession))
+                {
+                    _logger.LogCritical(
+                        "Could not claim the pending abort for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
+                        replacedSession.ConnectionId,
+                        expectedSession.ConnectionId);
+                    return true;
+                }
+
                 try
                 {
                     _connectionTerminator.Abort(replacedSession);
-                    if (!await _sessions.TryRemovePendingSessionAbort(replacedSession))
+                    if (!await _sessions.TryCompletePendingSessionAbort(replacedSession))
                     {
                         _logger.LogCritical(
                             "Could not clear the completed abort reservation for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
@@ -157,13 +166,14 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
                 catch (Exception ex)
                 {
+                    await _sessions.TryReleasePendingSessionAbort(replacedSession);
                     _logger.LogWarning(ex,
                         "Failed to abort replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
                         replacedSession.ConnectionId,
                         expectedSession.ConnectionId);
                     if (!_retryQueue.TryQueueConnectionAbort(
                             replacedSession,
-                            () => _sessions.TryRemovePendingSessionAbort(replacedSession)))
+                            clearPendingReservation: true))
                     {
                         _logger.LogWarning(
                             "Could not enqueue a retry for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'; retaining its atomic abort reservation for lease-worker reconciliation.",

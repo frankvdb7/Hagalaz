@@ -24,7 +24,11 @@ namespace Hagalaz.Services.GameWorld.Store
 
         ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession);
 
-        ValueTask<bool> TryRemovePendingSessionAbort(IGameSession expectedSession);
+        ValueTask<bool> TryBeginPendingSessionAbort(IGameSession expectedSession);
+
+        ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession);
+
+        ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession);
 
         ValueTask<IReadOnlyList<IGameSession>> FindSessionsPendingAbort();
 

@@ -17,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Store
         private readonly AsyncReaderWriterLock _lock = new();
         private readonly Dictionary<string, IGameSession> _sessions = new();
         private readonly Dictionary<string, PendingWorldSession> _pendingWorldSessions = new();
-        private readonly Dictionary<string, IGameSession> _pendingSessionAborts = new();
+        private readonly Dictionary<string, PendingSessionAbort> _pendingSessionAborts = new();
 
         public async ValueTask<bool> TryAdd(IGameSession session)
         {
@@ -92,7 +92,7 @@ namespace Hagalaz.Services.GameWorld.Store
                     _sessions.Remove(currentSession.ConnectionId);
                     if (currentSession.ConnectionId != expectedSession.ConnectionId)
                     {
-                        _pendingSessionAborts.Add(currentSession.ConnectionId, currentSession);
+                        _pendingSessionAborts.Add(currentSession.ConnectionId, new PendingSessionAbort(currentSession));
                     }
                 }
 
@@ -170,9 +170,9 @@ namespace Hagalaz.Services.GameWorld.Store
         {
             using (await _lock.WriterLockAsync())
             {
-                if (_pendingSessionAborts.TryGetValue(expectedSession.ConnectionId, out var pendingSession))
+                if (_pendingSessionAborts.ContainsKey(expectedSession.ConnectionId))
                 {
-                    return ReferenceEquals(pendingSession, expectedSession);
+                    return false;
                 }
 
                 if (!_sessions.TryGetValue(expectedSession.ConnectionId, out var currentSession) ||
@@ -185,23 +185,56 @@ namespace Hagalaz.Services.GameWorld.Store
                     }
 
                     _pendingWorldSessions.Remove(expectedSession.ConnectionId);
-                    _pendingSessionAborts.Add(expectedSession.ConnectionId, expectedSession);
+                    _pendingSessionAborts.Add(expectedSession.ConnectionId, new PendingSessionAbort(expectedSession));
                     return true;
                 }
 
                 _sessions.Remove(expectedSession.ConnectionId);
-                _pendingSessionAborts.Add(expectedSession.ConnectionId, expectedSession);
+                _pendingSessionAborts.Add(expectedSession.ConnectionId, new PendingSessionAbort(expectedSession));
                 return true;
             }
         }
 
-        public async ValueTask<bool> TryRemovePendingSessionAbort(IGameSession expectedSession)
+        public async ValueTask<bool> TryBeginPendingSessionAbort(IGameSession expectedSession)
         {
             using (await _lock.WriterLockAsync())
             {
-                return _pendingSessionAborts.TryGetValue(expectedSession.ConnectionId, out var current) &&
-                       ReferenceEquals(current, expectedSession) &&
+                if (!_pendingSessionAborts.TryGetValue(expectedSession.ConnectionId, out var pendingSession) ||
+                    !ReferenceEquals(pendingSession.Session, expectedSession) ||
+                    pendingSession.Processing)
+                {
+                    return false;
+                }
+
+                pendingSession.Processing = true;
+                return true;
+            }
+        }
+
+        public async ValueTask<bool> TryCompletePendingSessionAbort(IGameSession expectedSession)
+        {
+            using (await _lock.WriterLockAsync())
+            {
+                return _pendingSessionAborts.TryGetValue(expectedSession.ConnectionId, out var pendingSession) &&
+                       ReferenceEquals(pendingSession.Session, expectedSession) &&
+                       pendingSession.Processing &&
                        _pendingSessionAborts.Remove(expectedSession.ConnectionId);
+            }
+        }
+
+        public async ValueTask<bool> TryReleasePendingSessionAbort(IGameSession expectedSession)
+        {
+            using (await _lock.WriterLockAsync())
+            {
+                if (!_pendingSessionAborts.TryGetValue(expectedSession.ConnectionId, out var pendingSession) ||
+                    !ReferenceEquals(pendingSession.Session, expectedSession) ||
+                    !pendingSession.Processing)
+                {
+                    return false;
+                }
+
+                pendingSession.Processing = false;
+                return true;
             }
         }
 
@@ -209,7 +242,10 @@ namespace Hagalaz.Services.GameWorld.Store
         {
             using (await _lock.ReaderLockAsync())
             {
-                return _pendingSessionAborts.Values.ToArray();
+                return _pendingSessionAborts.Values
+                    .Where(pending => !pending.Processing)
+                    .Select(pending => pending.Session)
+                    .ToArray();
             }
         }
 
@@ -277,6 +313,14 @@ namespace Hagalaz.Services.GameWorld.Store
             public IGameSession Session { get; }
             public IGameSession? PreviousSession { get; }
             public bool CleanupRequested { get; set; }
+        }
+
+        private sealed class PendingSessionAbort
+        {
+            public PendingSessionAbort(IGameSession session) => Session = session;
+
+            public IGameSession Session { get; }
+            public bool Processing { get; set; }
         }
     }
 }

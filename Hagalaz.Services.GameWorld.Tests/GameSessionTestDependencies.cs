@@ -18,7 +18,8 @@ internal static class GameSessionTestDependencies
         var retryQueue = new GameSessionRetryQueue(
             claims,
             terminator,
-            NullLogger<GameSessionRetryQueue>.Instance);
+            NullLogger<GameSessionRetryQueue>.Instance,
+            sessions);
         return new GameSessionService(
             sessions,
             factory,
@@ -36,7 +37,8 @@ internal static class GameSessionTestDependencies
         var retryQueue = new GameSessionRetryQueue(
             claims,
             terminator,
-            NullLogger<GameSessionRetryQueue>.Instance);
+            NullLogger<GameSessionRetryQueue>.Instance,
+            sessions);
         return new GameSessionLeaseService(
             sessions,
             claims,

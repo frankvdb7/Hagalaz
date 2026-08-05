@@ -137,9 +137,15 @@ public sealed class GameSessionLeaseService : BackgroundService
         foreach (var session in deferredSessions)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (!await _sessions.TryBeginPendingSessionAbort(session))
+            {
+                continue;
+            }
+
             var currentSession = await _sessions.TryGetValue(session.ConnectionId);
             if (currentSession.Found && !ReferenceEquals(currentSession.Session, session))
             {
+                await _sessions.TryReleasePendingSessionAbort(session);
                 _logger.LogCritical(
                     "Cannot reconcile deferred abort for connection '{connectionId}' because a different session is active; retaining the abort record until the connection ID is available.",
                     session.ConnectionId);
@@ -149,10 +155,16 @@ public sealed class GameSessionLeaseService : BackgroundService
             try
             {
                 _connectionTerminator.Abort(session);
-                await _sessions.TryRemovePendingSessionAbort(session);
+                if (!await _sessions.TryCompletePendingSessionAbort(session))
+                {
+                    _logger.LogCritical(
+                        "Could not clear the completed abort reservation for deferred session '{connectionId}'.",
+                        session.ConnectionId);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                await _sessions.TryReleasePendingSessionAbort(session);
                 _logger.LogWarning(ex,
                     "Failed to reconcile deferred abort for connection '{connectionId}'; it will be retried on the next lease cycle.",
                     session.ConnectionId);
@@ -170,35 +182,36 @@ public sealed class GameSessionLeaseService : BackgroundService
             return;
         }
 
-        var abortFailed = false;
+        if (!await _sessions.TryBeginPendingSessionAbort(session))
+        {
+            _logger.LogCritical(
+                "Could not claim lost game session '{connectionId}' for abort reconciliation.",
+                session.ConnectionId);
+            return;
+        }
+
         try
         {
             _connectionTerminator.Abort(session);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Failed to abort lost game session '{connectionId}'. The abort will be retried.",
-                session.ConnectionId);
-            abortFailed = true;
-        }
-        finally
-        {
-            if (!abortFailed && !await _sessions.TryRemovePendingSessionAbort(session))
+            if (!await _sessions.TryCompletePendingSessionAbort(session))
             {
                 _logger.LogCritical(
                     "Could not clear the completed abort reservation for lost game session '{connectionId}'.",
                     session.ConnectionId);
             }
         }
-
-        if (abortFailed && !_retryQueue.TryQueueConnectionAbort(
-                session,
-                () => _sessions.TryRemovePendingSessionAbort(session)))
+        catch (Exception ex)
         {
-            _logger.LogWarning(
-                "Could not queue a retry for lost game session '{connectionId}' because the cleanup retry capacity is full; retaining its atomic abort reservation for lease-worker reconciliation.",
+            await _sessions.TryReleasePendingSessionAbort(session);
+            _logger.LogWarning(ex,
+                "Failed to abort lost game session '{connectionId}'. The abort will be retried.",
                 session.ConnectionId);
+            if (!_retryQueue.TryQueueConnectionAbort(session, clearPendingReservation: true))
+            {
+                _logger.LogWarning(
+                    "Could not queue a retry for lost game session '{connectionId}' because the cleanup retry capacity is full; retaining its atomic abort reservation for lease-worker reconciliation.",
+                    session.ConnectionId);
+            }
         }
     }
 }

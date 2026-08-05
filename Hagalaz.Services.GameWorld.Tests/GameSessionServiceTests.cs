@@ -78,6 +78,36 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
+    public async Task GameSessionStore_PendingAbortProcessing_AllowsOnlyOneCoordinatorToClaimReservation()
+    {
+        var store = new GameSessionStore();
+        var session = CreateLobbySession(42, "pending-abort-connection");
+
+        Assert.IsTrue(await store.TryAdd(session));
+        Assert.IsTrue(await store.TryMoveToPendingAbort(session));
+
+        using var startGate = new Barrier(2);
+        var firstTask = Task.Run(async () =>
+        {
+            startGate.SignalAndWait();
+            return await store.TryBeginPendingSessionAbort(session);
+        });
+        var secondTask = Task.Run(async () =>
+        {
+            startGate.SignalAndWait();
+            return await store.TryBeginPendingSessionAbort(session);
+        });
+
+        await Task.WhenAll(firstTask, secondTask);
+
+        Assert.AreNotEqual(firstTask.Result, secondTask.Result);
+        Assert.IsTrue(firstTask.Result || secondTask.Result);
+        Assert.IsTrue(await store.TryCompletePendingSessionAbort(session));
+        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+    }
+
+    [TestMethod]
     public async Task TryAddWorldSession_ConcurrentWorlds_OnlyOneClaimsAccount()
     {
         var claims = new BarrierGameSessionClaimStore();
@@ -230,7 +260,7 @@ public sealed class GameSessionServiceTests
         factory.CreateWorld(42, "world-connection").Returns(staleWorldSession);
         factory.CreateWorld(42, "winning-world-connection").Returns(winningWorldSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
-        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance);
+        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
         var service = new GameSessionService(store, factory, claims, terminator, NullLogger<GameSessionService>.Instance, retryQueue);
         claims.TryClaimAsync(42, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
         await service.AddSession(42, "lobby-connection");
@@ -265,7 +295,7 @@ public sealed class GameSessionServiceTests
         var session = CreateSession(42, "world-connection", "world-claim");
         factory.CreateWorld(42, "world-connection").Returns(session);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
-        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance);
+        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
         var service = new GameSessionService(store, factory, claims, terminator, NullLogger<GameSessionService>.Instance, retryQueue);
         claims.TryClaimAsync(42, "world-claim", Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
         var releaseFailure = new InvalidOperationException("Claim store unavailable.");
@@ -292,8 +322,9 @@ public sealed class GameSessionServiceTests
         var session = CreateSession(42, "world-connection", "world-claim");
         factory.CreateWorld(42, "world-connection").Returns(session);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
-        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance);
-        var service = new GameSessionService(new GameSessionStore(), factory, claims, terminator, NullLogger<GameSessionService>.Instance, retryQueue);
+        var store = new GameSessionStore();
+        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
+        var service = new GameSessionService(store, factory, claims, terminator, NullLogger<GameSessionService>.Instance, retryQueue);
         claims.TryClaimAsync(42, "world-claim", Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
         Assert.IsTrue((await service.TryAddWorldSession(42, "world-connection")).Created);
         claims.ExecuteIfOwnerAsync(
@@ -322,7 +353,7 @@ public sealed class GameSessionServiceTests
         factory.Create(42, "lobby-connection").Returns(lobbySession);
         factory.CreateWorld(42, "world-connection").Returns(worldSession);
         var store = new GameSessionStore();
-        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance);
+        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
         var service = new GameSessionService(store, factory, claims, terminator, NullLogger<GameSessionService>.Instance, retryQueue);
         await service.AddSession(42, "lobby-connection");
         var registration = await service.TryAddWorldSession(42, "world-connection");
@@ -360,10 +391,12 @@ public sealed class GameSessionServiceTests
 
         var claims = Substitute.For<IGameSessionClaimStore>();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var store = new GameSessionStore();
         var retryQueue = new GameSessionRetryQueue(
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
+            store,
             capacity: 1);
         var session = CreateLobbySession(42, "connection");
 
@@ -386,7 +419,7 @@ public sealed class GameSessionServiceTests
         var worldSession = CreateSession(42, "world-connection", "world-claim");
         factory.Create(42, "lobby-connection").Returns(lobbySession);
         factory.CreateWorld(42, "world-connection").Returns(worldSession);
-        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance);
+        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
         var service = new GameSessionService(store, factory, claims, terminator, NullLogger<GameSessionService>.Instance, retryQueue);
 
         await service.AddSession(42, "lobby-connection");
@@ -412,6 +445,7 @@ public sealed class GameSessionServiceTests
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
+            store,
             capacity: 1,
             overflowCapacity: 1);
         var service = new GameSessionService(store, factory, claims, terminator, NullLogger<GameSessionService>.Instance, retryQueue);
@@ -441,6 +475,7 @@ public sealed class GameSessionServiceTests
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
+            store,
             capacity: 1,
             overflowCapacity: 1);
         var service = new GameSessionService(
@@ -511,6 +546,7 @@ public sealed class GameSessionServiceTests
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
+            store,
             capacity: 1,
             overflowCapacity: 1);
         var service = new GameSessionService(
@@ -557,6 +593,7 @@ public sealed class GameSessionServiceTests
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
+            store,
             capacity: 1,
             overflowCapacity: 1);
         var service = new GameSessionService(
@@ -614,7 +651,8 @@ public sealed class GameSessionServiceTests
         var retryQueue = new GameSessionRetryQueue(
             claims,
             terminator,
-            NullLogger<GameSessionRetryQueue>.Instance);
+            NullLogger<GameSessionRetryQueue>.Instance,
+            store);
         var leaseService = new GameSessionLeaseService(
             store,
             claims,
@@ -639,7 +677,7 @@ public sealed class GameSessionServiceTests
         var claims = new InMemoryGameSessionClaimStore();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var session = CreateLobbySession(42, "connection");
-        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance);
+        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
 
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(session));
         await retryQueue.ProcessNextAsync(CancellationToken.None);
@@ -654,10 +692,12 @@ public sealed class GameSessionServiceTests
         claims.ReleaseAsync(42, "claim", Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
         var terminator = new AlwaysFailConnectionTerminator();
         var session = CreateLobbySession(42, "connection");
+        var store = new GameSessionStore();
         var retryQueue = new GameSessionRetryQueue(
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
+            store,
             capacity: 2,
             retryBackoff: TimeSpan.FromMilliseconds(20));
 
@@ -741,7 +781,7 @@ public sealed class GameSessionServiceTests
         var failedWorldSession = CreateSession(42, "failed-world-connection", "failed-claim");
         factory.Create(42, "lobby-connection").Returns(lobbySession);
         factory.CreateWorld(42, "failed-world-connection").Returns(failedWorldSession);
-        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance);
+        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
         var service = new GameSessionService(store, factory, claims, terminator, NullLogger<GameSessionService>.Instance, retryQueue);
         await service.AddSession(42, "lobby-connection");
 
@@ -936,7 +976,7 @@ public sealed class GameSessionServiceTests
         await gameSessions.TryAddWorldSession(42, "connection");
         claims.RenewAsync(42, "claim").Returns(Task.FromResult(false));
 
-        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance);
+        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
         var leaseService = new GameSessionLeaseService(store, claims, terminator, NullLogger<GameSessionLeaseService>.Instance, retryQueue);
         await leaseService.RenewSessionsAsync(CancellationToken.None);
 
@@ -958,7 +998,7 @@ public sealed class GameSessionServiceTests
         await gameSessions.TryAddWorldSession(42, "connection");
         claims.RenewAsync(42, "claim").Returns(Task.FromException<bool>(new InvalidOperationException("Redis unavailable.")));
 
-        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance);
+        var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance, store);
         var leaseService = new GameSessionLeaseService(store, claims, terminator, NullLogger<GameSessionLeaseService>.Instance, retryQueue);
         await leaseService.RenewSessionsAsync(CancellationToken.None);
 
@@ -1014,6 +1054,7 @@ public sealed class GameSessionServiceTests
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
+            store,
             capacity: 1);
         var occupiedRetry = CreateSession(99, "occupied-connection", "occupied-claim");
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedRetry));
@@ -1061,6 +1102,7 @@ public sealed class GameSessionServiceTests
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
+            store,
             capacity: 1);
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedRetry));
 
@@ -1091,10 +1133,12 @@ public sealed class GameSessionServiceTests
     {
         var claims = Substitute.For<IGameSessionClaimStore>();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var store = new GameSessionStore();
         var retryQueue = new GameSessionRetryQueue(
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
+            store,
             capacity: 1,
             overflowCapacity: 1);
         var occupiedRetry = CreateSession(99, "occupied-connection", "occupied-claim");
@@ -1115,6 +1159,7 @@ public sealed class GameSessionServiceTests
     {
         var claims = Substitute.For<IGameSessionClaimStore>();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var store = new GameSessionStore();
         var abortCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var occupiedSession = CreateSession(41, "occupied-connection", "occupied-claim");
         var overflowSession = CreateSession(42, "overflow-connection", "overflow-claim");
@@ -1124,6 +1169,7 @@ public sealed class GameSessionServiceTests
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
+            store,
             capacity: 1);
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedSession));
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(overflowSession));
