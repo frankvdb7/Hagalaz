@@ -156,8 +156,9 @@ namespace Hagalaz.Services.GameWorld.Services
                         expectedSession.ConnectionId);
                     if (!_retryQueue.TryQueueConnectionAbort(replacedSession))
                     {
+                        await _sessions.TryRetainSessionForAbort(replacedSession);
                         _logger.LogCritical(
-                            "Could not enqueue the failed abort for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
+                            "Could not enqueue the failed abort for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'; retaining it for lease-worker reconciliation.",
                             replacedSession.ConnectionId,
                             expectedSession.ConnectionId);
                     }

@@ -17,6 +17,7 @@ namespace Hagalaz.Services.GameWorld.Store
         private readonly AsyncReaderWriterLock _lock = new();
         private readonly Dictionary<string, IGameSession> _sessions = new();
         private readonly Dictionary<string, PendingWorldSession> _pendingWorldSessions = new();
+        private readonly Dictionary<string, IGameSession> _pendingSessionAborts = new();
 
         public async ValueTask<bool> TryAdd(IGameSession session)
         {
@@ -66,7 +67,8 @@ namespace Hagalaz.Services.GameWorld.Store
                 }
 
                 if (!_pendingWorldSessions.TryGetValue(expectedSession.ConnectionId, out var pendingSession) ||
-                    !ReferenceEquals(pendingSession.Session, expectedSession))
+                    !ReferenceEquals(pendingSession.Session, expectedSession) ||
+                    pendingSession.CleanupRequested)
                 {
                     return (false, null);
                 }
@@ -149,6 +151,38 @@ namespace Hagalaz.Services.GameWorld.Store
                     .Where(pending => pending.CleanupRequested)
                     .Select(pending => (IGameWorldSession)pending.Session)
                     .ToArray();
+            }
+        }
+
+        public async ValueTask<bool> TryRetainSessionForAbort(IGameSession session)
+        {
+            using (await _lock.WriterLockAsync())
+            {
+                if (_pendingSessionAborts.TryGetValue(session.ConnectionId, out var existing))
+                {
+                    return ReferenceEquals(existing, session);
+                }
+
+                _pendingSessionAborts.Add(session.ConnectionId, session);
+                return true;
+            }
+        }
+
+        public async ValueTask<bool> TryRemovePendingSessionAbort(IGameSession expectedSession)
+        {
+            using (await _lock.WriterLockAsync())
+            {
+                return _pendingSessionAborts.TryGetValue(expectedSession.ConnectionId, out var current) &&
+                       ReferenceEquals(current, expectedSession) &&
+                       _pendingSessionAborts.Remove(expectedSession.ConnectionId);
+            }
+        }
+
+        public async ValueTask<IReadOnlyList<IGameSession>> FindSessionsPendingAbort()
+        {
+            using (await _lock.ReaderLockAsync())
+            {
+                return _pendingSessionAborts.Values.ToArray();
             }
         }
 

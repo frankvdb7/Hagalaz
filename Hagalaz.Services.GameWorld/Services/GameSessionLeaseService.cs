@@ -58,37 +58,6 @@ public sealed class GameSessionLeaseService : BackgroundService
     internal async Task RenewSessionsAsync(CancellationToken cancellationToken)
     {
         var pendingCleanupSessions = await _sessions.FindWorldSessionsPendingCleanup();
-        foreach (var pendingSession in pendingCleanupSessions)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                if (await _claims.ReleaseAsync(
-                        pendingSession.MasterId,
-                        pendingSession.SessionClaimId,
-                        cancellationToken))
-                {
-                    await _sessions.TryRemovePendingWorldSession(pendingSession);
-                    _logger.LogInformation(
-                        "Released deferred world-session claim '{sessionClaimId}' for account '{masterId}'.",
-                        pendingSession.SessionClaimId,
-                        pendingSession.MasterId);
-                }
-                else
-                {
-                    // A false result proves that this exact owner no longer exists.
-                    await _sessions.TryRemovePendingWorldSession(pendingSession);
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex,
-                    "Failed to reconcile deferred world-session claim '{sessionClaimId}' for account '{masterId}'; it will be retried on the next lease cycle.",
-                    pendingSession.SessionClaimId,
-                    pendingSession.MasterId);
-            }
-        }
-
         var pendingCleanupSet = pendingCleanupSessions.Count == 0
             ? null
             : new HashSet<IGameWorldSession>(pendingCleanupSessions, ReferenceEqualityComparer.Instance);
@@ -120,6 +89,70 @@ public sealed class GameSessionLeaseService : BackgroundService
             }
         }
 
+        await ReconcileDeferredClaimReleasesAsync(pendingCleanupSessions, cancellationToken);
+        await ReconcileDeferredConnectionAbortsAsync(cancellationToken);
+    }
+
+    private async Task ReconcileDeferredClaimReleasesAsync(
+        IReadOnlyList<IGameWorldSession> pendingSessions,
+        CancellationToken cancellationToken)
+    {
+        foreach (var pendingSession in pendingSessions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                if (await _claims.ReleaseAsync(
+                        pendingSession.MasterId,
+                        pendingSession.SessionClaimId,
+                        cancellationToken))
+                {
+                    await _sessions.TryRemovePendingWorldSession(pendingSession);
+                    _logger.LogInformation(
+                        "Released deferred world-session claim '{sessionClaimId}' for account '{masterId}'.",
+                        pendingSession.SessionClaimId,
+                        pendingSession.MasterId);
+                }
+                else
+                {
+                    // A false result proves that this exact owner no longer exists.
+                    await _sessions.TryRemovePendingWorldSession(pendingSession);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to reconcile deferred world-session claim '{sessionClaimId}' for account '{masterId}'; it will be retried on the next lease cycle.",
+                    pendingSession.SessionClaimId,
+                    pendingSession.MasterId);
+            }
+        }
+    }
+
+    private async Task ReconcileDeferredConnectionAbortsAsync(CancellationToken cancellationToken)
+    {
+        foreach (var session in await _sessions.FindSessionsPendingAbort())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var currentSession = await _sessions.TryGetValue(session.ConnectionId);
+            if (currentSession.Found)
+            {
+                await _sessions.TryRemovePendingSessionAbort(session);
+                continue;
+            }
+
+            try
+            {
+                _connectionTerminator.Abort(session);
+                await _sessions.TryRemovePendingSessionAbort(session);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to reconcile deferred abort for connection '{connectionId}'; it will be retried on the next lease cycle.",
+                    session.ConnectionId);
+            }
+        }
     }
 
     private async Task AbortAndReconcileLostSession(IGameWorldSession session)
@@ -143,8 +176,9 @@ public sealed class GameSessionLeaseService : BackgroundService
 
         if (abortFailed && !_retryQueue.TryQueueConnectionAbort(session))
         {
+            await _sessions.TryRetainSessionForAbort(session);
             _logger.LogWarning(
-                "Could not queue a retry for lost game session '{connectionId}' because the cleanup retry capacity is full.",
+                "Could not queue a retry for lost game session '{connectionId}' because the cleanup retry capacity is full; retaining it for lease-worker reconciliation.",
                 session.ConnectionId);
         }
     }
