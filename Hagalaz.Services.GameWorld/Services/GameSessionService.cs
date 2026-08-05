@@ -70,6 +70,7 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             var claimAcquired = false;
+            var retainPendingForCleanup = false;
             try
             {
                 claimAcquired = await _claims.TryClaimAsync(masterId, createdSession.SessionClaimId, cancellationToken);
@@ -87,7 +88,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     // claim acquired by another owner.
                     if (!await _claims.ReleaseAsync(masterId, createdSession.SessionClaimId, CancellationToken.None))
                     {
-                        await _retryQueue.QueueClaimReleaseAsync(masterId, createdSession.SessionClaimId);
+                        retainPendingForCleanup = !QueueClaimRelease(masterId, createdSession.SessionClaimId);
                     }
                 }
                 catch (Exception releaseException)
@@ -96,14 +97,18 @@ namespace Hagalaz.Services.GameWorld.Services
                         "Failed to release world-session claim '{sessionClaimId}' after claim acquisition failed for account '{masterId}'; queuing exact-owner cleanup.",
                         createdSession.SessionClaimId,
                         masterId);
-                    await _retryQueue.QueueClaimReleaseAsync(masterId, createdSession.SessionClaimId);
+                    retainPendingForCleanup = !QueueClaimRelease(masterId, createdSession.SessionClaimId);
                 }
 
                 throw;
             }
             finally
             {
-                if (!claimAcquired)
+                if (!claimAcquired && retainPendingForCleanup)
+                {
+                    await _sessions.TryRetainWorldSessionForCleanup(createdSession);
+                }
+                else if (!claimAcquired)
                 {
                     await _sessions.TryRemovePendingWorldSession(createdSession);
                 }
@@ -119,7 +124,6 @@ namespace Hagalaz.Services.GameWorld.Services
                 return false;
             }
 
-            using var abortReservation = await _retryQueue.ReserveConnectionAbortAsync(cancellationToken);
             IGameSession? replacedSession = null;
             var committed = await _claims.ExecuteIfOwnerAsync(
                 expectedSession.MasterId,
@@ -133,22 +137,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 cancellationToken);
             if (!committed)
             {
-                abortReservation.Dispose();
-                var claimReleased = await ReleaseClaimOrQueueAsync(
-                    expectedSession.MasterId,
-                    worldSession.SessionClaimId,
-                    CancellationToken.None,
-                    "after commit failed");
-                if (!claimReleased)
-                {
-                    _logger.LogWarning(
-                        "World-session claim '{sessionClaimId}' was not released after commit failed for account '{masterId}'; removing the pending reservation and retaining exact-owner cleanup for retry.",
-                        worldSession.SessionClaimId,
-                        worldSession.MasterId);
-                }
-
-                await _sessions.TryRemovePendingWorldSession(expectedSession);
-                return false;
+                return await CleanupFailedWorldCommitAsync(worldSession);
             }
 
             if (replacedSession != null &&
@@ -165,7 +154,7 @@ namespace Hagalaz.Services.GameWorld.Services
                         "Failed to abort replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
                         replacedSession.ConnectionId,
                         expectedSession.ConnectionId);
-                    if (!abortReservation.TryQueueConnectionAbort(replacedSession))
+                    if (!_retryQueue.TryQueueConnectionAbort(replacedSession))
                     {
                         _logger.LogCritical(
                             "Could not enqueue the failed abort for replaced game session '{connectionId}' after promoting '{promotedConnectionId}'.",
@@ -181,43 +170,57 @@ namespace Hagalaz.Services.GameWorld.Services
         public async Task<bool> RemoveSession(IGameSession expectedSession, CancellationToken cancellationToken = default)
         {
             var storedSession = await _sessions.TryGetValue(expectedSession.ConnectionId);
-            if (!storedSession.Found ||
-                storedSession.Session == null ||
+            if (storedSession.Found &&
+                storedSession.Session != null &&
                 !ReferenceEquals(storedSession.Session, expectedSession))
             {
-                if (!await _sessions.TryRemovePendingWorldSession(expectedSession))
+                return false;
+            }
+
+            if (!storedSession.Found ||
+                storedSession.Session == null)
+            {
+                if (!storedSession.Found && !await _sessions.IsPendingWorldSession(expectedSession))
                 {
                     return false;
                 }
 
                 if (expectedSession is not IGameWorldSession worldSession)
                 {
-                    return true;
+                    return await _sessions.TryRemovePendingWorldSession(expectedSession);
                 }
 
-                return await ReleaseClaimOrQueueAsync(
+                var cleanup = await ReleaseClaimOrQueueAsync(
                     worldSession.MasterId,
                     worldSession.SessionClaimId,
                     cancellationToken,
-                    "during pending-session cleanup");
+                    "during pending-session cleanup",
+                    expectedSession);
+                if (cleanup == ClaimCleanupResult.Deferred)
+                {
+                    await _sessions.TryRetainWorldSessionForCleanup(expectedSession);
+                    return false;
+                }
+
+                var removedPending = await _sessions.TryRemovePendingWorldSession(expectedSession);
+                return removedPending;
             }
 
             if (storedSession.Session is IGameWorldSession storedWorldSession)
             {
-                (bool Removed, IGameSession? Session) removedStoredSession;
-                try
+                var cleanup = await ReleaseClaimOrQueueAsync(
+                    storedWorldSession.MasterId,
+                    storedWorldSession.SessionClaimId,
+                    cancellationToken,
+                    "during session cleanup",
+                    expectedSession);
+                if (cleanup == ClaimCleanupResult.Deferred)
                 {
-                    await ReleaseClaimOrQueueAsync(
-                        storedWorldSession.MasterId,
-                        storedWorldSession.SessionClaimId,
-                        cancellationToken,
-                        "during session cleanup");
-                }
-                finally
-                {
-                    removedStoredSession = await _sessions.TryRemove(expectedSession);
+                    await _sessions.TryRetainWorldSessionForCleanup(expectedSession);
+                    return false;
                 }
 
+                var removedStoredSession = await _sessions.TryRemove(expectedSession);
                 return removedStoredSession.Removed;
             }
 
@@ -233,17 +236,18 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async Task<IGameSession?> FindByMasterId(uint masterId) => await _sessions.FindByMasterId(masterId);
 
-        private async Task<bool> ReleaseClaimOrQueueAsync(
+        private async Task<ClaimCleanupResult> ReleaseClaimOrQueueAsync(
             uint masterId,
             string claimId,
             CancellationToken cancellationToken,
-            string operation)
+            string operation,
+            IGameSession expectedSession)
         {
             try
             {
                 if (await _claims.ReleaseAsync(masterId, claimId, cancellationToken))
                 {
-                    return true;
+                    return ClaimCleanupResult.Released;
                 }
 
                 _logger.LogWarning(
@@ -251,12 +255,17 @@ namespace Hagalaz.Services.GameWorld.Services
                     claimId,
                     masterId,
                     operation);
-                await _retryQueue.QueueClaimReleaseAsync(masterId, claimId);
-                return false;
+                return QueueClaimRelease(masterId, claimId)
+                    ? ClaimCleanupResult.Queued
+                    : ClaimCleanupResult.Deferred;
             }
             catch (OperationCanceledException)
             {
-                await _retryQueue.QueueClaimReleaseAsync(masterId, claimId);
+                if (!QueueClaimRelease(masterId, claimId))
+                {
+                    await _sessions.TryRetainWorldSessionForCleanup(expectedSession);
+                }
+
                 throw;
             }
             catch (Exception ex)
@@ -266,9 +275,53 @@ namespace Hagalaz.Services.GameWorld.Services
                     claimId,
                     masterId,
                     operation);
-                await _retryQueue.QueueClaimReleaseAsync(masterId, claimId);
+                return QueueClaimRelease(masterId, claimId)
+                    ? ClaimCleanupResult.Queued
+                    : ClaimCleanupResult.Deferred;
+            }
+        }
+
+        private async Task<bool> CleanupFailedWorldCommitAsync(IGameWorldSession worldSession)
+        {
+            var cleanup = await ReleaseClaimOrQueueAsync(
+                worldSession.MasterId,
+                worldSession.SessionClaimId,
+                CancellationToken.None,
+                "after commit failed",
+                worldSession);
+            if (cleanup == ClaimCleanupResult.Deferred)
+            {
+                _logger.LogWarning(
+                    "World-session claim '{sessionClaimId}' was not released after commit failed for account '{masterId}'; retaining the pending reservation for independent cleanup reconciliation.",
+                    worldSession.SessionClaimId,
+                    worldSession.MasterId);
+                await _sessions.TryRetainWorldSessionForCleanup(worldSession);
                 return false;
             }
+
+            await _sessions.TryRemovePendingWorldSession(worldSession);
+            return false;
+        }
+
+        private bool QueueClaimRelease(uint masterId, string claimId)
+        {
+            var queued = _retryQueue.TryQueueClaimRelease(masterId, claimId);
+            if (!queued)
+            {
+                _logger.LogCritical(
+                    "Could not enqueue exact-owner cleanup for world-session claim '{sessionClaimId}' for account '{masterId}'; the local session will be retained for independent cleanup reconciliation.",
+                    claimId,
+                    masterId);
+            }
+
+            return queued;
+        }
+
+        private enum ClaimCleanupResult
+        {
+            Released,
+            Queued,
+            Deferred
         }
     }
 }

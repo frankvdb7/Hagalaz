@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
@@ -56,10 +57,46 @@ public sealed class GameSessionLeaseService : BackgroundService
 
     internal async Task RenewSessionsAsync(CancellationToken cancellationToken)
     {
+        var pendingCleanupSessions = await _sessions.FindWorldSessionsPendingCleanup();
+        foreach (var pendingSession in pendingCleanupSessions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                if (await _claims.ReleaseAsync(
+                        pendingSession.MasterId,
+                        pendingSession.SessionClaimId,
+                        cancellationToken))
+                {
+                    await _sessions.TryRemovePendingWorldSession(pendingSession);
+                    _logger.LogInformation(
+                        "Released deferred world-session claim '{sessionClaimId}' for account '{masterId}'.",
+                        pendingSession.SessionClaimId,
+                        pendingSession.MasterId);
+                }
+                else
+                {
+                    // A false result proves that this exact owner no longer exists.
+                    await _sessions.TryRemovePendingWorldSession(pendingSession);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to reconcile deferred world-session claim '{sessionClaimId}' for account '{masterId}'; it will be retried on the next lease cycle.",
+                    pendingSession.SessionClaimId,
+                    pendingSession.MasterId);
+            }
+        }
+
+        var pendingCleanupSet = pendingCleanupSessions.Count == 0
+            ? null
+            : new HashSet<IGameWorldSession>(pendingCleanupSessions, ReferenceEqualityComparer.Instance);
         foreach (var session in await _sessions.FindAll())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (session is not IGameWorldSession worldSession)
+            if (session is not IGameWorldSession worldSession ||
+                pendingCleanupSet?.Contains(worldSession) == true)
             {
                 continue;
             }

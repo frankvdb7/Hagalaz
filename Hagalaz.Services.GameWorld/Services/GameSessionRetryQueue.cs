@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Channels;
@@ -16,6 +15,7 @@ namespace Hagalaz.Services.GameWorld.Services;
 public sealed class GameSessionRetryQueue : BackgroundService
 {
     public const int DefaultCapacity = 100;
+    public const int DefaultOverflowCapacity = 100;
 
     private readonly Channel<Func<CancellationToken, ValueTask>> _items;
     private readonly IGameSessionClaimStore _claims;
@@ -23,7 +23,10 @@ public sealed class GameSessionRetryQueue : BackgroundService
     private readonly ILogger<GameSessionRetryQueue> _logger;
     private readonly SemaphoreSlim _retrySlots;
     private readonly TimeSpan _retryBackoff;
-    private readonly ConcurrentDictionary<string, IGameSession> _overflowConnectionAborts = new();
+    private readonly object _overflowGate = new();
+    private readonly Dictionary<ClaimReleaseRetry, ClaimReleaseRetry> _overflowClaimReleases = new();
+    private readonly Dictionary<string, IGameSession> _overflowConnectionAborts = new();
+    private readonly int _overflowCapacity;
     private int _pendingCount;
 
     public GameSessionRetryQueue(
@@ -31,13 +34,17 @@ public sealed class GameSessionRetryQueue : BackgroundService
         IGameSessionConnectionTerminator connectionTerminator,
         ILogger<GameSessionRetryQueue> logger,
         int capacity = DefaultCapacity,
-        TimeSpan? retryBackoff = null)
+        TimeSpan? retryBackoff = null,
+        int overflowCapacity = DefaultOverflowCapacity)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(overflowCapacity);
         _claims = claims;
         _connectionTerminator = connectionTerminator;
         _logger = logger;
         _retrySlots = new SemaphoreSlim(capacity, capacity);
         _retryBackoff = retryBackoff ?? GameSessionClaimOptions.RenewalInterval;
+        _overflowCapacity = overflowCapacity;
         _items = Channel.CreateBounded<Func<CancellationToken, ValueTask>>(new BoundedChannelOptions(capacity)
         {
             FullMode = BoundedChannelFullMode.Wait,
@@ -46,38 +53,33 @@ public sealed class GameSessionRetryQueue : BackgroundService
         });
     }
 
-    internal int PendingCount => Volatile.Read(ref _pendingCount) + _overflowConnectionAborts.Count;
-
-    public async ValueTask QueueClaimReleaseAsync(uint masterId, string claimId, CancellationToken cancellationToken = default)
+    internal int PendingCount
     {
-        await _retrySlots.WaitAsync(cancellationToken);
-        try
+        get
         {
-            await EnqueueAsync(
-                stoppingToken => ExecuteClaimReleaseAttemptAsync(masterId, claimId, stoppingToken),
-                cancellationToken);
-        }
-        catch
-        {
-            _retrySlots.Release();
-            throw;
+            lock (_overflowGate)
+            {
+                return Volatile.Read(ref _pendingCount) +
+                    _overflowClaimReleases.Count +
+                    _overflowConnectionAborts.Count;
+            }
         }
     }
 
-    public async ValueTask QueueConnectionAbortAsync(IGameSession session, CancellationToken cancellationToken = default)
+    public bool TryQueueClaimRelease(uint masterId, string claimId)
     {
-        await _retrySlots.WaitAsync(cancellationToken);
-        try
+        if (_retrySlots.Wait(0))
         {
-            await EnqueueAsync(
-                stoppingToken => ExecuteConnectionAbortAttemptAsync(session, stoppingToken),
-                cancellationToken);
-        }
-        catch
-        {
+            if (_items.Writer.TryWrite(stoppingToken => ExecuteClaimReleaseAttemptAsync(masterId, claimId, stoppingToken)))
+            {
+                Interlocked.Increment(ref _pendingCount);
+                return true;
+            }
+
             _retrySlots.Release();
-            throw;
         }
+
+        return TryQueueOverflowClaimRelease(masterId, claimId);
     }
 
     public bool TryQueueConnectionAbort(IGameSession session)
@@ -94,17 +96,9 @@ public sealed class GameSessionRetryQueue : BackgroundService
         }
 
         // Lease reconciliation must not wait for the bounded primary queue. Keep one
-        // retry per connection in a coalesced overflow registry and let the worker
+        // retry per connection in a bounded overflow registry and let the worker
         // admit it as soon as a retry slot becomes available.
-        _overflowConnectionAborts[session.ConnectionId] = session;
-        return true;
-    }
-
-    public async ValueTask<ConnectionAbortReservation> ReserveConnectionAbortAsync(
-        CancellationToken cancellationToken = default)
-    {
-        await _retrySlots.WaitAsync(cancellationToken);
-        return new ConnectionAbortReservation(this);
+        return TryQueueOverflowConnectionAbort(session);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -143,48 +137,112 @@ public sealed class GameSessionRetryQueue : BackgroundService
         Interlocked.Increment(ref _pendingCount);
     }
 
-    private bool TryEnqueueReservedConnectionAbort(IGameSession session)
-    {
-        if (_items.Writer.TryWrite(stoppingToken => ExecuteConnectionAbortAttemptAsync(session, stoppingToken)))
-        {
-            Interlocked.Increment(ref _pendingCount);
-            return true;
-        }
-
-        _retrySlots.Release();
-        return false;
-    }
-
     private void DrainOverflow()
     {
         while (_retrySlots.Wait(0))
         {
-            KeyValuePair<string, IGameSession>? overflow = null;
-            foreach (var candidate in _overflowConnectionAborts)
+            var moved = false;
+            lock (_overflowGate)
             {
-                if (_overflowConnectionAborts.TryRemove(candidate.Key, out var session))
+                ClaimReleaseRetry? claimCandidate = null;
+                foreach (var entry in _overflowClaimReleases)
                 {
-                    overflow = new KeyValuePair<string, IGameSession>(candidate.Key, session);
+                    claimCandidate = entry.Value;
                     break;
+                }
+
+                if (claimCandidate.HasValue &&
+                    _items.Writer.TryWrite(stoppingToken => ExecuteClaimReleaseAttemptAsync(
+                        claimCandidate.Value.MasterId,
+                        claimCandidate.Value.ClaimId,
+                        stoppingToken)))
+                {
+                    _overflowClaimReleases.Remove(claimCandidate.Value);
+                    Interlocked.Increment(ref _pendingCount);
+                    moved = true;
+                }
+                else if (!claimCandidate.HasValue)
+                {
+                    KeyValuePair<string, IGameSession>? connectionCandidate = null;
+                    foreach (var entry in _overflowConnectionAborts)
+                    {
+                        connectionCandidate = entry;
+                        break;
+                    }
+
+                    if (connectionCandidate.HasValue &&
+                        _items.Writer.TryWrite(stoppingToken => ExecuteConnectionAbortAttemptAsync(connectionCandidate.Value.Value, stoppingToken)))
+                    {
+                        _overflowConnectionAborts.Remove(connectionCandidate.Value.Key);
+                        Interlocked.Increment(ref _pendingCount);
+                        moved = true;
+                    }
                 }
             }
 
-            if (!overflow.HasValue)
+            if (!moved)
             {
                 _retrySlots.Release();
                 return;
             }
-
-            if (_items.Writer.TryWrite(stoppingToken => ExecuteConnectionAbortAttemptAsync(overflow.Value.Value, stoppingToken)))
-            {
-                Interlocked.Increment(ref _pendingCount);
-                continue;
-            }
-
-            _overflowConnectionAborts.TryAdd(overflow.Value.Key, overflow.Value.Value);
-            _retrySlots.Release();
-            return;
         }
+    }
+
+    private bool TryQueueOverflowClaimRelease(uint masterId, string claimId)
+    {
+        var retry = new ClaimReleaseRetry(masterId, claimId);
+        var accepted = false;
+        var coalesced = false;
+        lock (_overflowGate)
+        {
+            if (_overflowClaimReleases.ContainsKey(retry))
+            {
+                coalesced = true;
+            }
+            else if (_overflowClaimReleases.Count + _overflowConnectionAborts.Count < _overflowCapacity)
+            {
+                _overflowClaimReleases.Add(retry, retry);
+                accepted = true;
+            }
+        }
+
+        if (!accepted && !coalesced)
+        {
+            _logger.LogError(
+                "Rejected world-session claim-release retry for account '{masterId}' because the overflow cleanup capacity of {overflowCapacity} is full.",
+                masterId,
+                _overflowCapacity);
+        }
+
+        return accepted || coalesced;
+    }
+
+    private bool TryQueueOverflowConnectionAbort(IGameSession session)
+    {
+        var accepted = false;
+        var coalesced = false;
+        lock (_overflowGate)
+        {
+            if (_overflowConnectionAborts.ContainsKey(session.ConnectionId))
+            {
+                coalesced = true;
+            }
+            else if (_overflowClaimReleases.Count + _overflowConnectionAborts.Count < _overflowCapacity)
+            {
+                _overflowConnectionAborts.Add(session.ConnectionId, session);
+                accepted = true;
+            }
+        }
+
+        if (!accepted && !coalesced)
+        {
+            _logger.LogError(
+                "Rejected connection-abort retry for session '{connectionId}' because the overflow cleanup capacity of {overflowCapacity} is full.",
+                session.ConnectionId,
+                _overflowCapacity);
+        }
+
+        return accepted || coalesced;
     }
 
     private async ValueTask ExecuteClaimReleaseAttemptAsync(uint masterId, string claimId, CancellationToken stoppingToken)
@@ -281,29 +339,5 @@ public sealed class GameSessionRetryQueue : BackgroundService
         }
     }
 
-    public sealed class ConnectionAbortReservation : IDisposable
-    {
-        private GameSessionRetryQueue? _queue;
-
-        internal ConnectionAbortReservation(GameSessionRetryQueue queue) => _queue = queue;
-
-        public bool TryQueueConnectionAbort(IGameSession session)
-        {
-            var queue = Interlocked.Exchange(ref _queue, null)
-                ?? throw new ObjectDisposedException(nameof(ConnectionAbortReservation));
-            return queue.TryEnqueueReservedConnectionAbort(session);
-        }
-
-        public void Dispose()
-        {
-            var queue = Interlocked.Exchange(ref _queue, null);
-            if (queue == null)
-            {
-                return;
-            }
-
-            queue._retrySlots.Release();
-            queue.DrainOverflow();
-        }
-    }
+    private readonly record struct ClaimReleaseRetry(uint MasterId, string ClaimId);
 }

@@ -177,7 +177,6 @@ public sealed class GameSessionServiceTests
         var factory = Substitute.For<IGameSessionFactory>();
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var worldSession = CreateSession(42, "world-connection", "world-claim");
-        var replacementSession = CreateLobbySession(42, "replacement-connection");
         factory.Create(42, "lobby-connection").Returns(lobbySession);
         factory.CreateWorld(42, "world-connection").Returns(worldSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
@@ -187,20 +186,18 @@ public sealed class GameSessionServiceTests
         await service.AddSession(42, "lobby-connection");
         var registration = await service.TryAddWorldSession(42, "world-connection");
         Assert.IsTrue(registration.Created);
-        Assert.IsTrue(await store.TryReplace(lobbySession, replacementSession));
-
         claims.ExecuteIfOwnerAsync(
                 42,
                 "world-claim",
                 Arg.Any<Func<CancellationToken, Task<bool>>>(),
                 Arg.Any<CancellationToken>())
-            .Returns(callInfo => callInfo.Arg<Func<CancellationToken, Task<bool>>>()(CancellationToken.None));
+            .Returns(Task.FromResult(false));
         var releaseFailure = new InvalidOperationException("Claim store unavailable.");
         claims.ReleaseAsync(42, "world-claim", CancellationToken.None)
             .Returns(Task.FromException<bool>(releaseFailure));
 
         Assert.IsFalse(await service.CommitWorldSession(worldSession));
-        Assert.AreSame(replacementSession, await service.FindByMasterId(42));
+        Assert.AreSame(lobbySession, await service.FindByMasterId(42));
         Assert.AreEqual(1, (await store.FindAll()).Count);
         Assert.AreEqual(1, retryQueue.PendingCount);
         await claims.Received(1).ReleaseAsync(42, "world-claim", CancellationToken.None);
@@ -315,7 +312,7 @@ public sealed class GameSessionServiceTests
             capacity: 1);
         var session = CreateLobbySession(42, "connection");
 
-        await retryQueue.QueueConnectionAbortAsync(session);
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(session));
         await retryQueue.ProcessNextAsync(CancellationToken.None);
 
         var globalWorkItem = await globalQueue.DequeueAsync(CancellationToken.None);
@@ -348,37 +345,147 @@ public sealed class GameSessionServiceTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task CommitWorldSession_ReservesAbortCapacityBeforePromotion()
+    public async Task CommitWorldSession_WhenAbortRetryQueueIsFull_PromotesWithoutBlocking()
     {
         var store = new GameSessionStore();
         var claims = new InMemoryGameSessionClaimStore();
         var factory = Substitute.For<IGameSessionFactory>();
-        var terminator = new FailOnceConnectionTerminator();
-        var lobbySession = CreateLobbySession(42, "lobby-connection");
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var worldSession = CreateSession(42, "world-connection", "world-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
         factory.CreateWorld(42, "world-connection").Returns(worldSession);
         var retryQueue = new GameSessionRetryQueue(
             claims,
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
-            capacity: 1);
+            capacity: 1,
+            overflowCapacity: 1);
         var service = new GameSessionService(store, factory, claims, terminator, NullLogger<GameSessionService>.Instance, retryQueue);
 
-        await service.AddSession(42, "lobby-connection");
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(CreateLobbySession(99, "primary-retry")));
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(CreateLobbySession(100, "overflow-retry")));
         var registration = await service.TryAddWorldSession(42, "world-connection");
-        await retryQueue.QueueClaimReleaseAsync(99, "claim");
 
-        var commitTask = service.CommitWorldSession(registration.Session!);
-        await Task.Delay(50);
-
-        Assert.IsFalse(commitTask.IsCompleted);
-        Assert.AreSame(lobbySession, await service.FindByMasterId(42));
-
-        await retryQueue.ProcessNextAsync(CancellationToken.None);
-        Assert.IsTrue(await commitTask);
-        Assert.AreEqual(1, retryQueue.PendingCount);
+        Assert.IsTrue(await service.CommitWorldSession(registration.Session!));
         Assert.AreSame(worldSession, await service.FindByMasterId(42));
+        Assert.AreEqual(2, retryQueue.PendingCount);
+        Assert.AreEqual(1, (await store.FindAll()).Count);
+    }
+
+    [TestMethod]
+    public async Task GameSessionStore_WhenAnotherWorldPromotesFirst_RejectsStalePendingCommit()
+    {
+        var store = new GameSessionStore();
+        var lobbySession = CreateLobbySession(42, "lobby-connection");
+        var firstWorldSession = CreateSession(42, "world-connection-1", "world-claim-1");
+        var secondWorldSession = CreateSession(42, "world-connection-2", "world-claim-2");
+
+        Assert.IsTrue(await store.TryAdd(lobbySession));
+        Assert.IsTrue(await store.TryReserveWorldSession(firstWorldSession));
+        Assert.IsTrue(await store.TryReserveWorldSession(secondWorldSession));
+
+        var firstCommit = await store.TryCommitWorldSession(firstWorldSession);
+        Assert.IsTrue(firstCommit.Committed);
+        Assert.AreSame(lobbySession, firstCommit.ReplacedSession);
+
+        var staleCommit = await store.TryCommitWorldSession(secondWorldSession);
+        Assert.IsFalse(staleCommit.Committed);
+        Assert.IsNull(staleCommit.ReplacedSession);
+        Assert.AreSame(firstWorldSession, await store.FindByMasterId(42));
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task TryAddWorldSession_WhenClaimCleanupPrimaryQueueIsFull_UsesOverflowWithoutBlocking()
+    {
+        var store = new GameSessionStore();
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        claims.TryClaimAsync(42, "world-claim", Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<bool>(new InvalidOperationException("Claim store unavailable.")));
+        claims.ReleaseAsync(42, "world-claim", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(false));
+        var factory = Substitute.For<IGameSessionFactory>();
+        var worldSession = CreateSession(42, "world-connection", "world-claim");
+        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var retryQueue = new GameSessionRetryQueue(
+            claims,
+            terminator,
+            NullLogger<GameSessionRetryQueue>.Instance,
+            capacity: 1,
+            overflowCapacity: 1);
+        var service = new GameSessionService(
+            store,
+            factory,
+            claims,
+            terminator,
+            NullLogger<GameSessionService>.Instance,
+            retryQueue);
+        var occupiedRetry = CreateLobbySession(99, "occupied-connection");
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedRetry));
+
+        try
+        {
+            await service.TryAddWorldSession(42, "world-connection").WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.Fail("Expected claim acquisition to fail.");
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        Assert.AreEqual(2, retryQueue.PendingCount);
+        Assert.AreEqual(0, (await store.FindAll()).Count);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task TryAddWorldSession_WhenClaimCleanupAdmissionIsFull_RetainsForLeaseReconciliation()
+    {
+        var store = new GameSessionStore();
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        claims.TryClaimAsync(42, "world-claim", Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<bool>(new InvalidOperationException("Claim store unavailable.")));
+        var releaseAttempts = 0;
+        claims.ReleaseAsync(42, "world-claim", Arg.Any<CancellationToken>())
+            .Returns(_ => Interlocked.Increment(ref releaseAttempts) == 1
+                ? Task.FromException<bool>(new InvalidOperationException("Claim store unavailable."))
+                : Task.FromResult(true));
+        var factory = Substitute.For<IGameSessionFactory>();
+        var worldSession = CreateSession(42, "world-connection", "world-claim");
+        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var retryQueue = new GameSessionRetryQueue(
+            claims,
+            terminator,
+            NullLogger<GameSessionRetryQueue>.Instance,
+            capacity: 1,
+            overflowCapacity: 1);
+        var service = new GameSessionService(
+            store,
+            factory,
+            claims,
+            terminator,
+            NullLogger<GameSessionService>.Instance,
+            retryQueue);
+
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(CreateLobbySession(99, "primary-retry")));
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(CreateLobbySession(100, "overflow-retry")));
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => service.TryAddWorldSession(42, "world-connection"));
+
+        Assert.AreEqual(1, (await store.FindAll()).Count);
+        Assert.IsNull(await store.FindWorldSessionByMasterId(42));
+
+        var leaseService = new GameSessionLeaseService(
+            store,
+            claims,
+            terminator,
+            NullLogger<GameSessionLeaseService>.Instance,
+            retryQueue);
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
+
+        Assert.AreEqual(2, releaseAttempts);
+        Assert.AreEqual(0, (await store.FindAll()).Count);
     }
 
     [TestMethod]
@@ -390,7 +497,7 @@ public sealed class GameSessionServiceTests
         var session = CreateLobbySession(42, "connection");
         var retryQueue = new GameSessionRetryQueue(claims, terminator, NullLogger<GameSessionRetryQueue>.Instance);
 
-        await retryQueue.QueueConnectionAbortAsync(session);
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(session));
         await retryQueue.ProcessNextAsync(CancellationToken.None);
 
         terminator.Received(1).Abort(session);
@@ -410,8 +517,8 @@ public sealed class GameSessionServiceTests
             capacity: 2,
             retryBackoff: TimeSpan.FromMilliseconds(20));
 
-        await retryQueue.QueueConnectionAbortAsync(session);
-        await retryQueue.QueueClaimReleaseAsync(42, "claim");
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(session));
+        Assert.IsTrue(retryQueue.TryQueueClaimRelease(42, "claim"));
 
         await retryQueue.ProcessNextAsync(CancellationToken.None);
         Assert.AreEqual(1, terminator.Attempts);
@@ -765,7 +872,7 @@ public sealed class GameSessionServiceTests
             NullLogger<GameSessionRetryQueue>.Instance,
             capacity: 1);
         var occupiedRetry = CreateSession(99, "occupied-connection", "occupied-claim");
-        await retryQueue.QueueConnectionAbortAsync(occupiedRetry);
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedRetry));
 
         var lostSession = CreateSession(42, "lost-connection", "lost-claim");
         var laterSession = CreateSession(43, "later-connection", "later-claim");
@@ -811,7 +918,7 @@ public sealed class GameSessionServiceTests
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
             capacity: 1);
-        await retryQueue.QueueConnectionAbortAsync(occupiedRetry);
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedRetry));
 
         Assert.IsTrue(await store.TryAdd(lostSession));
         var leaseService = new GameSessionLeaseService(
@@ -836,12 +943,36 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
+    public async Task RetryQueue_WhenOverflowCapacityIsFull_RejectsNewAbortAndCoalescesDuplicates()
+    {
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var retryQueue = new GameSessionRetryQueue(
+            claims,
+            terminator,
+            NullLogger<GameSessionRetryQueue>.Instance,
+            capacity: 1,
+            overflowCapacity: 1);
+        var occupiedRetry = CreateSession(99, "occupied-connection", "occupied-claim");
+        var firstOverflow = CreateSession(42, "first-overflow-connection", "first-overflow-claim");
+        var secondOverflow = CreateSession(43, "second-overflow-connection", "second-overflow-claim");
+
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedRetry));
+
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(firstOverflow));
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(firstOverflow));
+        Assert.IsFalse(retryQueue.TryQueueConnectionAbort(secondOverflow));
+        Assert.AreEqual(2, retryQueue.PendingCount);
+    }
+
+    [TestMethod]
     [Timeout(5000)]
-    public async Task RetryQueue_WhenReservationReleasesCapacity_WakesWorkerForOverflowAbort()
+    public async Task RetryQueue_WhenPrimaryWorkCompletes_WakesWorkerForOverflowAbort()
     {
         var claims = Substitute.For<IGameSessionClaimStore>();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var abortCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var occupiedSession = CreateSession(41, "occupied-connection", "occupied-claim");
         var overflowSession = CreateSession(42, "overflow-connection", "overflow-claim");
         terminator.When(call => call.Abort(overflowSession))
             .Do(_ => abortCompleted.TrySetResult(true));
@@ -850,12 +981,11 @@ public sealed class GameSessionServiceTests
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
             capacity: 1);
-        using var reservation = await retryQueue.ReserveConnectionAbortAsync();
+        Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedSession));
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(overflowSession));
 
         using var stoppingTokenSource = new CancellationTokenSource();
         await retryQueue.StartAsync(stoppingTokenSource.Token);
-        reservation.Dispose();
 
         await abortCompleted.Task.WaitAsync(TimeSpan.FromSeconds(2));
         await retryQueue.StopAsync(CancellationToken.None);

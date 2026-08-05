@@ -14,15 +14,17 @@ namespace Hagalaz.Services.GameWorld.Store
 
         ValueTask<(bool Committed, IGameSession? ReplacedSession)> TryCommitWorldSession(IGameWorldSession expectedSession);
 
+        ValueTask<bool> TryRetainWorldSessionForCleanup(IGameSession expectedSession);
+
+        ValueTask<bool> IsPendingWorldSession(IGameSession expectedSession);
+
         ValueTask<bool> TryRemovePendingWorldSession(IGameSession expectedSession);
+
+        ValueTask<IReadOnlyList<IGameWorldSession>> FindWorldSessionsPendingCleanup();
 
         ValueTask<(bool Found, IGameSession? Session)> TryGetValue(string connectionId);
 
-        ValueTask<(bool Removed, IGameSession? Session)> TryRemove(string connectionId);
-
         ValueTask<(bool Removed, IGameSession? Session)> TryRemove(IGameSession expectedSession);
-
-        ValueTask<bool> TryReplace(IGameSession expectedSession, IGameSession replacement);
 
         ValueTask<IGameSession?> FindByMasterId(uint masterId);
 

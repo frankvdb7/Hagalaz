@@ -41,6 +41,8 @@ namespace Hagalaz.Services.GameWorld.Store
                 if (_pendingWorldSessions.ContainsKey(session.ConnectionId) ||
                     _sessions.ContainsKey(session.ConnectionId) &&
                     !_sessions[session.ConnectionId].MasterId.Equals(session.MasterId) ||
+                    _pendingWorldSessions.Values.Any(existing => existing.CleanupRequested &&
+                                                                 existing.Session.MasterId == session.MasterId) ||
                     _sessions.Values.Any(existing => existing is IGameWorldSession worldSession &&
                                                      existing.MasterId == session.MasterId))
                 {
@@ -86,11 +88,47 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
+        public async ValueTask<bool> TryRetainWorldSessionForCleanup(IGameSession expectedSession)
+        {
+            using (await _lock.WriterLockAsync())
+            {
+                if (_pendingWorldSessions.TryGetValue(expectedSession.ConnectionId, out var pendingSession) &&
+                    ReferenceEquals(pendingSession.Session, expectedSession))
+                {
+                    pendingSession.CleanupRequested = true;
+                    return true;
+                }
+
+                if (!_sessions.TryGetValue(expectedSession.ConnectionId, out var activeSession) ||
+                    !ReferenceEquals(activeSession, expectedSession) ||
+                    activeSession is not IGameWorldSession)
+                {
+                    return false;
+                }
+
+                _sessions.Remove(expectedSession.ConnectionId);
+                _pendingWorldSessions[expectedSession.ConnectionId] = new PendingWorldSession(expectedSession, null)
+                {
+                    CleanupRequested = true
+                };
+                return true;
+            }
+        }
+
         public async ValueTask<bool> TryRemovePendingWorldSession(IGameSession expectedSession)
         {
             using (await _lock.WriterLockAsync())
             {
                 return TryRemovePendingWorldSessionUnsafe(expectedSession);
+            }
+        }
+
+        public async ValueTask<bool> IsPendingWorldSession(IGameSession expectedSession)
+        {
+            using (await _lock.ReaderLockAsync())
+            {
+                return _pendingWorldSessions.TryGetValue(expectedSession.ConnectionId, out var pendingSession) &&
+                       ReferenceEquals(pendingSession.Session, expectedSession);
             }
         }
 
@@ -103,12 +141,14 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
-        public async ValueTask<(bool Removed, IGameSession? Session)> TryRemove(string connectionId)
+        public async ValueTask<IReadOnlyList<IGameWorldSession>> FindWorldSessionsPendingCleanup()
         {
-            using (await _lock.WriterLockAsync())
+            using (await _lock.ReaderLockAsync())
             {
-                var removed = _sessions.Remove(connectionId, out var session);
-                return (removed, session);
+                return _pendingWorldSessions.Values
+                    .Where(pending => pending.CleanupRequested)
+                    .Select(pending => (IGameWorldSession)pending.Session)
+                    .ToArray();
             }
         }
 
@@ -126,26 +166,6 @@ namespace Hagalaz.Services.GameWorld.Store
 
                 var removed = _sessions.Remove(expectedSession.ConnectionId, out var session);
                 return (removed, session);
-            }
-        }
-
-        public async ValueTask<bool> TryReplace(IGameSession expectedSession, IGameSession replacement)
-        {
-            using (await _lock.WriterLockAsync())
-            {
-                if (!_sessions.TryGetValue(expectedSession.ConnectionId, out var current) ||
-                    !ReferenceEquals(current, expectedSession) ||
-                    (_sessions.TryGetValue(replacement.ConnectionId, out var existingConnection) &&
-                     !ReferenceEquals(existingConnection, expectedSession)) ||
-                    _sessions.Values.Any(existing =>
-                        !ReferenceEquals(existing, expectedSession) && existing.MasterId == replacement.MasterId))
-                {
-                    return false;
-                }
-
-                _sessions.Remove(expectedSession.ConnectionId);
-                _sessions[replacement.ConnectionId] = replacement;
-                return true;
             }
         }
 
@@ -185,6 +205,17 @@ namespace Hagalaz.Services.GameWorld.Store
             return _pendingWorldSessions.Remove(expectedSession.ConnectionId);
         }
 
-        private sealed record PendingWorldSession(IGameSession Session, IGameSession? PreviousSession);
+        private sealed class PendingWorldSession
+        {
+            public PendingWorldSession(IGameSession session, IGameSession? previousSession)
+            {
+                Session = session;
+                PreviousSession = previousSession;
+            }
+
+            public IGameSession Session { get; }
+            public IGameSession? PreviousSession { get; }
+            public bool CleanupRequested { get; set; }
+        }
     }
 }
