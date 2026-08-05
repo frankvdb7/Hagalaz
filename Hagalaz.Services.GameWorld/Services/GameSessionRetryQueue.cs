@@ -35,10 +35,26 @@ public sealed class GameSessionRetryQueue : BackgroundService
         IGameSessionClaimStore claims,
         IGameSessionConnectionTerminator connectionTerminator,
         ILogger<GameSessionRetryQueue> logger,
+        IGameSessionStore sessions)
+        : this(
+            claims,
+            connectionTerminator,
+            logger,
+            sessions,
+            DefaultCapacity,
+            GameSessionClaimOptions.RenewalInterval,
+            DefaultOverflowCapacity)
+    {
+    }
+
+    public GameSessionRetryQueue(
+        IGameSessionClaimStore claims,
+        IGameSessionConnectionTerminator connectionTerminator,
+        ILogger<GameSessionRetryQueue> logger,
         IGameSessionStore sessions,
-        int capacity = DefaultCapacity,
-        TimeSpan? retryBackoff = null,
-        int overflowCapacity = DefaultOverflowCapacity)
+        int capacity,
+        TimeSpan retryBackoff,
+        int overflowCapacity)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(overflowCapacity);
@@ -47,7 +63,7 @@ public sealed class GameSessionRetryQueue : BackgroundService
         _sessions = sessions;
         _logger = logger;
         _retrySlots = new SemaphoreSlim(capacity, capacity);
-        _retryBackoff = retryBackoff ?? GameSessionClaimOptions.RenewalInterval;
+        _retryBackoff = retryBackoff;
         _overflowCapacity = overflowCapacity;
         _items = Channel.CreateBounded<Func<CancellationToken, ValueTask>>(new BoundedChannelOptions(capacity)
         {
@@ -86,9 +102,15 @@ public sealed class GameSessionRetryQueue : BackgroundService
         return TryQueueOverflowClaimRelease(masterId, claimId);
     }
 
-    public bool TryQueueConnectionAbort(
+    public bool TryQueueConnectionAbort(IGameSession session) =>
+        TryQueueAbort(session, clearPendingReservation: false);
+
+    public bool TryQueuePendingAbort(IGameSession session) =>
+        TryQueueAbort(session, clearPendingReservation: true);
+
+    private bool TryQueueAbort(
         IGameSession session,
-        bool clearPendingReservation = false)
+        bool clearPendingReservation)
     {
         if (_retrySlots.Wait(0))
         {

@@ -397,7 +397,9 @@ public sealed class GameSessionServiceTests
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
             store,
-            capacity: 1);
+            capacity: 1,
+            retryBackoff: GameSessionClaimOptions.RenewalInterval,
+            overflowCapacity: GameSessionRetryQueue.DefaultOverflowCapacity);
         var session = CreateLobbySession(42, "connection");
 
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(session));
@@ -432,6 +434,28 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
+    public async Task RetryQueue_PendingAbort_ClearsItsReservationAfterSuccessfulAbort()
+    {
+        var store = new GameSessionStore();
+        var session = CreateLobbySession(42, "pending-abort-connection");
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var retryQueue = new GameSessionRetryQueue(
+            Substitute.For<IGameSessionClaimStore>(),
+            terminator,
+            NullLogger<GameSessionRetryQueue>.Instance,
+            store);
+
+        Assert.IsTrue(await store.TryAdd(session));
+        Assert.IsTrue(await store.TryMoveToPendingAbort(session));
+        Assert.IsTrue(retryQueue.TryQueuePendingAbort(session));
+
+        await retryQueue.ProcessNextAsync(CancellationToken.None);
+
+        terminator.Received(1).Abort(session);
+        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+    }
+
+    [TestMethod]
     [Timeout(5000)]
     public async Task CommitWorldSession_WhenAbortRetryQueueIsFull_PromotesWithoutBlocking()
     {
@@ -447,6 +471,7 @@ public sealed class GameSessionServiceTests
             NullLogger<GameSessionRetryQueue>.Instance,
             store,
             capacity: 1,
+            retryBackoff: GameSessionClaimOptions.RenewalInterval,
             overflowCapacity: 1);
         var service = new GameSessionService(store, factory, claims, terminator, NullLogger<GameSessionService>.Instance, retryQueue);
 
@@ -477,6 +502,7 @@ public sealed class GameSessionServiceTests
             NullLogger<GameSessionRetryQueue>.Instance,
             store,
             capacity: 1,
+            retryBackoff: GameSessionClaimOptions.RenewalInterval,
             overflowCapacity: 1);
         var service = new GameSessionService(
             store,
@@ -548,6 +574,7 @@ public sealed class GameSessionServiceTests
             NullLogger<GameSessionRetryQueue>.Instance,
             store,
             capacity: 1,
+            retryBackoff: GameSessionClaimOptions.RenewalInterval,
             overflowCapacity: 1);
         var service = new GameSessionService(
             store,
@@ -595,6 +622,7 @@ public sealed class GameSessionServiceTests
             NullLogger<GameSessionRetryQueue>.Instance,
             store,
             capacity: 1,
+            retryBackoff: GameSessionClaimOptions.RenewalInterval,
             overflowCapacity: 1);
         var service = new GameSessionService(
             store,
@@ -699,7 +727,8 @@ public sealed class GameSessionServiceTests
             NullLogger<GameSessionRetryQueue>.Instance,
             store,
             capacity: 2,
-            retryBackoff: TimeSpan.FromMilliseconds(20));
+            retryBackoff: TimeSpan.FromMilliseconds(20),
+            overflowCapacity: GameSessionRetryQueue.DefaultOverflowCapacity);
 
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(session));
         Assert.IsTrue(retryQueue.TryQueueClaimRelease(42, "claim"));
@@ -1055,7 +1084,9 @@ public sealed class GameSessionServiceTests
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
             store,
-            capacity: 1);
+            capacity: 1,
+            retryBackoff: GameSessionClaimOptions.RenewalInterval,
+            overflowCapacity: GameSessionRetryQueue.DefaultOverflowCapacity);
         var occupiedRetry = CreateSession(99, "occupied-connection", "occupied-claim");
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedRetry));
 
@@ -1103,7 +1134,9 @@ public sealed class GameSessionServiceTests
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
             store,
-            capacity: 1);
+            capacity: 1,
+            retryBackoff: GameSessionClaimOptions.RenewalInterval,
+            overflowCapacity: GameSessionRetryQueue.DefaultOverflowCapacity);
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedRetry));
 
         Assert.IsTrue(await store.TryAdd(lostSession));
@@ -1140,6 +1173,7 @@ public sealed class GameSessionServiceTests
             NullLogger<GameSessionRetryQueue>.Instance,
             store,
             capacity: 1,
+            retryBackoff: GameSessionClaimOptions.RenewalInterval,
             overflowCapacity: 1);
         var occupiedRetry = CreateSession(99, "occupied-connection", "occupied-claim");
         var firstOverflow = CreateSession(42, "first-overflow-connection", "first-overflow-claim");
@@ -1170,7 +1204,9 @@ public sealed class GameSessionServiceTests
             terminator,
             NullLogger<GameSessionRetryQueue>.Instance,
             store,
-            capacity: 1);
+            capacity: 1,
+            retryBackoff: GameSessionClaimOptions.RenewalInterval,
+            overflowCapacity: GameSessionRetryQueue.DefaultOverflowCapacity);
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(occupiedSession));
         Assert.IsTrue(retryQueue.TryQueueConnectionAbort(overflowSession));
 
