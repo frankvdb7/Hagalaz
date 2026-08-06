@@ -128,6 +128,7 @@ public sealed class GameSessionServiceTests
         var secondLease = await store.TryBeginPendingSessionAbort(session);
         Assert.IsTrue(secondLease.HasValue);
         Assert.AreNotEqual(firstLease.Value.Token, secondLease.Value.Token);
+        Assert.IsFalse(await store.TryReleasePendingSessionAbort(session, firstLease.Value));
         Assert.IsFalse(await store.TryCompletePendingSessionAbort(session, firstLease.Value));
         Assert.IsTrue(await store.TryCompletePendingSessionAbort(session, secondLease.Value));
         Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
