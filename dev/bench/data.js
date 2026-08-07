@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785674609901,
+  "lastUpdate": 1786095526219,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -17484,6 +17484,378 @@ window.BENCHMARK_DATA = {
             "value": 0.3656476722657681,
             "unit": "ns",
             "range": "± 0.000056120382339565286"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4bc11a2c39e3eeb1d5ece531efe8867b68fe0deb",
+          "message": "Enforce exclusive GameWorld session ownership per master (#351)\n\n* Enforce exclusive GameWorld session ownership\n\n* Test concurrent game session claim exclusivity\n\n* Relax GameSessionService session claim assertions\n\n* Bounded session cleanup retry queue with overflow handling\n\nIntroduce primary/overflow capacity to GameSessionRetryQueue with coalescing and overflow rejection. Replace async queueing with non-blocking TryQueue* methods. Update GameSessionStore/Service to retain sessions for deferred cleanup on overflow, and add lease reconciliation for periodic cleanup. Add CleanupRequested flag and related APIs. Expand tests for overflow, coalescing, and reconciliation. Remove obsolete TryReplace. Improve logging for operational visibility.\n\n* Improve session abort handling and CodeQL workflow\n\nRefactor GameSessionLeaseService to retain sessions for abort when retry queue is full, ensuring reconciliation in the next lease cycle. Extend GameSessionStore with pending abort tracking methods. Update tests for session abort, lease reconciliation, and renewal order. Enhance logging for retained sessions. Update CodeQL workflow to v4, add manual build steps, and specify security-and-quality queries. Track workflow files in solution.\n\n* Enforce atomic pending aborts and block conn ID reuse\n\nAdded tests to verify pending aborts block connection ID reuse and ensure atomicity. Updated GameSessionLeaseService to handle deferred aborts with improved logging and error handling. Refactored session cleanup in GameSessionService with a new helper method. Strengthened GameSessionStore logic to prevent session actions if a pending abort exists and made abort retention atomic. Renamed TryRetainSessionForAbort to TryMoveToPendingAbort in IGameSessionStore for clarity.\n\n* Add acknowledgeSuccess callback to abort retry logic\n\nIntroduce optional acknowledgeSuccess callback to GameSessionRetryQueue for connection aborts. The callback is invoked after a successful abort to clear session reservations. Update queue logic and service methods to support and propagate the callback. Extend tests to verify reservation clearing and connection reuse.\n\n* Atomic reservation for pending session aborts\n\nIntroduce atomic reservation mechanism for processing pending session aborts in GameSessionStore and related services. Add PendingSessionAbort with Processing flag and update IGameSessionStore with TryBegin/Complete/ReleasePendingSessionAbort methods to ensure only one coordinator processes an abort at a time. Refactor all usages to use new methods, update GameSessionRetryQueue and services for correct reservation handling, and revise unit tests. FindSessionsPendingAbort now excludes sessions being processed. Improves concurrency safety and correctness.\n\n* Refactor GameSessionRetryQueue and pending abort logic\n\n- Refactored GameSessionRetryQueue to require explicit constructor parameters and added an overload for default construction.\n- Updated all usages to provide required parameters.\n- Split retry queue logic: TryQueueConnectionAbort always queues normal aborts; added TryQueuePendingAbort for aborts that clear pending reservations.\n- Updated GameSessionLeaseService and GameSessionService to use TryQueuePendingAbort for sessions with pending abort reservations.\n- Added unit test to verify pending aborts clear their reservation after successful abort.\n\n* Refactor session abort logic and retry queue types\n\nSeparated abort logic via IGameSessionAbortStore, updated GameSessionStore to implement both interfaces, and centralized session state management. Refactored GameSessionRetryQueue to use strongly-typed work items for improved type safety. Updated DI and usages to support new interfaces, clarified session state transitions, and improved internal slot management.\n\n* Refactor session abort handling and unify retry queue logic\n\nRefactor GameSessionStore to implement IGameSessionStore and IGameSessionAbortStore separately, removing inheritance. Update GameSessionService and GameSessionLeaseService to accept both stores, and adjust all abort method usages accordingly. Unify GameSessionRetryQueue overflow logic with a single dictionary keyed by RetryWorkKey, supporting both claim releases and aborts with correct prioritization. Update and expand tests for new logic, and fix minor test issues related to ValueTask and analyzer warnings.\n\n* Refactor session aborts; add OpenSpec workflow & docs\n\nIntroduced a repository-local OpenSpec workflow for managing proposals, designs, tasks, and specs. Replaced GameSessionRetryQueue with GameSessionAbortCoordinator, centralizing abort and retry logic under the lease cycle. Updated GameSessionService and dependencies to use the new coordinator, removing all retry queue references. Refactored session cleanup to ensure failed aborts are retried by the lease cycle. Expanded and updated unit tests for the new model. Added OpenSpec artifacts and skill definitions, updated configuration files, and revised main session specs to reflect the new approach and guardrails.\n\n* Improve session abort handling and recovery logic\n\nEnhance GameSessionStore to track abort processing state and timing. Ensure sessions are not stranded after abort completion failures by allowing retries after lease expiration. Update tests to verify retry and cleanup behavior. Strengthen GameSessionLeaseService to robustly handle aborts, exceptions, and lost claims. Update tasks checklist to reflect completed work on abort reservations and cleanup reporting.\n\n* Improve cancellation handling and exception logging\n\nRefactored tests to use CancellationTokenSource for better disposal. Enhanced AuthenticationService and GameSessionService to distinguish OperationCanceledException from other exceptions, logging cancellations separately. Updated FusionCacheGameSessionClaimStore to only log non-cancellation exceptions. Extracted claim retention logic in GameSessionService to RetainFailedClaimAsync for clearer cleanup and logging. Improved code clarity and reliability by handling cancellation distinctly.\n\n* Refactor session abort to lease-based IGameSessionAbortState\n\nRefactored session abort logic to use the new IGameSessionAbortState interface with atomic, lease-based operations and unique processing tokens. GameSessionStore now implements this interface and uses TimeProvider for lease expiration. Updated all usages, tests, and DI registrations. Removed obsolete IGameSessionAbortStore. Enhanced tests for lease and token handling.\n\n* Refactor abort processing to use value object lease\n\nReplaces primitive session abort processing fields with the new AbortProcessingLease value object, ensuring only the current lease holder can complete or release reservations. Updates all APIs, tests, and documentation to use AbortProcessingLease, improving safety and clarity. Introduces the AbortProcessingLease record struct to encapsulate processing token and start time.\n\n* Improve test coverage for session abort and lease logic\n\n- Add assertion in GameSessionServiceTests to verify TryReleasePendingSessionAbort returns false for outdated lease tokens.\n- Rename and enhance RaidoConnectionContextAdditionalTests to ensure abort callback is invoked only once, confirming abort idempotency.",
+          "timestamp": "2026-08-07T11:28:00+02:00",
+          "tree_id": "07c8f5f8b28709063e681078fe84cf1c51a174e0",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/4bc11a2c39e3eeb1d5ece531efe8867b68fe0deb"
+        },
+        "date": 1786095523439,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 4.041045646369457,
+            "unit": "ns",
+            "range": "± 0.019947583593725924"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 1.5241073355078698,
+            "unit": "ns",
+            "range": "± 0.13808725668216515"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 100)",
+            "value": 333.36596941947937,
+            "unit": "ns",
+            "range": "± 4.519147585188062"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 100)",
+            "value": 45.447501617670056,
+            "unit": "ns",
+            "range": "± 1.0189525079256156"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 100)",
+            "value": 608.6801247596741,
+            "unit": "ns",
+            "range": "± 2.8394250817088897"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 100)",
+            "value": 76.05518653988838,
+            "unit": "ns",
+            "range": "± 0.13056298332032593"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 100)",
+            "value": 554.7064328193665,
+            "unit": "ns",
+            "range": "± 1.6048615709950453"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 100)",
+            "value": 138.71329045295715,
+            "unit": "ns",
+            "range": "± 0.07886645491683705"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 100)",
+            "value": 35.027565613389015,
+            "unit": "ns",
+            "range": "± 0.15548160662239793"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 100)",
+            "value": 0.4061534684151411,
+            "unit": "ns",
+            "range": "± 0.004918945173019761"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 100)",
+            "value": 0.4055160738527775,
+            "unit": "ns",
+            "range": "± 0.001539785540066042"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 100)",
+            "value": 1111.8354699707031,
+            "unit": "ns",
+            "range": "± 3.4020401349926526"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 100)",
+            "value": 10558.848609375,
+            "unit": "ns",
+            "range": "± 129.25474574167353"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 100)",
+            "value": 3723753.2968749995,
+            "unit": "ns",
+            "range": "± 2430260.7405513786"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 100)",
+            "value": 2975695.2800000003,
+            "unit": "ns",
+            "range": "± 2081552.128916582"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 100)",
+            "value": 475.9402090072632,
+            "unit": "ns",
+            "range": "± 0.9422888486629173"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 100)",
+            "value": 44.297547209262845,
+            "unit": "ns",
+            "range": "± 1.3189496275492087"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 100)",
+            "value": 1205.2543549537659,
+            "unit": "ns",
+            "range": "± 4.1441746088597435"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 100)",
+            "value": 976.6626567840576,
+            "unit": "ns",
+            "range": "± 0.5498963730605263"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 100)",
+            "value": 1503.2319541931151,
+            "unit": "ns",
+            "range": "± 5.173215408872678"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 100)",
+            "value": 1071.588122367859,
+            "unit": "ns",
+            "range": "± 0.8834677258012936"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 100)",
+            "value": 810.8895840644836,
+            "unit": "ns",
+            "range": "± 1.2392209571502382"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 100)",
+            "value": 103.92541791200638,
+            "unit": "ns",
+            "range": "± 0.2443976118507331"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 1032.567346572876,
+            "unit": "ns",
+            "range": "± 1.0211387991637204"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 608.8859086990357,
+            "unit": "ns",
+            "range": "± 2.1014028380011283"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 100)",
+            "value": 690.7620401382446,
+            "unit": "ns",
+            "range": "± 0.9451907617785729"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 100)",
+            "value": 422.3745939731598,
+            "unit": "ns",
+            "range": "± 0.8768745065339454"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 100)",
+            "value": 2376.3613378906252,
+            "unit": "ns",
+            "range": "± 3.1373767034315487"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 100)",
+            "value": 0.3224469829797745,
+            "unit": "ns",
+            "range": "± 0.0017028540480422947"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 44.50085022449493,
+            "unit": "ns",
+            "range": "± 1.083911555805953"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 1.5347933927550912,
+            "unit": "ns",
+            "range": "± 0.04736063783947636"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 1000)",
+            "value": 2990.8299055099487,
+            "unit": "ns",
+            "range": "± 3.9466445253747495"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 1000)",
+            "value": 351.76830434799194,
+            "unit": "ns",
+            "range": "± 0.07447574915479266"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 1000)",
+            "value": 5723.4178676605225,
+            "unit": "ns",
+            "range": "± 5.082504337917539"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 1000)",
+            "value": 602.6071880340576,
+            "unit": "ns",
+            "range": "± 0.9643087269695846"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 1000)",
+            "value": 5055.066093444824,
+            "unit": "ns",
+            "range": "± 183.68802032075408"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 1000)",
+            "value": 1658.8362091064453,
+            "unit": "ns",
+            "range": "± 1.1307044131514181"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 1000)",
+            "value": 183.70173392295837,
+            "unit": "ns",
+            "range": "± 4.7107287136775176"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 1000)",
+            "value": 0.4071117052808404,
+            "unit": "ns",
+            "range": "± 0.005419306248474821"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 1000)",
+            "value": 0.3891403889283538,
+            "unit": "ns",
+            "range": "± 0.002205582538587669"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 1000)",
+            "value": 1114.7800521850586,
+            "unit": "ns",
+            "range": "± 5.940509622910877"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 1000)",
+            "value": 10590.965230468752,
+            "unit": "ns",
+            "range": "± 309.2906799200028"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 1000)",
+            "value": 5600066.033333333,
+            "unit": "ns",
+            "range": "± 2282866.6016802676"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 1000)",
+            "value": 3701474.3041666667,
+            "unit": "ns",
+            "range": "± 1868684.848648416"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 1000)",
+            "value": 482.51121253967284,
+            "unit": "ns",
+            "range": "± 1.7128318625497398"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 1000)",
+            "value": 151.58942773342133,
+            "unit": "ns",
+            "range": "± 1.6093253062756876"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 1000)",
+            "value": 12117.431213378906,
+            "unit": "ns",
+            "range": "± 575.9585015564611"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 1000)",
+            "value": 9837.324054718018,
+            "unit": "ns",
+            "range": "± 4.779829313069476"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 1000)",
+            "value": 15551.515625,
+            "unit": "ns",
+            "range": "± 198.25708230220985"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 1000)",
+            "value": 10455.185787963866,
+            "unit": "ns",
+            "range": "± 45.56309708179233"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 1000)",
+            "value": 8545.077081298828,
+            "unit": "ns",
+            "range": "± 429.5157884345079"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 1000)",
+            "value": 977.0130954742432,
+            "unit": "ns",
+            "range": "± 44.305341605271515"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 7177.872175598144,
+            "unit": "ns",
+            "range": "± 13.694535153967323"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 642.3640411376953,
+            "unit": "ns",
+            "range": "± 28.963519920135845"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 1000)",
+            "value": 5859.6662109375,
+            "unit": "ns",
+            "range": "± 83.54825592717499"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 1000)",
+            "value": 3148.7830352783203,
+            "unit": "ns",
+            "range": "± 66.74969051719224"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 1000)",
+            "value": 20181.091914062497,
+            "unit": "ns",
+            "range": "± 415.84734802749523"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 1000)",
+            "value": 0.34654810482263565,
+            "unit": "ns",
+            "range": "± 0.016341698327292695"
           }
         ]
       }
