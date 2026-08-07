@@ -6,6 +6,7 @@ using AutoMapper;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Factories;
@@ -115,7 +116,13 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
 
                 var masterId = Convert.ToUInt32(subject);
-                var session = (await _gameSessionService.AddSession(masterId, context.ConnectionId)).Session;
+                var sessionRegistration = await _gameSessionService.AddSession(masterId, context.ConnectionId);
+                if (!sessionRegistration.Created)
+                {
+                    return SignInResult.AlreadyLoggedOn;
+                }
+
+                var session = sessionRegistration.Session;
                 context.Features.Set<ISessionFeature>(new SessionFeature
                 {
                     Session = session
@@ -149,42 +156,50 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
 
                 var masterId = Convert.ToUInt32(subject);
-                CharacterModel characterModel;
-                try
+                var sessionRegistration = await _gameSessionService.TryAddWorldSession(masterId, context.ConnectionId, cancellationToken);
+                if (!sessionRegistration.Created || sessionRegistration.Session == null)
                 {
-                    var response = await _getCharacterRequestClient.GetResponse<CharacterHydrated, CharacterNotFound>(new HydrateCharacter(masterId),
-                        cancellationToken);
-                    if (response.Is<CharacterNotFound>(out var notFoundResult))
-                    {
-                        return SignInResult.Fail;
-                    }
-
-                    if (response.Is<CharacterHydrated>(out var hydrateCharacterResult))
-                    {
-                        characterModel = _mapper.Map<CharacterModel>(hydrateCharacterResult.Message);
-                        characterModel = characterModel with
-                        {
-                            Claims = _mapper.Map<HydratedClaims>(authentication.AuthenticationProperties)
-                        };
-                    }
-                    else
-                    {
-                        _logger.LogError("Failed to get valid hydrate character response '{type}'", response.Message.GetType());
-                        return SignInResult.Fail;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to get hydrate character response");
-                    return SignInResult.Fail;
+                    return SignInResult.AlreadyLoggedOn;
                 }
 
-                var sessionRegistration = await _gameSessionService.AddSession(masterId, context.ConnectionId);
                 var session = sessionRegistration.Session;
                 var signInSucceeded = false;
+                var characterRegistered = false;
+                ICharacter? registeredCharacter = null;
                 try
                 {
+                    CharacterModel characterModel;
+                    try
+                    {
+                        var response = await _getCharacterRequestClient.GetResponse<CharacterHydrated, CharacterNotFound>(new HydrateCharacter(masterId),
+                            cancellationToken);
+                        if (response.Is<CharacterNotFound>(out var notFoundResult))
+                        {
+                            return SignInResult.Fail;
+                        }
+
+                        if (response.Is<CharacterHydrated>(out var hydrateCharacterResult))
+                        {
+                            characterModel = _mapper.Map<CharacterModel>(hydrateCharacterResult.Message);
+                            characterModel = characterModel with
+                            {
+                                Claims = _mapper.Map<HydratedClaims>(authentication.AuthenticationProperties)
+                            };
+                        }
+                        else
+                        {
+                            _logger.LogError("Failed to get valid hydrate character response '{type}'", response.Message.GetType());
+                            return SignInResult.Fail;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to get hydrate character response");
+                        return SignInResult.Fail;
+                    }
+
                     var character = _characterFactory.Create(session, signInRequest.GameClient);
+                    registeredCharacter = character;
                     if (!await _characterHydrationService.HydrateAsync(character, characterModel))
                     {
                         _logger.LogWarning("Unable to hydrate character '{character}'", character);
@@ -194,6 +209,13 @@ namespace Hagalaz.Services.GameWorld.Services
                     if (!await _characterService.AddAsync(character))
                     {
                         _logger.LogWarning("Unable to add character '{character}'", character);
+                        return SignInResult.Fail;
+                    }
+
+                    characterRegistered = true;
+                    if (!await _gameSessionService.CommitWorldSession(session, cancellationToken))
+                    {
+                        _logger.LogWarning("Unable to commit world session '{connectionId}' after character registration", session.ConnectionId);
                         return SignInResult.Fail;
                     }
 
@@ -214,13 +236,39 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     if (!signInSucceeded && sessionRegistration.Created)
                     {
+                        if (characterRegistered)
+                        {
+                            try
+                            {
+                                await _characterService.RemoveAsync(registeredCharacter!);
+                            }
+                            catch (OperationCanceledException ex)
+                            {
+                                _logger.LogError(ex, "Character removal was canceled after world sign-in failed");
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                _logger.LogError(ex, "Failed to remove character after world sign-in failed");
+                            }
+                        }
+
                         try
                         {
-                            await _gameSessionService.RemoveSession(session.ConnectionId);
+                            // Cleanup must remain possible after request cancellation so an
+                            // acquired claim cannot remain until its lease expires.
+                            await _gameSessionService.RemoveSession(sessionRegistration.Session, CancellationToken.None);
                         }
-                        catch (Exception ex)
+                        catch (OperationCanceledException ex)
+                        {
+                            _logger.LogError(ex, "Game-session removal was canceled after world sign-in failed");
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
                         {
                             _logger.LogError(ex, "Failed to remove game session '{connectionId}' after world sign-in failed", session.ConnectionId);
+                        }
+                        finally
+                        {
+                            await _gameSessionService.RemoveLocalSession(sessionRegistration.Session);
                         }
                     }
                 }
@@ -360,16 +408,17 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
                 finally
                 {
+                    var sessionRemoved = session == null;
                     try
                     {
-                        if (session != null)
+                        if (session != null && persistenceSucceeded)
                         {
-                            await _gameSessionService.RemoveSession(session.ConnectionId);
+                            sessionRemoved = await _gameSessionService.RemoveSession(session);
                         }
                     }
                     finally
                     {
-                        if (character != null && persistenceSucceeded)
+                        if (character != null && persistenceSucceeded && sessionRemoved)
                         {
                             await _characterLogoutService.DetachAsync(character);
                         }

@@ -81,6 +81,20 @@
           "System.Diagnostics.EventLog": "6.0.0"
         }
       },
+      "DistributedLock.Core": {
+        "type": "Transitive",
+        "resolved": "1.0.8",
+        "contentHash": "LAOsY8WxX8JU/n3lfXFz+f2pfnv0+4bHkCrOO3bwa28u9HrS3DlxSG6jf+u76SqesKs+KehZi0CndkfaUXBKvg=="
+      },
+      "DistributedLock.Redis": {
+        "type": "Transitive",
+        "resolved": "1.1.1",
+        "contentHash": "6HZkVS+ozUJqqv6bmDRfT2ie6h+X721NlPmKZ3Mq6+oFhSiaTgGCFY5Kw9j34Je+rzFE5sO3BRxtr8bccS5Vzg==",
+        "dependencies": {
+          "DistributedLock.Core": "[1.0.8, 1.1.0)",
+          "StackExchange.Redis": "2.7.33"
+        }
+      },
       "FluentResults": {
         "type": "Transitive",
         "resolved": "4.0.0",
@@ -218,6 +232,11 @@
         "dependencies": {
           "Microsoft.OpenApi": "2.0.0"
         }
+      },
+      "Microsoft.Bcl.AsyncInterfaces": {
+        "type": "Transitive",
+        "resolved": "10.0.1",
+        "contentHash": "E1HSLkPHXEO30JEij2pWbOuzz1Z5ND4a5l7IP1T2RgQuE0a0NzEIvtO64RNy3Otn6PFezbT80cfm3M/Cgt70PA=="
       },
       "Microsoft.Bcl.Cryptography": {
         "type": "Transitive",
@@ -1085,8 +1104,8 @@
       },
       "StackExchange.Redis": {
         "type": "Transitive",
-        "resolved": "2.7.27",
-        "contentHash": "Uqc2OQHglqj9/FfGQ6RkKFkZfHySfZlfmbCl+hc+u2I/IqunfelQ7QJi7ZhvAJxUtu80pildVX6NPLdDaUffOw==",
+        "resolved": "2.7.33",
+        "contentHash": "2kCX5fvhEE824a4Ab5Imyi8DRuGuTxyklXV01kegkRpsWJcPmO6+GAQ+HegKxvXAxlXZ8yaRspvWJ8t3mMClfQ==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "6.0.0",
           "Pipelines.Sockets.Unofficial": "2.2.8"
@@ -1166,6 +1185,16 @@
         "contentHash": "BCe+/SkwQZfaMpq2ZGDZB2pyx6BdGnP+zxqjMM/5K+4PBuH6hljZeIqH4KVzQ26khSbPsQ7IiYZl0Fve4OZOog==",
         "dependencies": {
           "Microsoft.Extensions.Caching.Memory": "10.0.1"
+        }
+      },
+      "ZiggyCreatures.FusionCache.Locking.Distributed.Redis": {
+        "type": "Transitive",
+        "resolved": "2.6.0",
+        "contentHash": "Rt8pJxY2SVNqxzdmgx/8CzDk7GeTmjyq/diA/ISrI7uUArfRJv6QxD496jszAF6G1O34y3Ut/AE2vrHqisIJmw==",
+        "dependencies": {
+          "DistributedLock.Redis": "1.1.1",
+          "Microsoft.Bcl.AsyncInterfaces": "10.0.1",
+          "ZiggyCreatures.FusionCache": "2.6.0"
         }
       },
       "ZiggyCreatures.FusionCache.Serialization.SystemTextJson": {
@@ -1423,6 +1452,7 @@
           "Scrutor": "[7.0.0, )",
           "System.Linq.Async": "[7.0.1, )",
           "ZiggyCreatures.FusionCache": "[2.6.0, )",
+          "ZiggyCreatures.FusionCache.Locking.Distributed.Redis": "[2.6.0, )",
           "ZiggyCreatures.FusionCache.Serialization.SystemTextJson": "[2.6.0, )"
         }
       },

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Raido.Server.Extensions;
 using MassTransit;
 using System;
+using System.Threading.Tasks;
 using System.Threading.RateLimiting;
 using AutoMapper;
 using Hagalaz.Cache;
@@ -88,13 +89,13 @@ using Hagalaz.Services.GameWorld.Logic.Loot;
 using Hagalaz.Services.GameWorld.Logic.Skills;
 using Hagalaz.Services.GameWorld.Services.Cache;
 using Microsoft.Extensions.Caching.Hybrid;
-using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.EntityFrameworkCore;
 using Hagalaz.Data;
 using Polly;
 using Polly.CircuitBreaker;
 using Polly.RateLimiting;
 using ZiggyCreatures.Caching.Fusion;
+using ZiggyCreatures.Caching.Fusion.Locking.Distributed.Redis;
 using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
 
 namespace Hagalaz.Services.GameWorld
@@ -112,14 +113,24 @@ namespace Hagalaz.Services.GameWorld
         {
             services.AddHealthChecks();
 
+            var redisConnection = Configuration.GetConnectionString("cache")
+                ?? throw new InvalidOperationException("The Redis cache connection string is required.");
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = redisConnection;
+            });
+
+            services.AddFusionCacheRedisDistributedLocker(options =>
+            {
+                options.Configuration = redisConnection;
+            });
+
             // fusion cache
             services.AddFusionCache()
                 .WithDefaultEntryOptions(options => options.Duration = TimeSpan.FromMinutes(5))
                 .WithSerializer(new FusionCacheSystemTextJsonSerializer())
-                .WithDistributedCache(new RedisCache(new RedisCacheOptions
-                {
-                    Configuration = Configuration.GetConnectionString("cache")
-                }))
+                .WithRegisteredDistributedCache()
+                .WithRegisteredDistributedLocker()
                 .AsHybridCache();
 
             // polly
@@ -130,7 +141,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IAuthenticationService, AuthenticationService>();
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();
-            services.AddSingleton<IBackgroundTaskQueue>(_ => new DefaultBackgroundTaskQueue(100));
+            services.AddSingleton<IBackgroundTaskQueue>(_ => new DefaultBackgroundTaskQueue(DefaultBackgroundTaskQueue.DefaultCapacity));
             services.AddHostedService<WorldStatusService>();
             services.AddHostedService<QueuedHostedService>();
             services.AddHostedService<GameWorkerService>();
@@ -150,7 +161,15 @@ namespace Hagalaz.Services.GameWorld
 
             services.AddScoped<IGameSessionService, GameSessionService>();
             services.AddScoped<IGameConnectionService, GameConnectionService>();
+            services.AddSingleton(System.TimeProvider.System);
             services.AddSingleton<GameSessionStore>();
+            services.AddSingleton<IGameSessionStore>(serviceProvider => serviceProvider.GetRequiredService<GameSessionStore>());
+            // Both capabilities intentionally resolve to this one singleton; the interfaces are capability boundaries.
+            services.AddSingleton<IGameSessionAbortState>(serviceProvider => serviceProvider.GetRequiredService<GameSessionStore>());
+            services.AddSingleton<IGameSessionClaimStore, FusionCacheGameSessionClaimStore>();
+            services.AddSingleton<IGameSessionConnectionTerminator, GameSessionConnectionTerminator>();
+            services.AddSingleton<GameSessionAbortCoordinator>();
+            services.AddHostedService<GameSessionLeaseService>();
 
             // character
             services.AddScoped<ICharacterFactory, CharacterFactory>();

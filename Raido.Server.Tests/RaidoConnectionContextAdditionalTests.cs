@@ -104,13 +104,18 @@ public sealed class RaidoConnectionContextAdditionalTests
     }
 
     [TestMethod]
-    public async Task Context_AbortsAndCompletesAbortAsync()
+    public async Task Context_AbortIsIdempotentAndCompletesAbortAsync()
     {
         var (context, _, _) = CreateContext();
+        var abortCallbackCount = 0;
+        using var registration = context.ConnectionAbortedToken.Register(() => Interlocked.Increment(ref abortCallbackCount));
+
         context.Abort();
         await context.AbortAsync();
+        context.Abort();
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
         await context.AbortAsync();
+        Assert.AreEqual(1, abortCallbackCount);
     }
 
     [TestMethod]

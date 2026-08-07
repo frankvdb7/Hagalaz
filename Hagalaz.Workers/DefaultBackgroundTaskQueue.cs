@@ -7,6 +7,8 @@ namespace Hagalaz.Workers
 {
     public class DefaultBackgroundTaskQueue : IBackgroundTaskQueue
     {
+        public const int DefaultCapacity = 100;
+
         private readonly Channel<Func<CancellationToken, ValueTask>> _queue;
 
         public DefaultBackgroundTaskQueue(int capacity)
