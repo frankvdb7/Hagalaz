@@ -201,7 +201,7 @@ public sealed class MovementTests
     [DataRow(2, -1, -1, 0, -1)]
     [DataRow(2, 1, -1, 2, -1)]
     [DataRow(2, -1, 1, 0, 2)]
-    [DataRow(2, 1, 1, 1, 1)]
+    [DataRow(2, 1, 1, 2, 1)]
     [DataRow(3, -1, 0, -1, 1)]
     [DataRow(3, 1, 0, 3, 1)]
     [DataRow(3, 0, -1, 1, -1)]
