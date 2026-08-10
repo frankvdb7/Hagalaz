@@ -365,6 +365,8 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.SnapshotRevision).HasColumnType("bigint").HasColumnName("snapshot_revision").HasDefaultValue(0L).IsConcurrencyToken();
 
+                entity.Property(e => e.SnapshotFingerprint).HasMaxLength(64).HasColumnName("snapshot_fingerprint").HasDefaultValue(string.Empty);
+
                 entity.Property(e => e.LockoutEnabled).HasColumnType("bit(1)").HasDefaultValueSql("b'0'");
 
                 entity.Property(e => e.LockoutEnd).HasColumnType("datetime(6)").HasMaxLength(6);

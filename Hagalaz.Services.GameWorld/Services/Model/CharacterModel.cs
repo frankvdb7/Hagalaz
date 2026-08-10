@@ -17,5 +17,6 @@ namespace Hagalaz.Services.GameWorld.Services.Model
         public HydratedProfileDto Profile { get; init; } = default!;
         public HydratedItemAppearanceCollectionDto ItemAppearanceCollection { get; init; } = default!;
         public HydratedStateDto State { get; init; } = default!;
+        public long SnapshotRevision { get; init; }
     }
 }

@@ -55,11 +55,11 @@ public sealed class CharacterPersistenceIntegrationTests
         await using var provider = CreateProvider();
         var harness = provider.GetTestHarness();
         var acknowledgementCapture = provider.GetRequiredService<AcknowledgementCapture>();
+        var command = CreateCommand(masterId, 1);
         await harness.Start();
 
         try
         {
-            var command = CreateCommand(masterId, 1);
             using (var scope = provider.CreateScope())
             {
                 var publishEndpoint = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
@@ -71,6 +71,7 @@ public sealed class CharacterPersistenceIntegrationTests
             var acknowledgement = await acknowledgementCapture.Received.Task.WaitAsync(deliveryTimeout.Token);
             Assert.AreEqual(masterId, acknowledgement.MasterId);
             Assert.AreEqual(1L, acknowledgement.SnapshotRevision);
+            Assert.AreEqual(CharacterPersistenceOutcome.Committed, acknowledgement.Outcome);
         }
         finally
         {
@@ -80,6 +81,7 @@ public sealed class CharacterPersistenceIntegrationTests
         await using var verificationContext = CreateContext();
         var character = await verificationContext.Characters.SingleAsync(x => x.Id == masterId);
         Assert.AreEqual(1L, character.SnapshotRevision);
+        Assert.AreEqual(CharacterSnapshotFingerprint.Compute(command), character.SnapshotFingerprint);
         Assert.AreEqual(3200, character.CoordX);
     }
 
@@ -101,8 +103,13 @@ public sealed class CharacterPersistenceIntegrationTests
             await Task.WhenAll(harness.Bus.Publish(olderCommand), harness.Bus.Publish(newerCommand));
 
             using var retryTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
-            var acknowledgedRevisions = await retryCompletion.Completed.Task.WaitAsync(retryTimeout.Token);
-            CollectionAssert.AreEquivalent(new long[] { 2, 3 }, acknowledgedRevisions.ToArray());
+            var acknowledgements = await retryCompletion.Completed.Task.WaitAsync(retryTimeout.Token);
+            Assert.IsTrue(acknowledgements.Any(x =>
+                x.SnapshotRevision == 3L &&
+                x.Outcome == CharacterPersistenceOutcome.Committed));
+            Assert.IsTrue(acknowledgements.Any(x =>
+                x.SnapshotRevision == 2L &&
+                x.Outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Conflict));
         }
         finally
         {
@@ -270,19 +277,19 @@ public sealed class CharacterPersistenceIntegrationTests
     private sealed class RetryCompletionCapture
     {
         private readonly object _sync = new();
-        private readonly HashSet<long> _acknowledgedRevisions = [];
+        private readonly List<PersistCharacterAcknowledged> _acknowledgements = [];
 
-        public TaskCompletionSource<IReadOnlySet<long>> Completed { get; } =
+        public TaskCompletionSource<IReadOnlyList<PersistCharacterAcknowledged>> Completed { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public void Record(PersistCharacterAcknowledged acknowledgement)
         {
             lock (_sync)
             {
-                _acknowledgedRevisions.Add(acknowledgement.SnapshotRevision);
-                if (_acknowledgedRevisions.Count >= 2)
+                _acknowledgements.Add(acknowledgement);
+                if (_acknowledgements.Select(x => x.SnapshotRevision).Distinct().Count() >= 2)
                 {
-                    Completed.TrySetResult(_acknowledgedRevisions.ToHashSet());
+                    Completed.TrySetResult(_acknowledgements.ToArray());
                 }
             }
         }

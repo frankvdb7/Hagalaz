@@ -7,4 +7,5 @@ namespace Hagalaz.Characters.Messages;
 public record PersistCharacterAcknowledged(
     Guid CorrelationId,
     uint MasterId,
-    long SnapshotRevision);
+    long SnapshotRevision,
+    CharacterPersistenceOutcome? Outcome = null);
