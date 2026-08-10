@@ -4,11 +4,11 @@
     "net10.0": {
       "MassTransit.EntityFrameworkCore": {
         "type": "Direct",
-        "requested": "[8.5.10, )",
-        "resolved": "8.5.10",
-        "contentHash": "eCfWj3l4WMlDOc64I48yq3jePQMaQ+07hGIpWngvYW8/ey7qbayO4osHeO0m/FKBPUIfNJqTMRqAqWMn/xV+ww==",
+        "requested": "[9.2.0, )",
+        "resolved": "9.2.0",
+        "contentHash": "Fm9MDAB/qoXv17s2HmE/UmrA1lCJSbb40Suw8gdjBI0huIzkQmygYbNqOqzB9ryxKa9I/V9Xjn90YLHfrjGmBg==",
         "dependencies": {
-          "MassTransit": "8.5.10",
+          "MassTransit": "9.2.0",
           "Microsoft.EntityFrameworkCore.Relational": "10.0.0"
         }
       },
@@ -139,16 +139,16 @@
       },
       "MassTransit": {
         "type": "Transitive",
-        "resolved": "8.5.10",
-        "contentHash": "TGi34UA8RftBIpYCHEdoIP5uSu2/pLWZRen4RUcg4CV1nr8MmCZMuFYjzvXXUyFcj0ZuRQxZZNhG7fB5/raSOg==",
+        "resolved": "9.2.0",
+        "contentHash": "jPzXSKh1h+zSLHNoI2EadZuqml+pSk2B7pB4S7ylaCdLRqYlImBgZNyzkTNK1PGeP4/w0LGTjNY6q0r4rd+bzA==",
         "dependencies": {
-          "MassTransit.Abstractions": "8.5.10"
+          "MassTransit.Abstractions": "9.2.0"
         }
       },
       "MassTransit.Abstractions": {
         "type": "Transitive",
-        "resolved": "8.5.10",
-        "contentHash": "nZnm2YNH+NcVwY6yC114sJy8J9LtKdFjfKUm/A5HfmzOlZ8ksjgHaPBg5XCG1VAqKDRDFnaudIcesVultKJD7g=="
+        "resolved": "9.2.0",
+        "contentHash": "9nMSgeU4sH/1P1MZFQiZ78K/DNk9l1iSCMJi+iH1JNFMuNkvr1xpSc5HkmbARK+dyFe6yUJkD8o16T+UoM+VyA=="
       },
       "Microsoft.Bcl.Cryptography": {
         "type": "Transitive",
