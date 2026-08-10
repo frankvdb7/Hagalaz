@@ -24,7 +24,6 @@
 //         public static Task<PacketComposer> WriteDataAsync(PacketComposer composer, ICharacter character, bool forceRefresh)
 //         {
 //             return Task.FromResult(composer);
-//             // var regionManager = ServiceLocator.Current.GetInstance<IMapRegionService>();
 //             //
 //             // composer.SetOpcode(153);
 //             // composer.AppendByteC(1); // map load type.

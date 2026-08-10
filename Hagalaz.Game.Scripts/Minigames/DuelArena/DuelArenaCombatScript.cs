@@ -264,7 +264,6 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 }
 
                 // TODO
-                //var database = ServiceLocator.Current.GetInstance<ISqlDatabaseManager>();
                 // database.ExecuteAsync(new ActivityLogQuery(character.MasterId, "Duel Victory", "I have defeated " + Character.DisplayName + " in the duel arena."));
             }
         }

@@ -1,7 +1,9 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Scripts.Model.Maps;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave
 {
@@ -10,6 +12,8 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave
     [AreaScriptMetaData([18])]
     public class TzHaarFightCaves : AreaScript
     {
+        public TzHaarFightCaves(IOptions<WorldOptions> worldOptions) : base(worldOptions) { }
+
         /// <summary>
         ///     Called when [creature enter area].
         /// </summary>

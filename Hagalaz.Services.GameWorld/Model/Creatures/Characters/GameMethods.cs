@@ -407,7 +407,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (currentExperience >= StatisticsConstants.MaximumExperience)
             {
                 // TODO
-                //var database = ServiceLocator.Current.GetInstance<ISqlDatabaseManager>();
                 //database.ExecuteAsync(new ActivityLogQuery(MasterId,
                 //    "Max-Experience",
                 //    "I have achieved 200 million XP in " + StatisticsConstants.SkillNames[skillID] + "."));

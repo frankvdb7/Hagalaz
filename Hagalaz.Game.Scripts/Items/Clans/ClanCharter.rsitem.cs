@@ -393,7 +393,6 @@ namespace Hagalaz.Game.Scripts.Items.Clans
                     AttachDialogueOptionClickHandler(input,
                         (e1, e2) =>
                         {
-                            //var adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
                             //adapter.SendPacketAsync(new AddClanRequestPacketComposer(Owner, input, _script.Founders));
                             return true;
                         });
