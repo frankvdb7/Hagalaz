@@ -18,7 +18,7 @@ The system SHALL derive each new character snapshot revision from the character'
 
 ### Requirement: Hydration exposes persisted revision
 
-The Characters hydration response SHALL include the persisted snapshot revision, and GameWorld SHALL carry that value through its hydration state and initialize the character persistence state before the character can be flushed.
+The Characters hydration response SHALL include the persisted snapshot revision, and GameWorld SHALL carry that value through its hydration state and initialize the character persistence state before the character is exposed to the singleton store or can be flushed.
 
 #### Scenario: Hydration transfers revision
 - **WHEN** the Characters service hydrates a character with revision 27
@@ -31,6 +31,10 @@ The Characters hydration response SHALL include the persisted snapshot revision,
 #### Scenario: Failed removal retains revision state
 - **WHEN** world sign-in fails after hydration but character removal fails or is canceled
 - **THEN** GameWorld retains the initialized revision state while the character remains in the singleton store, so the next flush allocates above the hydrated revision
+
+#### Scenario: Registration cannot expose an uninitialized character
+- **WHEN** a hydrated character is registered in the singleton store
+- **THEN** its revision state has already been initialized from the hydrated persisted revision
 
 ### Requirement: Exact duplicates and conflicts have distinct outcomes
 

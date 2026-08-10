@@ -1,6 +1,6 @@
 ## 1. Shared contracts and authoritative revision state
 
-- [x] 1.1 Add the persisted snapshot revision to the Characters hydration response, GameWorld hydration saga/message, and `CharacterModel`; initialize and clean up per-character revision state during world sign-in only after successful character removal.
+- [x] 1.1 Add the persisted snapshot revision to the Characters hydration response, GameWorld hydration saga/message, and `CharacterModel`; initialize revision state before store visibility and clean it up during world sign-in only after successful character removal.
 - [x] 1.2 Replace wall-clock revision generation with monotonic per-character allocation owned by `CharacterPersistenceState`; remove the obsolete generator and registration.
 - [x] 1.3 Add the shared canonical snapshot fingerprint helper and extend persistence response/acknowledgement contracts with `Committed`, `Duplicate`, and `Conflict` outcomes that have no successful missing-value default.
 

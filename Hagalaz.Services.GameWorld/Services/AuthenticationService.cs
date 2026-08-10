@@ -165,6 +165,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 var session = sessionRegistration.Session;
                 var signInSucceeded = false;
                 var characterRegistered = false;
+                var revisionInitialized = false;
                 ICharacter? registeredCharacter = null;
                 try
                 {
@@ -206,6 +207,9 @@ namespace Hagalaz.Services.GameWorld.Services
                         return SignInResult.Fail;
                     }
 
+                    _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
+                    revisionInitialized = true;
+
                     if (!await _characterService.AddAsync(character))
                     {
                         _logger.LogWarning("Unable to add character '{character}'", character);
@@ -213,7 +217,6 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
 
                     characterRegistered = true;
-                    _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
                     if (!await _gameSessionService.CommitWorldSession(session, cancellationToken))
                     {
                         _logger.LogWarning("Unable to commit world session '{connectionId}' after character registration", session.ConnectionId);
@@ -258,6 +261,10 @@ namespace Hagalaz.Services.GameWorld.Services
                             {
                                 _logger.LogError(ex, "Failed to remove character after world sign-in failed");
                             }
+                        }
+                        else if (revisionInitialized)
+                        {
+                            _characterPersistenceService.Forget(masterId);
                         }
 
                         try
