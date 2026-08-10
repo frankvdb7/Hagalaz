@@ -98,22 +98,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         public ICreatureCombat Combat { get; protected set; } = default!;
 
         /// <summary>
-        ///     Contains entity map region.
-        /// </summary>
-        /// <value>The region.</value>
-        public IMapRegion Region
-        {
-            get
-            {
-                if (Location == null)
-                {
-                    throw new InvalidOperationException($"{nameof(Location)} is not initialized yet.");
-                }
-                return MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
-            }
-        }
-
-        /// <summary>
         ///     Contains creature to which this creature is facing ,
         ///     can be null.
         /// </summary>
@@ -240,7 +224,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
             if (Location != null)
             {
-                RemoveFromRegion(Region);
+                var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
+                RemoveFromRegion(region);
             }
             Area?.OnCreatureExitArea(this);
             OnDestroy();

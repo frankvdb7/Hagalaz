@@ -2,6 +2,7 @@ using AutoMapper;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -21,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var npcService = Substitute.For<INpcService>();
             var regionService = Substitute.For<IMapRegionService>();
             var gameObjectBuilder = Substitute.For<IGameObjectBuilder>();
-            var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks);
+            var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks, regionService);
             var mapper = new MapperConfiguration(cfg => { }, LoggerFactory.Create(_ => { })).CreateMapper();
             var location = Location.Create(0, 0);
             return new MapRegion(
@@ -46,7 +47,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             item.Count.Returns(1);
             item.Id.Returns(0);
             var location = Location.Create(10, 10);
-            return new GroundItem(item, location, null, respawnTicks, ticksLeft);
+            return new GroundItem(item, location, null, respawnTicks, ticksLeft, Substitute.For<IMapRegionService>());
         }
 
         private static IGroundItem CreatePrivateItem(bool tradable, int ticksLeft)
@@ -62,7 +63,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             item.Id.Returns(0);
             var location = Location.Create(10, 10);
             var owner = Substitute.For<ICharacter>();
-            return new GroundItem(item, location, owner, 0, ticksLeft);
+            return new GroundItem(item, location, owner, 0, ticksLeft, Substitute.For<IMapRegionService>());
         }
 
         [TestMethod]
@@ -157,7 +158,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void CanDestroy_Returns_False_When_Respawning()
         {
             var item = CreateItem(5, 0);
-            var respawning = new GroundItem(item.ItemOnGround, item.Location, null, item.RespawnTicks, 0, true);
+            var respawning = new GroundItem(item.ItemOnGround, item.Location, null, item.RespawnTicks, 0, Substitute.For<IMapRegionService>(), true);
 
             Assert.IsFalse(respawning.CanDestroy());
         }
@@ -170,22 +171,40 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsTrue(item.CanDestroy());
         }
 
+        [TestMethod]
+        public void Despawn_RemovesItemFromLocationRegion()
+        {
+            var regionService = Substitute.For<IMapRegionService>();
+            var region = Substitute.For<IMapRegion>();
+            var item = CreateItem(0, 0);
+            var groundItem = new GroundItem(item.ItemOnGround, item.Location, null, 0, 0, regionService);
+            regionService.GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false).Returns(region);
+
+            var result = groundItem.Despawn();
+
+            Assert.IsTrue(result);
+            regionService.Received(1).GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false);
+            region.Received(1).Remove(groundItem);
+        }
+
         public class SimpleGroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional, IGroundItemBuild {
             private int? _respawnTicks;
             private int? _ticks;
             private readonly int _publicTicks;
+            private readonly IMapRegionService _mapRegionService;
             private IItem _item = default!;
             private ILocation _location = default!;
             private ICharacter? _owner;
             private bool _isRespawning;
 
-            public SimpleGroundItemBuilder(int publicTicks = 100)
+            public SimpleGroundItemBuilder(int publicTicks, IMapRegionService mapRegionService)
             {
                 _publicTicks = publicTicks;
+                _mapRegionService = mapRegionService;
             }
 
             // IGroundItemBuilder
-            public IGroundItemOnGround Create() => new SimpleGroundItemBuilder(_publicTicks);
+            public IGroundItemOnGround Create() => new SimpleGroundItemBuilder(_publicTicks, _mapRegionService);
 
             // IGroundItemOnGround
             public IGroundItemLocation WithItem(IItem item) { _item = item; return this; }
@@ -219,7 +238,7 @@ namespace Hagalaz.Services.GameWorld.Tests
                     ticks = respawnTicks;
                 }
 
-                var result = new GroundItem(_item, _location, _owner, respawnTicks, ticks, _isRespawning);
+                var result = new GroundItem(_item, _location, _owner, respawnTicks, ticks, _mapRegionService, _isRespawning);
 
                 return result;
             }

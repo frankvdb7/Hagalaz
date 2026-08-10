@@ -47,7 +47,9 @@ namespace Hagalaz.Game.Scripts.Commands
                     Name = "currentregion",
                     CommandFunc = async (character, arguments) =>
                     {
-                        character.SendChatMessage("Current Region Id: " + character.Region.Id, ChatMessageType.ConsoleText);
+                        var regionService = character.ServiceProvider.GetRequiredService<IMapRegionService>();
+                        var region = regionService.GetOrCreateMapRegion(character.Location.RegionId, character.Location.Dimension, false);
+                        character.SendChatMessage("Current Region Id: " + region.Id, ChatMessageType.ConsoleText);
                         return true;
                     },
                     Permission = Permission.SystemAdministrator

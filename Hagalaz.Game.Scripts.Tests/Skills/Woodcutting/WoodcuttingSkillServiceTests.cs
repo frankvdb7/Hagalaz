@@ -23,6 +23,7 @@ using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Maps;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
 {
@@ -43,6 +44,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
         private IGameObjectId _gameObjectId = null!;
         private IGameObjectLocation _gameObjectLocation = null!;
         private IGameObjectOptional _gameObjectOptional = null!;
+        private IMapRegionService _mapRegionService = null!;
 
 
         [TestInitialize]
@@ -61,6 +63,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             _gameObjectId = Substitute.For<IGameObjectId>();
             _gameObjectLocation = Substitute.For<IGameObjectLocation>();
             _gameObjectOptional = Substitute.For<IGameObjectOptional>();
+            _mapRegionService = Substitute.For<IMapRegionService>();
 
             var scopeFactory = Substitute.For<IServiceScopeFactory>();
             var scope = Substitute.For<IServiceScope>();
@@ -75,6 +78,9 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             _serviceProvider.GetService(typeof(IGroundItemBuilder)).Returns(_groundItemBuilder);
             _serviceProvider.GetService(typeof(IGameObjectService)).Returns(_gameObjectService);
             _serviceProvider.GetService(typeof(IGameObjectBuilder)).Returns(_gameObjectBuilder);
+            _serviceProvider.GetService(typeof(IMapRegionService)).Returns(_mapRegionService);
+            _mapRegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), false)
+                .Returns(Substitute.For<IMapRegion>());
 
             _gameObjectBuilder.Create().Returns(_gameObjectId);
             _gameObjectId.WithId(Arg.Any<int>()).Returns(_gameObjectLocation);
