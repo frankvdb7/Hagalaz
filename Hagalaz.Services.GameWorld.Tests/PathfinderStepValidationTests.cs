@@ -155,4 +155,22 @@ public sealed class PathfinderStepValidationTests
 
         Assert.IsTrue(result);
     }
+
+    [TestMethod]
+    public void CheckStep_DistanceCheck_GreaterThanOne_RejectsBlockedIntermediateUnit()
+    {
+        _mapRegionService.GetClippingFlag(9, 9, 0).Returns(CollisionFlag.FloorBlock);
+
+        var result = _pathFinder.CheckStep(Location.Create(10, 10, 0), 2);
+
+        Assert.IsFalse(result);
+    }
+
+    [TestMethod]
+    public void CheckStep_DistanceCheck_GreaterThanOne_WithWalkableUnits_ReturnsTrue()
+    {
+        var result = _pathFinder.CheckStep(Location.Create(10, 10, 0), 2);
+
+        Assert.IsTrue(result);
+    }
 }

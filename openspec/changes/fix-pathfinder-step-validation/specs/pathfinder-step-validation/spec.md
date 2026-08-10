@@ -44,12 +44,12 @@ The shared scalar step validator MUST return false for zero offsets and any offs
 
 The distance-based shared check MUST validate the path between sampled locations through unit steps and MUST NOT pass unsupported offsets to the scalar validator.
 
-#### Scenario: Distance check crosses a blocked unit step
-- **WHEN** a distance-based check traverses a unit step whose collision is blocked
+#### Scenario: Distance check greater than one crosses a blocked unit step
+- **WHEN** a distance-based check greater than one traverses a unit step whose collision is blocked
 - **THEN** the distance check returns false
 
-#### Scenario: Distance check has walkable unit steps
-- **WHEN** every unit step in the checked distance is walkable
+#### Scenario: Distance check greater than one has walkable unit steps
+- **WHEN** every unit step in a distance greater than one is walkable
 - **THEN** the distance check returns true
 
 ### Requirement: Runtime movement revalidates compressed waypoints
@@ -67,3 +67,15 @@ The distance-based shared check MUST validate the path between sampled locations
 #### Scenario: Existing valid waypoint movement is preserved
 - **WHEN** a walk, run, or diagonal movement has a walkable queued waypoint
 - **THEN** movement advances by the existing one-tile or two-tile budget without losing the queued waypoint
+
+#### Scenario: Warp movement consumes its available budget
+- **WHEN** warp movement has a long walkable queued waypoint
+- **THEN** the creature reaches the waypoint in one tick without leaving it queued
+
+#### Scenario: A blocked waypoint resumes after unblocking
+- **WHEN** a queued waypoint is blocked, then the intervening tile becomes walkable
+- **THEN** later ticks resume movement and eventually consume the waypoint
+
+#### Scenario: Variable-size runtime movement uses client footprint edges
+- **WHEN** a size-2 or size-3 creature moves east and the client-defined incoming footprint edge is blocked
+- **THEN** the actual server `Movement.Tick` path stops before the step

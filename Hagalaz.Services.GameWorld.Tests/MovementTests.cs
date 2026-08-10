@@ -106,6 +106,106 @@ public sealed class MovementTests
         Assert.IsTrue(creature.Movement.Moving);
     }
 
+    [TestMethod]
+    public void Tick_WarpMovement_CompletesLongQueuedWaypointInOneTick()
+    {
+        var start = Location.Create(10, 10, 0);
+        var target = Location.Create(30, 10, 0);
+        var (creature, _, _) = CreateCreature(start, 1);
+
+        creature.Movement.MovementType = MovementType.Warp;
+        creature.Movement.AddToQueue(target);
+        creature.Movement.Tick();
+
+        Assert.AreEqual(target.X, creature.Location.X);
+        Assert.AreEqual(target.Y, creature.Location.Y);
+        Assert.IsTrue(creature.Movement.Moved);
+        Assert.IsFalse(creature.Movement.Moving);
+    }
+
+    [TestMethod]
+    public void Tick_BlockedWaypoint_ResumesAfterInterveningTileUnblocks()
+    {
+        var start = Location.Create(10, 10, 0);
+        var target = Location.Create(15, 10, 0);
+        var (creature, mapRegionService, _) = CreateCreature(start, 1);
+
+        creature.Movement.AddToQueue(target);
+        mapRegionService.GetClippingFlag(11, 10, 0).Returns(CollisionFlag.FloorBlock);
+
+        creature.Movement.Tick();
+
+        Assert.AreEqual(start.X, creature.Location.X);
+        Assert.IsTrue(creature.Movement.Moving);
+
+        mapRegionService.GetClippingFlag(11, 10, 0).Returns(CollisionFlag.Walkable);
+        for (var i = 0; i < 6; i++)
+        {
+            creature.Movement.Tick();
+        }
+
+        Assert.AreEqual(target.X, creature.Location.X);
+        Assert.AreEqual(target.Y, creature.Location.Y);
+        Assert.IsFalse(creature.Movement.Moving);
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(3)]
+    public void Tick_SizeTwoPlusCreature_AdvancesWithClearClientFootprint(int size)
+    {
+        var start = Location.Create(10, 10, 0);
+        var target = Location.Create(15, 10, 0);
+        var (creature, _, _) = CreateCreature(start, size);
+
+        creature.Movement.AddToQueue(target);
+        creature.Movement.Tick();
+
+        Assert.AreEqual(11, creature.Location.X);
+        Assert.AreEqual(start.Y, creature.Location.Y);
+        Assert.IsTrue(creature.Movement.Moved);
+        Assert.IsTrue(creature.Movement.Moving);
+    }
+
+    [TestMethod]
+    [DataRow(2, -1, 0, -1, 1)]
+    [DataRow(2, 1, 0, 2, 1)]
+    [DataRow(2, 0, -1, 1, -1)]
+    [DataRow(2, 0, 1, 1, 2)]
+    [DataRow(2, -1, -1, 0, -1)]
+    [DataRow(2, 1, -1, 2, -1)]
+    [DataRow(2, -1, 1, 0, 2)]
+    [DataRow(2, 1, 1, 1, 1)]
+    [DataRow(3, -1, 0, -1, 1)]
+    [DataRow(3, 1, 0, 3, 1)]
+    [DataRow(3, 0, -1, 1, -1)]
+    [DataRow(3, 0, 1, 1, 3)]
+    [DataRow(3, -1, -1, 0, -1)]
+    [DataRow(3, 1, -1, 2, -1)]
+    [DataRow(3, -1, 1, 0, 3)]
+    [DataRow(3, 1, 1, 2, 3)]
+    public void Tick_ClientServerParity_StopsAtExpectedIncomingFootprintEdge(
+        int size,
+        int xOffset,
+        int yOffset,
+        int blockedOffsetX,
+        int blockedOffsetY)
+    {
+        var start = Location.Create(10, 10, 0);
+        var target = Location.Create(10 + xOffset, 10 + yOffset, 0);
+        var (creature, mapRegionService, _) = CreateCreature(start, size);
+
+        creature.Movement.AddToQueue(target);
+        mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0)
+            .Returns(CollisionFlag.FloorBlock);
+
+        creature.Movement.Tick();
+
+        Assert.AreEqual(start.X, creature.Location.X);
+        Assert.AreEqual(start.Y, creature.Location.Y);
+        Assert.IsTrue(creature.Movement.Moving);
+    }
+
     private static (TestCreature Creature, IMapRegionService MapRegionService, SmartPathFinder PathFinder) CreateCreature(
         ILocation location,
         int size)

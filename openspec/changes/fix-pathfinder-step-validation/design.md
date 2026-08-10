@@ -41,7 +41,7 @@ Passing the original compressed delta is rejected because it cannot describe the
 
 ### Tests use existing MSTest and substitution seams
 
-Pathfinder regressions use the existing `IMapRegionService` substitution with `CollisionFlag.Walkable` as the default and `FloorBlock` at targeted footprint coordinates. Movement tests use a minimal `Creature` test double and the existing `ISmartPathFinder`/service-provider seam, covering valid walk, run, and diagonal waypoint movement alongside a waypoint longer than one tile whose collision appears before application.
+Pathfinder regressions use the existing `IMapRegionService` substitution with `CollisionFlag.Walkable` as the default and `FloorBlock` at targeted footprint coordinates. Movement tests use a minimal `Creature` test double and the existing `ISmartPathFinder`/service-provider seam, covering valid walk, run, diagonal, and warp waypoint movement, unblock-and-resume behavior, and size-2/size-3 runtime cases. Client/server parity cases use actual server `SmartPathFinder` plus `Movement.Tick` and the exposed-edge coordinates from the client `Class527.java` geometry reference.
 
 ## Risks / Trade-offs
 
