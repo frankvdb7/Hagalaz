@@ -14,7 +14,7 @@
     <ProjectReference Include="..\Hagalaz.Services.Common\Hagalaz.Services.Common.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="MassTransit" Version="8.5.10" />
+    <PackageReference Include="MassTransit" Version="9.2.0" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.10" />
     <PackageReference Include="OpenIddict.AspNetCore" Version="7.6.0" />
     <PackageReference Include="OpenIddict.Quartz" Version="7.6.0" />
