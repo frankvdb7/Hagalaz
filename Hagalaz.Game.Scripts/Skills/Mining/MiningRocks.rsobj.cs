@@ -147,17 +147,24 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                             .WithRotation(rocks.Rotation)
                             .WithShape(rocks.ShapeType)
                             .Build();
-                        rocks.Region.Add(exhaustedRock);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
+                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension, false)
+                            .Add(exhaustedRock);
                     }
                     else // delete the rocks
                     {
-                        rocks.Region.Remove(rocks);
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
+                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension, false)
+                            .Remove(rocks);
                     }
 
                     var characterCount = await _characterStore.CountAsync();
                     var respawnTick = (int)(respawnTime * (1.0 + characterCount * -0.00025) * 100.0);
 
-                    _taskService.Schedule(new RsTask(() => rocks.Region.Add(rocks), respawnTick));
+                    _taskService.Schedule(new RsTask(() =>
+                        character.ServiceProvider.GetRequiredService<IMapRegionService>()
+                            .GetOrCreateMapRegion(rocks.Location.RegionId, rocks.Location.Dimension, false)
+                            .Add(rocks), respawnTick));
                     return true;
                 }
 

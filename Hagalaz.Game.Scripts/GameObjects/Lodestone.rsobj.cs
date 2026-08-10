@@ -16,11 +16,13 @@ namespace Hagalaz.Game.Scripts.GameObjects
     {
         private readonly ILodestoneService _lodestoneService;
         private readonly IRegionUpdateBuilder _regionUpdateBuilder;
+        private readonly IMapRegionService _mapRegionService;
 
-        public Lodestone(ILodestoneService lodestoneService, IRegionUpdateBuilder regionUpdateBuilder)
+        public Lodestone(ILodestoneService lodestoneService, IRegionUpdateBuilder regionUpdateBuilder, IMapRegionService mapRegionService)
         {
             _lodestoneService = lodestoneService;
             _regionUpdateBuilder = regionUpdateBuilder;
+            _mapRegionService = mapRegionService;
         }
         
         /// <summary>
@@ -56,7 +58,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
             }
             character.AddState(new TeleportingState { TicksLeft = int.MaxValue });
             var update = _regionUpdateBuilder.Create().WithLocation(Owner.Location).WithGraphic(Graphic.Create(3019)).Build();
-            Owner.Region.QueueUpdate(update);
+            _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).QueueUpdate(update);
             // TODO - Show cutscene
         }
     }

@@ -14,8 +14,13 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
     public class Web : GameObjectScript
     {
         private readonly IGameObjectService _gameObjectService;
+        private readonly IMapRegionService _mapRegionService;
 
-        public Web(IGameObjectService gameObjectService) => _gameObjectService = gameObjectService;
+        public Web(IGameObjectService gameObjectService, IMapRegionService mapRegionService)
+        {
+            _gameObjectService = gameObjectService;
+            _mapRegionService = mapRegionService;
+        }
 
         /// <summary>
         ///     Happens when character click's this object and then walks to it
@@ -59,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
                     Instance = Owner,
                     Id = Owner.Id + 1
                 });
-                Owner.Region.UnFlagCollision(Owner);
+                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).UnFlagCollision(Owner);
                 clicker.QueueTask(new RsTask(() =>
                     {
                         _gameObjectService.UpdateGameObject(new GameObjectUpdate
@@ -67,7 +72,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.GameObjects
                             Instance = Owner,
                             Id = Owner.Id - 1
                         });
-                        Owner.Region.FlagCollision(Owner);
+                        _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).FlagCollision(Owner);
                     },
                     100));
                 return;

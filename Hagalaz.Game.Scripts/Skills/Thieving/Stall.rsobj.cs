@@ -3,6 +3,7 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Skills.Thieving
@@ -11,6 +12,10 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
     /// </summary>
     public class Stall : GameObjectScript
     {
+        private readonly IMapRegionService _mapRegionService;
+
+        public Stall(IMapRegionService mapRegionService) => _mapRegionService = mapRegionService;
+
         /// <summary>
         ///     Contains the steal definition.
         /// </summary>
@@ -19,7 +24,10 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         /// <summary>
         ///     Contains the stall owner.
         /// </summary>
-        public INpc? StallOwner => Owner.Region.FindAllNpcs().FirstOrDefault(npc => npc.Appearance.CompositeID == Definition.NpcOwnerID);
+        public INpc? StallOwner => _mapRegionService
+            .GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false)
+            .FindAllNpcs()
+            .FirstOrDefault(npc => npc.Appearance.CompositeID == Definition.NpcOwnerID);
 
         /// <summary>
         ///     Contains the local guards.

@@ -245,8 +245,6 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             public ILocation Location => throw new NotImplementedException();
 
-            public IMapRegion Region => throw new NotImplementedException();
-
             public bool IsDestroyed => throw new NotImplementedException();
 
             public int Size => throw new NotImplementedException();

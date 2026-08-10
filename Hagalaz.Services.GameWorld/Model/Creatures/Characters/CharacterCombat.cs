@@ -13,6 +13,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
@@ -37,6 +38,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IAnimationBuilder _animationBuilder;
         private readonly IGraphicBuilder _graphicBuilder;
         private readonly IProjectileBuilder _projectileBuilder;
+        private readonly IMapRegionService _mapRegionService;
 
         /// <summary>
         /// Construct's new combat class for specified
@@ -50,6 +52,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _animationBuilder = _character.ServiceProvider.GetRequiredService<IAnimationBuilder>();
             _graphicBuilder = _character.ServiceProvider.GetRequiredService<IGraphicBuilder>();
             _projectileBuilder = _character.ServiceProvider.GetRequiredService<IProjectileBuilder>();
+            _mapRegionService = _character.ServiceProvider.GetRequiredService<IMapRegionService>();
         }
 
 
@@ -137,7 +140,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     .WithLocation(Owner.Location)
                     .WithOwner(groundItemOwner)
                     .Build();
-                Owner.Region.Add(groundItem); // we spawn it with this method, as the container was normally stacked.
+                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false)
+                    .Add(groundItem); // we spawn it with this method, as the container was normally stacked.
             }
 
             var bones = groundItemBuilder.Create()
@@ -145,7 +149,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 .WithLocation(Owner.Location)
                 .WithOwner(groundItemOwner)
                 .Build();
-            Owner.Region.Add(bones);
+            _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Add(bones);
             _character.Inventory.AddRange(itemsOnDeath.keptItems);
             _character.Inventory.OnUpdate();
             _character.Equipment.OnUpdate();

@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Thieving
 {
@@ -135,7 +136,9 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
                 return;
             }
             // check if the object isn't empty.
-            var checkObj = obj.Region.FindStandardGameObject(obj.Location.RegionLocalX, obj.Location.RegionLocalY, obj.Location.Z);
+            var regionService = clicker.ServiceProvider.GetRequiredService<IMapRegionService>();
+            var checkObj = regionService.GetOrCreateMapRegion(obj.Location.RegionId, obj.Location.Dimension, false)
+                .FindStandardGameObject(obj.Location.RegionLocalX, obj.Location.RegionLocalY, obj.Location.Z);
             if (checkObj == null || checkObj.Id != obj.Id)
             {
                 return;

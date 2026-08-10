@@ -63,7 +63,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             this.QueueTask(async () =>
             {
                 var musicService = ServiceProvider.GetRequiredService<IMusicService>();
-                var musicIds = await musicService.FindMusicIdsByRegionId(Region.Id);
+                var region = ServiceProvider.GetRequiredService<IMapRegionService>()
+                    .GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
+                var musicIds = await musicService.FindMusicIdsByRegionId(region.Id);
                 if (musicIds.Any(musicId => Music.UnlockMusic(musicId)))
                 {
                     Music.RefreshMusicList();

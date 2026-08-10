@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Configuration;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -40,6 +41,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             serviceProviderMock.GetService(typeof(IProjectileBuilder)).Returns(Substitute.For<IProjectileBuilder>());
             serviceProviderMock.GetService(typeof(IProjectilePathFinder)).Returns(Substitute.For<IProjectilePathFinder>());
             serviceProviderMock.GetService(typeof(ISmartPathFinder)).Returns(Substitute.For<ISmartPathFinder>());
+            serviceProviderMock.GetService(typeof(IMapRegionService)).Returns(Substitute.For<IMapRegionService>());
 
             var combatOptions = new CombatOptions();
             var optionsMock = Substitute.For<IOptions<CombatOptions>>();

@@ -78,10 +78,11 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
         private readonly IProjectileBuilder _projectileBuilder;
         private readonly IItemBuilder _itemBuilder;
         private readonly IGameObjectService _gameObjectService;
+        private readonly IMapRegionService _mapRegionService;
 
         public DwarfMultiCannonGameObjectScript(
             IProjectilePathFinder projectilePathFinder, IRsTaskService rsTaskService, IHitSplatBuilder hitSplatBuilder, IProjectileBuilder projectileBuilder,
-            IItemBuilder itemBuilder, IGameObjectService gameObjectService)
+            IItemBuilder itemBuilder, IGameObjectService gameObjectService, IMapRegionService mapRegionService)
         {
             _projectilePathFinder = projectilePathFinder;
             _rsTaskService = rsTaskService;
@@ -89,6 +90,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
             _projectileBuilder = projectileBuilder;
             _itemBuilder = itemBuilder;
             _gameObjectService = gameObjectService;
+            _mapRegionService = mapRegionService;
         }
 
         /// <summary>
@@ -297,7 +299,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
 
                 if (_cannonOwner.IsDestroyed || !_cannonOwner.HasState<CannonPlacedState>())
                 {
-                    Owner.Region.Remove(Owner);
+                    _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Remove(Owner);
                     task.Cancel();
                     return;
                 }
@@ -361,7 +363,7 @@ namespace Hagalaz.Game.Scripts.GameObjects.Cannon
 
                     character.Inventory.Add(cannonBalls);
 
-                    character.Region.Remove(cannon);
+                    _mapRegionService.GetOrCreateMapRegion(character.Location.RegionId, character.Location.Dimension, false).Remove(cannon);
 
                     character.RemoveState<CannonPlacedState>();
 

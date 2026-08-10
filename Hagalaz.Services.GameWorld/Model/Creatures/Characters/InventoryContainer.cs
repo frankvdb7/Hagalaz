@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +24,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Instance of the character who owns this container.
         /// </summary>
         private readonly ICharacter _owner;
+        private readonly IMapRegionService _mapRegionService;
 
         /// <summary>
         /// Contstructs a container for character inventories.
@@ -31,7 +33,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="capacity">The capacity of the container.</param>
         public InventoryContainer(ICharacter owner, int capacity)
             : base(StorageType.Normal, capacity) =>
-            _owner = owner;
+            (_owner, _mapRegionService) = (owner, owner.ServiceProvider.GetRequiredService<IMapRegionService>());
 
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
@@ -55,7 +57,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 .WithLocation(_owner.Location)
                 .WithOwner(_owner)
                 .Build();
-            _owner.Region.Add(groundItem); // we spawn it with this method, as the container was normally stacked.
+            _mapRegionService.GetOrCreateMapRegion(_owner.Location.RegionId, _owner.Location.Dimension, false)
+                .Add(groundItem); // we spawn it with this method, as the container was normally stacked.
             return true;
         }
 

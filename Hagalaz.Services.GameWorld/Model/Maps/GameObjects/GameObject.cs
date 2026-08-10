@@ -1,9 +1,6 @@
 ﻿using System;
-using Hagalaz.DependencyInjection.Extensions;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Abstractions.Model.Maps;
-using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
 {
@@ -26,18 +23,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
         /// Contains location of this object.
         /// </summary>
         public ILocation Location { get; }
-
-        /// <summary>
-        /// Contains Region of this object.
-        /// </summary>
-        public IMapRegion Region
-        {
-            get
-            {
-                var regionManager = ServiceLocator.Current.GetInstance<IMapRegionService>();
-                return regionManager.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
-            }
-        }
 
         /// <summary>
         /// Contains definition of this object.
