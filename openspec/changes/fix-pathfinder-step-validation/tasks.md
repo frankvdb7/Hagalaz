@@ -3,7 +3,7 @@
 - [x] 1.1 Add shared-validator tests for size-1 compatibility and all eight size-2 directions, including explicit southeast and distinct northwest exposed-cell cases.
 - [x] 1.2 Add size-3 and size-4 cardinal corner/interior-edge tests plus representative diagonal footprint tests using targeted collision flags.
 - [x] 1.3 Add unsupported/zero-offset and distance-based unit-validation tests, including distances greater than one.
-- [x] 1.4 Add `Movement.Tick` coverage for existing valid walk/run/diagonal/warp waypoint behavior, unblock-and-resume handling, a long queued waypoint with a newly blocked intervening tile, multiple independently validated movement units, and size-2/size-3 client parity cases.
+- [x] 1.4 Add `Movement.Tick` coverage for existing valid walk/run/diagonal/warp waypoint behavior, blocked-warp stop/resume handling, unblock-and-resume handling, a long queued waypoint with a newly blocked intervening tile, multiple independently validated movement units, and size-2/size-3 client parity cases.
 
 ## 2. Shared Validation Fix
 

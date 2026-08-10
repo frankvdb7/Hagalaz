@@ -124,6 +124,32 @@ public sealed class MovementTests
     }
 
     [TestMethod]
+    public void Tick_WarpMovement_StopsBeforeBlockedIntermediateTileAndResumesAfterUnblocking()
+    {
+        var start = Location.Create(10, 10, 0);
+        var target = Location.Create(30, 10, 0);
+        var (creature, mapRegionService, _) = CreateCreature(start, 1);
+
+        creature.Movement.MovementType = MovementType.Warp;
+        creature.Movement.AddToQueue(target);
+        mapRegionService.GetClippingFlag(15, 10, 0).Returns(CollisionFlag.FloorBlock);
+
+        creature.Movement.Tick();
+
+        Assert.AreEqual(14, creature.Location.X);
+        Assert.AreEqual(start.Y, creature.Location.Y);
+        Assert.IsTrue(creature.Movement.Moving);
+
+        mapRegionService.GetClippingFlag(15, 10, 0).Returns(CollisionFlag.Walkable);
+
+        creature.Movement.Tick();
+
+        Assert.AreEqual(target.X, creature.Location.X);
+        Assert.AreEqual(target.Y, creature.Location.Y);
+        Assert.IsFalse(creature.Movement.Moving);
+    }
+
+    [TestMethod]
     public void Tick_BlockedWaypoint_ResumesAfterInterveningTileUnblocks()
     {
         var start = Location.Create(10, 10, 0);

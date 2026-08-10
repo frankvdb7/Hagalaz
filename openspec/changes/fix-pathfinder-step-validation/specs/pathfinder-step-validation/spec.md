@@ -72,6 +72,10 @@ The distance-based shared check MUST validate the path between sampled locations
 - **WHEN** warp movement has a long walkable queued waypoint
 - **THEN** the creature reaches the waypoint in one tick without leaving it queued
 
+#### Scenario: Warp movement stops at a blocked intermediate tile
+- **WHEN** warp movement has a long queued waypoint and an intermediate tile is blocked
+- **THEN** movement stops at the last valid tile, retains the waypoint, and resumes after the tile becomes walkable
+
 #### Scenario: A blocked waypoint resumes after unblocking
 - **WHEN** a queued waypoint is blocked, then the intervening tile becomes walkable
 - **THEN** later ticks resume movement and eventually consume the waypoint
