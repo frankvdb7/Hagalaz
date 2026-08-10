@@ -1,14 +1,18 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Scripts.Model.Maps;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 {
     [AreaScriptMetaData([20])]
     public class DuelArena : AreaScript
     {
+        public DuelArena(IOptions<WorldOptions> worldOptions) : base(worldOptions) { }
+
         /// <summary>
         ///     Happens when character enters this area.
         ///     The new area, is this scripts area.

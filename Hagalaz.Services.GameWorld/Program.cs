@@ -7,7 +7,6 @@ using McMaster.NETCore.Plugins;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Hagalaz.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.Connections;
 using Hagalaz.Data.Extensions;
 using Microsoft.AspNetCore.Builder;
@@ -82,8 +81,6 @@ namespace Hagalaz.Services.GameWorld
             app.MapDefaultEndpoints();
 
             startup.Configure(app, app.Environment, app.Services.GetRequiredService<IMapper>());
-
-            ServiceLocator.SetLocatorProvider(app.Services); // TODO - when services are refactored, remove the service locator
 
             await app.RunAsync();
         }

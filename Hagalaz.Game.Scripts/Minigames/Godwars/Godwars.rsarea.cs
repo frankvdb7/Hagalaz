@@ -1,14 +1,18 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Scripts.Model.Maps;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars
 {
     [AreaScriptMetaData([3, 4, 5, 6, 16, 17])]
     public class Godwars : AreaScript
     {
+        public Godwars(IOptions<WorldOptions> worldOptions) : base(worldOptions) { }
+
         /// <summary>
         ///     The godwars area ids
         /// </summary>

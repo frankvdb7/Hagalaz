@@ -113,7 +113,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 characterKiller.SendChatMessage(string.Format(format, _character.DisplayName));
             }
-            //var database = ServiceLocator.Current.GetInstance<ISqlDatabaseManager>();
             //database.ExecuteAsync(new ActivityLogQuery(characterKiller.MasterId, "Player Kill", "I have defeated " + _character.DisplayName + " in combat."));
 
             var itemsOnDeath = _character.GetItemsOnDeathData();

@@ -856,7 +856,6 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
         {
             _step = 4;
             _nameSetCallback = Owner.RegisterEventHandler<NameSetFinishedEvent>(NameSetFinished);
-            //var adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
             //adapter.SendPacketAsync(new SetCharacterDetailsRequestPacketComposer(Owner.Session.Id,
             //        new CharacterDetailsDto
             //        {

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Configuration;
-using Hagalaz.DependencyInjection.Extensions;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -41,68 +40,58 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         /// </summary>
         static SpellBookTab() => LoadTeleports();
 
-        private static ICombatSpell[] GetSmokeSpells()
+        private ICombatSpell[] GetSmokeSpells()
         {
-            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
-            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
             return
             [
-                new AncientSmokeCombatSpell(0, projectileBuilder),
-                new AncientSmokeCombatSpell(1, projectileBuilder),
-                new AncientSmokeCombatSpell(2, projectileBuilder),
-                new AncientSmokeCombatSpell(3, projectileBuilder)
+                new AncientSmokeCombatSpell(0, _projectileBuilder),
+                new AncientSmokeCombatSpell(1, _projectileBuilder),
+                new AncientSmokeCombatSpell(2, _projectileBuilder),
+                new AncientSmokeCombatSpell(3, _projectileBuilder)
             ];
         }
 
-        private static ICombatSpell[] GetShadowSpells()
+        private ICombatSpell[] GetShadowSpells()
         {
-            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
-            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
             return
             [
-                new AncientShadowCombatSpell(0, projectileBuilder),
-                new AncientShadowCombatSpell(1, projectileBuilder),
-                new AncientShadowCombatSpell(2, projectileBuilder),
-                new AncientShadowCombatSpell(3, projectileBuilder)
+                new AncientShadowCombatSpell(0, _projectileBuilder),
+                new AncientShadowCombatSpell(1, _projectileBuilder),
+                new AncientShadowCombatSpell(2, _projectileBuilder),
+                new AncientShadowCombatSpell(3, _projectileBuilder)
             ];
         }
 
-        private static ICombatSpell[] GetBloodSpells()
+        private ICombatSpell[] GetBloodSpells()
         {
-            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
-            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
             return
             [
-                new AncientBloodCombatSpell(0, projectileBuilder),
-                new AncientBloodCombatSpell(1, projectileBuilder),
-                new AncientBloodCombatSpell(2, projectileBuilder),
-                new AncientBloodCombatSpell(3, projectileBuilder)
+                new AncientBloodCombatSpell(0, _projectileBuilder),
+                new AncientBloodCombatSpell(1, _projectileBuilder),
+                new AncientBloodCombatSpell(2, _projectileBuilder),
+                new AncientBloodCombatSpell(3, _projectileBuilder)
             ];
         }
 
-        private static ICombatSpell[] GetIceSpells()
+        private ICombatSpell[] GetIceSpells()
         {
-            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
-            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
             return
             [
-                new AncientIceCombatSpell(0, projectileBuilder),
-                new AncientIceCombatSpell(1, projectileBuilder),
-                new AncientIceCombatSpell(2, projectileBuilder),
-                new AncientIceCombatSpell(3, projectileBuilder)
+                new AncientIceCombatSpell(0, _projectileBuilder),
+                new AncientIceCombatSpell(1, _projectileBuilder),
+                new AncientIceCombatSpell(2, _projectileBuilder),
+                new AncientIceCombatSpell(3, _projectileBuilder)
             ];
         }
 
-        private static ICombatSpell[] GetMiasmicSpells()
+        private ICombatSpell[] GetMiasmicSpells()
         {
-            var serviceProvider = ServiceLocator.Current.CreateScope().ServiceProvider;
-            var projectileBuilder = serviceProvider.GetRequiredService<IProjectileBuilder>();
             return
             [
-                new AncientMiasmicCombatSpell(0, projectileBuilder),
-                new AncientMiasmicCombatSpell(1, projectileBuilder),
-                new AncientMiasmicCombatSpell(2, projectileBuilder),
-                new AncientMiasmicCombatSpell(3, projectileBuilder)
+                new AncientMiasmicCombatSpell(0, _projectileBuilder),
+                new AncientMiasmicCombatSpell(1, _projectileBuilder),
+                new AncientMiasmicCombatSpell(2, _projectileBuilder),
+                new AncientMiasmicCombatSpell(3, _projectileBuilder)
             ];
         }
 
@@ -125,6 +114,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         private readonly IServiceProvider _serviceProvider;
         private readonly IMagicService _magicService;
         private readonly IItemBuilder _itemBuilder;
+        private readonly IProjectileBuilder _projectileBuilder;
 
         /// <summary>
         ///     Loads the teleports.
@@ -347,44 +337,18 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     ])); // Ice plateau teleport
         }
 
-        /// <summary>
-        ///     Loads the scripted combat spells.
-        /// </summary>
-        private static async Task LoadScriptedCombatSpells()
-        {
-            using var scope = ServiceLocator.Current.CreateScope();
-            var magicManager = scope.ServiceProvider.GetRequiredService<IMagicService>();
-            var projectileBuilder = scope.ServiceProvider.GetRequiredService<IProjectileBuilder>();
-            foreach (var definition in await magicManager.FindAllCombatSpells())
-            {
-                switch (definition.ButtonId)
-                {
-                    case 36:
-                    case 55:
-                    case 81:
-                        _normalCombatSpells.Add(definition.ButtonId, new HoldSpell(definition));
-                        break;
-                    case 66: _normalCombatSpells.Add(66, new SaradominStrike(definition)); break;
-                    case 67: _normalCombatSpells.Add(67, new ClawsOfGuthix(definition)); break;
-                    case 68: _normalCombatSpells.Add(68, new FlamesOfZamorak(definition)); break;
-                    case 86: _normalCombatSpells.Add(86, new TeleBlock(definition)); break;
-                    case 91: _normalCombatSpells.Add(91, new FireSurge(definition)); break;
-                    case 99: _normalCombatSpells.Add(99, new StormOfArmadyl(definition, projectileBuilder)); break;
-                }
-            }
-        }
-
         private IGameConnectHandle _settingsChanged = default!;
         private IGameConnectHandle _bookChanged = default!;
 
         public SpellBookTab(
             ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator, IServiceProvider serviceProvider,
-            IMagicService magicService, IItemBuilder itemBuilder) : base(characterContextAccessor)
+            IMagicService magicService, IItemBuilder itemBuilder, IProjectileBuilder projectileBuilder) : base(characterContextAccessor)
         {
             _gameMediator = gameMediator;
             _serviceProvider = serviceProvider;
             _magicService = magicService;
             _itemBuilder = itemBuilder;
+            _projectileBuilder = projectileBuilder;
         }
 
         /// <summary>
@@ -413,7 +377,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return Task.CompletedTask;
             });
 
-            var magicManager = _serviceProvider.GetRequiredService<IMagicService>();
+            var magicManager = _magicService;
 
             switch (Owner.Profile.GetValue<MagicBook>(ProfileConstants.MagicSettingsBook, MagicBook.StandardBook))
             {

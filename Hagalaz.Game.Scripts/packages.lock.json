@@ -203,16 +203,9 @@
       "hagalaz.configuration": {
         "type": "Project"
       },
-      "hagalaz.dependencyinjection.extensions": {
-        "type": "Project",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.10, )"
-        }
-      },
       "hagalaz.game": {
         "type": "Project",
         "dependencies": {
-          "Hagalaz.DependencyInjection.Extensions": "[1.0.0, )",
           "Hagalaz.Game.Abstractions": "[1.0.0, )",
           "Microsoft.Extensions.Options": "[10.0.10, )",
           "Nito.AsyncEx": "[5.1.2, )",
@@ -232,8 +225,8 @@
       "hagalaz.game.common": {
         "type": "Project",
         "dependencies": {
-          "Hagalaz.DependencyInjection.Extensions": "[1.0.0, )",
-          "Hagalaz.Game.Abstractions": "[1.0.0, )"
+          "Hagalaz.Game.Abstractions": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.10, )"
         }
       },
       "hagalaz.game.configuration": {
