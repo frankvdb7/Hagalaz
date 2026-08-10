@@ -11,14 +11,33 @@ public sealed class CharacterPersistenceStateTests
     public void Acknowledge_MarksOnlyMatchingPendingRevisionAsPersisted()
     {
         var state = new CharacterPersistenceState();
-        state.MarkPending(42, "fingerprint", 7);
+        var correlationId = Guid.NewGuid();
+        state.MarkPending(42, correlationId, "fingerprint", 7);
 
         Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
 
-        state.Acknowledge(42, 6);
+        state.Acknowledge(42, correlationId, 6);
         Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
 
-        state.Acknowledge(42, 7);
+        state.Acknowledge(42, correlationId, 7);
+        Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
+    }
+
+    [TestMethod]
+    public void Acknowledge_RequiresMatchingCorrelationIdAndRevision()
+    {
+        var state = new CharacterPersistenceState();
+        var pendingCorrelationId = Guid.NewGuid();
+        state.MarkPending(42, pendingCorrelationId, "fingerprint", 7);
+
+        state.Acknowledge(42, Guid.NewGuid(), 7);
+
+        Assert.IsFalse(state.IsPersistenceAcknowledged(42));
+        Assert.IsFalse(state.IsPersisted(42, "fingerprint"));
+
+        state.Acknowledge(42, pendingCorrelationId, 7);
+
+        Assert.IsTrue(state.IsPersistenceAcknowledged(42));
         Assert.IsTrue(state.IsPersisted(42, "fingerprint"));
     }
 
@@ -107,14 +126,15 @@ public sealed class CharacterPersistenceStateTests
     public void IsPersistenceAcknowledged_RemainsFalseUntilMatchingAcknowledgement()
     {
         var state = new CharacterPersistenceState();
-        state.MarkPending(42, "fingerprint", 7);
+        var correlationId = Guid.NewGuid();
+        state.MarkPending(42, correlationId, "fingerprint", 7);
 
         Assert.IsFalse(state.IsPersistenceAcknowledged(42));
 
-        state.Acknowledge(42, 6);
+        state.Acknowledge(42, correlationId, 6);
         Assert.IsFalse(state.IsPersistenceAcknowledged(42));
 
-        state.Acknowledge(42, 7);
+        state.Acknowledge(42, correlationId, 7);
         Assert.IsTrue(state.IsPersistenceAcknowledged(42));
     }
 

@@ -15,9 +15,10 @@ public interface ICharacterLogoutService
     Task<bool> CompleteAsync(uint masterId, CancellationToken cancellationToken = default);
     Task<bool> AcknowledgeAndCompleteAsync(
         uint masterId,
+        Guid correlationId,
         long snapshotRevision,
         CancellationToken cancellationToken = default,
-        CharacterPersistenceOutcome outcome = CharacterPersistenceOutcome.Committed);
+        CharacterPersistenceOutcome? outcome = null);
 }
 
 public sealed class CharacterLogoutService : ICharacterLogoutService
@@ -61,13 +62,14 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
 
     public async Task<bool> AcknowledgeAndCompleteAsync(
         uint masterId,
+        Guid correlationId,
         long snapshotRevision,
         CancellationToken cancellationToken = default,
-        CharacterPersistenceOutcome outcome = CharacterPersistenceOutcome.Committed)
+        CharacterPersistenceOutcome? outcome = null)
     {
         if (outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate)
         {
-            _state.Acknowledge(masterId, snapshotRevision);
+            _state.Acknowledge(masterId, correlationId, snapshotRevision);
         }
 
         return await CompleteAsync(masterId, cancellationToken);

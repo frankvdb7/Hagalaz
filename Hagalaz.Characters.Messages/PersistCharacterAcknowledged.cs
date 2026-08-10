@@ -8,4 +8,4 @@ public record PersistCharacterAcknowledged(
     Guid CorrelationId,
     uint MasterId,
     long SnapshotRevision,
-    CharacterPersistenceOutcome Outcome = CharacterPersistenceOutcome.Committed);
+    CharacterPersistenceOutcome? Outcome = null);

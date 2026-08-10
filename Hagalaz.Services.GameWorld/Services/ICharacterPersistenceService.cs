@@ -15,7 +15,6 @@ namespace Hagalaz.Services.GameWorld.Services
         bool IsPendingLogoutRemoved(ICharacter character);
         IReadOnlyCollection<ICharacter> GetPendingLogouts();
         bool IsPersistenceAcknowledged(ICharacter character);
-        void Acknowledge(uint masterId, long snapshotRevision);
         void Forget(uint masterId);
     }
 }

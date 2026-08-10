@@ -3,5 +3,5 @@
     public record UpdateCharacterResponse(
         Guid CorrelationId,
         uint MasterId,
-        CharacterPersistenceOutcome Outcome = CharacterPersistenceOutcome.Committed);
+        CharacterPersistenceOutcome? Outcome = null);
 }

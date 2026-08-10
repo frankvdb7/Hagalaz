@@ -57,7 +57,7 @@ public sealed class CharacterPersistenceServiceTests
         Assert.AreEqual(101L, publishedCommands[0].SnapshotRevision);
         Assert.AreEqual(102L, publishedCommands[1].SnapshotRevision);
 
-        state.Acknowledge(42, publishedCommands[1].SnapshotRevision);
+        state.Acknowledge(42, publishedCommands[1].CorrelationId, publishedCommands[1].SnapshotRevision);
         await service.PersistAsync(character, force: false);
 
         await publishEndpoint.Received(2).Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>());

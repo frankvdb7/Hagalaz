@@ -13,6 +13,13 @@ fingerprint. Lower revisions, equal revisions with different content, and
 legacy rows without a fingerprint produce `Conflict`; they do not mutate the
 character or move GameWorld state into persisted state.
 
+`Outcome` is required for successful acknowledgement and dehydration paths.
+Missing or unknown outcome values are treated as non-success so mixed-version
+messages cannot acknowledge a pending snapshot or complete logout. Deploy the
+contract-compatible Characters and GameWorld versions together, or keep the
+older consumer from handling new persistence commands until it understands the
+outcome field.
+
 The character service applies the snapshot and queues
 `PersistCharacterAcknowledged` in the same EF transaction. Acknowledgements are
 therefore not emitted for a failed database commit. If acknowledgement delivery

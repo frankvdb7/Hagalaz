@@ -7,7 +7,7 @@ GameWorld currently assigns character snapshot revisions from process-local wall
 - Make the persisted character revision the authoritative ordering source and carry it through character hydration.
 - Allocate strictly increasing revisions per character through the existing `CharacterPersistenceState`; remove wall-clock revision generation.
 - Persist a deterministic snapshot fingerprint beside the existing revision so exact duplicate delivery can be distinguished from conflicting stale delivery.
-- Add explicit `Committed`, `Duplicate`, and `Conflict` outcomes to the existing persistence response/acknowledgement contracts.
+- Add explicit `Committed`, `Duplicate`, and `Conflict` outcomes to the existing persistence response/acknowledgement contracts, with missing or unknown outcomes failing closed.
 - Keep conflicting snapshots uncommitted and prevent them from completing pending logout or persisted-fingerprint transitions.
 - Preserve the existing EF concurrency, MassTransit outbox, retry, and fault paths.
 - Add the required EF migration, documentation, and unit/integration regression coverage.
@@ -37,6 +37,7 @@ The change reuses the persisted `SnapshotRevision`, existing hydration pipeline,
 - The consumer acknowledges an exact duplicate only when both revision and fingerprint match the stored character row.
 - An obsolete or fingerprint-conflicting snapshot produces `Conflict`, does not mutate the character graph, and cannot mark GameWorld state persisted.
 - Pending logout cannot complete from a conflict outcome and can complete from a committed or exact-duplicate outcome.
+- Missing or unknown acknowledgement/response outcomes cannot mark persistence successful or emit successful dehydration.
 - EF concurrency, outbox acknowledgement, retry, fault, and rollback behavior remains correct.
 - No wall-clock or second revision source remains active.
 

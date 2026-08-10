@@ -59,7 +59,7 @@ namespace Hagalaz.Services.GameWorld.Services
             // Record the snapshot before publishing so a fast acknowledgement cannot arrive
             // before the producer has state to match it. If publishing or the outbox commit
             // fails, the pending snapshot remains eligible for redrive.
-            _state.MarkPending(character.MasterId, fingerprint, snapshotRevision);
+            _state.MarkPending(character.MasterId, command.CorrelationId, fingerprint, snapshotRevision);
             await _publishEndpoint.Publish(command, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
             _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
@@ -78,8 +78,6 @@ namespace Hagalaz.Services.GameWorld.Services
         public IReadOnlyCollection<ICharacter> GetPendingLogouts() => _state.GetPendingLogouts();
 
         public bool IsPersistenceAcknowledged(ICharacter character) => _state.IsPersistenceAcknowledged(character.MasterId);
-
-        public void Acknowledge(uint masterId, long snapshotRevision) => _state.Acknowledge(masterId, snapshotRevision);
 
         public void Forget(uint masterId) => _state.Forget(masterId);
 
@@ -163,12 +161,14 @@ namespace Hagalaz.Services.GameWorld.Services
         public long NextRevision(uint masterId) =>
             _nextRevisions.AddOrUpdate(masterId, 1L, (_, current) => checked(current + 1));
 
-        public void MarkPending(uint masterId, string fingerprint, long snapshotRevision) =>
-            _pendingSnapshots[masterId] = new PendingSnapshot(fingerprint, snapshotRevision);
+        public void MarkPending(uint masterId, Guid correlationId, string fingerprint, long snapshotRevision) =>
+            _pendingSnapshots[masterId] = new PendingSnapshot(correlationId, fingerprint, snapshotRevision);
 
-        public void Acknowledge(uint masterId, long snapshotRevision)
+        public void Acknowledge(uint masterId, Guid correlationId, long snapshotRevision)
         {
-            if (!_pendingSnapshots.TryGetValue(masterId, out var pending) || pending.SnapshotRevision != snapshotRevision)
+            if (!_pendingSnapshots.TryGetValue(masterId, out var pending) ||
+                pending.CorrelationId != correlationId ||
+                pending.SnapshotRevision != snapshotRevision)
             {
                 return;
             }
@@ -215,7 +215,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public void EndLogoutCompletion(uint masterId) => _completingLogouts.TryRemove(masterId, out _);
 
-        private sealed record PendingSnapshot(string Fingerprint, long SnapshotRevision);
+        private sealed record PendingSnapshot(Guid CorrelationId, string Fingerprint, long SnapshotRevision);
 
         private void Release(uint masterId, LockEntry entry)
         {

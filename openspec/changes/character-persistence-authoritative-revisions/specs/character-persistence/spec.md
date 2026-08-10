@@ -30,7 +30,7 @@ The Characters hydration response SHALL include the persisted snapshot revision,
 
 ### Requirement: Exact duplicates and conflicts have distinct outcomes
 
-The persistence consumer SHALL use both snapshot revision and deterministic content fingerprint to classify a message as committed, exact duplicate, or conflict.
+The persistence consumer SHALL use both snapshot revision and deterministic content fingerprint to classify a message as committed, exact duplicate, or conflict. Missing or unknown outcome values SHALL be treated as non-success by all acknowledgement and dehydration consumers.
 
 #### Scenario: Higher revision commits
 - **WHEN** a valid snapshot has a revision greater than the stored revision
@@ -48,9 +48,17 @@ The persistence consumer SHALL use both snapshot revision and deterministic cont
 - **WHEN** a snapshot has the stored revision but a different or unknown fingerprint
 - **THEN** the consumer leaves the character graph unchanged and publishes `Conflict`
 
+#### Scenario: Missing or unknown acknowledgement outcome fails closed
+- **WHEN** an acknowledgement omits `Outcome` or carries an enum value unknown to the consumer
+- **THEN** GameWorld leaves the pending snapshot unacknowledged and cannot complete pending logout
+
+#### Scenario: Missing or unknown dehydration response outcome fails closed
+- **WHEN** an `UpdateCharacterResponse` omits `Outcome` or carries an enum value unknown to the consumer
+- **THEN** GameWorld does not emit `CharacterDehydrated`
+
 ### Requirement: Producer persistence state remains honest
 
-GameWorld SHALL move a pending fingerprint to persisted state only after `Committed` or `Duplicate` for the matching revision. A `Conflict` outcome SHALL retain pending state.
+GameWorld SHALL move a pending fingerprint to persisted state only after `Committed` or `Duplicate` for the matching correlation ID and revision. A `Conflict` outcome, or an acknowledgement for another snapshot, SHALL retain pending state.
 
 #### Scenario: Conflict cannot mark state persisted
 - **WHEN** GameWorld receives `Conflict` for its pending revision
@@ -59,6 +67,10 @@ GameWorld SHALL move a pending fingerprint to persisted state only after `Commit
 #### Scenario: Stale acknowledgement cannot clear newer pending state
 - **WHEN** a conflict or success outcome arrives for a revision older than the current pending revision
 - **THEN** the current pending revision remains unchanged
+
+#### Scenario: Same revision with another correlation cannot acknowledge
+- **WHEN** a successful acknowledgement arrives with the current pending revision but a different correlation ID
+- **THEN** the current pending snapshot remains unacknowledged and its fingerprint remains unpersisted
 
 ### Requirement: Logout requires successful persistence confirmation
 

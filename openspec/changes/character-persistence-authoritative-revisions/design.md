@@ -36,9 +36,9 @@ Comparing the complete relational graph on every stale message is rejected becau
 
 ### Outcome contract and ownership
 
-Add `Committed`, `Duplicate`, and `Conflict` to the existing persistence response/acknowledgement contracts. The Characters consumer applies a higher revision and stores its fingerprint before publishing `Committed` through the existing EF outbox. Equal revision plus matching non-empty fingerprint publishes `Duplicate` without applying the graph. Lower revisions, equal revisions with a different fingerprint, and equal revisions with no known stored fingerprint publish `Conflict` without mutation.
+Add `Committed`, `Duplicate`, and `Conflict` to the existing persistence response/acknowledgement contracts. The outcome field has no successful default: missing or unknown values are non-success and must fail closed. The Characters consumer applies a higher revision and stores its fingerprint before publishing `Committed` through the existing EF outbox. Equal revision plus matching non-empty fingerprint publishes `Duplicate` without applying the graph. Lower revisions, equal revisions with a different fingerprint, and equal revisions with no known stored fingerprint publish `Conflict` without mutation.
 
-`CharacterPersistenceState` only moves a pending fingerprint to persisted for `Committed` or `Duplicate`. A conflict keeps the matching snapshot pending. `CharacterLogoutService` remains the only owner of acknowledgement-to-logout reconciliation: it acknowledges only successful outcomes, then applies the existing completion guard. A conflict therefore cannot complete logout.
+`CharacterPersistenceState` only moves a pending fingerprint to persisted for `Committed` or `Duplicate` when both the acknowledgement correlation ID and revision match the pending snapshot. A conflict or acknowledgement for a different snapshot keeps the pending snapshot intact. `CharacterLogoutService` remains the only owner of acknowledgement-to-logout reconciliation: it acknowledges only successful outcomes, then applies the existing completion guard. A conflict therefore cannot complete logout.
 
 The legacy request response receives the same outcome so it cannot report a conflict as successful. Its state-machine success path must emit `CharacterDehydrated` only for `Committed` or `Duplicate`.
 
@@ -49,7 +49,7 @@ Add an EF migration for `snapshot_fingerprint` with a bounded 64-character defau
 ## Risks / Trade-offs
 
 - [Legacy rows have no fingerprint] → Treat equal-revision messages as conflict rather than falsely acknowledging them; the next producer revision establishes identity.
-- [A conflict acknowledgement arrives after a newer pending snapshot] → Match state transitions by master ID and revision; stale conflict outcomes cannot clear a newer pending snapshot.
+- [An old outbox acknowledgement arrives after restart with the same revision as a replacement payload] → Match state transitions by master ID, correlation ID, and revision; acknowledgements for a different payload cannot clear or persist the replacement pending snapshot.
 - [Concurrent commands race on EF concurrency] → Retain `DbUpdateConcurrencyException` reset/retry behavior; a retried obsolete command becomes an explicit conflict and the highest committed snapshot remains authoritative.
 - [Message contracts gain a result field] → Keep the field trailing and use the existing response/acknowledgement types; do not introduce a parallel conflict pipeline.
 
