@@ -44,6 +44,10 @@ again.
   flushes redrive pending commands. The player may remain in the world or have
   their session closed while the save is pending, but the in-memory character is
   retained for retry rather than discarded.
+- Failed world sign-in cleanup removes the character before forgetting its
+  revision state. If removal fails or is canceled, the character and hydrated
+  revision remain available so a later flush can allocate a revision above the
+  persisted value and recover.
 
 Monitor the applied, duplicate, conflict, failure, unknown-character,
 MassTransit fault, and queue-depth signals together. A rising failure or

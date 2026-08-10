@@ -239,10 +239,16 @@ namespace Hagalaz.Services.GameWorld.Services
                     {
                         if (characterRegistered)
                         {
-                            _characterPersistenceService.Forget(masterId);
                             try
                             {
-                                await _characterService.RemoveAsync(registeredCharacter!);
+                                if (await _characterService.RemoveAsync(registeredCharacter!))
+                                {
+                                    _characterPersistenceService.Forget(masterId);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
+                                }
                             }
                             catch (OperationCanceledException ex)
                             {

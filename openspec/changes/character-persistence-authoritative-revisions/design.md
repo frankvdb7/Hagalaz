@@ -24,7 +24,7 @@ The change crosses the shared message contracts, Characters persistence service,
 
 ### Per-character revision ownership
 
-`CharacterPersistenceState` owns the per-character last-issued revision together with pending and persisted fingerprints. Hydration carries `SnapshotRevision` from the Characters service through `GetCharacterResponse`, the hydration saga, `CharacterHydrated`, and `CharacterModel`. Authentication initializes the state after the runtime character is registered; failed sign-in cleanup forgets that state. `NextRevision(masterId)` increments the initialized value and defaults from zero for isolated/test-created characters.
+`CharacterPersistenceState` owns the per-character last-issued revision together with pending and persisted fingerprints. Hydration carries `SnapshotRevision` from the Characters service through `GetCharacterResponse`, the hydration saga, `CharacterHydrated`, and `CharacterModel`. Authentication initializes the state after the runtime character is registered; failed sign-in cleanup forgets that state only after character removal succeeds. If removal fails or is canceled, the character remains recoverable in the singleton store and its hydrated revision state is retained. `NextRevision(masterId)` increments the initialized value and defaults from zero for isolated/test-created characters.
 
 The wall-clock `SnapshotRevisionGenerator` is removed. Keeping a separate generator would leave two owners for ordering and would make restart/migration correctness dependent on coordination between them. Querying the database on every save is also rejected because hydration already crosses the authoritative boundary and the state lock serializes producer allocation for a character.
 

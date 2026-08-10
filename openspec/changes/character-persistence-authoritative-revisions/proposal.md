@@ -38,6 +38,7 @@ The change reuses the persisted `SnapshotRevision`, existing hydration pipeline,
 - An obsolete or fingerprint-conflicting snapshot produces `Conflict`, does not mutate the character graph, and cannot mark GameWorld state persisted.
 - Pending logout cannot complete from a conflict outcome and can complete from a committed or exact-duplicate outcome.
 - Missing or unknown acknowledgement/response outcomes cannot mark persistence successful or emit successful dehydration.
+- Failed character removal cannot clear hydrated revision state while the character remains in the singleton store.
 - EF concurrency, outbox acknowledgement, retry, fault, and rollback behavior remains correct.
 - No wall-clock or second revision source remains active.
 

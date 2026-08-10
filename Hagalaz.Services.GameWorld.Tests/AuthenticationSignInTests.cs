@@ -77,7 +77,7 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignInWorldAsync_WhenWorldSessionCommitFails_ForgetsHydratedRevisionState()
+    public async Task SignInWorldAsync_WhenWorldSessionCommitFailsAndCharacterRemovalFails_RetainsHydratedRevisionState()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();
         var session = Substitute.For<IGameSession>();
@@ -89,6 +89,31 @@ public sealed class AuthenticationSignInTests
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         var service = CreateAuthenticationService(
             gameSessionService,
+            characterPersistenceService: persistenceService,
+            snapshotRevision: 27);
+
+        var result = await service.SignInWorldAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInWorldAsync_WhenWorldSessionCommitFailsAndCharacterRemovalSucceeds_ForgetsHydratedRevisionState()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        gameSessionService.TryAddWorldSession(42, "connection").Returns(Task.FromResult<(IGameSession? Session, bool Created)>((session, Created: true)));
+        gameSessionService.CommitWorldSession(session).Returns(Task.FromResult(false));
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+
+        var characterService = new TestCharacterService(addResult: true, removeResult: true);
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            characterService,
             characterPersistenceService: persistenceService,
             snapshotRevision: 27);
 
@@ -600,8 +625,13 @@ public sealed class AuthenticationSignInTests
     private sealed class TestCharacterService : ICharacterService
     {
         private readonly bool _addResult;
+        private readonly bool _removeResult;
 
-        public TestCharacterService(bool addResult) => _addResult = addResult;
+        public TestCharacterService(bool addResult, bool removeResult = false)
+        {
+            _addResult = addResult;
+            _removeResult = removeResult;
+        }
 
         public int AddCallCount { get; private set; }
 
@@ -611,7 +641,7 @@ public sealed class AuthenticationSignInTests
             return ValueTask.FromResult(_addResult);
         }
 
-        public ValueTask<bool> RemoveAsync(ICharacter character) => ValueTask.FromResult(false);
+        public ValueTask<bool> RemoveAsync(ICharacter character) => ValueTask.FromResult(_removeResult);
 
         public ValueTask<int> CountAsync() => ValueTask.FromResult(0);
 

@@ -24,9 +24,13 @@ The Characters hydration response SHALL include the persisted snapshot revision,
 - **WHEN** the Characters service hydrates a character with revision 27
 - **THEN** the GameWorld hydration result exposes revision 27 and initializes the producer sequence from it
 
-#### Scenario: Failed registration does not retain revision state
-- **WHEN** character registration fails after hydration
+#### Scenario: Failed registration cleanup after successful removal
+- **WHEN** world sign-in fails after hydration and the registered character is removed successfully
 - **THEN** GameWorld forgets the initialized persistence state during sign-in cleanup
+
+#### Scenario: Failed removal retains revision state
+- **WHEN** world sign-in fails after hydration but character removal fails or is canceled
+- **THEN** GameWorld retains the initialized revision state while the character remains in the singleton store, so the next flush allocates above the hydrated revision
 
 ### Requirement: Exact duplicates and conflicts have distinct outcomes
 
