@@ -181,11 +181,11 @@ public sealed class CharacterUpdateRequestConsumerTests
         await harness.Start();
         var command = CreateCommand();
         await harness.Bus.Publish(command);
-        await harness.Bus.Publish(command);
-
         Assert.IsTrue(await harness.Published.Any<PersistCharacterAcknowledged>(x =>
             x.Context.Message.SnapshotRevision == command.SnapshotRevision &&
             x.Context.Message.Outcome == CharacterPersistenceOutcome.Committed));
+        await harness.Bus.Publish(command);
+
         Assert.IsTrue(await harness.Published.Any<PersistCharacterAcknowledged>(x =>
             x.Context.Message.SnapshotRevision == command.SnapshotRevision &&
             x.Context.Message.Outcome == CharacterPersistenceOutcome.Duplicate));
