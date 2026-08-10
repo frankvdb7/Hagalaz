@@ -264,7 +264,25 @@ namespace Hagalaz.Services.GameWorld.Services
                         }
                         else if (revisionInitialized)
                         {
-                            _characterPersistenceService.Forget(masterId);
+                            try
+                            {
+                                if (await _characterService.FindByMasterId(masterId) == null)
+                                {
+                                    _characterPersistenceService.Forget(masterId);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("Character '{MasterId}' was already registered after world sign-in failed; retaining persistence state for the existing character", masterId);
+                                }
+                            }
+                            catch (OperationCanceledException ex)
+                            {
+                                _logger.LogError(ex, "Unable to determine character registration after world sign-in failed; retaining persistence state");
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                _logger.LogError(ex, "Unable to determine character registration after world sign-in failed; retaining persistence state");
+                            }
                         }
 
                         try

@@ -39,6 +39,7 @@ The change reuses the persisted `SnapshotRevision`, existing hydration pipeline,
 - Pending logout cannot complete from a conflict outcome and can complete from a committed or exact-duplicate outcome.
 - Missing or unknown acknowledgement/response outcomes cannot mark persistence successful or emit successful dehydration.
 - Failed character removal cannot clear hydrated revision state while the character remains in the singleton store.
+- A rejected duplicate registration cannot clear revision state for the already-registered character; capacity-only rejection may clean up state when no character is present.
 - EF concurrency, outbox acknowledgement, retry, fault, and rollback behavior remains correct.
 - No wall-clock or second revision source remains active.
 

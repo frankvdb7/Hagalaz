@@ -81,6 +81,32 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task SignInWorldAsync_WhenCharacterRegistrationFindsExistingMasterId_RetainsRevisionState()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        gameSessionService.TryAddWorldSession(42, "connection").Returns(Task.FromResult<(IGameSession? Session, bool Created)>((session, Created: true)));
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+
+        var existingCharacter = Substitute.For<ICharacter>();
+        var characterService = new TestCharacterService(addResult: false, existingCharacter: existingCharacter);
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            characterService: characterService,
+            characterPersistenceService: persistenceService,
+            snapshotRevision: 27);
+
+        var result = await service.SignInWorldAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual(1, characterService.FindByMasterIdCallCount);
+        persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignInWorldAsync_WhenWorldSessionCommitFailsAndCharacterRemovalFails_RetainsHydratedRevisionState()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();
@@ -635,12 +661,14 @@ public sealed class AuthenticationSignInTests
         private readonly bool _addResult;
         private readonly bool _removeResult;
         private readonly Action? _onAdd;
+        private readonly ICharacter? _existingCharacter;
 
-        public TestCharacterService(bool addResult, bool removeResult = false, Action? onAdd = null)
+        public TestCharacterService(bool addResult, bool removeResult = false, Action? onAdd = null, ICharacter? existingCharacter = null)
         {
             _addResult = addResult;
             _removeResult = removeResult;
             _onAdd = onAdd;
+            _existingCharacter = existingCharacter;
         }
 
         public int AddCallCount { get; private set; }
@@ -658,7 +686,13 @@ public sealed class AuthenticationSignInTests
 
         public ValueTask<ICharacter?> FindByIndex(int index) => ValueTask.FromResult<ICharacter?>(null);
 
-        public ValueTask<ICharacter?> FindByMasterId(uint masterId) => ValueTask.FromResult<ICharacter?>(null);
+        public int FindByMasterIdCallCount { get; private set; }
+
+        public ValueTask<ICharacter?> FindByMasterId(uint masterId)
+        {
+            FindByMasterIdCallCount++;
+            return ValueTask.FromResult<ICharacter?>(_existingCharacter);
+        }
 
         public async IAsyncEnumerable<ICharacter> FindAll()
         {

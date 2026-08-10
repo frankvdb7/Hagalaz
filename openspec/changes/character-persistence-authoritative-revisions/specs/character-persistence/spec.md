@@ -36,6 +36,14 @@ The Characters hydration response SHALL include the persisted snapshot revision,
 - **WHEN** a hydrated character is registered in the singleton store
 - **THEN** its revision state has already been initialized from the hydrated persisted revision
 
+#### Scenario: Duplicate registration retains existing revision state
+- **WHEN** registration returns false because the singleton store already contains the same MasterId
+- **THEN** GameWorld leaves the existing character registered and retains its initialized revision state
+
+#### Scenario: Registration capacity failure can clean up state
+- **WHEN** registration returns false and the singleton store contains no character with the MasterId
+- **THEN** GameWorld forgets the unused initialized revision state
+
 ### Requirement: Exact duplicates and conflicts have distinct outcomes
 
 The persistence consumer SHALL use both snapshot revision and deterministic content fingerprint to classify a message as committed, exact duplicate, or conflict. Missing or unknown outcome values SHALL be treated as non-success by all acknowledgement and dehydration consumers.
