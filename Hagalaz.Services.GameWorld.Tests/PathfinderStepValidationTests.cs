@@ -125,6 +125,17 @@ public sealed class PathfinderStepValidationTests
     }
 
     [TestMethod]
+    public void CheckStep_SizeTwo_NorthEast_IgnoresBlockedOverlappingTile()
+    {
+        _mapRegionService.GetClippingFlag(11, 11, 0)
+            .Returns(CollisionFlag.FloorBlock);
+
+        var result = _pathFinder.CheckStep(11, 11, 0, 1, 1, 2);
+
+        Assert.IsTrue(result);
+    }
+
+    [TestMethod]
     [DataRow(3)]
     [DataRow(4)]
     public void CheckStep_VariableSize_NorthEast_UsesSouthVariableForTopEdge(int size)
