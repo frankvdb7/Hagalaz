@@ -50,6 +50,7 @@ namespace Hagalaz.Data.Entities
         public DateTimeOffset? LastLobbyLogin { get; set; }
         public DateTimeOffset? LastGameLogin { get; set; }
         public long SnapshotRevision { get; set; }
+        public string SnapshotFingerprint { get; set; } = string.Empty;
         public short Birthyear { get; set; }
         public short CoordX { get; set; }
         public short CoordY { get; set; }

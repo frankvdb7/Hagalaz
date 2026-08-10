@@ -4,6 +4,7 @@ using Hagalaz.Data;
 using MySql.EntityFrameworkCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Hagalaz.Data.Migrations
 {
     [DbContext(typeof(HagalazDbContext))]
-    partial class HagalazDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810072238_AddCharacterSnapshotFingerprint")]
+    partial class AddCharacterSnapshotFingerprint
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             MySQLModelBuilderExtensions.UseCollation(modelBuilder, "utf8mb4_0900_ai_ci")

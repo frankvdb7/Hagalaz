@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
@@ -12,7 +13,11 @@ public interface ICharacterLogoutService
 {
     Task DetachAsync(ICharacter character, CancellationToken cancellationToken = default);
     Task<bool> CompleteAsync(uint masterId, CancellationToken cancellationToken = default);
-    Task<bool> AcknowledgeAndCompleteAsync(uint masterId, long snapshotRevision, CancellationToken cancellationToken = default);
+    Task<bool> AcknowledgeAndCompleteAsync(
+        uint masterId,
+        long snapshotRevision,
+        CancellationToken cancellationToken = default,
+        CharacterPersistenceOutcome outcome = CharacterPersistenceOutcome.Committed);
 }
 
 public sealed class CharacterLogoutService : ICharacterLogoutService
@@ -57,9 +62,14 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
     public async Task<bool> AcknowledgeAndCompleteAsync(
         uint masterId,
         long snapshotRevision,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        CharacterPersistenceOutcome outcome = CharacterPersistenceOutcome.Committed)
     {
-        _state.Acknowledge(masterId, snapshotRevision);
+        if (outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate)
+        {
+            _state.Acknowledge(masterId, snapshotRevision);
+        }
+
         return await CompleteAsync(masterId, cancellationToken);
     }
 

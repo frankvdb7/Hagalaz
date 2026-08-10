@@ -16,5 +16,6 @@ public sealed class CharacterPersistenceAcknowledgedConsumer : IConsumer<Persist
         _characterLogoutService.AcknowledgeAndCompleteAsync(
             context.Message.MasterId,
             context.Message.SnapshotRevision,
-            context.CancellationToken);
+            context.CancellationToken,
+            context.Message.Outcome);
 }

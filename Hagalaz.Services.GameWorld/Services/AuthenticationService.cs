@@ -213,6 +213,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
 
                     characterRegistered = true;
+                    _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
                     if (!await _gameSessionService.CommitWorldSession(session, cancellationToken))
                     {
                         _logger.LogWarning("Unable to commit world session '{connectionId}' after character registration", session.ConnectionId);
@@ -238,6 +239,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     {
                         if (characterRegistered)
                         {
+                            _characterPersistenceService.Forget(masterId);
                             try
                             {
                                 await _characterService.RemoveAsync(registeredCharacter!);

@@ -77,6 +77,29 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task SignInWorldAsync_WhenWorldSessionCommitFails_ForgetsHydratedRevisionState()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        gameSessionService.TryAddWorldSession(42, "connection").Returns(Task.FromResult<(IGameSession? Session, bool Created)>((session, Created: true)));
+        gameSessionService.CommitWorldSession(session).Returns(Task.FromResult(false));
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            characterPersistenceService: persistenceService,
+            snapshotRevision: 27);
+
+        var result = await service.SignInWorldAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        persistenceService.Received(1).Forget(42u);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignInWorldAsync_WhenClaimReleaseReturnsFalse_RemovesLocalSessionForLaterLogin()
     {
         var claims = new ReleaseFalseClaimStore();
@@ -412,16 +435,20 @@ public sealed class AuthenticationSignInTests
         var characterService = new TestCharacterService(addResult: true);
         var characterHydrationService = Substitute.For<ICharacterHydrationService>();
         characterHydrationService.HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>()).Returns(Task.FromResult(true));
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
 
         var service = CreateAuthenticationService(
             gameSessionService,
             characterService,
-            characterHydrationService);
+            characterHydrationService,
+            characterPersistenceService: persistenceService,
+            snapshotRevision: 27);
 
         var result = await service.SignInWorldAsync(CreateSignInRequest());
 
         Assert.IsTrue(result.Succeeded);
         await characterHydrationService.Received(1).HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>());
+        persistenceService.Received(1).InitializeRevision(42u, 27L);
         Assert.AreEqual(1, characterService.AddCallCount);
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
     }
@@ -431,10 +458,12 @@ public sealed class AuthenticationSignInTests
         ICharacterService? characterService = null,
         ICharacterHydrationService? characterHydrationService = null,
         IRequestClient<HydrateCharacter>? getCharacterRequestClient = null,
-        string connectionId = "connection")
+        string connectionId = "connection",
+        long snapshotRevision = 0,
+        ICharacterPersistenceService? characterPersistenceService = null)
     {
         var mapper = Substitute.For<IMapper>();
-        mapper.Map<CharacterModel>(Arg.Any<CharacterHydrated>()).Returns(new CharacterModel());
+        mapper.Map<CharacterModel>(Arg.Any<CharacterHydrated>()).Returns(new CharacterModel { SnapshotRevision = snapshotRevision });
         mapper.Map<HydratedClaims>(Arg.Any<AuthenticationProperties>()).Returns(new HydratedClaims());
 
         var signInResponse = CreateResponse(new SignInUserResponseMessage
@@ -492,7 +521,7 @@ public sealed class AuthenticationSignInTests
             characterServiceSubstitute,
             characterFactory,
             characterHydrationServiceSubstitute,
-            Substitute.For<ICharacterPersistenceService>(),
+            characterPersistenceService ?? Substitute.For<ICharacterPersistenceService>(),
             Substitute.For<ICharacterLogoutService>(),
             gameSessionService,
             signInUserRequestClient,

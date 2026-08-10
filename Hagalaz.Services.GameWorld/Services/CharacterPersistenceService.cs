@@ -2,8 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -25,7 +23,6 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly HagalazDbContext _dbContext;
         private readonly ICharacterDehydrationService _dehydrationService;
-        private readonly SnapshotRevisionGenerator _snapshotRevisionGenerator;
         private readonly CharacterPersistenceState _state;
 
         public CharacterPersistenceService(
@@ -34,7 +31,6 @@ namespace Hagalaz.Services.GameWorld.Services
             IPublishEndpoint publishEndpoint,
             HagalazDbContext dbContext,
             ICharacterDehydrationService dehydrationService,
-            SnapshotRevisionGenerator snapshotRevisionGenerator,
             CharacterPersistenceState state)
         {
             _logger = logger;
@@ -42,7 +38,6 @@ namespace Hagalaz.Services.GameWorld.Services
             _publishEndpoint = publishEndpoint;
             _dbContext = dbContext;
             _dehydrationService = dehydrationService;
-            _snapshotRevisionGenerator = snapshotRevisionGenerator;
             _state = state;
         }
 
@@ -50,26 +45,29 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             using var characterLock = await _state.AcquireAsync(character.MasterId, cancellationToken);
             var model = await _dehydrationService.DehydrateAsync(character);
-            var fingerprint = ComputeFingerprint(model);
+            var command = CreateCommand(_mapper, model, character.MasterId, 0);
+            var fingerprint = CharacterSnapshotFingerprint.Compute(command);
 
             if (!force && _state.IsPersisted(character.MasterId, fingerprint))
             {
                 return;
             }
 
-            var snapshotRevision = _snapshotRevisionGenerator.Next();
-            var command = CreateCommand(_mapper, model, character.MasterId, snapshotRevision);
+            var snapshotRevision = _state.NextRevision(character.MasterId);
+            command = command with { SnapshotRevision = snapshotRevision };
 
-            // Record the snapshot as pending before committing the outbox row so a fast
-            // acknowledgement cannot arrive before the producer has state to match it. If
-            // the outbox commit fails, the pending snapshot remains eligible for redrive.
-            await _publishEndpoint.Publish(command, cancellationToken);
+            // Record the snapshot before publishing so a fast acknowledgement cannot arrive
+            // before the producer has state to match it. If publishing or the outbox commit
+            // fails, the pending snapshot remains eligible for redrive.
             _state.MarkPending(character.MasterId, fingerprint, snapshotRevision);
+            await _publishEndpoint.Publish(command, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
             _logger.LogDebug("Queued character {MasterId} snapshot revision {SnapshotRevision} in the EF bus outbox", character.MasterId, snapshotRevision);
         }
 
         public void TrackPendingLogout(ICharacter character) => _state.TrackPendingLogout(character);
+
+        public void InitializeRevision(uint masterId, long persistedRevision) => _state.InitializeRevision(masterId, persistedRevision);
 
         public bool IsPendingLogout(ICharacter character) => _state.IsPendingLogout(character);
 
@@ -103,14 +101,13 @@ namespace Hagalaz.Services.GameWorld.Services
                 mapper.Map<StateDto>(model.State),
                 snapshotRevision);
 
-        private static string ComputeFingerprint(CharacterModel model) =>
-            Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(model)));
     }
 
     public sealed class CharacterPersistenceState
     {
         private readonly ConcurrentDictionary<uint, string> _persistedFingerprints = new();
         private readonly ConcurrentDictionary<uint, PendingSnapshot> _pendingSnapshots = new();
+        private readonly ConcurrentDictionary<uint, long> _nextRevisions = new();
         private readonly ConcurrentDictionary<uint, ICharacter> _pendingLogouts = new();
         private readonly ConcurrentDictionary<uint, byte> _removedPendingLogouts = new();
         private readonly ConcurrentDictionary<uint, byte> _completingLogouts = new();
@@ -157,6 +154,15 @@ namespace Hagalaz.Services.GameWorld.Services
         public bool IsPersisted(uint masterId, string fingerprint) =>
             _persistedFingerprints.TryGetValue(masterId, out var persistedFingerprint) && persistedFingerprint == fingerprint;
 
+        public void InitializeRevision(uint masterId, long persistedRevision)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(persistedRevision);
+            _nextRevisions.AddOrUpdate(masterId, persistedRevision, (_, current) => Math.Max(current, persistedRevision));
+        }
+
+        public long NextRevision(uint masterId) =>
+            _nextRevisions.AddOrUpdate(masterId, 1L, (_, current) => checked(current + 1));
+
         public void MarkPending(uint masterId, string fingerprint, long snapshotRevision) =>
             _pendingSnapshots[masterId] = new PendingSnapshot(fingerprint, snapshotRevision);
 
@@ -178,6 +184,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             _persistedFingerprints.TryRemove(masterId, out _);
             _pendingSnapshots.TryRemove(masterId, out _);
+            _nextRevisions.TryRemove(masterId, out _);
             _pendingLogouts.TryRemove(masterId, out _);
             _removedPendingLogouts.TryRemove(masterId, out _);
         }

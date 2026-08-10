@@ -60,18 +60,22 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters.StateMachines
 
             During(Requested,
                 When(RequestUpdateCharacter.Completed)
-                    .ThenAsync(async context =>
-                    {
-                        var endpoint = await context.GetSendEndpoint(context.Saga.ResponseAddress!);
-                        await endpoint.Send(
-                            new CharacterDehydrated
+                    .IfElse(
+                        context => context.Message.Outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate,
+                        success => success
+                            .ThenAsync(async context =>
                             {
-                                MasterId = context.Saga.MasterId,
-                                CorrelationId = context.Saga.CorrelationId
-                            },
-                            r => r.RequestId = context.Saga.RequestId);
-                    })
-                    .Finalize(),
+                                var endpoint = await context.GetSendEndpoint(context.Saga.ResponseAddress!);
+                                await endpoint.Send(
+                                    new CharacterDehydrated
+                                    {
+                                        MasterId = context.Saga.MasterId,
+                                        CorrelationId = context.Saga.CorrelationId
+                                    },
+                                    r => r.RequestId = context.Saga.RequestId);
+                            })
+                            .Finalize(),
+                        conflict => conflict.TransitionTo(Failed)),
                 When(RequestUpdateCharacter.Completed2)
                     .ThenAsync(async context =>
                     {

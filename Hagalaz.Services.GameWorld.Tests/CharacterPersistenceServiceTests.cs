@@ -45,16 +45,17 @@ public sealed class CharacterPersistenceServiceTests
             publishEndpoint,
             dbContext,
             dehydrationService,
-            new SnapshotRevisionGenerator(),
             state);
+
+        service.InitializeRevision(42, 100);
 
         await service.PersistAsync(character, force: false);
         await service.PersistAsync(character, force: false);
 
         Assert.HasCount(2, publishedCommands);
         Assert.AreEqual(42u, publishedCommands[0].MasterId);
-        Assert.IsGreaterThan(0L, publishedCommands[0].SnapshotRevision);
-        Assert.AreNotEqual(publishedCommands[0].SnapshotRevision, publishedCommands[1].SnapshotRevision);
+        Assert.AreEqual(101L, publishedCommands[0].SnapshotRevision);
+        Assert.AreEqual(102L, publishedCommands[1].SnapshotRevision);
 
         state.Acknowledge(42, publishedCommands[1].SnapshotRevision);
         await service.PersistAsync(character, force: false);
@@ -83,7 +84,6 @@ public sealed class CharacterPersistenceServiceTests
             publishEndpoint,
             dbContext,
             dehydrationService,
-            new SnapshotRevisionGenerator(),
             new CharacterPersistenceState());
 
         await service.PersistAsync(character, force: true);

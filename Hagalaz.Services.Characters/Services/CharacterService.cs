@@ -34,6 +34,20 @@ namespace Hagalaz.Services.Characters.Services
             return exists;
         }
 
+        public async Task<Result<long>> GetSnapshotRevisionAsync(uint masterId)
+        {
+            var revision = await _characterUnitOfWork.CharacterRepository.FindById(masterId)
+                .AsNoTracking()
+                .Select(c => (long?)c.SnapshotRevision)
+                .SingleOrDefaultAsync();
+            if (revision == null)
+            {
+                return ResultHelper.Fail(new NotFoundException("character"));
+            }
+
+            return revision.Value;
+        }
+
         public async Task<Result<Appearance>> GetAppearanceAsync(uint masterId)
         {
             var appearance = await _mapper.ProjectTo<Appearance>(_characterUnitOfWork.CharacterLookRepository.FindById(masterId).AsNoTracking()).FirstOrDefaultAsync();

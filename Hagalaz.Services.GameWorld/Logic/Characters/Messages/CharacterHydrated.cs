@@ -19,5 +19,6 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters.Messages
         public required HydratedProfileDto Profile { get; init; }
         public required HydratedItemAppearanceCollectionDto ItemAppearanceCollection { get; init; }
         public required HydratedStateDto State { get; init; }
+        public long SnapshotRevision { get; init; }
     }
 }

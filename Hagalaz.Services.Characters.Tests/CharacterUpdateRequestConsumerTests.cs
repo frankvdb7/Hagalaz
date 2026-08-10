@@ -114,7 +114,7 @@ public sealed class CharacterUpdateRequestConsumerTests
     }
 
     [TestMethod]
-    public async Task Consume_PersistCommand_IsOneWayAndIgnoresStaleRevision()
+    public async Task Consume_PersistCommand_AcknowledgesConflictWithoutChangingData()
     {
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName);
@@ -149,8 +149,12 @@ public sealed class CharacterUpdateRequestConsumerTests
         await harness.Bus.Publish(staleCommand);
 
         Assert.IsTrue(await harness.Consumed.Any<PersistCharacterCommand>(x => x.Context.Message.MasterId == command.MasterId));
-        Assert.IsTrue(await harness.Published.Any<PersistCharacterAcknowledged>(x => x.Context.Message.SnapshotRevision == command.SnapshotRevision));
-        Assert.IsTrue(await harness.Published.Any<PersistCharacterAcknowledged>(x => x.Context.Message.SnapshotRevision == staleCommand.SnapshotRevision));
+        Assert.IsTrue(await harness.Published.Any<PersistCharacterAcknowledged>(x =>
+            x.Context.Message.SnapshotRevision == command.SnapshotRevision &&
+            x.Context.Message.Outcome == CharacterPersistenceOutcome.Committed));
+        Assert.IsTrue(await harness.Published.Any<PersistCharacterAcknowledged>(x =>
+            x.Context.Message.SnapshotRevision == staleCommand.SnapshotRevision &&
+            x.Context.Message.Outcome == CharacterPersistenceOutcome.Conflict));
         await harness.Stop();
 
         await using var verificationContext = CreateContext(databaseName);
@@ -158,6 +162,128 @@ public sealed class CharacterUpdateRequestConsumerTests
         Assert.AreEqual(command.SnapshotRevision, character.SnapshotRevision);
         Assert.AreEqual(command.Details.CoordX, character.CoordX);
         Assert.AreEqual(command.Details.CoordY, character.CoordY);
+    }
+
+    [TestMethod]
+    public async Task Consume_PersistCommand_ExactRedeliveryPublishesDuplicateOutcome()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName);
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+        var command = CreateCommand();
+        await harness.Bus.Publish(command);
+        await harness.Bus.Publish(command);
+
+        Assert.IsTrue(await harness.Published.Any<PersistCharacterAcknowledged>(x =>
+            x.Context.Message.SnapshotRevision == command.SnapshotRevision &&
+            x.Context.Message.Outcome == CharacterPersistenceOutcome.Committed));
+        Assert.IsTrue(await harness.Published.Any<PersistCharacterAcknowledged>(x =>
+            x.Context.Message.SnapshotRevision == command.SnapshotRevision &&
+            x.Context.Message.Outcome == CharacterPersistenceOutcome.Duplicate));
+        await harness.Stop();
+
+        await using var verificationContext = CreateContext(databaseName);
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == command.MasterId);
+        Assert.AreEqual(CharacterSnapshotFingerprint.Compute(command), character.SnapshotFingerprint);
+    }
+
+    [TestMethod]
+    public async Task Consume_ExactDuplicateSnapshot_AcknowledgesDuplicateWithoutReapplying()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName);
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+        var client = harness.GetRequestClient<UpdateCharacterRequest>();
+        var request = CreateRequest();
+
+        var committed = await client.GetResponse<UpdateCharacterResponse>(request);
+        var duplicate = await client.GetResponse<UpdateCharacterResponse>(request);
+
+        Assert.AreEqual(CharacterPersistenceOutcome.Committed, committed.Message.Outcome);
+        Assert.AreEqual(CharacterPersistenceOutcome.Duplicate, duplicate.Message.Outcome);
+        await harness.Stop();
+
+        await using var verificationContext = CreateContext(databaseName);
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == request.MasterId);
+        Assert.AreEqual(request.SnapshotRevision, character.SnapshotRevision);
+        Assert.AreEqual(CharacterSnapshotFingerprint.Compute(request), character.SnapshotFingerprint);
+    }
+
+    [TestMethod]
+    public async Task Consume_EqualRevisionWithDifferentFingerprint_ReportsConflictWithoutMutation()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName);
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+        var client = harness.GetRequestClient<UpdateCharacterRequest>();
+        var request = CreateRequest();
+        await client.GetResponse<UpdateCharacterResponse>(request);
+
+        var conflictingRequest = request with
+        {
+            Details = new DetailsDto(9999, 9998, 1),
+            Notes = new NotesDto { Notes = [new NotesDto.NoteDto { Id = 32, Text = "conflict" }] }
+        };
+        var response = await client.GetResponse<UpdateCharacterResponse>(conflictingRequest);
+
+        Assert.AreEqual(CharacterPersistenceOutcome.Conflict, response.Message.Outcome);
+        await harness.Stop();
+
+        await using var verificationContext = CreateContext(databaseName);
+        var character = await verificationContext.Characters.SingleAsync(x => x.Id == request.MasterId);
+        var note = await verificationContext.CharactersNotes.SingleAsync(x => x.MasterId == request.MasterId);
+        Assert.AreEqual(request.Details.CoordX, character.CoordX);
+        Assert.AreEqual(request.Notes.Notes[0].Text, note.Text);
+        Assert.AreEqual(CharacterSnapshotFingerprint.Compute(request), character.SnapshotFingerprint);
+    }
+
+    [TestMethod]
+    public async Task Consume_EqualRevisionWithLegacyEmptyFingerprint_ReportsConflict()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await SeedCharacterAsync(databaseName, snapshotRevision: 2);
+
+        await using var provider = new ServiceCollection()
+            .AddScoped(_ => CreateContext(databaseName))
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetTestHarness();
+        await harness.Start();
+        var response = await harness.GetRequestClient<UpdateCharacterRequest>()
+            .GetResponse<UpdateCharacterResponse>(CreateRequest());
+
+        Assert.AreEqual(CharacterPersistenceOutcome.Conflict, response.Message.Outcome);
+        await harness.Stop();
     }
 
     [TestMethod]
@@ -236,6 +362,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var response = await client.GetResponse<UpdateCharacterResponse>(staleRequest);
 
         Assert.AreEqual(staleRequest.MasterId, response.Message.MasterId);
+        Assert.AreEqual(CharacterPersistenceOutcome.Conflict, response.Message.Outcome);
         await harness.Stop();
 
         await using var verificationContext = CreateContext(databaseName);
@@ -405,6 +532,25 @@ public sealed class CharacterUpdateRequestConsumerTests
 
         Assert.IsNotNull(property);
         Assert.IsTrue(property.IsConcurrencyToken);
+
+        var fingerprintProperty = context.Model.FindEntityType(typeof(Character))!.FindProperty(nameof(Character.SnapshotFingerprint));
+        Assert.IsNotNull(fingerprintProperty);
+        Assert.AreEqual(64, fingerprintProperty.GetMaxLength());
+    }
+
+    [TestMethod]
+    public void SnapshotFingerprint_IsDeterministicAndIndependentOfDeliveryMetadata()
+    {
+        var request = CreateRequest();
+        var redelivered = request with
+        {
+            CorrelationId = Guid.NewGuid(),
+            SnapshotRevision = request.SnapshotRevision + 100
+        };
+        var changed = request with { Details = new DetailsDto(9999, 9998, 1) };
+
+        Assert.AreEqual(CharacterSnapshotFingerprint.Compute(request), CharacterSnapshotFingerprint.Compute(redelivered));
+        Assert.AreNotEqual(CharacterSnapshotFingerprint.Compute(request), CharacterSnapshotFingerprint.Compute(changed));
     }
 
     private static UpdateCharacterRequest CreateRequest() => new(
@@ -459,7 +605,7 @@ public sealed class CharacterUpdateRequestConsumerTests
             request.SnapshotRevision);
     }
 
-    private static async Task SeedCharacterAsync(string databaseName)
+    private static async Task SeedCharacterAsync(string databaseName, long snapshotRevision = 0, string snapshotFingerprint = "")
     {
         await using var context = CreateContext(databaseName);
         context.Characters.Add(new Character
@@ -468,7 +614,9 @@ public sealed class CharacterUpdateRequestConsumerTests
             UserName = "test-character",
             NormalizedUserName = "TEST-CHARACTER",
             DisplayName = "Test Character",
-            RegisterIp = "127.0.0.1"
+            RegisterIp = "127.0.0.1",
+            SnapshotRevision = snapshotRevision,
+            SnapshotFingerprint = snapshotFingerprint
         });
         context.CharactersFarmingPatches.Add(new CharactersFarmingPatch { MasterId = 1, PatchId = 20, SeedId = 1 });
         context.CharactersNotes.Add(new CharactersNote { MasterId = 1, NoteId = 32, Text = "old note" });

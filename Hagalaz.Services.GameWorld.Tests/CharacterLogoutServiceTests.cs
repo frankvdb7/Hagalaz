@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
@@ -51,6 +52,55 @@ public sealed class CharacterLogoutServiceTests
         Assert.IsTrue(await coordinator.CompleteAsync(42u));
         Assert.IsFalse(await coordinator.CompleteAsync(42u));
 
+        character.Received(1).Destroy();
+        mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message != null && message.MasterId == 42u));
+    }
+
+    [TestMethod]
+    public async Task AcknowledgeAndCompleteAsync_ConflictRetainsPendingLogout()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var state = new CharacterPersistenceState();
+        state.TrackPendingLogout(character);
+        state.MarkPendingLogoutRemoved(character);
+        state.MarkPending(42u, "fingerprint", 7L);
+        var characterService = Substitute.For<ICharacterService>();
+        var mediator = Substitute.For<IGameMediator>();
+        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+
+        var completed = await coordinator.AcknowledgeAndCompleteAsync(
+            42u,
+            7L,
+            outcome: CharacterPersistenceOutcome.Conflict);
+
+        Assert.IsFalse(completed);
+        Assert.IsFalse(state.IsPersistenceAcknowledged(42u));
+        Assert.IsTrue(state.IsPendingLogout(character));
+        character.DidNotReceive().Destroy();
+        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+    }
+
+    [TestMethod]
+    public async Task AcknowledgeAndCompleteAsync_DuplicateCompletesPendingLogout()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        character.IsDestroyed.Returns(false);
+        var state = new CharacterPersistenceState();
+        state.TrackPendingLogout(character);
+        state.MarkPendingLogoutRemoved(character);
+        state.MarkPending(42u, "fingerprint", 7L);
+        var characterService = Substitute.For<ICharacterService>();
+        var mediator = Substitute.For<IGameMediator>();
+        var coordinator = new CharacterLogoutService(state, characterService, mediator);
+
+        var completed = await coordinator.AcknowledgeAndCompleteAsync(
+            42u,
+            7L,
+            outcome: CharacterPersistenceOutcome.Duplicate);
+
+        Assert.IsTrue(completed);
         character.Received(1).Destroy();
         mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message != null && message.MasterId == 42u));
     }

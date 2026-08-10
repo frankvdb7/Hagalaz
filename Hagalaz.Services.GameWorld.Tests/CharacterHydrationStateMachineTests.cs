@@ -4,6 +4,7 @@ using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Hagalaz.Services.GameWorld.Logic.Characters.StateMachines;
 using Hagalaz.Services.GameWorld.Logic.Characters.States;
 using Hagalaz.Services.GameWorld.Profiles;
+using Hagalaz.Services.GameWorld.Services.Model;
 using MassTransit;
 using MassTransit.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +40,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsNotNull(response.Message.ItemCollection);
             Assert.IsNotNull(response.Message.Appearance);
             Assert.IsNotNull(response.Message.Appearance);
+            Assert.AreEqual(41L, response.Message.SnapshotRevision);
+            var model = provider.GetRequiredService<AutoMapper.IMapper>().Map<CharacterModel>(response.Message);
+            Assert.AreEqual(41L, model.SnapshotRevision);
 
             var consumerHarness = harness.GetConsumerHarness<CharacterRequestConsumer>();
 
@@ -130,7 +134,8 @@ namespace Hagalaz.Services.GameWorld.Tests
                     new SlayerDto(),
                     new NotesDto(), 
                     new ProfileDto() { JsonData = string.Empty }, new ItemAppearanceCollectionDto { Appearances = new List<ItemAppearanceDto>() }, 
-                    new StateDto { StatesEx = new List<StateDto.StateExDto>() }));
+                     new StateDto { StatesEx = new List<StateDto.StateExDto>() },
+                     41L));
             }
         }
 

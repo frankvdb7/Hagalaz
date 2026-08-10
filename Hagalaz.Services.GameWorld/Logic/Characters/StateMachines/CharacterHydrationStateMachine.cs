@@ -35,6 +35,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters.StateMachines
                     .ThenAsync(async context =>
                     {
                         var message = context.Message;
+                        context.Saga.SnapshotRevision = message.SnapshotRevision;
                         context.Saga.Appearance = mapper.Map<HydratedAppearanceDto>(message.Appearance);
                         context.Saga.Details = mapper.Map<HydratedDetailsDto>(message.Details);
                         context.Saga.Statistics = mapper.Map<HydratedStatisticsDto>(message.Statistics);
@@ -65,7 +66,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters.StateMachines
                                 Notes = context.Saga.Notes,
                                 Profile = context.Saga.Profile,
                                 ItemAppearanceCollection = context.Saga.ItemAppearanceCollection,
-                                State = context.Saga.State
+                                State = context.Saga.State,
+                                SnapshotRevision = context.Saga.SnapshotRevision
                             },
                             r => r.RequestId = context.Saga.RequestId);
                     })

@@ -2,16 +2,23 @@
 
 Character state is persisted with a durable `PersistCharacterCommand` published
 through the GameWorld EF bus outbox. Each command carries a strictly positive
-`SnapshotRevision`. The `characters.snapshot_revision` column is an EF
-concurrency token, so a command can only replace the snapshot it read when its
-revision is still current. A duplicate or stale revision is a no-op and still
-receives an acknowledgement.
+`SnapshotRevision` allocated per character from the persisted revision hydrated
+at sign-in. The `characters.snapshot_revision` column is an EF concurrency
+token, and `snapshot_fingerprint` identifies the exact content committed at
+that revision.
+
+A higher revision is committed with outcome `Committed`. An equal revision is
+acknowledged as `Duplicate` only when its fingerprint matches the stored
+fingerprint. Lower revisions, equal revisions with different content, and
+legacy rows without a fingerprint produce `Conflict`; they do not mutate the
+character or move GameWorld state into persisted state.
 
 The character service applies the snapshot and queues
 `PersistCharacterAcknowledged` in the same EF transaction. Acknowledgements are
 therefore not emitted for a failed database commit. If acknowledgement delivery
-fails after commit, redelivery of the command is safe: the stored revision makes
-the retry idempotent and it emits the acknowledgement again.
+fails after commit, redelivery of the command is safe: the stored revision and
+fingerprint classify the retry as an exact duplicate and emit the acknowledgement
+again.
 
 ## Failure behavior
 
@@ -31,6 +38,6 @@ the retry idempotent and it emits the acknowledgement again.
   their session closed while the save is pending, but the in-memory character is
   retained for retry rather than discarded.
 
-Monitor the applied, duplicate/stale, failure, unknown-character, MassTransit
-fault, and queue-depth signals together. A rising failure counter or non-empty
-error queue requires operator action.
+Monitor the applied, duplicate, conflict, failure, unknown-character,
+MassTransit fault, and queue-depth signals together. A rising failure or
+conflict counter, or a non-empty error queue, requires operator action.
