@@ -319,26 +319,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                         continue;
                     }
 
-                    var max = Math.Max(Math.Abs(delta.X), Math.Abs(delta.Y));
-                    var deltaX = delta.X;
-                    var deltaY = delta.Y;
+                    var stepX = Math.Sign(delta.X);
+                    var stepY = Math.Sign(delta.Y);
 
-                    for (var i = 0; i < max; i++)
-                    {
-                        if ((deltaX != 0 || deltaY != 0) && maxMove-- <= 0) break;
-                        if (deltaX < 0)
-                            deltaX++;
-                        else if (deltaX > 0) deltaX--;
-                        if (deltaY < 0)
-                            deltaY++;
-                        else if (deltaY > 0) deltaY--;
-                    }
-
-                    var newLocation = Location.Create(peek.X - deltaX, peek.Y - deltaY, finalLocation.Z, finalLocation.Dimension);
-                    // TODO - Correct most x, y coordinates for size >= 2
-                    if (!_pathFinder.CheckStep(newLocation.X, newLocation.Y, newLocation.Z, delta.X, delta.Y, _owner.Size) || newLocation.Equals(finalLocation))
+                    var newLocation = Location.Create(finalLocation.X + stepX, finalLocation.Y + stepY, finalLocation.Z, finalLocation.Dimension);
+                    if (!_pathFinder.CheckStep(newLocation.X, newLocation.Y, newLocation.Z, stepX, stepY, _owner.Size))
                         break; // we didn't move
+
                     finalLocation = newLocation;
+                    maxMove--;
                 }
 
                 if (!finalLocation.Equals(_owner.Location))
