@@ -13,11 +13,11 @@
       },
       "MassTransit": {
         "type": "Direct",
-        "requested": "[8.5.10, )",
-        "resolved": "8.5.10",
-        "contentHash": "TGi34UA8RftBIpYCHEdoIP5uSu2/pLWZRen4RUcg4CV1nr8MmCZMuFYjzvXXUyFcj0ZuRQxZZNhG7fB5/raSOg==",
+        "requested": "[9.2.0, )",
+        "resolved": "9.2.0",
+        "contentHash": "jPzXSKh1h+zSLHNoI2EadZuqml+pSk2B7pB4S7ylaCdLRqYlImBgZNyzkTNK1PGeP4/w0LGTjNY6q0r4rd+bzA==",
         "dependencies": {
-          "MassTransit.Abstractions": "8.5.10"
+          "MassTransit.Abstractions": "9.2.0"
         }
       },
       "MassTransit.EntityFrameworkCore": {
@@ -32,11 +32,11 @@
       },
       "MassTransit.RabbitMQ": {
         "type": "Direct",
-        "requested": "[8.5.10, )",
-        "resolved": "8.5.10",
-        "contentHash": "5aQGpJpeqRhRv+htkXfi6MfWu0dj/4Lcf1c6h2J3tYZClupGklqB1ixlP3IRdZExrH9BI/60uYoxR+7pg3s1oQ==",
+        "requested": "[9.2.0, )",
+        "resolved": "9.2.0",
+        "contentHash": "cMrX2qKKhOGy0KclDoHOofvr/Mr0x0Rp1tA0NovexUzMRysCSaE5+OVXBxx57K0Xb4zX782X72l34lDTPul4tw==",
         "dependencies": {
-          "MassTransit": "8.5.10",
+          "MassTransit": "9.2.0",
           "RabbitMQ.Client": "7.2.1"
         }
       },
@@ -211,8 +211,8 @@
       },
       "MassTransit.Abstractions": {
         "type": "Transitive",
-        "resolved": "8.5.10",
-        "contentHash": "nZnm2YNH+NcVwY6yC114sJy8J9LtKdFjfKUm/A5HfmzOlZ8ksjgHaPBg5XCG1VAqKDRDFnaudIcesVultKJD7g=="
+        "resolved": "9.2.0",
+        "contentHash": "9nMSgeU4sH/1P1MZFQiZ78K/DNk9l1iSCMJi+iH1JNFMuNkvr1xpSc5HkmbARK+dyFe6yUJkD8o16T+UoM+VyA=="
       },
       "Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore": {
         "type": "Transitive",
