@@ -45,6 +45,7 @@ public sealed class PathfinderStepValidationTests
     [DataRow(1, -1, 1, -1)]
     [DataRow(-1, 1, -1, 2)]
     [DataRow(1, 1, 1, 2)]
+    [DataRow(1, 1, 2, 1)]
     public void CheckStep_SizeTwo_RejectsBlockedIncomingFootprint(
         int xOffset,
         int yOffset,
@@ -119,6 +120,32 @@ public sealed class PathfinderStepValidationTests
             .Returns(CollisionFlag.FloorBlock);
 
         var result = _pathFinder.CheckStep(10 + xOffset, 10 + yOffset, 0, xOffset, yOffset, size);
+
+        Assert.IsFalse(result);
+    }
+
+    [TestMethod]
+    [DataRow(3)]
+    [DataRow(4)]
+    public void CheckStep_VariableSize_NorthEast_UsesSouthVariableForTopEdge(int size)
+    {
+        _mapRegionService.GetClippingFlag(11, 10 + size, 0)
+            .Returns(CollisionFlag.WallSouthEast);
+
+        var result = _pathFinder.CheckStep(11, 11, 0, 1, 1, size);
+
+        Assert.IsFalse(result);
+    }
+
+    [TestMethod]
+    [DataRow(3)]
+    [DataRow(4)]
+    public void CheckStep_VariableSize_NorthEast_UsesWestVariableForRightEdge(int size)
+    {
+        _mapRegionService.GetClippingFlag(10 + size, 11, 0)
+            .Returns(CollisionFlag.WallNorthEast);
+
+        var result = _pathFinder.CheckStep(11, 11, 0, 1, 1, size);
 
         Assert.IsFalse(result);
     }

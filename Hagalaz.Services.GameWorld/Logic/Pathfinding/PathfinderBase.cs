@@ -773,7 +773,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 {
                     return CheckStep(fromX + 1, fromY + 2, z, CollisionFlag.CheckSouthEast | CollisionFlag.CheckSouthWest) &&
                            CheckStep(fromX + 2, fromY + 2, z, CollisionFlag.CheckSouthWest) &&
-                           CheckStep(fromX + 1, fromY + 1, z, CollisionFlag.CheckNorthWest | CollisionFlag.CheckSouthWest);
+                           CheckStep(fromX + 2, fromY + 1, z, CollisionFlag.CheckNorthWest | CollisionFlag.CheckSouthWest);
                 }
             }
             else
@@ -899,8 +899,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
 
                     for (var sizeOffset = 1; sizeOffset < size; sizeOffset++)
                     {
-                        if (!CheckStep(fromX + sizeOffset, fromY + size, z, CollisionFlag.CheckWestVariable) ||
-                            !CheckStep(fromX + size, fromY + sizeOffset, z, CollisionFlag.CheckSouthVariable))
+                        if (!CheckStep(fromX + sizeOffset, fromY + size, z, CollisionFlag.CheckSouthVariable) ||
+                            !CheckStep(fromX + size, fromY + sizeOffset, z, CollisionFlag.CheckWestVariable))
                         {
                             return false;
                         }
