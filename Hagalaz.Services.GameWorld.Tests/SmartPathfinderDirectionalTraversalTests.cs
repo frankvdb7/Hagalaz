@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
 using NSubstitute;
-using SmartPath = Hagalaz.Services.GameWorld.Logic.Pathfinding.Path;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -200,15 +199,13 @@ public sealed class SmartPathfinderDirectionalTraversalTests
     {
         var target = TargetFor(traversal);
 
-        foreach (var blockedCell in traversal.IncomingCells)
+        foreach (var result in traversal.IncomingCells.Select(blockedCell => FindWithConstrainedCollision(
+                     2,
+                     target,
+                     traversal.IncomingCells,
+                     blockedCell,
+                     OppositeDirectionalBlocker(blockedCell.MatchingBlocker))))
         {
-            var result = FindWithConstrainedCollision(
-                2,
-                target,
-                traversal.IncomingCells,
-                blockedCell,
-                OppositeDirectionalBlocker(blockedCell.MatchingBlocker));
-
             AssertDirectPath(result.Path);
         }
     }
@@ -446,12 +443,12 @@ public sealed class SmartPathfinderDirectionalTraversalTests
     private static void AssertDirectPath(IPath path)
     {
         Assert.IsTrue(path.Successful);
-        Assert.AreEqual(1, ((SmartPath)path).Steps);
+        Assert.AreEqual(1, path.Count());
     }
 
     private static void AssertDoesNotTakeDirectExpansion(IPath path)
     {
-        Assert.IsTrue(!path.Successful || ((SmartPath)path).Steps > 1);
+        Assert.IsTrue(!path.Successful || path.Skip(1).Any());
     }
 
     private sealed record RouteResult(IPath Path, IReadOnlyList<(int X, int Y)> ClippingLookups);
