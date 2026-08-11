@@ -279,7 +279,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
                     if (obj.Rotation == 1)
                     {
-                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedSouthEast);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedNorthEast);
                         _regionService.FlagCollision(x1Y1, CollisionFlag.BlockedSouthWest);
                     }
 
@@ -292,7 +292,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     if (obj.Rotation == 3)
                     {
                         _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedSouthWest);
-                        _regionService.FlagCollision(xm1Ym1, CollisionFlag.BlockedSouthEast);
+                        _regionService.FlagCollision(xm1Ym1, CollisionFlag.BlockedNorthEast);
                     }
                 }
 
@@ -388,7 +388,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeSouth | CollisionFlag.WallAllowRangeEast);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeWest | CollisionFlag.WallAllowRangeNorth);
                         _regionService.FlagCollision(xm1Y0, CollisionFlag.WallAllowRangeEast);
                         _regionService.FlagCollision(x0Y1, CollisionFlag.WallAllowRangeSouth);
                     }
@@ -552,7 +552,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     if (obj.Rotation == 0)
                     {
                         _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedNorthWest);
-                        _regionService.UnFlagCollision(xm1Y1, CollisionFlag.BlockedSouthWest);
+                        _regionService.UnFlagCollision(xm1Y1, CollisionFlag.BlockedSouthEast);
                     }
 
                     if (obj.Rotation == 1)
@@ -563,7 +563,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
                     if (obj.Rotation == 2)
                     {
-                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedSouthWest);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedSouthEast);
                         _regionService.UnFlagCollision(x1Ym1, CollisionFlag.BlockedNorthWest);
                     }
 
