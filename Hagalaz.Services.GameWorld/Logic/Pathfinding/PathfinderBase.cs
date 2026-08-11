@@ -108,7 +108,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         {
             if (selfSize != 1)
             {
-                if (fromAbsX <= toAbsX && toAbsX <= selfSize + fromAbsX - 1 && toAbsY <= selfSize + toAbsY - 1)
+                if (fromAbsX <= toAbsX && toAbsX <= selfSize + fromAbsX - 1 && fromAbsY <= toAbsY && toAbsY <= selfSize + fromAbsY - 1)
                     return true;
             }
             else if (fromAbsX == toAbsX && fromAbsY == toAbsY)
@@ -182,7 +182,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
 
                     if (rotation == 0)
                     {
-                        if (toAbsX + 1 == fromAbsX && toAbsY >= fromAbsY && cornerY >= toAbsY && !GetClippingFlag(fromAbsX, toAbsX, z).HasFlag(CollisionFlag.WallWest))
+                        if (toAbsX + 1 == fromAbsX && toAbsY >= fromAbsY && cornerY >= toAbsY && !GetClippingFlag(fromAbsX, toAbsY, z).HasFlag(CollisionFlag.WallWest))
                             return true;
                         if (fromAbsX <= toAbsX && toAbsX <= cornerX && fromAbsY == toAbsY - selfSize && !GetClippingFlag(toAbsX, cornerY, z).HasFlag(CollisionFlag.WallNorth))
                             return true;
@@ -409,7 +409,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         {
             if (selfSize != 1)
             {
-                if (toAbsX >= currentAbsX && toAbsX <= currentAbsX + (selfSize - 1) && currentAbsY <= toAbsY && toAbsY <= selfSize - 1 + toAbsY)
+                if (toAbsX >= currentAbsX && toAbsX <= currentAbsX + (selfSize - 1) && currentAbsY <= toAbsY && toAbsY <= currentAbsY + (selfSize - 1))
                     return true;
             }
             else if (currentAbsX == toAbsX && currentAbsY == toAbsY)
@@ -429,7 +429,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                         //    return true; // old
                         if (toAbsX - selfSize == currentAbsX && toAbsY >= currentAbsY && toAbsY <= cornerY)
                             return true;
-                        if (currentAbsX <= toAbsX && toAbsX <= cornerX && currentAbsY == toAbsY + 1 && (GetClippingFlagInt(toAbsX, currentAbsX, z) & 0x2c0120) == 0)
+                        if (currentAbsX <= toAbsX && toAbsX <= cornerX && currentAbsY == toAbsY + 1 && (GetClippingFlagInt(toAbsX, currentAbsY, z) & 0x2c0120) == 0)
                             return true;
                         if (toAbsX >= currentAbsX && toAbsX <= cornerX && currentAbsY == toAbsY - selfSize && (GetClippingFlagInt(toAbsX, cornerY, z) & 0x2c0102) == 0)
                             return true;
