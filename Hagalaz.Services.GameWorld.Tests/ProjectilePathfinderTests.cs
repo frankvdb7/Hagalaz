@@ -112,10 +112,14 @@ public sealed class ProjectilePathfinderTests
 
     public static IEnumerable<TestDataRow<DiagonalWallCase>> DiagonalWallCases =>
     [
-        new(new DiagonalWallCase("corner north-west", ShapeType.WallCorner, 0, 1, -1, CollisionFlag.BlockedNorthWest)),
-        new(new DiagonalWallCase("corner north-east", ShapeType.WallCorner, 1, -1, -1, CollisionFlag.BlockedNorthEast)),
-        new(new DiagonalWallCase("corner south-east", ShapeType.WallCornerDiagonal, 2, -1, 1, CollisionFlag.BlockedSouthEast)),
-        new(new DiagonalWallCase("corner south-west", ShapeType.WallCornerDiagonal, 3, 1, 1, CollisionFlag.BlockedSouthWest))
+        new(new DiagonalWallCase("rotation 0 NW neighbor to origin", 0, -1, 1, 0, 0, CollisionFlag.BlockedNorthWest)),
+        new(new DiagonalWallCase("rotation 0 origin to NW neighbor", 0, 0, 0, -1, 1, CollisionFlag.BlockedSouthEast)),
+        new(new DiagonalWallCase("rotation 1 NE neighbor to origin", 1, 1, 1, 0, 0, CollisionFlag.BlockedNorthEast)),
+        new(new DiagonalWallCase("rotation 1 origin to NE neighbor", 1, 0, 0, 1, 1, CollisionFlag.BlockedSouthWest)),
+        new(new DiagonalWallCase("rotation 2 SE neighbor to origin", 2, 1, -1, 0, 0, CollisionFlag.BlockedSouthEast)),
+        new(new DiagonalWallCase("rotation 2 origin to SE neighbor", 2, 0, 0, 1, -1, CollisionFlag.BlockedNorthWest)),
+        new(new DiagonalWallCase("rotation 3 SW neighbor to origin", 3, -1, -1, 0, 0, CollisionFlag.BlockedSouthWest)),
+        new(new DiagonalWallCase("rotation 3 origin to SW neighbor", 3, 0, 0, -1, -1, CollisionFlag.BlockedNorthEast))
     ];
 
     [TestMethod]
@@ -186,8 +190,8 @@ public sealed class ProjectilePathfinderTests
     [DynamicData(nameof(DiagonalWallCases))]
     public void Find_DiagonalWallWriter_BlocksLineOfSightInCorrespondingGeometry(DiagonalWallCase testCase)
     {
-        var collision = WriteWall(testCase.ShapeType, testCase.Rotation, solid: true, gateway: true);
-        var destination = Location.Create(OriginX, OriginY, Plane, Dimension);
+        var collision = WriteWall(ShapeType.WallCorner, testCase.Rotation, solid: true, gateway: true);
+        var destination = Location.Create(OriginX + testCase.ToOffsetX, OriginY + testCase.ToOffsetY, Plane, Dimension);
         var emittedFlags = collision[(destination.X, destination.Y)];
 
         Assert.IsTrue((emittedFlags & testCase.ExpectedBlocker) != 0);
@@ -436,10 +440,11 @@ public sealed class ProjectilePathfinderTests
 
     public sealed record DiagonalWallCase(
         string Name,
-        ShapeType ShapeType,
         int Rotation,
         int FromOffsetX,
         int FromOffsetY,
+        int ToOffsetX,
+        int ToOffsetY,
         CollisionFlag ExpectedBlocker);
 
     public readonly record struct Route(int FromX, int FromY, int ToX, int ToY, CollisionFlag ExpectedBlocker);

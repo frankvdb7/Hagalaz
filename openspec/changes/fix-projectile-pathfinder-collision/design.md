@@ -8,7 +8,7 @@ The current `ProjectilePathFinder` uses the high routing composites and `Directi
 
 ### Consume only the existing LOS layer
 
-The full LOS mask is `ObjectBlock`. When a ray crosses east or west, it checks `ObjectBlock` together with the destination tile's west or east `Blocked*` flag, respectively. When it crosses north or south, it checks `ObjectBlock` together with the destination tile's south or north `Blocked*` flag, respectively. An exact 45-degree ray also checks Hagalaz's matching diagonal `Blocked*` flag as it enters each diagonal tile. No high routing, low movement, floor, or floor-decoration flag participates in this tile-to-tile LOS decision.
+The full LOS mask is `ObjectBlock`. When a ray crosses east or west, it checks `ObjectBlock` together with the destination tile's west or east `Blocked*` flag, respectively. When it crosses north or south, it checks `ObjectBlock` together with the destination tile's south or north `Blocked*` flag, respectively. An exact 45-degree ray also checks the diagonal `Blocked*` flag on the destination tile for the side the ray enters from—the opposite of its movement direction. No high routing, low movement, floor, or floor-decoration flag participates in this tile-to-tile LOS decision.
 
 Rejected alternative: reinterpret or rename the existing flags. The writers already faithfully preserve the client bit layout; changing producers or aliases would be scope expansion and risk movement behavior.
 

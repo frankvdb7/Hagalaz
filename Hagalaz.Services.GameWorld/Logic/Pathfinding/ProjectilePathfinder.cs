@@ -140,10 +140,10 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         {
             if (deltaX < 0)
             {
-                return deltaY < 0 ? CollisionFlag.BlockedSouthWest : CollisionFlag.BlockedNorthWest;
+                return deltaY < 0 ? CollisionFlag.BlockedNorthEast : CollisionFlag.BlockedSouthEast;
             }
 
-            return deltaY < 0 ? CollisionFlag.BlockedSouthEast : CollisionFlag.BlockedNorthEast;
+            return deltaY < 0 ? CollisionFlag.BlockedNorthWest : CollisionFlag.BlockedSouthWest;
         }
 
         private bool IsTraversable(int x, int y, int z, CollisionFlag flags)

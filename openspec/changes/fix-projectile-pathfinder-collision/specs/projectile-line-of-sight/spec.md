@@ -19,8 +19,8 @@ The system SHALL evaluate tile-to-tile projectile LOS from `ObjectBlock` and the
 - **WHEN** a ray encounters only `FloorBlock`, `FloorDecorationBlock`, or a high routing wall flag
 - **THEN** that state SHALL not by itself make the projectile LOS unsuccessful
 
-#### Scenario: Diagonal wall blocks matching diagonal LOS
-- **WHEN** an exact 45-degree ray enters a tile with the matching middle diagonal `Blocked*` flag emitted for a wall corner
+#### Scenario: Diagonal wall blocks the entering side
+- **WHEN** an exact 45-degree ray enters a tile with the middle diagonal `Blocked*` flag emitted for the side it enters from
 - **THEN** projectile LOS SHALL be unsuccessful
 
 ### Requirement: Projectile traversal follows the fixed-point ray
