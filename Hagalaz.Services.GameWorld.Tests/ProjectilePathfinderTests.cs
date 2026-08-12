@@ -20,73 +20,102 @@ public sealed class ProjectilePathfinderTests
     private const int OriginY = 50;
     private const int Plane = 0;
     private const int Dimension = 0;
-
-    public static IEnumerable<TestDataRow<CollisionFlag>> DirectBlockers =>
-    [
-        new(CollisionFlag.FloorBlock) { DisplayName = "floor" },
-        new(CollisionFlag.FloorDecorationBlock) { DisplayName = "floor decoration" },
-        new(CollisionFlag.FloorBlock | CollisionFlag.ObjectBlock | CollisionFlag.ObjectAllowRange)
-        {
-            DisplayName = "floor and range-permissive object"
-        },
-        new(CollisionFlag.FloorDecorationBlock | CollisionFlag.ObjectBlock | CollisionFlag.ObjectAllowRange)
-        {
-            DisplayName = "floor decoration and range-permissive object"
-        }
-    ];
+    private static readonly IReadOnlyDictionary<(int X, int Y), CollisionFlag> EmptyCollision = new Dictionary<(int X, int Y), CollisionFlag>();
 
     public static IEnumerable<TestDataRow<StandardObjectCase>> StandardObjectCases =>
     [
         new(new StandardObjectCase(
-            "range-permissive",
+            "solid non-gateway",
             Solid: true,
             Gateway: false,
             ExpectedCollision: CollisionFlag.ObjectBlock | CollisionFlag.ObjectAllowRange,
-            ExpectedSuccessful: true)),
-        new(new StandardObjectCase(
-            "high-layer-only",
-            Solid: false,
-            Gateway: false,
-            ExpectedCollision: CollisionFlag.ObjectAllowRange,
             ExpectedSuccessful: false)),
         new(new StandardObjectCase(
-            "gateway",
+            "solid gateway",
             Solid: true,
             Gateway: true,
             ExpectedCollision: CollisionFlag.ObjectBlock,
+            ExpectedSuccessful: false)),
+        new(new StandardObjectCase(
+            "non-solid non-gateway",
+            Solid: false,
+            Gateway: false,
+            ExpectedCollision: CollisionFlag.ObjectAllowRange,
+            ExpectedSuccessful: true)),
+        new(new StandardObjectCase(
+            "non-solid gateway",
+            Solid: false,
+            Gateway: true,
+            ExpectedCollision: CollisionFlag.Walkable,
             ExpectedSuccessful: true))
     ];
 
-    public static IEnumerable<TestDataRow<WallTraversalCase>> CardinalWallCases =>
+    public static IEnumerable<TestDataRow<GatewayWallCase>> CardinalGatewayWallCases =>
     [
-        Case(
+        WallCase(
             "rotation 0 east and west",
             0,
-            new(OriginX - 1, OriginY, OriginX, OriginY, CollisionFlag.WallAllowRangeWest),
-            new(OriginX, OriginY, OriginX - 1, OriginY, CollisionFlag.WallAllowRangeEast)),
-        Case(
+            new(OriginX - 1, OriginY, OriginX, OriginY, CollisionFlag.BlockedWest),
+            new(OriginX, OriginY, OriginX - 1, OriginY, CollisionFlag.BlockedEast)),
+        WallCase(
             "rotation 1 north and south",
             1,
-            new(OriginX, OriginY, OriginX, OriginY + 1, CollisionFlag.WallAllowRangeSouth),
-            new(OriginX, OriginY + 1, OriginX, OriginY, CollisionFlag.WallAllowRangeNorth)),
-        Case(
+            new(OriginX, OriginY, OriginX, OriginY + 1, CollisionFlag.BlockedSouth),
+            new(OriginX, OriginY + 1, OriginX, OriginY, CollisionFlag.BlockedNorth)),
+        WallCase(
             "rotation 2 east and west",
             2,
-            new(OriginX, OriginY, OriginX + 1, OriginY, CollisionFlag.WallAllowRangeWest),
-            new(OriginX + 1, OriginY, OriginX, OriginY, CollisionFlag.WallAllowRangeEast)),
-        Case(
+            new(OriginX, OriginY, OriginX + 1, OriginY, CollisionFlag.BlockedWest),
+            new(OriginX + 1, OriginY, OriginX, OriginY, CollisionFlag.BlockedEast)),
+        WallCase(
             "rotation 3 north and south",
             3,
-            new(OriginX, OriginY - 1, OriginX, OriginY, CollisionFlag.WallAllowRangeSouth),
-            new(OriginX, OriginY, OriginX, OriginY - 1, CollisionFlag.WallAllowRangeNorth))
+            new(OriginX, OriginY - 1, OriginX, OriginY, CollisionFlag.BlockedSouth),
+            new(OriginX, OriginY, OriginX, OriginY - 1, CollisionFlag.BlockedNorth))
+    ];
+
+    public static IEnumerable<TestDataRow<AsymmetricRayCase>> AsymmetricRays =>
+    [
+        new(new AsymmetricRayCase(
+            "north-east",
+            5,
+            2,
+            [new(1, 0), new(2, 0), new(2, 1), new(3, 1), new(4, 1), new(4, 2), new(5, 2)])),
+        new(new AsymmetricRayCase(
+            "south-west",
+            -5,
+            -2,
+            [new(-1, 0), new(-2, 0), new(-2, -1), new(-3, -1), new(-4, -1), new(-4, -2), new(-5, -2)])),
+        new(new AsymmetricRayCase(
+            "steep north-east",
+            2,
+            5,
+            [new(0, 1), new(0, 2), new(1, 2), new(1, 3), new(1, 4), new(2, 4), new(2, 5)])),
+        new(new AsymmetricRayCase(
+            "steep south-west",
+            -2,
+            -5,
+            [new(0, -1), new(0, -2), new(-1, -2), new(-1, -3), new(-1, -4), new(-2, -4), new(-2, -5)]))
+    ];
+
+    public static IEnumerable<TestDataRow<(int DeltaX, int DeltaY)>> SlopeQuadrants =>
+    [
+        new((5, 2)), new((5, -2)), new((-5, 2)), new((-5, -2)),
+        new((2, 5)), new((2, -5)), new((-2, 5)), new((-2, -5))
+    ];
+
+    public static IEnumerable<TestDataRow<RayBlockerCase>> AsymmetricRayBlockers =>
+    [
+        new(new RayBlockerCase("x boundary", 1, 0, CollisionFlag.BlockedWest)),
+        new(new RayBlockerCase("y boundary", 2, 1, CollisionFlag.BlockedSouth))
     ];
 
     public static IEnumerable<TestDataRow<DiagonalWallCase>> DiagonalWallCases =>
     [
-        new(new DiagonalWallCase("north-west", 0, OriginX + 1, OriginY - 1, CollisionFlag.WallAllowRangeNorthWest)),
-        new(new DiagonalWallCase("north-east", 1, OriginX - 1, OriginY - 1, CollisionFlag.WallAllowRangeNorthEast)),
-        new(new DiagonalWallCase("south-east", 2, OriginX - 1, OriginY + 1, CollisionFlag.WallAllowRangeSouthEast)),
-        new(new DiagonalWallCase("south-west", 3, OriginX + 1, OriginY + 1, CollisionFlag.WallAllowRangeSouthWest))
+        new(new DiagonalWallCase("corner north-west", ShapeType.WallCorner, 0, 1, -1, CollisionFlag.BlockedNorthWest)),
+        new(new DiagonalWallCase("corner north-east", ShapeType.WallCorner, 1, -1, -1, CollisionFlag.BlockedNorthEast)),
+        new(new DiagonalWallCase("corner south-east", ShapeType.WallCornerDiagonal, 2, -1, 1, CollisionFlag.BlockedSouthEast)),
+        new(new DiagonalWallCase("corner south-west", ShapeType.WallCornerDiagonal, 3, 1, 1, CollisionFlag.BlockedSouthWest))
     ];
 
     [TestMethod]
@@ -94,30 +123,15 @@ public sealed class ProjectilePathfinderTests
     {
         var destination = Location.Create(OriginX + 2, OriginY, Plane, Dimension);
 
-        var path = Find(new Dictionary<(int X, int Y), CollisionFlag>(), Location.Create(OriginX, OriginY, Plane, Dimension), destination);
+        var path = Find(EmptyCollision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
 
         Assert.IsTrue(path.Successful);
         Assert.AreEqual(destination, path.Last());
     }
 
     [TestMethod]
-    [DynamicData(nameof(DirectBlockers))]
-    public void Find_DirectProjectileBlocker_ReturnsUnsuccessfulPath(CollisionFlag blocker)
-    {
-        var destination = Location.Create(OriginX + 1, OriginY, Plane, Dimension);
-        var collision = new Dictionary<(int X, int Y), CollisionFlag>
-        {
-            [(destination.X, destination.Y)] = blocker
-        };
-
-        var path = Find(collision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
-
-        Assert.IsFalse(path.Successful);
-    }
-
-    [TestMethod]
     [DynamicData(nameof(StandardObjectCases))]
-    public void Find_StandardObjectWriter_UsesItsProjectileLayer(StandardObjectCase testCase)
+    public void Find_StandardObjectWriter_UsesTheLineOfSightLayer(StandardObjectCase testCase)
     {
         var collision = WriteStandardObject(testCase.Solid, testCase.Gateway);
         var destination = Location.Create(OriginX, OriginY, Plane, Dimension);
@@ -133,14 +147,16 @@ public sealed class ProjectilePathfinderTests
     }
 
     [TestMethod]
-    [DynamicData(nameof(CardinalWallCases))]
-    public void Find_CardinalWallWriter_BlocksProjectileTraversalFromBothSides(WallTraversalCase testCase)
+    [DynamicData(nameof(CardinalGatewayWallCases))]
+    public void Find_GatewayWallWriter_BlocksLineOfSightFromBothSides(GatewayWallCase testCase)
     {
-        var collision = WriteWall(ShapeType.Wall, testCase.Rotation);
+        var collision = WriteWall(ShapeType.Wall, testCase.Rotation, solid: true, gateway: true);
 
         foreach (var route in testCase.Routes)
         {
-            Assert.IsTrue((collision[(route.ToX, route.ToY)] & route.ExpectedBlocker) != 0);
+            var emittedFlags = collision[(route.ToX, route.ToY)];
+            Assert.IsTrue((emittedFlags & route.ExpectedBlocker) != 0);
+            Assert.IsFalse((emittedFlags & RangeLayerMask) != 0);
 
             var path = Find(
                 collision,
@@ -152,52 +168,198 @@ public sealed class ProjectilePathfinderTests
     }
 
     [TestMethod]
-    [DynamicData(nameof(DiagonalWallCases))]
-    public void Find_DiagonalWallWriter_BlocksProjectileTraversal(DiagonalWallCase testCase)
+    public void Find_HighRoutingWallWithoutMiddleLineOfSightLayer_ReturnsSuccessfulPath()
     {
-        var collision = WriteWall(ShapeType.WallCorner, testCase.Rotation);
+        var collision = WriteWall(ShapeType.Wall, rotation: 0, solid: false, gateway: false);
         var destination = Location.Create(OriginX, OriginY, Plane, Dimension);
+        var emittedFlags = collision[(destination.X, destination.Y)];
 
-        Assert.IsTrue((collision[(destination.X, destination.Y)] & testCase.ExpectedBlocker) != 0);
+        Assert.IsTrue((emittedFlags & CollisionFlag.WallAllowRangeWest) != 0);
+        Assert.IsFalse((emittedFlags & CollisionFlag.BlockedWest) != 0);
 
-        var path = Find(collision, Location.Create(testCase.FromX, testCase.FromY, Plane, Dimension), destination);
+        var path = Find(collision, Location.Create(OriginX - 1, OriginY, Plane, Dimension), destination);
+
+        Assert.IsTrue(path.Successful);
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(DiagonalWallCases))]
+    public void Find_DiagonalWallWriter_BlocksLineOfSightInCorrespondingGeometry(DiagonalWallCase testCase)
+    {
+        var collision = WriteWall(testCase.ShapeType, testCase.Rotation, solid: true, gateway: true);
+        var destination = Location.Create(OriginX, OriginY, Plane, Dimension);
+        var emittedFlags = collision[(destination.X, destination.Y)];
+
+        Assert.IsTrue((emittedFlags & testCase.ExpectedBlocker) != 0);
+        Assert.IsFalse((emittedFlags & RangeLayerMask) != 0);
+
+        var path = Find(
+            collision,
+            Location.Create(OriginX + testCase.FromOffsetX, OriginY + testCase.FromOffsetY, Plane, Dimension),
+            destination);
 
         Assert.IsFalse(path.Successful);
     }
 
     [TestMethod]
-    public void Find_ClearSouthWestStep_EndsAtTheSouthWestTile()
+    [DataRow(CollisionFlag.FloorBlock)]
+    [DataRow(CollisionFlag.FloorDecorationBlock)]
+    public void Find_MovementOnlyCollision_ReturnsSuccessfulPath(CollisionFlag collisionFlag)
+    {
+        var destination = Location.Create(OriginX + 1, OriginY, Plane, Dimension);
+        var collision = new Dictionary<(int X, int Y), CollisionFlag>
+        {
+            [(destination.X, destination.Y)] = collisionFlag
+        };
+
+        var path = Find(collision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
+
+        Assert.IsTrue(path.Successful);
+    }
+
+    [TestMethod]
+    [DataRow(CollisionFlag.ObjectBlock | CollisionFlag.FloorBlock)]
+    [DataRow(CollisionFlag.BlockedWest | CollisionFlag.FloorDecorationBlock)]
+    public void Find_LineOfSightBlockerWithMovementFlags_ReturnsUnsuccessfulPath(CollisionFlag collisionFlag)
+    {
+        var destination = Location.Create(OriginX + 1, OriginY, Plane, Dimension);
+        var collision = new Dictionary<(int X, int Y), CollisionFlag>
+        {
+            [(destination.X, destination.Y)] = collisionFlag
+        };
+
+        var path = Find(collision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
+
+        Assert.IsFalse(path.Successful);
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(AsymmetricRays))]
+    public void Find_AsymmetricRay_FollowsFixedPointCrossings(AsymmetricRayCase testCase)
     {
         var from = Location.Create(OriginX, OriginY, Plane, Dimension);
+        var destination = Location.Create(OriginX + testCase.DeltaX, OriginY + testCase.DeltaY, Plane, Dimension);
+        var expectedTrace = testCase.Crossings
+            .Select(crossing => Location.Create(OriginX + crossing.X, OriginY + crossing.Y, Plane, Dimension))
+            .ToArray();
+
+        var (path, inspectedTiles) = FindWithInspectedTiles(EmptyCollision, from, destination);
+
+        Assert.IsTrue(path.Successful);
+        CollectionAssert.AreEqual(expectedTrace, inspectedTiles.ToArray());
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(SlopeQuadrants))]
+    public void Find_AsymmetricRayAcrossEveryQuadrant_ReturnsSuccessfulPath((int DeltaX, int DeltaY) slope)
+    {
+        var destination = Location.Create(OriginX + slope.DeltaX, OriginY + slope.DeltaY, Plane, Dimension);
+
+        var path = Find(EmptyCollision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
+
+        Assert.IsTrue(path.Successful);
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(AsymmetricRayBlockers))]
+    public void Find_AsymmetricRay_CrossedLineOfSightBoundaryReturnsUnsuccessfulPath(RayBlockerCase testCase)
+    {
+        var collision = new Dictionary<(int X, int Y), CollisionFlag>
+        {
+            [(OriginX + testCase.XOffset, OriginY + testCase.YOffset)] = testCase.Blocker
+        };
+        var destination = Location.Create(OriginX + 5, OriginY + 2, Plane, Dimension);
+
+        var path = Find(collision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
+
+        Assert.IsFalse(path.Successful);
+    }
+
+    [TestMethod]
+    public void Find_DifferentPlanes_ReturnsUnsuccessfulPath()
+    {
+        var path = Find(
+            EmptyCollision,
+            Location.Create(OriginX, OriginY, Plane, Dimension),
+            Location.Create(OriginX + 1, OriginY, Plane + 1, Dimension));
+
+        Assert.IsFalse(path.Successful);
+    }
+
+    [TestMethod]
+    [DataRow(2, 0)]
+    [DataRow(0, 2)]
+    [DataRow(2, 2)]
+    [DataRow(-2, -2)]
+    public void Find_AxisAlignedAndFortyFiveDegreeRay_ReturnsSuccessfulPath(int deltaX, int deltaY)
+    {
+        var destination = Location.Create(OriginX + deltaX, OriginY + deltaY, Plane, Dimension);
+
+        var path = Find(EmptyCollision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
+
+        Assert.IsTrue(path.Successful);
+    }
+
+    [TestMethod]
+    public void Find_OldDiagonalStaircaseOnlyObstacle_ReturnsSuccessfulPath()
+    {
+        var collision = new Dictionary<(int X, int Y), CollisionFlag>
+        {
+            [(OriginX + 1, OriginY + 1)] = CollisionFlag.ObjectBlock
+        };
+        var destination = Location.Create(OriginX + 5, OriginY + 2, Plane, Dimension);
+
+        var path = Find(collision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
+
+        Assert.IsTrue(path.Successful);
+    }
+
+    [TestMethod]
+    public void Find_ClearSouthWestRay_AppendsOnlyTheSouthWestTile()
+    {
         var destination = Location.Create(OriginX - 1, OriginY - 1, Plane, Dimension);
 
-        var path = Find(new Dictionary<(int X, int Y), CollisionFlag>(), from, destination);
+        var path = Find(EmptyCollision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
 
         Assert.IsTrue(path.Successful);
         Assert.HasCount(1, path);
         Assert.AreEqual(destination, path.Single());
     }
 
-    private static TestDataRow<WallTraversalCase> Case(string name, int rotation, params Route[] routes) =>
-        new(new WallTraversalCase(name, rotation, routes)) { DisplayName = name };
+    private static TestDataRow<GatewayWallCase> WallCase(string name, int rotation, params Route[] routes) =>
+        new(new GatewayWallCase(name, rotation, routes)) { DisplayName = name };
 
     private static IPath Find(
         IReadOnlyDictionary<(int X, int Y), CollisionFlag> collision,
         Location from,
+        Location destination) => FindWithInspectedTiles(collision, from, destination).Path;
+
+    private static (IPath Path, IReadOnlyList<Location> InspectedTiles) FindWithInspectedTiles(
+        IReadOnlyDictionary<(int X, int Y), CollisionFlag> collision,
+        Location from,
         Location destination)
     {
+        var inspectedTiles = new List<Location>();
         var mapRegionService = Substitute.For<IMapRegionService>();
         mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
-            .Returns(callInfo => collision.GetValueOrDefault((callInfo.ArgAt<int>(0), callInfo.ArgAt<int>(1)), CollisionFlag.Walkable));
+            .Returns(callInfo =>
+            {
+                var x = callInfo.ArgAt<int>(0);
+                var y = callInfo.ArgAt<int>(1);
+                var z = callInfo.ArgAt<int>(2);
+                inspectedTiles.Add(Location.Create(x, y, z, Dimension));
+                return collision.GetValueOrDefault((x, y), CollisionFlag.Walkable);
+            });
 
-        return new ProjectilePathFinder(mapRegionService).Find(from, 1, destination, 1, 1, 0, 0, 0, false);
+        var path = new ProjectilePathFinder(mapRegionService).Find(from, 1, destination, 1, 1, 0, 0, 0, false);
+        return (path, inspectedTiles);
     }
 
     private static Dictionary<(int X, int Y), CollisionFlag> WriteStandardObject(bool solid, bool gateway) =>
         WriteCollision(ShapeType.GroundDefault, 0, solid, gateway);
 
-    private static Dictionary<(int X, int Y), CollisionFlag> WriteWall(ShapeType shapeType, int rotation) =>
-        WriteCollision(shapeType, rotation, solid: true, gateway: false);
+    private static Dictionary<(int X, int Y), CollisionFlag> WriteWall(ShapeType shapeType, int rotation, bool solid, bool gateway) =>
+        WriteCollision(shapeType, rotation, solid, gateway);
 
     private static Dictionary<(int X, int Y), CollisionFlag> WriteCollision(
         ShapeType shapeType,
@@ -254,6 +416,11 @@ public sealed class ProjectilePathfinderTests
         return gameObject;
     }
 
+    private const CollisionFlag RangeLayerMask =
+        CollisionFlag.WallAllowRangeNorthWest | CollisionFlag.WallAllowRangeNorth | CollisionFlag.WallAllowRangeNorthEast |
+        CollisionFlag.WallAllowRangeEast | CollisionFlag.WallAllowRangeSouthEast | CollisionFlag.WallAllowRangeSouth |
+        CollisionFlag.WallAllowRangeSouthWest | CollisionFlag.WallAllowRangeWest;
+
     public sealed record StandardObjectCase(
         string Name,
         bool Solid,
@@ -261,9 +428,19 @@ public sealed class ProjectilePathfinderTests
         CollisionFlag ExpectedCollision,
         bool ExpectedSuccessful);
 
-    public sealed record WallTraversalCase(string Name, int Rotation, IReadOnlyList<Route> Routes);
+    public sealed record GatewayWallCase(string Name, int Rotation, IReadOnlyList<Route> Routes);
 
-    public sealed record DiagonalWallCase(string Name, int Rotation, int FromX, int FromY, CollisionFlag ExpectedBlocker);
+    public sealed record AsymmetricRayCase(string Name, int DeltaX, int DeltaY, IReadOnlyList<(int X, int Y)> Crossings);
+
+    public sealed record RayBlockerCase(string Name, int XOffset, int YOffset, CollisionFlag Blocker);
+
+    public sealed record DiagonalWallCase(
+        string Name,
+        ShapeType ShapeType,
+        int Rotation,
+        int FromOffsetX,
+        int FromOffsetY,
+        CollisionFlag ExpectedBlocker);
 
     public readonly record struct Route(int FromX, int FromY, int ToX, int ToY, CollisionFlag ExpectedBlocker);
 }

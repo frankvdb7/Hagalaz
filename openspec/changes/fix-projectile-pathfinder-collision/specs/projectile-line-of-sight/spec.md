@@ -1,34 +1,46 @@
 ## ADDED Requirements
 
-### Requirement: Projectile traversal honors emitted projectile collision
-The system SHALL determine every `ProjectilePathFinder` step from the existing directional traversal mask for its destination tile. A tile whose matching mask includes a floor, floor-decoration, or high directional wall bit SHALL stop projectile traversal, even when `FloorBlock` is not present. A standard object whose only matching collision bit is `ObjectAllowRange` and whose full collision state also contains `ObjectBlock` SHALL remain traversable.
+### Requirement: Projectile traversal consumes the LOS collision layer
+The system SHALL evaluate tile-to-tile projectile LOS from `ObjectBlock` and the middle directional `Blocked*` flags emitted by the existing collision writers. It SHALL NOT treat the high `ObjectAllowRange` or `WallAllowRange*` routing flags as LOS blockers.
 
-#### Scenario: Cardinal wall collision blocks line-of-sight
-- **WHEN** a cardinal step reaches a tile containing the matching high directional wall bit
-- **THEN** the projectile path SHALL be unsuccessful
+#### Scenario: Full LOS object blocks regardless of routing state
+- **WHEN** a standard object emits `ObjectBlock`, with or without `ObjectAllowRange`
+- **THEN** projectile LOS through that tile SHALL be unsuccessful
 
-#### Scenario: Diagonal wall collision blocks line-of-sight
-- **WHEN** a diagonal step reaches a tile containing any matching diagonal or component cardinal high directional wall bit
-- **THEN** the projectile path SHALL be unsuccessful
+#### Scenario: High routing object alone does not block LOS
+- **WHEN** a standard object emits `ObjectAllowRange` without `ObjectBlock`
+- **THEN** projectile LOS through that tile SHALL remain successful
 
-#### Scenario: High-object-only standard object blocks line-of-sight
-- **WHEN** a standard object has emitted `ObjectAllowRange` without `ObjectBlock`
-- **THEN** projectile traversal through that tile SHALL be unsuccessful
+#### Scenario: Gateway wall blocks through its middle layer
+- **WHEN** a solid gateway wall emits the matching cardinal `Blocked*` flag but omits `WallAllowRange*`
+- **THEN** projectile LOS across that wall from either side SHALL be unsuccessful
 
-#### Scenario: Range-permissive standard object remains traversable
-- **WHEN** a standard object has emitted `ObjectBlock | ObjectAllowRange` and no other matching blocker
-- **THEN** projectile traversal through that tile SHALL remain successful
+#### Scenario: Movement-only state does not block LOS
+- **WHEN** a ray encounters only `FloorBlock`, `FloorDecorationBlock`, or a high routing wall flag
+- **THEN** that state SHALL not by itself make the projectile LOS unsuccessful
 
-#### Scenario: Floor collision overrides a range-permissive object combination
-- **WHEN** a tile contains `FloorBlock` or `FloorDecorationBlock` together with `ObjectBlock | ObjectAllowRange`
-- **THEN** projectile traversal through that tile SHALL be unsuccessful
+#### Scenario: Diagonal wall blocks matching diagonal LOS
+- **WHEN** an exact 45-degree ray enters a tile with the matching middle diagonal `Blocked*` flag emitted for a wall corner
+- **THEN** projectile LOS SHALL be unsuccessful
 
-### Requirement: Projectile direction is spatially consistent
-The system SHALL append the coordinate it validated for each projectile step.
+### Requirement: Projectile traversal follows the fixed-point ray
+The system SHALL trace the supplied source and target tiles with 16.16 fixed-point slope arithmetic, inspecting each X and Y tile boundary the ray crosses rather than walking by the sign of the remaining delta. Exact 45-degree rays SHALL also inspect the matching diagonal wall boundary.
 
-#### Scenario: Southwest traversal reaches its validated tile
-- **WHEN** a clear projectile path moves southwest by one tile
-- **THEN** its next waypoint SHALL be `(x - 1, y - 1)`
+#### Scenario: Asymmetric ray records its crossed tiles
+- **WHEN** a clear ray travels from `(x, y)` to `(x + 5, y + 2)`
+- **THEN** its trace SHALL follow the fixed-point boundary crossings rather than the diagonal staircase `(x + 1, y + 1)`, `(x + 2, y + 2)`, and so on
+
+#### Scenario: Crossed X or Y boundary blocks the ray
+- **WHEN** a matching cardinal middle LOS flag is present on any tile boundary crossed by an asymmetric ray
+- **THEN** the projectile LOS SHALL be unsuccessful
+
+#### Scenario: Southwest path records its destination
+- **WHEN** a clear ray travels one tile southwest
+- **THEN** the successful path SHALL contain only the southwest destination tile, not collision-probe tiles
+
+#### Scenario: Different planes have no line of sight
+- **WHEN** the source and target are on different planes
+- **THEN** the projectile LOS SHALL be unsuccessful
 
 ### Requirement: Ranged combat consumes projectile line-of-sight
 The system SHALL use the existing `IProjectilePathFinder` result for `CreatureCombat` targets within an attack range greater than one, without maintaining a second collision evaluator.

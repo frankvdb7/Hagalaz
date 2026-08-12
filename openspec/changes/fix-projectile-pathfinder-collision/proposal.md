@@ -1,40 +1,32 @@
 ## Why
 
-`ProjectilePathFinder` currently accepts failed directional and object collision checks whenever a tile lacks `FloorBlock`. This allows ranged line-of-sight to pass through collision written by the existing map collision system, while its southwest step reports the wrong destination. The correction must preserve the writer's intentional range-permissive standard-object combination rather than treating every high object bit as a blocker.
+The previous implementation and its first correction treat the high `WallAllowRange*` and `ObjectAllowRange` routing layer as projectile line-of-sight (LOS). That is reversed. The client-era collision writer emits a distinct LOS layer: `ObjectBlock` is the full LOS blocker and the middle `Blocked*` flags are directional LOS blockers. In addition, `ProjectilePathFinder` follows the sign of the remaining delta, which stair-steps non-45-degree rays instead of checking the tiles that a projectile ray actually crosses.
 
 ## What Changes
 
-- Define projectile line-of-sight as a traversal of the existing collision masks written by `CollisionMethods`, with the range-permissive standard-object combination evaluated explicitly.
-- Correct `ProjectilePathFinder` so a matching directional, incompatible object, floor-decoration, or floor blocker stops traversal instead of falling through on non-floor tiles.
-- Correct southwest traversal to move to the southwest tile.
-- Add focused MSTest regressions covering cardinal and diagonal projectile blockers, paired wall sides, standard object range behavior, and the existing `CreatureCombat` projectile-pathfinder boundary.
-
-## Capabilities
-
-### New Capabilities
-
-- `projectile-line-of-sight`: Projectile traversal honors the collision layers emitted by map objects and reports the actual traversed coordinates.
-
-### Modified Capabilities
-
-- None.
+- Replace routing-mask checks with the existing full and directional LOS collision layer, including Hagalaz's diagonal wall flags on matching 45-degree rays.
+- Trace each projectile ray with the 16.16 fixed-point, axis-boundary algorithm used by RuneLite's `WorldArea` LOS implementation.
+- Retain the existing `IProjectilePathFinder` runtime boundary and collision writers; only their already-emitted LOS state is consumed.
+- Add focused writer-derived and off-axis-ray regressions before the production correction.
 
 ## Scope and Acceptance Criteria
 
-- Empty tiles, objects whose collision writer omits the projectile layer, and standard objects that emit `ObjectBlock | ObjectAllowRange` remain traversable.
-- `FloorBlock`, `FloorDecorationBlock`, and matching cardinal or diagonal projectile-direction bits stop line-of-sight from every direction.
-- A standard object with only `ObjectAllowRange` stops line-of-sight; the writer's `ObjectBlock | ObjectAllowRange` range-permissive combination does not.
-- A southwest path reaches `(x - 1, y - 1)`.
-- `CreatureCombat.ReachTarget(range > 1)` continues to consume `IProjectilePathFinder` without a second collision implementation.
+- `ObjectBlock` blocks LOS whether or not `ObjectAllowRange` is also present.
+- Gateway walls and standard objects block LOS through their `Blocked*` or `ObjectBlock` state even though they omit the high routing layer.
+- `ObjectAllowRange`, `WallAllowRange*`, `FloorBlock`, and `FloorDecorationBlock` do not by themselves block the client-equivalent tile-to-tile LOS ray.
+- A matching diagonal `Blocked*` flag blocks an exact 45-degree ray through its wall/corner geometry.
+- An off-axis ray follows its fixed-point tile crossings; blockers on each crossed X or Y boundary stop it.
+- A ray between different planes is unsuccessful.
+- `CreatureCombat.ReachTarget(range > 1)` continues to consume the single `IProjectilePathFinder` result.
 
-## Non-Goals and Stop Conditions
+## Non-Goals
 
-- Do not change the collision writer, enum layout, combat range rules, or pathfinding architecture.
-- Do not introduce a separate line-of-sight service or duplicate collision state.
-- If client evidence requires changing collision flags themselves rather than the existing projectile pathfinder interpretation, stop and create a separate change.
+- Do not change collision writing, enum layout/names, movement routing, combat targeting, service registration, or dependencies.
+- Do not add terrain-height/arc collision or a separate LOS service.
+- Do not broaden this tile-to-tile correction into RuneLite's multi-tile `WorldArea` candidate-selection policy; the existing `ProjectilePathFinder` currently traces its supplied source and target tiles.
 
 ## Impact
 
-- Affected runtime path: `ProjectilePathFinder` through `CreatureCombat.ReachTarget(range > 1)`.
+- Runtime path: `ProjectilePathFinder` through `CreatureCombat.ReachTarget(range > 1)`.
 - Affected tests: `Hagalaz.Services.GameWorld.Tests` projectile-pathfinder regressions.
-- No API, dependency, schema, migration, or service-registration change.
+- No API, schema, migration, or deployment change.
