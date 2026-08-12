@@ -64,7 +64,7 @@ A GameWorld that successfully registers SHALL request current world status from 
 - **THEN** readiness and world sign-in admission are removed, the existing durable snapshot flush runs, and the matching offline status is published while MassTransit is still available
 
 ### Requirement: Contacts cleanup is generation-aware
-Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, expire sessions whose leases are not renewed, and SHALL remove a world session only when the offline event matches the currently observed instance and generation. `IContactSessionService` SHALL own contact-session removal and sign-out message construction. Consumers SHALL resolve it with their normal scoped lifetime, and hosted lease expiry SHALL create a scope before invoking it. Bulk cleanup SHALL remove a session only if its key still contains the snapshotted expected value, and SHALL publish sign-out only after that conditional removal succeeds.
+Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, expire sessions whose leases are not renewed, and SHALL remove a world session only when the offline event matches the currently observed instance and generation. `IContactSessionService` SHALL own contact-session removal and sign-out message construction. Consumers SHALL resolve it with their normal scoped lifetime, and hosted lease expiry SHALL create a scope before invoking it. Bulk cleanup SHALL remove a session only if its key still contains the snapshotted expected value, and SHALL publish sign-out only after that conditional removal succeeds. Each stored contact session SHALL have an immutable identity included in expected-value equality so a same-world reconnect cannot match a stale snapshot.
 
 #### Scenario: Graceful contacts cleanup
 - **WHEN** the current generation publishes offline
@@ -84,6 +84,10 @@ Contacts SHALL retain the existing contact sign-out behavior for a graceful worl
 
 #### Scenario: Replacement session survives stale cleanup
 - **WHEN** a snapshotted contact disconnects and reconnects on another world before bulk cleanup reaches that entry
+- **THEN** the replacement session remains registered and no sign-out is published for the replacement
+
+#### Scenario: Same-world replacement survives stale cleanup
+- **WHEN** a snapshotted contact disconnects and reconnects on the same world before bulk cleanup reaches that entry
 - **THEN** the replacement session remains registered and no sign-out is published for the replacement
 
 #### Scenario: Surviving generation after offline

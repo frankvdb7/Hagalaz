@@ -55,16 +55,18 @@ public sealed class ContactSessionServiceTests
     }
 
     [TestMethod]
-    public async Task RemoveWorldSessions_DoesNotRemoveReplacementSession()
+    public async Task RemoveWorldSessions_DoesNotRemoveSameWorldReplacementSession()
     {
         const int worldId = 1;
         const uint firstMasterId = 100;
         const uint replacedMasterId = 200;
         var replacementMasterId = 0u;
 
+        var firstSession = new ContactSessionContext(firstMasterId, worldId, "World 1");
+        var replacedSession = new ContactSessionContext(replacedMasterId, worldId, "World 1");
         var contactSessions = new ContactSessionStore();
-        contactSessions.TryAdd(firstMasterId, new ContactSessionContext(firstMasterId, worldId, "World 1"));
-        contactSessions.TryAdd(replacedMasterId, new ContactSessionContext(replacedMasterId, worldId, "World 1"));
+        contactSessions.TryAdd(firstMasterId, firstSession);
+        contactSessions.TryAdd(replacedMasterId, replacedSession);
 
         var characterService = new Mock<ICharacterService>();
         characterService
@@ -77,7 +79,7 @@ public sealed class ContactSessionServiceTests
                     replacementMasterId = candidateMasterId;
                     Assert.IsTrue(contactSessions.TryAdd(
                         candidateMasterId,
-                        new ContactSessionContext(candidateMasterId, 2, "World 2")));
+                        new ContactSessionContext(candidateMasterId, worldId, "World 1")));
                 }
 
                 return ValueTask.FromResult<CharacterDto?>(new CharacterDto
@@ -103,7 +105,9 @@ public sealed class ContactSessionServiceTests
 
         Assert.AreNotEqual(0u, replacementMasterId);
         Assert.IsTrue(contactSessions.TryGetValue(replacementMasterId, out var replacement));
-        Assert.AreEqual(2, replacement!.WorldId);
+        Assert.AreEqual(worldId, replacement!.WorldId);
+        var originalReplacementSession = replacementMasterId == firstMasterId ? firstSession : replacedSession;
+        Assert.AreNotEqual(originalReplacementSession.SessionId, replacement.SessionId);
         publishEndpoint.Verify(
             x => x.Publish(
                 It.IsAny<ContactSignOutMessage>(),

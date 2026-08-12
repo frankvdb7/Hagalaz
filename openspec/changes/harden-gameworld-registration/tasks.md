@@ -19,6 +19,7 @@
 - [x] 3.4 Make world-list cache keys and checksums deterministic from metadata rather than process-local counters, and evict captured contact sessions after successful crash/graceful cleanup (Req: World-list reconstruction is deterministic; Req: Contacts cleanup is generation-aware; Tests: restart-safe cache and session eviction).
 - [x] 3.5 Consolidate world contact cleanup into the scoped contact-session service and resolve it from a scope during lease expiry; keep management HTTP/HTTPS listeners on loopback while only the game TCP listener uses `World:ListenHost` (Req: Contacts cleanup is generation-aware; Req: Deployment configuration enforces unique local world resources; Tests: scoped cleanup and management binding).
 - [x] 3.6 Make bulk contact cleanup atomic against snapshotted session values and isolate initial/status-expiry broker failures from the monitor loop (Req: Contacts cleanup is generation-aware; Req: World-list reconstruction is deterministic; Tests: replacement-session race and failure-then-success expiry).
+- [x] 3.7 Give contact sessions immutable identities so atomic bulk cleanup rejects same-world reconnects; add the same-world replacement regression (Req: Contacts cleanup is generation-aware; Tests: same-world replacement race).
 
 ## 4. Deployment and verification
 
