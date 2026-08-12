@@ -22,7 +22,7 @@ public sealed class WorldStatusServiceTests
     {
         const int worldId = 1;
         const uint masterId = 100;
-        var started = new CancellationTokenSource();
+        using var started = new CancellationTokenSource();
         var lifetime = new Mock<IHostApplicationLifetime>();
         lifetime.SetupGet(x => x.ApplicationStarted).Returns(started.Token);
 
@@ -84,7 +84,7 @@ public sealed class WorldStatusServiceTests
     [Timeout(5000)]
     public async Task CleanupFailure_DoesNotStopSubsequentExpiryProcessing()
     {
-        var started = new CancellationTokenSource();
+        using var started = new CancellationTokenSource();
         var lifetime = new Mock<IHostApplicationLifetime>();
         lifetime.SetupGet(x => x.ApplicationStarted).Returns(started.Token);
 

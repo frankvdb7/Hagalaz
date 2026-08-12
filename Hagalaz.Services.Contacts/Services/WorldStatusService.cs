@@ -40,10 +40,10 @@ namespace Hagalaz.Services.Contacts.Services
 
         public async Task StopAsync(CancellationToken cancellationToken)
         {
-            _stopping.Cancel();
+            using var stopping = _stopping;
+            stopping.Cancel();
             if (_runTask == null)
             {
-                _stopping.Dispose();
                 return;
             }
 
@@ -51,13 +51,9 @@ namespace Hagalaz.Services.Contacts.Services
             {
                 await _runTask.WaitAsync(cancellationToken);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || _stopping.IsCancellationRequested)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || stopping.IsCancellationRequested)
             {
                 // The service is stopping; no further discovery or cleanup work is required.
-            }
-            finally
-            {
-                _stopping.Dispose();
             }
         }
 
