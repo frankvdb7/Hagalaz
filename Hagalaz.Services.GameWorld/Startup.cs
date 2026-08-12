@@ -77,9 +77,12 @@ using Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders;
 using Hagalaz.Services.GameWorld.Providers;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
+using Hagalaz.Services.GameWorld.Configuration;
+using Hagalaz.Services.GameWorld.Health;
 using Hagalaz.Workers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Identity;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using Hagalaz.Services.Extensions;
@@ -111,7 +114,11 @@ namespace Hagalaz.Services.GameWorld
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddHealthChecks();
+            services.AddSingleton<WorldLifecycleState>();
+            services.AddSingleton<IStartupTaskState>(provider => provider.GetRequiredService<WorldLifecycleState>());
+            services.AddSingleton<WorldInstanceIdentity>();
+            services.AddSingleton<WorldRegistrationStore>();
+            services.AddHealthChecks().AddCheck<WorldReadinessHealthCheck>("world-readiness");
 
             var redisConnection = Configuration.GetConnectionString("cache")
                 ?? throw new InvalidOperationException("The Redis cache connection string is required.");
@@ -142,7 +149,6 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();
             services.AddSingleton<IBackgroundTaskQueue>(_ => new DefaultBackgroundTaskQueue(DefaultBackgroundTaskQueue.DefaultCapacity));
-            services.AddHostedService<WorldStatusService>();
             services.AddHostedService<QueuedHostedService>();
             services.AddHostedService<GameWorkerService>();
             services.AddSingleton<InMemoryEventBus>();
@@ -431,7 +437,9 @@ namespace Hagalaz.Services.GameWorld
 
             // world options
             services.Configure<WorldOptions>(Configuration.GetSection(WorldOptions.Key), options => options.BindNonPublicProperties = true);
-            services.Configure<WorldOptions>(options => options.Id = Configuration.GetValue(ServiceDefaults.EnvironmentVariables.HagalazWorldId, 1));
+            services.Configure<WorldOptions>(options => options.Id = Configuration.GetValue<int?>(ServiceDefaults.EnvironmentVariables.HagalazWorldId) ?? 0);
+            services.AddSingleton<IValidateOptions<WorldOptions>, WorldOptionsValidator>();
+            services.AddOptions<WorldOptions>().ValidateOnStart();
             services.Configure<CombatOptions>(Configuration.GetSection(CombatOptions.Key));
             services.Configure<ItemOptions>(Configuration.GetSection(ItemOptions.Key));
             services.Configure<GroundItemOptions>(Configuration.GetSection(GroundItemOptions.Key));
@@ -667,6 +675,16 @@ namespace Hagalaz.Services.GameWorld
 
                     cfg.Host(host);
 
+                    var statusEndpointName = $"hagalaz-gameworld-status-{context.GetRequiredService<WorldInstanceIdentity>().InstanceId}";
+                    cfg.ReceiveEndpoint(statusEndpointName, endpoint =>
+                    {
+                        endpoint.Durable = false;
+                        endpoint.AutoDelete = true;
+                        endpoint.ConfigureConsumer<WorldStatusRequestConsumer>(context);
+                        endpoint.ConfigureConsumer<WorldOnlineConsumer>(context);
+                        endpoint.ConfigureConsumer<WorldOfflineConsumer>(context);
+                    });
+
                     cfg.ConfigureEndpoints(context);
                 });
 
@@ -688,6 +706,7 @@ namespace Hagalaz.Services.GameWorld
                 x.AddConsumer<CharacterPersistenceAcknowledgedConsumer>();
             });
             // Register after MassTransit so shutdown flushes run while the message bus is still available.
+            services.AddHostedService<WorldStatusService>();
             services.AddHostedService<CharacterDehydrationWorkerService>();
             services.AddMediator(options =>
             {

@@ -34,6 +34,9 @@ namespace Hagalaz.Services.GameWorld.Hubs
         private readonly IOptions<WorldOptions> _worldOptions;
         private readonly IConfiguration _configuration;
         private readonly IScopedGameMediator _mediator;
+        private readonly WorldLifecycleState _lifecycle;
+        private readonly WorldRegistrationStore _registrations;
+        private readonly WorldInstanceIdentity _identity;
 
         public HandshakeHub(
             IAuthenticationService authenticationService,
@@ -43,7 +46,10 @@ namespace Hagalaz.Services.GameWorld.Hubs
             IOptions<ServerConfig> serverOptions,
             IOptions<WorldOptions> worldOptions,
             IConfiguration configuration,
-            IScopedGameMediator mediator)
+            IScopedGameMediator mediator,
+            WorldLifecycleState lifecycle,
+            WorldRegistrationStore registrations,
+            WorldInstanceIdentity identity)
         {
             _authenticationService = authenticationService;
             _clientPermissionProvider = clientPermissionProvider;
@@ -53,6 +59,9 @@ namespace Hagalaz.Services.GameWorld.Hubs
             _worldOptions = worldOptions;
             _configuration = configuration;
             _mediator = mediator;
+            _lifecycle = lifecycle;
+            _registrations = registrations;
+            _identity = identity;
         }
 
         [RaidoMessageHandler(typeof(ClientUpdateRequest))]
@@ -119,7 +128,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
 
-            var url = "127.0.0.1"; // TODO
             var worldId = _worldOptions.Value.Id;
             var roles = user.FindAllRoles().Select(claim => claim.Value).ToList();
             var clientPermission = _clientPermissionProvider.GetClientPermission(roles);
@@ -136,7 +144,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 LastIpAddress = lastIp,
                 UnreadMessagesCount = 0,
                 WorldId = worldId,
-                WorldAddress = url
+                WorldAddress = _worldOptions.Value.AdvertisedEndpoint.Host
             });
 
             // now let the appropriate client protocol handle any communication
@@ -149,6 +157,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
         [RaidoMessageHandler(typeof(WorldSignInRequest))]
         public async Task SignInWorld(WorldSignInRequest message)
         {
+            var worldOptions = _worldOptions.Value;
+            if (!_lifecycle.CanAcceptWorldSignIns ||
+                _registrations.HasConflict(worldOptions.Id, _identity.InstanceId) ||
+                !_registrations.IsLocalGenerationAvailable(worldOptions.Id, _identity.InstanceId))
+            {
+                await Clients.Caller.SendAsync(ClientSignInResponse.Failed);
+                Context.Abort();
+                return;
+            }
+
             var clientProtocol = _clientProtocolResolver.GetProtocol(message.ClientRevision);
             if (clientProtocol == null)
             {

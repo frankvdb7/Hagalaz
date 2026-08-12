@@ -37,13 +37,19 @@ namespace Hagalaz.Services.GameWorld
 
             builder.WebHost.UseKestrel().ConfigureKestrel(options =>
             {
+                var listenHost = builder.Configuration.GetValue<string>("World:ListenHost") ?? IPAddress.Loopback.ToString();
+                if (!IPAddress.TryParse(listenHost, out var listenAddress))
+                {
+                    throw new ArgumentException("World:ListenHost must be a valid IP address.", nameof(listenHost));
+                }
+
                 var tcpPort = builder.Configuration.GetValue<int>("TCP_PORT");
                 if (tcpPort == 0)
                 {
                     throw new ArgumentNullException(nameof(tcpPort));
                 }
 
-                options.Listen(IPAddress.Loopback,
+                options.Listen(listenAddress,
                     tcpPort,
                     listenOptions =>
                     {

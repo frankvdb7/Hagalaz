@@ -238,7 +238,11 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:cache"] = _redis!.GetConnectionString()
+                ["ConnectionStrings:cache"] = _redis!.GetConnectionString(),
+                ["HAGALAZ_WORLD_ID"] = "1",
+                ["World:Name"] = "World 1",
+                ["World:AdvertisedEndpoint:Host"] = "127.0.0.1",
+                ["World:AdvertisedEndpoint:Port"] = "443"
             })
             .Build();
         var services = new ServiceCollection();

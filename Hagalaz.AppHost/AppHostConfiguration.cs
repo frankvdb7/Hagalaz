@@ -44,21 +44,43 @@ public static class AppHostConfiguration
             .WithHttpEndpoint(targetPort: 3000, name: "http")
             .WithLifetime(ContainerLifetime.Persistent);
 
-        var gameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("hagalaz-services-gameworld", launchProfileName: "tcp")
+        var gameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("hagalaz-services-gameworld-1", launchProfileName: "tcp")
             .WaitFor(messaging)
             .WaitForCompletion(migrations)
             .WaitFor(cache)
             .WithReference(database)
             .WithReference(messaging)
             .WithReference(cache)
+            .WithEnvironment("HAGALAZ_WORLD_ID", "1")
+            .WithEnvironment("HAGALAZ_World__ListenHost", "127.0.0.1")
+            .WithEnvironment("HAGALAZ_World__AdvertisedEndpoint__Host", "127.0.0.1")
+            .WithEnvironment("HAGALAZ_World__AdvertisedEndpoint__Port", "443")
             .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
-            .WithEndpoint(port: 443, scheme: "tcp", env: "TCP_PORT")
+            .WithEndpoint(targetPort: 443, scheme: "tcp", env: "TCP_PORT", isProxied: false)
             .WithHttpsEndpoint(port: 7010, env: "HTTPS_PORT")
             .WithHttpEndpoint(port: 5010, env: "HTTP_PORT");
+
+        var secondGameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("hagalaz-services-gameworld-2", launchProfileName: "tcp")
+            .WaitFor(messaging)
+            .WaitForCompletion(migrations)
+            .WaitFor(cache)
+            .WithReference(database)
+            .WithReference(messaging)
+            .WithReference(cache)
+            .WithEnvironment("HAGALAZ_WORLD_ID", "2")
+            .WithEnvironment("HAGALAZ_World__Name", "World 2")
+            .WithEnvironment("HAGALAZ_World__ListenHost", "127.0.0.2")
+            .WithEnvironment("HAGALAZ_World__AdvertisedEndpoint__Host", "127.0.0.2")
+            .WithEnvironment("HAGALAZ_World__AdvertisedEndpoint__Port", "443")
+            .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
+            .WithEndpoint(targetPort: 443, scheme: "tcp", env: "TCP_PORT", isProxied: false)
+            .WithHttpsEndpoint(port: 7011, env: "HTTPS_PORT")
+            .WithHttpEndpoint(port: 5011, env: "HTTP_PORT");
 
         if (includeHealthChecks)
         {
             gameWorldService.WithHttpHealthCheck("/health");
+            secondGameWorldService.WithHttpHealthCheck("/health");
         }
 
         var authService = builder.AddProject<Projects.Hagalaz_Services_Authorization>("hagalaz-services-authorization")
@@ -139,6 +161,7 @@ public static class AppHostConfiguration
 
         var gateway = builder.AddProject<Projects.Hagalaz_Services_Gateway>("hagalaz-services-gateway")
             .WithReference(gameWorldService)
+            .WithReference(secondGameWorldService)
             .WithReference(authService)
             .WithReference(cacheService)
             .WithReference(contactsService)
