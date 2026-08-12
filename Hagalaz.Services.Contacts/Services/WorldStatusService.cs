@@ -10,7 +10,7 @@ namespace Hagalaz.Services.Contacts.Services
         private readonly ILogger<WorldStatusService> _logger;
         private readonly IHostApplicationLifetime _applicationLifetime;
         private readonly WorldSessionStore _worldSessions;
-        private readonly WorldContactCleanupService _cleanupService;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly CancellationTokenSource _stopping = new();
         private Task? _runTask;
 
@@ -19,13 +19,13 @@ namespace Hagalaz.Services.Contacts.Services
             ILogger<WorldStatusService> logger,
             IHostApplicationLifetime applicationLifetime,
             WorldSessionStore worldSessions,
-            WorldContactCleanupService cleanupService)
+            IServiceScopeFactory scopeFactory)
         {
             _bus = bus;
             _logger = logger;
             _applicationLifetime = applicationLifetime;
             _worldSessions = worldSessions;
-            _cleanupService = cleanupService;
+            _scopeFactory = scopeFactory;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
@@ -73,7 +73,9 @@ namespace Hagalaz.Services.Contacts.Services
                     {
                         if (!update.IsAvailable)
                         {
-                            await _cleanupService.SignOutWorldContactsAsync(update.WorldId, _bus, cancellationToken);
+                            using var scope = _scopeFactory.CreateScope();
+                            var contactSessionService = scope.ServiceProvider.GetRequiredService<IContactSessionService>();
+                            await contactSessionService.RemoveWorldSessions(update.WorldId);
                         }
                     }
                 }

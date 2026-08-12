@@ -10,16 +10,16 @@ namespace Hagalaz.Services.Contacts.Consumers
     public class WorldStatusConsumer : IConsumer<WorldOnlineMessage>, IConsumer<WorldOfflineMessage>
     {
         private readonly WorldSessionStore _worldSessions;
-        private readonly WorldContactCleanupService _cleanupService;
+        private readonly IContactSessionService _contactSessionService;
         private readonly ILogger<WorldStatusConsumer> _logger;
 
         public WorldStatusConsumer(
             WorldSessionStore worldSessions,
-            WorldContactCleanupService cleanupService,
+            IContactSessionService contactSessionService,
             ILogger<WorldStatusConsumer> logger)
         {
             _worldSessions = worldSessions;
-            _cleanupService = cleanupService;
+            _contactSessionService = contactSessionService;
             _logger = logger;
         }
 
@@ -61,7 +61,7 @@ namespace Hagalaz.Services.Contacts.Consumers
                 return;
             }
 
-            await _cleanupService.SignOutWorldContactsAsync(message.Id, context, context.CancellationToken);
+            await _contactSessionService.RemoveWorldSessions(message.Id);
             _logger.LogInformation("Removed world: {Id}", message.Id);
         }
     }

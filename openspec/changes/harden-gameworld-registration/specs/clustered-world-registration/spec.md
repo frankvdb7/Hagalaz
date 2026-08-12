@@ -64,7 +64,7 @@ A GameWorld that successfully registers SHALL request current world status from 
 - **THEN** readiness and world sign-in admission are removed, the existing durable snapshot flush runs, and the matching offline status is published while MassTransit is still available
 
 ### Requirement: Contacts cleanup is generation-aware
-Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, expire sessions whose leases are not renewed, and SHALL remove a world session only when the offline event matches the currently observed instance and generation. After successful sign-out publication, cleanup SHALL remove the captured contact-session entries, unless a newer session replaced the captured entry during cleanup.
+Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, expire sessions whose leases are not renewed, and SHALL remove a world session only when the offline event matches the currently observed instance and generation. `IContactSessionService` SHALL own contact-session removal and sign-out message construction. Consumers SHALL resolve it with their normal scoped lifetime, and hosted lease expiry SHALL create a scope before invoking it.
 
 #### Scenario: Graceful contacts cleanup
 - **WHEN** the current generation publishes offline
@@ -101,7 +101,7 @@ The 742 world-list and lobby response wire contracts SHALL continue to advertise
 - **THEN** it connects to the configured client port using that world's advertised loopback host
 
 ### Requirement: Deployment configuration enforces unique local world resources
-Version-controlled local deployment configuration SHALL show at least two GameWorld resources with unique world IDs and collision-free TCP, HTTPS, and HTTP endpoints. Local TCP endpoints SHALL be explicit proxyless target-port 443 endpoints when both worlds use the legacy fixed client port. Deployment documentation SHALL require one serving workload per identity, automatic restart, and world-aware readiness/liveness probes.
+Version-controlled local deployment configuration SHALL show at least two GameWorld resources with unique world IDs and collision-free TCP, HTTPS, and HTTP endpoints. Local TCP endpoints SHALL be explicit proxyless target-port 443 endpoints when both worlds use the legacy fixed client port. GameWorld SHALL apply `World:ListenHost` only to the legacy TCP listener; HTTP and HTTPS management listeners SHALL bind loopback for Aspire proxy compatibility. Deployment documentation SHALL require one serving workload per identity, automatic restart, and world-aware readiness/liveness probes.
 
 #### Scenario: Two local worlds
 - **WHEN** the Aspire app is started with the checked-in multi-world configuration

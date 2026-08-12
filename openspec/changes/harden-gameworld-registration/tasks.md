@@ -17,6 +17,7 @@
 - [x] 3.2 Make Contacts world sessions generation-aware while preserving current contact cleanup (Req: Contacts cleanup is generation-aware; Tests: graceful and delayed-old cleanup).
 - [x] 3.3 Expire Contacts leases periodically and clean up only when no surviving generation remains (Req: Contacts cleanup is generation-aware; Tests: crash expiry and survivor offline).
 - [x] 3.4 Make world-list cache keys and checksums deterministic from metadata rather than process-local counters, and evict captured contact sessions after successful crash/graceful cleanup (Req: World-list reconstruction is deterministic; Req: Contacts cleanup is generation-aware; Tests: restart-safe cache and session eviction).
+- [x] 3.5 Consolidate world contact cleanup into the scoped contact-session service and resolve it from a scope during lease expiry; keep management HTTP/HTTPS listeners on loopback while only the game TCP listener uses `World:ListenHost` (Req: Contacts cleanup is generation-aware; Req: Deployment configuration enforces unique local world resources; Tests: scoped cleanup and management binding).
 
 ## 4. Deployment and verification
 

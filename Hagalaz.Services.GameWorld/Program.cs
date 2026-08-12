@@ -63,7 +63,7 @@ namespace Hagalaz.Services.GameWorld
                     throw new ArgumentNullException(nameof(httpsPort));
                 }
 
-                options.Listen(listenAddress,
+                options.Listen(IPAddress.Loopback,
                     httpsPort,
                     listenOptions =>
                     {
@@ -76,7 +76,7 @@ namespace Hagalaz.Services.GameWorld
                     throw new ArgumentNullException(nameof(httpPort));
                 }
 
-                options.Listen(listenAddress, httpPort);
+                options.Listen(IPAddress.Loopback, httpPort);
             });
             builder.Host.ConfigurePlugins();
 

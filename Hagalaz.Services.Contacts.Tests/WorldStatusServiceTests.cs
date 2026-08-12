@@ -5,9 +5,10 @@ using Hagalaz.Services.Contacts.Services.Model;
 using Hagalaz.Services.Contacts.Store;
 using Hagalaz.Services.Contacts.Store.Model;
 using MassTransit;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace Hagalaz.Services.Contacts.Tests;
@@ -48,16 +49,22 @@ public sealed class WorldStatusServiceTests
             1,
             DateTimeOffset.UtcNow.AddMilliseconds(50)));
 
-        var cleanupService = new WorldContactCleanupService(
+        var localizer = new Mock<IStringLocalizer<ContactSessionService>>();
+        var contactSessionService = new ContactSessionService(
             characterService.Object,
             contactSessions,
-            NullLogger<WorldContactCleanupService>.Instance);
+            worldSessions,
+            bus.Object,
+            localizer.Object);
+        using var serviceProvider = new ServiceCollection()
+            .AddScoped<IContactSessionService>(_ => contactSessionService)
+            .BuildServiceProvider();
         var service = new WorldStatusService(
             bus.Object,
             new Mock<ILogger<WorldStatusService>>().Object,
             lifetime.Object,
             worldSessions,
-            cleanupService);
+            serviceProvider.GetRequiredService<IServiceScopeFactory>());
 
         await service.StartAsync(CancellationToken.None);
         started.Cancel();

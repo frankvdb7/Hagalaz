@@ -5,6 +5,7 @@ using Microsoft.Extensions.Localization;
 using Hagalaz.Exceptions;
 using Hagalaz.Services.Contacts.Store;
 using Hagalaz.Services.Contacts.Store.Model;
+using System.Linq;
 
 namespace Hagalaz.Services.Contacts.Services
 {
@@ -85,6 +86,24 @@ namespace Hagalaz.Services.Contacts.Services
             {
                 return;
             }
+
+            await PublishSignOut(masterId);
+        }
+
+        public async Task RemoveWorldSessions(int worldId)
+        {
+            var sessions = _contacts
+                .Where(session => session.WorldId == worldId)
+                .ToList();
+
+            foreach (var session in sessions)
+            {
+                await RemoveSession(session.MasterId);
+            }
+        }
+
+        private async Task PublishSignOut(uint masterId)
+        {
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
             {

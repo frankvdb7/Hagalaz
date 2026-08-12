@@ -50,7 +50,6 @@ namespace Hagalaz.Services.Contacts
             builder.Services.AddHostedService<WorldStatusService>();
             builder.Services.AddSingleton<ContactSessionStore>();
             builder.Services.AddSingleton<WorldSessionStore>();
-            builder.Services.AddSingleton<WorldContactCleanupService>();
             builder.Services.AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>();
             builder.Services.AddScoped<IContactService, ContactService>();
             builder.Services.AddScoped<ICharacterService, CharacterService>();
