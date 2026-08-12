@@ -1,24 +1,27 @@
-﻿namespace Hagalaz.Game.Configuration
+using System;
+
+namespace Hagalaz.Game.Configuration
 {
-    /// <summary>
-    /// 
-    /// </summary>
     public class WorldOptions
     {
         public const string Key = "World";
-        
-        /// <summary>
-        /// Gets or sets the world identifier.
-        /// </summary>
-        /// <value>
-        /// The world identifier.
-        /// </value>
+
         public int Id { get; set; }
-        public string Name { get; set; } = default!;
+        public string Name { get; set; } = string.Empty;
+        public WorldEndpointOptions AdvertisedEndpoint { get; set; } = new();
+        public TimeSpan RegistrationLeaseDuration { get; set; } = TimeSpan.FromSeconds(30);
+        public TimeSpan RegistrationRenewalInterval { get; set; } = TimeSpan.FromSeconds(10);
+        public TimeSpan RegistrationRetryDelay { get; set; } = TimeSpan.FromSeconds(1);
         public int SpawnPointX { get; set; }
         public int SpawnPointY { get; set; }
         public int SpawnPointZ { get; set; }
-        public string WelcomeMessage { get; set; } = default!;
-        public string MessageOfTheWeek { get; set; } = default!;
+        public string WelcomeMessage { get; set; } = string.Empty;
+        public string MessageOfTheWeek { get; set; } = string.Empty;
+    }
+
+    public sealed class WorldEndpointOptions
+    {
+        public string Host { get; set; } = string.Empty;
+        public int Port { get; set; }
     }
 }

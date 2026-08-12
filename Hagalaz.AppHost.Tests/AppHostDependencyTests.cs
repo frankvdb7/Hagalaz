@@ -24,7 +24,8 @@ public sealed class AppHostDependencyTests
                      "hagalaz-services-authorization",
                      "hagalaz-services-characters",
                      "hagalaz-services-contacts",
-                     "hagalaz-services-gameworld"
+                     "hagalaz-services-gameworld-1",
+                     "hagalaz-services-gameworld-2"
                  })
         {
             var service = resources[serviceName];

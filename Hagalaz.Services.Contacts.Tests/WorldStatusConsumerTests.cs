@@ -45,13 +45,13 @@ namespace Hagalaz.Services.Contacts.Tests
             };
 
             _contactSessions.TryAdd(masterId, new ContactSessionContext(masterId, worldId, "World 1"));
-            _worldSessions.TryAdd(worldId, new WorldSessionContext(worldId, "World 1"));
+            _worldSessions.TryAdd(worldId, new WorldSessionContext(worldId, "World 1", "instance-a", 1));
 
             _characterServiceMock.Setup(x => x.FindCharacterByIdAsync(masterId))
                 .ReturnsAsync(contactDto);
 
             var contextMock = new Mock<ConsumeContext<WorldOfflineMessage>>();
-            contextMock.Setup(x => x.Message).Returns(new WorldOfflineMessage(worldId));
+            contextMock.Setup(x => x.Message).Returns(new WorldOfflineMessage(worldId, "instance-a", 1));
 
             // Act
             await _consumer.Consume(contextMock.Object);
@@ -61,6 +61,21 @@ namespace Hagalaz.Services.Contacts.Tests
             // Verify that Publish was called with a ContactSignOutMessage
             contextMock.Verify(x => x.Publish(It.Is<ContactSignOutMessage>(m => m.Contact.MasterId == masterId), It.IsAny<CancellationToken>()), Times.Once);
             Assert.IsFalse(_worldSessions.ContainsKey(worldId));
+        }
+
+        [TestMethod]
+        public async Task Consume_StaleOfflineMessage_DoesNotRemoveReplacementWorld()
+        {
+            const int worldId = 1;
+            _worldSessions.TryAdd(worldId, new WorldSessionContext(worldId, "World 1", "instance-b", 2));
+
+            var contextMock = new Mock<ConsumeContext<WorldOfflineMessage>>();
+            contextMock.Setup(x => x.Message).Returns(new WorldOfflineMessage(worldId, "instance-a", 1));
+
+            await _consumer.Consume(contextMock.Object);
+
+            Assert.IsTrue(_worldSessions.ContainsKey(worldId));
+            Assert.AreEqual("instance-b", _worldSessions[worldId]!.InstanceId);
         }
     }
 }

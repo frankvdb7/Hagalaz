@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using AutoMapper;
 using Hagalaz.Game.Messages;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
@@ -9,16 +10,31 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
     public class WorldOfflineConsumer : IConsumer<WorldOfflineMessage>
     {
         private readonly IWorldInfoService _worldInfoService;
+        private readonly WorldRegistrationStore _registrations;
+        private readonly IMapper _mapper;
 
-        public WorldOfflineConsumer(IWorldInfoService worldInfoService)
+        public WorldOfflineConsumer(
+            IWorldInfoService worldInfoService,
+            WorldRegistrationStore registrations,
+            IMapper mapper)
         {
             _worldInfoService = worldInfoService;
+            _registrations = registrations;
+            _mapper = mapper;
         }
 
         public async Task Consume(ConsumeContext<WorldOfflineMessage> context)
         {
-            var message = context.Message;
-            await _worldInfoService.UpdateWorldCharacterInfoAsync(new WorldCharacterInfo(message.Id, 0, false));
+            var update = _registrations.ObserveOffline(context.Message);
+            if (update.ActiveMessage == null)
+            {
+                await _worldInfoService.UpdateWorldCharacterInfoAsync(new WorldCharacterInfo(update.WorldId, 0, false));
+                return;
+            }
+
+            await _worldInfoService.AddOrUpdateWorldInfoAsync(_mapper.Map<WorldInfo>(update.ActiveMessage));
+            await _worldInfoService.UpdateWorldCharacterInfoAsync(
+                new WorldCharacterInfo(update.WorldId, update.ActiveMessage.CharacterCount, true));
         }
     }
 }

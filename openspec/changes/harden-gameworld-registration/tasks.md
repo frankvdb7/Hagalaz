@@ -1,0 +1,20 @@
+## 1. Contracts and configuration
+
+- [x] 1.1 Add typed advertised endpoint and registration timing options, options validation, explicit development/Aspire configuration, and remove the world-ID fallback (Req: World configuration is explicit and valid; Test: invalid options).
+- [x] 1.2 Extend online/offline messages and all status mappings/consumers with instance, generation, lease, and endpoint data (Req: Registration identifies and renews a process generation).
+
+## 2. Registration lifecycle and readiness
+
+- [x] 2.1 Add the single observed-registration store with generation comparison, conflict detection, offline fencing, and lease expiry (Req: Generations protect replacement and duplicate ownership; Tests: stale offline, duplicate, expiry).
+- [x] 2.2 Replace one-shot status publication with retrying initial registration, periodic renewal, reconstruction request, and bounded shutdown offline publication (Req: Registration identifies and renews a process generation; Req: Readiness and shutdown preserve serving safety).
+- [x] 2.3 Add startup-task lifecycle reporting and world-aware health/readiness plus world sign-in admission checks (Req: Readiness and shutdown preserve serving safety; Tests: unregistered readiness and shutdown state).
+
+## 3. World list and contacts behavior
+
+- [x] 3.1 Apply registration transitions to `WorldInfoService`, deterministically invalidate HybridCache, expire stale entries, and preserve the existing lobby flow (Req: World-list reconstruction is deterministic; Tests: endpoint/checksum/reconstruction).
+- [x] 3.2 Make Contacts world sessions generation-aware while preserving current contact cleanup (Req: Contacts cleanup is generation-aware; Tests: graceful and delayed-old cleanup).
+
+## 4. Deployment and verification
+
+- [x] 4.1 Configure two collision-free Aspire GameWorld resources and document the production one-serving-instance/restart/probe shape (Req: Deployment configuration enforces unique local world resources).
+- [x] 4.2 Add focused MSTest coverage, run the targeted GameWorld/Contacts suites, validate OpenSpec, build affected projects, and review the final diff against all acceptance scenarios (all requirements).
