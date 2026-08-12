@@ -62,6 +62,7 @@ namespace Hagalaz.Services.Contacts.Tests
                 x => x.Publish(It.Is<ContactSignOutMessage>(message => message.Contact.MasterId == masterId), It.IsAny<CancellationToken>()),
                 Times.Once);
             Assert.IsFalse(_worldSessions.TryGetValue(worldId, out _));
+            Assert.IsFalse(_contactSessions.TryGetValue(masterId, out _));
         }
 
         [TestMethod]

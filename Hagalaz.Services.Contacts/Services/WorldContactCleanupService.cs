@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,27 +35,36 @@ public sealed class WorldContactCleanupService
     {
         try
         {
-            var offlineMessages = await _contactSessions.ToAsyncEnumerable()
+            var sessions = await _contactSessions.ToAsyncEnumerable()
                 .Where(session => session.WorldId == worldId)
-                .Select(new Func<ContactSessionContext, CancellationToken, ValueTask<ContactSignOutMessage?>>(async (session, ct) =>
-                {
-                    var contact = await _characterService.FindCharacterByIdAsync(session.MasterId);
-                    if (contact == null)
-                    {
-                        return null;
-                    }
-
-                    return new ContactSignOutMessage(new ContactDto
-                    {
-                        MasterId = contact.MasterId,
-                        DisplayName = contact.DisplayName,
-                        PreviousDisplayName = contact.PreviousDisplayName
-                    });
-                }))
-                .OfType<ContactSignOutMessage>()
                 .ToListAsync(cancellationToken);
+            var offlineMessages = new List<ContactSignOutMessage>(sessions.Count);
+
+            foreach (var session in sessions)
+            {
+                var contact = await _characterService.FindCharacterByIdAsync(session.MasterId);
+                if (contact == null)
+                {
+                    continue;
+                }
+
+                offlineMessages.Add(new ContactSignOutMessage(new ContactDto
+                {
+                    MasterId = contact.MasterId,
+                    DisplayName = contact.DisplayName,
+                    PreviousDisplayName = contact.PreviousDisplayName
+                }));
+            }
 
             await publishEndpoint.PublishBatch(offlineMessages, cancellationToken);
+
+            foreach (var session in sessions)
+            {
+                if (_contactSessions.TryGetValue(session.MasterId, out var current) && current == session)
+                {
+                    _contactSessions.TryRemove(session.MasterId);
+                }
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

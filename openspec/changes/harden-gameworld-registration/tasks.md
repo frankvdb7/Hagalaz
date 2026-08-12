@@ -16,8 +16,10 @@
 - [x] 3.1 Apply registration transitions to `WorldInfoService`, deterministically invalidate HybridCache, expire stale entries, and preserve the existing lobby flow (Req: World-list reconstruction is deterministic; Tests: endpoint/checksum/reconstruction).
 - [x] 3.2 Make Contacts world sessions generation-aware while preserving current contact cleanup (Req: Contacts cleanup is generation-aware; Tests: graceful and delayed-old cleanup).
 - [x] 3.3 Expire Contacts leases periodically and clean up only when no surviving generation remains (Req: Contacts cleanup is generation-aware; Tests: crash expiry and survivor offline).
+- [x] 3.4 Make world-list cache keys and checksums deterministic from metadata rather than process-local counters, and evict captured contact sessions after successful crash/graceful cleanup (Req: World-list reconstruction is deterministic; Req: Contacts cleanup is generation-aware; Tests: restart-safe cache and session eviction).
 
 ## 4. Deployment and verification
 
 - [x] 4.1 Configure two collision-free Aspire GameWorld resources and document the production one-serving-instance/restart/probe shape (Req: Deployment configuration enforces unique local world resources).
 - [x] 4.2 Add focused MSTest coverage, run the targeted GameWorld/Contacts suites, validate OpenSpec, build affected projects, and review the final diff against all acceptance scenarios (all requirements).
+- [x] 4.3 Configure Aspire GameWorld TCP endpoints as explicit proxyless target-port 443 endpoints and assert the DCP endpoint annotations instead of using a raw socket-only test (Req: Deployment configuration enforces unique local world resources; Test: proxyless Aspire TCP model).

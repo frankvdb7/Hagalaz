@@ -38,7 +38,7 @@ Consumers SHALL track live registrations by logical world and process instance. 
 - **THEN** the conflict is observable and neither conflicting local generation is considered world-ready
 
 ### Requirement: World-list reconstruction is deterministic
-A GameWorld that successfully registers SHALL request current world status from all live worlds. Status consumers SHALL republish complete current snapshots, expire leases locally, and update the world-list cache immediately when metadata, endpoint, or availability changes. Identical snapshots SHALL be idempotent and checksums SHALL change only after an actual cache-visible change.
+A GameWorld that successfully registers SHALL request current world status from all live worlds. Status consumers SHALL republish complete current snapshots, expire leases locally, and update the world-list cache immediately when metadata, endpoint, or availability changes. Identical snapshots SHALL be idempotent and checksums SHALL change only after an actual cache-visible change. The shared cache key and checksum SHALL be derived deterministically from the metadata snapshot and MUST NOT depend on process-local counters.
 
 #### Scenario: Restarted world reconstructs the list
 - **WHEN** a world restarts while another world is already online
@@ -47,6 +47,10 @@ A GameWorld that successfully registers SHALL request current world status from 
 #### Scenario: Endpoint changes
 - **WHEN** an online status changes its advertised endpoint
 - **THEN** the next world-list cache is rebuilt with the new endpoint and a new checksum
+
+#### Scenario: Cache survives a process restart
+- **WHEN** a restarted process reads shared Redis after observing the same metadata snapshot
+- **THEN** it uses the same cache key and checksum, while a different metadata snapshot uses a different cache key and cannot return the old entry
 
 ### Requirement: Readiness and shutdown preserve serving safety
 `/health` SHALL remain unhealthy until valid initialization, endpoint startup, successful current-generation registration, and conflict-free ownership are established. `/alive` SHALL remain a liveness-only check. When shutdown begins, readiness and new world sign-ins SHALL be removed before the existing character snapshot flush; after that flush succeeds, the matching generation SHALL publish offline before the message bus stops.
@@ -60,7 +64,7 @@ A GameWorld that successfully registers SHALL request current world status from 
 - **THEN** readiness and world sign-in admission are removed, the existing durable snapshot flush runs, and the matching offline status is published while MassTransit is still available
 
 ### Requirement: Contacts cleanup is generation-aware
-Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, expire sessions whose leases are not renewed, and SHALL remove a world session only when the offline event matches the currently observed instance and generation.
+Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, expire sessions whose leases are not renewed, and SHALL remove a world session only when the offline event matches the currently observed instance and generation. After successful sign-out publication, cleanup SHALL remove the captured contact-session entries, unless a newer session replaced the captured entry during cleanup.
 
 #### Scenario: Graceful contacts cleanup
 - **WHEN** the current generation publishes offline
@@ -73,6 +77,10 @@ Contacts SHALL retain the existing contact sign-out behavior for a graceful worl
 #### Scenario: Crash lease expiry
 - **WHEN** a world stops renewing without publishing an offline event
 - **THEN** Contacts expires that generation and signs out its contacts
+
+#### Scenario: Crash cleanup removes stale contact sessions
+- **WHEN** a crashed world's contacts are signed out after lease expiry
+- **THEN** their `ContactSessionStore` entries are removed so the same players can reconnect
 
 #### Scenario: Surviving generation after offline
 - **WHEN** one generation goes offline while another live generation for the same world remains
@@ -93,8 +101,8 @@ The 742 world-list and lobby response wire contracts SHALL continue to advertise
 - **THEN** it connects to the configured client port using that world's advertised loopback host
 
 ### Requirement: Deployment configuration enforces unique local world resources
-Version-controlled local deployment configuration SHALL show at least two GameWorld resources with unique world IDs and collision-free TCP, HTTPS, and HTTP endpoints. Deployment documentation SHALL require one serving workload per identity, automatic restart, and world-aware readiness/liveness probes.
+Version-controlled local deployment configuration SHALL show at least two GameWorld resources with unique world IDs and collision-free TCP, HTTPS, and HTTP endpoints. Local TCP endpoints SHALL be explicit proxyless target-port 443 endpoints when both worlds use the legacy fixed client port. Deployment documentation SHALL require one serving workload per identity, automatic restart, and world-aware readiness/liveness probes.
 
 #### Scenario: Two local worlds
 - **WHEN** the Aspire app is started with the checked-in multi-world configuration
-- **THEN** both worlds have distinct identities, advertised endpoints, and health probes
+- **THEN** both worlds have distinct identities, advertised endpoints, health probes, and no shared DCP TCP proxy host port

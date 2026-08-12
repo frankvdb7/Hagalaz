@@ -70,5 +70,6 @@ public sealed class WorldStatusServiceTests
                 It.Is<ContactSignOutMessage>(message => message.Contact.MasterId == masterId),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+        Assert.IsFalse(contactSessions.TryGetValue(masterId, out _));
     }
 }

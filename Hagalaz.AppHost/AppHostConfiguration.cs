@@ -56,7 +56,7 @@ public static class AppHostConfiguration
             .WithEnvironment("HAGALAZ_World__AdvertisedEndpoint__Host", "127.0.0.1")
             .WithEnvironment("HAGALAZ_World__AdvertisedEndpoint__Port", "443")
             .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
-            .WithEndpoint(port: 443, scheme: "tcp", env: "TCP_PORT")
+            .WithEndpoint(targetPort: 443, scheme: "tcp", env: "TCP_PORT", isProxied: false)
             .WithHttpsEndpoint(port: 7010, env: "HTTPS_PORT")
             .WithHttpEndpoint(port: 5010, env: "HTTP_PORT");
 
@@ -73,7 +73,7 @@ public static class AppHostConfiguration
             .WithEnvironment("HAGALAZ_World__AdvertisedEndpoint__Host", "127.0.0.2")
             .WithEnvironment("HAGALAZ_World__AdvertisedEndpoint__Port", "443")
             .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
-            .WithEndpoint(port: 443, scheme: "tcp", env: "TCP_PORT")
+            .WithEndpoint(targetPort: 443, scheme: "tcp", env: "TCP_PORT", isProxied: false)
             .WithHttpsEndpoint(port: 7011, env: "HTTPS_PORT")
             .WithHttpEndpoint(port: 5011, env: "HTTP_PORT");
 
