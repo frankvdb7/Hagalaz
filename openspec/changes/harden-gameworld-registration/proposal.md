@@ -12,8 +12,8 @@ GameWorld currently publishes a one-shot, generation-blind status using broker a
 - Make world-list cache/checksum invalidation immediate for availability, endpoint, metadata, and character-count changes.
 - Add a world-aware readiness check while retaining `/alive` as liveness, and reject new world sign-ins after shutdown readiness is removed.
 - Preserve the existing character snapshot shutdown flush and order readiness removal, durable flush, generation-matching offline publication, and bus shutdown.
-- Represent two independently configured worlds and collision-free endpoints in the local Aspire configuration, and document the one-serving-instance-per-identity production shape.
-- Add focused MSTest coverage for validation, endpoint routing, renewal/expiry, stale generations, duplicate identities, reconstruction, cache freshness, contacts cleanup, and shutdown ordering.
+- Represent two independently configured worlds and collision-free endpoints in the local Aspire configuration, including the legacy client's fixed-port constraint, and document the one-serving-instance-per-identity production shape.
+- Add focused MSTest coverage for validation, endpoint routing, renewal/expiry, stale generations, duplicate identities, reconstruction, cache freshness, contacts cleanup, per-process broadcast subscriptions, legacy two-world connection routing, and shutdown ordering.
 
 ## Capabilities
 
@@ -29,5 +29,5 @@ GameWorld currently publishes a one-shot, generation-blind status using broker a
 
 - Affected projects: `Hagalaz.Game.Configuration`, `Hagalaz.Game.Messages`, `Hagalaz.Services.GameWorld`, `Hagalaz.Services.Contacts`, `Hagalaz.ServiceDefaults`, and `Hagalaz.AppHost`.
 - Existing status message contracts gain generation and endpoint fields; producers and consumers in this repository are migrated together.
-- No new external package, durable world-state store, active-active simulation, or player migration mechanism is introduced.
+- No new external package, durable world-state store, active-active simulation, wire-protocol port extension, or player migration mechanism is introduced.
 - Production deployment documentation will define unique `HAGALAZ_WORLD_ID` and endpoint settings, restart policy, single serving instance, and `/health`/`/alive` probes.

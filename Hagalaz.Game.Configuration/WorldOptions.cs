@@ -8,6 +8,7 @@ namespace Hagalaz.Game.Configuration
 
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
+        public string ListenHost { get; set; } = "127.0.0.1";
         public WorldEndpointOptions AdvertisedEndpoint { get; set; } = new();
         public TimeSpan RegistrationLeaseDuration { get; set; } = TimeSpan.FromSeconds(30);
         public TimeSpan RegistrationRenewalInterval { get; set; } = TimeSpan.FromSeconds(10);

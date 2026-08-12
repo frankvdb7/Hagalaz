@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using Hagalaz.Game.Configuration;
 using Microsoft.Extensions.Options;
 
@@ -18,6 +19,11 @@ public sealed class WorldOptionsValidator : IValidateOptions<WorldOptions>
         if (string.IsNullOrWhiteSpace(options.Name))
         {
             failures.Add("World.Name is required.");
+        }
+
+        if (!IPAddress.TryParse(options.ListenHost, out _))
+        {
+            failures.Add("World.ListenHost must be a valid IP address.");
         }
 
         if (string.IsNullOrWhiteSpace(options.AdvertisedEndpoint.Host))

@@ -675,6 +675,16 @@ namespace Hagalaz.Services.GameWorld
 
                     cfg.Host(host);
 
+                    var statusEndpointName = $"hagalaz-gameworld-status-{context.GetRequiredService<WorldInstanceIdentity>().InstanceId}";
+                    cfg.ReceiveEndpoint(statusEndpointName, endpoint =>
+                    {
+                        endpoint.Durable = false;
+                        endpoint.AutoDelete = true;
+                        endpoint.ConfigureConsumer<WorldStatusRequestConsumer>(context);
+                        endpoint.ConfigureConsumer<WorldOnlineConsumer>(context);
+                        endpoint.ConfigureConsumer<WorldOfflineConsumer>(context);
+                    });
+
                     cfg.ConfigureEndpoints(context);
                 });
 

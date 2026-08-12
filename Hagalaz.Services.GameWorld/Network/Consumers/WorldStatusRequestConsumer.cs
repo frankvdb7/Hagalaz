@@ -13,6 +13,7 @@ using Hagalaz.Services.GameWorld.Services;
 
 namespace Hagalaz.Services.GameWorld.Network.Consumers
 {
+    [ExcludeFromConfigureEndpoints]
     public class WorldStatusRequestConsumer : IConsumer<WorldStatusRequest>
     {
         private readonly IOptions<WorldOptions> _worldOptions;

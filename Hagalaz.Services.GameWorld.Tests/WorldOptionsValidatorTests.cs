@@ -31,6 +31,18 @@ public sealed class WorldOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "AdvertisedEndpoint.Port");
     }
 
+    [TestMethod]
+    public void Validate_InvalidListenHostFails()
+    {
+        var options = CreateValidOptions();
+        options.ListenHost = "not-an-ip-address";
+
+        var result = new WorldOptionsValidator().Validate(null, options);
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "ListenHost");
+    }
+
     private static WorldOptions CreateValidOptions() => new()
     {
         Id = 1,

@@ -26,7 +26,6 @@ namespace Hagalaz.Game.Messages.Protocol
             public required int Id { get; init; }
             public required string Name { get; init; }
             public required string IpAddress { get; init; }
-            public required int Port { get; init; }
             public required WorldLocationInfoDto Location { get; init; }
             public required WorldSettingsInfoDto Settings { get; init; }
         }

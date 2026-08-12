@@ -60,7 +60,7 @@ A GameWorld that successfully registers SHALL request current world status from 
 - **THEN** readiness and world sign-in admission are removed, the existing durable snapshot flush runs, and the matching offline status is published while MassTransit is still available
 
 ### Requirement: Contacts cleanup is generation-aware
-Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, but SHALL remove a world session only when the offline event matches the currently observed instance and generation.
+Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, expire sessions whose leases are not renewed, and SHALL remove a world session only when the offline event matches the currently observed instance and generation.
 
 #### Scenario: Graceful contacts cleanup
 - **WHEN** the current generation publishes offline
@@ -69,6 +69,28 @@ Contacts SHALL retain the existing contact sign-out behavior for a graceful worl
 #### Scenario: Delayed old cleanup event
 - **WHEN** an offline event for an older generation arrives after a replacement is online
 - **THEN** the replacement world session and its contacts remain registered
+
+#### Scenario: Crash lease expiry
+- **WHEN** a world stops renewing without publishing an offline event
+- **THEN** Contacts expires that generation and signs out its contacts
+
+#### Scenario: Surviving generation after offline
+- **WHEN** one generation goes offline while another live generation for the same world remains
+- **THEN** Contacts retains the surviving generation and does not sign out its contacts
+
+### Requirement: Broadcast status subscriptions are process-local
+Every GameWorld process SHALL receive each status request and online/offline status publication independently. The status consumers MUST NOT share a durable auto-configured queue between processes; each process SHALL use a unique temporary subscription endpoint.
+
+#### Scenario: Two GameWorld processes observe the same publication
+- **WHEN** two processes with different instance IDs are connected to the same RabbitMQ host
+- **THEN** both process-local registration stores receive the status publication
+
+### Requirement: Legacy client endpoints remain connectable
+The 742 world-list and lobby response wire contracts SHALL continue to advertise the client-compatible host field without claiming to serialize a per-world port. Aspire's local multi-world configuration SHALL bind both worlds to the existing client TCP port on distinct loopback hosts.
+
+#### Scenario: Two local worlds use the host-only client contract
+- **WHEN** the client selects either local world
+- **THEN** it connects to the configured client port using that world's advertised loopback host
 
 ### Requirement: Deployment configuration enforces unique local world resources
 Version-controlled local deployment configuration SHALL show at least two GameWorld resources with unique world IDs and collision-free TCP, HTTPS, and HTTP endpoints. Deployment documentation SHALL require one serving workload per identity, automatic restart, and world-aware readiness/liveness probes.

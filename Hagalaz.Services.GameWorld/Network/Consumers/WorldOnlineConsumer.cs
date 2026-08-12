@@ -7,6 +7,7 @@ using MassTransit;
 
 namespace Hagalaz.Services.GameWorld.Network.Consumers
 {
+    [ExcludeFromConfigureEndpoints]
     public class WorldOnlineConsumer : IConsumer<WorldOnlineMessage>
     {
         private readonly IWorldInfoService _worldInfoService;

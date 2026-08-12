@@ -87,7 +87,15 @@ public sealed class WorldStatusService : BackgroundService
                         await _publishEndpoint.Publish(new WorldStatusRequest(), stoppingToken);
                         discoveryRequested = true;
                     }
-                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    catch (MassTransitException exception)
+                    {
+                        _logger.LogWarning(exception, "World registration succeeded but discovery reconstruction could not be requested.");
+                    }
+                    catch (TimeoutException exception)
+                    {
+                        _logger.LogWarning(exception, "World registration succeeded but discovery reconstruction could not be requested.");
+                    }
+                    catch (InvalidOperationException exception)
                     {
                         _logger.LogWarning(exception, "World registration succeeded but discovery reconstruction could not be requested.");
                     }
@@ -100,18 +108,23 @@ public sealed class WorldStatusService : BackgroundService
             {
                 break;
             }
-            catch (Exception exception)
+            catch (MassTransitException exception)
             {
                 _lifecycle.MarkRegistrationFailed();
                 _logger.LogError(exception, "World registration publication failed; readiness has been removed.");
-                try
-                {
-                    await Task.Delay(_worldOptions.Value.RegistrationRetryDelay, stoppingToken);
-                }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
+                await DelayBeforeRetryAsync(stoppingToken);
+            }
+            catch (TimeoutException exception)
+            {
+                _lifecycle.MarkRegistrationFailed();
+                _logger.LogError(exception, "World registration publication failed; readiness has been removed.");
+                await DelayBeforeRetryAsync(stoppingToken);
+            }
+            catch (InvalidOperationException exception)
+            {
+                _lifecycle.MarkRegistrationFailed();
+                _logger.LogError(exception, "World registration publication failed; readiness has been removed.");
+                await DelayBeforeRetryAsync(stoppingToken);
             }
         }
     }
@@ -134,9 +147,29 @@ public sealed class WorldStatusService : BackgroundService
                 cancellationToken);
             _logger.LogInformation("{Name} stopped successfully", nameof(WorldStatusService));
         }
-        catch (Exception exception)
+        catch (MassTransitException exception)
         {
             _logger.LogError(exception, "Error while publishing {Type}", nameof(WorldOfflineMessage));
+        }
+        catch (TimeoutException exception)
+        {
+            _logger.LogError(exception, "Error while publishing {Type}", nameof(WorldOfflineMessage));
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogError(exception, "Error while publishing {Type}", nameof(WorldOfflineMessage));
+        }
+    }
+
+    private async Task DelayBeforeRetryAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(_worldOptions.Value.RegistrationRetryDelay, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The hosted service is stopping.
         }
     }
 

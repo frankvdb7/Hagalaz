@@ -1,5 +1,4 @@
-using Hagalaz.Contacts.Messages;
-using Hagalaz.Contacts.Messages.Model;
+using System.Threading.Tasks;
 using Hagalaz.Game.Messages;
 using Hagalaz.Services.Contacts.Services;
 using Hagalaz.Services.Contacts.Store;
@@ -10,48 +9,37 @@ namespace Hagalaz.Services.Contacts.Consumers
 {
     public class WorldStatusConsumer : IConsumer<WorldOnlineMessage>, IConsumer<WorldOfflineMessage>
     {
-        private readonly ICharacterService _characterService;
         private readonly WorldSessionStore _worldSessions;
-        private readonly ContactSessionStore _contactSessions;
+        private readonly WorldContactCleanupService _cleanupService;
         private readonly ILogger<WorldStatusConsumer> _logger;
 
         public WorldStatusConsumer(
-            ICharacterService characterService,
             WorldSessionStore worldSessions,
-            ContactSessionStore contactSessions,
+            WorldContactCleanupService cleanupService,
             ILogger<WorldStatusConsumer> logger)
         {
-            _characterService = characterService;
             _worldSessions = worldSessions;
-            _contactSessions = contactSessions;
+            _cleanupService = cleanupService;
             _logger = logger;
         }
 
         public Task Consume(ConsumeContext<WorldOnlineMessage> context)
         {
             var message = context.Message;
-            var session = new WorldSessionContext(
+            var update = _worldSessions.ObserveOnline(new WorldSessionContext(
                 message.Id,
                 message.Name,
                 message.InstanceId,
                 message.Generation,
-                message.LeaseExpiresAt);
+                message.LeaseExpiresAt));
 
-            if (_worldSessions.TryGetValue(message.Id, out var existing))
+            if (update.IsAvailable)
             {
-                if (!ShouldReplace(existing, session))
-                {
-                    return Task.CompletedTask;
-                }
-
-                _worldSessions[message.Id] = session;
-                _logger.LogInformation("Replaced world generation: {Id} - {Name}", message.Id, message.Name);
-                return Task.CompletedTask;
+                _logger.LogInformation("Registered world generation: {Id} - {Name}", message.Id, message.Name);
             }
-
-            if (_worldSessions.TryAdd(message.Id, session))
+            else if (update.Changed)
             {
-                _logger.LogInformation("Registered world: {Id} - {Name}", message.Id, message.Name);
+                _logger.LogWarning("World {Id} has multiple live generations; contact routing is paused.", message.Id);
             }
 
             return Task.CompletedTask;
@@ -60,58 +48,21 @@ namespace Hagalaz.Services.Contacts.Consumers
         public async Task Consume(ConsumeContext<WorldOfflineMessage> context)
         {
             var message = context.Message;
-            if (!_worldSessions.TryGetValue(message.Id, out var current) ||
-                current.InstanceId != message.InstanceId ||
-                current.Generation != message.Generation)
+            var update = _worldSessions.ObserveOffline(message.Id, message.InstanceId, message.Generation);
+            if (!update.Changed)
             {
                 _logger.LogDebug("Ignoring stale offline status for world {Id} from instance {InstanceId}", message.Id, message.InstanceId);
                 return;
             }
 
-            try
+            if (update.IsAvailable)
             {
-                var offlineMessages = await _contactSessions.ToAsyncEnumerable()
-                    .Select(new Func<ContactSessionContext, CancellationToken, ValueTask<ContactSignOutMessage?>>(async (session, ct) =>
-                    {
-                        var contact = await _characterService.FindCharacterByIdAsync(session.MasterId);
-                        if (contact == null)
-                        {
-                            return null;
-                        }
-
-                        var dto = new ContactDto
-                        {
-                            MasterId = contact.MasterId, DisplayName = contact.DisplayName, PreviousDisplayName = contact.PreviousDisplayName
-                        };
-                        return new ContactSignOutMessage(dto);
-                    }))
-                    .OfType<ContactSignOutMessage>()
-                    .ToListAsync();
-                await context.PublishBatch(offlineMessages);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to publish offline contacts");
-            }
-            finally
-            {
-                if (_worldSessions.TryGetValue(message.Id, out current) &&
-                    current.InstanceId == message.InstanceId && current.Generation == message.Generation &&
-                    _worldSessions.TryRemove(message.Id))
-                {
-                    _logger.LogInformation("Removed world: {Id}", message.Id);
-                }
-            }
-        }
-
-        private static bool ShouldReplace(WorldSessionContext current, WorldSessionContext candidate)
-        {
-            if (current.InstanceId == candidate.InstanceId)
-            {
-                return candidate.Generation > current.Generation || candidate.LeaseExpiresAt > current.LeaseExpiresAt;
+                _logger.LogInformation("Retained surviving world generation: {Id} - {InstanceId}", message.Id, update.ActiveSession!.InstanceId);
+                return;
             }
 
-            return candidate.Generation > current.Generation;
+            await _cleanupService.SignOutWorldContactsAsync(message.Id, context, context.CancellationToken);
+            _logger.LogInformation("Removed world: {Id}", message.Id);
         }
     }
 }
