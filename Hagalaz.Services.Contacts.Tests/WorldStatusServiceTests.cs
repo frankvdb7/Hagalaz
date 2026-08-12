@@ -79,4 +79,50 @@ public sealed class WorldStatusServiceTests
             Times.Once);
         Assert.IsFalse(contactSessions.TryGetValue(masterId, out _));
     }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task CleanupFailure_DoesNotStopSubsequentExpiryProcessing()
+    {
+        var started = new CancellationTokenSource();
+        var lifetime = new Mock<IHostApplicationLifetime>();
+        lifetime.SetupGet(x => x.ApplicationStarted).Returns(started.Token);
+
+        var bus = new Mock<IBus>();
+        bus.Setup(x => x.Publish(It.IsAny<WorldStatusRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TimeoutException("status request failed"));
+
+        var cleanupService = new Mock<IContactSessionService>();
+        var cleanupCalls = 0;
+        cleanupService
+            .Setup(x => x.RemoveWorldSessions(It.IsAny<int>()))
+            .Returns((int _) =>
+                Interlocked.Increment(ref cleanupCalls) == 1
+                    ? Task.FromException(new TimeoutException("cleanup failed"))
+                    : Task.CompletedTask);
+
+        var worldSessions = new WorldSessionStore();
+        var expiresAt = DateTimeOffset.UtcNow.AddMilliseconds(50);
+        worldSessions.ObserveOnline(new WorldSessionContext(1, "World 1", "instance-a", 1, expiresAt));
+        worldSessions.ObserveOnline(new WorldSessionContext(2, "World 2", "instance-b", 1, expiresAt));
+
+        using var serviceProvider = new ServiceCollection()
+            .AddScoped<IContactSessionService>(_ => cleanupService.Object)
+            .BuildServiceProvider();
+        var service = new WorldStatusService(
+            bus.Object,
+            new Mock<ILogger<WorldStatusService>>().Object,
+            lifetime.Object,
+            worldSessions,
+            serviceProvider.GetRequiredService<IServiceScopeFactory>());
+
+        await service.StartAsync(CancellationToken.None);
+        started.Cancel();
+        await Task.Delay(TimeSpan.FromMilliseconds(1250));
+        await service.StopAsync(CancellationToken.None);
+
+        Assert.AreEqual(2, cleanupCalls);
+        cleanupService.Verify(x => x.RemoveWorldSessions(1), Times.Once);
+        cleanupService.Verify(x => x.RemoveWorldSessions(2), Times.Once);
+    }
 }

@@ -82,12 +82,7 @@ namespace Hagalaz.Services.Contacts.Services
 
         public async Task RemoveSession(uint masterId)
         {
-            if (!_contacts.TryRemove(masterId))
-            {
-                return;
-            }
-
-            await PublishSignOut(masterId);
+            await RemoveSession(masterId, expectedSession: null);
         }
 
         public async Task RemoveWorldSessions(int worldId)
@@ -98,8 +93,21 @@ namespace Hagalaz.Services.Contacts.Services
 
             foreach (var session in sessions)
             {
-                await RemoveSession(session.MasterId);
+                await RemoveSession(session.MasterId, session);
             }
+        }
+
+        private async Task RemoveSession(uint masterId, ContactSessionContext? expectedSession)
+        {
+            var removed = expectedSession == null
+                ? _contacts.TryRemove(masterId)
+                : _contacts.TryRemove(masterId, expectedSession);
+            if (!removed)
+            {
+                return;
+            }
+
+            await PublishSignOut(masterId);
         }
 
         private async Task PublishSignOut(uint masterId)

@@ -54,6 +54,15 @@ namespace Hagalaz.Collections
         public bool TryRemove(TKey key) => _values.TryRemove(key, out _);
 
         /// <summary>
+        /// Attempts to remove the specified key-value pair only when the current value matches the expected value.
+        /// </summary>
+        /// <param name="key">The key of the value to remove.</param>
+        /// <param name="expectedValue">The value that must still be associated with the key.</param>
+        /// <returns><c>true</c> if the matching key-value pair was removed; otherwise, <c>false</c>.</returns>
+        public bool TryRemove(TKey key, TValue expectedValue) =>
+            ((ICollection<KeyValuePair<TKey, TValue>>)_values).Remove(new KeyValuePair<TKey, TValue>(key, expectedValue));
+
+        /// <summary>
         /// Attempts to get the value associated with the specified key from the store.
         /// </summary>
         /// <param name="key">The key of the value to get.</param>

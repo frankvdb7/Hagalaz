@@ -64,7 +64,7 @@ A GameWorld that successfully registers SHALL request current world status from 
 - **THEN** readiness and world sign-in admission are removed, the existing durable snapshot flush runs, and the matching offline status is published while MassTransit is still available
 
 ### Requirement: Contacts cleanup is generation-aware
-Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, expire sessions whose leases are not renewed, and SHALL remove a world session only when the offline event matches the currently observed instance and generation. `IContactSessionService` SHALL own contact-session removal and sign-out message construction. Consumers SHALL resolve it with their normal scoped lifetime, and hosted lease expiry SHALL create a scope before invoking it.
+Contacts SHALL retain the existing contact sign-out behavior for a graceful world-offline event, expire sessions whose leases are not renewed, and SHALL remove a world session only when the offline event matches the currently observed instance and generation. `IContactSessionService` SHALL own contact-session removal and sign-out message construction. Consumers SHALL resolve it with their normal scoped lifetime, and hosted lease expiry SHALL create a scope before invoking it. Bulk cleanup SHALL remove a session only if its key still contains the snapshotted expected value, and SHALL publish sign-out only after that conditional removal succeeds.
 
 #### Scenario: Graceful contacts cleanup
 - **WHEN** the current generation publishes offline
@@ -82,9 +82,20 @@ Contacts SHALL retain the existing contact sign-out behavior for a graceful worl
 - **WHEN** a crashed world's contacts are signed out after lease expiry
 - **THEN** their `ContactSessionStore` entries are removed so the same players can reconnect
 
+#### Scenario: Replacement session survives stale cleanup
+- **WHEN** a snapshotted contact disconnects and reconnects on another world before bulk cleanup reaches that entry
+- **THEN** the replacement session remains registered and no sign-out is published for the replacement
+
 #### Scenario: Surviving generation after offline
 - **WHEN** one generation goes offline while another live generation for the same world remains
 - **THEN** Contacts retains the surviving generation and does not sign out its contacts
+
+### Requirement: Status monitoring survives transient broker failures
+The Contacts status monitor SHALL handle initial status-request and individual expired-world cleanup failures at the operation boundary. Known broker, timeout, invalid-operation, and non-shutdown cancellation failures SHALL be logged without terminating periodic monitoring; cancellation requested for service shutdown SHALL still stop the monitor.
+
+#### Scenario: Cleanup failure does not stop later expiry processing
+- **WHEN** cleanup publication fails for one expired world and a later expired world is processed
+- **THEN** the first failure is logged and cleanup for the later world is still attempted
 
 ### Requirement: Broadcast status subscriptions are process-local
 Every GameWorld process SHALL receive each status request and online/offline status publication independently. The status consumers MUST NOT share a durable auto-configured queue between processes; each process SHALL use a unique temporary subscription endpoint.

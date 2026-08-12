@@ -53,4 +53,61 @@ public sealed class ContactSessionServiceTests
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
+
+    [TestMethod]
+    public async Task RemoveWorldSessions_DoesNotRemoveReplacementSession()
+    {
+        const int worldId = 1;
+        const uint firstMasterId = 100;
+        const uint replacedMasterId = 200;
+        var replacementMasterId = 0u;
+
+        var contactSessions = new ContactSessionStore();
+        contactSessions.TryAdd(firstMasterId, new ContactSessionContext(firstMasterId, worldId, "World 1"));
+        contactSessions.TryAdd(replacedMasterId, new ContactSessionContext(replacedMasterId, worldId, "World 1"));
+
+        var characterService = new Mock<ICharacterService>();
+        characterService
+            .Setup(x => x.FindCharacterByIdAsync(It.IsAny<uint>()))
+            .Returns((uint masterId) =>
+            {
+                var candidateMasterId = masterId == firstMasterId ? replacedMasterId : firstMasterId;
+                if (contactSessions.TryRemove(candidateMasterId))
+                {
+                    replacementMasterId = candidateMasterId;
+                    Assert.IsTrue(contactSessions.TryAdd(
+                        candidateMasterId,
+                        new ContactSessionContext(candidateMasterId, 2, "World 2")));
+                }
+
+                return ValueTask.FromResult<CharacterDto?>(new CharacterDto
+                {
+                    MasterId = masterId,
+                    DisplayName = masterId == firstMasterId ? "FirstUser" : "ReplacedUser"
+                });
+            });
+
+        var publishEndpoint = new Mock<IPublishEndpoint>();
+        publishEndpoint
+            .Setup(x => x.Publish(It.IsAny<ContactSignOutMessage>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var service = new ContactSessionService(
+            characterService.Object,
+            contactSessions,
+            new WorldSessionStore(),
+            publishEndpoint.Object,
+            new Mock<IStringLocalizer<ContactSessionService>>().Object);
+
+        await service.RemoveWorldSessions(worldId);
+
+        Assert.AreNotEqual(0u, replacementMasterId);
+        Assert.IsTrue(contactSessions.TryGetValue(replacementMasterId, out var replacement));
+        Assert.AreEqual(2, replacement!.WorldId);
+        publishEndpoint.Verify(
+            x => x.Publish(
+                It.IsAny<ContactSignOutMessage>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
 }

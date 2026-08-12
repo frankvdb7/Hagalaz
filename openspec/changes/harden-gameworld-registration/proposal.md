@@ -12,6 +12,8 @@ GameWorld currently publishes a one-shot, generation-blind status using broker a
 - Make the shared world-list cache content-addressed so metadata and checksum identity remain correct across process restarts.
 - Add a world-aware readiness check while retaining `/alive` as liveness, and reject new world sign-ins after shutdown readiness is removed.
 - Keep contact-session mutation and sign-out publication in the existing scoped `ContactSessionService`; lease expiry creates a scope before invoking world cleanup.
+- Make bulk world cleanup compare-and-remove the snapshotted session value so a disconnect/reconnect cannot be removed by stale cleanup.
+- Keep the Contacts status monitor alive when an initial status request or an individual cleanup publication fails; log the failed operation and continue the loop.
 - Preserve the existing character snapshot shutdown flush and order readiness removal, durable flush, generation-matching offline publication, and bus shutdown.
 - Represent two independently configured worlds and proxyless, collision-free TCP endpoints in the local Aspire configuration, while keeping proxied HTTP/HTTPS management listeners on loopback and including the legacy client's fixed-port constraint.
 - Add focused MSTest coverage for validation, endpoint routing, renewal/expiry, stale generations, duplicate identities, reconstruction, cache freshness, contacts cleanup, per-process broadcast subscriptions, legacy two-world connection routing, and shutdown ordering.
