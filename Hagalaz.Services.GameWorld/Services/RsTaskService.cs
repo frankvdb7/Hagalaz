@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -17,6 +18,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// A queue containing all tasks to be processed.
         /// </summary>
         private readonly List<ITaskItem> _tasks = [];
+        private readonly ConcurrentQueue<ITaskItem> _pendingTasks = new();
 
         internal IReadOnlyList<ITaskItem> Tasks => _tasks;
 
@@ -26,13 +28,18 @@ namespace Hagalaz.Services.GameWorld.Services
         /// Schedules the specified task.
         /// </summary>
         /// <param name="task">The task.</param>
-        public void Schedule(ITaskItem task) => _tasks.Add(task);
+        public void Schedule(ITaskItem task) => _pendingTasks.Enqueue(task);
 
         /// <summary>
         /// Ticks this instance.
         /// </summary>
         public void Tick()
         {
+            while (_pendingTasks.TryDequeue(out var pendingTask))
+            {
+                _tasks.Add(pendingTask);
+            }
+
             for (var i = _tasks.Count - 1; i >= 0; i--)
             {
                 if (_tasks[i].IsCancelled || _tasks[i].IsCompleted || _tasks[i].IsFaulted)

@@ -98,7 +98,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
         }
 
         [TestMethod]
-        public async Task StartCutting_WhenInventoryIsFull_ShouldNotAddLogs()
+        public async Task PrepareCutting_WhenInventoryIsFull_ShouldNotAddLogs()
         {
             // Arrange
             var character = Substitute.For<ICharacter>();
@@ -113,13 +113,18 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
 
             var tree = Substitute.For<IGameObject>();
             tree.Id.Returns(1);
+            var gameObjectDefinition = Substitute.For<IGameObjectDefinition>();
+            tree.Definition.Returns(gameObjectDefinition);
+            _lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns(Task.FromResult<ILootTable?>(null));
             var log = new LogDto { ItemID = 2, RequiredLevel = 1, RespawnTime = 1, FallChance = 0.1, BaseHarvestChance = 0.1, WoodcuttingExperience = 10 };
             _woodcuttingService.FindLogByTreeId(tree.Id).Returns(Task.FromResult<LogDto?>(log));
             var treeDto = new TreeDto { Id = 1, StumpId = 2 };
             _woodcuttingService.FindTreeById(tree.Id).Returns(Task.FromResult<TreeDto?>(treeDto));
 
             // Act
-            await _woodcuttingSkillService.StartCutting(character, tree);
+            var continuation = await _woodcuttingSkillService.PrepareCutting(character, tree);
+            Assert.IsNotNull(continuation);
+            continuation();
 
             // Assert
             character.Received().SendChatMessage(GameStrings.InventoryFull, Arg.Any<ChatMessageType>(), null);
@@ -161,6 +166,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
 
             var lootTable = Substitute.For<ILootTable>();
             _lootService.FindGameObjectLootTable(gameObjectDefinition.LootTableId).Returns(Task.FromResult<ILootTable?>(lootTable));
+            _characterStore.CountAsync().Returns(ValueTask.FromResult(7));
 
             WoodcuttingTask? woodcuttingTask = null;
             character.When(x => x.QueueTask(Arg.Any<WoodcuttingTask>())).Do(x => {
@@ -168,17 +174,20 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             });
 
             // Act
-            await _woodcuttingSkillService.StartCutting(character, tree);
+            var continuation = await _woodcuttingSkillService.PrepareCutting(character, tree);
+            Assert.IsNotNull(continuation);
+            continuation();
 
             Assert.IsNotNull(woodcuttingTask);
             await _lootService.Received(1).FindGameObjectLootTable(gameObjectDefinition.LootTableId);
             await _characterStore.Received(1).CountAsync();
 
             // Invoke the callback directly
+            _characterStore.ClearReceivedCalls();
             woodcuttingTask._finishCallback();
 
             await _lootService.Received(1).FindGameObjectLootTable(gameObjectDefinition.LootTableId);
-            await _characterStore.Received(1).CountAsync();
+            await _characterStore.DidNotReceive().CountAsync();
 
             // Assert
             character.DidNotReceive().SendChatMessage(WoodcuttingSkillService.LogsReceived, Arg.Any<ChatMessageType>(), null);

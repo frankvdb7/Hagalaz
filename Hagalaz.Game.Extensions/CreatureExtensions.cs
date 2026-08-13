@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -22,7 +23,7 @@ namespace Hagalaz.Game.Extensions
         /// Makes the creature face the location of another creature, taking its size into account.
         /// </summary>
         /// <param name="creature">The creature that will be turning.</param>
-        /// <param name="creatureToFace">The creature to face.</param>
+        /// <param name="creatureToFace">The creature that will be faced.</param>
         public static void FaceLocation(this ICreature creature, ICreature creatureToFace) => creature.FaceLocation(creatureToFace.Location, creatureToFace.Size, creatureToFace.Size);
 
         /// <summary>
@@ -62,6 +63,33 @@ namespace Hagalaz.Game.Extensions
         /// <param name="task">The asynchronous action to be executed.</param>
         /// <returns>A handle to the queued task, which can be used to monitor or cancel it.</returns>
         public static IRsTaskHandle QueueTask(this ICreature creature, Func<Task> task) => creature.QueueTask(new RsAsyncTask(task));
+
+        /// <summary>
+        /// Starts asynchronous preparation from a synchronous game-loop task and queues its synchronous continuation when preparation completes.
+        /// </summary>
+        /// <param name="creature">The creature that owns the continuation.</param>
+        /// <param name="prepare">The asynchronous preparation operation.</param>
+        /// <returns>A handle to the synchronous task that starts preparation.</returns>
+        public static IRsTaskHandle QueueAsyncTask(this ICreature creature, Func<Task<Action?>> prepare)
+        {
+            return creature.QueueTask(new RsTask(() => _ = CompleteAsync(creature, prepare), 1));
+        }
+
+        private static async Task CompleteAsync(ICreature creature, Func<Task<Action?>> prepare)
+        {
+            try
+            {
+                var continuation = await prepare().ConfigureAwait(false);
+                if (continuation is not null)
+                {
+                    creature.QueueTask(new RsTask(continuation, 1));
+                }
+            }
+            catch (Exception exception)
+            {
+                creature.QueueTask(new RsTask(() => ExceptionDispatchInfo.Capture(exception).Throw(), 1));
+            }
+        }
 
         /// <summary>
         /// Queues a synchronous task to be executed by the creature's task scheduler after a specified delay.

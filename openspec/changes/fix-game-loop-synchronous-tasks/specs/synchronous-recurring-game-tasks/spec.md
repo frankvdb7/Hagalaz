@@ -20,28 +20,54 @@ The Mining, Fishing, and Woodcutting recurring gameplay tasks MUST execute their
 
 ### Requirement: Asynchronous setup data is available before recurring execution
 
-The Mining, Fishing, and Woodcutting setup flows MUST load the definitions and respawn inputs required by recurring reward callbacks before queuing those callbacks as recurring gameplay tasks.
+The Mining, Fishing, and Woodcutting setup flows MUST load the definitions required by recurring reward callbacks before queuing those callbacks as recurring gameplay tasks. They MUST keep asynchronous setup I/O outside the blocking scheduler tick path.
 
 #### Scenario: Mining starts with a valid rock definition
 
-- **GIVEN** Mining setup resolves the rock loot table and respawn inputs
+- **GIVEN** Mining setup resolves the rock, ore, pickaxe, and loot definitions
 - **WHEN** the Mining task is queued
 - **THEN** its recurring callback uses the resolved in-memory data
 - **AND** it does not perform asynchronous definition or store access during a tick
 
+#### Scenario: Skill startup I/O completes outside the scheduler tick
+
+- **GIVEN** Mining, Fishing, or Woodcutting startup requires asynchronous definition or cache access
+- **WHEN** the startup operation is initiated
+- **THEN** the scheduler tick does not synchronously wait for that operation
+- **AND** completion enqueues only a synchronous continuation for the next game-loop tick
+
 #### Scenario: Fishing starts with a valid spot table
 
-- **GIVEN** Fishing setup resolves the spot table and the respawn-count input
+- **GIVEN** Fishing setup resolves the spot table and required item definitions
 - **WHEN** the Fishing task is queued
 - **THEN** its recurring callback uses those resolved values
 - **AND** it does not perform asynchronous store access during a tick
 
 #### Scenario: Woodcutting starts with a valid tree definition
 
-- **GIVEN** Woodcutting setup resolves the tree loot table and respawn-count input
+- **GIVEN** Woodcutting setup resolves the tree, log, hatchet, and loot definitions
 - **WHEN** the Woodcutting task is queued
 - **THEN** its recurring callback uses those resolved values
 - **AND** it does not perform asynchronous definition or store access during a tick
+
+### Requirement: Respawn timing uses the setup-time online-character count
+
+The Mining, Fishing, and Woodcutting setup flows MUST resolve the online-character count through `ICharacterStore.CountAsync()` before queuing the recurring task. The resulting count MUST be passed into the synchronous continuation and used by the recurring reward callback without asynchronous store access.
+
+#### Scenario: Online population is resolved during setup
+
+- **GIVEN** asynchronous setup resolves the online-character count as `100`
+- **WHEN** the recurring skill task is queued
+- **THEN** the synchronous continuation captures `100`
+- **AND** the reward callback uses `100` when calculating respawn timing
+- **AND** no asynchronous character-store operation occurs in the reward callback
+
+#### Scenario: Character-store count remains asynchronous
+
+- **GIVEN** a caller needs the number of online characters
+- **WHEN** it queries the character store
+- **THEN** it awaits `CountAsync()`
+- **AND** no synchronous count property or duplicate count state is required
 
 ### Requirement: Existing task lifecycle behavior is preserved
 

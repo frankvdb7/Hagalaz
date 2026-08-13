@@ -1,3 +1,6 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -30,6 +33,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             // Assert
             var task3 = Substitute.For<ITaskItem>();
             taskService.Schedule(task3);
+            taskService.Tick();
 
             Assert.HasCount(1, taskService.Tasks);
             Assert.AreSame(task3, taskService.Tasks[0]);
@@ -51,6 +55,39 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             // Assert
             CollectionAssert.AreEqual(new[] { 1 }, executionOrder);
+        }
+
+        [TestMethod]
+        public async Task Schedule_FromAnotherThread_IsProcessedOnNextTick()
+        {
+            var logger = new NullLogger<RsTaskService>();
+            var taskService = new RsTaskService(logger);
+            using var entered = new ManualResetEventSlim();
+            using var release = new ManualResetEventSlim();
+            var firstTask = new RsTask(() =>
+            {
+                entered.Set();
+                release.Wait();
+            }, executeDelay: 1);
+            taskService.Schedule(firstTask);
+
+            var secondExecuted = 0;
+            var tickTask = Task.Run(taskService.Tick);
+            try
+            {
+                Assert.IsTrue(entered.Wait(TimeSpan.FromSeconds(5)));
+                await Task.Run(() => taskService.Schedule(new RsTask(() => secondExecuted++, executeDelay: 1)));
+                Assert.AreEqual(0, secondExecuted);
+            }
+            finally
+            {
+                release.Set();
+                await tickTask;
+            }
+
+            taskService.Tick();
+
+            Assert.AreEqual(1, secondExecuted);
         }
     }
 }

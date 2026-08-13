@@ -1,6 +1,7 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Skills.Fishing
@@ -12,11 +13,13 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
     {
         private readonly IFishingService _fishingService;
         private readonly IFishingSkillService _fishingSkillService;
+        private readonly ICharacterStore _characterStore;
 
-        public FishingSpot(IFishingService fishingService, IFishingSkillService fishingSkillService)
+        public FishingSpot(IFishingService fishingService, IFishingSkillService fishingSkillService, ICharacterStore characterStore)
         {
             _fishingService = fishingService;
             _fishingSkillService = fishingSkillService;
+            _characterStore = characterStore;
         }
 
         /// <summary>
@@ -27,15 +30,24 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <param name="clicker">Character that clicked this npc.</param>
         /// <param name="clickType">Type of the click that was performed.</param>
         public override void OnCharacterClickPerform(ICharacter clicker, NpcClickType clickType) =>
-            clicker.QueueTask(async () =>
+            clicker.QueueAsyncTask(async () =>
             {
                 var spot = await _fishingService.FindSpotByNpcIdClickType(Owner.Appearance.CompositeID, clickType);
-                if (await _fishingSkillService.TryFish(clicker, Owner, spot))
+                if (spot == null)
                 {
-                    return;
+                    return () => base.OnCharacterClickPerform(clicker, clickType);
                 }
 
-                base.OnCharacterClickPerform(clicker, clickType);
+                var characterCount = await _characterStore.CountAsync();
+                return () =>
+                {
+                    if (_fishingSkillService.TryFish(clicker, Owner, spot, characterCount))
+                    {
+                        return;
+                    }
+
+                    base.OnCharacterClickPerform(clicker, clickType);
+                };
             });
 
         /// <summary>
