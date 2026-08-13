@@ -16,6 +16,7 @@ using Hagalaz.Game.Resources;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Common;
+using Hagalaz.Game.Common.Events;
 using System.Reflection;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -23,6 +24,7 @@ using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Maps;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
@@ -127,6 +129,40 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             // Assert
             character.Received().SendChatMessage(GameStrings.InventoryFull, Arg.Any<ChatMessageType>(), null);
             character.DidNotReceive().QueueTask(Arg.Any<RsTask>());
+        }
+
+        [TestMethod]
+        public async Task StartCuttingAsync_WhenInterruptedDuringSetup_DoesNotQueueCuttingTask()
+        {
+            var character = Substitute.For<ICharacter>();
+            var tree = Substitute.For<IGameObject>();
+            tree.Id.Returns(1);
+            var logsCompletion = new TaskCompletionSource<LogDto?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _woodcuttingService.FindLogByTreeId(tree.Id).Returns(logsCompletion.Task);
+
+            EventHappened<CreatureInterruptedEvent>? interruptHandler = null;
+            character.RegisterEventHandler<CreatureInterruptedEvent>(
+                    Arg.Do<EventHappened<CreatureInterruptedEvent>>(handler => interruptHandler = handler))
+                .Returns(Substitute.For<EventHappened>());
+
+            var startup = _woodcuttingSkillService.StartCuttingAsync(character, tree);
+
+            Assert.IsNotNull(interruptHandler);
+            interruptHandler!(new CreatureInterruptedEvent(character, new object()));
+            logsCompletion.SetResult(new LogDto
+            {
+                ItemID = 2,
+                RequiredLevel = 1,
+                RespawnTime = 1,
+                FallChance = 0.1,
+                BaseHarvestChance = 0.1,
+                WoodcuttingExperience = 10
+            });
+
+            await startup;
+
+            character.DidNotReceive().QueueTask(Arg.Any<WoodcuttingTask>());
+            character.Received().UnregisterEventHandler<CreatureInterruptedEvent>(Arg.Any<EventHappened>());
         }
 
         [TestMethod]

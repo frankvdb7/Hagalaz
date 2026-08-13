@@ -5,12 +5,14 @@ using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
+using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
@@ -55,22 +57,49 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
 
         private async Task StartMiningAsync(ICharacter character, IGameObject rocks)
         {
-            var rock = await _miningService.FindRockById(rocks.Id);
-            if (rock == null)
+            var interrupted = false;
+            var interruptEvent = character.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
-                return;
-            }
+                interrupted = true;
+                return false;
+            });
 
-            var ore = await _miningService.FindOreByRockId(rocks.Id);
-            if (ore == null)
+            try
             {
-                return;
-            }
+                var rock = await _miningService.FindRockById(rocks.Id);
+                if (interrupted || rock == null)
+                {
+                    return;
+                }
 
-            var pickaxes = await _miningService.FindAllPickaxes();
-            var lootTable = await _miningService.FindRockLootById(rocks.Id);
-            var characterCount = await _characterStore.CountAsync();
-            StartMining(character, rocks, ore, rock, pickaxes, lootTable, characterCount);
+                var ore = await _miningService.FindOreByRockId(rocks.Id);
+                if (interrupted || ore == null)
+                {
+                    return;
+                }
+
+                var pickaxes = await _miningService.FindAllPickaxes();
+                if (interrupted)
+                {
+                    return;
+                }
+
+                var lootTable = await _miningService.FindRockLootById(rocks.Id);
+                if (interrupted)
+                {
+                    return;
+                }
+
+                var characterCount = await _characterStore.CountAsync();
+                if (!interrupted)
+                {
+                    StartMining(character, rocks, ore, rock, pickaxes, lootTable, characterCount);
+                }
+            }
+            finally
+            {
+                character.UnregisterEventHandler<CreatureInterruptedEvent>(interruptEvent);
+            }
         }
 
         private void StartMining(

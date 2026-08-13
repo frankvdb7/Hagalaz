@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace Hagalaz.Game.Abstractions.Tasks
@@ -9,13 +9,18 @@ namespace Hagalaz.Game.Abstractions.Tasks
     /// </summary>
     public sealed class GameLoopSynchronizationContext : SynchronizationContext
     {
-        private ConcurrentQueue<PendingContinuation> _pending = new();
+        private readonly Lock _sync = new();
+        private Queue<PendingContinuation> _pending = new();
 
         /// <inheritdoc />
         public override void Post(SendOrPostCallback callback, object? state)
         {
             ArgumentNullException.ThrowIfNull(callback);
-            _pending.Enqueue(new PendingContinuation(callback, state));
+
+            lock (_sync)
+            {
+                _pending.Enqueue(new PendingContinuation(callback, state));
+            }
         }
 
         /// <summary>
@@ -23,14 +28,21 @@ namespace Hagalaz.Game.Abstractions.Tasks
         /// </summary>
         public void RunPending()
         {
-            var pending = Interlocked.Exchange(ref _pending, new ConcurrentQueue<PendingContinuation>());
+            Queue<PendingContinuation> pending;
+            lock (_sync)
+            {
+                pending = _pending;
+                _pending = new Queue<PendingContinuation>();
+            }
+
             var previousContext = Current;
             SetSynchronizationContext(this);
 
             try
             {
-                while (pending.TryDequeue(out var continuation))
+                while (pending.Count > 0)
                 {
+                    var continuation = pending.Dequeue();
                     continuation.Callback(continuation.State);
                 }
             }

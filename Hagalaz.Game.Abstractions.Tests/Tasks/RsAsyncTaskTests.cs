@@ -161,6 +161,41 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
         }
 
         [TestMethod]
+        public async Task RunPending_DoesNotLoseConcurrentlyPostedContinuations()
+        {
+            const int producerCount = 4;
+            const int continuationsPerProducer = 250;
+            var context = new GameLoopSynchronizationContext();
+            var executed = 0;
+            using var start = new ManualResetEventSlim();
+            var producers = new Task[producerCount];
+
+            for (var producerIndex = 0; producerIndex < producerCount; producerIndex++)
+            {
+                producers[producerIndex] = Task.Run(() =>
+                {
+                    start.Wait();
+                    for (var continuationIndex = 0; continuationIndex < continuationsPerProducer; continuationIndex++)
+                    {
+                        context.Post(_ => Interlocked.Increment(ref executed), null);
+                    }
+                });
+            }
+
+            var allProducers = Task.WhenAll(producers);
+            start.Set();
+            while (!allProducers.IsCompleted)
+            {
+                context.RunPending();
+            }
+
+            await allProducers;
+            context.RunPending();
+
+            Assert.AreEqual(producerCount * continuationsPerProducer, executed);
+        }
+
+        [TestMethod]
         public void FaultedOperation_MarksTaskFaultedAndRethrows()
         {
             var exception = new InvalidOperationException("Test exception");

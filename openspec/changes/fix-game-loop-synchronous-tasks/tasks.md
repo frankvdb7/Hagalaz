@@ -28,3 +28,9 @@
 - [x] 5.1 Drain tasks scheduled before the tick before resuming continuations, and defer tasks scheduled during continuation or ordinary task processing until the next tick.
 - [x] 5.2 Process a snapshot continuation batch so continuations posted during `RunPending()` wait for the next batch.
 - [x] 5.3 Add deterministic ordering and continuation-batch regression tests, then rerun focused tests, strict OpenSpec validation, solution build, and final diff review.
+
+## 6. Queue handoff and stale interaction hardening
+
+- [x] 6.1 Protect continuation enqueue and batch handoff with a short lock so concurrent posts cannot be lost.
+- [x] 6.2 Add temporary interruption guards to Mining, Fishing, and Woodcutting asynchronous startup flows.
+- [x] 6.3 Add concurrent continuation and interrupted-startup regression coverage, then rerun focused tests, strict OpenSpec validation, solution build, and final diff review.

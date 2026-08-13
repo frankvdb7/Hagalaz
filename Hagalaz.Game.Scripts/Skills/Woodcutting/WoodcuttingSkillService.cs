@@ -6,12 +6,14 @@ using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
+using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Resources;
 
 namespace Hagalaz.Game.Scripts.Skills.Woodcutting
@@ -69,24 +71,51 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
 
         public async Task StartCuttingAsync(ICharacter character, IGameObject tree)
         {
-            var service = _serviceProvider.GetRequiredService<IWoodcuttingService>();
-            var logs = await service.FindLogByTreeId(tree.Id);
-            if (logs == null)
+            var interrupted = false;
+            var interruptEvent = character.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
-                return;
-            }
+                interrupted = true;
+                return false;
+            });
 
-            var treeDto = await service.FindTreeById(tree.Id);
-            if (treeDto == null)
+            try
             {
-                return;
-            }
+                var service = _serviceProvider.GetRequiredService<IWoodcuttingService>();
+                var logs = await service.FindLogByTreeId(tree.Id);
+                if (interrupted || logs == null)
+                {
+                    return;
+                }
 
-            var hatchets = await service.FindAllHatchets();
-            var lootService = _serviceProvider.GetRequiredService<ILootService>();
-            var lootTable = await lootService.FindGameObjectLootTable(tree.Definition.LootTableId);
-            var characterCount = await _characterStore.CountAsync();
-            StartCutting(character, tree, logs, treeDto, hatchets, lootTable, characterCount);
+                var treeDto = await service.FindTreeById(tree.Id);
+                if (interrupted || treeDto == null)
+                {
+                    return;
+                }
+
+                var hatchets = await service.FindAllHatchets();
+                if (interrupted)
+                {
+                    return;
+                }
+
+                var lootService = _serviceProvider.GetRequiredService<ILootService>();
+                var lootTable = await lootService.FindGameObjectLootTable(tree.Definition.LootTableId);
+                if (interrupted)
+                {
+                    return;
+                }
+
+                var characterCount = await _characterStore.CountAsync();
+                if (!interrupted)
+                {
+                    StartCutting(character, tree, logs, treeDto, hatchets, lootTable, characterCount);
+                }
+            }
+            finally
+            {
+                character.UnregisterEventHandler<CreatureInterruptedEvent>(interruptEvent);
+            }
         }
 
         private void StartCutting(

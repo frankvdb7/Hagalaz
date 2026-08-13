@@ -1,8 +1,10 @@
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Skills.Fishing
@@ -37,17 +39,41 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
 
         private async Task StartFishingAsync(ICharacter clicker, NpcClickType clickType)
         {
-            var spot = await _fishingService.FindSpotByNpcIdClickType(Owner.Appearance.CompositeID, clickType);
-            if (spot == null)
+            var interrupted = false;
+            var interruptEvent = clicker.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
-                base.OnCharacterClickPerform(clicker, clickType);
-                return;
-            }
+                interrupted = true;
+                return false;
+            });
 
-            var characterCount = await _characterStore.CountAsync();
-            if (!_fishingSkillService.TryFish(clicker, Owner, spot, characterCount))
+            try
             {
-                base.OnCharacterClickPerform(clicker, clickType);
+                var spot = await _fishingService.FindSpotByNpcIdClickType(Owner.Appearance.CompositeID, clickType);
+                if (interrupted)
+                {
+                    return;
+                }
+
+                if (spot == null)
+                {
+                    base.OnCharacterClickPerform(clicker, clickType);
+                    return;
+                }
+
+                var characterCount = await _characterStore.CountAsync();
+                if (interrupted)
+                {
+                    return;
+                }
+
+                if (!interrupted && !_fishingSkillService.TryFish(clicker, Owner, spot, characterCount))
+                {
+                    base.OnCharacterClickPerform(clicker, clickType);
+                }
+            }
+            finally
+            {
+                clicker.UnregisterEventHandler<CreatureInterruptedEvent>(interruptEvent);
             }
         }
 

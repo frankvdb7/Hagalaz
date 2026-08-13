@@ -66,6 +66,13 @@ The Mining, Fishing, and Woodcutting startup flows MUST use ordinary async metho
 - **THEN** the posted continuation is not executed by that invocation
 - **AND** it executes during the next `RunPending()` invocation
 
+#### Scenario: Concurrent continuation posting is not lost at the batch boundary
+
+- **GIVEN** a worker thread posts a continuation while the game loop begins a `RunPending()` batch
+- **WHEN** the game loop swaps the pending queue and drains the captured batch
+- **THEN** the posted continuation remains in the active pending queue or the captured batch
+- **AND** it executes during the current or a subsequent `RunPending()` invocation
+
 #### Scenario: Startup cancellation does not suppress a pending continuation
 
 - **GIVEN** an async startup task has a continuation pending in the game-loop context
@@ -88,6 +95,13 @@ The Mining, Fishing, and Woodcutting startup flows MUST use ordinary async metho
 - **THEN** the operation continues through its queued continuation
 - **AND** it may complete successfully
 - **AND** `RsAsyncTask.IsCancelled` remains false
+
+#### Scenario: Interrupted skill startup does not begin the action
+
+- **GIVEN** Mining, Fishing, or Woodcutting asynchronous startup is waiting for service data
+- **WHEN** a `CreatureInterruptedEvent` is received before setup completes
+- **THEN** the startup exits without creating its recurring skill task
+- **AND** the temporary interruption handler is unregistered
 
 #### Scenario: Mining starts with resolved definitions
 
