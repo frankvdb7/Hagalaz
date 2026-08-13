@@ -34,7 +34,17 @@ The Mining, Fishing, and Woodcutting setup flows MUST load the definitions requi
 - **GIVEN** Mining, Fishing, or Woodcutting startup requires asynchronous definition or cache access
 - **WHEN** the startup operation is initiated
 - **THEN** the scheduler tick does not synchronously wait for that operation
-- **AND** completion enqueues only a synchronous continuation for the next game-loop tick
+- **AND** the scheduled result task returns while the operation is incomplete
+- **WHEN** a later scheduler tick observes the operation as complete
+- **THEN** it obtains the result and applies the synchronous completion callback on that tick
+- **AND** no continuation task is enqueued from an asynchronous completion thread
+
+#### Scenario: Startup cancellation is owned by the scheduled task
+
+- **GIVEN** a Mining, Fishing, or Woodcutting preparation task is pending
+- **WHEN** its task handle is canceled
+- **THEN** the preparation cancellation token is canceled
+- **AND** the completion callback is not executed
 
 #### Scenario: Fishing starts with a valid spot table
 
@@ -58,7 +68,7 @@ The Mining, Fishing, and Woodcutting setup flows MUST resolve the online-charact
 
 - **GIVEN** asynchronous setup resolves the online-character count as `100`
 - **WHEN** the recurring skill task is queued
-- **THEN** the synchronous continuation captures `100`
+- **THEN** the result task captures `100` for its synchronous completion callback
 - **AND** the reward callback uses `100` when calculating respawn timing
 - **AND** no asynchronous character-store operation occurs in the reward callback
 

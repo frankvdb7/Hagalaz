@@ -76,45 +76,40 @@ namespace Hagalaz.Game.Extensions.Tests
         }
 
         [TestMethod]
-        public async Task QueueAsyncTask_DoesNotBlockWhilePreparationIsPending()
+        public async Task QueueTask_WithAsyncOperation_DoesNotBlockWhileOperationIsPending()
         {
             var creature = Substitute.For<ICreature>();
-            ITaskItem? initialTask = null;
-            var continuationTask = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
+            ITaskItem? queuedTask = null;
             creature.When(x => x.QueueTask(Arg.Any<ITaskItem>())).Do(callInfo =>
             {
-                var task = callInfo.Arg<ITaskItem>();
-                if (initialTask is null)
-                {
-                    initialTask = task;
-                }
-                else
-                {
-                    continuationTask.TrySetResult(task!);
-                }
+                queuedTask = callInfo.Arg<ITaskItem>();
             });
 
-            var preparationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var preparation = new TaskCompletionSource<Action?>(TaskCreationOptions.RunContinuationsAsynchronously);
-            creature.QueueAsyncTask(() =>
+            var operationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var operationFinished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var operationCompleted = false;
+            creature.QueueTask(async () =>
             {
-                preparationStarted.SetResult(true);
-                return preparation.Task;
+                operationStarted.SetResult(true);
+                await operation.Task;
+                operationCompleted = true;
+                operationFinished.SetResult(true);
             });
 
-            Assert.IsNotNull(initialTask);
-            Assert.IsInstanceOfType(initialTask, typeof(RsTask));
-            Assert.IsNotInstanceOfType(initialTask, typeof(RsAsyncTask));
-            await Task.Run(() => initialTask.Tick()).WaitAsync(TimeSpan.FromSeconds(1));
-            await preparationStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            Assert.IsFalse(continuationTask.Task.IsCompleted);
+            Assert.IsNotNull(queuedTask);
+            Assert.IsInstanceOfType(queuedTask, typeof(RsAsyncTask));
+            await Task.Run(() => queuedTask.Tick()).WaitAsync(TimeSpan.FromSeconds(1));
+            await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.IsFalse(operationCompleted);
+            Assert.IsFalse(queuedTask.IsCompleted);
 
-            var invoked = false;
-            preparation.SetResult(() => invoked = true);
-            var continuation = await continuationTask.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            continuation.Tick();
+            operation.SetResult(true);
+            await operationFinished.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            queuedTask.Tick();
 
-            Assert.IsTrue(invoked);
+            Assert.IsTrue(operationCompleted);
+            Assert.IsTrue(queuedTask.IsCompleted);
         }
     }
 }

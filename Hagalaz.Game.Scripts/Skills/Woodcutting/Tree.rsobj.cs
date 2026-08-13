@@ -1,5 +1,6 @@
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Skills.Woodcutting
@@ -22,7 +23,15 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueAsyncTask(() => _woodcuttingSkillService.PrepareCutting(clicker, Owner));
+                clicker.QueueTask(new RsAsyncTask<WoodcuttingPreparation?>(
+                    cancellationToken => _woodcuttingSkillService.PrepareCuttingAsync(clicker, Owner, cancellationToken),
+                    preparation =>
+                    {
+                        if (preparation is not null)
+                        {
+                            _woodcuttingSkillService.StartCutting(clicker, Owner, preparation);
+                        }
+                    }));
                 return;
             }
 

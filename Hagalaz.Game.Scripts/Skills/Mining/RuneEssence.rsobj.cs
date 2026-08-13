@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
@@ -8,6 +9,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Scripts.Skills.Runecrafting;
 
@@ -47,7 +49,9 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             if (clickType == GameObjectClickType.Option1Click)
             {
                 const double mineChance = 0.75;
-                clicker.QueueAsyncTask(() => PrepareRuneEssenceMining(clicker, Owner, mineChance, _expAmount));
+                clicker.QueueTask(new RsAsyncTask<IReadOnlyList<PickaxeDto>>(
+                    cancellationToken => PrepareRuneEssenceMiningAsync(cancellationToken),
+                    pickaxes => BeginRuneEssenceMining(clicker, Owner, pickaxes, mineChance, _expAmount)));
             }
             else if (clickType == GameObjectClickType.Option6Click)
             {
@@ -55,10 +59,11 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             }
         }
 
-        private async Task<Action?> PrepareRuneEssenceMining(ICharacter character, IGameObject rocks, double mineChance, double expReceived)
+        private async Task<IReadOnlyList<PickaxeDto>> PrepareRuneEssenceMiningAsync(CancellationToken cancellationToken)
         {
             var pickaxes = await _miningService.FindAllPickaxes();
-            return () => BeginRuneEssenceMining(character, rocks, pickaxes, mineChance, expReceived);
+            cancellationToken.ThrowIfCancellationRequested();
+            return pickaxes;
         }
 
         private void BeginRuneEssenceMining(

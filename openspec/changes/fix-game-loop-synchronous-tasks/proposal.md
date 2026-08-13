@@ -7,7 +7,7 @@ Mining, Fishing, and Woodcutting currently assign `async void` callbacks to recu
 - Keep `ITaskItem.Tick()`, `RsTickTask`, and `RsTaskService.Tick()` synchronous.
 - Replace the three recurring skill tasks' `async void` callbacks with synchronous callbacks.
 - Preload loot definitions and the online-character count during Mining, Fishing, and Woodcutting task setup, before the recurring task is queued.
-- Keep asynchronous skill startup I/O outside `RsTaskService.Tick()` and hand only a synchronous continuation back to the creature scheduler.
+- Keep asynchronous skill startup I/O outside the blocking scheduler path by scheduling one stateful result-producing `RsAsyncTask<T>` that applies its preparation result synchronously from a later `Tick()`.
 - Keep inventory, experience, animation, movement, and world mutations inside the synchronous recurring callback.
 - Add deterministic tests covering callback completion, task ordering, interruption/cancellation, and delayed respawn scheduling.
 
@@ -29,11 +29,11 @@ The change affects `Hagalaz.Game.Scripts` Mining, Fishing, and Woodcutting task/
 
 - No scheduled Mining, Fishing, or Woodcutting recurring task uses `async void`.
 - Required loot, definition, and online-character count data is loaded before the recurring task is queued; recurring callbacks use the captured setup-time count.
-- Mining, Fishing, and Woodcutting startup database/cache work is not executed through blocking `RsAsyncTask.Tick()`.
+- Mining, Fishing, and Woodcutting startup database/cache work is not executed through a blocking `RsAsyncTask.Tick()`; one scheduled async task owns preparation, cancellation, fault state, and synchronous completion.
 - Respawn calculations use the online-character count resolved during asynchronous setup.
 - A recurring tick cannot return before its reward callback and mutations complete.
 - Existing task ordering, cancellation/interruption, and delayed respawn behavior remain covered by deterministic tests.
 
 ## Stop Conditions
 
-Do not make `Tick()` asynchronous, migrate unrelated asynchronous gameplay tasks, or introduce a generic async scheduler. The only scheduler change is a narrow thread-safe handoff boundary for async completion.
+Do not make `Tick()` asynchronous, migrate unrelated asynchronous gameplay tasks, introduce `QueueAsyncTask(Func<Task<Action?>>)`, or add a second scheduler. Async completion must remain owned by the scheduled `RsAsyncTask<T>`.

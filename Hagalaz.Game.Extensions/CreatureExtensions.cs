@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -63,33 +62,6 @@ namespace Hagalaz.Game.Extensions
         /// <param name="task">The asynchronous action to be executed.</param>
         /// <returns>A handle to the queued task, which can be used to monitor or cancel it.</returns>
         public static IRsTaskHandle QueueTask(this ICreature creature, Func<Task> task) => creature.QueueTask(new RsAsyncTask(task));
-
-        /// <summary>
-        /// Starts asynchronous preparation from a synchronous game-loop task and queues its synchronous continuation when preparation completes.
-        /// </summary>
-        /// <param name="creature">The creature that owns the continuation.</param>
-        /// <param name="prepare">The asynchronous preparation operation.</param>
-        /// <returns>A handle to the synchronous task that starts preparation.</returns>
-        public static IRsTaskHandle QueueAsyncTask(this ICreature creature, Func<Task<Action?>> prepare)
-        {
-            return creature.QueueTask(new RsTask(() => _ = CompleteAsync(creature, prepare), 1));
-        }
-
-        private static async Task CompleteAsync(ICreature creature, Func<Task<Action?>> prepare)
-        {
-            try
-            {
-                var continuation = await prepare().ConfigureAwait(false);
-                if (continuation is not null)
-                {
-                    creature.QueueTask(new RsTask(continuation, 1));
-                }
-            }
-            catch (Exception exception)
-            {
-                creature.QueueTask(new RsTask(() => ExceptionDispatchInfo.Capture(exception).Throw(), 1));
-            }
-        }
 
         /// <summary>
         /// Queues a synchronous task to be executed by the creature's task scheduler after a specified delay.

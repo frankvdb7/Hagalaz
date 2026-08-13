@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -68,40 +69,52 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         }
 
         /// <summary>
-        ///     Loads immutable skill definitions asynchronously and returns the game-loop continuation.
+        ///     Loads immutable skill definitions asynchronously.
         /// </summary>
-        public async Task<Action?> PrepareCutting(ICharacter character, IGameObject tree)
+        public async Task<WoodcuttingPreparation?> PrepareCuttingAsync(ICharacter character, IGameObject tree, CancellationToken cancellationToken)
         {
             var service = _serviceProvider.GetRequiredService<IWoodcuttingService>();
             var logs = await service.FindLogByTreeId(tree.Id);
+            cancellationToken.ThrowIfCancellationRequested();
             if (logs == null)
             {
                 return null;
             }
 
             var treeDto = await service.FindTreeById(tree.Id);
+            cancellationToken.ThrowIfCancellationRequested();
             if (treeDto == null)
             {
                 return null;
             }
 
             var hatchets = await service.FindAllHatchets();
+            cancellationToken.ThrowIfCancellationRequested();
             var lootService = _serviceProvider.GetRequiredService<ILootService>();
             var lootTable = await lootService.FindGameObjectLootTable(tree.Definition.LootTableId);
+            cancellationToken.ThrowIfCancellationRequested();
             var characterCount = await _characterStore.CountAsync();
-            return () => BeginCutting(character, tree, logs, treeDto, hatchets, lootTable, characterCount);
+            cancellationToken.ThrowIfCancellationRequested();
+            return new WoodcuttingPreparation(logs, treeDto, hatchets, lootTable, characterCount);
+        }
+
+        public void StartCutting(ICharacter character, IGameObject tree, WoodcuttingPreparation preparation)
+        {
+            BeginCutting(character, tree, preparation);
         }
 
         private void BeginCutting(
             ICharacter character,
             IGameObject tree,
-            LogDto logs,
-            TreeDto treeDto,
-            IReadOnlyList<HatchetDto> hatchets,
-            ILootTable? lootTable,
-            int characterCount,
+            WoodcuttingPreparation preparation,
             bool ivyTree = false)
         {
+            var logs = preparation.Logs;
+            var treeDto = preparation.Tree;
+            var hatchets = preparation.Hatchets;
+            var lootTable = preparation.LootTable;
+            var characterCount = preparation.CharacterCount;
+
             if (character.Statistics.GetSkillLevel(StatisticsConstants.Woodcutting) < logs.RequiredLevel)
             {
                 character.SendChatMessage("You must have a woodcutting level of " + logs.RequiredLevel + " or higher to cut this tree.");
