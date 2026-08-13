@@ -61,7 +61,11 @@ namespace Hagalaz.Services.GameWorld.Services
                     {
                         _tasks[i].Tick();
                     }
-                    catch (Exception ex)
+                    catch (OperationCanceledException ex)
+                    {
+                        _logger.LogDebug(ex, "Task was canceled while ticking");
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         _logger.LogError(ex, "Failed to tick task");
                     }

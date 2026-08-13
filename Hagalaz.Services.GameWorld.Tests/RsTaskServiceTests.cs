@@ -121,5 +121,21 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.AreEqual(continuationTickThreadId, resumedThreadId);
             Assert.IsTrue(task.IsCompleted);
         }
+
+        [TestMethod]
+        public void Tick_WhenTaskIsCanceled_ContinuesProcessingOtherTasks()
+        {
+            var taskService = new RsTaskService(new NullLogger<RsTaskService>());
+            var canceledTask = Substitute.For<ITaskItem>();
+            canceledTask.When(x => x.Tick()).Do(_ => throw new OperationCanceledException());
+            var otherTaskExecuted = 0;
+
+            taskService.Schedule(canceledTask);
+            taskService.Schedule(new RsTask(() => otherTaskExecuted++, executeDelay: 1));
+
+            taskService.Tick();
+
+            Assert.AreEqual(1, otherTaskExecuted);
+        }
     }
 }
