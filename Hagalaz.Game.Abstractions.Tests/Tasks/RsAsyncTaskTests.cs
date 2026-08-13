@@ -138,6 +138,29 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
         }
 
         [TestMethod]
+        public void RunPending_DefersContinuationsPostedDuringTheBatch()
+        {
+            var context = new GameLoopSynchronizationContext();
+            var firstRan = false;
+            var secondRan = false;
+
+            context.Post(_ =>
+            {
+                firstRan = true;
+                context.Post(__ => secondRan = true, null);
+            }, null);
+
+            context.RunPending();
+
+            Assert.IsTrue(firstRan);
+            Assert.IsFalse(secondRan);
+
+            context.RunPending();
+
+            Assert.IsTrue(secondRan);
+        }
+
+        [TestMethod]
         public void FaultedOperation_MarksTaskFaultedAndRethrows()
         {
             var exception = new InvalidOperationException("Test exception");

@@ -9,7 +9,7 @@ namespace Hagalaz.Game.Abstractions.Tasks
     /// </summary>
     public sealed class GameLoopSynchronizationContext : SynchronizationContext
     {
-        private readonly ConcurrentQueue<PendingContinuation> _pending = new();
+        private ConcurrentQueue<PendingContinuation> _pending = new();
 
         /// <inheritdoc />
         public override void Post(SendOrPostCallback callback, object? state)
@@ -19,16 +19,17 @@ namespace Hagalaz.Game.Abstractions.Tasks
         }
 
         /// <summary>
-        /// Runs all continuations that are pending when this method is called.
+        /// Runs the continuations that are pending when this method is called.
         /// </summary>
         public void RunPending()
         {
+            var pending = Interlocked.Exchange(ref _pending, new ConcurrentQueue<PendingContinuation>());
             var previousContext = Current;
             SetSynchronizationContext(this);
 
             try
             {
-                while (_pending.TryDequeue(out var continuation))
+                while (pending.TryDequeue(out var continuation))
                 {
                     continuation.Callback(continuation.State);
                 }

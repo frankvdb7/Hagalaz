@@ -29,7 +29,7 @@ The skill startup flows also need asynchronous definition and store access. They
 
 2. **Keep startup methods ordinary async methods.** Mining, Fishing, and Woodcutting use the direct shape `character.QueueTask(() => Start...Async(character, target))`. Each method awaits its required service calls and then invokes the normal synchronous gameplay setup. No preparation record, `Func<Task<Action?>>` helper, or two-lambda result API is introduced.
 
-3. **Use a scheduler-owned `GameLoopSynchronizationContext`.** `RsTaskService.Tick()` installs one context for the duration of a tick and drains its concurrent continuation queue before ticking scheduled tasks. `RsAsyncTask` starts its regular `Task` once while that context is current. Normal `await` captures the context, so completion posts the continuation to the queue; the next game tick executes that continuation synchronously on the game-loop thread.
+3. **Use a scheduler-owned `GameLoopSynchronizationContext` with explicit tick phases.** `RsTaskService.Tick()` first accepts tasks already pending before the tick, then resumes the continuation batch pending at that boundary, then ticks the already-owned task set. Work scheduled during continuation or task processing remains pending until the next tick. The context swaps its queue at the start of `RunPending()`, so continuations posted while a batch runs are deferred to the next batch. `RsAsyncTask` starts its regular `Task` once while that context is current. Normal `await` captures the context, so completion posts the continuation to the queue; the next game tick executes that continuation synchronously on the game-loop thread.
 
 4. **Keep `RsAsyncTask` non-blocking.** Its first `Tick()` starts the operation and returns while it is incomplete. Later ticks only inspect `Task.IsCompleted`; `GetAwaiter().GetResult()` is used only after completion is known, so the scheduler never waits for I/O. A fault is owned by the task and reported through the existing scheduler logging path.
 
@@ -40,6 +40,8 @@ The skill startup flows also need asynchronous definition and store access. They
 ## Risks / Trade-offs
 
 - [Continuation queue] Async completion can happen on a worker thread → `GameLoopSynchronizationContext.Post` uses a concurrent queue, and only `RsTaskService.Tick()` executes queued continuations.
+- [Continuation starvation] A continuation can post more continuations → `RunPending()` processes one queue batch and defers newly posted work to the next game-loop tick.
+- [Tick timing] Async operations may complete synchronously or asynchronously → the scheduler accepts pending tasks before resuming continuations, and anything scheduled during either phase starts on the next tick.
 - [Setup latency] Definition and count reads now complete before the recurring task starts → no recurring gameplay state is started until required data is available, and the scheduler tick is not blocked.
 - [Cancellation race] Cancellation after a continuation starts cannot undo already-running synchronous gameplay → the game loop remains the single owner of continuation execution, while normal .NET `finally` blocks and cooperative cancellation semantics remain intact.
 - [Count freshness] `CountAsync()` is intentionally a setup-time snapshot until a synchronous store API is needed → this preserves the current store contract and avoids duplicate count state.

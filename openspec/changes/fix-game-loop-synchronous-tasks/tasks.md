@@ -22,3 +22,9 @@
 - [x] 4.2 Preserve `CharacterStore.CountAsync()` coverage for the authoritative collection count.
 - [x] 4.3 Test the async-to-synchronous handoff and verify Woodcutting reads `CountAsync()` during setup but not from the recurring callback.
 - [x] 4.4 Run focused tests, strict OpenSpec validation, solution build, and final diff review.
+
+## 5. Scheduler tick-boundary semantics
+
+- [x] 5.1 Drain tasks scheduled before the tick before resuming continuations, and defer tasks scheduled during continuation or ordinary task processing until the next tick.
+- [x] 5.2 Process a snapshot continuation batch so continuations posted during `RunPending()` wait for the next batch.
+- [x] 5.3 Add deterministic ordering and continuation-batch regression tests, then rerun focused tests, strict OpenSpec validation, solution build, and final diff review.

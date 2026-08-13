@@ -37,6 +37,35 @@ The Mining, Fishing, and Woodcutting startup flows MUST use ordinary async metho
 - **THEN** the continuation and its synchronous gameplay setup execute on that game-loop tick
 - **AND** no blocking wait or separate continuation task is used
 
+### Requirement: Scheduler phases have a stable tick boundary
+
+`RsTaskService.Tick()` MUST first accept tasks scheduled before the tick, then resume the continuation batch pending at that boundary, and then tick the already-owned task set. Tasks scheduled during continuation or task processing MUST wait until the next tick.
+
+#### Scenario: Task scheduled by an async continuation waits for the next tick
+
+- **GIVEN** an async continuation resumes during a scheduler tick
+- **WHEN** that continuation schedules a gameplay task
+- **THEN** the gameplay task is not ticked during the current tick
+- **AND** it is accepted and ticked on the following tick
+
+#### Scenario: Task scheduled during ordinary task processing waits for the next tick
+
+- **GIVEN** an owned task schedules another task from its synchronous `Tick()` callback
+- **WHEN** the scheduler is processing the owned task set
+- **THEN** the newly scheduled task is not ticked during the current tick
+- **AND** it is accepted and ticked on the following tick
+
+### Requirement: Continuation batches are bounded by the game-loop tick
+
+`GameLoopSynchronizationContext.RunPending()` MUST process only the continuation batch captured when it starts. Continuations posted while that batch runs MUST remain queued for the next invocation.
+
+#### Scenario: Continuation posted by a continuation waits for the next batch
+
+- **GIVEN** a pending continuation posts another continuation while it runs
+- **WHEN** `RunPending()` processes the current batch
+- **THEN** the posted continuation is not executed by that invocation
+- **AND** it executes during the next `RunPending()` invocation
+
 #### Scenario: Startup cancellation does not suppress a pending continuation
 
 - **GIVEN** an async startup task has a continuation pending in the game-loop context

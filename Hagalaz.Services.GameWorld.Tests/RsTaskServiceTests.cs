@@ -123,6 +123,52 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void Tick_TaskScheduledByTaskProcessing_WaitsUntilNextTick()
+        {
+            var taskService = new RsTaskService(new NullLogger<RsTaskService>());
+            var executed = 0;
+            taskService.Schedule(new RsTask(() =>
+            {
+                taskService.Schedule(new RsTask(() => executed++, executeDelay: 1));
+            }, executeDelay: 1));
+
+            taskService.Tick();
+
+            Assert.AreEqual(0, executed);
+
+            taskService.Tick();
+
+            Assert.AreEqual(1, executed);
+        }
+
+        [TestMethod]
+        public async Task Tick_TaskScheduledByAsyncContinuation_WaitsUntilNextTick()
+        {
+            var taskService = new RsTaskService(new NullLogger<RsTaskService>());
+            var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var executed = 0;
+            var asyncTask = new RsAsyncTask(async () =>
+            {
+                await operation.Task;
+                taskService.Schedule(new RsTask(() => executed++, executeDelay: 1));
+            });
+            taskService.Schedule(asyncTask);
+
+            taskService.Tick();
+
+            operation.SetResult(true);
+            await Task.Delay(10);
+
+            taskService.Tick();
+
+            Assert.AreEqual(0, executed);
+
+            taskService.Tick();
+
+            Assert.AreEqual(1, executed);
+        }
+
+        [TestMethod]
         public void Tick_WhenTaskIsCanceled_ContinuesProcessingOtherTasks()
         {
             var taskService = new RsTaskService(new NullLogger<RsTaskService>());

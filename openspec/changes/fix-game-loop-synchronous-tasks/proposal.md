@@ -8,6 +8,7 @@ Mining, Fishing, and Woodcutting currently assign `async void` callbacks to recu
 - Replace the three recurring skill tasks' `async void` callbacks with synchronous callbacks.
 - Preload loot definitions and the online-character count during Mining, Fishing, and Woodcutting task setup, before the recurring task is queued.
 - Keep asynchronous skill startup I/O outside the blocking scheduler path by running ordinary async startup methods through a non-blocking `RsAsyncTask` whose continuations are resumed by a scheduler-owned game-loop synchronization context.
+- Define an explicit scheduler phase boundary: accept tasks scheduled before the tick, resume the continuation batch pending at that boundary, then tick the owned task set. Work scheduled during continuation or task processing starts on the next tick.
 - Keep inventory, experience, animation, movement, and world mutations inside the synchronous recurring callback.
 - Add deterministic tests covering callback completion, task ordering, interruption/cancellation, and delayed respawn scheduling.
 
@@ -32,6 +33,7 @@ The change affects `Hagalaz.Game.Scripts` Mining, Fishing, and Woodcutting task/
 - Mining, Fishing, and Woodcutting startup database/cache work is not executed through a blocking `RsAsyncTask.Tick()`; ordinary async methods are resumed on the game loop after their awaits.
 - Respawn calculations use the online-character count resolved during asynchronous setup.
 - A recurring tick cannot return before its reward callback and mutations complete.
+- Scheduling from either an async continuation or ordinary task processing cannot start the new task in the same tick, and continuations posted while a continuation batch is running wait for the next batch.
 - Existing task ordering, cancellation/interruption, and delayed respawn behavior remain covered by deterministic tests.
 
 ## Stop Conditions

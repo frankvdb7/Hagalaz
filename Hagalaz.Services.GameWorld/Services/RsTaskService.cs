@@ -42,12 +42,12 @@ namespace Hagalaz.Services.GameWorld.Services
 
             try
             {
-                _synchronizationContext.RunPending();
-
                 while (_pendingTasks.TryDequeue(out var pendingTask))
                 {
                     _tasks.Add(pendingTask);
                 }
+
+                _synchronizationContext.RunPending();
 
                 for (var i = _tasks.Count - 1; i >= 0; i--)
                 {
