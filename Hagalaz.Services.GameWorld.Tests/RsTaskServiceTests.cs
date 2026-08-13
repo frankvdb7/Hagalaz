@@ -34,5 +34,23 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.HasCount(1, taskService.Tasks);
             Assert.AreSame(task3, taskService.Tasks[0]);
         }
+
+        [TestMethod]
+        public void Tick_WithDelayedTask_PreservesExecutionOrder()
+        {
+            // Arrange
+            var logger = new NullLogger<RsTaskService>();
+            var taskService = new RsTaskService(logger);
+            var executionOrder = new List<int>();
+            taskService.Schedule(new RsTask(() => executionOrder.Add(1), executeDelay: 2));
+
+            // Act
+            taskService.Tick();
+            Assert.IsEmpty(executionOrder);
+            taskService.Tick();
+
+            // Assert
+            CollectionAssert.AreEqual(new[] { 1 }, executionOrder);
+        }
     }
 }

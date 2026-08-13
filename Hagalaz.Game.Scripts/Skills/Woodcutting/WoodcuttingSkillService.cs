@@ -150,7 +150,16 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                 cutChance += woodcuttingBasedChance;
             }
 
-            async ValueTask<bool> Callback()
+            var lootService = _serviceProvider.GetRequiredService<ILootService>();
+            var lootTable = await lootService.FindGameObjectLootTable(tree.Definition.LootTableId);
+            if (lootTable == null)
+            {
+                return;
+            }
+
+            var characterCount = await _characterStore.CountAsync();
+
+            bool Callback()
             {
                 if (character.Inventory.FreeSlots < 1)
                 {
@@ -159,14 +168,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                     return true; // stop cutting
                 }
 
-                var service = _serviceProvider.GetRequiredService<ILootService>();
-                var table = await service.FindGameObjectLootTable(tree.Definition.LootTableId);
-                if (table == null)
-                {
-                    return true;
-                }
-
-                character.Inventory.TryAddLoot(character, table, out var items);
+                character.Inventory.TryAddLoot(character, lootTable, out var items);
                 if (items.Any())
                 {
                     character.SendChatMessage(LogsReceived);
@@ -218,7 +220,6 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                             .Remove(tree);
                     }
 
-                    var characterCount = await _characterStore.CountAsync();
                     var respawnTick = (int)(respawnTime * (1.0 + characterCount * -0.00025) * 100.0);
                     // register a task that will respawn the tree once it has reached the respawn rate.
                     _rsTaskService.Schedule(new RsTask(() =>

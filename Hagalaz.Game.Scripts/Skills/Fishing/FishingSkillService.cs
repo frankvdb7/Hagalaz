@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -88,7 +87,9 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 fishChance += fishingBasedChance;
             }
 
-            async ValueTask<bool> Callback()
+            var characterCount = await _characterStore.CountAsync();
+
+            bool Callback()
             {
                 foreach (var result in _lootGenerator.GenerateLoot<IFishingLoot>(new CharacterLootParams(table, character)))
                 {
@@ -120,7 +121,6 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 {
                     character.QueueAnimation(Animation.Create(-1));
 
-                    var characterCount = await _characterStore.FindAllAsync().CountAsync();
                     var respawnTick = (int)(table.RespawnTime * (1.0 + characterCount * -0.00025) * 100.0);
 
                     fishingSpot.Appearance.Visible = false;

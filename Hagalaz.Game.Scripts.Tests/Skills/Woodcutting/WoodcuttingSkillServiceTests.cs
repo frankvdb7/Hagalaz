@@ -171,9 +171,14 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             await _woodcuttingSkillService.StartCutting(character, tree);
 
             Assert.IsNotNull(woodcuttingTask);
+            await _lootService.Received(1).FindGameObjectLootTable(gameObjectDefinition.LootTableId);
+            await _characterStore.Received(1).CountAsync();
 
             // Invoke the callback directly
-            await woodcuttingTask._finishCallback();
+            woodcuttingTask._finishCallback();
+
+            await _lootService.Received(1).FindGameObjectLootTable(gameObjectDefinition.LootTableId);
+            await _characterStore.Received(1).CountAsync();
 
             // Assert
             character.DidNotReceive().SendChatMessage(WoodcuttingSkillService.LogsReceived, Arg.Any<ChatMessageType>(), null);

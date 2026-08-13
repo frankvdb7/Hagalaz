@@ -112,6 +112,14 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 return;
             }
 
+            var lootTable = await _miningService.FindRockLootById(rocks.Id);
+            if (lootTable == null)
+            {
+                return;
+            }
+
+            var characterCount = await _characterStore.CountAsync();
+
             var miningBasedChance = Math.Log10(Math.Log10(character.Statistics.GetSkillLevel(StatisticsConstants.Mining))) * 0.075;
             var harvestChance = baseHarvestChance + pickaxeData.BaseHarvestChance;
             if (miningBasedChance > 0.0)
@@ -119,15 +127,9 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 harvestChance += miningBasedChance;
             }
 
-            async ValueTask<bool> Callback()
+            bool Callback()
             {
-                var table = await _miningService.FindRockLootById(Owner.Id);
-                if (table == null)
-                {
-                    return true;
-                }
-
-                character.Inventory.TryAddLoot(character, table, out _);
+                character.Inventory.TryAddLoot(character, lootTable, out _);
                 character.SendChatMessage(MiningConstants.OreReceived);
                 character.Statistics.AddExperience(StatisticsConstants.Mining, expReceived);
 
@@ -158,7 +160,6 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                             .Remove(rocks);
                     }
 
-                    var characterCount = await _characterStore.CountAsync();
                     var respawnTick = (int)(respawnTime * (1.0 + characterCount * -0.00025) * 100.0);
 
                     _taskService.Schedule(new RsTask(() =>

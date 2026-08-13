@@ -82,9 +82,8 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 return;
             }
 
-            async ValueTask<bool> Callback()
+            bool Callback()
             {
-                await Task.CompletedTask;
                 if (!character.Inventory.Add(ore))
                 {
                     return false;
