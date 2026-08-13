@@ -96,6 +96,20 @@ The Mining, Fishing, and Woodcutting startup flows MUST use ordinary async metho
 - **AND** it may complete successfully
 - **AND** `RsAsyncTask.IsCancelled` remains false
 
+#### Scenario: An externally owned cancellation token prevents a task from starting
+
+- **GIVEN** a caller queues an async task with an externally owned `CancellationToken`
+- **WHEN** that token is canceled before the task's first tick
+- **THEN** the linked `RsAsyncTask` does not invoke the operation
+- **AND** `RsAsyncTask.IsCancelled` is true
+
+#### Scenario: Skill startup does not adopt the generic external token
+
+- **GIVEN** Mining, Fishing, or Woodcutting startup is queued through the tokenless `QueueTask(() => Start...Async(...))` form
+- **WHEN** its asynchronous setup is running
+- **THEN** the skill method does not receive or propagate a `CancellationToken`
+- **AND** its temporary interruption handler performs the single stale-interaction check before synchronous gameplay setup
+
 #### Scenario: Interrupted skill startup does not begin the action
 
 - **GIVEN** Mining, Fishing, or Woodcutting asynchronous startup is waiting for service data

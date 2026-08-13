@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Common.Events;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Skills.Fishing
@@ -49,24 +50,20 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
             try
             {
                 var spot = await _fishingService.FindSpotByNpcIdClickType(Owner.Appearance.CompositeID, clickType);
+                var characterCount = spot is null ? 0 : await _characterStore.CountAsync();
+
                 if (interrupted)
                 {
                     return;
                 }
 
-                if (spot == null)
+                if (spot is null)
                 {
                     base.OnCharacterClickPerform(clicker, clickType);
                     return;
                 }
 
-                var characterCount = await _characterStore.CountAsync();
-                if (interrupted)
-                {
-                    return;
-                }
-
-                if (!interrupted && !_fishingSkillService.TryFish(clicker, Owner, spot, characterCount))
+                if (!_fishingSkillService.TryFish(clicker, Owner, spot, characterCount))
                 {
                     base.OnCharacterClickPerform(clicker, clickType);
                 }

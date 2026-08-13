@@ -139,5 +139,30 @@ namespace Hagalaz.Game.Extensions.Tests
             Assert.IsNotNull(queuedTask);
             Assert.IsInstanceOfType(queuedTask, typeof(RsAsyncTask));
         }
+
+        [TestMethod]
+        public void QueueTask_WithExternalCancellation_PreventsOperationFromStarting()
+        {
+            var creature = Substitute.For<ICreature>();
+            ITaskItem? queuedTask = null;
+            creature.When(x => x.QueueTask(Arg.Any<ITaskItem>())).Do(callInfo =>
+            {
+                queuedTask = callInfo.Arg<ITaskItem>();
+            });
+
+            using var cancellation = new CancellationTokenSource();
+            var operationStarted = false;
+            creature.QueueTask(_ =>
+            {
+                operationStarted = true;
+                return Task.CompletedTask;
+            }, cancellation.Token);
+
+            cancellation.Cancel();
+            queuedTask!.Tick();
+
+            Assert.IsFalse(operationStarted);
+            Assert.IsTrue(queuedTask.IsCancelled);
+        }
     }
 }

@@ -146,7 +146,6 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
                 .Returns(Substitute.For<EventHappened>());
 
             var startup = _woodcuttingSkillService.StartCuttingAsync(character, tree);
-
             Assert.IsNotNull(interruptHandler);
             interruptHandler!(new CreatureInterruptedEvent(character, new object()));
             logsCompletion.SetResult(new LogDto
@@ -160,7 +159,6 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             });
 
             await startup;
-
             character.DidNotReceive().QueueTask(Arg.Any<WoodcuttingTask>());
             character.Received().UnregisterEventHandler<CreatureInterruptedEvent>(Arg.Any<EventHappened>());
         }

@@ -14,6 +14,7 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Resources;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Skills.Mining
@@ -67,30 +68,21 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             try
             {
                 var rock = await _miningService.FindRockById(rocks.Id);
-                if (interrupted || rock == null)
+                if (rock is null)
                 {
                     return;
                 }
 
                 var ore = await _miningService.FindOreByRockId(rocks.Id);
-                if (interrupted || ore == null)
+                if (ore is null)
                 {
                     return;
                 }
 
                 var pickaxes = await _miningService.FindAllPickaxes();
-                if (interrupted)
-                {
-                    return;
-                }
-
                 var lootTable = await _miningService.FindRockLootById(rocks.Id);
-                if (interrupted)
-                {
-                    return;
-                }
-
                 var characterCount = await _characterStore.CountAsync();
+
                 if (!interrupted)
                 {
                     StartMining(character, rocks, ore, rock, pickaxes, lootTable, characterCount);

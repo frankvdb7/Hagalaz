@@ -61,16 +61,20 @@ namespace Hagalaz.Game.Extensions
         /// </summary>
         /// <param name="creature">The creature that will execute the task.</param>
         /// <param name="task">The asynchronous action to be executed.</param>
+        /// <param name="cancellationToken">An optional externally owned cancellation token.</param>
         /// <returns>A handle to the queued task, which can be used to monitor or cancel it.</returns>
-        public static IRsTaskHandle QueueTask(this ICreature creature, Func<Task> task) => creature.QueueTask(new RsAsyncTask(task));
+        public static IRsTaskHandle QueueTask(this ICreature creature, Func<Task> task, CancellationToken cancellationToken = default) =>
+            creature.QueueTask(new RsAsyncTask(task, cancellationToken));
 
         /// <summary>
         /// Queues an asynchronous task that receives a cooperative cancellation token.
         /// </summary>
         /// <param name="creature">The creature that will execute the task.</param>
         /// <param name="task">The asynchronous operation to be executed.</param>
+        /// <param name="cancellationToken">An optional externally owned cancellation token.</param>
         /// <returns>A handle to the queued task, which can be used to monitor or cancel it.</returns>
-        public static IRsTaskHandle QueueTask(this ICreature creature, Func<CancellationToken, Task> task) => creature.QueueTask(new RsAsyncTask(task));
+        public static IRsTaskHandle QueueTask(this ICreature creature, Func<CancellationToken, Task> task, CancellationToken cancellationToken = default) =>
+            creature.QueueTask(new RsAsyncTask(task, cancellationToken));
 
         /// <summary>
         /// Queues a synchronous task to be executed by the creature's task scheduler after a specified delay.

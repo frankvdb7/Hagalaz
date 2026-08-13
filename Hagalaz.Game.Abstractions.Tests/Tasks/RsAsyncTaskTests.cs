@@ -138,6 +138,24 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
         }
 
         [TestMethod]
+        public void ExternalCancellation_PreventsOperationFromStarting()
+        {
+            using var cancellation = new CancellationTokenSource();
+            var operationStarted = false;
+            var task = new RsAsyncTask(() =>
+            {
+                operationStarted = true;
+                return Task.CompletedTask;
+            }, cancellation.Token);
+
+            cancellation.Cancel();
+            task.Tick();
+
+            Assert.IsFalse(operationStarted);
+            Assert.IsTrue(task.IsCancelled);
+        }
+
+        [TestMethod]
         public void RunPending_DefersContinuationsPostedDuringTheBatch()
         {
             var context = new GameLoopSynchronizationContext();

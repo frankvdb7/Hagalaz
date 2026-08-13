@@ -82,31 +82,22 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             {
                 var service = _serviceProvider.GetRequiredService<IWoodcuttingService>();
                 var logs = await service.FindLogByTreeId(tree.Id);
-                if (interrupted || logs == null)
+                if (logs is null)
                 {
                     return;
                 }
 
                 var treeDto = await service.FindTreeById(tree.Id);
-                if (interrupted || treeDto == null)
+                if (treeDto is null)
                 {
                     return;
                 }
 
                 var hatchets = await service.FindAllHatchets();
-                if (interrupted)
-                {
-                    return;
-                }
-
                 var lootService = _serviceProvider.GetRequiredService<ILootService>();
                 var lootTable = await lootService.FindGameObjectLootTable(tree.Definition.LootTableId);
-                if (interrupted)
-                {
-                    return;
-                }
-
                 var characterCount = await _characterStore.CountAsync();
+
                 if (!interrupted)
                 {
                     StartCutting(character, tree, logs, treeDto, hatchets, lootTable, characterCount);

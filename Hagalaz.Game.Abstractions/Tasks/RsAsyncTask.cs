@@ -9,7 +9,7 @@ namespace Hagalaz.Game.Abstractions.Tasks
     /// </summary>
     public sealed class RsAsyncTask : ITaskItem, IDisposable
     {
-        private readonly CancellationTokenSource _cancellation = new();
+        private readonly CancellationTokenSource _cancellation;
         private Func<CancellationToken, Task>? _operation;
         private Task? _task;
 
@@ -17,17 +17,29 @@ namespace Hagalaz.Game.Abstractions.Tasks
         /// Initializes a new instance of the <see cref="RsAsyncTask"/> class.
         /// </summary>
         /// <param name="operation">The asynchronous operation to execute.</param>
-        public RsAsyncTask(Func<Task> operation)
+        /// <param name="cancellationToken">An optional externally owned cancellation token.</param>
+        public RsAsyncTask(Func<Task> operation, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(operation);
             _operation = _ => operation();
+            _cancellation = CreateCancellationSource(cancellationToken);
         }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RsAsyncTask"/> class with cooperative cancellation.
         /// </summary>
         /// <param name="operation">The asynchronous operation to execute.</param>
-        public RsAsyncTask(Func<CancellationToken, Task> operation) => _operation = operation ?? throw new ArgumentNullException(nameof(operation));
+        /// <param name="cancellationToken">An optional externally owned cancellation token.</param>
+        public RsAsyncTask(Func<CancellationToken, Task> operation, CancellationToken cancellationToken = default)
+        {
+            _operation = operation ?? throw new ArgumentNullException(nameof(operation));
+            _cancellation = CreateCancellationSource(cancellationToken);
+        }
+
+        private static CancellationTokenSource CreateCancellationSource(CancellationToken cancellationToken) =>
+            cancellationToken.CanBeCanceled
+                ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+                : new CancellationTokenSource();
 
         /// <inheritdoc />
         public bool IsCancelled => _task?.IsCanceled ?? _cancellation.IsCancellationRequested;

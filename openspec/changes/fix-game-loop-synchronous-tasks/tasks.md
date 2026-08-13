@@ -34,3 +34,8 @@
 - [x] 6.1 Protect continuation enqueue and batch handoff with a short lock so concurrent posts cannot be lost.
 - [x] 6.2 Add temporary interruption guards to Mining, Fishing, and Woodcutting asynchronous startup flows.
 - [x] 6.3 Add concurrent continuation and interrupted-startup regression coverage, then rerun focused tests, strict OpenSpec validation, solution build, and final diff review.
+
+## 7. Generic externally owned cancellation
+
+- [x] 7.1 Add optional externally owned cancellation tokens to `RsAsyncTask` and both asynchronous `QueueTask` overloads without adopting them in Mining, Fishing, or Woodcutting.
+- [x] 7.2 Keep skill startup methods tokenless with one temporary interruption check at the synchronous gameplay boundary, and cover the generic external-cancellation behavior with focused tests.
