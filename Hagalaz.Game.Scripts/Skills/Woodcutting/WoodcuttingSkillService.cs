@@ -1,15 +1,19 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
+using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
+using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Resources;
 
 namespace Hagalaz.Game.Scripts.Skills.Woodcutting
@@ -20,27 +24,27 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
     public class WoodcuttingSkillService : IWoodcuttingSkillService
     {
         /// <summary>
-        ///     The TRE e_ ALEAD y_ CUT
+        ///     The tree already cut message.
         /// </summary>
         public const string TreeAlreadyCut = "Too late, someone else has already cut this tree down!";
 
         /// <summary>
-        ///     The N o_ HATCHE t_ FOUND
+        ///     The no hatchet found message.
         /// </summary>
         public const string NoHatchetFound = "You don't have any hatchets that you are able use.";
 
         /// <summary>
-        ///     The N o_ INVENTOR y_ SPACE
+        ///     The no inventory space message.
         /// </summary>
         public const string NoInventorySpace = "You don't have enough space in your inventory to cut more logs.";
 
         /// <summary>
-        ///     The LOG s_ RECIEVED
+        ///     The logs received message.
         /// </summary>
         public const string LogsReceived = "You get some logs.";
 
         /// <summary>
-        ///     The SWIN g_ AXE
+        ///     The swing axe message.
         /// </summary>
         public const string SwingAxe = "You swing your hatchet at the tree.";
 
@@ -55,73 +59,72 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             _rsTaskService = rsTaskService;
         }
 
-        /// <summary>
-        ///     Attempts to find a hatchet in the specified character's inventory or equipped items.
-        /// </summary>
-        /// <param name="character">The character to find hatchet for.</param>
-        /// <returns>Returns the hatchet type if found; Returns Hatchet.Undefined otherwise.</returns>
-        private async Task<HatchetDto?> FindHatchet(ICharacter character)
+        private static HatchetDto? FindHatchet(ICharacter character, IReadOnlyList<HatchetDto> hatchets)
         {
             var wcLevel = character.Statistics.GetSkillLevel(StatisticsConstants.Woodcutting);
-            var service = _serviceProvider.GetRequiredService<IWoodcuttingService>();
-            return (await service.FindAllHatchets())
-                .Where(h => h.RequiredLevel <= wcLevel && (character.Equipment.GetById(h.ItemId) != null || character.Inventory.GetById(h.ItemId) != null))
-                .OrderByDescending(h => h.RequiredLevel) // return the highest possible level
-                .FirstOrDefault(); // return null if nothing found
+            return hatchets
+                .Where(h => h.RequiredLevel <= wcLevel &&
+                            (character.Equipment.GetById(h.ItemId) != null || character.Inventory.GetById(h.ItemId) != null))
+                .OrderByDescending(h => h.RequiredLevel)
+                .FirstOrDefault();
         }
 
-        /// <summary>
-        ///     Starts the cutting.
-        /// </summary>
-        /// <param name="character">The character.</param>
-        /// <param name="tree">The tree.</param>
-        /// <returns></returns>
-        public async Task<bool> StartCutting(ICharacter character, IGameObject tree)
+        public async Task StartCuttingAsync(ICharacter character, IGameObject tree)
         {
-            var service = _serviceProvider.GetRequiredService<IWoodcuttingService>();
-            var logs = await service.FindLogByTreeId(tree.Id);
-            if (logs == null)
+            var interrupted = false;
+            var interruptEvent = character.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
+                interrupted = true;
                 return false;
-            }
+            });
 
+            try
+            {
+                var service = _serviceProvider.GetRequiredService<IWoodcuttingService>();
+                var logs = await service.FindLogByTreeId(tree.Id);
+                if (logs is null)
+                {
+                    return;
+                }
+
+                var treeDto = await service.FindTreeById(tree.Id);
+                if (treeDto is null)
+                {
+                    return;
+                }
+
+                var hatchets = await service.FindAllHatchets();
+                var lootService = _serviceProvider.GetRequiredService<ILootService>();
+                var lootTable = await lootService.FindGameObjectLootTable(tree.Definition.LootTableId);
+                var characterCount = await _characterStore.CountAsync();
+
+                if (!interrupted)
+                {
+                    StartCutting(character, tree, logs, treeDto, hatchets, lootTable, characterCount);
+                }
+            }
+            finally
+            {
+                character.UnregisterEventHandler<CreatureInterruptedEvent>(interruptEvent);
+            }
+        }
+
+        private void StartCutting(
+            ICharacter character,
+            IGameObject tree,
+            LogDto logs,
+            TreeDto treeDto,
+            IReadOnlyList<HatchetDto> hatchets,
+            ILootTable? lootTable,
+            int characterCount,
+            bool ivyTree = false)
+        {
             if (character.Statistics.GetSkillLevel(StatisticsConstants.Woodcutting) < logs.RequiredLevel)
             {
                 character.SendChatMessage("You must have a woodcutting level of " + logs.RequiredLevel + " or higher to cut this tree.");
-                return true;
+                return;
             }
 
-            var treeDto = await service.FindTreeById(tree.Id);
-            if (treeDto == null)
-            {
-                return false;
-            }
-
-            await StartCutting(character,
-                tree,
-                logs.BaseHarvestChance,
-                logs.FallChance,
-                logs.WoodcuttingExperience,
-                treeDto.StumpId,
-                logs.RespawnTime);
-            return true;
-        }
-
-        /// <summary>
-        ///     Attempts to cut some wood from a tree.
-        /// </summary>
-        /// <param name="character">The character.</param>
-        /// <param name="tree">The tree.</param>
-        /// <param name="treeBaseCutChance">The cut chance.</param>
-        /// <param name="fallChance">The fall chance.</param>
-        /// <param name="expReceived">The exp received.</param>
-        /// <param name="stumpObjId">The stump object identifier.</param>
-        /// <param name="respawnTime">The respawn time.</param>
-        /// <param name="ivyTree">if set to <c>true</c> [ivy tree].</param>
-        private async Task StartCutting(
-            ICharacter character, IGameObject tree, double treeBaseCutChance, double fallChance, double expReceived, int stumpObjId, double respawnTime,
-            bool ivyTree = false)
-        {
             if (tree.IsDestroyed || tree.IsDisabled)
             {
                 character.SendChatMessage(TreeAlreadyCut);
@@ -129,7 +132,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             }
 
             // check if the character has a hatchet on them (equipped or in inventory).
-            var hatchetData = await FindHatchet(character);
+            var hatchetData = FindHatchet(character, hatchets);
             if (hatchetData == null)
             {
                 character.SendChatMessage(NoHatchetFound);
@@ -144,13 +147,18 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             }
 
             var woodcuttingBasedChance = Math.Log10(Math.Log10(character.Statistics.GetSkillLevel(StatisticsConstants.Woodcutting))) * 0.075;
-            var cutChance = treeBaseCutChance + hatchetData.BaseHarvestChance;
+            var cutChance = logs.BaseHarvestChance + hatchetData.BaseHarvestChance;
             if (woodcuttingBasedChance > 0.0)
             {
                 cutChance += woodcuttingBasedChance;
             }
 
-            async ValueTask<bool> Callback()
+            if (lootTable == null)
+            {
+                return;
+            }
+
+            bool Callback()
             {
                 if (character.Inventory.FreeSlots < 1)
                 {
@@ -159,22 +167,16 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                     return true; // stop cutting
                 }
 
-                var service = _serviceProvider.GetRequiredService<ILootService>();
-                var table = await service.FindGameObjectLootTable(tree.Definition.LootTableId);
-                if (table == null)
-                {
-                    return true;
-                }
-
-                character.Inventory.TryAddLoot(character, table, out var items);
+                character.Inventory.TryAddLoot(character, lootTable, out var items);
                 if (items.Any())
                 {
                     character.SendChatMessage(LogsReceived);
-                    character.Statistics.AddExperience(StatisticsConstants.Woodcutting, expReceived);
+                    character.Statistics.AddExperience(StatisticsConstants.Woodcutting, logs.WoodcuttingExperience);
                 }
+
                 // Calculate the chance of the tree falling.
                 var randomVal = RandomStatic.Generator.NextDouble();
-                if (randomVal <= fallChance)
+                if (randomVal <= logs.FallChance)
                 {
                     character.QueueAnimation(Animation.Create(-1));
 
@@ -199,10 +201,10 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
 
                     var goBuilder = _serviceProvider.GetRequiredService<IGameObjectBuilder>();
                     // spawn the stump if possible.
-                    if (stumpObjId > 0)
+                    if (treeDto.StumpId > 0)
                     {
                         var stumpObj = goBuilder.Create()
-                            .WithId(stumpObjId)
+                            .WithId(treeDto.StumpId)
                             .WithLocation(tree.Location)
                             .WithRotation(tree.Rotation)
                             .WithShape(tree.ShapeType)
@@ -218,8 +220,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                             .Remove(tree);
                     }
 
-                    var characterCount = await _characterStore.CountAsync();
-                    var respawnTick = (int)(respawnTime * (1.0 + characterCount * -0.00025) * 100.0);
+                    var respawnTick = (int)(logs.RespawnTime * (1.0 + characterCount * -0.00025) * 100.0);
                     // register a task that will respawn the tree once it has reached the respawn rate.
                     _rsTaskService.Schedule(new RsTask(() =>
                         {

@@ -1,14 +1,20 @@
-﻿using System.Threading.Tasks;
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
+using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
+using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Resources;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Skills.Mining
@@ -43,30 +49,63 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(() => StartMining(clicker, Owner));
+                clicker.QueueTask(() => StartMiningAsync(clicker, Owner));
                 return;
             }
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-
-        /// <summary>
-        ///     Starts the mining.
-        /// </summary>
-        /// <param name="character">The character.</param>
-        /// <param name="rocks">The rocks.</param>
-        /// <returns></returns>
-        public async Task StartMining(ICharacter character, IGameObject rocks)
+        private async Task StartMiningAsync(ICharacter character, IGameObject rocks)
         {
-            var rock = await _miningService.FindRockById(rocks.Id);
-            if (rock == null) 
+            var interrupted = false;
+            var interruptEvent = character.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
-                return;
+                interrupted = true;
+                return false;
+            });
+
+            try
+            {
+                var rock = await _miningService.FindRockById(rocks.Id);
+                if (rock is null)
+                {
+                    return;
+                }
+
+                var ore = await _miningService.FindOreByRockId(rocks.Id);
+                if (ore is null)
+                {
+                    return;
+                }
+
+                var pickaxes = await _miningService.FindAllPickaxes();
+                var lootTable = await _miningService.FindRockLootById(rocks.Id);
+                var characterCount = await _characterStore.CountAsync();
+
+                if (!interrupted)
+                {
+                    StartMining(character, rocks, ore, rock, pickaxes, lootTable, characterCount);
+                }
             }
-            var ore = await _miningService.FindOreByRockId(rocks.Id);
-            if (ore == null)
+            finally
             {
+                character.UnregisterEventHandler<CreatureInterruptedEvent>(interruptEvent);
+            }
+        }
+
+        private void StartMining(
+            ICharacter character,
+            IGameObject rocks,
+            OreDto ore,
+            RockDto rock,
+            IReadOnlyList<PickaxeDto> pickaxes,
+            ILootTable? lootTable,
+            int characterCount)
+        {
+            if (rocks.IsDestroyed || rocks.IsDisabled)
+            {
+                character.SendChatMessage(MiningConstants.RockAlreadyMined);
                 return;
             }
 
@@ -76,73 +115,49 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 return;
             }
 
-            await BeginMining(character, rocks, ore.ExhaustChance, ore.BaseHarvestChance, ore.Experience, rock.ExhaustRockId, ore.RespawnTime);
-        }
-
-        /// <summary>
-        ///     Starts the mining.
-        /// </summary>
-        /// <param name="character">The character.</param>
-        /// <param name="rocks">The rocks.</param>
-        /// <param name="exhaustChance">The exhaust chance.</param>
-        /// <param name="baseHarvestChance">The mine chance.</param>
-        /// <param name="expReceived">The exp received.</param>
-        /// <param name="exhaustedRockId">The exhausted rocks.</param>
-        /// <param name="respawnTime">The respawn time in minutes.</param>
-        private async Task BeginMining(ICharacter character, IGameObject rocks, double exhaustChance, double baseHarvestChance, double expReceived, int exhaustedRockId, double respawnTime)
-        {
-            if (rocks.IsDestroyed || rocks.IsDisabled)
-            {
-                character.SendChatMessage(MiningConstants.RockAlreadyMined);
-                return;
-            }
-
-            // check if character has usable pickaxe.
-            var pickaxeData = Mining.FindPickaxe(character, await _miningService.FindAllPickaxes());
+            var pickaxeData = Mining.FindPickaxe(character, pickaxes);
             if (pickaxeData == null)
             {
                 character.SendChatMessage(MiningConstants.NoPickaxeFound);
                 return;
             }
 
-            // check if there is enough space in the character's inventory.
             if (character.Inventory.FreeSlots < 1)
             {
                 character.SendChatMessage(GameStrings.InventoryFull);
                 return;
             }
 
+            if (lootTable == null)
+            {
+                return;
+            }
+
             var miningBasedChance = Math.Log10(Math.Log10(character.Statistics.GetSkillLevel(StatisticsConstants.Mining))) * 0.075;
-            var harvestChance = baseHarvestChance + pickaxeData.BaseHarvestChance;
+            var harvestChance = ore.BaseHarvestChance + pickaxeData.BaseHarvestChance;
             if (miningBasedChance > 0.0)
             {
                 harvestChance += miningBasedChance;
             }
 
-            async ValueTask<bool> Callback()
+            bool Callback()
             {
-                var table = await _miningService.FindRockLootById(Owner.Id);
-                if (table == null)
-                {
-                    return true;
-                }
-
-                character.Inventory.TryAddLoot(character, table, out _);
+                character.Inventory.TryAddLoot(character, lootTable, out _);
                 character.SendChatMessage(MiningConstants.OreReceived);
-                character.Statistics.AddExperience(StatisticsConstants.Mining, expReceived);
+                character.Statistics.AddExperience(StatisticsConstants.Mining, ore.Experience);
 
                 // Calculate the chance of the rock exhaust
                 var randomVal = RandomStatic.Generator.NextDouble();
-                if (randomVal <= exhaustChance)
+                if (randomVal <= ore.ExhaustChance)
                 {
                     character.QueueAnimation(Animation.Reset);
 
                     var goBuilder = character.ServiceProvider.GetRequiredService<IGameObjectBuilder>();
                     // replace it with a exhausted rock.
-                    if (exhaustedRockId > 0)
+                    if (rock.ExhaustRockId > 0)
                     {
                         var exhaustedRock = goBuilder.Create()
-                            .WithId(exhaustedRockId)
+                            .WithId(rock.ExhaustRockId)
                             .WithLocation(rocks.Location)
                             .WithRotation(rocks.Rotation)
                             .WithShape(rocks.ShapeType)
@@ -158,8 +173,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                             .Remove(rocks);
                     }
 
-                    var characterCount = await _characterStore.CountAsync();
-                    var respawnTick = (int)(respawnTime * (1.0 + characterCount * -0.00025) * 100.0);
+                    var respawnTick = (int)(ore.RespawnTime * (1.0 + characterCount * -0.00025) * 100.0);
 
                     _taskService.Schedule(new RsTask(() =>
                         character.ServiceProvider.GetRequiredService<IMapRegionService>()

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -18,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <summary>
         ///     Construct's new firemaking task.
         /// </summary>
-        public FishingTask(ICharacter performer, Func<ValueTask<bool>> finishCallback, double chance, INpc fishingSpot, int animId)
+        public FishingTask(ICharacter performer, Func<bool> finishCallback, double chance, INpc fishingSpot, int animId)
         {
             _performer = performer;
             _finishCallback = finishCallback;
@@ -41,7 +40,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <summary>
         ///     Contains finish callback.
         /// </summary>
-        private readonly Func<ValueTask<bool>> _finishCallback;
+        private readonly Func<bool> _finishCallback;
 
         /// <summary>
         ///     Contains performer.
@@ -67,7 +66,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         ///     Contains tick implementation.
         /// </summary>
         /// <returns></returns>
-        private async void PerformTickImpl()
+        private void PerformTickImpl()
         {
             // check if fishing spot has exhausted.
             if (_fishingSpot.IsDestroyed || !_performer.Viewport.VisibleCreatures.Contains(_fishingSpot))
@@ -87,7 +86,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
             if (randomValue <= _chance)
             {
                 // Invoke callback. If the callback returns true, that means the task is finished.
-                if (await _finishCallback())
+                if (_finishCallback())
                 {
                     Cancel();
                     return;

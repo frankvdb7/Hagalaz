@@ -1,24 +1,49 @@
-﻿using System;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Hagalaz.Game.Abstractions.Tasks
 {
     /// <summary>
-    /// Represents a game task that wraps an asynchronous operation (<see cref="Task"/>) without a return value.
-    /// This allows a standard C# Task to be managed by the game's tick-based scheduler.
+    /// Adapts a regular asynchronous operation to the tick-based scheduler without blocking a tick.
     /// </summary>
-    public class RsAsyncTask : ITaskItem, IDisposable
+    public sealed class RsAsyncTask : ITaskItem, IDisposable
     {
-        private Func<Task>? _taskExec;
+        private readonly CancellationTokenSource _cancellation;
+        private Func<CancellationToken, Task>? _operation;
+        private Task? _task;
+        private bool _disposed;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RsAsyncTask"/> class.
         /// </summary>
-        /// <param name="taskExec">The asynchronous delegate to execute.</param>
-        public RsAsyncTask(Func<Task> taskExec) => _taskExec = taskExec;
+        /// <param name="operation">The asynchronous operation to execute.</param>
+        /// <param name="cancellationToken">An optional externally owned cancellation token.</param>
+        public RsAsyncTask(Func<Task> operation, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(operation);
+            _operation = _ => operation();
+            _cancellation = CreateCancellationSource(cancellationToken);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RsAsyncTask"/> class with cooperative cancellation.
+        /// </summary>
+        /// <param name="operation">The asynchronous operation to execute.</param>
+        /// <param name="cancellationToken">An optional externally owned cancellation token.</param>
+        public RsAsyncTask(Func<CancellationToken, Task> operation, CancellationToken cancellationToken = default)
+        {
+            _operation = operation ?? throw new ArgumentNullException(nameof(operation));
+            _cancellation = CreateCancellationSource(cancellationToken);
+        }
+
+        private static CancellationTokenSource CreateCancellationSource(CancellationToken cancellationToken) =>
+            cancellationToken.CanBeCanceled
+                ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+                : new CancellationTokenSource();
 
         /// <inheritdoc />
-        public bool IsCancelled { get; private set; }
+        public bool IsCancelled => _task?.IsCanceled ?? _cancellation.IsCancellationRequested;
 
         /// <inheritdoc />
         public bool IsCompleted { get; private set; }
@@ -29,16 +54,39 @@ namespace Hagalaz.Game.Abstractions.Tasks
         /// <inheritdoc />
         public void Tick()
         {
-            if (IsCancelled || IsCompleted || IsFaulted)
+            if (_disposed || IsCancelled || IsCompleted || IsFaulted)
             {
                 return;
             }
 
             try
             {
-                var task = _taskExec?.Invoke();
-                task?.ConfigureAwait(false).GetAwaiter().GetResult();
-                IsCompleted = task?.IsCompleted ?? true;
+                if (_task is null)
+                {
+                    if (_cancellation.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    _task = _operation!(_cancellation.Token);
+                }
+
+                if (!_task.IsCompleted)
+                {
+                    return;
+                }
+
+                if (_task.IsCanceled)
+                {
+                    return;
+                }
+
+                _task.GetAwaiter().GetResult();
+                IsCompleted = true;
+            }
+            catch (OperationCanceledException)
+            {
+                _cancellation.Cancel();
             }
             catch
             {
@@ -47,23 +95,29 @@ namespace Hagalaz.Game.Abstractions.Tasks
             }
         }
 
-        private void ReleaseUnmanagedResources() => _taskExec = null;
-
         /// <inheritdoc />
-        public void Cancel() => IsCancelled = true;
-
-        /// <summary>
-        /// Releases the resources used by the task.
-        /// </summary>
-        public void Dispose()
+        public void Cancel()
         {
-            ReleaseUnmanagedResources();
-            GC.SuppressFinalize(this);
+            if (_disposed || IsCancelled || IsCompleted || IsFaulted)
+            {
+                return;
+            }
+
+            _cancellation.Cancel();
         }
 
-        /// <summary>
-        /// Finalizes an instance of the <see cref="RsAsyncTask"/> class.
-        /// </summary>
-        ~RsAsyncTask() => ReleaseUnmanagedResources();
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _operation = null;
+            _cancellation.Dispose();
+            GC.SuppressFinalize(this);
+        }
     }
 }
