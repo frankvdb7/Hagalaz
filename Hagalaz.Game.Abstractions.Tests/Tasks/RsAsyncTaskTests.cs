@@ -47,15 +47,21 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
         }
 
         [TestMethod]
-        public async Task Cancel_PreventsPendingContinuationFromResuming()
+        public async Task Cancel_DoesNotSuppressPendingContinuation()
         {
             var context = new GameLoopSynchronizationContext();
             var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var resumed = false;
+            var cleanupCompleted = false;
             var task = new RsAsyncTask(async () =>
             {
-                await operation.Task;
-                resumed = true;
+                try
+                {
+                    await operation.Task;
+                }
+                finally
+                {
+                    cleanupCompleted = true;
+                }
             });
 
             var previousContext = SynchronizationContext.Current;
@@ -71,14 +77,63 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
 
             task.Cancel();
 
-            Assert.IsTrue(task.IsCancelled);
+            Assert.IsFalse(task.IsCancelled);
 
             operation.SetResult(true);
             await Task.Delay(10);
+            Assert.IsFalse(cleanupCompleted);
+
             context.RunPending();
             task.Tick();
 
-            Assert.IsFalse(resumed);
+            Assert.IsTrue(cleanupCompleted);
+            Assert.IsTrue(task.IsCompleted);
+            Assert.IsFalse(task.IsCancelled);
+        }
+
+        [TestMethod]
+        public async Task Cancel_CooperativeOperationBecomesCanceledAfterItObservesToken()
+        {
+            var context = new GameLoopSynchronizationContext();
+            var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var cancellationObserved = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var task = new RsAsyncTask(async cancellationToken =>
+            {
+                try
+                {
+                    await operation.Task;
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+                catch (OperationCanceledException)
+                {
+                    cancellationObserved.SetResult(true);
+                    throw;
+                }
+            });
+
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(context);
+            try
+            {
+                task.Tick();
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(previousContext);
+            }
+
+            task.Cancel();
+            Assert.IsFalse(task.IsCancelled);
+
+            operation.SetResult(true);
+            await Task.Delay(10);
+            Assert.IsFalse(task.IsCancelled);
+
+            context.RunPending();
+            await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await Task.Delay(10);
+
+            Assert.IsTrue(task.IsCancelled);
             Assert.IsFalse(task.IsCompleted);
         }
 

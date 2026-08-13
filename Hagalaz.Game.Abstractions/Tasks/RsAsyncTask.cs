@@ -10,18 +10,27 @@ namespace Hagalaz.Game.Abstractions.Tasks
     public sealed class RsAsyncTask : ITaskItem, IDisposable
     {
         private readonly CancellationTokenSource _cancellation = new();
-        private Func<Task>? _taskExec;
+        private Func<CancellationToken, Task>? _operation;
         private Task? _task;
-        private int _isCancelled;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RsAsyncTask"/> class.
         /// </summary>
-        /// <param name="taskExec">The asynchronous operation to execute.</param>
-        public RsAsyncTask(Func<Task> taskExec) => _taskExec = taskExec ?? throw new ArgumentNullException(nameof(taskExec));
+        /// <param name="operation">The asynchronous operation to execute.</param>
+        public RsAsyncTask(Func<Task> operation)
+        {
+            ArgumentNullException.ThrowIfNull(operation);
+            _operation = _ => operation();
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RsAsyncTask"/> class with cooperative cancellation.
+        /// </summary>
+        /// <param name="operation">The asynchronous operation to execute.</param>
+        public RsAsyncTask(Func<CancellationToken, Task> operation) => _operation = operation ?? throw new ArgumentNullException(nameof(operation));
 
         /// <inheritdoc />
-        public bool IsCancelled => Volatile.Read(ref _isCancelled) != 0;
+        public bool IsCancelled => _task?.IsCanceled ?? _cancellation.IsCancellationRequested;
 
         /// <inheritdoc />
         public bool IsCompleted { get; private set; }
@@ -41,23 +50,12 @@ namespace Hagalaz.Game.Abstractions.Tasks
             {
                 if (_task is null)
                 {
-                    if (SynchronizationContext.Current is GameLoopSynchronizationContext gameLoopContext)
+                    if (_cancellation.IsCancellationRequested)
                     {
-                        var previousContext = SynchronizationContext.Current;
-                        SynchronizationContext.SetSynchronizationContext(gameLoopContext.CreateTaskContext(_cancellation.Token));
-                        try
-                        {
-                            _task = _taskExec!();
-                        }
-                        finally
-                        {
-                            SynchronizationContext.SetSynchronizationContext(previousContext);
-                        }
+                        return;
                     }
-                    else
-                    {
-                        _task = _taskExec!();
-                    }
+
+                    _task = _operation!(_cancellation.Token);
                 }
 
                 if (!_task.IsCompleted)
@@ -67,7 +65,6 @@ namespace Hagalaz.Game.Abstractions.Tasks
 
                 if (_task.IsCanceled)
                 {
-                    Volatile.Write(ref _isCancelled, 1);
                     return;
                 }
 
@@ -84,14 +81,13 @@ namespace Hagalaz.Game.Abstractions.Tasks
         /// <inheritdoc />
         public void Cancel()
         {
-            Volatile.Write(ref _isCancelled, 1);
             _cancellation.Cancel();
         }
 
         /// <inheritdoc />
         public void Dispose()
         {
-            _taskExec = null;
+            _operation = null;
             _cancellation.Dispose();
             GC.SuppressFinalize(this);
         }

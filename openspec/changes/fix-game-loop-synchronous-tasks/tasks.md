@@ -18,7 +18,7 @@
 
 ## 4. Follow-up regression coverage
 
-- [x] 4.1 Test non-blocking async task progress, game-loop continuation resumption, cancellation, fault ownership, and existing scheduler task ordering.
+- [x] 4.1 Test non-blocking async task progress, game-loop continuation resumption, cooperative and non-cooperative cancellation, fault ownership, and existing scheduler task ordering.
 - [x] 4.2 Preserve `CharacterStore.CountAsync()` coverage for the authoritative collection count.
 - [x] 4.3 Test the async-to-synchronous handoff and verify Woodcutting reads `CountAsync()` during setup but not from the recurring callback.
 - [x] 4.4 Run focused tests, strict OpenSpec validation, solution build, and final diff review.

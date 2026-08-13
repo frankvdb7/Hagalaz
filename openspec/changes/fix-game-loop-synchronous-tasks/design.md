@@ -33,7 +33,7 @@ The skill startup flows also need asynchronous definition and store access. They
 
 4. **Keep `RsAsyncTask` non-blocking.** Its first `Tick()` starts the operation and returns while it is incomplete. Later ticks only inspect `Task.IsCompleted`; `GetAwaiter().GetResult()` is used only after completion is known, so the scheduler never waits for I/O. A fault is owned by the task and reported through the existing scheduler logging path.
 
-5. **Use cancellation to discard queued continuations.** `RsAsyncTask.Cancel()` marks the task canceled and cancels its internal token. The token is metadata carried by the synchronization-context continuation, not a required parameter on every gameplay async method. A continuation that has not started when cancellation occurs is skipped, so post-await gameplay does not resume after cancellation.
+5. **Use ordinary cooperative task cancellation.** `GameLoopSynchronizationContext` knows nothing about cancellation and always runs queued continuations. `RsAsyncTask.Cancel()` requests cancellation through its internal `CancellationTokenSource`; the token-aware constructor passes that token to the operation. `IsCancelled` reflects the underlying task becoming canceled rather than merely receiving a cancellation request. Operations created through the parameterless-token constructor continue normally unless they cancel themselves.
 
 6. **Use the existing asynchronous character count API during setup.** Mining, Fishing, and Woodcutting resolve `ICharacterStore.CountAsync()` before their synchronous gameplay setup, then capture that setup-time value for respawn calculation. No synchronous count property or second count state is added to `CharacterStore`.
 
@@ -41,7 +41,7 @@ The skill startup flows also need asynchronous definition and store access. They
 
 - [Continuation queue] Async completion can happen on a worker thread → `GameLoopSynchronizationContext.Post` uses a concurrent queue, and only `RsTaskService.Tick()` executes queued continuations.
 - [Setup latency] Definition and count reads now complete before the recurring task starts → no recurring gameplay state is started until required data is available, and the scheduler tick is not blocked.
-- [Cancellation race] Cancellation after a continuation starts cannot undo already-running synchronous gameplay → the game loop remains the single owner of continuation execution, and pending continuations are discarded before they start.
+- [Cancellation race] Cancellation after a continuation starts cannot undo already-running synchronous gameplay → the game loop remains the single owner of continuation execution, while normal .NET `finally` blocks and cooperative cancellation semantics remain intact.
 - [Count freshness] `CountAsync()` is intentionally a setup-time snapshot until a synchronous store API is needed → this preserves the current store contract and avoids duplicate count state.
 
 ## Migration Plan

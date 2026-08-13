@@ -15,7 +15,7 @@ namespace Hagalaz.Game.Abstractions.Tasks
         public override void Post(SendOrPostCallback callback, object? state)
         {
             ArgumentNullException.ThrowIfNull(callback);
-            _pending.Enqueue(new PendingContinuation(callback, state, null));
+            _pending.Enqueue(new PendingContinuation(callback, state));
         }
 
         /// <summary>
@@ -30,26 +30,7 @@ namespace Hagalaz.Game.Abstractions.Tasks
             {
                 while (_pending.TryDequeue(out var continuation))
                 {
-                    if (continuation.Context?.CancellationToken.IsCancellationRequested == true)
-                    {
-                        continue;
-                    }
-
-                    var previousContinuationContext = Current;
-                    SetSynchronizationContext(continuation.Context ?? (SynchronizationContext)this);
-                    try
-                    {
-                        if (continuation.Context?.CancellationToken.IsCancellationRequested == true)
-                        {
-                            continue;
-                        }
-
-                        continuation.Callback(continuation.State);
-                    }
-                    finally
-                    {
-                        SetSynchronizationContext(previousContinuationContext);
-                    }
+                    continuation.Callback(continuation.State);
                 }
             }
             finally
@@ -58,27 +39,8 @@ namespace Hagalaz.Game.Abstractions.Tasks
             }
         }
 
-        internal SynchronizationContext CreateTaskContext(CancellationToken cancellationToken) => new TaskSynchronizationContext(this, cancellationToken);
-
-        private void Enqueue(SendOrPostCallback callback, object? state, TaskSynchronizationContext context) =>
-            _pending.Enqueue(new PendingContinuation(callback, state, context));
-
         private readonly record struct PendingContinuation(
             SendOrPostCallback Callback,
-            object? State,
-            TaskSynchronizationContext? Context);
-
-        private sealed class TaskSynchronizationContext(
-            GameLoopSynchronizationContext owner,
-            CancellationToken cancellationToken) : SynchronizationContext
-        {
-            public CancellationToken CancellationToken { get; } = cancellationToken;
-
-            public override void Post(SendOrPostCallback callback, object? state)
-            {
-                ArgumentNullException.ThrowIfNull(callback);
-                owner.Enqueue(callback, state, this);
-            }
-        }
+            object? State);
     }
 }

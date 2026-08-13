@@ -37,12 +37,28 @@ The Mining, Fishing, and Woodcutting startup flows MUST use ordinary async metho
 - **THEN** the continuation and its synchronous gameplay setup execute on that game-loop tick
 - **AND** no blocking wait or separate continuation task is used
 
-#### Scenario: Startup cancellation prevents a pending continuation
+#### Scenario: Startup cancellation does not suppress a pending continuation
 
 - **GIVEN** an async startup task has a continuation pending in the game-loop context
 - **WHEN** its task handle is canceled before the continuation runs
-- **THEN** the pending continuation is discarded
-- **AND** post-await gameplay setup is not executed
+- **THEN** the pending continuation still runs on the game loop
+- **AND** normal async cleanup, including `finally` blocks, is executed
+
+#### Scenario: Cooperative startup cancellation follows the underlying task
+
+- **GIVEN** an async startup operation accepts the provided `CancellationToken`
+- **WHEN** its task handle is canceled and the operation observes the token
+- **THEN** the underlying task becomes canceled
+- **AND** `RsAsyncTask.IsCancelled` becomes true
+- **AND** the scheduler removes the task on a subsequent tick
+
+#### Scenario: Non-cooperative startup ignores a cancellation request
+
+- **GIVEN** an async startup operation does not accept or observe a cancellation token
+- **WHEN** its task handle is canceled
+- **THEN** the operation continues through its queued continuation
+- **AND** it may complete successfully
+- **AND** `RsAsyncTask.IsCancelled` remains false
 
 #### Scenario: Mining starts with resolved definitions
 
