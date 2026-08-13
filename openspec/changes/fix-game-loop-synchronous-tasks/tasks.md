@@ -44,3 +44,4 @@
 
 - [x] 8.1 Dispose disposable task items when `RsTaskService` removes terminal tasks.
 - [x] 8.2 Make `RsAsyncTask.Cancel()` harmless after terminal completion or disposal, and add focused lifecycle regression coverage.
+- [x] 8.3 Treat a synchronously thrown `OperationCanceledException` as cancellation and cover it with a focused regression test.

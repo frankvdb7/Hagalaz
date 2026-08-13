@@ -122,6 +122,14 @@ The Mining, Fishing, and Woodcutting startup flows MUST use ordinary async metho
 - **WHEN** a retained `RsTaskHandle` calls `Cancel()`
 - **THEN** the call is harmless and does not access a disposed cancellation source
 
+#### Scenario: A synchronously thrown cancellation is not treated as a fault
+
+- **GIVEN** an async task delegate throws `OperationCanceledException` while it is being invoked
+- **WHEN** the task is ticked
+- **THEN** the task becomes canceled
+- **AND** it is not marked faulted
+- **AND** the cancellation exception does not escape as a task fault
+
 #### Scenario: Interrupted skill startup does not begin the action
 
 - **GIVEN** Mining, Fishing, or Woodcutting asynchronous startup is waiting for service data

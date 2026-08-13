@@ -84,6 +84,10 @@ namespace Hagalaz.Game.Abstractions.Tasks
                 _task.GetAwaiter().GetResult();
                 IsCompleted = true;
             }
+            catch (OperationCanceledException)
+            {
+                _cancellation.Cancel();
+            }
             catch
             {
                 IsFaulted = true;

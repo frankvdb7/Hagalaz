@@ -168,6 +168,24 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
         }
 
         [TestMethod]
+        public void SynchronouslyCanceledOperation_IsCanceledRatherThanFaulted()
+        {
+            using var externalCancellation = new CancellationTokenSource();
+            var task = new RsAsyncTask(cancellationToken =>
+            {
+                externalCancellation.Cancel();
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            }, externalCancellation.Token);
+
+            task.Tick();
+
+            Assert.IsTrue(task.IsCancelled);
+            Assert.IsFalse(task.IsFaulted);
+            Assert.IsFalse(task.IsCompleted);
+        }
+
+        [TestMethod]
         public void RunPending_DefersContinuationsPostedDuringTheBatch()
         {
             var context = new GameLoopSynchronizationContext();
