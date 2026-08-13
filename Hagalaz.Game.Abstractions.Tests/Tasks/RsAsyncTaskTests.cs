@@ -156,6 +156,18 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
         }
 
         [TestMethod]
+        public void Cancel_AfterCompletionOrDisposal_IsHarmless()
+        {
+            var completedTask = new RsAsyncTask(() => Task.CompletedTask);
+            completedTask.Tick();
+            completedTask.Cancel();
+
+            var disposedTask = new RsAsyncTask(() => Task.CompletedTask);
+            disposedTask.Dispose();
+            disposedTask.Cancel();
+        }
+
+        [TestMethod]
         public void RunPending_DefersContinuationsPostedDuringTheBatch()
         {
             var context = new GameLoopSynchronizationContext();

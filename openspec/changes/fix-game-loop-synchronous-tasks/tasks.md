@@ -39,3 +39,8 @@
 
 - [x] 7.1 Add optional externally owned cancellation tokens to `RsAsyncTask` and both asynchronous `QueueTask` overloads without adopting them in Mining, Fishing, or Woodcutting.
 - [x] 7.2 Keep skill startup methods tokenless with one temporary interruption check at the synchronous gameplay boundary, and cover the generic external-cancellation behavior with focused tests.
+
+## 8. Task disposal lifecycle
+
+- [x] 8.1 Dispose disposable task items when `RsTaskService` removes terminal tasks.
+- [x] 8.2 Make `RsAsyncTask.Cancel()` harmless after terminal completion or disposal, and add focused lifecycle regression coverage.

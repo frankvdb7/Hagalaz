@@ -9,6 +9,7 @@ Mining, Fishing, and Woodcutting currently assign `async void` callbacks to recu
 - Preload loot definitions and the online-character count during Mining, Fishing, and Woodcutting task setup, before the recurring task is queued.
 - Keep asynchronous skill startup I/O outside the blocking scheduler path by running ordinary async startup methods through a non-blocking `RsAsyncTask` whose continuations are resumed by a scheduler-owned game-loop synchronization context.
 - Allow generic `RsAsyncTask` and `QueueTask` callers to provide an optional externally owned cancellation token without migrating the Mining, Fishing, or Woodcutting interactions to that capability.
+- Dispose terminal task items when the scheduler removes them so linked cancellation registrations and other task-owned resources are released.
 - Define an explicit scheduler phase boundary: accept tasks scheduled before the tick, resume the continuation batch pending at that boundary, then tick the owned task set. Work scheduled during continuation or task processing starts on the next tick.
 - Make the continuation handoff lossless when a worker posts concurrently with the game-loop batch swap.
 - Prevent an interrupted Mining, Fishing, or Woodcutting interaction from starting after its asynchronous setup completes.
@@ -40,6 +41,7 @@ The change affects `RsAsyncTask`, the `QueueTask` extension overloads, and `Haga
 - Concurrent continuation posts are not lost at the batch boundary.
 - An interruption during asynchronous skill setup prevents the recurring skill task from being created.
 - Generic async tasks can link an externally owned cancellation token with their task-handle cancellation source.
+- Terminal disposable tasks are disposed when removed by the scheduler, and canceling a completed or disposed `RsAsyncTask` is harmless.
 - Existing task ordering, cancellation/interruption, and delayed respawn behavior remain covered by deterministic tests.
 
 ## Stop Conditions

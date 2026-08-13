@@ -110,6 +110,18 @@ The Mining, Fishing, and Woodcutting startup flows MUST use ordinary async metho
 - **THEN** the skill method does not receive or propagate a `CancellationToken`
 - **AND** its temporary interruption handler performs the single stale-interaction check before synchronous gameplay setup
 
+#### Scenario: Terminal disposable tasks release owned resources
+
+- **GIVEN** the scheduler owns a task that is canceled, completed, or faulted and implements `IDisposable`
+- **WHEN** the scheduler removes the terminal task from its active list
+- **THEN** it calls `Dispose()` exactly as part of that removal
+
+#### Scenario: Retained handles can cancel terminal async tasks safely
+
+- **GIVEN** an `RsAsyncTask` has completed or has been disposed by the scheduler
+- **WHEN** a retained `RsTaskHandle` calls `Cancel()`
+- **THEN** the call is harmless and does not access a disposed cancellation source
+
 #### Scenario: Interrupted skill startup does not begin the action
 
 - **GIVEN** Mining, Fishing, or Woodcutting asynchronous startup is waiting for service data

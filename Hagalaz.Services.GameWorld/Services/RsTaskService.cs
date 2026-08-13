@@ -51,15 +51,21 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 for (var i = _tasks.Count - 1; i >= 0; i--)
                 {
-                    if (_tasks[i].IsCancelled || _tasks[i].IsCompleted || _tasks[i].IsFaulted)
+                    var task = _tasks[i];
+                    if (task.IsCancelled || task.IsCompleted || task.IsFaulted)
                     {
                         _tasks.RemoveAt(i);
+                        if (task is IDisposable disposable)
+                        {
+                            disposable.Dispose();
+                        }
+
                         continue;
                     }
 
                     try
                     {
-                        _tasks[i].Tick();
+                        task.Tick();
                     }
                     catch (OperationCanceledException ex)
                     {

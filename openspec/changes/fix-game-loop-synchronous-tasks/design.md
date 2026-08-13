@@ -39,6 +39,8 @@ The skill startup flows also need asynchronous definition and store access. They
 
 7. **Cancel stale skill interactions at the skill boundary without adopting generic external cancellation.** Mining, Fishing, and Woodcutting continue to use tokenless `QueueTask(() => Start...Async(...))` startup methods. Each registers a temporary `CreatureInterruptedEvent` handler while data is loading, checks the recorded state once immediately before creating the recurring skill task, and unregisters the handler in `finally`. The generic scheduler and `RsAsyncTask` remain creature-agnostic; interaction-scoped external tokens are future work.
 
+8. **Dispose terminal tasks from the scheduler.** `RsTaskService` removes terminal task items from its owned list and disposes them when they implement `IDisposable`. This releases linked cancellation registrations and preserves the existing disposal contracts of `RsTask`, `RsTask<TResult>`, `RsTickTask`, and `RsAsyncTask`. `RsAsyncTask.Cancel()` ignores requests after completion, fault, cancellation, or disposal so retained task handles remain safe to use.
+
 ## Risks / Trade-offs
 
 - [Continuation queue] Async completion can happen on a worker thread → `GameLoopSynchronizationContext.Post` uses a concurrent queue, and only `RsTaskService.Tick()` executes queued continuations.

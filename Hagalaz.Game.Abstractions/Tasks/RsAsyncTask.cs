@@ -12,6 +12,7 @@ namespace Hagalaz.Game.Abstractions.Tasks
         private readonly CancellationTokenSource _cancellation;
         private Func<CancellationToken, Task>? _operation;
         private Task? _task;
+        private bool _disposed;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RsAsyncTask"/> class.
@@ -53,7 +54,7 @@ namespace Hagalaz.Game.Abstractions.Tasks
         /// <inheritdoc />
         public void Tick()
         {
-            if (IsCancelled || IsCompleted || IsFaulted)
+            if (_disposed || IsCancelled || IsCompleted || IsFaulted)
             {
                 return;
             }
@@ -93,12 +94,23 @@ namespace Hagalaz.Game.Abstractions.Tasks
         /// <inheritdoc />
         public void Cancel()
         {
+            if (_disposed || IsCancelled || IsCompleted || IsFaulted)
+            {
+                return;
+            }
+
             _cancellation.Cancel();
         }
 
         /// <inheritdoc />
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
             _operation = null;
             _cancellation.Dispose();
             GC.SuppressFinalize(this);

@@ -11,6 +11,20 @@ namespace Hagalaz.Services.GameWorld.Tests
     [TestClass]
     public class RsTaskServiceTests
     {
+        private sealed class DisposableTask : ITaskItem, IDisposable
+        {
+            public bool IsCancelled { get; set; }
+            public bool IsCompleted { get; set; }
+            public bool IsFaulted { get; set; }
+            public bool IsDisposed { get; private set; }
+
+            public void Tick() { }
+
+            public void Cancel() => IsCancelled = true;
+
+            public void Dispose() => IsDisposed = true;
+        }
+
         [TestMethod]
         public void Tick_WithMultipleCompletedTasks_RemovesAllCompletedTasks()
         {
@@ -37,6 +51,19 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             Assert.HasCount(1, taskService.Tasks);
             Assert.AreSame(task3, taskService.Tasks[0]);
+        }
+
+        [TestMethod]
+        public void Tick_RemovingTerminalDisposableTask_DisposesTask()
+        {
+            var taskService = new RsTaskService(new NullLogger<RsTaskService>());
+            var task = new DisposableTask { IsCompleted = true };
+            taskService.Schedule(task);
+
+            taskService.Tick();
+
+            Assert.IsTrue(task.IsDisposed);
+            Assert.IsEmpty(taskService.Tasks);
         }
 
         [TestMethod]
