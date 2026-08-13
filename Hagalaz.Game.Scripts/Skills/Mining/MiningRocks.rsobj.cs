@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -26,13 +25,6 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         private readonly IRsTaskService _taskService;
         private readonly ICharacterStore _characterStore;
 
-        private sealed record MiningPreparation(
-            OreDto Ore,
-            RockDto Rock,
-            IReadOnlyList<PickaxeDto> Pickaxes,
-            ILootTable? LootTable,
-            int CharacterCount);
-
         public MiningRocks(IMiningService miningService, IRsTaskService taskService, ICharacterStore characterStore)
         {
             _miningService = miningService;
@@ -54,56 +46,42 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                clicker.QueueTask(new RsAsyncTask<MiningPreparation?>(
-                    cancellationToken => PrepareMiningAsync(clicker, Owner, cancellationToken),
-                    preparation =>
-                    {
-                        if (preparation is not null)
-                        {
-                            StartMining(clicker, Owner, preparation);
-                        }
-                    }));
+                clicker.QueueTask(() => StartMiningAsync(clicker, Owner));
                 return;
             }
 
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        private async Task<MiningPreparation?> PrepareMiningAsync(ICharacter character, IGameObject rocks, CancellationToken cancellationToken)
+        private async Task StartMiningAsync(ICharacter character, IGameObject rocks)
         {
             var rock = await _miningService.FindRockById(rocks.Id);
-            cancellationToken.ThrowIfCancellationRequested();
             if (rock == null)
             {
-                return null;
+                return;
             }
 
             var ore = await _miningService.FindOreByRockId(rocks.Id);
-            cancellationToken.ThrowIfCancellationRequested();
             if (ore == null)
             {
-                return null;
+                return;
             }
 
             var pickaxes = await _miningService.FindAllPickaxes();
-            cancellationToken.ThrowIfCancellationRequested();
             var lootTable = await _miningService.FindRockLootById(rocks.Id);
-            cancellationToken.ThrowIfCancellationRequested();
             var characterCount = await _characterStore.CountAsync();
-            return new MiningPreparation(ore, rock, pickaxes, lootTable, characterCount);
+            StartMining(character, rocks, ore, rock, pickaxes, lootTable, characterCount);
         }
 
         private void StartMining(
             ICharacter character,
             IGameObject rocks,
-            MiningPreparation preparation)
+            OreDto ore,
+            RockDto rock,
+            IReadOnlyList<PickaxeDto> pickaxes,
+            ILootTable? lootTable,
+            int characterCount)
         {
-            var ore = preparation.Ore;
-            var rock = preparation.Rock;
-            var pickaxes = preparation.Pickaxes;
-            var lootTable = preparation.LootTable;
-            var characterCount = preparation.CharacterCount;
-
             if (rocks.IsDestroyed || rocks.IsDisabled)
             {
                 character.SendChatMessage(MiningConstants.RockAlreadyMined);

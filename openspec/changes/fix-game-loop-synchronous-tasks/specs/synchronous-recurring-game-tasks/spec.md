@@ -18,57 +18,62 @@ The Mining, Fishing, and Woodcutting recurring gameplay tasks MUST execute their
 - **THEN** the second tick starts only after the first tick has completed
 - **AND** the reward callbacks cannot overlap
 
-### Requirement: Asynchronous setup data is available before recurring execution
+### Requirement: Asynchronous startup returns through the game loop
 
-The Mining, Fishing, and Woodcutting setup flows MUST load the definitions required by recurring reward callbacks before queuing those callbacks as recurring gameplay tasks. They MUST keep asynchronous setup I/O outside the blocking scheduler tick path.
+The Mining, Fishing, and Woodcutting startup flows MUST use ordinary async methods for definition and store access without blocking `RsTaskService.Tick()`. Their post-await gameplay code MUST execute on the owning game loop.
 
-#### Scenario: Mining starts with a valid rock definition
+#### Scenario: Startup begins without blocking a tick
 
-- **GIVEN** Mining setup resolves the rock, ore, pickaxe, and loot definitions
-- **WHEN** the Mining task is queued
-- **THEN** its recurring callback uses the resolved in-memory data
-- **AND** it does not perform asynchronous definition or store access during a tick
+- **GIVEN** a skill interaction queues `() => Start...Async(...)`
+- **WHEN** the scheduler starts the `RsAsyncTask`
+- **THEN** the async method runs until its first incomplete await and the tick returns without waiting for I/O
 
-#### Scenario: Skill startup I/O completes outside the scheduler tick
+#### Scenario: Startup continuation is resumed by the scheduler
 
-- **GIVEN** Mining, Fishing, or Woodcutting startup requires asynchronous definition or cache access
-- **WHEN** the startup operation is initiated
-- **THEN** the scheduler tick does not synchronously wait for that operation
-- **AND** the scheduled result task returns while the operation is incomplete
-- **WHEN** a later scheduler tick observes the operation as complete
-- **THEN** it obtains the result and applies the synchronous completion callback on that tick
-- **AND** no continuation task is enqueued from an asynchronous completion thread
+- **GIVEN** asynchronous startup I/O completes after the initial tick
+- **WHEN** the async await continuation is posted
+- **THEN** it is held in the scheduler-owned synchronization-context queue
+- **WHEN** the next scheduler tick runs
+- **THEN** the continuation and its synchronous gameplay setup execute on that game-loop tick
+- **AND** no blocking wait or separate continuation task is used
 
-#### Scenario: Startup cancellation is owned by the scheduled task
+#### Scenario: Startup cancellation prevents a pending continuation
 
-- **GIVEN** a Mining, Fishing, or Woodcutting preparation task is pending
-- **WHEN** its task handle is canceled
-- **THEN** the preparation cancellation token is canceled
-- **AND** the completion callback is not executed
+- **GIVEN** an async startup task has a continuation pending in the game-loop context
+- **WHEN** its task handle is canceled before the continuation runs
+- **THEN** the pending continuation is discarded
+- **AND** post-await gameplay setup is not executed
 
-#### Scenario: Fishing starts with a valid spot table
+#### Scenario: Mining starts with resolved definitions
 
-- **GIVEN** Fishing setup resolves the spot table and required item definitions
-- **WHEN** the Fishing task is queued
-- **THEN** its recurring callback uses those resolved values
-- **AND** it does not perform asynchronous store access during a tick
+- **GIVEN** Mining startup resolves the rock, ore, pickaxe, and loot definitions
+- **WHEN** the startup method continues after its awaits
+- **THEN** its synchronous setup uses the resolved in-memory data
+- **AND** the recurring callback performs no asynchronous definition or store access
 
-#### Scenario: Woodcutting starts with a valid tree definition
+#### Scenario: Fishing starts with a resolved spot table
 
-- **GIVEN** Woodcutting setup resolves the tree, log, hatchet, and loot definitions
-- **WHEN** the Woodcutting task is queued
-- **THEN** its recurring callback uses those resolved values
-- **AND** it does not perform asynchronous definition or store access during a tick
+- **GIVEN** Fishing startup resolves the spot table and online-character count
+- **WHEN** the startup method continues after its awaits
+- **THEN** its synchronous fishing setup uses those resolved values
+- **AND** it performs no asynchronous store access during recurring execution
+
+#### Scenario: Woodcutting starts with resolved definitions
+
+- **GIVEN** Woodcutting startup resolves the tree, log, hatchet, loot, and online-character data
+- **WHEN** the startup method continues after its awaits
+- **THEN** its synchronous setup uses the resolved in-memory data
+- **AND** the recurring callback performs no asynchronous definition or store access
 
 ### Requirement: Respawn timing uses the setup-time online-character count
 
-The Mining, Fishing, and Woodcutting setup flows MUST resolve the online-character count through `ICharacterStore.CountAsync()` before queuing the recurring task. The resulting count MUST be passed into the synchronous continuation and used by the recurring reward callback without asynchronous store access.
+The Mining, Fishing, and Woodcutting setup flows MUST resolve the online-character count through `ICharacterStore.CountAsync()` before queuing the recurring task. The resulting setup-time value MUST be captured by the synchronous gameplay setup and used by the recurring reward callback without asynchronous store access.
 
 #### Scenario: Online population is resolved during setup
 
 - **GIVEN** asynchronous setup resolves the online-character count as `100`
-- **WHEN** the recurring skill task is queued
-- **THEN** the result task captures `100` for its synchronous completion callback
+- **WHEN** the recurring skill task is created
+- **THEN** the synchronous gameplay setup captures `100`
 - **AND** the reward callback uses `100` when calculating respawn timing
 - **AND** no asynchronous character-store operation occurs in the reward callback
 

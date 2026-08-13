@@ -89,5 +89,37 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             Assert.AreEqual(1, secondExecuted);
         }
+
+        [TestMethod]
+        public async Task Tick_ResumesAsyncTaskOnTheGameLoop()
+        {
+            var taskService = new RsTaskService(new NullLogger<RsTaskService>());
+            var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var resumed = false;
+            var resumedThreadId = 0;
+            var task = new RsAsyncTask(async () =>
+            {
+                await operation.Task;
+                resumed = true;
+                resumedThreadId = Environment.CurrentManagedThreadId;
+            });
+
+            taskService.Schedule(task);
+            taskService.Tick();
+
+            Assert.IsFalse(resumed);
+            Assert.IsFalse(task.IsCompleted);
+
+            operation.SetResult(true);
+            await Task.Delay(10);
+
+            Assert.IsFalse(resumed);
+            var continuationTickThreadId = Environment.CurrentManagedThreadId;
+            taskService.Tick();
+
+            Assert.IsTrue(resumed);
+            Assert.AreEqual(continuationTickThreadId, resumedThreadId);
+            Assert.IsTrue(task.IsCompleted);
+        }
     }
 }

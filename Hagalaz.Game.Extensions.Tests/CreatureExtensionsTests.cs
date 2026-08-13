@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -78,6 +79,7 @@ namespace Hagalaz.Game.Extensions.Tests
         [TestMethod]
         public async Task QueueTask_WithAsyncOperation_DoesNotBlockWhileOperationIsPending()
         {
+            var context = new GameLoopSynchronizationContext();
             var creature = Substitute.For<ICreature>();
             ITaskItem? queuedTask = null;
             creature.When(x => x.QueueTask(Arg.Any<ITaskItem>())).Do(callInfo =>
@@ -87,25 +89,35 @@ namespace Hagalaz.Game.Extensions.Tests
 
             var operationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var operationFinished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var operationCompleted = false;
             creature.QueueTask(async () =>
             {
                 operationStarted.SetResult(true);
                 await operation.Task;
                 operationCompleted = true;
-                operationFinished.SetResult(true);
             });
 
             Assert.IsNotNull(queuedTask);
             Assert.IsInstanceOfType(queuedTask, typeof(RsAsyncTask));
-            await Task.Run(() => queuedTask.Tick()).WaitAsync(TimeSpan.FromSeconds(1));
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(context);
+            try
+            {
+                queuedTask.Tick();
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(previousContext);
+            }
+
             await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
             Assert.IsFalse(operationCompleted);
             Assert.IsFalse(queuedTask.IsCompleted);
 
             operation.SetResult(true);
-            await operationFinished.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await Task.Delay(10);
+            Assert.IsFalse(operationCompleted);
+            context.RunPending();
             queuedTask.Tick();
 
             Assert.IsTrue(operationCompleted);

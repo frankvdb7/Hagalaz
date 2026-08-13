@@ -1,11 +1,8 @@
-using System.Threading;
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Skills.Fishing
@@ -18,8 +15,6 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         private readonly IFishingService _fishingService;
         private readonly IFishingSkillService _fishingSkillService;
         private readonly ICharacterStore _characterStore;
-
-        private sealed record FishingPreparation(IFishingSpotTable Spot, int CharacterCount);
 
         public FishingSpot(IFishingService fishingService, IFishingSkillService fishingSkillService, ICharacterStore characterStore)
         {
@@ -37,35 +32,23 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <param name="clickType">Type of the click that was performed.</param>
         public override void OnCharacterClickPerform(ICharacter clicker, NpcClickType clickType)
         {
-            clicker.QueueTask(new RsAsyncTask<FishingPreparation?>(
-                cancellationToken => PrepareFishingAsync(clicker, clickType, cancellationToken),
-                preparation =>
-                {
-                    if (preparation is not null &&
-                        _fishingSkillService.TryFish(clicker, Owner, preparation.Spot, preparation.CharacterCount))
-                    {
-                        return;
-                    }
-
-                    base.OnCharacterClickPerform(clicker, clickType);
-                }));
+            clicker.QueueTask(() => StartFishingAsync(clicker, clickType));
         }
 
-        private async Task<FishingPreparation?> PrepareFishingAsync(
-            ICharacter clicker,
-            NpcClickType clickType,
-            CancellationToken cancellationToken)
+        private async Task StartFishingAsync(ICharacter clicker, NpcClickType clickType)
         {
             var spot = await _fishingService.FindSpotByNpcIdClickType(Owner.Appearance.CompositeID, clickType);
-            cancellationToken.ThrowIfCancellationRequested();
             if (spot == null)
             {
-                return null;
+                base.OnCharacterClickPerform(clicker, clickType);
+                return;
             }
 
             var characterCount = await _characterStore.CountAsync();
-            cancellationToken.ThrowIfCancellationRequested();
-            return new FishingPreparation(spot, characterCount);
+            if (!_fishingSkillService.TryFish(clicker, Owner, spot, characterCount))
+            {
+                base.OnCharacterClickPerform(clicker, clickType);
+            }
         }
 
         /// <summary>

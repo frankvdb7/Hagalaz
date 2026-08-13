@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ namespace Hagalaz.Services.GameWorld.Services
     public class RsTaskService : IRsTaskService, ICreatureTaskService
     {
         private readonly ILogger<RsTaskService> _logger;
+        private readonly GameLoopSynchronizationContext _synchronizationContext = new();
 
         /// <summary>
         /// A queue containing all tasks to be processed.
@@ -35,27 +37,39 @@ namespace Hagalaz.Services.GameWorld.Services
         /// </summary>
         public void Tick()
         {
-            while (_pendingTasks.TryDequeue(out var pendingTask))
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(_synchronizationContext);
+
+            try
             {
-                _tasks.Add(pendingTask);
+                _synchronizationContext.RunPending();
+
+                while (_pendingTasks.TryDequeue(out var pendingTask))
+                {
+                    _tasks.Add(pendingTask);
+                }
+
+                for (var i = _tasks.Count - 1; i >= 0; i--)
+                {
+                    if (_tasks[i].IsCancelled || _tasks[i].IsCompleted || _tasks[i].IsFaulted)
+                    {
+                        _tasks.RemoveAt(i);
+                        continue;
+                    }
+
+                    try
+                    {
+                        _tasks[i].Tick();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to tick task");
+                    }
+                }
             }
-
-            for (var i = _tasks.Count - 1; i >= 0; i--)
+            finally
             {
-                if (_tasks[i].IsCancelled || _tasks[i].IsCompleted || _tasks[i].IsFaulted)
-                {
-                    _tasks.RemoveAt(i);
-                    continue;
-                }
-
-                try
-                {
-                    _tasks[i].Tick();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to tick task");
-                }
+                SynchronizationContext.SetSynchronizationContext(previousContext);
             }
         }
     }

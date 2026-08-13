@@ -1,8 +1,8 @@
 ## Context
 
-`RsTaskService.Tick()` walks scheduled `ITaskItem` instances synchronously. `RsTickTask` invokes its `Action` synchronously, but MiningTask, FishingTask, and WoodcuttingTask currently assign `async void` methods to that action. The first incomplete await returns control to the scheduler while the callback continues later, so the next game tick can enter the same task before the previous reward operation has finished.
+`RsTaskService.Tick()` walks scheduled `ITaskItem` instances synchronously. `RsTickTask` invokes its `Action` synchronously, but MiningTask, FishingTask, and WoodcuttingTask previously assigned `async void` methods to that action. The first incomplete await returned control to the scheduler while the callback continued later, so the next game tick could enter the same task before the previous reward operation had finished.
 
-The three skill setup flows already have asynchronous entry points for definition and store access. Those flows are the appropriate boundary for loading data, but they must not block the game-loop tick. A stateful result-producing `RsAsyncTask<T>` starts the operation once, observes it on later ticks, and applies the preparation result synchronously when it is complete. The recurring tasks only need deterministic gameplay decisions and in-memory mutations after setup.
+The skill startup flows also need asynchronous definition and store access. They should remain ordinary async methods, but their post-await gameplay code must return to the game-loop owner instead of running on an arbitrary completion thread. The scheduler therefore owns a `SynchronizationContext` with a thread-safe continuation queue.
 
 ## Goals / Non-Goals
 
@@ -10,36 +10,39 @@ The three skill setup flows already have asynchronous entry points for definitio
 
 - Preserve the synchronous `ITaskItem.Tick()` and `RsTaskService.Tick()` contracts.
 - Make Mining, Fishing, and Woodcutting recurring reward callbacks synchronous and non-overlapping.
-- Load loot tables before the recurring task is scheduled.
-- Resolve the online-character count through the existing asynchronous store API during setup and pass it into the synchronous continuation.
-- Keep async preparation and its synchronous completion callback under one scheduled task with one cancellation and fault owner.
+- Keep ordinary async skill startup methods readable and free of preparation DTOs or result callbacks.
+- Resume async gameplay continuations on the owning game loop.
+- Load loot tables, definitions, and the existing asynchronous online-character count before the recurring task is queued.
 - Preserve existing task cancellation, interruption, reward, exhaustion, and respawn ordering.
 
 **Non-Goals:**
 
 - Do not make the scheduler asynchronous.
-- Do not replace the scheduler with a generic continuation, queue, lock, or state-machine framework. The pending queue is only a boundary for cross-thread scheduling.
+- Do not replace the scheduler with a second worker, generic continuation scheduler, or state-machine framework.
 - Do not change unrelated `RsAsyncTask` call sites or other gameplay skills.
 - Do not change loot selection, reward amounts, chance calculations, or persistence behavior.
+- Do not add a synchronous character-count API or duplicate count state to `CharacterStore`.
 
 ## Decisions
 
-1. **Use a synchronous `Func<bool>` callback for the three recurring tasks.** The callback's boolean result already represents whether the task should stop. Making that callback synchronous removes the `async void` escape without changing the task's ownership or cancellation model. A new generic task abstraction is unnecessary.
+1. **Use a synchronous `Func<bool>` callback for the three recurring tasks.** The callback's boolean result already represents whether the task should stop. Making that callback synchronous removes the `async void` escape without changing the task's ownership or cancellation model. Inventory, XP, and world mutations remain inside this callback.
 
-2. **Preload definitions in the existing skill setup methods.** Mining and Woodcutting load their loot tables before queueing the recurring task; Fishing resolves its fishing table before the synchronous fishing completion callback. This reuses the existing async service boundary and leaves inventory, XP, animations, object visibility, and region changes on the game-loop callback.
+2. **Keep startup methods ordinary async methods.** Mining, Fishing, and Woodcutting use the direct shape `character.QueueTask(() => Start...Async(character, target))`. Each method awaits its required service calls and then invokes the normal synchronous gameplay setup. No preparation record, `Func<Task<Action?>>` helper, or two-lambda result API is introduced.
 
-3. **Make `RsAsyncTask<T>` stateful and result-producing.** The task starts the preparation operation once, retains its pending `Task<T>`, and returns from `Tick()` while that operation is incomplete. A later tick checks completion, obtains the result only after completion is known, and invokes the synchronous completion callback. The same task owns cancellation and fault state, so no fire-and-forget operation or synthetic continuation task is needed.
+3. **Use a scheduler-owned `GameLoopSynchronizationContext`.** `RsTaskService.Tick()` installs one context for the duration of a tick and drains its concurrent continuation queue before ticking scheduled tasks. `RsAsyncTask` starts its regular `Task` once while that context is current. Normal `await` captures the context, so completion posts the continuation to the queue; the next game tick executes that continuation synchronously on the game-loop thread.
 
-4. **Use the existing asynchronous character count API during setup.** Mining, Fishing, and Woodcutting resolve `ICharacterStore.CountAsync()` before their synchronous completion callback starts the recurring task, then pass the resulting setup-time snapshot into the recurring callback. No synchronous count property or second count state is added to `CharacterStore`, and the callback performs no asynchronous store operation.
+4. **Keep `RsAsyncTask` non-blocking.** Its first `Tick()` starts the operation and returns while it is incomplete. Later ticks only inspect `Task.IsCompleted`; `GetAwaiter().GetResult()` is used only after completion is known, so the scheduler never waits for I/O. A fault is owned by the task and reported through the existing scheduler logging path.
 
-5. **Keep the scheduler tick synchronous.** `ITaskItem.Tick()`, `RsTickTask.Tick()`, and `RsTaskService.Tick()` remain synchronous. `RsAsyncTask<T>` may use `GetAwaiter().GetResult()` only after the pending task reports `IsCompleted`, so result extraction cannot block the scheduler. A second async scheduler would violate the issue requirements.
+5. **Use cancellation to discard queued continuations.** `RsAsyncTask.Cancel()` marks the task canceled and cancels its internal token. The token is metadata carried by the synchronization-context continuation, not a required parameter on every gameplay async method. A continuation that has not started when cancellation occurs is skipped, so post-await gameplay does not resume after cancellation.
+
+6. **Use the existing asynchronous character count API during setup.** Mining, Fishing, and Woodcutting resolve `ICharacterStore.CountAsync()` before their synchronous gameplay setup, then capture that setup-time value for respawn calculation. No synchronous count property or second count state is added to `CharacterStore`.
 
 ## Risks / Trade-offs
 
-- [Setup latency] Definition and count reads now complete before the recurring task starts → the existing setup methods are already asynchronous, and no recurring gameplay state is started until required data is available. The count is intentionally a setup-time snapshot until a synchronous store API is needed.
-- [Pending operation] Async setup can take multiple ticks → the scheduled result task retains the pending operation and does not start it again.
-- [Cancellation and faults] The owner can cancel setup or preparation can fail → `RsAsyncTask<T>` owns the cancellation token and fault state, and no detached continuation remains to outlive the handle.
-- [Missing loot definition] Setup can determine that no loot table exists before queueing → the task is not started without the data required to award a reward, avoiding an indefinitely running no-op task.
+- [Continuation queue] Async completion can happen on a worker thread → `GameLoopSynchronizationContext.Post` uses a concurrent queue, and only `RsTaskService.Tick()` executes queued continuations.
+- [Setup latency] Definition and count reads now complete before the recurring task starts → no recurring gameplay state is started until required data is available, and the scheduler tick is not blocked.
+- [Cancellation race] Cancellation after a continuation starts cannot undo already-running synchronous gameplay → the game loop remains the single owner of continuation execution, and pending continuations are discarded before they start.
+- [Count freshness] `CountAsync()` is intentionally a setup-time snapshot until a synchronous store API is needed → this preserves the current store contract and avoids duplicate count state.
 
 ## Migration Plan
 

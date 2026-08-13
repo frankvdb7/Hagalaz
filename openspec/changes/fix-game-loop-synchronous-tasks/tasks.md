@@ -11,14 +11,14 @@
 
 ## 3. Async startup handoff and setup-time population count
 
-- [x] 3.1 Implement stateful non-blocking `RsAsyncTask` and result-producing `RsAsyncTask<TResult>` tasks that retain pending operations and apply completion from `Tick()`.
+- [x] 3.1 Implement non-blocking `RsAsyncTask` and the scheduler-owned `GameLoopSynchronizationContext`; drain posted continuations on the game-loop tick before scheduled tasks run.
 - [x] 3.2 Keep online-character counting on the existing asynchronous `ICharacterStore.CountAsync()` API; do not add a synchronous count property or duplicate counter state.
-- [x] 3.3 Refactor Mining, Fishing, and Woodcutting startup I/O to use one result-producing `RsAsyncTask<TResult>` per interaction; remove the `QueueAsyncTask(Func<Task<Action?>>)` continuation helper.
+- [x] 3.3 Refactor Mining, Fishing, and Woodcutting startup I/O to ordinary `QueueTask(() => Start...Async(...))` methods; remove preparation DTOs, result-task call sites, and the `QueueAsyncTask(Func<Task<Action?>>)` continuation helper.
 - [x] 3.4 Resolve the online-character count during asynchronous setup and pass it into the synchronous recurring callbacks.
 
 ## 4. Follow-up regression coverage
 
-- [x] 4.1 Test non-blocking async task progress, cancellation, fault ownership, and existing scheduler task ordering.
+- [x] 4.1 Test non-blocking async task progress, game-loop continuation resumption, cancellation, fault ownership, and existing scheduler task ordering.
 - [x] 4.2 Preserve `CharacterStore.CountAsync()` coverage for the authoritative collection count.
 - [x] 4.3 Test the async-to-synchronous handoff and verify Woodcutting reads `CountAsync()` during setup but not from the recurring callback.
 - [x] 4.4 Run focused tests, strict OpenSpec validation, solution build, and final diff review.

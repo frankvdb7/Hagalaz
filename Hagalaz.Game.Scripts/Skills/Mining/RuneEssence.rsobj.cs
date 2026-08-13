@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
@@ -49,9 +48,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             if (clickType == GameObjectClickType.Option1Click)
             {
                 const double mineChance = 0.75;
-                clicker.QueueTask(new RsAsyncTask<IReadOnlyList<PickaxeDto>>(
-                    cancellationToken => PrepareRuneEssenceMiningAsync(cancellationToken),
-                    pickaxes => BeginRuneEssenceMining(clicker, Owner, pickaxes, mineChance, _expAmount)));
+                clicker.QueueTask(() => StartRuneEssenceMiningAsync(clicker, Owner, mineChance, _expAmount));
             }
             else if (clickType == GameObjectClickType.Option6Click)
             {
@@ -59,11 +56,14 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             }
         }
 
-        private async Task<IReadOnlyList<PickaxeDto>> PrepareRuneEssenceMiningAsync(CancellationToken cancellationToken)
+        private async Task StartRuneEssenceMiningAsync(
+            ICharacter character,
+            IGameObject rocks,
+            double mineChance,
+            double expReceived)
         {
             var pickaxes = await _miningService.FindAllPickaxes();
-            cancellationToken.ThrowIfCancellationRequested();
-            return pickaxes;
+            BeginRuneEssenceMining(character, rocks, pickaxes, mineChance, expReceived);
         }
 
         private void BeginRuneEssenceMining(

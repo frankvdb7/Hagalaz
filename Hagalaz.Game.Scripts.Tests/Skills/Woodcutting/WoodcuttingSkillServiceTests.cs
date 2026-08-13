@@ -12,7 +12,6 @@ using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Microsoft.Extensions.DependencyInjection;
 using System;
-using System.Threading;
 using Hagalaz.Game.Resources;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -99,7 +98,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
         }
 
         [TestMethod]
-        public async Task PrepareCutting_WhenInventoryIsFull_ShouldNotAddLogs()
+        public async Task StartCuttingAsync_WhenInventoryIsFull_ShouldNotAddLogs()
         {
             // Arrange
             var character = Substitute.For<ICharacter>();
@@ -123,9 +122,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             _woodcuttingService.FindTreeById(tree.Id).Returns(Task.FromResult<TreeDto?>(treeDto));
 
             // Act
-            var preparation = await _woodcuttingSkillService.PrepareCuttingAsync(character, tree, CancellationToken.None);
-            Assert.IsNotNull(preparation);
-            _woodcuttingSkillService.StartCutting(character, tree, preparation);
+            await _woodcuttingSkillService.StartCuttingAsync(character, tree);
 
             // Assert
             character.Received().SendChatMessage(GameStrings.InventoryFull, Arg.Any<ChatMessageType>(), null);
@@ -175,9 +172,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             });
 
             // Act
-            var preparation = await _woodcuttingSkillService.PrepareCuttingAsync(character, tree, CancellationToken.None);
-            Assert.IsNotNull(preparation);
-            _woodcuttingSkillService.StartCutting(character, tree, preparation);
+            await _woodcuttingSkillService.StartCuttingAsync(character, tree);
 
             Assert.IsNotNull(woodcuttingTask);
             await _lootService.Received(1).FindGameObjectLootTable(gameObjectDefinition.LootTableId);

@@ -12,44 +12,73 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
         [TestMethod]
         public async Task Tick_DoesNotBlockWhileOperationIsPending()
         {
-            var operation = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var result = 0;
-            var task = new RsAsyncTask<int>(_ => operation.Task, value => result = value);
+            var context = new GameLoopSynchronizationContext();
+            var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var resumed = false;
+            var task = new RsAsyncTask(async () =>
+            {
+                await operation.Task;
+                resumed = true;
+            });
 
-            await Task.Run(task.Tick).WaitAsync(TimeSpan.FromSeconds(1));
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(context);
+            try
+            {
+                task.Tick();
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(previousContext);
+            }
 
             Assert.IsFalse(task.IsCompleted);
-            Assert.AreEqual(0, result);
+            Assert.IsFalse(resumed);
 
-            operation.SetResult(42);
+            operation.SetResult(true);
+            await Task.Delay(10);
+            Assert.IsFalse(resumed);
+
+            context.RunPending();
             task.Tick();
 
             Assert.IsTrue(task.IsCompleted);
-            Assert.AreEqual(42, result);
+            Assert.IsTrue(resumed);
         }
 
         [TestMethod]
-        public void Cancel_CancelsPreparationAndPreventsCompletion()
+        public async Task Cancel_PreventsPendingContinuationFromResuming()
         {
-            var cancellation = CancellationToken.None;
-            var operation = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var result = 0;
-            var task = new RsAsyncTask<int>(token =>
+            var context = new GameLoopSynchronizationContext();
+            var operation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var resumed = false;
+            var task = new RsAsyncTask(async () =>
             {
-                cancellation = token;
-                return operation.Task;
-            }, value => result = value);
+                await operation.Task;
+                resumed = true;
+            });
 
-            task.Tick();
+            var previousContext = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(context);
+            try
+            {
+                task.Tick();
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(previousContext);
+            }
+
             task.Cancel();
 
             Assert.IsTrue(task.IsCancelled);
-            Assert.IsTrue(cancellation.IsCancellationRequested);
 
-            operation.SetResult(42);
+            operation.SetResult(true);
+            await Task.Delay(10);
+            context.RunPending();
             task.Tick();
 
-            Assert.AreEqual(0, result);
+            Assert.IsFalse(resumed);
             Assert.IsFalse(task.IsCompleted);
         }
 
@@ -57,7 +86,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
         public void FaultedOperation_MarksTaskFaultedAndRethrows()
         {
             var exception = new InvalidOperationException("Test exception");
-            var task = new RsAsyncTask<int>(_ => Task.FromException<int>(exception));
+            var task = new RsAsyncTask(() => Task.FromException(exception));
 
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => task.Tick());
 
