@@ -85,10 +85,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             var from = Location.Create(1, 1, 0);
             var to = Location.Create(2, 1, 0);
 
-            var path = (Path)_pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
 
             Assert.IsTrue(path.Successful);
-            Assert.AreEqual(0, path.Steps);
             Assert.IsTrue(path.ReachedDestination);
             Assert.IsFalse(path.MovedNearDestination);
         }
@@ -99,12 +98,11 @@ namespace Hagalaz.Services.GameWorld.Tests
             var from = Location.Create(1, 1, 0);
             var to = Location.Create(from.X + QueueSize + 1, from.Y, from.Z);
 
-            var path = (Path)_pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
 
             Assert.IsFalse(path.Successful);
             Assert.AreEqual(QueueSize, path.Count());
             Assert.AreEqual(Location.Create(from.X + QueueSize, from.Y, from.Z), path.Last());
-            Assert.AreEqual(QueueSize, path.Steps);
             Assert.IsTrue(path.MovedNear);
             Assert.IsFalse(path.ReachedDestination);
             Assert.IsFalse(path.MovedNearDestination);
@@ -116,12 +114,11 @@ namespace Hagalaz.Services.GameWorld.Tests
             var from = Location.Create(1, 1, 0);
             var to = Location.Create(from.X + QueueSize, from.Y, from.Z);
 
-            var path = (Path)_pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
 
             Assert.IsTrue(path.Successful);
             Assert.AreEqual(QueueSize, path.Count());
             Assert.AreEqual(to, path.Last());
-            Assert.AreEqual(QueueSize - 1, path.Steps);
             Assert.IsFalse(path.MovedNear);
             Assert.IsFalse(path.ReachedDestination);
             Assert.IsFalse(path.MovedNearDestination);
@@ -134,12 +131,11 @@ namespace Hagalaz.Services.GameWorld.Tests
             var to = Location.Create(4, 1, 0);
             _mapRegionService.GetClippingFlag(3, 1, 0).Returns(CollisionFlag.FloorBlock);
 
-            var path = (Path)_pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
 
             Assert.IsFalse(path.Successful);
             Assert.AreEqual(1, path.Count());
             Assert.AreEqual(Location.Create(2, 1, 0), path.Last());
-            Assert.AreEqual(1, path.Steps);
             Assert.IsTrue(path.MovedNear);
             Assert.IsFalse(path.ReachedDestination);
             Assert.IsFalse(path.MovedNearDestination);

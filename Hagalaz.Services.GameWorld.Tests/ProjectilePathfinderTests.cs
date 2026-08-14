@@ -10,7 +10,6 @@ using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using NSubstitute;
-using Path = Hagalaz.Services.GameWorld.Logic.Pathfinding.Path;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -140,10 +139,9 @@ public sealed class ProjectilePathfinderTests
     {
         var destination = Location.Create(OriginX + 1, OriginY, Plane, Dimension);
 
-        var path = (Path)Find(EmptyCollision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
+        var path = Find(EmptyCollision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
 
         Assert.IsTrue(path.Successful);
-        Assert.AreEqual(0, path.Steps);
         Assert.IsTrue(path.ReachedDestination);
         Assert.IsFalse(path.MovedNearDestination);
     }
@@ -156,11 +154,10 @@ public sealed class ProjectilePathfinderTests
         var from = Location.Create(OriginX, OriginY, Plane, Dimension);
         var destination = Location.Create(OriginX + deltaX, OriginY + deltaY, Plane, Dimension);
 
-        var path = (Path)Find(EmptyCollision, from, destination);
+        var path = Find(EmptyCollision, from, destination);
 
         Assert.IsFalse(path.Successful);
         Assert.AreEqual(0, path.Count());
-        Assert.AreEqual(QueueSize, path.Steps);
         Assert.IsTrue(path.MovedNear);
         Assert.IsFalse(path.ReachedDestination);
         Assert.IsFalse(path.MovedNearDestination);
@@ -174,12 +171,11 @@ public sealed class ProjectilePathfinderTests
         var from = Location.Create(OriginX, OriginY, Plane, Dimension);
         var destination = Location.Create(OriginX + deltaX, OriginY + deltaY, Plane, Dimension);
 
-        var path = (Path)Find(EmptyCollision, from, destination);
+        var path = Find(EmptyCollision, from, destination);
 
         Assert.IsTrue(path.Successful);
         Assert.HasCount(1, path);
         Assert.AreEqual(destination, path.Single());
-        Assert.AreEqual(QueueSize - 1, path.Steps);
         Assert.IsFalse(path.MovedNear);
         Assert.IsFalse(path.ReachedDestination);
         Assert.IsFalse(path.MovedNearDestination);
@@ -195,11 +191,10 @@ public sealed class ProjectilePathfinderTests
             [(OriginX + 2, OriginY)] = CollisionFlag.ObjectBlock
         };
 
-        var path = (Path)Find(collision, from, destination);
+        var path = Find(collision, from, destination);
 
         Assert.IsFalse(path.Successful);
         Assert.AreEqual(0, path.Count());
-        Assert.AreEqual(1, path.Steps);
         Assert.IsTrue(path.MovedNear);
         Assert.IsFalse(path.ReachedDestination);
         Assert.IsFalse(path.MovedNearDestination);
