@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 
@@ -41,11 +40,10 @@ namespace Hagalaz.Game.Abstractions.Services
         IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, bool create, bool resume, IMapSize mapSize);
 
         /// <summary>
-        /// Asynchronously loads the data for a specific region.
+        /// Ensures that loading for a region is scheduled exactly once.
         /// </summary>
         /// <param name="region">The region to load.</param>
-        /// <returns>A task that represents the asynchronous loading operation.</returns>
-        public Task LoadRegionAsync(IMapRegion region);
+        void EnsureRegionLoadScheduled(IMapRegion region);
 
         /// <summary>
         /// Gets the XTEA keys for a given region, used for decrypting map data.

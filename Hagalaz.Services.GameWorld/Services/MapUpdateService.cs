@@ -2,7 +2,6 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Protocol;
-using Hagalaz.Tasks.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
@@ -41,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
             foreach (var region in viewport.VisibleRegions)
             {
-                _regionService.LoadRegionAsync(region).Forget();
+                _regionService.EnsureRegionLoadScheduled(region);
                 region.SendFullPartUpdates(character);
             }
         }

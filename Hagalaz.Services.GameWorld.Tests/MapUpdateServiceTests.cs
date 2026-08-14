@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
@@ -35,7 +34,6 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
             regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, mapSize)
                 .Returns(new[] { region });
-            regionService.LoadRegionAsync(region).Returns(Task.CompletedTask);
 
             var mapUpdateService = new MapUpdateService(regionService);
 
@@ -44,7 +42,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Received.InOrder(() =>
             {
                 session.SendMessage(Arg.Any<RaidoMessage>());
-                regionService.LoadRegionAsync(region);
+                regionService.EnsureRegionLoadScheduled(region);
                 region.SendFullPartUpdates(character);
             });
             session.Received(1).SendMessage(Arg.Is<RaidoMessage>(message => message is DrawStandardMapMessage));

@@ -28,7 +28,7 @@ namespace Hagalaz.Workers
                 throw new ArgumentNullException(nameof(workItem));
             }
 
-            await _queue.Writer.WriteAsync(workItem);
+            await _queue.Writer.WriteAsync(workItem).ConfigureAwait(false);
         }
 
         public async ValueTask<Func<CancellationToken, ValueTask>> DequeueAsync(

@@ -1,8 +1,8 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.Location;
@@ -39,6 +39,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly ILogger<MapRegionService> _logger;
         private readonly IMapper _mapper;
+        private readonly ConcurrentDictionary<IMapRegion, byte> _scheduledRegionLoads = new();
 
         public MapRegionService(
             IBackgroundTaskQueue taskQueue,
@@ -258,9 +259,34 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        public async Task LoadRegionAsync(IMapRegion region) =>
-            await _taskQueue.QueueBackgroundWorkItemAsync(async (cancellationToken) =>
-                await _serviceScope.ServiceProvider.GetRequiredService<IMapRegionLoader>().LoadAsync(region, cancellationToken));
+        public void EnsureRegionLoadScheduled(IMapRegion region)
+        {
+            if (region.IsLoaded || !_scheduledRegionLoads.TryAdd(region, 0))
+            {
+                return;
+            }
+
+            try
+            {
+                _taskQueue.QueueBackgroundWorkItemAsync(async cancellationToken =>
+                {
+                    try
+                    {
+                        await _serviceScope.ServiceProvider.GetRequiredService<IMapRegionLoader>()
+                            .LoadAsync(region, cancellationToken);
+                    }
+                    finally
+                    {
+                        _scheduledRegionLoads.TryRemove(region, out _);
+                    }
+                }).AsTask().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                _scheduledRegionLoads.TryRemove(region, out _);
+                _logger.LogError(ex, "Failed to schedule loading for region {id}", region.Id);
+            }
+        }
 
         public IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, bool create, bool resume, IMapSize mapSize)
         {
