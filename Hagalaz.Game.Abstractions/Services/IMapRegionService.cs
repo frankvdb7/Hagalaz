@@ -40,12 +40,6 @@ namespace Hagalaz.Game.Abstractions.Services
         IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, bool create, bool resume, IMapSize mapSize);
 
         /// <summary>
-        /// Ensures that loading for a region is admitted at most once while a previous request is pending.
-        /// </summary>
-        /// <param name="region">The region to load.</param>
-        void EnsureRegionLoadScheduled(IMapRegion region);
-
-        /// <summary>
         /// Gets the XTEA keys for a given region, used for decrypting map data.
         /// </summary>
         /// <param name="regionID">The ID of the region.</param>

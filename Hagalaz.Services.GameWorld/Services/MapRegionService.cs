@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -10,9 +9,7 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
-using Hagalaz.Workers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Regions_MapRegion = Hagalaz.Services.GameWorld.Model.Maps.Regions.MapRegion;
@@ -32,17 +29,13 @@ namespace Hagalaz.Services.GameWorld.Services
         public const int MaxDimensions = byte.MaxValue;
         private readonly Dictionary<int, int[]> _xteaKeys = new();
         private readonly IDimension?[] _dimensions = new IDimension?[MaxDimensions];
-        private readonly IBackgroundTaskQueue _taskQueue;
         private readonly IServiceScope _serviceScope;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly ILogger<MapRegionService> _logger;
         private readonly IMapper _mapper;
-        private readonly ConcurrentDictionary<IMapRegion, byte> _scheduledRegionLoads = new();
-
         public MapRegionService(
-            IBackgroundTaskQueue taskQueue,
             IServiceProvider serviceProvider,
             ILocationBuilder locationBuilder,
             IGameObjectBuilder gameObjectBuilder,
@@ -51,7 +44,6 @@ namespace Hagalaz.Services.GameWorld.Services
             IMapper mapper)
         {
             CreateDimension(0); // create global world dimension.
-            _taskQueue = taskQueue;
             _serviceScope = serviceProvider.CreateScope();
             _locationBuilder = locationBuilder;
             _gameObjectBuilder = gameObjectBuilder;
@@ -256,40 +248,6 @@ namespace Hagalaz.Services.GameWorld.Services
             if (_dimensions[dimension.Id] == dimension)
             {
                 _dimensions[dimension.Id] = null;
-            }
-        }
-
-        public void EnsureRegionLoadScheduled(IMapRegion region)
-        {
-            if (region.IsLoaded || !_scheduledRegionLoads.TryAdd(region, 0))
-            {
-                return;
-            }
-
-            var admitted = false;
-
-            try
-            {
-                _taskQueue.QueueBackgroundWorkItemAsync(async cancellationToken =>
-                {
-                    try
-                    {
-                        await _serviceScope.ServiceProvider.GetRequiredService<IMapRegionLoader>()
-                            .LoadAsync(region, cancellationToken);
-                    }
-                    finally
-                    {
-                        _scheduledRegionLoads.TryRemove(region, out _);
-                    }
-                }).AsTask().GetAwaiter().GetResult();
-                admitted = true;
-            }
-            finally
-            {
-                if (!admitted)
-                {
-                    _scheduledRegionLoads.TryRemove(region, out _);
-                }
             }
         }
 

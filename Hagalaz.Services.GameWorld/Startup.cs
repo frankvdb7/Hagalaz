@@ -79,7 +79,6 @@ using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
 using Hagalaz.Services.GameWorld.Configuration;
 using Hagalaz.Services.GameWorld.Health;
-using Hagalaz.Workers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -148,8 +147,6 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IAuthenticationService, AuthenticationService>();
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();
-            services.AddSingleton<IBackgroundTaskQueue>(_ => new DefaultBackgroundTaskQueue(DefaultBackgroundTaskQueue.DefaultCapacity));
-            services.AddHostedService<QueuedHostedService>();
             services.AddHostedService<GameWorkerService>();
             services.AddSingleton<InMemoryEventBus>();
             services.AddSingleton<IEventBus>(provider => provider.GetRequiredService<InMemoryEventBus>());
@@ -254,6 +251,9 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IMapRegionService, MapRegionService>();
             services.AddSingleton<IMapUpdateService, MapUpdateService>();
             services.AddScoped<IMapRegionLoader, MapRegionLoader>();
+            services.AddSingleton<MapRegionLoadScheduler>();
+            services.AddSingleton<IMapRegionLoadScheduler>(provider => provider.GetRequiredService<MapRegionLoadScheduler>());
+            services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<MapRegionLoadScheduler>());
             services.AddHostedService<MapRegionBackgroundService>();
             services.AddSingleton<ILocationBuilder, LocationBuilder>();
             services.AddSingleton<IRegionUpdateBuilder, RegionUpdateBuilder>();

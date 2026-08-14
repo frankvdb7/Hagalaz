@@ -22,6 +22,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var location = new Location(100, 100, 0, 0);
             var region = Substitute.For<IMapRegion>();
             var regionService = Substitute.For<IMapRegionService>();
+            var regionLoadScheduler = Substitute.For<IMapRegionLoadScheduler>();
             var mapSize = Substitute.For<IMapSize>();
             var viewport = new Viewport(character, regionService, mapSize);
 
@@ -35,14 +36,14 @@ namespace Hagalaz.Services.GameWorld.Tests
             regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, mapSize)
                 .Returns(new[] { region });
 
-            var mapUpdateService = new MapUpdateService(regionService);
+            var mapUpdateService = new MapUpdateService(regionService, regionLoadScheduler);
 
             mapUpdateService.UpdateMap(character, false, false);
 
             Received.InOrder(() =>
             {
                 session.SendMessage(Arg.Any<RaidoMessage>());
-                regionService.EnsureRegionLoadScheduled(region);
+                regionLoadScheduler.RequestLoad(region);
                 region.SendFullPartUpdates(character);
             });
             session.Received(1).SendMessage(Arg.Is<RaidoMessage>(message => message is DrawStandardMapMessage));

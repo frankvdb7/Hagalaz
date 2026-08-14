@@ -11,8 +11,10 @@ namespace Hagalaz.Services.GameWorld.Services
     public sealed class MapUpdateService : IMapUpdateService
     {
         private readonly IMapRegionService _regionService;
+        private readonly IMapRegionLoadScheduler _regionLoadScheduler;
 
-        public MapUpdateService(IMapRegionService regionService) => _regionService = regionService;
+        public MapUpdateService(IMapRegionService regionService, IMapRegionLoadScheduler regionLoadScheduler) =>
+            (_regionService, _regionLoadScheduler) = (regionService, regionLoadScheduler);
 
         public void UpdateMap(ICharacter character, bool forceUpdate, bool renderViewPort = false)
         {
@@ -40,7 +42,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
             foreach (var region in viewport.VisibleRegions)
             {
-                _regionService.EnsureRegionLoadScheduled(region);
+                _regionLoadScheduler.RequestLoad(region);
                 region.SendFullPartUpdates(character);
             }
         }

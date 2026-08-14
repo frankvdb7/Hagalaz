@@ -58,14 +58,14 @@ The hosted GameWorld worker MUST retain ownership of its execution task and MUST
 
 ### Requirement: Viewport map updates stay synchronous at the render boundary
 
-Character map rebuilding and packet construction MUST be synchronous within the render phase. A map-update service MUST orchestrate the viewport rebuild, map packet send, synchronous region-load scheduling, and full region-part updates during that same synchronous operation; the actual region data load MAY continue in the background. `Viewport` MUST remain responsible only for visible-region state, bounds, and visibility calculations.
+Character map rebuilding and packet construction MUST be synchronous within the render phase. A map-update service MUST orchestrate the viewport rebuild, map packet send, synchronous non-blocking region-load requests, and full region-part updates during that same synchronous operation; the actual region data load MUST be owned by a dedicated asynchronous scheduler. `Viewport` MUST remain responsible only for visible-region state, bounds, and visibility calculations.
 
-The `ICharacter` model contract MUST expose only a synchronous map-update operation. `IViewport` MUST NOT expose map-update orchestration, and callers MUST NOT use sync-over-async waits for map updates. The map-region loading layer MUST skip loaded or already scheduled regions, preserve backpressure when admitting work to the bounded background queue, release scheduling state when work completes, and propagate queue-admission failures to the caller. `IMapRegion.IsLoaded` remains the authoritative indication that a region should not be admitted again; this requirement does not define recovery for a loader that marks a region loaded before a later population step fails.
+The `ICharacter` model contract MUST expose only a synchronous map-update operation. `IViewport` MUST NOT expose map-update orchestration, and callers MUST NOT use sync-over-async waits for map updates. The region-load scheduler MUST accept requests synchronously without blocking the game tick or creating detached tasks, skip loaded or already scheduled regions, deduplicate pending and in-flight requests, and own the asynchronous loader operation. `IMapRegion.IsLoaded` remains the authoritative indication that a region should not be admitted again; this requirement does not define recovery for a loader that marks a region loaded before a later population step fails.
 
 #### Scenario: A character crosses a viewport rebuild boundary
 
 - **WHEN** a character's render update detects that its viewport must be rebuilt
-- **THEN** the map-update service asks the viewport to rebuild, sends the map update, synchronously requests each visible region load through the map-region loading layer, and sends full region-part updates before the current render operation returns, without awaiting region loading or scheduling an `RsAsyncTask`
+- **THEN** the map-update service asks the viewport to rebuild, sends the map update, synchronously requests each visible region load through the dedicated scheduler, and sends full region-part updates before the current render operation returns, without awaiting region loading, blocking for queue capacity, or scheduling an `RsAsyncTask`
 
 #### Scenario: A region is already loaded or scheduled
 
@@ -77,10 +77,15 @@ The `ICharacter` model contract MUST expose only a synchronous map-update operat
 - **WHEN** a region load work item completes after the loader has marked the region loaded
 - **THEN** a later map update does not enqueue another work item for that region
 
-#### Scenario: The bounded region-load queue is full
+#### Scenario: Region loading is busy
 
-- **WHEN** a new region load is requested while the bounded background queue has no capacity
-- **THEN** the loading layer applies the queue's backpressure synchronously until admission or failure, without creating a detached task waiting for capacity
+- **WHEN** a map update requests a region while another region load is running or pending
+- **THEN** the request returns without blocking the game tick, and the scheduler retains at most one pending or in-flight request for each region
+
+#### Scenario: The scheduler consumes a region request
+
+- **WHEN** the asynchronous scheduler receives a new region request
+- **THEN** it creates the scoped loader operation, awaits the region load on its own consumer, and releases the region's scheduled marker when the operation completes
 
 #### Scenario: Startup or world-map code requests a map update
 

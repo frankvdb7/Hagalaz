@@ -13,7 +13,8 @@
 - [x] 2.4 Move viewport region loading out of the synchronous character render update and onto the existing creature task scheduler.
 - [x] 2.5 Move viewport/map-update orchestration into `MapUpdateService` so full region-part updates occur in the current synchronous render phase without a character-owned `RsAsyncTask`, while keeping `Viewport` state-only.
 - [x] 2.6 Remove `UpdateMapAsync` from the character and viewport model contracts and migrate startup/world-map callers to synchronous `UpdateMap`.
-- [x] 2.7 Replace `LoadRegionAsync`/`.Forget()` with deduplicated synchronous region-load scheduling that preserves bounded queue backpressure and propagates submission failures.
+- [x] 2.7 Replace `LoadRegionAsync`/`.Forget()` with a synchronous, non-blocking region-load request boundary and deduplicated asynchronous loading ownership.
+- [x] 2.8 Remove the unused generic `IBackgroundTaskQueue` bridge and register the dedicated region-load scheduler as the single asynchronous consumer.
 
 ## 3. Deterministic regression coverage
 
@@ -21,6 +22,7 @@
 - [x] 3.2 Add phase-order and adjacent-tick serialization coverage for prepare, update, and reset phases.
 - [x] 3.3 Add overrun logging, genuine exception, host cancellation, unrelated cancellation, and shutdown ownership coverage.
 - [x] 3.4 Add coverage proving one character snapshot is shared across regions and synchronous render information sends both client messages.
+- [x] 3.5 Add coverage proving region-load requests do not block the game tick and are deduplicated while loading is in flight.
 
 ## 4. Validation
 
