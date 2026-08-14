@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Extensions;
 
@@ -26,10 +27,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             part.Remove(item);
         }
 
-        private void TickGroundItems()
+        private void TickGroundItems(CancellationToken cancellationToken)
         {
             foreach (var groundItem in FindAllGroundItems().ToArray())
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 groundItem.TicksLeft--;
 
                 if (groundItem.TicksLeft > 0)

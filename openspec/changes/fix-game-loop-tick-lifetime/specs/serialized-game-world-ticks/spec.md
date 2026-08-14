@@ -37,6 +37,16 @@ The hosted GameWorld worker MUST retain ownership of its execution task and MUST
 - **WHEN** the worker stopping token is cancelled while the worker is delaying or between ticks
 - **THEN** the worker exits cleanly without reporting routine host cancellation as an unexpected major tick failure
 
+#### Scenario: Host shutdown timeout expires during a blocked phase
+
+- **WHEN** the `StopAsync` host token is cancelled while a worker-owned region phase remains blocked
+- **THEN** `StopAsync` does not report successful completion until the phase finishes or reaches an explicitly safe cancellation boundary
+
+#### Scenario: A region reaches a cooperative cancellation boundary
+
+- **WHEN** the worker stopping token is cancelled before a region begins its next safe iteration boundary
+- **THEN** the region observes that token and the worker exits without starting later region phases
+
 ### Requirement: Tick failures and overruns remain observable
 
 The worker MUST log genuine major tick exceptions and MUST report a completed major tick that exceeds its configured duration, without treating an overrun as permission to overlap work.
@@ -50,3 +60,8 @@ The worker MUST log genuine major tick exceptions and MUST report a completed ma
 
 - **WHEN** a region phase throws an unexpected exception
 - **THEN** the worker logs the exception as a major tick failure and does not start another tick until the faulted pipeline has ended
+
+#### Scenario: Tick work throws an unrelated cancellation exception during shutdown
+
+- **WHEN** a region phase throws an `OperationCanceledException` carrying a token other than the worker stopping token while shutdown is requested
+- **THEN** the worker logs it as a major tick failure instead of silently classifying it as routine shutdown

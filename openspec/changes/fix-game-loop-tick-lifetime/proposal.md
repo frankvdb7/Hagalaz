@@ -6,6 +6,7 @@
 
 - Run the game loop through the existing `BackgroundService` lifecycle so the worker task is retained and awaited during shutdown.
 - Await the complete major region pipeline before beginning another iteration; the configured tick duration remains an observability budget, not a concurrency timeout.
+- Pass the worker stopping token through the asynchronous region tick APIs and honor it at safe region, part, item, and creature-iteration boundaries.
 - Preserve the existing region and client phase order, and distinguish host cancellation, tick faults, and budget overruns in logging.
 - Add deterministic GameWorld worker tests covering serial ticks, phase ordering, overrun reporting, exceptions, cancellation, and shutdown ownership.
 
@@ -21,16 +22,17 @@ None.
 
 ## Impact
 
-The change is limited to `Hagalaz.Services.GameWorld/Services/GameWorkerService.cs` and focused tests in `Hagalaz.Services.GameWorld.Tests`. It removes the service-local cancellation/task plumbing and adds no dependencies, persistence changes, or new worker framework.
+The change is limited to the existing worker, `IMapRegion`/`MapRegion` tick contracts and implementation, a small creature rendering-wrapper cleanup, focused tests in `Hagalaz.Services.GameWorld.Tests`, and the associated OpenSpec record. It removes the service-local cancellation/task plumbing and adds no dependencies, persistence changes, or new worker framework.
 
 ## Acceptance Criteria
 
 - At most one major world tick executes at a time, including when it exceeds its configured budget.
 - The four existing phases remain ordered and serialized across adjacent ticks.
 - `StopAsync` does not complete while worker-owned region work is still running.
+- Region tick cancellation is propagated from the worker and is observed only at safe boundaries.
 - Host cancellation is not logged as an unexpected tick failure; genuine faults remain observable.
 - Tick overruns remain observable through logging.
 
 ## Stop Conditions
 
-Do not add parallel region execution, a generic game-loop coordinator, a second queue/lock, cooperative cancellation parameters to all region APIs, or unrelated lifecycle changes.
+Do not add parallel region execution, a generic game-loop coordinator, a second queue/lock, cancellation parameters to unrelated creature APIs, or unrelated lifecycle changes.

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Collections;
@@ -86,16 +87,34 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public IEnumerable<INpc> FindAllNpcs() => _npcs;
 
-        private void ForEachCreature(Action<ICreature> action)
+        private void ForEachCreature(Action<ICreature> action, CancellationToken cancellationToken)
         {
-            foreach (var character in _characters) action(character);
-            foreach (var npc in _npcs) action(npc);
+            foreach (var character in _characters)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                action(character);
+            }
+
+            foreach (var npc in _npcs)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                action(npc);
+            }
         }
 
-        private async Task ForEachCreatureAsync(Func<ICreature, Task> action)
+        private async Task ForEachCreatureAsync(Func<ICreature, Task> action, CancellationToken cancellationToken)
         {
-            foreach (var character in _characters) await action(character);
-            foreach (var npc in _npcs) await action(npc);
+            foreach (var character in _characters)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await action(character);
+            }
+
+            foreach (var npc in _npcs)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await action(npc);
+            }
         }
 
         private bool AnyCreature(Func<ICreature, bool> predicate)
@@ -114,49 +133,55 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <summary>
         /// Tick 1.
         /// </summary>
-        public async Task MajorUpdateTick()
+        public Task MajorUpdateTick(CancellationToken cancellationToken = default)
         {
-            await Task.CompletedTask;
-            ForEachCreature(c => c.MajorUpdateTick());
+            ForEachCreature(c => c.MajorUpdateTick(), cancellationToken);
+            return Task.CompletedTask;
         }
 
         /// <summary>
         /// Tick 2.
         /// </summary>
-        public async Task MajorClientPrepareUpdateTick()
+        public Task MajorClientPrepareUpdateTick(CancellationToken cancellationToken = default)
         {
-            TickGroundItems();
-            await ForEachCreatureAsync(c => c.MajorClientPrepareUpdateTickAsync());
+            cancellationToken.ThrowIfCancellationRequested();
+            TickGroundItems(cancellationToken);
+            return ForEachCreatureAsync(c => c.MajorClientPrepareUpdateTickAsync(), cancellationToken);
         }
 
         /// <summary>
         /// Tick 3.
         /// </summary>
-        public async Task MajorClientUpdateTick()
+        public Task MajorClientUpdateTick(CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             foreach (var part in _parts)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 foreach (var character in _characters)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     part.SendUpdates(character);
                 }
             }
 
-            await ForEachCreatureAsync(c => c.MajorClientUpdateTickAsync());
+            return ForEachCreatureAsync(c => c.MajorClientUpdateTickAsync(), cancellationToken);
         }
 
         /// <summary>
         /// Tick 4.
         /// </summary>
-        public async Task MajorClientUpdateResetTick()
+        public Task MajorClientUpdateResetTick(CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             // clear update things like projectiles & etc
             foreach (var part in _parts)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 part.ClearUpdates();
             }
 
-            await ForEachCreatureAsync(c => c.MajorClientUpdateResetTickAsync());
+            return ForEachCreatureAsync(c => c.MajorClientUpdateResetTickAsync(), cancellationToken);
         }
 
         public bool CanSuspend()

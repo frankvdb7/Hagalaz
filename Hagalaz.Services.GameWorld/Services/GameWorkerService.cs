@@ -39,7 +39,11 @@ namespace Hagalaz.Services.GameWorld.Services
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("{Name} is stopping.", nameof(GameWorkerService));
-            await base.StopAsync(cancellationToken);
+
+            // Region APIs can only observe cancellation at explicit safe boundaries. Do not let
+            // the host shutdown timeout make BackgroundService report a successful stop while a
+            // worker-owned region operation is still running.
+            await base.StopAsync(CancellationToken.None);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -50,24 +54,33 @@ namespace Hagalaz.Services.GameWorld.Services
                 try
                 {
                     await Task.Delay(tickTimeSpan, stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
 
-                    if (stoppingToken.IsCancellationRequested)
-                    {
-                        break;
-                    }
+                if (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
 
+                try
+                {
                     // Execute 'major-update' tasks.
                     _rsTaskScheduler.Tick();
 
                     var stopwatch = Stopwatch.StartNew();
+                    var tickCompleted = false;
                     try
                     {
-                        await RunMajorTickAsync();
+                        await RunMajorTickAsync(stoppingToken);
+                        tickCompleted = true;
                     }
                     finally
                     {
                         stopwatch.Stop();
-                        if (stopwatch.Elapsed > tickTimeSpan)
+                        if (tickCompleted && stopwatch.Elapsed > tickTimeSpan)
                         {
                             _logger.LogWarning(
                                 "Major game tick exceeded its configured budget. Elapsed: {Elapsed}; budget: {Budget}.",
@@ -76,7 +89,7 @@ namespace Hagalaz.Services.GameWorld.Services
                         }
                     }
                 }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
                 {
                     break;
                 }
@@ -87,27 +100,32 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
-        private async Task RunMajorTickAsync()
+        private async Task RunMajorTickAsync(CancellationToken stoppingToken)
         {
+            stoppingToken.ThrowIfCancellationRequested();
             var regions = _regionService.FindAllRegions().ToList();
             foreach (var region in regions)
             {
-                await region.MajorUpdateTick();
+                stoppingToken.ThrowIfCancellationRequested();
+                await region.MajorUpdateTick(stoppingToken);
             }
 
             foreach (var region in regions)
             {
-                await region.MajorClientPrepareUpdateTick();
+                stoppingToken.ThrowIfCancellationRequested();
+                await region.MajorClientPrepareUpdateTick(stoppingToken);
             }
 
             foreach (var region in regions)
             {
-                await region.MajorClientUpdateTick();
+                stoppingToken.ThrowIfCancellationRequested();
+                await region.MajorClientUpdateTick(stoppingToken);
             }
 
             foreach (var region in regions)
             {
-                await region.MajorClientUpdateResetTick();
+                stoppingToken.ThrowIfCancellationRequested();
+                await region.MajorClientUpdateResetTick(stoppingToken);
             }
         }
     }

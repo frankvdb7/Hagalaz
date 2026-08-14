@@ -651,16 +651,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         ///     Tick used for updating rendering information.
         /// </summary>
-        public async Task MajorClientUpdateTickAsync()
+        public Task MajorClientUpdateTickAsync()
         {
             if (_updateState != CreatureUpdateState.ClientPrepareUpdate)
             {
-                return;
+                return Task.CompletedTask;
             }
 
             _updateState = CreatureUpdateState.ClientUpdate;
 
-            await UpdateTick();
+            return UpdateTick();
         }
 
         /// <summary>

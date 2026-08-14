@@ -14,3 +14,11 @@
 
 - [x] 3.1 Run the focused GameWorld test project and the relevant test filter to a clean exit.
 - [x] 3.2 Run a solution build, strict OpenSpec validation, and final diff/status review.
+
+## 4. Review follow-up: shutdown and cancellation boundaries
+
+- [x] 4.1 Prevent the host shutdown token from making `StopAsync` report success while the worker task remains alive.
+- [x] 4.2 Propagate the worker stopping token through all four asynchronous region tick APIs and observe it at safe region boundaries.
+- [x] 4.3 Separate delay cancellation from tick failures and preserve unrelated `OperationCanceledException` failures during shutdown.
+- [x] 4.4 Add deterministic regressions for host-token expiry, cancellation-token propagation, and shutdown-time unrelated tick cancellation.
+- [x] 4.5 Rerun focused tests, solution build, strict OpenSpec validation, and final diff review.

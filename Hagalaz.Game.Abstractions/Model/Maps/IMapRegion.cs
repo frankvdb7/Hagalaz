@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -195,22 +196,26 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// <summary>
         /// Performs the main game logic update tick for the region.
         /// </summary>
-        Task MajorUpdateTick();
+        /// <param name="cancellationToken">Token used to stop between safe update boundaries.</param>
+        Task MajorUpdateTick(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Prepares the data for the client update tick.
         /// </summary>
-        Task MajorClientPrepareUpdateTick();
+        /// <param name="cancellationToken">Token used to stop between safe update boundaries.</param>
+        Task MajorClientPrepareUpdateTick(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Performs the main client update tick for the region.
         /// </summary>
-        Task MajorClientUpdateTick();
+        /// <param name="cancellationToken">Token used to stop between safe update boundaries.</param>
+        Task MajorClientUpdateTick(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Resets the update flags for the region after a client update.
         /// </summary>
-        Task MajorClientUpdateResetTick();
+        /// <param name="cancellationToken">Token used to stop between safe update boundaries.</param>
+        Task MajorClientUpdateResetTick(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Sends all pending zone updates for this region to a specific character.
