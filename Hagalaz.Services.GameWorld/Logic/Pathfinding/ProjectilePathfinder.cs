@@ -67,7 +67,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
 
             while (x != targetX)
             {
-                path.Steps++;
+                if (QueueSize <= ++path.Steps)
+                {
+                    return false;
+                }
+
                 x += direction;
 
                 var y = GetTileCoordinate(yBig);
@@ -107,7 +111,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
 
             while (y != targetY)
             {
-                path.Steps++;
+                if (QueueSize <= ++path.Steps)
+                {
+                    return false;
+                }
+
                 y += direction;
 
                 var x = GetTileCoordinate(xBig);
