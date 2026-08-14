@@ -27,6 +27,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ConcurrentDictionary<IMapRegion, byte> _scheduled = new();
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<MapRegionLoadScheduler> _logger;
+        private volatile bool _stopping;
 
         public MapRegionLoadScheduler(
             IServiceScopeFactory scopeFactory,
@@ -38,7 +39,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public void RequestLoad(IMapRegion region)
         {
-            if (region.IsLoaded || !_scheduled.TryAdd(region, 0))
+            if (_stopping || region.IsLoaded || !_scheduled.TryAdd(region, 0))
             {
                 return;
             }
@@ -49,6 +50,12 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             _scheduled.TryRemove(region, out _);
+
+            if (_stopping)
+            {
+                return;
+            }
+
             throw new InvalidOperationException($"Unable to schedule loading for region {region.Id}.");
         }
 
@@ -78,6 +85,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public override Task StopAsync(CancellationToken stoppingToken)
         {
+            _stopping = true;
             _requests.Writer.TryComplete();
             return base.StopAsync(stoppingToken);
         }

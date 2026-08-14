@@ -56,6 +56,11 @@ The hosted GameWorld worker MUST retain ownership of its execution task and MUST
 - **WHEN** the worker stopping token is cancelled during the synchronous four-phase pipeline
 - **THEN** the worker completes that pipeline and exits before starting another tick
 
+#### Scenario: A map request races with scheduler shutdown
+
+- **WHEN** an already-started synchronous tick requests a region after region-load scheduler shutdown has begun
+- **THEN** the request returns without throwing so the owned tick can complete
+
 ### Requirement: Viewport map updates stay synchronous at the render boundary
 
 Character map rebuilding and packet construction MUST be synchronous within the render phase. A map-update service MUST orchestrate the viewport rebuild, map packet send, synchronous non-blocking region-load requests, and full region-part updates during that same synchronous operation; the actual region data load MUST be owned by a dedicated asynchronous scheduler. `Viewport` MUST remain responsible only for visible-region state, bounds, and visibility calculations.
@@ -86,6 +91,11 @@ The `ICharacter` model contract MUST expose only a synchronous map-update operat
 
 - **WHEN** the asynchronous scheduler receives a new region request
 - **THEN** it creates the scoped loader operation, awaits the region load on its own consumer, and releases the region's scheduled marker when the operation completes
+
+#### Scenario: The request channel fails during normal operation
+
+- **WHEN** a region request cannot be written while scheduler shutdown has not begun
+- **THEN** the synchronous request boundary propagates the scheduling failure instead of silently treating it as accepted
 
 #### Scenario: Startup or world-map code requests a map update
 

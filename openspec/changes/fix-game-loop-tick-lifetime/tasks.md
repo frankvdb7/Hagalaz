@@ -15,6 +15,7 @@
 - [x] 2.6 Remove `UpdateMapAsync` from the character and viewport model contracts and migrate startup/world-map callers to synchronous `UpdateMap`.
 - [x] 2.7 Replace `LoadRegionAsync`/`.Forget()` with a synchronous, non-blocking region-load request boundary and deduplicated asynchronous loading ownership.
 - [x] 2.8 Remove the unused generic `IBackgroundTaskQueue` bridge and register the dedicated region-load scheduler as the single asynchronous consumer.
+- [x] 2.9 Make the dedicated region-load scheduler shutdown-aware and register it before `GameWorkerService` so hosted-service shutdown lets the worker finish first.
 
 ## 3. Deterministic regression coverage
 
@@ -23,6 +24,7 @@
 - [x] 3.3 Add overrun logging, genuine exception, host cancellation, unrelated cancellation, and shutdown ownership coverage.
 - [x] 3.4 Add coverage proving one character snapshot is shared across regions and synchronous render information sends both client messages.
 - [x] 3.5 Add coverage proving region-load requests do not block the game tick and are deduplicated while loading is in flight.
+- [x] 3.6 Add coverage proving a region request racing with scheduler shutdown is ignored without throwing.
 
 ## 4. Validation
 

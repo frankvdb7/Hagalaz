@@ -87,5 +87,22 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             await loader.Received(1).LoadAsync(region, Arg.Any<CancellationToken>());
         }
+
+        [TestMethod]
+        public async Task RequestLoad_DuringShutdown_DoesNotThrow()
+        {
+            using var provider = new ServiceCollection().BuildServiceProvider();
+            using var scheduler = new MapRegionLoadScheduler(
+                provider.GetRequiredService<IServiceScopeFactory>(),
+                Substitute.For<ILogger<MapRegionLoadScheduler>>());
+            var region = Substitute.For<IMapRegion>();
+            region.Id.Returns(1);
+            region.IsLoaded.Returns(false);
+
+            await scheduler.StartAsync(CancellationToken.None);
+            await scheduler.StopAsync(CancellationToken.None);
+
+            scheduler.RequestLoad(region);
+        }
     }
 }
