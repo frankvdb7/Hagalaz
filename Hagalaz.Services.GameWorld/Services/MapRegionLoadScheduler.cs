@@ -69,10 +69,11 @@ namespace Hagalaz.Services.GameWorld.Services
                     await scope.ServiceProvider.GetRequiredService<IMapRegionLoader>()
                         .LoadAsync(region, stoppingToken);
                 }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                catch (OperationCanceledException ex) when (stoppingToken.IsCancellationRequested && ex.CancellationToken == stoppingToken)
                 {
+                    _logger.LogDebug(ex, "Loading region {id} was canceled during scheduler shutdown", region.Id);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     _logger.LogError(ex, "Failed to load region {id}", region.Id);
                 }

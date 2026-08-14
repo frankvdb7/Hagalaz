@@ -45,7 +45,7 @@ public sealed class GameWorkerServiceTests
             secondRelease.Wait();
         });
 
-        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate);
+        using var worker = CreateWorker(region, TimeSpan.Zero, snapshotGate).Worker;
         await worker.StartAsync(CancellationToken.None);
         snapshotGate.TrySetResult(EmptyCharacters);
         await firstStarted.Task;
@@ -65,7 +65,6 @@ public sealed class GameWorkerServiceTests
         {
             secondRelease.Set();
             await stopTask;
-            worker.Dispose();
         }
     }
 
@@ -92,7 +91,7 @@ public sealed class GameWorkerServiceTests
         }, () => Volatile.Read(ref currentTick));
         ConfigureRegion(regionTwo, "two", events, () => events.Add($"major-{Volatile.Read(ref currentTick)}-two"), () => Volatile.Read(ref currentTick));
 
-        var (worker, _) = CreateWorker(new[] { regionOne, regionTwo }, TimeSpan.Zero, snapshotGate);
+        using var worker = CreateWorker(new[] { regionOne, regionTwo }, TimeSpan.Zero, snapshotGate).Worker;
         await worker.StartAsync(CancellationToken.None);
         snapshotGate.TrySetResult(EmptyCharacters);
         await secondMajorStarted.Task;
@@ -106,7 +105,6 @@ public sealed class GameWorkerServiceTests
         {
             secondMajorRelease.Set();
             await stopTask;
-            worker.Dispose();
         }
 
         var expectedEvents = new[]
@@ -142,7 +140,7 @@ public sealed class GameWorkerServiceTests
         region.When(item => item.MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>())).Do(_ => Interlocked.Increment(ref updateCalls));
         region.When(item => item.MajorClientUpdateResetTick()).Do(_ => Interlocked.Increment(ref resetCalls));
 
-        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate);
+        using var worker = CreateWorker(region, TimeSpan.Zero, snapshotGate).Worker;
         await worker.StartAsync(CancellationToken.None);
         snapshotGate.TrySetResult(EmptyCharacters);
         await tickStarted.Task;
@@ -157,7 +155,6 @@ public sealed class GameWorkerServiceTests
         {
             tickRelease.Set();
             await stopTask;
-            worker.Dispose();
         }
 
         Assert.AreEqual(1, Volatile.Read(ref prepareCalls));
@@ -178,7 +175,7 @@ public sealed class GameWorkerServiceTests
             tickRelease.Wait();
         });
 
-        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate);
+        using var worker = CreateWorker(region, TimeSpan.Zero, snapshotGate).Worker;
         await worker.StartAsync(CancellationToken.None);
         snapshotGate.TrySetResult(EmptyCharacters);
         await tickStarted.Task;
@@ -196,7 +193,6 @@ public sealed class GameWorkerServiceTests
         {
             tickRelease.Set();
             await worker.StopAsync(CancellationToken.None);
-            worker.Dispose();
         }
     }
 
@@ -224,7 +220,7 @@ public sealed class GameWorkerServiceTests
             secondTickRelease.Wait();
         });
 
-        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate, logger);
+        using var worker = CreateWorker(region, TimeSpan.Zero, snapshotGate, logger).Worker;
         await worker.StartAsync(CancellationToken.None);
         snapshotGate.TrySetResult(EmptyCharacters);
         await firstTickStarted.Task;
@@ -240,7 +236,6 @@ public sealed class GameWorkerServiceTests
         {
             secondTickRelease.Set();
             await stopTask;
-            worker.Dispose();
         }
 
         Assert.IsTrue(logger.Entries.Any(entry =>
@@ -270,7 +265,7 @@ public sealed class GameWorkerServiceTests
             secondMajorRelease.Wait();
         });
 
-        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate, logger);
+        using var worker = CreateWorker(region, TimeSpan.Zero, snapshotGate, logger).Worker;
         await worker.StartAsync(CancellationToken.None);
         snapshotGate.TrySetResult(EmptyCharacters);
         await firstStarted.Task;
@@ -285,7 +280,6 @@ public sealed class GameWorkerServiceTests
         {
             secondMajorRelease.Set();
             await stopTask;
-            worker.Dispose();
         }
     }
 
@@ -313,7 +307,7 @@ public sealed class GameWorkerServiceTests
             secondMajorRelease.Wait();
         });
 
-        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate, logger);
+        using var worker = CreateWorker(region, TimeSpan.Zero, snapshotGate, logger).Worker;
         await worker.StartAsync(CancellationToken.None);
         snapshotGate.TrySetResult(EmptyCharacters);
         await firstStarted.Task;
@@ -328,7 +322,6 @@ public sealed class GameWorkerServiceTests
         {
             secondMajorRelease.Set();
             await stopTask;
-            worker.Dispose();
         }
     }
 
@@ -367,7 +360,7 @@ public sealed class GameWorkerServiceTests
         regionOne.When(item => item.MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>())).Do(call => updateSnapshots.Add(call.Arg<IReadOnlyDictionary<int, ICharacter>>()));
         regionTwo.When(item => item.MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>())).Do(call => updateSnapshots.Add(call.Arg<IReadOnlyDictionary<int, ICharacter>>()));
 
-        var (worker, _) = CreateWorker(new[] { regionOne, regionTwo }, TimeSpan.Zero, store);
+        using var worker = CreateWorker(new[] { regionOne, regionTwo }, TimeSpan.Zero, store).Worker;
         await worker.StartAsync(CancellationToken.None);
         snapshotGate.TrySetResult(snapshot);
         await secondMajorStarted.Task;
@@ -384,7 +377,6 @@ public sealed class GameWorkerServiceTests
         {
             secondMajorRelease.Set();
             await stopTask;
-            worker.Dispose();
         }
     }
 
@@ -393,11 +385,10 @@ public sealed class GameWorkerServiceTests
     {
         var logger = new TestLogger<GameWorkerService>();
         var regionService = Substitute.For<IMapRegionService>();
-        var (worker, _) = CreateWorker(regionService, TimeSpan.FromDays(1), logger: logger);
+        using var worker = CreateWorker(regionService, TimeSpan.FromDays(1), logger: logger).Worker;
 
         await worker.StartAsync(CancellationToken.None);
         await worker.StopAsync(CancellationToken.None);
-        worker.Dispose();
 
         Assert.IsFalse(logger.Entries.Any(entry => entry.Level == LogLevel.Error));
         regionService.DidNotReceive().FindAllRegions();
