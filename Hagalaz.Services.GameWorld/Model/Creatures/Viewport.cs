@@ -9,6 +9,8 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Messages.Protocol;
+using Hagalaz.Tasks.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
 {
@@ -212,12 +214,61 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             _visibleRegions.AddRange(_regionService.GetMapRegionsWithinRange(ViewLocation, true, true, MapSize));
         }
 
-        public async Task UpdateViewport()
+        public void UpdateMap(bool forceUpdate, bool renderViewPort = false)
         {
             if (_owner is not ICharacter character)
             {
                 return;
             }
+
+            RebuildMap(character, forceUpdate, renderViewPort);
+            QueueRegionLoadsAndSendFullPartUpdates(character);
+        }
+
+        public async Task UpdateMapAsync(bool forceUpdate, bool renderViewPort = false)
+        {
+            if (_owner is not ICharacter character)
+            {
+                return;
+            }
+
+            RebuildMap(character, forceUpdate, renderViewPort);
+            await LoadRegionsAndSendFullPartUpdatesAsync(character);
+        }
+
+        private void RebuildMap(ICharacter character, bool forceUpdate, bool renderViewPort)
+        {
+            RebuildView();
+            if (NeedsDynamicDraw())
+            {
+                character.Session.SendMessage(new DrawDynamicMapMessage());
+                return;
+            }
+
+            character.Session.SendMessage(new DrawStandardMapMessage
+            {
+                MapSizeIndex = MapSize.Type,
+                RenderViewport = renderViewPort,
+                ForceUpdate = forceUpdate,
+                CharacterIndex = character.Index,
+                CharacterLocation = character.Location,
+                RegionPartX = ViewLocation.RegionPartX,
+                RegionPartY = ViewLocation.RegionPartY,
+                VisibleRegionXteaKeys = VisibleRegions.Select(region => region.XteaKeys).ToList()
+            });
+        }
+
+        private void QueueRegionLoadsAndSendFullPartUpdates(ICharacter character)
+        {
+            foreach (var region in _visibleRegions)
+            {
+                _regionService.LoadRegionAsync(region).Forget();
+                region.SendFullPartUpdates(character);
+            }
+        }
+
+        private async Task LoadRegionsAndSendFullPartUpdatesAsync(ICharacter character)
+        {
             foreach (var region in _visibleRegions)
             {
                 await _regionService.LoadRegionAsync(region);

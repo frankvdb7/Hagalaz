@@ -4,7 +4,7 @@ The GameWorld worker owns the scheduler and the four region phases. The tick bud
 
 The one real asynchronous prerequisite for client rendering is the global character-store read lock. Character rendering previously acquired that lock and enumerated every character once per character, producing O(N²) work and repeated dictionary allocations.
 
-Viewport map loading is also asynchronous, but `MapRegionService.LoadRegionAsync` only waits for a work item to be enqueued. It is therefore not a useful await inside the synchronous creature update boundary.
+Viewport map loading is also asynchronous, but `MapRegionService.LoadRegionAsync` only submits a work item to the background queue; it does not wait for the region data load. The viewport component can therefore initiate that submission and send `SendFullPartUpdates` immediately without putting an async task into the character's synchronous render phase.
 
 ## Decisions
 
@@ -16,7 +16,7 @@ Viewport map loading is also asynchronous, but `MapRegionService.LoadRegionAsync
 
 4. **Capture global character state once.** `ICharacterStore.GetSnapshotAsync` acquires the existing reader lock once and returns a read-only dictionary keyed by character index. `GameWorkerService` passes that same view to every region, and `CharacterRenderInformation.Update` only formats and sends messages synchronously.
 
-5. **Keep map loading outside the core render update.** Character map packet construction and viewport rebuilding are synchronous. The initial/external `UpdateMapAsync` path may still await viewport loading, while a viewport rebuild detected during a creature tick schedules `Viewport.UpdateViewport` through the existing creature task scheduler. No map queue await occurs inside the worker-owned synchronous region phase.
+5. **Let the viewport component own map-update orchestration.** `Viewport.UpdateMap` performs the rebuild and map packet send, initiates each `LoadRegionAsync` submission with fire-and-forget observation, and immediately sends the corresponding full region-part updates. `Viewport.UpdateMapAsync` remains for initial/external callers that need the existing asynchronous queue-submission boundary. `Character` delegates both paths and no longer schedules viewport work through its creature task queue. No map queue await occurs inside the worker-owned synchronous region phase.
 
 6. **Preserve fault classification.** Delay cancellation and the worker token are handled separately from tick execution. An `OperationCanceledException` is treated as routine shutdown only when it carries the worker token; unrelated cancellation exceptions are logged as tick failures. The pipeline remains directly awaited at its only asynchronous boundary.
 
@@ -25,4 +25,4 @@ Viewport map loading is also asynchronous, but `MapRegionService.LoadRegionAsync
 - Passing cancellation tokens through every region and creature callback: this preserves artificial asynchronous contracts and cannot interrupt non-cancellable synchronous model work safely.
 - Keeping `StopAsync(CancellationToken.None)`: it defeats the host shutdown bound. The host token is used, and an expired token is surfaced as an unsuccessful stop when owned synchronous work remains.
 - Building a persistent immutable character snapshot store: it could remove the one per-tick read, but would expand the change into character registration/removal publication semantics. One snapshot per tick removes the O(N²) rendering cost without that larger lifecycle change.
-- Adding a new map-loading coordinator: the existing viewport and creature task scheduler already provide the needed asynchronous boundary.
+- Adding a separate map-loading coordinator: the existing `Viewport` component already owns visible-region state and can provide the synchronous orchestration boundary without routing render work through the creature task scheduler.

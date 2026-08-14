@@ -11,6 +11,7 @@
 - [x] 2.2 Make NPC and character client rendering synchronous after the worker obtains its prerequisites.
 - [x] 2.3 Add one cancellable character snapshot boundary per tick and pass the same snapshot to every region client update.
 - [x] 2.4 Move viewport region loading out of the synchronous character render update and onto the existing creature task scheduler.
+- [x] 2.5 Move viewport/map-update orchestration into `Viewport` so full region-part updates occur in the current synchronous render phase without a character-owned `RsAsyncTask`.
 
 ## 3. Deterministic regression coverage
 

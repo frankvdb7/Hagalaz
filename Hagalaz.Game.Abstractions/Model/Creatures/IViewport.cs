@@ -75,8 +75,17 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// </summary>
         void RebuildView();
         /// <summary>
-        /// Asynchronously updates the viewport, loading new map regions and entities as needed.
+        /// Rebuilds the owner's map view and schedules region loading while sending full region-part updates synchronously.
         /// </summary>
-        Task UpdateViewport();
+        /// <param name="forceUpdate">Whether the client should force the map update.</param>
+        /// <param name="renderViewPort">Whether the client should render the viewport after the map update.</param>
+        void UpdateMap(bool forceUpdate, bool renderViewPort = false);
+        /// <summary>
+        /// Rebuilds the owner's map view and asynchronously submits region loading work before sending full region-part updates.
+        /// </summary>
+        /// <param name="forceUpdate">Whether the client should force the map update.</param>
+        /// <param name="renderViewPort">Whether the client should render the viewport after the map update.</param>
+        /// <returns>A task representing the asynchronous region-loading submission boundary.</returns>
+        Task UpdateMapAsync(bool forceUpdate, bool renderViewPort = false);
     }
 }

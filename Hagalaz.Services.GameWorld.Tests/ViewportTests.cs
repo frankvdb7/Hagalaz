@@ -4,12 +4,15 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Collections;
 using Hagalaz.Services.GameWorld.Model.Creatures;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
+using Raido.Common.Protocol;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {
@@ -38,6 +41,39 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsInstanceOfType(_viewport.VisibleCreatures, typeof(ListHashSet<ICreature>));
             Assert.IsInstanceOfType(_viewport.VisibleCharacters, typeof(IReadOnlyCollection<ICharacter>));
             Assert.IsInstanceOfType(_viewport.VisibleNpcs, typeof(IReadOnlyCollection<INpc>));
+        }
+
+        [TestMethod]
+        public void UpdateMap_QueuesRegionLoadsAndSendsFullPartUpdatesSynchronously()
+        {
+            var character = Substitute.For<ICharacter>();
+            var session = Substitute.For<IGameSession>();
+            var location = new Location(100, 100, 0, 0);
+            var region = Substitute.For<IMapRegion>();
+            var regionService = Substitute.For<IMapRegionService>();
+            var mapSize = Substitute.For<IMapSize>();
+
+            character.Location.Returns(location);
+            character.Index.Returns(1);
+            character.Session.Returns(session);
+            mapSize.Size.Returns(104);
+            mapSize.Type.Returns(0);
+            region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
+            regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, mapSize)
+                .Returns(new[] { region });
+            regionService.LoadRegionAsync(region).Returns(Task.CompletedTask);
+
+            var viewport = new Viewport(character, regionService, mapSize);
+
+            viewport.UpdateMap(false, false);
+
+            Received.InOrder(() =>
+            {
+                session.SendMessage(Arg.Any<RaidoMessage>());
+                regionService.LoadRegionAsync(region);
+                region.SendFullPartUpdates(character);
+            });
+            session.Received(1).SendMessage(Arg.Is<RaidoMessage>(message => message is DrawStandardMapMessage));
         }
 
         [TestMethod]

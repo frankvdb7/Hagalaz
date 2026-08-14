@@ -56,14 +56,14 @@ The hosted GameWorld worker MUST retain ownership of its execution task and MUST
 - **WHEN** the worker stopping token is cancelled during the synchronous four-phase pipeline
 - **THEN** the worker completes that pipeline and exits before starting another tick
 
-### Requirement: Map loading stays outside the synchronous tick core
+### Requirement: Viewport map updates stay synchronous at the render boundary
 
-Character map rebuilding and packet construction MUST be synchronous within the render phase, while asynchronous region loading MUST be scheduled outside that phase.
+Character map rebuilding and packet construction MUST be synchronous within the render phase. The viewport component MUST initiate asynchronous region loading and send full region-part updates during that same synchronous operation; the actual region data load MAY continue in the background.
 
 #### Scenario: A character crosses a viewport rebuild boundary
 
 - **WHEN** a character's render update detects that its viewport must be rebuilt
-- **THEN** it rebuilds and sends the map update synchronously and schedules visible-region loading without awaiting it in the worker-owned render phase
+- **THEN** the viewport component rebuilds and sends the map update, initiates visible-region loading, and sends full region-part updates before the current render operation returns, without awaiting region loading or scheduling an `RsAsyncTask`
 
 ### Requirement: Tick failures and overruns remain observable
 
