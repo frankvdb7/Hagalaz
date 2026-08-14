@@ -16,6 +16,7 @@ namespace Hagalaz.Services.GameWorld.Tests;
 [TestClass]
 public sealed class ProjectilePathfinderTests
 {
+    private const int QueueSize = 4096;
     private const int OriginX = 50;
     private const int OriginY = 50;
     private const int Plane = 0;
@@ -131,6 +132,72 @@ public sealed class ProjectilePathfinderTests
 
         Assert.IsTrue(path.Successful);
         Assert.AreEqual(destination, path.Last());
+    }
+
+    [TestMethod]
+    public void Find_SingleStepPath_SetsDestinationFlags()
+    {
+        var destination = Location.Create(OriginX + 1, OriginY, Plane, Dimension);
+
+        var path = Find(EmptyCollision, Location.Create(OriginX, OriginY, Plane, Dimension), destination);
+
+        Assert.IsTrue(path.Successful);
+        Assert.IsTrue(path.ReachedDestination);
+        Assert.IsFalse(path.MovedNearDestination);
+    }
+
+    [TestMethod]
+    [DataRow(QueueSize + 1, 0)]
+    [DataRow(0, QueueSize + 1)]
+    public void Find_PathExceedsStepLimit_ReturnsUnsuccessfulTrace(int deltaX, int deltaY)
+    {
+        var from = Location.Create(OriginX, OriginY, Plane, Dimension);
+        var destination = Location.Create(OriginX + deltaX, OriginY + deltaY, Plane, Dimension);
+
+        var path = Find(EmptyCollision, from, destination);
+
+        Assert.IsFalse(path.Successful);
+        Assert.AreEqual(0, path.Count());
+        Assert.IsTrue(path.MovedNear);
+        Assert.IsFalse(path.ReachedDestination);
+        Assert.IsFalse(path.MovedNearDestination);
+    }
+
+    [TestMethod]
+    [DataRow(QueueSize, 0)]
+    [DataRow(0, QueueSize)]
+    public void Find_PathReachingFinalPermittedStep_RemainsSuccessful(int deltaX, int deltaY)
+    {
+        var from = Location.Create(OriginX, OriginY, Plane, Dimension);
+        var destination = Location.Create(OriginX + deltaX, OriginY + deltaY, Plane, Dimension);
+
+        var path = Find(EmptyCollision, from, destination);
+
+        Assert.IsTrue(path.Successful);
+        Assert.HasCount(1, path);
+        Assert.AreEqual(destination, path.Single());
+        Assert.IsFalse(path.MovedNear);
+        Assert.IsFalse(path.ReachedDestination);
+        Assert.IsFalse(path.MovedNearDestination);
+    }
+
+    [TestMethod]
+    public void Find_PathBlockedBeforeStepLimit_PreservesCollisionFailureState()
+    {
+        var from = Location.Create(OriginX, OriginY, Plane, Dimension);
+        var destination = Location.Create(OriginX + 3, OriginY, Plane, Dimension);
+        var collision = new Dictionary<(int X, int Y), CollisionFlag>
+        {
+            [(OriginX + 2, OriginY)] = CollisionFlag.ObjectBlock
+        };
+
+        var path = Find(collision, from, destination);
+
+        Assert.IsFalse(path.Successful);
+        Assert.AreEqual(0, path.Count());
+        Assert.IsTrue(path.MovedNear);
+        Assert.IsFalse(path.ReachedDestination);
+        Assert.IsFalse(path.MovedNearDestination);
     }
 
     [TestMethod]

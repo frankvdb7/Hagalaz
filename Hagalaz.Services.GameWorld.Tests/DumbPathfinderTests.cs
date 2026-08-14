@@ -10,6 +10,7 @@ namespace Hagalaz.Services.GameWorld.Tests
     [TestClass]
     public class DumbPathfinderTests
     {
+        private const int QueueSize = 4096;
         private DumbPathFinder _pathfinder;
         private IMapRegionService _mapRegionService;
 
@@ -76,6 +77,68 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             // Assert
             Assert.IsFalse(path.Successful);
+        }
+
+        [TestMethod]
+        public void Find_SingleStepPath_SetsDestinationFlags()
+        {
+            var from = Location.Create(1, 1, 0);
+            var to = Location.Create(2, 1, 0);
+
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+
+            Assert.IsTrue(path.Successful);
+            Assert.IsTrue(path.ReachedDestination);
+            Assert.IsFalse(path.MovedNearDestination);
+        }
+
+        [TestMethod]
+        public void Find_PathExceedsStepLimit_ReturnsUnsuccessfulPartialPath()
+        {
+            var from = Location.Create(1, 1, 0);
+            var to = Location.Create(from.X + QueueSize + 1, from.Y, from.Z);
+
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+
+            Assert.IsFalse(path.Successful);
+            Assert.AreEqual(QueueSize, path.Count());
+            Assert.AreEqual(Location.Create(from.X + QueueSize, from.Y, from.Z), path.Last());
+            Assert.IsTrue(path.MovedNear);
+            Assert.IsFalse(path.ReachedDestination);
+            Assert.IsFalse(path.MovedNearDestination);
+        }
+
+        [TestMethod]
+        public void Find_PathReachingFinalPermittedStep_RemainsSuccessful()
+        {
+            var from = Location.Create(1, 1, 0);
+            var to = Location.Create(from.X + QueueSize, from.Y, from.Z);
+
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+
+            Assert.IsTrue(path.Successful);
+            Assert.AreEqual(QueueSize, path.Count());
+            Assert.AreEqual(to, path.Last());
+            Assert.IsFalse(path.MovedNear);
+            Assert.IsFalse(path.ReachedDestination);
+            Assert.IsFalse(path.MovedNearDestination);
+        }
+
+        [TestMethod]
+        public void Find_PathBlockedBeforeStepLimit_PreservesCollisionFailureState()
+        {
+            var from = Location.Create(1, 1, 0);
+            var to = Location.Create(4, 1, 0);
+            _mapRegionService.GetClippingFlag(3, 1, 0).Returns(CollisionFlag.FloorBlock);
+
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+
+            Assert.IsFalse(path.Successful);
+            Assert.AreEqual(1, path.Count());
+            Assert.AreEqual(Location.Create(2, 1, 0), path.Last());
+            Assert.IsTrue(path.MovedNear);
+            Assert.IsFalse(path.ReachedDestination);
+            Assert.IsFalse(path.MovedNearDestination);
         }
 
         [TestMethod]

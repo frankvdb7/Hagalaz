@@ -41,6 +41,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
             {
                 if (QueueSize <= ++path.Steps)
                 {
+                    path.Successful = false;
+                    path.MovedNear = x != from.X || y != from.Y;
                     return path;
                 }
                 var direction = DirectionHelper.GetDirection(x, y, to.X, to.Y);
