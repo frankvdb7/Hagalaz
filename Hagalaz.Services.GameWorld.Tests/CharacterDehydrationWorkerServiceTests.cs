@@ -147,6 +147,9 @@ public sealed class CharacterDehydrationWorkerServiceTests
             await Task.CompletedTask;
         }
 
+        public ValueTask<IReadOnlyDictionary<int, ICharacter>> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
+            new(new Dictionary<int, ICharacter> { [_character.Index] = _character });
+
         public ValueTask<int> CountAsync() => throw new System.NotImplementedException();
         public ValueTask<bool> AddAsync(ICharacter character) => throw new System.NotImplementedException();
         public ValueTask<bool> RemoveAsync(ICharacter character) => throw new System.NotImplementedException();

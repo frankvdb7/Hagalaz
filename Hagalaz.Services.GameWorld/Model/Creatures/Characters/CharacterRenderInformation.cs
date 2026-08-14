@@ -1,13 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Linq;
 using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Messages.Protocol;
 using Microsoft.Extensions.DependencyInjection;
 using Characters_UpdateFlags = Hagalaz.Game.Abstractions.Model.Creatures.Characters.UpdateFlags;
@@ -36,7 +33,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IGraphic[] _currentGraphics;
 
         private readonly ICharacterLocationService _characterLocationMap;
-        private readonly ICharacterStore _characterStore;
 
         /// <summary>
         /// Contains local characters.
@@ -106,7 +102,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             LocalCharacters = [];
             LocalNpcs = [];
             _currentGraphics = new IGraphic[4];
-            _characterStore = renderable.ServiceProvider.GetRequiredService<ICharacterStore>();
             _characterLocationMap = renderable.ServiceProvider.GetRequiredService<ICharacterLocationService>();
             LastLocation = renderable.Location.Clone();
         }
@@ -141,12 +136,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Send's update packet to client.
         /// </summary>
-        public async Task Update()
+        public void Update(IReadOnlyDictionary<int, ICharacter> characters)
         {
             _owner.Session.SendMessage(new DrawCharactersMessage
             {
                 Character = _owner,
-                AllCharacters = await _characterStore.FindAllAsync().ToDictionaryAsync(c => c.Index, c => c),
+                AllCharacters = characters,
                 LocalCharacters = LocalCharacters
             });
              _owner.Session.SendMessage(new DrawNpcsMessage

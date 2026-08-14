@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,17 +16,20 @@ namespace Hagalaz.Services.GameWorld.Services
     {
         private readonly IRsTaskService _rsTaskScheduler;
         private readonly IMapRegionService _regionService;
+        private readonly ICharacterStore _characterStore;
         private readonly GameServerOptions _gameOptions;
         private readonly ILogger<GameWorkerService> _logger;
 
         public GameWorkerService(
             IRsTaskService rsTaskScheduler,
             IMapRegionService regionService,
+            ICharacterStore characterStore,
             IOptions<GameServerOptions> gameOptions,
             ILogger<GameWorkerService> logger)
         {
             _rsTaskScheduler = rsTaskScheduler;
             _regionService = regionService;
+            _characterStore = characterStore;
             _gameOptions = gameOptions.Value;
             _logger = logger;
         }
@@ -39,11 +43,13 @@ namespace Hagalaz.Services.GameWorld.Services
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("{Name} is stopping.", nameof(GameWorkerService));
+            await base.StopAsync(cancellationToken);
 
-            // Region APIs can only observe cancellation at explicit safe boundaries. Do not let
-            // the host shutdown timeout make BackgroundService report a successful stop while a
-            // worker-owned region operation is still running.
-            await base.StopAsync(CancellationToken.None);
+            if (ExecuteTask is { IsCompleted: false })
+            {
+                _logger.LogWarning("Host shutdown ended before the game worker completed its synchronous tick.");
+                throw new TimeoutException("The game worker is still executing after the host shutdown timeout.");
+            }
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -104,28 +110,27 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             stoppingToken.ThrowIfCancellationRequested();
             var regions = _regionService.FindAllRegions().ToList();
+            var characters = await _characterStore.GetSnapshotAsync(stoppingToken);
+
+            stoppingToken.ThrowIfCancellationRequested();
             foreach (var region in regions)
             {
-                stoppingToken.ThrowIfCancellationRequested();
-                await region.MajorUpdateTick(stoppingToken);
+                region.MajorUpdateTick();
             }
 
             foreach (var region in regions)
             {
-                stoppingToken.ThrowIfCancellationRequested();
-                await region.MajorClientPrepareUpdateTick(stoppingToken);
+                region.MajorClientPrepareUpdateTick();
             }
 
             foreach (var region in regions)
             {
-                stoppingToken.ThrowIfCancellationRequested();
-                await region.MajorClientUpdateTick(stoppingToken);
+                region.MajorClientUpdateTick(characters);
             }
 
             foreach (var region in regions)
             {
-                stoppingToken.ThrowIfCancellationRequested();
-                await region.MajorClientUpdateResetTick(stoppingToken);
+                region.MajorClientUpdateResetTick();
             }
         }
     }

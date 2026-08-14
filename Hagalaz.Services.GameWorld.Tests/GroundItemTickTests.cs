@@ -73,7 +73,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item = CreateItem(5, 5);
             region.Add(item);
 
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
 
             Assert.AreEqual(4, item.TicksLeft);
         }
@@ -85,7 +85,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item = CreateItem(0, 1);
             region.Add(item);
 
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
 
             Assert.AreEqual(0, region.FindAllGroundItems().Count());
         }
@@ -97,8 +97,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item = CreateItem(2, 2);
             region.Add(item);
 
-            await region.MajorClientPrepareUpdateTick();
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
 
             var items = region.FindAllGroundItems().ToList();
             Assert.HasCount(1, items);
@@ -116,21 +116,21 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.Add(item);
 
             // First tick: item timer expires, should be replaced by a respawning item
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
             var respawning = region.FindAllGroundItems().Single();
             Assert.AreNotSame(item, respawning, "Item should be replaced by a respawning item");
             Assert.IsTrue(respawning.IsRespawning, "Item should be in respawning state after first tick");
             Assert.AreEqual(2, respawning.TicksLeft, "Respawning item should have its respawn ticks reset");
 
             // Second tick: respawning item timer decrements
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
             var afterSecondTick = region.FindAllGroundItems().Single();
             // Assert state, no debug output
             Assert.AreEqual(1, afterSecondTick.TicksLeft, "Respawning item ticks should decrement");
             Assert.IsTrue(afterSecondTick.IsRespawning, "Item should still be respawning");
 
             // Third tick: respawning item should become a normal item again
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
             var items = region.FindAllGroundItems().ToList();
             // Assert state, no debug output
             Assert.HasCount(1, items, "There should be one item after respawn");
@@ -146,7 +146,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item = CreatePrivateItem(true, 1);
             region.Add(item);
 
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
 
             var items = region.FindAllGroundItems().ToList();
             Assert.HasCount(1, items);

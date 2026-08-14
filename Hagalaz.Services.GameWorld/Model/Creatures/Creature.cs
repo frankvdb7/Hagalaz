@@ -184,7 +184,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         ///     Executes updating procedures such as sending update packets.
         /// </summary>
-        protected abstract Task UpdateTick();
+        protected abstract void UpdateTick();
 
         /// <summary>
         ///     Executes reseting procedures such as reseting update flags.
@@ -635,42 +635,41 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         ///     Tick used for generating update cycle info.
         /// </summary>
-        public Task MajorClientPrepareUpdateTickAsync()
+        public void MajorClientPrepareUpdateTick()
         {
             if (_updateState != CreatureUpdateState.ServerUpdate)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             _updateState = CreatureUpdateState.ClientPrepareUpdate;
 
             UpdatesPrepareTick();
-            return Task.CompletedTask;
         }
 
         /// <summary>
         ///     Tick used for updating rendering information.
         /// </summary>
-        public Task MajorClientUpdateTickAsync()
+        public void MajorClientUpdateTick()
         {
             if (_updateState != CreatureUpdateState.ClientPrepareUpdate)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             _updateState = CreatureUpdateState.ClientUpdate;
 
-            return UpdateTick();
+            UpdateTick();
         }
 
         /// <summary>
         ///     Tick used for cleaning up rendering information.
         /// </summary>
-        public Task MajorClientUpdateResetTickAsync()
+        public void MajorClientUpdateResetTick()
         {
             if (_updateState != CreatureUpdateState.ClientUpdate)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             _updateState = CreatureUpdateState.ClientUpdateReset;
@@ -685,7 +684,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             Movement.Reset();
             ResetTick();
             _updateState = CreatureUpdateState.Idle;
-            return Task.CompletedTask;
+        }
+
+        protected bool TryBeginClientUpdate()
+        {
+            if (_updateState != CreatureUpdateState.ClientPrepareUpdate)
+            {
+                return false;
+            }
+
+            _updateState = CreatureUpdateState.ClientUpdate;
+            return true;
         }
 
         /// <summary>

@@ -19,6 +19,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public async Task UpdateMapAsync(bool forceUpdate, bool renderViewPort = false)
         {
+            UpdateMap(forceUpdate, renderViewPort);
+            await Viewport.UpdateViewport();
+        }
+
+        private void UpdateMap(bool forceUpdate, bool renderViewPort)
+        {
             Viewport.RebuildView();
             if (Viewport.NeedsDynamicDraw())
             {
@@ -40,7 +46,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     VisibleRegionXteaKeys = Viewport.VisibleRegions.Select(region => region.XteaKeys).ToList()
                 });
             }
-            await Viewport.UpdateViewport();
         }
 
         /// <summary>

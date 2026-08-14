@@ -1,14 +1,16 @@
 ## Why
 
-`GameWorkerService` times out its wait for a major world tick without cancelling or awaiting the underlying region work. A slow tick can therefore overlap the next tick, and shutdown can report completion while the discarded worker task is still mutating world state.
+`GameWorkerService` must not abandon a running world tick when its budget is exceeded or when host shutdown begins. The original timeout allowed overlapping ticks, while passing asynchronous wrappers and cancellation tokens through naturally synchronous creature work made the ownership boundary harder to reason about.
 
 ## What Changes
 
-- Run the game loop through the existing `BackgroundService` lifecycle so the worker task is retained and awaited during shutdown.
-- Await the complete major region pipeline before beginning another iteration; the configured tick duration remains an observability budget, not a concurrency timeout.
-- Pass the worker stopping token through the asynchronous region tick APIs and honor it at safe region, part, item, and creature-iteration boundaries.
-- Preserve the existing region and client phase order, and distinguish host cancellation, tick faults, and budget overruns in logging.
-- Add deterministic GameWorld worker tests covering serial ticks, phase ordering, overrun reporting, exceptions, cancellation, and shutdown ownership.
+- Keep the complete major game pipeline owned by `BackgroundService` and await it before another iteration can begin.
+- Keep the configured tick duration as an observability budget only; it never abandons world work.
+- Make region and creature simulation/render phases synchronous, removing artificial `Task` and cancellation-token plumbing from the game model.
+- Capture one read-only character snapshot per tick and pass it through synchronous character rendering.
+- Keep map-region loading at the asynchronous viewport/task boundary instead of awaiting it from a character's synchronous render update.
+- Use the host shutdown token with the normal `BackgroundService` wait. If that token expires while a synchronous tick is still owned by the worker, report a timeout rather than silently reporting a successful stop.
+- Preserve explicit handling for worker cancellation, genuine tick failures, and budget overruns.
 
 ## Capabilities
 
@@ -22,15 +24,17 @@ None.
 
 ## Impact
 
-The change is limited to the existing worker, `IMapRegion`/`MapRegion` tick contracts and implementation, a small creature rendering-wrapper cleanup, focused tests in `Hagalaz.Services.GameWorld.Tests`, and the associated OpenSpec record. It removes the service-local cancellation/task plumbing and adds no dependencies, persistence changes, or new worker framework.
+The change is limited to the existing worker, the `IMapRegion` and creature tick contracts, character snapshot/rendering state, viewport map-loading scheduling, focused GameWorld tests, and the associated OpenSpec record. It adds no dependencies, persistence changes, or second worker/coordinator.
 
 ## Acceptance Criteria
 
-- At most one major world tick executes at a time, including when it exceeds its configured budget.
-- The four existing phases remain ordered and serialized across adjacent ticks.
-- `StopAsync` does not complete while worker-owned region work is still running.
-- Region tick cancellation is propagated from the worker and is observed only at safe boundaries.
-- Host cancellation is not logged as an unexpected tick failure; genuine faults remain observable.
+- At most one complete major world tick executes at a time, including when it exceeds its configured budget.
+- The four phases remain ordered and a started tick runs its synchronous pipeline to completion before shutdown or the next iteration is observed.
+- Each tick obtains one character snapshot and all region client-update calls receive that same snapshot.
+- Character rendering does not enumerate the global character store once per character.
+- Viewport map loading is not awaited inside the synchronous creature render phase.
+- `StopAsync` never reports successful completion while `ExecuteTask` is still alive; an expired host shutdown token is surfaced as a timeout when a synchronous tick cannot yet reach its boundary.
+- Host cancellation is not logged as an unexpected tick failure, while genuine faults and unrelated cancellation exceptions remain observable.
 - Tick overruns remain observable through logging.
 
 ## Stop Conditions

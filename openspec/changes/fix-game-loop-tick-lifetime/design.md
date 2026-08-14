@@ -1,50 +1,28 @@
 ## Context
 
-`GameWorkerService` currently implements `IHostedService` manually. `StartAsync` starts `Task.Run(DoWork, ...)` and discards the returned task. Each iteration creates a major region pipeline and applies `Task.WaitAsync` to it; that timeout only abandons the caller's wait, so the region pipeline can continue while a later iteration starts. The region API is already asynchronous but does not accept cancellation tokens, so a running phase cannot be safely interrupted by this change.
+The GameWorld worker owns the scheduler and the four region phases. The tick budget is a performance signal, not permission to abandon work. Region and creature phases perform in-process state mutation and packet creation; they do not need asynchronous return types.
 
-The service already runs the scheduler and the four region phases in one sequential method. The existing .NET hosting abstraction provides the lifecycle ownership needed here without introducing another synchronization mechanism. The region tick APIs are the narrow cancellation boundary: they can stop between synchronous creature callbacks and asynchronous creature callbacks without changing the broader creature contracts.
+The one real asynchronous prerequisite for client rendering is the global character-store read lock. Character rendering previously acquired that lock and enumerated every character once per character, producing O(N²) work and repeated dictionary allocations.
 
-## Goals / Non-Goals
-
-**Goals:**
-
-- Keep all major region phases in one awaited, serial pipeline.
-- Make the hosted service own the worker lifetime and wait for a running tick during normal shutdown.
-- Keep the tick budget observable without using it to abandon work.
-- Pass the worker stopping token through all four asynchronous region tick phases and observe it at safe iteration boundaries.
-- Preserve normal loop recovery after a genuine tick exception and distinguish shutdown cancellation from faults.
-- Add deterministic tests using controlled tasks rather than timing sleeps.
-
-**Non-Goals:**
-
-- Do not parallelize regions or phases.
-- Do not change the synchronous or asynchronous creature tick contracts; cancellation is owned by the region phase boundary.
-- Do not introduce locks, queues, a second worker, metrics infrastructure, or a generic game-loop abstraction.
-- Do not change scheduler semantics, region discovery, or lifecycle/readiness services outside this worker.
+Viewport map loading is also asynchronous, but `MapRegionService.LoadRegionAsync` only waits for a work item to be enqueued. It is therefore not a useful await inside the synchronous creature update boundary.
 
 ## Decisions
 
-1. **Use `BackgroundService` as the owner of execution and shutdown.** `ExecuteAsync(CancellationToken)` becomes the single worker task and the base `StartAsync` retains it. `StopAsync` requests cancellation through the base service but passes `CancellationToken.None` to the base wait, because .NET 10 suppresses wait cancellation and could otherwise report success while `ExecuteTask` is still alive. The worker therefore waits for the current tick to finish or for a region API to reach an explicit safe cancellation boundary.
+1. **Keep `BackgroundService` as the lifecycle owner.** `ExecuteAsync` retains the worker task. `StopAsync` passes the host token to the base implementation. When the host token expires before a synchronous owned tick completes, the service checks `ExecuteTask` and throws a timeout instead of claiming successful shutdown. A normal stop still awaits the worker task.
 
-2. **Replace `WaitAsync` with a direct await of the complete pipeline.** The service will not begin the next delay or tick until all four phase loops have completed. A `Stopwatch` records the pipeline duration and emits a warning when it exceeds `TickTimeSpan`; this keeps overruns visible without creating a second execution path.
+2. **Make the game tick synchronous after its prerequisites.** `RunMajorTickAsync` snapshots active regions, obtains one character view with the worker token, and then invokes the four region phases directly. No stopping-token checks occur inside the started synchronous pipeline; cancellation is observed before the next tick or while waiting for the outer snapshot. This gives the full tick one ownership boundary and prevents half-applied phase sequences.
 
-3. **Keep per-iteration exception handling explicit.** Delay cancellation is handled separately from tick execution. During a tick, only an `OperationCanceledException` carrying the worker stopping token ends the loop without an unexpected-failure log; an independently thrown cancellation exception remains a genuine tick failure even if shutdown was requested concurrently. The awaited task boundary ensures no unfinished tick is bypassed.
+3. **Use synchronous region and creature contracts.** `IMapRegion` exposes `void` methods for the four phases. `ICreature` exposes synchronous prepare/update/reset methods, and concrete NPC/character update methods no longer return completed tasks. The character-specific client update receives the already-captured character view.
 
-4. **Propagate cancellation through the region boundary.** `IMapRegion`’s four asynchronous tick methods accept an optional `CancellationToken`. `MapRegion` checks it before and between part/item/creature callbacks, while existing creature callback signatures remain unchanged. The generic creature rendering wrapper returns the concrete update task directly; character rendering remains task-based because viewport loading and character-store enumeration are genuinely asynchronous.
+4. **Capture global character state once.** `ICharacterStore.GetSnapshotAsync` acquires the existing reader lock once and returns a read-only dictionary keyed by character index. `GameWorkerService` passes that same view to every region, and `CharacterRenderInformation.Update` only formats and sends messages synchronously.
 
-5. **Test the public hosted-service lifecycle.** Tests start and stop the real service with zero-duration budgets and `TaskCompletionSource` barriers. This makes the old `WaitAsync` overlap and fire-and-forget shutdown behavior reproducible without sleeps, while also asserting host-token expiry, cancellation-token propagation, and observable logger events.
+5. **Keep map loading outside the core render update.** Character map packet construction and viewport rebuilding are synchronous. The initial/external `UpdateMapAsync` path may still await viewport loading, while a viewport rebuild detected during a creature tick schedules `Viewport.UpdateViewport` through the existing creature task scheduler. No map queue await occurs inside the worker-owned synchronous region phase.
 
-## Risks / Trade-offs
+6. **Preserve fault classification.** Delay cancellation and the worker token are handled separately from tick execution. An `OperationCanceledException` is treated as routine shutdown only when it carries the worker token; unrelated cancellation exceptions are logged as tick failures. The pipeline remains directly awaited at its only asynchronous boundary.
 
-- [A region phase ignores cancellation] → Normal shutdown can wait for that phase, which is required to prevent work surviving `StopAsync`; the host timeout cannot make this service report success while its worker task remains alive.
-- [A cancellation exception is thrown by tick work] → Matching the exception's cancellation token, rather than only checking whether shutdown was requested, preserves genuine tick failures.
-- [A slow tick delays later ticks] → This is the intended serialized-world behavior; the overrun warning makes the condition visible.
-- [A tick exception aborts the remaining phases of that tick] → Existing exception handling already aborts the failed pipeline and continues the worker loop; the exception remains logged and no subsequent tick can overlap the faulted task.
+## Alternatives Rejected
 
-## Migration Plan
-
-Deploy as a normal code change. No data or configuration migration is required. Rollback is a code rollback to the previous worker implementation.
-
-## Open Questions
-
-None.
+- Passing cancellation tokens through every region and creature callback: this preserves artificial asynchronous contracts and cannot interrupt non-cancellable synchronous model work safely.
+- Keeping `StopAsync(CancellationToken.None)`: it defeats the host shutdown bound. The host token is used, and an expired token is surfaced as an unsuccessful stop when owned synchronous work remains.
+- Building a persistent immutable character snapshot store: it could remove the one per-tick read, but would expand the change into character registration/removal publication semantics. One snapshot per tick removes the O(N²) rendering cost without that larger lifecycle change.
+- Adding a new map-loading coordinator: the existing viewport and creature task scheduler already provide the needed asynchronous boundary.

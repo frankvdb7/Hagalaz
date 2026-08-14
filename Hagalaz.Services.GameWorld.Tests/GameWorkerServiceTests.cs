@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.Logging;
@@ -17,41 +19,52 @@ namespace Hagalaz.Services.GameWorld.Tests;
 [TestClass]
 public sealed class GameWorkerServiceTests
 {
+    private static readonly IReadOnlyDictionary<int, ICharacter> EmptyCharacters = new Dictionary<int, ICharacter>();
+
     [TestMethod]
     public async Task OverrunningMajorTick_DoesNotStartAnotherMajorTickBeforeFirstCompletes()
     {
+        var snapshotGate = NewSnapshotGate();
         var firstStarted = NewSignal();
-        var firstRelease = NewSignal();
+        using var firstRelease = new ManualResetEventSlim();
         var secondStarted = NewSignal();
+        using var secondRelease = new ManualResetEventSlim();
         var majorUpdateCalls = 0;
         var region = Substitute.For<IMapRegion>();
-        region.MajorUpdateTick(Arg.Any<CancellationToken>()).Returns(_ =>
+        region.When(item => item.MajorUpdateTick()).Do(_ =>
         {
             var call = Interlocked.Increment(ref majorUpdateCalls);
             if (call == 1)
             {
                 firstStarted.TrySetResult();
-                return firstRelease.Task;
+                firstRelease.Wait();
+                return;
             }
 
             secondStarted.TrySetResult();
-            return Task.CompletedTask;
+            secondRelease.Wait();
         });
 
-        var logger = new TestLogger<GameWorkerService>();
-        var worker = CreateWorker(region, TimeSpan.Zero, logger);
+        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate);
         await worker.StartAsync(CancellationToken.None);
+        snapshotGate.TrySetResult(EmptyCharacters);
         await firstStarted.Task;
 
+        Assert.AreEqual(1, Volatile.Read(ref majorUpdateCalls));
+        Assert.IsFalse(secondStarted.Task.IsCompleted);
+
+        firstRelease.Set();
+        await secondStarted.Task;
+
+        var stopTask = worker.StopAsync(CancellationToken.None);
         try
         {
-            Assert.AreEqual(1, Volatile.Read(ref majorUpdateCalls));
-            Assert.IsFalse(secondStarted.Task.IsCompleted);
+            Assert.IsFalse(stopTask.IsCompleted);
         }
         finally
         {
-            firstRelease.TrySetResult();
-            await worker.StopAsync(CancellationToken.None);
+            secondRelease.Set();
+            await stopTask;
             worker.Dispose();
         }
     }
@@ -59,11 +72,10 @@ public sealed class GameWorkerServiceTests
     [TestMethod]
     public async Task AdjacentTicks_PreservePhaseOrderAndDoNotOverlap()
     {
+        var snapshotGate = NewSnapshotGate();
         var events = new List<string>();
         var secondMajorStarted = NewSignal();
-        var secondMajorRelease = NewSignal();
-        var secondRegionMajorStarted = NewSignal();
-        var secondRegionMajorRelease = NewSignal();
+        using var secondMajorRelease = new ManualResetEventSlim();
         var currentTick = 0;
         var regionOne = Substitute.For<IMapRegion>();
         var regionTwo = Substitute.For<IMapRegion>();
@@ -75,48 +87,24 @@ public sealed class GameWorkerServiceTests
             if (tick == 2)
             {
                 secondMajorStarted.TrySetResult();
-                return secondMajorRelease.Task;
+                secondMajorRelease.Wait();
             }
-
-            return Task.CompletedTask;
         }, () => Volatile.Read(ref currentTick));
-        ConfigureRegion(regionTwo, "two", events, () =>
-        {
-            var tick = Volatile.Read(ref currentTick);
-            events.Add($"major-{tick}-two");
-            if (tick == 2)
-            {
-                secondRegionMajorStarted.TrySetResult();
-                return secondRegionMajorRelease.Task;
-            }
+        ConfigureRegion(regionTwo, "two", events, () => events.Add($"major-{Volatile.Read(ref currentTick)}-two"), () => Volatile.Read(ref currentTick));
 
-            return Task.CompletedTask;
-        }, () => Volatile.Read(ref currentTick));
-
-        var worker = CreateWorker(new[] { regionOne, regionTwo }, TimeSpan.Zero);
+        var (worker, _) = CreateWorker(new[] { regionOne, regionTwo }, TimeSpan.Zero, snapshotGate);
         await worker.StartAsync(CancellationToken.None);
+        snapshotGate.TrySetResult(EmptyCharacters);
         await secondMajorStarted.Task;
-
-        Assert.IsFalse(secondRegionMajorStarted.Task.IsCompleted);
-        secondMajorRelease.TrySetResult();
-        await secondRegionMajorStarted.Task;
 
         var stopTask = worker.StopAsync(CancellationToken.None);
         try
         {
-            Assert.IsTrue(events.SequenceEqual(new[]
-            {
-                "major-1-one", "major-1-two",
-                "prepare-1-one", "prepare-1-two",
-                "update-1-one", "update-1-two",
-                "reset-1-one", "reset-1-two",
-                "major-2-one", "major-2-two"
-            }), string.Join("|", events));
             Assert.IsFalse(stopTask.IsCompleted);
         }
         finally
         {
-            secondRegionMajorRelease.TrySetResult();
+            secondMajorRelease.Set();
             await stopTask;
             worker.Dispose();
         }
@@ -127,7 +115,10 @@ public sealed class GameWorkerServiceTests
             "prepare-1-one", "prepare-1-two",
             "update-1-one", "update-1-two",
             "reset-1-one", "reset-1-two",
-            "major-2-one", "major-2-two"
+            "major-2-one", "major-2-two",
+            "prepare-2-one", "prepare-2-two",
+            "update-2-one", "update-2-two",
+            "reset-2-one", "reset-2-two"
         };
         Assert.IsTrue(events.SequenceEqual(expectedEvents), string.Join("|", events));
     }
@@ -135,35 +126,25 @@ public sealed class GameWorkerServiceTests
     [TestMethod]
     public async Task StopAsync_WaitsForTheOwnedTickBeforeCompleting()
     {
+        var snapshotGate = NewSnapshotGate();
         var tickStarted = NewSignal();
-        var tickRelease = NewSignal();
+        using var tickRelease = new ManualResetEventSlim();
         var prepareCalls = 0;
         var updateCalls = 0;
         var resetCalls = 0;
         var region = Substitute.For<IMapRegion>();
-        region.MajorUpdateTick(Arg.Any<CancellationToken>()).Returns(_ =>
+        region.When(item => item.MajorUpdateTick()).Do(_ =>
         {
             tickStarted.TrySetResult();
-            return tickRelease.Task;
+            tickRelease.Wait();
         });
-        region.MajorClientPrepareUpdateTick(Arg.Any<CancellationToken>()).Returns(_ =>
-        {
-            Interlocked.Increment(ref prepareCalls);
-            return Task.CompletedTask;
-        });
-        region.MajorClientUpdateTick(Arg.Any<CancellationToken>()).Returns(_ =>
-        {
-            Interlocked.Increment(ref updateCalls);
-            return Task.CompletedTask;
-        });
-        region.MajorClientUpdateResetTick(Arg.Any<CancellationToken>()).Returns(_ =>
-        {
-            Interlocked.Increment(ref resetCalls);
-            return Task.CompletedTask;
-        });
+        region.When(item => item.MajorClientPrepareUpdateTick()).Do(_ => Interlocked.Increment(ref prepareCalls));
+        region.When(item => item.MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>())).Do(_ => Interlocked.Increment(ref updateCalls));
+        region.When(item => item.MajorClientUpdateResetTick()).Do(_ => Interlocked.Increment(ref resetCalls));
 
-        var worker = CreateWorker(region, TimeSpan.Zero);
+        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate);
         await worker.StartAsync(CancellationToken.None);
+        snapshotGate.TrySetResult(EmptyCharacters);
         await tickStarted.Task;
 
         var stopTask = worker.StopAsync(CancellationToken.None);
@@ -174,43 +155,47 @@ public sealed class GameWorkerServiceTests
         }
         finally
         {
-            tickRelease.TrySetResult();
+            tickRelease.Set();
             await stopTask;
             worker.Dispose();
         }
 
-        Assert.AreEqual(0, Volatile.Read(ref prepareCalls));
-        Assert.AreEqual(0, Volatile.Read(ref updateCalls));
-        Assert.AreEqual(0, Volatile.Read(ref resetCalls));
+        Assert.AreEqual(1, Volatile.Read(ref prepareCalls));
+        Assert.AreEqual(1, Volatile.Read(ref updateCalls));
+        Assert.AreEqual(1, Volatile.Read(ref resetCalls));
     }
 
     [TestMethod]
-    public async Task StopAsync_DoesNotCompleteWhenHostTokenExpiresBeforeTickFinishes()
+    public async Task StopAsync_ReportsTimeoutWhenHostTokenExpiresBeforeSynchronousTickFinishes()
     {
+        var snapshotGate = NewSnapshotGate();
         var tickStarted = NewSignal();
-        var tickRelease = NewSignal();
+        using var tickRelease = new ManualResetEventSlim();
         var region = Substitute.For<IMapRegion>();
-        region.MajorUpdateTick(Arg.Any<CancellationToken>()).Returns(_ =>
+        region.When(item => item.MajorUpdateTick()).Do(_ =>
         {
             tickStarted.TrySetResult();
-            return tickRelease.Task;
+            tickRelease.Wait();
         });
 
-        var worker = CreateWorker(region, TimeSpan.Zero);
+        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate);
         await worker.StartAsync(CancellationToken.None);
+        snapshotGate.TrySetResult(EmptyCharacters);
         await tickStarted.Task;
 
         using var hostShutdown = new CancellationTokenSource();
         var stopTask = worker.StopAsync(hostShutdown.Token);
+        hostShutdown.Cancel();
+
         try
         {
-            hostShutdown.Cancel();
-            Assert.IsFalse(stopTask.IsCompleted);
+            await Assert.ThrowsExactlyAsync<TimeoutException>(() => stopTask);
+            Assert.IsFalse(worker.ExecuteTask!.IsCompleted);
         }
         finally
         {
-            tickRelease.TrySetResult();
-            await stopTask;
+            tickRelease.Set();
+            await worker.StopAsync(CancellationToken.None);
             worker.Dispose();
         }
     }
@@ -218,29 +203,32 @@ public sealed class GameWorkerServiceTests
     [TestMethod]
     public async Task Overrun_IsLoggedAfterTheWholeTickCompletes()
     {
+        var snapshotGate = NewSnapshotGate();
         var firstTickStarted = NewSignal();
-        var firstTickRelease = NewSignal();
+        using var firstTickRelease = new ManualResetEventSlim();
         var secondTickStarted = NewSignal();
-        var secondTickRelease = NewSignal();
+        using var secondTickRelease = new ManualResetEventSlim();
         var majorUpdateCalls = 0;
         var logger = new TestLogger<GameWorkerService>();
         var region = Substitute.For<IMapRegion>();
-        region.MajorUpdateTick(Arg.Any<CancellationToken>()).Returns(_ =>
+        region.When(item => item.MajorUpdateTick()).Do(_ =>
         {
             if (Interlocked.Increment(ref majorUpdateCalls) == 1)
             {
                 firstTickStarted.TrySetResult();
-                return firstTickRelease.Task;
+                firstTickRelease.Wait();
+                return;
             }
 
             secondTickStarted.TrySetResult();
-            return secondTickRelease.Task;
+            secondTickRelease.Wait();
         });
 
-        var worker = CreateWorker(region, TimeSpan.Zero, logger);
+        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate, logger);
         await worker.StartAsync(CancellationToken.None);
+        snapshotGate.TrySetResult(EmptyCharacters);
         await firstTickStarted.Task;
-        firstTickRelease.TrySetResult();
+        firstTickRelease.Set();
         await secondTickStarted.Task;
 
         var stopTask = worker.StopAsync(CancellationToken.None);
@@ -250,7 +238,7 @@ public sealed class GameWorkerServiceTests
         }
         finally
         {
-            secondTickRelease.TrySetResult();
+            secondTickRelease.Set();
             await stopTask;
             worker.Dispose();
         }
@@ -262,31 +250,30 @@ public sealed class GameWorkerServiceTests
     [TestMethod]
     public async Task UnexpectedTickException_IsLoggedAndLoopCanProceed()
     {
+        var snapshotGate = NewSnapshotGate();
         var firstStarted = NewSignal();
-        var firstFailure = NewSignal();
         var secondMajorStarted = NewSignal();
-        var secondMajorRelease = NewSignal();
+        using var secondMajorRelease = new ManualResetEventSlim();
         var majorUpdateCalls = 0;
-        var failure = new InvalidOperationException("tick failure");
         var logger = new TestLogger<GameWorkerService>();
+        var failure = new InvalidOperationException("tick failure");
         var region = Substitute.For<IMapRegion>();
-        region.MajorUpdateTick(Arg.Any<CancellationToken>()).Returns(_ =>
+        region.When(item => item.MajorUpdateTick()).Do(_ =>
         {
             if (Interlocked.Increment(ref majorUpdateCalls) == 1)
             {
                 firstStarted.TrySetResult();
-                return firstFailure.Task;
+                throw failure;
             }
 
             secondMajorStarted.TrySetResult();
-            return secondMajorRelease.Task;
+            secondMajorRelease.Wait();
         });
 
-        var worker = CreateWorker(region, TimeSpan.Zero, logger);
+        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate, logger);
         await worker.StartAsync(CancellationToken.None);
+        snapshotGate.TrySetResult(EmptyCharacters);
         await firstStarted.Task;
-        Assert.IsFalse(secondMajorStarted.Task.IsCompleted);
-        firstFailure.TrySetException(failure);
         await secondMajorStarted.Task;
 
         var stopTask = worker.StopAsync(CancellationToken.None);
@@ -296,7 +283,7 @@ public sealed class GameWorkerServiceTests
         }
         finally
         {
-            secondMajorRelease.TrySetResult();
+            secondMajorRelease.Set();
             await stopTask;
             worker.Dispose();
         }
@@ -305,88 +292,100 @@ public sealed class GameWorkerServiceTests
     [TestMethod]
     public async Task TickOperationCanceledException_DuringShutdown_IsLoggedAsTickFailure()
     {
-        var tickStarted = NewSignal();
-        var tickFailure = NewSignal();
-        var failure = new OperationCanceledException("tick cancellation was not worker cancellation");
+        var snapshotGate = NewSnapshotGate();
+        var firstStarted = NewSignal();
+        var secondMajorStarted = NewSignal();
+        using var secondMajorRelease = new ManualResetEventSlim();
+        using var unrelatedCancellation = new CancellationTokenSource();
+        var majorUpdateCalls = 0;
         var logger = new TestLogger<GameWorkerService>();
+        var failure = new OperationCanceledException("tick cancellation was not worker cancellation", unrelatedCancellation.Token);
         var region = Substitute.For<IMapRegion>();
-        region.MajorUpdateTick(Arg.Any<CancellationToken>()).Returns(_ =>
+        region.When(item => item.MajorUpdateTick()).Do(_ =>
         {
-            tickStarted.TrySetResult();
-            return tickFailure.Task;
+            if (Interlocked.Increment(ref majorUpdateCalls) == 1)
+            {
+                firstStarted.TrySetResult();
+                throw failure;
+            }
+
+            secondMajorStarted.TrySetResult();
+            secondMajorRelease.Wait();
         });
 
-        var worker = CreateWorker(region, TimeSpan.Zero, logger);
+        var (worker, _) = CreateWorker(region, TimeSpan.Zero, snapshotGate, logger);
         await worker.StartAsync(CancellationToken.None);
-        await tickStarted.Task;
+        snapshotGate.TrySetResult(EmptyCharacters);
+        await firstStarted.Task;
+        await secondMajorStarted.Task;
 
         var stopTask = worker.StopAsync(CancellationToken.None);
         try
         {
-            tickFailure.TrySetException(failure);
-            await stopTask;
-            Assert.IsTrue(logger.Entries.Any(entry =>
-                entry.Level == LogLevel.Error && ReferenceEquals(entry.Exception, failure)));
+            Assert.IsTrue(logger.Entries.Any(entry => entry.Level == LogLevel.Error && ReferenceEquals(entry.Exception, failure)));
         }
         finally
         {
-            tickFailure.TrySetException(failure);
+            secondMajorRelease.Set();
             await stopTask;
             worker.Dispose();
         }
     }
 
     [TestMethod]
-    public async Task WorkerCancellationToken_IsPassedToEveryRegionPhase()
+    public async Task CharacterSnapshot_IsCapturedOnceAndSharedAcrossRegions()
     {
-        var resetStarted = NewSignal();
-        var resetRelease = NewSignal();
-        var observedTokens = new ConcurrentQueue<CancellationToken>();
-        var region = Substitute.For<IMapRegion>();
-        region.MajorUpdateTick(Arg.Any<CancellationToken>()).Returns(callInfo =>
+        var snapshotGate = NewSnapshotGate();
+        var snapshot = new Dictionary<int, ICharacter>();
+        var snapshotCalls = 0;
+        var updateSnapshots = new List<IReadOnlyDictionary<int, ICharacter>>();
+        var regionOne = Substitute.For<IMapRegion>();
+        var regionTwo = Substitute.For<IMapRegion>();
+        var secondMajorStarted = NewSignal();
+        using var secondMajorRelease = new ManualResetEventSlim();
+        var regionOneMajorCalls = 0;
+
+        var store = Substitute.For<ICharacterStore>();
+        store.GetSnapshotAsync(Arg.Any<CancellationToken>()).Returns(_ =>
         {
-            observedTokens.Enqueue(callInfo.Arg<CancellationToken>());
-            return Task.CompletedTask;
-        });
-        region.MajorClientPrepareUpdateTick(Arg.Any<CancellationToken>()).Returns(callInfo =>
-        {
-            observedTokens.Enqueue(callInfo.Arg<CancellationToken>());
-            return Task.CompletedTask;
-        });
-        region.MajorClientUpdateTick(Arg.Any<CancellationToken>()).Returns(callInfo =>
-        {
-            observedTokens.Enqueue(callInfo.Arg<CancellationToken>());
-            return Task.CompletedTask;
-        });
-        region.MajorClientUpdateResetTick(Arg.Any<CancellationToken>()).Returns(callInfo =>
-        {
-            observedTokens.Enqueue(callInfo.Arg<CancellationToken>());
-            resetStarted.TrySetResult();
-            return resetRelease.Task;
+            if (Interlocked.Increment(ref snapshotCalls) == 1)
+            {
+                return new ValueTask<IReadOnlyDictionary<int, ICharacter>>(snapshotGate.Task);
+            }
+
+            return new ValueTask<IReadOnlyDictionary<int, ICharacter>>(snapshot);
         });
 
-        var worker = CreateWorker(region, TimeSpan.Zero);
+        regionOne.When(item => item.MajorUpdateTick()).Do(_ =>
+        {
+            if (Interlocked.Increment(ref regionOneMajorCalls) == 2)
+            {
+                secondMajorStarted.TrySetResult();
+                secondMajorRelease.Wait();
+            }
+        });
+        regionOne.When(item => item.MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>())).Do(call => updateSnapshots.Add(call.Arg<IReadOnlyDictionary<int, ICharacter>>()));
+        regionTwo.When(item => item.MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>())).Do(call => updateSnapshots.Add(call.Arg<IReadOnlyDictionary<int, ICharacter>>()));
+
+        var (worker, _) = CreateWorker(new[] { regionOne, regionTwo }, TimeSpan.Zero, store);
         await worker.StartAsync(CancellationToken.None);
-        await resetStarted.Task;
+        snapshotGate.TrySetResult(snapshot);
+        await secondMajorStarted.Task;
 
         var stopTask = worker.StopAsync(CancellationToken.None);
         try
         {
-            resetRelease.TrySetResult();
-            await stopTask;
+            Assert.AreEqual(2, Volatile.Read(ref snapshotCalls));
+            Assert.HasCount(2, updateSnapshots);
+            Assert.IsTrue(ReferenceEquals(snapshot, updateSnapshots[0]));
+            Assert.IsTrue(ReferenceEquals(snapshot, updateSnapshots[1]));
         }
         finally
         {
-            resetRelease.TrySetResult();
+            secondMajorRelease.Set();
             await stopTask;
             worker.Dispose();
         }
-
-        var tokens = observedTokens.ToArray();
-        Assert.HasCount(4, tokens);
-        Assert.IsTrue(tokens.All(token => token.CanBeCanceled));
-        Assert.IsTrue(tokens.All(token => token == tokens[0]));
-        Assert.IsTrue(tokens[0].IsCancellationRequested);
     }
 
     [TestMethod]
@@ -394,7 +393,7 @@ public sealed class GameWorkerServiceTests
     {
         var logger = new TestLogger<GameWorkerService>();
         var regionService = Substitute.For<IMapRegionService>();
-        var worker = CreateWorker(regionService, TimeSpan.FromDays(1), logger);
+        var (worker, _) = CreateWorker(regionService, TimeSpan.FromDays(1), logger: logger);
 
         await worker.StartAsync(CancellationToken.None);
         await worker.StopAsync(CancellationToken.None);
@@ -404,28 +403,43 @@ public sealed class GameWorkerServiceTests
         regionService.DidNotReceive().FindAllRegions();
     }
 
-    private static GameWorkerService CreateWorker(IMapRegion region, TimeSpan tickTimeSpan, TestLogger<GameWorkerService>? logger = null) =>
-        CreateWorker(new[] { region }, tickTimeSpan, logger);
+    private static (GameWorkerService Worker, ICharacterStore Store) CreateWorker(
+        IMapRegion region,
+        TimeSpan tickTimeSpan,
+        TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>>? snapshotGate = null,
+        TestLogger<GameWorkerService>? logger = null) =>
+        CreateWorker(new[] { region }, tickTimeSpan, snapshotGate, logger);
 
-    private static GameWorkerService CreateWorker(
+    private static (GameWorkerService Worker, ICharacterStore Store) CreateWorker(
         IEnumerable<IMapRegion> regions,
         TimeSpan tickTimeSpan,
+        TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>>? snapshotGate = null,
+        TestLogger<GameWorkerService>? logger = null) =>
+        CreateWorker(new[] { regions }, tickTimeSpan, snapshotGate, logger);
+
+    private static (GameWorkerService Worker, ICharacterStore Store) CreateWorker(
+        IEnumerable<IMapRegion> regionSet,
+        TimeSpan tickTimeSpan,
+        ICharacterStore characterStore,
         TestLogger<GameWorkerService>? logger = null)
     {
         var regionService = Substitute.For<IMapRegionService>();
-        regionService.FindAllRegions().Returns(regions);
-        return CreateWorker(regionService, tickTimeSpan, logger);
+        regionService.FindAllRegions().Returns(regionSet);
+        return CreateWorker(regionService, tickTimeSpan, characterStore, logger);
     }
 
-    private static GameWorkerService CreateWorker(
+    private static (GameWorkerService Worker, ICharacterStore Store) CreateWorker(
         IMapRegionService regionService,
         TimeSpan tickTimeSpan,
+        ICharacterStore? characterStore = null,
         TestLogger<GameWorkerService>? logger = null)
     {
         var scheduler = Substitute.For<IRsTaskService>();
-        return new GameWorkerService(
+        characterStore ??= CreateCharacterStore();
+        var worker = new GameWorkerService(
             scheduler,
             regionService,
+            characterStore,
             Options.Create(new GameServerOptions
             {
                 AuthenticationToken = string.Empty,
@@ -434,32 +448,52 @@ public sealed class GameWorkerServiceTests
                 TickTimeSpan = tickTimeSpan
             }),
             logger ?? new TestLogger<GameWorkerService>());
+        return (worker, characterStore);
+    }
+
+    private static (GameWorkerService Worker, ICharacterStore Store) CreateWorker(
+        IEnumerable<IEnumerable<IMapRegion>> regionSets,
+        TimeSpan tickTimeSpan,
+        TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>>? snapshotGate,
+        TestLogger<GameWorkerService>? logger)
+    {
+        var regionService = Substitute.For<IMapRegionService>();
+        regionService.FindAllRegions().Returns(regionSets.SelectMany(regions => regions));
+        var store = CreateCharacterStore(snapshotGate);
+        return CreateWorker(regionService, tickTimeSpan, store, logger);
+    }
+
+    private static ICharacterStore CreateCharacterStore(
+        TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>>? snapshotGate = null)
+    {
+        var store = Substitute.For<ICharacterStore>();
+        if (snapshotGate is null)
+        {
+            store.GetSnapshotAsync(Arg.Any<CancellationToken>()).Returns(_ => new ValueTask<IReadOnlyDictionary<int, ICharacter>>(EmptyCharacters));
+        }
+        else
+        {
+            store.GetSnapshotAsync(Arg.Any<CancellationToken>()).Returns(_ => new ValueTask<IReadOnlyDictionary<int, ICharacter>>(snapshotGate.Task));
+        }
+
+        return store;
     }
 
     private static void ConfigureRegion(
         IMapRegion region,
         string name,
         ICollection<string> events,
-        Func<Task> majorUpdate,
+        Action majorUpdate,
         Func<int> currentTick)
     {
-        region.MajorUpdateTick(Arg.Any<CancellationToken>()).Returns(_ => majorUpdate());
-        region.MajorClientPrepareUpdateTick(Arg.Any<CancellationToken>()).Returns(_ =>
-        {
-            events.Add($"prepare-{currentTick()}-{name}");
-            return Task.CompletedTask;
-        });
-        region.MajorClientUpdateTick(Arg.Any<CancellationToken>()).Returns(_ =>
-        {
-            events.Add($"update-{currentTick()}-{name}");
-            return Task.CompletedTask;
-        });
-        region.MajorClientUpdateResetTick(Arg.Any<CancellationToken>()).Returns(_ =>
-        {
-            events.Add($"reset-{currentTick()}-{name}");
-            return Task.CompletedTask;
-        });
+        region.When(item => item.MajorUpdateTick()).Do(_ => majorUpdate());
+        region.When(item => item.MajorClientPrepareUpdateTick()).Do(_ => events.Add($"prepare-{currentTick()}-{name}"));
+        region.When(item => item.MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>())).Do(_ => events.Add($"update-{currentTick()}-{name}"));
+        region.When(item => item.MajorClientUpdateResetTick()).Do(_ => events.Add($"reset-{currentTick()}-{name}"));
     }
+
+    private static TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>> NewSnapshotGate() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private static TaskCompletionSource NewSignal() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);

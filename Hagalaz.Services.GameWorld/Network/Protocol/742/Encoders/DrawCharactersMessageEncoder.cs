@@ -419,7 +419,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
         ///     walking update required
         ///     2 means running update required , 3 means teleport update required.
         /// </returns>
-        private static int GetLocalUpdateType(ICharacter owner, ICharacter checkable, IDictionary<int, ICharacter> allCharacters)
+        private static int GetLocalUpdateType(ICharacter owner, ICharacter checkable, IReadOnlyDictionary<int, ICharacter> allCharacters)
         {
             allCharacters.TryGetValue(checkable.Index, out var character);
             if (owner != checkable && (character != checkable || !CanRenderFor(owner, checkable)))
