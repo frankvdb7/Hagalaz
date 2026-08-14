@@ -62,7 +62,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <summary>
         /// Does the test stuff.
         /// </summary>
-        public async Task DoTestStuff()
+        public void DoTestStuff()
         {
             // test code
 
@@ -93,7 +93,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
             foreach (var character in lumby.FindAllCharacters())
             {
-                await character.UpdateMapAsync(true);
+                character.UpdateMap(true);
             }
         }
 

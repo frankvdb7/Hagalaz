@@ -4,7 +4,7 @@ The GameWorld worker owns the scheduler and the four region phases. The tick bud
 
 The one real asynchronous prerequisite for client rendering is the global character-store read lock. Character rendering previously acquired that lock and enumerated every character once per character, producing O(N²) work and repeated dictionary allocations.
 
-Viewport map loading is also asynchronous, but `MapRegionService.LoadRegionAsync` only submits a work item to the background queue; it does not wait for the region data load. The viewport component can therefore initiate that submission and send `SendFullPartUpdates` immediately without putting an async task into the character's synchronous render phase.
+Viewport map loading is also asynchronous, but `MapRegionService.LoadRegionAsync` only submits a work item to the background queue; it does not wait for the region data load. A map-update service can therefore initiate that submission and send `SendFullPartUpdates` immediately without putting an async task into the character's synchronous render phase.
 
 ## Decisions
 
@@ -16,7 +16,7 @@ Viewport map loading is also asynchronous, but `MapRegionService.LoadRegionAsync
 
 4. **Capture global character state once.** `ICharacterStore.GetSnapshotAsync` acquires the existing reader lock once and returns a read-only dictionary keyed by character index. `GameWorkerService` passes that same view to every region, and `CharacterRenderInformation.Update` only formats and sends messages synchronously.
 
-5. **Let the viewport component own map-update orchestration.** `Viewport.UpdateMap` performs the rebuild and map packet send, initiates each `LoadRegionAsync` submission with fire-and-forget observation, and immediately sends the corresponding full region-part updates. `Viewport.UpdateMapAsync` remains for initial/external callers that need the existing asynchronous queue-submission boundary. `Character` delegates both paths and no longer schedules viewport work through its creature task queue. No map queue await occurs inside the worker-owned synchronous region phase.
+5. **Keep viewport state separate from map-update orchestration.** `Viewport` owns visible-region state, bounds, and visibility calculations. The stateless `MapUpdateService` performs the rebuild, map packet construction/session send, `LoadRegionAsync` submission with fire-and-forget observation, and immediate full region-part updates. `ICharacter.UpdateMap` remains a synchronous facade to that service; `IViewport` does not expose map-update orchestration. Startup and world-map callers therefore do not create an async state machine or block on a task, and no map queue await occurs inside the worker-owned synchronous region phase.
 
 6. **Preserve fault classification.** Delay cancellation and the worker token are handled separately from tick execution. An `OperationCanceledException` is treated as routine shutdown only when it carries the worker token; unrelated cancellation exceptions are logged as tick failures. The pipeline remains directly awaited at its only asynchronous boundary.
 
@@ -25,4 +25,4 @@ Viewport map loading is also asynchronous, but `MapRegionService.LoadRegionAsync
 - Passing cancellation tokens through every region and creature callback: this preserves artificial asynchronous contracts and cannot interrupt non-cancellable synchronous model work safely.
 - Keeping `StopAsync(CancellationToken.None)`: it defeats the host shutdown bound. The host token is used, and an expired token is surfaced as an unsuccessful stop when owned synchronous work remains.
 - Building a persistent immutable character snapshot store: it could remove the one per-tick read, but would expand the change into character registration/removal publication semantics. One snapshot per tick removes the O(N²) rendering cost without that larger lifecycle change.
-- Adding a separate map-loading coordinator: the existing `Viewport` component already owns visible-region state and can provide the synchronous orchestration boundary without routing render work through the creature task scheduler.
+- Putting map-update orchestration in `Viewport`: visible-region ownership does not require protocol I/O or background queue ownership. A focused stateless map-update service keeps that boundary explicit without adding a second queue or generic coordinator.

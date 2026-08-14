@@ -58,12 +58,19 @@ The hosted GameWorld worker MUST retain ownership of its execution task and MUST
 
 ### Requirement: Viewport map updates stay synchronous at the render boundary
 
-Character map rebuilding and packet construction MUST be synchronous within the render phase. The viewport component MUST initiate asynchronous region loading and send full region-part updates during that same synchronous operation; the actual region data load MAY continue in the background.
+Character map rebuilding and packet construction MUST be synchronous within the render phase. A map-update service MUST orchestrate the viewport rebuild, map packet send, asynchronous region-load submission, and full region-part updates during that same synchronous operation; the actual region data load MAY continue in the background. `Viewport` MUST remain responsible only for visible-region state, bounds, and visibility calculations.
+
+The `ICharacter` model contract MUST expose only a synchronous map-update operation. `IViewport` MUST NOT expose map-update orchestration, and callers MUST NOT use sync-over-async waits for map updates.
 
 #### Scenario: A character crosses a viewport rebuild boundary
 
 - **WHEN** a character's render update detects that its viewport must be rebuilt
-- **THEN** the viewport component rebuilds and sends the map update, initiates visible-region loading, and sends full region-part updates before the current render operation returns, without awaiting region loading or scheduling an `RsAsyncTask`
+- **THEN** the map-update service asks the viewport to rebuild, sends the map update, initiates visible-region loading, and sends full region-part updates before the current render operation returns, without awaiting region loading or scheduling an `RsAsyncTask`
+
+#### Scenario: Startup or world-map code requests a map update
+
+- **WHEN** startup or a world-map script requests a map update
+- **THEN** it calls synchronous `UpdateMap` directly without creating an async map-update task or blocking on `.Wait()`
 
 ### Requirement: Tick failures and overruns remain observable
 

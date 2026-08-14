@@ -1,5 +1,4 @@
 ﻿using System.Linq;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common;
@@ -16,8 +15,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Update's character visible regions.
         /// </summary>
-        public Task UpdateMapAsync(bool forceUpdate, bool renderViewPort = false) =>
-            Viewport.UpdateMapAsync(forceUpdate, renderViewPort);
+        public void UpdateMap(bool forceUpdate, bool renderViewPort = false) =>
+            ServiceProvider.GetRequiredService<IMapUpdateService>().UpdateMap(this, forceUpdate, renderViewPort);
 
         /// <summary>
         /// Notifies character that it must add itself to given region.

@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures
@@ -74,18 +73,5 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// Forces a complete rebuild of the viewport's visible map region data.
         /// </summary>
         void RebuildView();
-        /// <summary>
-        /// Rebuilds the owner's map view and schedules region loading while sending full region-part updates synchronously.
-        /// </summary>
-        /// <param name="forceUpdate">Whether the client should force the map update.</param>
-        /// <param name="renderViewPort">Whether the client should render the viewport after the map update.</param>
-        void UpdateMap(bool forceUpdate, bool renderViewPort = false);
-        /// <summary>
-        /// Rebuilds the owner's map view and asynchronously submits region loading work before sending full region-part updates.
-        /// </summary>
-        /// <param name="forceUpdate">Whether the client should force the map update.</param>
-        /// <param name="renderViewPort">Whether the client should render the viewport after the map update.</param>
-        /// <returns>A task representing the asynchronous region-loading submission boundary.</returns>
-        Task UpdateMapAsync(bool forceUpdate, bool renderViewPort = false);
     }
 }
