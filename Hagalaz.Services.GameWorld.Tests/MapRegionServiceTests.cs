@@ -70,6 +70,25 @@ namespace Hagalaz.Services.GameWorld.Tests
             await firstRequest;
         }
 
+        [TestMethod]
+        public void EnsureRegionLoadScheduled_PropagatesQueueAdmissionFailureAndClearsMarker()
+        {
+            var queue = new FailingAdmissionBackgroundTaskQueue();
+            using var provider = new ServiceCollection().BuildServiceProvider();
+            var service = CreateService(queue, provider);
+            var region = Substitute.For<IMapRegion>();
+            region.Id.Returns(1);
+            region.IsLoaded.Returns(false);
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => service.EnsureRegionLoadScheduled(region));
+
+            queue.FailAdmission = false;
+            service.EnsureRegionLoadScheduled(region);
+
+            Assert.AreEqual(2, queue.AdmissionAttempts);
+            Assert.HasCount(1, queue.WorkItems);
+        }
+
         private static MapRegionService CreateService(IBackgroundTaskQueue queue, IServiceProvider serviceProvider) =>
             new(
                 queue,
@@ -105,6 +124,28 @@ namespace Hagalaz.Services.GameWorld.Tests
                 WorkItems.Add(workItem);
                 AdmissionStarted.TrySetResult();
                 return new ValueTask(Admission.Task);
+            }
+
+            public ValueTask<Func<CancellationToken, ValueTask>> DequeueAsync(CancellationToken cancellationToken) =>
+                throw new NotSupportedException();
+        }
+
+        private sealed class FailingAdmissionBackgroundTaskQueue : IBackgroundTaskQueue
+        {
+            public bool FailAdmission { get; set; } = true;
+            public int AdmissionAttempts { get; private set; }
+            public List<Func<CancellationToken, ValueTask>> WorkItems { get; } = [];
+
+            public ValueTask QueueBackgroundWorkItemAsync(Func<CancellationToken, ValueTask> workItem)
+            {
+                AdmissionAttempts++;
+                if (FailAdmission)
+                {
+                    return new ValueTask(Task.FromException(new InvalidOperationException("queue admission failed")));
+                }
+
+                WorkItems.Add(workItem);
+                return ValueTask.CompletedTask;
             }
 
             public ValueTask<Func<CancellationToken, ValueTask>> DequeueAsync(CancellationToken cancellationToken) =>

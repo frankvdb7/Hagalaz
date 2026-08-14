@@ -266,6 +266,8 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
+            var admitted = false;
+
             try
             {
                 _taskQueue.QueueBackgroundWorkItemAsync(async cancellationToken =>
@@ -280,11 +282,14 @@ namespace Hagalaz.Services.GameWorld.Services
                         _scheduledRegionLoads.TryRemove(region, out _);
                     }
                 }).AsTask().GetAwaiter().GetResult();
+                admitted = true;
             }
-            catch (Exception ex)
+            finally
             {
-                _scheduledRegionLoads.TryRemove(region, out _);
-                _logger.LogError(ex, "Failed to schedule loading for region {id}", region.Id);
+                if (!admitted)
+                {
+                    _scheduledRegionLoads.TryRemove(region, out _);
+                }
             }
         }
 
