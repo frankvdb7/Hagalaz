@@ -60,7 +60,7 @@ The hosted GameWorld worker MUST retain ownership of its execution task and MUST
 
 Character map rebuilding and packet construction MUST be synchronous within the render phase. A map-update service MUST orchestrate the viewport rebuild, map packet send, synchronous region-load scheduling, and full region-part updates during that same synchronous operation; the actual region data load MAY continue in the background. `Viewport` MUST remain responsible only for visible-region state, bounds, and visibility calculations.
 
-The `ICharacter` model contract MUST expose only a synchronous map-update operation. `IViewport` MUST NOT expose map-update orchestration, and callers MUST NOT use sync-over-async waits for map updates. The map-region loading layer MUST skip loaded or already scheduled regions, preserve backpressure when admitting work to the bounded background queue, release scheduling state when work completes, and log scheduling failures.
+The `ICharacter` model contract MUST expose only a synchronous map-update operation. `IViewport` MUST NOT expose map-update orchestration, and callers MUST NOT use sync-over-async waits for map updates. The map-region loading layer MUST skip loaded or already scheduled regions, preserve backpressure when admitting work to the bounded background queue, release scheduling state when work completes, and log scheduling failures. `IMapRegion.IsLoaded` remains the authoritative indication that a region should not be admitted again; this requirement does not define recovery for a loader that marks a region loaded before a later population step fails.
 
 #### Scenario: A character crosses a viewport rebuild boundary
 
@@ -71,6 +71,11 @@ The `ICharacter` model contract MUST expose only a synchronous map-update operat
 
 - **WHEN** a map update requests a region whose data is loaded or whose load is already admitted/in flight
 - **THEN** the loading layer does not enqueue another work item for that region
+
+#### Scenario: A completed load marks a region loaded
+
+- **WHEN** a region load work item completes after the loader has marked the region loaded
+- **THEN** a later map update does not enqueue another work item for that region
 
 #### Scenario: The bounded region-load queue is full
 

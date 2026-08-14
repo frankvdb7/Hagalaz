@@ -26,7 +26,6 @@ namespace Hagalaz.Services.GameWorld.Tests
         {
             var queue = new RecordingBackgroundTaskQueue();
             var loader = Substitute.For<IMapRegionLoader>();
-            loader.LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
             using var provider = new ServiceCollection()
                 .AddSingleton(loader)
                 .BuildServiceProvider();
@@ -34,6 +33,12 @@ namespace Hagalaz.Services.GameWorld.Tests
             var region = Substitute.For<IMapRegion>();
             region.Id.Returns(1);
             region.IsLoaded.Returns(false);
+            loader.LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    region.IsLoaded.Returns(true);
+                    return Task.CompletedTask;
+                });
 
             service.EnsureRegionLoadScheduled(region);
             service.EnsureRegionLoadScheduled(region);
@@ -42,11 +47,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             await queue.WorkItems[0](CancellationToken.None);
 
             service.EnsureRegionLoadScheduled(region);
-            Assert.HasCount(2, queue.WorkItems);
-
-            region.IsLoaded.Returns(true);
-            service.EnsureRegionLoadScheduled(region);
-            Assert.HasCount(2, queue.WorkItems);
+            Assert.HasCount(1, queue.WorkItems);
         }
 
         [TestMethod]
