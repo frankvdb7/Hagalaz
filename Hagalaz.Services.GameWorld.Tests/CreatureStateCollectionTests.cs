@@ -6,6 +6,7 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Services.GameWorld.Model.Creatures;
 using Hagalaz.Services.GameWorld.Providers;
+using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -245,12 +246,14 @@ public sealed class StateProviderTests
         using var provider = BuildProvider(new TestStateFactory(("known", typeof(RegisteredState))));
         var stateProvider = new StateProvider(provider, NullLogger<StateProvider>.Instance);
         await stateProvider.LoadAsync();
+        using var scope = provider.CreateScope();
+        var stateService = new StateService(stateProvider, scope.ServiceProvider);
 
-        Assert.IsFalse(stateProvider.TryCreateState("missing", out var state));
+        Assert.IsFalse(stateService.TryCreateState("missing", out var state));
         Assert.IsNull(state);
-        Assert.IsTrue(stateProvider.TryCreateState("known", out state));
+        Assert.IsTrue(stateService.TryCreateState("known", out state));
         Assert.IsInstanceOfType<RegisteredState>(state);
-        Assert.IsTrue(stateProvider.TryGetStateId(state, out var id));
+        Assert.IsTrue(stateService.TryGetStateId(state, out var id));
         Assert.AreEqual("known", id);
     }
 
@@ -274,10 +277,27 @@ public sealed class StateProviderTests
         var stateProvider = new StateProvider(provider, NullLogger<StateProvider>.Instance);
 
         await stateProvider.LoadAsync();
+        using var scope = provider.CreateScope();
+        var stateService = new StateService(stateProvider, scope.ServiceProvider);
 
-        Assert.IsFalse(stateProvider.TryCreateState("runtime-only", out _));
-        Assert.IsTrue(stateProvider.TryCreateState("persistent", out var state));
+        Assert.IsFalse(stateService.TryCreateState("runtime-only", out _));
+        Assert.IsTrue(stateService.TryCreateState("persistent", out var state));
         Assert.IsInstanceOfType<RegisteredState>(state);
+    }
+
+    [TestMethod]
+    public async Task StateService_ActivatesStateFromCharacterScope()
+    {
+        using var provider = BuildProvider(new TestStateFactory(("scoped", typeof(ScopedDependentState))));
+        var stateProvider = new StateProvider(provider, NullLogger<StateProvider>.Instance);
+        await stateProvider.LoadAsync();
+
+        using var scope = provider.CreateScope();
+        var stateService = new StateService(stateProvider, scope.ServiceProvider);
+
+        Assert.IsTrue(stateService.TryCreateState("scoped", out var state));
+        var scopedState = Assert.IsInstanceOfType<ScopedDependentState>(state);
+        Assert.AreSame(scope.ServiceProvider.GetRequiredService<ScopedStateDependency>(), scopedState.Dependency);
     }
 
     [TestMethod]
@@ -298,12 +318,14 @@ public sealed class StateProviderTests
         services.AddTransient<RegisteredState>();
         services.AddTransient<SecondRegisteredState>();
         services.AddTransient<MissingMetadataState>();
+        services.AddScoped<ScopedStateDependency>();
+        services.AddTransient<ScopedDependentState>();
         foreach (var factory in factories)
         {
             services.AddSingleton(typeof(IStateFactory), factory);
         }
 
-        return services.BuildServiceProvider();
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
     private sealed class TestStateFactory : IStateFactory
@@ -329,6 +351,18 @@ public sealed class StateProviderTests
     }
 
     private sealed class MissingMetadataState : State, IPersistentState
+    {
+    }
+
+    [StateMetaData("scoped-dependent-state")]
+    private sealed class ScopedDependentState : State, IPersistentState
+    {
+        public ScopedDependentState(ScopedStateDependency dependency) => Dependency = dependency;
+
+        public ScopedStateDependency Dependency { get; }
+    }
+
+    private sealed class ScopedStateDependency
     {
     }
 

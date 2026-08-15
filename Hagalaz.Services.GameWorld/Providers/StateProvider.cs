@@ -26,17 +26,7 @@ namespace Hagalaz.Services.GameWorld.Providers
             _logger = logger;
         }
 
-        public bool TryCreateState(string id, [NotNullWhen(true)] out IState? state)
-        {
-            state = null;
-            if (!_statesById.TryGetValue(id, out var stateType))
-            {
-                return false;
-            }
-
-            state = (IState)_serviceProvider.GetRequiredService(stateType);
-            return true;
-        }
+        internal bool TryGetStateType(string id, [NotNullWhen(true)] out Type? stateType) => _statesById.TryGetValue(id, out stateType);
 
         public bool TryGetStateId(IState state, [NotNullWhen(true)] out string? id) => _idsByStateType.TryGetValue(state.GetType(), out id);
 

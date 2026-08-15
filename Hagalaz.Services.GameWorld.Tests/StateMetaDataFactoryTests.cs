@@ -23,6 +23,7 @@ public sealed class StateMetaDataFactoryTests
         {
             await foreach (var _ in factory.GetStates())
             {
+                Assert.Fail("A persistent state without metadata must not be yielded.");
             }
         });
 

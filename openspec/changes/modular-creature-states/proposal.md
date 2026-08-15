@@ -11,6 +11,7 @@ The current creature state abstraction forces passive equipment markers, timed c
 - Make state dehydration opt-in through a persistent-state capability; restore only known persistent states and skip unknown or runtime-only records safely.
 - Explicitly classify the durable states carried by the existing character snapshot: `DefaultSkulledState`, the three God Wars/Saradomin rope markers, and `LodestoneActivatedState`. Equipment, prayer, combat/session, activity, and NPC-derived markers remain runtime-only.
 - Require every persistent state discovered at startup to declare `StateMetaDataAttribute` with a stable identifier; fail registration clearly when that invariant is violated.
+- Keep persistent identity/type lookup in the singleton registry, but activate states through the scoped `StateService` so constructor injection uses the character scope.
 - Replace the public raw `state id -> Type` lookup with a narrow registry/factory contract that creates states and resolves persistent identifiers at the activation boundary.
 - Fail state registration on duplicate persistent identifiers and cover representative equipment, freeze, callback, activity, and persistence behavior with deterministic MSTest regressions.
 

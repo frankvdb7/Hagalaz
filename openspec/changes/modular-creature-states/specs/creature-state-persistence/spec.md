@@ -22,6 +22,10 @@ The state registry MUST create persistent states and resolve stable IDs through 
 - **WHEN** hydration requests a registered persistent state ID
 - **THEN** the registry returns a new state instance for the registered implementation
 
+#### Scenario: Known state ID activates through the scoped character service
+- **WHEN** a scoped character `StateService` hydrates a registered persistent state whose constructor requires a scoped dependency
+- **THEN** the dependency is resolved from that character scope rather than the singleton registry provider
+
 #### Scenario: Unknown state ID is compatible
 - **WHEN** hydration requests an unknown or removed state ID
 - **THEN** registry activation returns no state and character hydration continues without a raw dictionary exception
