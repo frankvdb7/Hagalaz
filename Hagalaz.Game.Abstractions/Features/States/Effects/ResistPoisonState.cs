@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Resist Poison" state.
     /// </summary>
     [StateMetaData("resist-poison-state")]
-    public class ResistPoisonState : TimedState
+    public class ResistPoisonState : TimedState, IKeepLongestDurationState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ResistPoisonState"/> class.

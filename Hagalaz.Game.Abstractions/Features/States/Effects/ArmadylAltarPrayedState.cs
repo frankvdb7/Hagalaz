@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the state of having prayed at the Armadyl altar.
     /// </summary>
     [StateMetaData("armadyl-altar-prayed-state")]
-    public class ArmadylAltarPrayedState : TimedState
+    public class ArmadylAltarPrayedState : TimedState, IKeepLongestDurationState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ArmadylAltarPrayedState"/> class.

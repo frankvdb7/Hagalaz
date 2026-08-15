@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     ///     Contains the OverloadEffectState.
     /// </summary>
     [StateMetaData("overload-effect-state")]
-    public class OverloadEffectState : TimedState
+    public class OverloadEffectState : TimedState, IKeepLongestDurationState
     {
     }
 }

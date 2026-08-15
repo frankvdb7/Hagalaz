@@ -7,7 +7,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Staff of Light Special Effect" state.
     /// </summary>
     [StateMetaData("staff-of-light-special-effect-state")]
-    public class StaffOfLightSpecialEffectState : TimedState, IStateLifecycle
+    public class StaffOfLightSpecialEffectState : TimedState, IStateLifecycle, IKeepLongestDurationState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="StaffOfLightSpecialEffectState"/> class.

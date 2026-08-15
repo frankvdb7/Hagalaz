@@ -108,9 +108,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private static StateReapplicationPolicy GetReapplicationPolicy(IState state) =>
             state is IStateReapplicationPolicy reapplication
                 ? reapplication.ReapplicationPolicy
-                : state is ITimedState
-                    ? StateReapplicationPolicy.KeepLongestDuration
-                    : StateReapplicationPolicy.KeepExisting;
+                : StateReapplicationPolicy.KeepExisting;
 
         private void Remove(Type stateType, IState? expectedState)
         {

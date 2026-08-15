@@ -123,7 +123,7 @@ public sealed class CharacterStatePersistenceTests
         Register(serviceProvider, itemBuilder);
         Register<IStateService>(serviceProvider, stateService);
 
-        return new Character(serviceScope, Substitute.For<IGameSession>(), Substitute.For<IGameClient>());
+        return new Character(serviceScope, Substitute.For<IGameSession>(), Substitute.For<IGameClient>(), Location.Create(3200, 3200));
     }
 
     private static void Register<T>(IServiceProvider serviceProvider, T service) where T : class =>

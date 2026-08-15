@@ -5,7 +5,7 @@ using System;
 namespace Hagalaz.Game.Abstractions.Features.States.Effects
 {
     [StateMetaData("eating-state")]
-    public class EatingState : TimedState, IStateLifecycle
+    public class EatingState : TimedState, IStateLifecycle, IKeepLongestDurationState
     {
         public Action? OnRemovedCallback { get; set; }
 

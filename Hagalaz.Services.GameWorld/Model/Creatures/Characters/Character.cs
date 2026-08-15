@@ -237,13 +237,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public ClientChatType CurrentChatType { get; set; }
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-        public Character(IServiceScope serviceScope, IGameSession session, IGameClient gameClient) : base(serviceScope)
+        public Character(IServiceScope serviceScope, IGameSession session, IGameClient gameClient, ILocation initialLocation) : base(serviceScope)
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
         {
+            ArgumentNullException.ThrowIfNull(initialLocation);
             GameClient = gameClient;
             Session = session;
-            // Hydration supplies the actual location after construction.
-            Location = Game.Abstractions.Model.Location.Create(0, 0, 0, 0);
+            Location = initialLocation.Clone();
             var contextProvider = serviceScope.ServiceProvider.GetRequiredService<ICharacterContextProvider>();
             contextProvider.Context = new CharacterContext(this);
             EventManager = ServiceProvider.GetRequiredService<IEventManager>();

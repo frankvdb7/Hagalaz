@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Glacor Frozen" state.
     /// </summary>
     [StateMetaData("glacor-frozen-state")]
-    public class GlacorFrozenState : TimedState
+    public class GlacorFrozenState : TimedState, IKeepLongestDurationState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="GlacorFrozenState"/> class.

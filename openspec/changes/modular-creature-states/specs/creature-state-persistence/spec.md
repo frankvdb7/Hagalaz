@@ -11,7 +11,7 @@ Character dehydration MUST include only active states that implement the persist
 - **WHEN** a persistent timed state is dehydrated
 - **THEN** its stable ID and remaining tick count are stored
 
-#### Scenario: Persistent until-removed state is supported
+#### Scenario: Persistent passive state is supported
 - **WHEN** a persistent state has no timed capability
 - **THEN** it is stored by stable ID without requiring a fake duration sentinel
 
@@ -34,9 +34,9 @@ The state registry MUST create persistent states and resolve stable IDs through 
 - **WHEN** startup discovers a metadata-bearing state that does not implement `IPersistentState`
 - **THEN** the state is excluded from the persistence registry and does not require a stable persistence identity
 
-#### Scenario: Persistent state without metadata cannot crash save
-- **WHEN** a runtime persistent-state instance has no registered stable ID
-- **THEN** generic dehydration omits that instance and completes without a null-forgiving reflection failure
+#### Scenario: Persistent state without metadata fails registration
+- **WHEN** startup discovers an `IPersistentState` implementation without `StateMetaDataAttribute`
+- **THEN** registration fails with a diagnostic naming the state type and the missing stable identity
 
 ### Requirement: Equipment-derived state is not durable truth
 Equipment-derived state MUST remain runtime-only for this change and MUST be rebuilt by the authoritative equipment path rather than restored from independent character state data.

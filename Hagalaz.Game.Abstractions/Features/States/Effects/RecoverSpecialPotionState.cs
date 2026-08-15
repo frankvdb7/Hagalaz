@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Recover Special Potion" state.
     /// </summary>
     [StateMetaData("recover-special-potion-state")]
-    public class RecoverSpecialPotionState : TimedState
+    public class RecoverSpecialPotionState : TimedState, IKeepLongestDurationState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="RecoverSpecialPotionState"/> class.

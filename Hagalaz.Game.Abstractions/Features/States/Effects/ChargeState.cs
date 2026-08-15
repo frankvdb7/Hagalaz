@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Charge" spell state.
     /// </summary>
     [StateMetaData("charge-state")]
-    public class ChargeState : TimedState
+    public class ChargeState : TimedState, IKeepLongestDurationState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ChargeState"/> class.

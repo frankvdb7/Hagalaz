@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Injured" state.
     /// </summary>
     [StateMetaData("injured-state")]
-    public class InjuredState : TimedState
+    public class InjuredState : TimedState, IKeepLongestDurationState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="InjuredState"/> class.

@@ -1,7 +1,7 @@
 namespace Hagalaz.Game.Abstractions.Features.States.Effects
 {
     [StateMetaData("vengeance-immunity-state")]
-    public class VengeanceImmunityState : UntilRemovedState
+    public class VengeanceImmunityState : State
     {
     }
 }

@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     ///     Contains the LodestoneActivatedState.
     /// </summary>
     [StateMetaData("lodestone-activated-state")]
-    public class LodestoneActivatedState : UntilRemovedState, IPersistentState
+    public class LodestoneActivatedState : State, IPersistentState
     {
     }
 }

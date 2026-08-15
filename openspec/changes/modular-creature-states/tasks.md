@@ -1,7 +1,7 @@
 ## 1. State capabilities
 
 - [x] 1.1 Replace the coupled `IState` contract with marker and opt-in capability interfaces for timed lifetime, custom ticking, lifecycle callbacks, persistence, and reapplication policy.
-- [x] 1.2 Add `State`/`TimedState` convenience behavior for until-removed and timed states without an indefinite-duration sentinel.
+- [x] 1.2 Keep optional `State`/`TimedState` convenience bases for passive and timed states without an indefinite-duration sentinel.
 
 ## 2. Creature state ownership
 
@@ -16,7 +16,7 @@
 ## 4. Registry and persistence
 
 - [x] 4.1 Replace raw state-type lookup with narrow create/identity operations and make duplicate registrations fail during startup while unknown IDs return safely.
-- [x] 4.2 Audit the legacy metadata-bearing state catalog, mark the durable character-owned states explicitly, make persistence opt-in, preserve timed remaining duration, support persistent until-removed records, and skip runtime-only/unknown records safely.
+- [x] 4.2 Audit the legacy metadata-bearing state catalog, mark the durable character-owned states explicitly, make persistence opt-in, require stable metadata for persistent registrations, preserve timed remaining duration, support persistent passive records, and skip runtime-only/unknown records safely.
 
 ## 5. Regression coverage and verification
 

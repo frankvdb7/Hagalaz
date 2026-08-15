@@ -57,16 +57,28 @@ public sealed class CreatureStateCollectionTests
     public void TimedState_UsesKeepLongestDurationPolicy()
     {
         var collection = CreateCollection();
-        var existing = new TestTimedState { TicksLeft = 5 };
+        var existing = new KeepLongestTimedState { TicksLeft = 5 };
         collection.Add(existing);
 
-        var shorter = new TestTimedState { TicksLeft = 2 };
+        var shorter = new KeepLongestTimedState { TicksLeft = 2 };
         collection.Add(shorter);
         Assert.AreSame(existing, collection.States.Single());
 
-        var longer = new TestTimedState { TicksLeft = 6 };
+        var longer = new KeepLongestTimedState { TicksLeft = 6 };
         collection.Add(longer);
         Assert.AreSame(longer, collection.States.Single());
+    }
+
+    [TestMethod]
+    public void TimedStateWithoutReapplicationPolicy_UsesNeutralKeepExistingDefault()
+    {
+        var collection = CreateCollection();
+        var existing = new TestTimedState { TicksLeft = 5 };
+        collection.Add(existing);
+
+        collection.Add(new TestTimedState { TicksLeft = 10 });
+
+        Assert.AreSame(existing, collection.States.Single());
     }
 
     [TestMethod]
@@ -177,6 +189,10 @@ public sealed class CreatureStateCollectionTests
         public int TicksLeft { get; set; }
     }
 
+    private sealed class KeepLongestTimedState : TimedState, IKeepLongestDurationState
+    {
+    }
+
     private sealed class ReplaceTimedState : State, ITimedState, IStateReapplicationPolicy
     {
         public int TicksLeft { get; set; }
@@ -264,11 +280,24 @@ public sealed class StateProviderTests
         Assert.IsInstanceOfType<RegisteredState>(state);
     }
 
+    [TestMethod]
+    public async Task LoadAsync_RejectsPersistentStatesWithoutStableMetadata()
+    {
+        using var provider = BuildProvider(new TestStateFactory(("missing-metadata", typeof(MissingMetadataState))));
+        var stateProvider = new StateProvider(provider, NullLogger<StateProvider>.Instance);
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => stateProvider.LoadAsync());
+
+        StringAssert.Contains(exception.Message, nameof(MissingMetadataState));
+        StringAssert.Contains(exception.Message, nameof(StateMetaDataAttribute));
+    }
+
     private static ServiceProvider BuildProvider(params IStateFactory[] factories)
     {
         var services = new ServiceCollection();
         services.AddTransient<RegisteredState>();
         services.AddTransient<SecondRegisteredState>();
+        services.AddTransient<MissingMetadataState>();
         foreach (var factory in factories)
         {
             services.AddSingleton(typeof(IStateFactory), factory);
@@ -290,6 +319,7 @@ public sealed class StateProviderTests
         }
     }
 
+    [StateMetaData("registered-state")]
     private sealed class RegisteredState : State, IPersistentState
     {
     }
@@ -298,6 +328,11 @@ public sealed class StateProviderTests
     {
     }
 
+    private sealed class MissingMetadataState : State, IPersistentState
+    {
+    }
+
+    [StateMetaData("second-registered-state")]
     private sealed class SecondRegisteredState : State, IPersistentState
     {
     }

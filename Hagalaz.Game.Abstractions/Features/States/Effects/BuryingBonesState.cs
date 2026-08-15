@@ -4,7 +4,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 namespace Hagalaz.Game.Abstractions.Features.States.Effects
 {
     [StateMetaData("burying-bones-state")]
-    public class BuryingBonesState : TimedState, IStateLifecycle
+    public class BuryingBonesState : TimedState, IStateLifecycle, IKeepLongestDurationState
     {
         public Action? OnRemovedCallback { get; set; }
 

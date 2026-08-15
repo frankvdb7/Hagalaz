@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     ///     Contains the MiasmicSlowImmunityState.
     /// </summary>
     [StateMetaData("miasmic-slow-immunity-state")]
-    public class MiasmicSlowImmunityState : TimedState
+    public class MiasmicSlowImmunityState : TimedState, IKeepLongestDurationState
     {
     }
 }

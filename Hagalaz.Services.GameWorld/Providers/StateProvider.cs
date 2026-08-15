@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
@@ -51,6 +52,11 @@ namespace Hagalaz.Services.GameWorld.Providers
                     {
                         _logger.LogDebug("Skipping non-persistent state '{Type}' from state registry.", type.FullName);
                         continue;
+                    }
+
+                    if (type.GetCustomAttribute<StateMetaDataAttribute>() is null)
+                    {
+                        throw new InvalidOperationException($"Persistent state '{type.FullName}' must declare StateMetaDataAttribute with a stable ID.");
                     }
 
                     if (!_statesById.TryAdd(id, type))

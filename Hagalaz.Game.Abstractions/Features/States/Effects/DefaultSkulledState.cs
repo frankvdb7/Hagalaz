@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Default Skulled" state.
     /// </summary>
     [StateMetaData("default-skulled-state")]
-    public class DefaultSkulledState : TimedState, IPersistentState
+    public class DefaultSkulledState : TimedState, IPersistentState, IKeepLongestDurationState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DefaultSkulledState"/> class.
