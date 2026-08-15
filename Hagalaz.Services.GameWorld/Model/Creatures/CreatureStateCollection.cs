@@ -27,22 +27,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             var stateType = state.GetType();
             if (_states.TryGetValue(stateType, out var existingState))
             {
-                var policy = state is IStateReapplicationPolicy reapplication
-                    ? reapplication.ReapplicationPolicy
-                    : StateReapplicationPolicy.KeepExisting;
+                var policy = GetReapplicationPolicy(state);
 
                 if (policy == StateReapplicationPolicy.KeepExisting)
                 {
                     return;
                 }
 
-                if (policy == StateReapplicationPolicy.KeepLongestDuration)
+                if (policy == StateReapplicationPolicy.KeepLongestDuration &&
+                    (state is not ITimedState newTimedState || existingState is not ITimedState existingTimedState ||
+                     newTimedState.TicksLeft <= existingTimedState.TicksLeft))
                 {
-                    if (state is not ITimedState newTimedState || existingState is not ITimedState existingTimedState ||
-                        newTimedState.TicksLeft <= existingTimedState.TicksLeft)
-                    {
-                        return;
-                    }
+                    return;
                 }
 
                 Remove(stateType, existingState);
@@ -108,6 +104,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         }
 
         private bool IsActive(IState state) => _states.TryGetValue(state.GetType(), out var activeState) && ReferenceEquals(activeState, state);
+
+        private static StateReapplicationPolicy GetReapplicationPolicy(IState state) =>
+            state is IStateReapplicationPolicy reapplication
+                ? reapplication.ReapplicationPolicy
+                : state is ITimedState
+                    ? StateReapplicationPolicy.KeepLongestDuration
+                    : StateReapplicationPolicy.KeepExisting;
 
         private void Remove(Type stateType, IState? expectedState)
         {

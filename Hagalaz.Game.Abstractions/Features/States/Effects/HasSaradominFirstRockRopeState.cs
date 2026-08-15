@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the state of having a rope on the first Saradomin rock.
     /// </summary>
     [StateMetaData("has-saradomin-first-rock-rope-state")]
-    public class HasSaradominFirstRockRopeState : UntilRemovedState
+    public class HasSaradominFirstRockRopeState : UntilRemovedState, IPersistentState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="HasSaradominFirstRockRopeState"/> class.

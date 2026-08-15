@@ -16,7 +16,7 @@ Character dehydration MUST include only active states that implement the persist
 - **THEN** it is stored by stable ID without requiring a fake duration sentinel
 
 ### Requirement: Registry activation is narrow and predictable
-The state registry MUST create states and resolve stable IDs through explicit operations without exposing raw implementation-type lookup to gameplay or persistence callers.
+The state registry MUST create persistent states and resolve stable IDs through explicit operations without exposing raw implementation-type lookup to gameplay or persistence callers. Runtime-only `IState` implementations MUST NOT be discovered merely because they carry legacy metadata.
 
 #### Scenario: Known state ID activates
 - **WHEN** hydration requests a registered persistent state ID
@@ -29,6 +29,10 @@ The state registry MUST create states and resolve stable IDs through explicit op
 #### Scenario: Duplicate IDs fail registration
 - **WHEN** startup discovers two state implementations with the same stable ID
 - **THEN** state registration fails clearly and does not silently choose the first implementation
+
+#### Scenario: Runtime-only state is not registered
+- **WHEN** startup discovers a metadata-bearing state that does not implement `IPersistentState`
+- **THEN** the state is excluded from the persistence registry and does not require a stable persistence identity
 
 #### Scenario: Persistent state without metadata cannot crash save
 - **WHEN** a runtime persistent-state instance has no registered stable ID

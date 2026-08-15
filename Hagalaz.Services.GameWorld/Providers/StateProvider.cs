@@ -47,6 +47,12 @@ namespace Hagalaz.Services.GameWorld.Providers
             {
                 await foreach (var (id, type) in factory.GetStates().WithCancellation(cancellationToken))
                 {
+                    if (!typeof(IPersistentState).IsAssignableFrom(type))
+                    {
+                        _logger.LogDebug("Skipping non-persistent state '{Type}' from state registry.", type.FullName);
+                        continue;
+                    }
+
                     if (!_statesById.TryAdd(id, type))
                     {
                         throw new InvalidOperationException($"Duplicate state ID '{id}' was registered for '{type.FullName}'.");

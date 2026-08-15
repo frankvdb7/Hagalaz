@@ -18,7 +18,7 @@ namespace Hagalaz.Services.GameWorld.Factories
         public async IAsyncEnumerable<(string stateId, Type scriptType)> GetStates()
         {
             await Task.CompletedTask;
-            var type = typeof(IState);
+            var type = typeof(IPersistentState);
             var types = _serviceDescriptorProvider.GetServiceDescriptors()
                 .Where(x => x.ServiceType.IsAssignableTo(type))
                 .Select(x => (ScriptType: x.ImplementationType, MetaData: x.ImplementationType?.GetCustomAttribute<StateMetaDataAttribute>()))

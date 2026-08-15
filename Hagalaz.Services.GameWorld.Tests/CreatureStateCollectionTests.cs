@@ -70,6 +70,19 @@ public sealed class CreatureStateCollectionTests
     }
 
     [TestMethod]
+    public void TimedState_CanDeclareIndependentReapplicationPolicy()
+    {
+        var collection = CreateCollection();
+        var existing = new ReplaceTimedState { TicksLeft = 5 };
+        collection.Add(existing);
+
+        var replacement = new ReplaceTimedState { TicksLeft = 1 };
+        collection.Add(replacement);
+
+        Assert.AreSame(replacement, collection.States.Single());
+    }
+
+    [TestMethod]
     public void RejectedDuplicate_DoesNotRaiseLifecycleCallbacks()
     {
         var collection = CreateCollection();
@@ -138,6 +151,20 @@ public sealed class CreatureStateCollectionTests
         Assert.AreEqual(1, removedCount);
     }
 
+    [TestMethod]
+    public void DurableStateClassification_IncludesCharacterOwnedMarkersOnly()
+    {
+        Assert.IsInstanceOfType<IPersistentState>(new DefaultSkulledState());
+        Assert.IsInstanceOfType<IPersistentState>(new HasGodWarsHoleRopeState());
+        Assert.IsInstanceOfType<IPersistentState>(new HasSaradominFirstRockRopeState());
+        Assert.IsInstanceOfType<IPersistentState>(new HasSaradominLastRockRopeState());
+        Assert.IsInstanceOfType<IPersistentState>(new LodestoneActivatedState());
+
+        Assert.IsNotInstanceOfType<IPersistentState>(new BowEquippedState());
+        Assert.IsNotInstanceOfType<IPersistentState>(new FrozenState());
+        Assert.IsNotInstanceOfType<IPersistentState>(new GnomeCourseTreeState());
+    }
+
     private static CreatureStateCollection CreateCollection() => new(Substitute.For<ICreature>());
 
     private sealed class TestPassiveState : State
@@ -145,8 +172,16 @@ public sealed class CreatureStateCollectionTests
         public int TickCount { get; private set; }
     }
 
-    private sealed class TestTimedState : TimedState
+    private sealed class TestTimedState : State, ITimedState
     {
+        public int TicksLeft { get; set; }
+    }
+
+    private sealed class ReplaceTimedState : State, ITimedState, IStateReapplicationPolicy
+    {
+        public int TicksLeft { get; set; }
+
+        public StateReapplicationPolicy ReapplicationPolicy => StateReapplicationPolicy.Replace;
     }
 
     private sealed class TestTickableState : State, ITickableState
@@ -172,12 +207,12 @@ public sealed class CreatureStateCollectionTests
         public void OnRemoved(ICreature creature) => RemovedCount++;
     }
 
-    private sealed class ReplaceLifecycleState : State, IStateLifecycle
+    private sealed class ReplaceLifecycleState : State, IStateLifecycle, IStateReapplicationPolicy
     {
         public int AddedCount { get; private set; }
         public int RemovedCount { get; private set; }
 
-        public override StateReapplicationPolicy ReapplicationPolicy => StateReapplicationPolicy.Replace;
+        public StateReapplicationPolicy ReapplicationPolicy => StateReapplicationPolicy.Replace;
 
         public void OnAdded(ICreature creature) => AddedCount++;
 
@@ -214,6 +249,21 @@ public sealed class StateProviderTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => stateProvider.LoadAsync());
     }
 
+    [TestMethod]
+    public async Task LoadAsync_SkipsNonPersistentStates()
+    {
+        using var provider = BuildProvider(
+            new TestStateFactory(("runtime-only", typeof(RuntimeOnlyState))),
+            new TestStateFactory(("persistent", typeof(RegisteredState))));
+        var stateProvider = new StateProvider(provider, NullLogger<StateProvider>.Instance);
+
+        await stateProvider.LoadAsync();
+
+        Assert.IsFalse(stateProvider.TryCreateState("runtime-only", out _));
+        Assert.IsTrue(stateProvider.TryCreateState("persistent", out var state));
+        Assert.IsInstanceOfType<RegisteredState>(state);
+    }
+
     private static ServiceProvider BuildProvider(params IStateFactory[] factories)
     {
         var services = new ServiceCollection();
@@ -240,11 +290,15 @@ public sealed class StateProviderTests
         }
     }
 
-    private sealed class RegisteredState : State
+    private sealed class RegisteredState : State, IPersistentState
     {
     }
 
-    private sealed class SecondRegisteredState : State
+    private sealed class RuntimeOnlyState : State
+    {
+    }
+
+    private sealed class SecondRegisteredState : State, IPersistentState
     {
     }
 }

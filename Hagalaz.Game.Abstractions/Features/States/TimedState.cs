@@ -7,8 +7,5 @@ namespace Hagalaz.Game.Abstractions.Features.States
     {
         /// <inheritdoc />
         public int TicksLeft { get; set; }
-
-        /// <inheritdoc />
-        public override StateReapplicationPolicy ReapplicationPolicy => StateReapplicationPolicy.KeepLongestDuration;
     }
 }
