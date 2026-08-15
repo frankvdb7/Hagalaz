@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.Location;
@@ -10,9 +9,7 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
-using Hagalaz.Workers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Regions_MapRegion = Hagalaz.Services.GameWorld.Model.Maps.Regions.MapRegion;
@@ -32,16 +29,13 @@ namespace Hagalaz.Services.GameWorld.Services
         public const int MaxDimensions = byte.MaxValue;
         private readonly Dictionary<int, int[]> _xteaKeys = new();
         private readonly IDimension?[] _dimensions = new IDimension?[MaxDimensions];
-        private readonly IBackgroundTaskQueue _taskQueue;
         private readonly IServiceScope _serviceScope;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly ILogger<MapRegionService> _logger;
         private readonly IMapper _mapper;
-
         public MapRegionService(
-            IBackgroundTaskQueue taskQueue,
             IServiceProvider serviceProvider,
             ILocationBuilder locationBuilder,
             IGameObjectBuilder gameObjectBuilder,
@@ -50,7 +44,6 @@ namespace Hagalaz.Services.GameWorld.Services
             IMapper mapper)
         {
             CreateDimension(0); // create global world dimension.
-            _taskQueue = taskQueue;
             _serviceScope = serviceProvider.CreateScope();
             _locationBuilder = locationBuilder;
             _gameObjectBuilder = gameObjectBuilder;
@@ -62,7 +55,7 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <summary>
         /// Does the test stuff.
         /// </summary>
-        public async Task DoTestStuff()
+        public void DoTestStuff()
         {
             // test code
 
@@ -93,7 +86,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
             foreach (var character in lumby.FindAllCharacters())
             {
-                await character.UpdateMapAsync(true);
+                character.UpdateMap(true);
             }
         }
 
@@ -257,10 +250,6 @@ namespace Hagalaz.Services.GameWorld.Services
                 _dimensions[dimension.Id] = null;
             }
         }
-
-        public async Task LoadRegionAsync(IMapRegion region) =>
-            await _taskQueue.QueueBackgroundWorkItemAsync(async (cancellationToken) =>
-                await _serviceScope.ServiceProvider.GetRequiredService<IMapRegionLoader>().LoadAsync(region, cancellationToken));
 
         public IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, bool create, bool resume, IMapSize mapSize)
         {

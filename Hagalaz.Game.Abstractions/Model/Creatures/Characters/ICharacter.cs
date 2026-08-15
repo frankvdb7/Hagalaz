@@ -198,7 +198,12 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// </summary>
         /// <param name="forceUpdate">If set to <c>true</c>, forces a full map rebuild.</param>
         /// <param name="renderViewPort">If set to <c>true</c>, forces the viewport to be re-rendered.</param>
-        Task UpdateMapAsync(bool forceUpdate, bool renderViewPort = false);
+        void UpdateMap(bool forceUpdate, bool renderViewPort = false);
+        /// <summary>
+        /// Performs the synchronous client update using the character view captured for the current game tick.
+        /// </summary>
+        /// <param name="characters">The character view captured for this client update.</param>
+        void MajorClientUpdateTick(IReadOnlyDictionary<int, ICharacter> characters);
         /// <summary>
         /// Sends a message to the character's chatbox or console.
         /// </summary>

@@ -163,15 +163,15 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <summary>
         /// Performs the main update logic for the creature's client-side representation, such as movement and animation.
         /// </summary>
-        Task MajorClientUpdateTickAsync();
+        void MajorClientUpdateTick();
         /// <summary>
         /// Prepares the data required for the client update tick, gathering all necessary information before the main update.
         /// </summary>
-        Task MajorClientPrepareUpdateTickAsync();
+        void MajorClientPrepareUpdateTick();
         /// <summary>
         /// Resets the creature's update flags and clears temporary rendering data after a client update has been sent.
         /// </summary>
-        Task MajorClientUpdateResetTickAsync();
+        void MajorClientUpdateResetTick();
         /// <summary>
         /// Performs the main game logic update for the creature, such as processing states, timers, and combat actions.
         /// </summary>

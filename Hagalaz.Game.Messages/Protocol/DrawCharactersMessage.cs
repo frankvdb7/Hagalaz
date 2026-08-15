@@ -7,7 +7,7 @@ namespace Hagalaz.Game.Messages.Protocol
     public class DrawCharactersMessage : RaidoMessage
     {
         public required ICharacter Character { get; init; } = default!;
-        public required IDictionary<int, ICharacter> AllCharacters { get; init; } = default!;
+        public required IReadOnlyDictionary<int, ICharacter> AllCharacters { get; init; } = default!;
         public required LinkedList<ICharacter> LocalCharacters { get; init; } = default!;
     }
 }

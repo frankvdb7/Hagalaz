@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Runtime.CompilerServices;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Mediator;
@@ -160,6 +161,9 @@ public sealed class WorldStatusServiceShutdownTests
             yield return _character;
             await Task.CompletedTask;
         }
+
+        public ValueTask<IReadOnlyDictionary<int, ICharacter>> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
+            new(new Dictionary<int, ICharacter> { [_character.Index] = _character });
 
         public ValueTask<int> CountAsync() => throw new NotSupportedException();
         public ValueTask<bool> AddAsync(ICharacter character) => throw new NotSupportedException();

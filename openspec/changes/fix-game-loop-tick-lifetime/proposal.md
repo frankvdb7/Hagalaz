@@ -1,0 +1,47 @@
+## Why
+
+`GameWorkerService` must not abandon a running world tick when its budget is exceeded or when host shutdown begins. The original timeout allowed overlapping ticks, while passing asynchronous wrappers and cancellation tokens through naturally synchronous creature work made the ownership boundary harder to reason about.
+
+## What Changes
+
+- Keep the complete major game pipeline owned by `BackgroundService` and await it before another iteration can begin.
+- Keep the configured tick duration as an observability budget only; it never abandons world work.
+- Make region and creature simulation/render phases synchronous, removing artificial `Task` and cancellation-token plumbing from the game model.
+- Capture one read-only character snapshot per tick and pass it through synchronous character rendering.
+- Keep `Viewport` responsible for visible-region state, bounds, and creature visibility only. A dedicated map-update service must synchronously orchestrate the viewport rebuild, map packet, region-load requests, and full region-part updates; the actual region loading remains owned by a dedicated asynchronous scheduler.
+- Make region-load requests synchronous and non-blocking at the map-update boundary. Deduplicate pending and in-flight regions in a dedicated scheduler with one asynchronous loading consumer.
+- Keep the model-facing character map-update API synchronous while removing map-update orchestration from the viewport model object.
+- Use the host shutdown token with the normal `BackgroundService` wait. If that token expires while a synchronous tick is still owned by the worker, report a timeout rather than silently reporting a successful stop.
+- Preserve explicit handling for worker cancellation, genuine tick failures, and budget overruns.
+
+## Capabilities
+
+### New Capabilities
+
+- `serialized-game-world-ticks`: Serialized major world updates with an owned hosted-service lifetime.
+
+### Modified Capabilities
+
+None.
+
+## Impact
+
+The change is limited to the existing worker, the `IMapRegion` and creature tick contracts, character snapshot/rendering state, viewport state and map-update service boundary, the dedicated region-load scheduler, focused GameWorld tests, and the associated OpenSpec record. It adds no dependencies or persistence changes and removes the unused generic background-task queue bridge.
+
+## Acceptance Criteria
+
+- At most one complete major world tick executes at a time, including when it exceeds its configured budget.
+- The four phases remain ordered and a started tick runs its synchronous pipeline to completion before shutdown or the next iteration is observed.
+- Each tick obtains one character snapshot and all region client-update calls receive that same snapshot.
+- Character rendering does not enumerate the global character store once per character.
+- Viewport rebuild work is not deferred to a later creature-task tick: the map-update service performs the viewport rebuild, map packet send, non-blocking region-load requests, and full-part updates during the current synchronous render phase, while `Viewport` remains state-only.
+- Region-load requests are accepted synchronously without blocking the game tick or creating detached tasks, skip loaded or already scheduled regions, and are consumed asynchronously by one dedicated scheduler worker.
+- The region-load scheduler tolerates requests racing with intentional shutdown, while still surfacing unexpected request-channel failures during normal operation; hosted-service registration stops `GameWorkerService` before the scheduler so an already-started synchronous tick can finish.
+- `ICharacter` and `IViewport` do not expose `UpdateMapAsync`; startup and world-map callers use synchronous `UpdateMap` without sync-over-async waits.
+- `StopAsync` never reports successful completion while `ExecuteTask` is still alive; an expired host shutdown token is surfaced as a timeout when a synchronous tick cannot yet reach its boundary.
+- Host cancellation is not logged as an unexpected tick failure, while genuine faults and unrelated cancellation exceptions remain observable.
+- Tick overruns remain observable through logging.
+
+## Stop Conditions
+
+Do not add parallel region execution, a generic game-loop coordinator, cancellation parameters to unrelated creature APIs, or unrelated lifecycle changes.

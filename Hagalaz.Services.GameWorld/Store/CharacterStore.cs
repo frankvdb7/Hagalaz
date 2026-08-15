@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Nito.AsyncEx;
 using System.Linq;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Store;
@@ -43,6 +44,14 @@ namespace Hagalaz.Services.GameWorld.Store
                 {
                     yield return character;
                 }
+            }
+        }
+
+        public async ValueTask<IReadOnlyDictionary<int, ICharacter>> GetSnapshotAsync(CancellationToken cancellationToken = default)
+        {
+            using (await _lock.ReaderLockAsync(cancellationToken))
+            {
+                return _characters.ToDictionary(character => character.Index);
             }
         }
 

@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -113,12 +113,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Updates client by sending required packets.
         /// </summary>
-        protected override async Task UpdateTick()
+        protected override void UpdateTick()
         {
             if (Viewport.ShouldRebuild())
-                await UpdateMapAsync(false);
+                UpdateMap(false, false);
+
             Viewport.UpdateTick();
-            await RenderInformation.Update();
+        }
+
+        public void MajorClientUpdateTick(IReadOnlyDictionary<int, ICharacter> characters)
+        {
+            if (!TryBeginClientUpdate())
+            {
+                return;
+            }
+
+            UpdateTick();
+            RenderInformation.Update(characters);
         }
 
         /// <summary>

@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures
@@ -74,9 +73,5 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// Forces a complete rebuild of the viewport's visible map region data.
         /// </summary>
         void RebuildView();
-        /// <summary>
-        /// Asynchronously updates the viewport, loading new map regions and entities as needed.
-        /// </summary>
-        Task UpdateViewport();
     }
 }

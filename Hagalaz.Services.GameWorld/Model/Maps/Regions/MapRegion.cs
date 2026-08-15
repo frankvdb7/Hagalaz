@@ -88,14 +88,28 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         private void ForEachCreature(Action<ICreature> action)
         {
-            foreach (var character in _characters) action(character);
-            foreach (var npc in _npcs) action(npc);
+            foreach (var character in _characters)
+            {
+                action(character);
+            }
+
+            foreach (var npc in _npcs)
+            {
+                action(npc);
+            }
         }
 
-        private async Task ForEachCreatureAsync(Func<ICreature, Task> action)
+        private void ForEachCreature(Action<ICharacter> characterAction, Action<INpc> npcAction)
         {
-            foreach (var character in _characters) await action(character);
-            foreach (var npc in _npcs) await action(npc);
+            foreach (var character in _characters)
+            {
+                characterAction(character);
+            }
+
+            foreach (var npc in _npcs)
+            {
+                npcAction(npc);
+            }
         }
 
         private bool AnyCreature(Func<ICreature, bool> predicate)
@@ -114,25 +128,24 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <summary>
         /// Tick 1.
         /// </summary>
-        public async Task MajorUpdateTick()
+        public void MajorUpdateTick()
         {
-            await Task.CompletedTask;
             ForEachCreature(c => c.MajorUpdateTick());
         }
 
         /// <summary>
         /// Tick 2.
         /// </summary>
-        public async Task MajorClientPrepareUpdateTick()
+        public void MajorClientPrepareUpdateTick()
         {
             TickGroundItems();
-            await ForEachCreatureAsync(c => c.MajorClientPrepareUpdateTickAsync());
+            ForEachCreature(c => c.MajorClientPrepareUpdateTick());
         }
 
         /// <summary>
         /// Tick 3.
         /// </summary>
-        public async Task MajorClientUpdateTick()
+        public void MajorClientUpdateTick(IReadOnlyDictionary<int, ICharacter> characters)
         {
             foreach (var part in _parts)
             {
@@ -142,13 +155,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
             }
 
-            await ForEachCreatureAsync(c => c.MajorClientUpdateTickAsync());
+            ForEachCreature(
+                character => character.MajorClientUpdateTick(characters),
+                npc => npc.MajorClientUpdateTick());
         }
 
         /// <summary>
         /// Tick 4.
         /// </summary>
-        public async Task MajorClientUpdateResetTick()
+        public void MajorClientUpdateResetTick()
         {
             // clear update things like projectiles & etc
             foreach (var part in _parts)
@@ -156,7 +171,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 part.ClearUpdates();
             }
 
-            await ForEachCreatureAsync(c => c.MajorClientUpdateResetTickAsync());
+            ForEachCreature(c => c.MajorClientUpdateResetTick());
         }
 
         public bool CanSuspend()

@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
@@ -82,9 +81,10 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// <returns><c>true</c> if the other character is idle in the current loop; otherwise, <c>false</c>.</returns>
         bool IsIdleOnThisLoop(int index);
         /// <summary>
-        /// Asynchronously performs the main update logic for the character's rendering information.
+        /// Performs the main update logic for the character's rendering information.
         /// </summary>
-        Task Update();
+        /// <param name="characters">The character view captured for the current game tick.</param>
+        void Update(IReadOnlyDictionary<int, ICharacter> characters);
         /// <summary>
         /// Schedules a specific type of appearance update for the character using a bitmask flag.
         /// </summary>

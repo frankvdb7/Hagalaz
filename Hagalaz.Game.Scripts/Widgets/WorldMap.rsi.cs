@@ -65,7 +65,7 @@ namespace Hagalaz.Game.Scripts.Widgets
             {
                 if (type == ComponentClickType.LeftClick)
                 {
-                    Owner.UpdateMapAsync(true).Wait();
+                    Owner.UpdateMap(true);
                     Owner.GetScript<WidgetsCharacterScript>()?.OpenMainGameFrame();
                     return true;
                 }
