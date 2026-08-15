@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
         /// <summary>
         ///     Initializes this script.
         /// </summary>
-        protected override void Initialize() => Owner.AddState(new NpcTypeDragonState { TicksLeft = int.MaxValue });
+        protected override void Initialize() => Owner.AddState(new NpcTypeDragonState());
 
         /// <summary>
         ///     Render's attack.

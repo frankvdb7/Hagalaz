@@ -116,7 +116,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
                         clicker.Movement.Unlock(false);
                         if (Owner.Location.Equals(clicker.Location))
                         {
-                            clicker.AddState(new BarrowsBetweenDoorsState { TicksLeft = int.MaxValue });
+                            clicker.AddState(new BarrowsBetweenDoorsState());
                         }
                         else
                         {

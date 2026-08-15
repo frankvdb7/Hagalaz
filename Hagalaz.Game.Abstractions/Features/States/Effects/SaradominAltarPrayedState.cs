@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the state of having prayed at the Saradomin altar.
     /// </summary>
     [StateMetaData("saradomin-altar-prayed-state")]
-    public class SaradominAltarPrayedState : State
+    public class SaradominAltarPrayedState : TimedState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SaradominAltarPrayedState"/> class.

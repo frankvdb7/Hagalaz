@@ -21,7 +21,9 @@ namespace Hagalaz.Services.GameWorld.Factories
             var type = typeof(IState);
             var types = _serviceDescriptorProvider.GetServiceDescriptors()
                 .Where(x => x.ServiceType.IsAssignableTo(type))
-                .Select(x => (ScriptType: x.ImplementationType, MetaData: x.ImplementationType?.GetCustomAttribute<StateMetaDataAttribute>()));
+                .Select(x => (ScriptType: x.ImplementationType, MetaData: x.ImplementationType?.GetCustomAttribute<StateMetaDataAttribute>()))
+                .Where(x => x.ScriptType is not null)
+                .DistinctBy(x => x.ScriptType);
             foreach (var (stateType, metaData) in types)
             {
                 if (stateType is null || metaData is null)

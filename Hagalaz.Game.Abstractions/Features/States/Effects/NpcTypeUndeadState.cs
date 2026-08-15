@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     ///     Contains the NpcTypeUndeadState.
     /// </summary>
     [StateMetaData("npc-type-undead-state")]
-    public class NpcTypeUndeadState : State
+    public class NpcTypeUndeadState : UntilRemovedState
     {
     }
 }

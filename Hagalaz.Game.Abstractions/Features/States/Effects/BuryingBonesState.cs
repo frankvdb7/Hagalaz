@@ -4,14 +4,17 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 namespace Hagalaz.Game.Abstractions.Features.States.Effects
 {
     [StateMetaData("burying-bones-state")]
-    public class BuryingBonesState : State
+    public class BuryingBonesState : TimedState, IStateLifecycle
     {
         public Action? OnRemovedCallback { get; set; }
 
-        public override void OnStateRemoved(IState state, ICreature creature)
+        public void OnRemoved(ICreature creature)
         {
-            base.OnStateRemoved(state, creature);
             OnRemovedCallback?.Invoke();
+        }
+
+        public void OnAdded(ICreature creature)
+        {
         }
     }
 }

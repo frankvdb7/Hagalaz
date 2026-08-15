@@ -7,14 +7,17 @@ using System;
 namespace Hagalaz.Game.Scripts.Widgets.Orbs
 {
     [StateMetaData("run-energy-orb-resting-state")]
-    public class RunEnergyOrbRestingState : RestingState
+    public class RunEnergyOrbRestingState : RestingState, IStateLifecycle
     {
         public Action? OnRemovedCallback { get; set; }
 
-        public override void OnStateRemoved(IState state, ICreature creature)
+        public void OnRemoved(ICreature creature)
         {
-            base.OnStateRemoved(state, creature);
             OnRemovedCallback?.Invoke();
+        }
+
+        public void OnAdded(ICreature creature)
+        {
         }
     }
 }

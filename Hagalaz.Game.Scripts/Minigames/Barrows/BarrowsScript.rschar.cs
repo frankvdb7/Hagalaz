@@ -397,7 +397,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 return false;
             }
 
-            Character.AddState(new BarrowsOpenedChestState { TicksLeft = int.MaxValue });
+            Character.AddState(new BarrowsOpenedChestState());
             Character.SendChatMessage("You lift open the massive chest...");
             UpdateBarrowsProfile();
             return true;

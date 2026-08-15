@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     ///     Contains the DrinkingState.
     /// </summary>
     [StateMetaData("drinking-state")]
-    public class DrinkingState : State
+    public class DrinkingState : TimedState
     {
     }
 }

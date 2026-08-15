@@ -1,8 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Services.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +16,8 @@ namespace Hagalaz.Services.GameWorld.Providers
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<StateProvider> _logger;
-        private readonly Dictionary<string, Type> _states = new();
+        private readonly Dictionary<string, Type> _statesById = new(StringComparer.Ordinal);
+        private readonly Dictionary<Type, string> _idsByStateType = new();
 
         public StateProvider(IServiceProvider serviceProvider, ILogger<StateProvider> logger)
         {
@@ -22,28 +25,43 @@ namespace Hagalaz.Services.GameWorld.Providers
             _logger = logger;
         }
 
-        public Type GetStateById(string id) => _states[id];
+        public bool TryCreateState(string id, [NotNullWhen(true)] out IState? state)
+        {
+            state = null;
+            if (!_statesById.TryGetValue(id, out var stateType))
+            {
+                return false;
+            }
+
+            state = (IState)_serviceProvider.GetRequiredService(stateType);
+            return true;
+        }
+
+        public bool TryGetStateId(IState state, [NotNullWhen(true)] out string? id) => _idsByStateType.TryGetValue(state.GetType(), out id);
 
         public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
-            var scriptFactories = scope.ServiceProvider.GetRequiredService<IEnumerable<IStateFactory>>();
-            foreach (var factory in scriptFactories)
+            var stateFactories = scope.ServiceProvider.GetRequiredService<IEnumerable<IStateFactory>>();
+            foreach (var factory in stateFactories)
             {
                 await foreach (var (id, type) in factory.GetStates().WithCancellation(cancellationToken))
                 {
-                    if (_states.TryAdd(id, type))
+                    if (!_statesById.TryAdd(id, type))
                     {
-                        _logger.LogTrace("Added state '{Id}' '{Type}'", id, type.FullName);
+                        throw new InvalidOperationException($"Duplicate state ID '{id}' was registered for '{type.FullName}'.");
                     }
-                    else
+
+                    if (!_idsByStateType.TryAdd(type, id))
                     {
-                        _logger.LogWarning("Duplicate state '{Id}' '{Type}'", id, type.FullName);
+                        throw new InvalidOperationException($"State type '{type.FullName}' has multiple registered IDs.");
                     }
+
+                    _logger.LogTrace("Added state '{Id}' '{Type}'", id, type.FullName);
                 }
             }
 
-            _logger.LogInformation("Loaded {Count} states", _states.Count);
+            _logger.LogInformation("Loaded {Count} states", _statesById.Count);
         }
     }
 }

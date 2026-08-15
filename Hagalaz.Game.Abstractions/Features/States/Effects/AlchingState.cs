@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     ///     Contains the AlchingState.
     /// </summary>
     [StateMetaData("alching-state")]
-    public class AlchingState : State
+    public class AlchingState : TimedState
     {
     }
 }

@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "TeleBlocked" state.
     /// </summary>
     [StateMetaData("teleblocked-state")]
-    public class TeleBlockedState : State
+    public class TeleBlockedState : TimedState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TeleBlockedState"/> class.

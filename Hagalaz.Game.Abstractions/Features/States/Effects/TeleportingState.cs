@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Teleporting" state.
     /// </summary>
     [StateMetaData("teleporting-state")]
-    public class TeleportingState : State
+    public class TeleportingState : TimedState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TeleportingState"/> class.

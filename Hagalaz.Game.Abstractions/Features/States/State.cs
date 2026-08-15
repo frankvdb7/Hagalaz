@@ -1,39 +1,11 @@
-using Hagalaz.Game.Abstractions.Model.Creatures;
-
 namespace Hagalaz.Game.Abstractions.Features.States
 {
     /// <summary>
-    /// Provides a base implementation of the <see cref="IState"/> interface.
+    /// Provides a base implementation for a state that remains active until explicitly removed.
     /// </summary>
-    public abstract class State : IState
+    public abstract class State : IState, IStateReapplicationPolicy
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="State"/> class.
-        /// </summary>
-        protected State()
-        {
-        }
-
         /// <inheritdoc />
-        public int TicksLeft { get; set; }
-
-        /// <inheritdoc />
-        public virtual void Tick()
-        {
-            if (TicksLeft > 0)
-            {
-                TicksLeft--;
-            }
-        }
-
-        /// <inheritdoc />
-        public virtual void OnStateRemoved(IState state, ICreature creature)
-        {
-        }
-
-        /// <inheritdoc />
-        public virtual void OnStateAdded(IState state, ICreature creature)
-        {
-        }
+        public virtual StateReapplicationPolicy ReapplicationPolicy => StateReapplicationPolicy.KeepExisting;
     }
 }
