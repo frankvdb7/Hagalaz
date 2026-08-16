@@ -6,9 +6,12 @@ Starting in Angular with placeholder geometry or a second TypeScript cache decod
 
 The current `MapCodec` must also not be mistaken for a full cache round-trip implementation. `MapProvider` combines separate terrain/location payloads into an internal length-prefixed stream, terrain rendering data is discarded, bridge adjustment loses raw source-plane information, and cache writing has no XTEA-aware symmetric path for protected location containers. These format boundaries and encoding requirements must be documented before renderer or editor work builds on incorrect assumptions.
 
+Finally, the GameClient still contains generated decompiler names throughout this subsystem. Those identifiers are useful only for locating the current source and must not become permanent names in Hagalaz services, DTOs, TypeScript or documentation. The rendering foundation therefore defines one evidence-backed semantic vocabulary for the terrain, scene graph, floor definitions, entities, lights, model data and occlusion system, with source-level GameClient renaming tracked separately.
+
 ## What Changes
 
-- Document the verified `Hagalaz.GameClient` terrain/scene/renderer pipeline and the broader object/model findings for future work.
+- Document the verified `Hagalaz.GameClient` terrain/scene/renderer pipeline and the broader object/model findings for future work using stable semantic names rather than generated decompiler identifiers.
+- Add a dedicated deobfuscation/source-locator map with confidence and evidence for names such as `TerrainBuilder`, `SceneGraph`, `SceneTile`, `TerrainSurface`, `FloorUnderlayDefinition`, `OcclusionManager`, `WallEntity` and `SceneLight`.
 - Document byte-level decode/encode rules for map cache containers, terrain payloads, location payloads, smart/huge-smart deltas, XTEA, canonical encoding and persisted-write verification.
 - Add a render-focused terrain projection that reuses the existing Hagalaz cache access path while preserving height, overlay, underlay, shape, rotation and terrain flags.
 - Expose one bounded cache-service region-render contract instead of sending raw cache bytes to the browser.
@@ -26,6 +29,7 @@ The current `MapCodec` must also not be mistaken for a full cache round-trip imp
 ### In Scope
 
 - Documentation of the verified game-client 3D pipeline and current Hagalaz gaps.
+- A semantic rendering/deobfuscation vocabulary and source-locator mapping for the high-confidence GameClient rendering core.
 - Detailed implementation instructions for decoding and semantically encoding `mX_Y` terrain and `lX_Y` location data, including cache-container/XTEA boundaries and known current codec hazards.
 - Static terrain for one 64×64 region across four planes.
 - Terrain height, terrain flags, overlay ID, underlay ID, overlay shape/path and overlay rotation.
@@ -38,13 +42,14 @@ The current `MapCodec` must also not be mistaken for a full cache round-trip imp
 
 ### Non-goals
 
+- Completing all source-level GameClient deobfuscation in this Hagalaz change. The high-confidence source rename is tracked separately in `Hagalaz.GameClient`; this change establishes the names Hagalaz will use now.
 - A production map/cache mutation endpoint. Encoding rules are documented so data is not thrown away, but persisted write support requires a separate capability and destructive-write test boundary.
 - Static object/model rendering. The client object/model analysis is documented now, but its API/renderer implementation is a follow-up change.
 - Model geometry endpoints, object render-definition endpoints, animation or live GameWorld entities.
 - A model binary encoder; Hagalaz does not yet have a verified server-side model codec and the web viewer does not need model writes.
 - Multi-region streaming or dynamic 8×8 region-part rendering.
 - Decoded floor textures, custom shaders, lighting, shadows, atmosphere, water, roof hiding or occlusion.
-- Porting `GraphicsToolkit`, `Class356`, or another client renderer structure verbatim.
+- Porting the client `GraphicsToolkit`, `SceneGraph`, or another renderer structure verbatim.
 - Decoding RuneScape cache formats in Angular.
 - Making MapLibre a custom-layer host for the RuneScape 3D scene.
 - Browser persistent caching, worker pools, LOD or speculative performance mechanisms.
@@ -53,6 +58,8 @@ The current `MapCodec` must also not be mistaken for a full cache round-trip imp
 ### Acceptance Criteria
 
 - `docs/3d-rendering` explains the verified client pipeline, terrain opcode semantics, coordinate units, broader object/model requirements, current Hagalaz gaps, and follow-up milestones.
+- `docs/3d-rendering/client-rendering-deobfuscation.md` defines the canonical semantic names, source locators, evidence and confidence for the high-confidence rendering core; generated GameClient identifiers are not used as architecture names in the other 3D-rendering documents.
+- New Hagalaz server/web rendering contracts use semantic domain names and do not introduce generated GameClient class/member identifiers into DTOs, APIs, services or TypeScript types.
 - `docs/3d-rendering` contains a byte-level map codec guide that distinguishes real cache files from the internal `MapCodec` stream and gives deterministic instructions for terrain/location decode, semantic encode, smart/huge-smart coding, source/effective planes, XTEA container handling, corruption guards and persisted-write verification.
 - Known limitations of the current reduced encoder are explicitly documented rather than described as cache-faithful round-trip support.
 - The server can represent one renderable region with all terrain semantics needed for correct four-plane geometry and base floor coloration without changing the gameplay meaning of `IMapType.TerrainData`.
@@ -84,6 +91,7 @@ Expected implementation areas:
 - `Hagalaz.Services.Cache` for one bounded region-render endpoint/DTO.
 - cache/service tests for client-parity coverage.
 - `Hagalaz.Web.App` for the single-region map page, terrain assembly and renderer adapter.
-- `docs/3d-rendering` for long-lived renderer and codec knowledge.
+- `docs/3d-rendering` for long-lived renderer, deobfuscation and codec knowledge.
+- `Hagalaz.GameClient` issue #141 for the behavior-preserving source-level rename of the high-confidence rendering classes/members.
 
 The current documentation-only foundation commit adds no runtime dependency, API, migration, configuration or distributed-topology change.
