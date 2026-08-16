@@ -4,11 +4,13 @@
 - [x] 1.2 Trace the authoritative `Hagalaz.GameClient` region, terrain, object, model, scene and graphics-backend paths, separating verified behavior from still-obfuscated details.
 - [x] 1.3 Document region/chunk structure, terrain opcodes, legacy units, floor material inputs and the broader object/model requirements that future changes will need.
 - [x] 1.4 Document the current Hagalaz gaps, target ownership boundaries, renderer decision and explicitly separated follow-up milestones.
+- [x] 1.5 Document byte-level map decode/encode behavior: cache-container versus payload boundaries, `mX_Y` terrain, `lX_Y` object delta coding, smart/huge-smart integers, XTEA, source/effective plane handling, canonical encoding, corruption guards, write-back order and round-trip fixtures.
+- [x] 1.6 Record known encoder hazards that must not be treated as cache-faithful behavior: the synthetic `MapCodec` length prefix, bridge-adjusted source-plane loss, unsorted per-object location deltas, `WriteHugeSmart` boundary behavior and the missing XTEA-aware cache writer.
 
 ## 2. Render-Focused Terrain Decoding
 
 - [ ] 2.1 Add focused failing tests for terrain opcode `0`/`1` height semantics, overlay ID/path/rotation, terrain flags, underlay IDs and upper-plane spacing using deterministic byte fixtures.
-- [ ] 2.2 Introduce a render-focused terrain representation that preserves visible terrain data without changing the gameplay meaning of `IMapType.TerrainData`.
+- [ ] 2.2 Introduce a render-focused terrain representation that preserves visible terrain data without changing the gameplay meaning of `IMapType.TerrainData`; preserve source encoding information needed for later safe semantic re-encoding rather than retaining only derived values.
 - [ ] 2.3 Reuse/factor the existing terrain-flag opcode logic so gameplay and render projections do not maintain conflicting copies of the same decode semantics.
 - [ ] 2.4 Define and test deterministic far-edge/border heights suitable for a 64×64 region mesh, using an adjacent-region fixture to prevent seam-by-placeholder behavior.
 - [ ] 2.5 Decode/project the minimum overlay and underlay semantic color fields required by the selected representative region; retain texture identity only as future-compatible data rather than expanding into texture rendering.
@@ -38,3 +40,4 @@
 - [ ] 5.3 Inspect the representative region in the browser and add screenshot regression only if the render output is deterministic enough to be useful.
 - [ ] 5.4 Run the relevant solution/project build, strict OpenSpec validation and `git diff --check`.
 - [ ] 5.5 If implementation requires object/model rendering, decoded textures/shaders, multi-region streaming, dynamic-map assembly, live entities or a second cache/state owner, stop and create a separate OpenSpec change instead of expanding this one.
+- [ ] 5.6 Do not claim cache write/round-trip support from the existing reduced `MapCodec` tests. Any future mutation milestone must separately prove payload encode/decode parity, XTEA-aware persisted writes and read-back validation against a disposable cache fixture.
