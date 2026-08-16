@@ -53,10 +53,33 @@ public sealed class CreatureStateCollectionTests
         Assert.AreSame(existing, collection.States.Single());
         Assert.AreEqual(0, existing.RemovedCount);
 
+        var equal = new KeepLongestTimedState { TicksLeft = 5 };
+        collection.Add(equal);
+        Assert.AreSame(existing, collection.States.Single());
+        Assert.AreEqual(0, equal.RemovedCount);
+
         var longer = new KeepLongestTimedState { TicksLeft = 6 };
         collection.Add(longer);
         Assert.AreSame(longer, collection.States.Single());
         Assert.AreEqual(1, existing.RemovedCount);
+        Assert.IsTrue(collection.Has(typeof(KeepLongestTimedState)));
+        Assert.AreEqual(0, longer.RemovedCount);
+    }
+
+    [TestMethod]
+    public void StateIdentity_UsesExactConcreteTypeForQueriesAndRemoval()
+    {
+        var collection = CreateCollection();
+        var derived = new DerivedState();
+        collection.Add(derived);
+
+        Assert.IsTrue(collection.Has(typeof(DerivedState)));
+        Assert.IsFalse(collection.Has(typeof(BaseState)));
+
+        collection.Remove(typeof(BaseState));
+
+        Assert.IsTrue(collection.Has(typeof(DerivedState)));
+        Assert.AreSame(derived, collection.States.Single());
     }
 
     [TestMethod]
@@ -119,6 +142,14 @@ public sealed class CreatureStateCollectionTests
     private static CreatureStateCollection CreateCollection() => new(Substitute.For<ICreature>());
 
     private sealed class TestPassiveState : State
+    {
+    }
+
+    private class BaseState : State
+    {
+    }
+
+    private sealed class DerivedState : BaseState
     {
     }
 

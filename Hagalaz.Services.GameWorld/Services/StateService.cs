@@ -10,12 +10,12 @@ namespace Hagalaz.Services.GameWorld.Services
     public class StateService : IStateService
     {
         private readonly StateProvider _stateProvider;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceProvider _scopedServiceProvider;
 
-        public StateService(StateProvider stateProvider, IServiceProvider serviceProvider)
+        public StateService(StateProvider stateProvider, IServiceProvider scopedServiceProvider)
         {
             _stateProvider = stateProvider;
-            _serviceProvider = serviceProvider;
+            _scopedServiceProvider = scopedServiceProvider;
         }
 
         public bool TryCreateState(string stateId, [NotNullWhen(true)] out IState? state)
@@ -26,7 +26,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 return false;
             }
 
-            state = (IState)_serviceProvider.GetRequiredService(stateType);
+            state = (IState)_scopedServiceProvider.GetRequiredService(stateType);
             return true;
         }
 

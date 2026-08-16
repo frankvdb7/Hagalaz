@@ -18,6 +18,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         public IEnumerable<IState> States => _states.Values;
 
+        // State identity intentionally uses the exact concrete runtime type; base-type queries and removals do not match derived states.
         public bool Has(Type stateType) => _states.ContainsKey(stateType);
 
         public void Add(IState state)
@@ -27,9 +28,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             var stateType = state.GetType();
             if (_states.TryGetValue(stateType, out var existingState))
             {
-                if (state is not IKeepLongestDurationState newTimedState ||
-                    existingState is not IKeepLongestDurationState existingTimedState ||
-                    newTimedState.TicksLeft <= existingTimedState.TicksLeft)
+                if (!ShouldReplaceExisting(existingState, state))
                 {
                     return;
                 }
@@ -45,6 +44,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
             _states.Add(stateType, state);
         }
+
+        private static bool ShouldReplaceExisting(IState existingState, IState state) =>
+            state is IKeepLongestDurationState newTimedState &&
+            existingState is IKeepLongestDurationState existingTimedState &&
+            newTimedState.TicksLeft > existingTimedState.TicksLeft;
 
         public void Remove(Type stateType) => Remove(stateType, expectedState: null);
 
