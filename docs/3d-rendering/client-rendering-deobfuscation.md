@@ -2,59 +2,65 @@
 
 This document defines the **canonical human-readable names** used by Hagalaz documentation for the RuneScape client rendering subsystem.
 
-The source snapshot is `frankvdb7/Hagalaz.GameClient@6eac3762cc46cec484131369691b5221fd1277bf`.
+Source snapshot: `frankvdb7/Hagalaz.GameClient@6eac3762cc46cec484131369691b5221fd1277bf`.
+
+Source-level mechanical renaming is tracked in `frankvdb7/Hagalaz.GameClient#141`.
 
 ## Naming policy
 
-The decompiled client still contains many generated identifiers such as `Class274`, `Class356`, `Class_xa` and `method6416`. Those names are source-location artifacts, not architecture.
+The decompiled client still contains generated identifiers such as `Class274`, `Class356`, `Class_xa`, `Entity_Sub1_Sub5` and `method6416`. These are source-location artifacts, not architecture.
 
 For Hagalaz 3D work:
 
-1. **Use the semantic name in architecture, specifications, DTO discussions, tests and implementation notes.**
-2. **Keep the obfuscated identifier only in this source-locator document** until the GameClient source itself has been mechanically renamed.
-3. **Rename only when responsibility is supported by call sites and data flow.** Do not guess a precise name from one method or one opcode.
-4. **Separate class confidence from member confidence.** A class can have a clear role even when some of its fields remain unresolved.
-5. **Do not rename a miscellaneous class solely because one static helper in it has been understood.** Several Jagex classes contain unrelated static utility methods because of obfuscation. In those cases the method receives a semantic alias while the containing class remains only a source locator.
-6. **Prefer domain names over renderer-specific names.** `TerrainSurface`, `SceneGraph`, `Occluder` and `SceneLight` describe the RuneScape scene independently of OpenGL, Direct3D or Three.js.
+1. Use semantic names in architecture, specifications, DTO discussions, tests and implementation notes.
+2. Keep generated identifiers only in this source-locator document until the GameClient source itself has been renamed.
+3. Rename only when responsibility is supported by construction, fields, call sites and data flow.
+4. Separate class confidence from member confidence. A class can be understood while several fields remain unresolved.
+5. Do not rename a miscellaneous class solely because one unrelated static helper inside it is understood.
+6. Prefer domain names independent of renderer backend: `TerrainSurface`, `SceneGraph`, `Occluder`, `SceneLight`, etc.
+7. If a concept cannot yet be named accurately, keep it internal/unresolved instead of exporting an obfuscated or guessed name.
 
-Confidence levels:
+Confidence:
 
-- **Verified**: the class/member role is demonstrated directly by construction, fields and call sites.
-- **High**: behavior is strongly constrained by multiple call sites; the chosen name is unlikely to change materially.
-- **Medium**: the broad role is clear, but a more precise RuneScape/client term may emerge later.
-- **Unresolved**: keep the current source identifier in the source repository until more evidence exists; do not expose it in Hagalaz public contracts.
+- **Verified**: directly demonstrated by construction, data flow and call sites.
+- **High**: strongly constrained by multiple independent uses; terminology might be refined but the concept will not materially change.
+- **Medium**: broad role is understood but a more precise client/RuneScape term may still emerge.
+- **Unresolved**: do not freeze a semantic source/API name yet.
 
-## Core rendering class names
+## Canonical rendering vocabulary
 
-| Canonical name | Current source locator | Confidence | Evidence / responsibility |
+| Canonical name | Current GameClient source | Confidence | Responsibility |
 | --- | --- | --- | --- |
-| `TerrainBuilder` | `Class274` | Verified | Owns tile heights, overlays, underlays, overlay shape/rotation, terrain flags and camera-adjustment grids; decodes normal/dynamic landscape tiles and builds renderer-backed terrain surfaces. `Map` extends it. |
-| `SceneGraph` | `Class356` | Verified | Owns per-plane scene tiles, terrain surfaces, scene entities, map lights, visibility state and the occlusion subsystem; inserts/removes walls, decorations and standard objects. |
-| `SceneTile` | `Class340` | Verified | One tile/plane cell in the scene graph. Holds wall entities, wall decorations, floor decoration, linked multi-tile objects and a link to the tile below. |
-| `TerrainSurface` | `Class_xa` | Verified | Abstract renderer-backed terrain height/surface object. Owns the height grid and tile scale and supports exact/interpolated height queries plus backend terrain operations. |
-| `OcclusionManager` | `Class358` | Verified | Owns occluder collections, tile visibility cache and occlusion tests; created by and bound to the scene graph. |
-| `Occluder` | `Class385` | High | Stores occluder type/plane and polygon/corner coordinates; created, indexed and queried exclusively by the occlusion subsystem. |
-| `OcclusionRasterizer` | `Class347` | High | Rasterizes projected occlusion triangles/scanlines into the occlusion manager's depth/visibility buffer. |
-| `FloorUnderlayDefinition` | `Class491` | Verified | Decodes underlay RGB, texture, texture scale and rendering flags and derives HSL/hue-multiplier data used by terrain color/material construction. |
-| `FloorUnderlayDefinitionManager` | `Class499` | Verified | Cache-backed manager for floor-underlay definitions with an ID-keyed `NodeCache`; constructs/decodes/caches `FloorUnderlayDefinition`. |
-| `FloorOverlayDefinitionManager` | `Class418` | Verified | Cache-backed manager for overlay definitions; loads the overlay config archive and constructs/caches `OverlayType`. |
-| `FloorOverlayDefinition` | `OverlayType` | Verified concept | Source class is already partially named. It is the floor-overlay definition containing primary/secondary color, texture, hide-underlay and additional material parameters. |
-| `SceneEntity` | `Entity_Sub1` | High | Common abstract scene-renderable base. Owns scene/plane state, participates in visibility/bounds/render operations, and resolves nearby map lights. |
-| `MultiTileSceneEntity` | `Entity_Sub1_Sub1` | High | Scene entity with explicit start/end X/Y tile bounds and active state; represents entities spanning a tile rectangle. |
-| `SingleTileSceneEntity` | `Entity_Sub1_Sub2` | High | Position-based scene entity whose scene/light/visibility queries resolve from one current tile. Precise gameplay subtype remains intentionally generic. |
-| `WallDecorationEntity` | `Entity_Sub1_Sub3` | Verified | Constructed by `Map` for `ShapeType.wallDecoration*` placements and stored in the scene tile's wall-decoration slots. |
-| `FloorDecorationEntity` | `Entity_Sub1_Sub4` | Verified | Constructed for the floor-decoration scene layer and stored in the scene tile's floor-decoration slot. |
-| `WallEntity` | `Entity_Sub1_Sub5` | Verified | Constructed for wall/corner/unfinished-wall shapes and stored as one or two wall entities per scene tile. |
-| `SceneObjectLink` | `Class352` | High | Pooled linked node containing a `MultiTileSceneEntity`; used by scene tiles to reference multi-tile/standard objects without duplicating the object. |
-| `SceneLight` | `Node_Sub14` | High | Position-bearing light object used by map flickering effects, terrain and scene entities; exposes X/Y/Z, scalar/int light parameters and position mutation. |
-| `SceneEntityList` | `Class338` | Medium | Maintains ordered scene-entity entries, removes duplicates in one mode and releases pooled entries. Exact role in the render/picking pipeline needs more deobfuscation before a source rename. |
-| `SceneEntityEntry` | `Class353` | Medium | Pooled wrapper around a `SceneEntity` with bounds/hit-test behavior and ownership by `SceneEntityList`. |
+| `TerrainBuilder` | `Class274` | Verified | Base used by `Map`; decodes heights, overlays, underlays, shape/rotation and flags, handles dynamic chunks and builds terrain surfaces. |
+| `SceneGraph` | `Class356` | Verified | Owns scene tiles, terrain surfaces, entities, lights, visibility and occlusion; inserts/removes scene objects. |
+| `SceneTile` | `Class340` | Verified | One per-plane tile cell containing wall slots, wall decorations, floor decoration and object links. |
+| `TerrainSurface` | `Class_xa` | Verified | Renderer-backed terrain surface/height grid with exact and bilinear height queries. |
+| `FloorUnderlayDefinition` | `Class491` | Verified | Underlay RGB/HSL, texture, scale and rendering flags. |
+| `FloorUnderlayDefinitionManager` | `Class499` | Verified | Cache-backed underlay-definition lookup/cache. |
+| `FloorOverlayDefinitionManager` | `Class418` | Verified | Cache-backed manager for overlay definitions. |
+| `FloorOverlayDefinition` | `OverlayType` | Verified concept | Overlay colors, texture, hide-underlay and additional material parameters. |
+| `OcclusionManager` | `Class358` | Verified | Occluder storage, tile-visibility cache and occlusion tests. |
+| `Occluder` | `Class385` | High | Oriented occlusion geometry carrying plane/type and corner/projection data. |
+| `OcclusionRasterizer` | `Class347` | High | Rasterizes projected occlusion triangles/scanlines into the visibility/depth representation. |
+| `SceneEntity` | `Entity_Sub1` | High | Common abstract scene renderable; owns plane/scene state, bounds, light lookup and render/visibility behavior. |
+| `MultiTileSceneEntity` | `Entity_Sub1_Sub1` | High | Scene entity with explicit start/end tile X/Y footprint. |
+| `SingleTileSceneEntity` | `Entity_Sub1_Sub2` | High | Position-based scene entity resolved from one current scene tile; exact gameplay subtype remains intentionally broad. |
+| `WallDecorationEntity` | `Entity_Sub1_Sub3` | Verified | Created by all wall-decoration shape placement paths. |
+| `FloorDecorationEntity` | `Entity_Sub1_Sub4` | Verified | Created/stored for the floor-decoration scene layer. |
+| `WallEntity` | `Entity_Sub1_Sub5` | Verified | Created for wall/corner/unfinished-wall shapes; one tile can hold two wall pieces. |
+| `SceneObjectLink` | `Class352` | High | Pooled linked node referencing a multi-tile scene entity from scene tiles. |
+| `ScreenSpaceBounds` | `Class80` | Verified role | Active 2D capsule/pick bound with two projected endpoints and radius; supports screen-point hit testing. |
+| `SceneEntityBounds` | `Class348` | High | 3D entity bound with min/max axes plus horizontal radial test. |
+| `SceneEntityPickList` | `Class338` | High | Ordered list of scene pick entries built from rendered entities; optional duplicate suppression. |
+| `SceneEntityPickEntry` | `Class353` | High | Pooled entity picking entry that tests `ScreenSpaceBounds` and delegates detailed hit testing to the entity/model. |
+| `SceneLight` | `Node_Sub14` | Verified | Position, radius, color and intensity used by terrain/entities/map flicker effects. |
+| `FlickeringLightDefinition` | `Class512` | Verified role | Reusable waveform/speed/amplitude/base-intensity definition used by special map flicker type 31. |
+| `FlickeringLightDefinitionManager` | `Class519` | Verified role | Cache-backed manager for flickering-light definitions. |
+| `HighResolutionClock` | `Class509` instance role | High | Instance responsibility is a `System.nanoTime()` clock; class also contains unrelated static methods from obfuscation bundling. |
 
-`Map`, `RegionManager`, `ObjectDefinition`, `ObjectDefinitionManager`, `ModelDefinition`, `Model`, `GraphicsToolkit`, `TerrainData`, `Atmosphere`, `AtmosphereManager`, `MapFlickeringEffect` and `ShapeType` are already sufficiently human-readable and remain canonical.
+Already-readable canonical types include `Map`, `RegionManager`, `ObjectDefinition`, `ObjectDefinitionManager`, `ModelDefinition`, `Model`, `GraphicsToolkit`, `TerrainData`, `Atmosphere`, `AtmosphereManager`, `MapFlickeringEffect` and `ShapeType`.
 
-## Core inheritance / ownership model
-
-Use this model in documentation instead of the decompiled names:
+## Core ownership model
 
 ```text
 RegionManager
@@ -63,10 +69,9 @@ RegionManager
 Map : TerrainBuilder
     |
     +--> FloorOverlayDefinitionManager --> FloorOverlayDefinition
-    |
     +--> FloorUnderlayDefinitionManager --> FloorUnderlayDefinition
-    |
     +--> ObjectDefinitionManager --> ObjectDefinition --> ModelDefinition
+    +--> FlickeringLightDefinitionManager --> FlickeringLightDefinition
     |
     v
 SceneGraph
@@ -76,117 +81,100 @@ SceneGraph
     |      +--> WallDecorationEntity (0..2)
     |      +--> FloorDecorationEntity (0..1)
     |      +--> SceneObjectLink --> MultiTileSceneEntity
-    |      +--> other single-tile scene entity
+    |      +--> optional SingleTileSceneEntity
     |
     +--> TerrainSurface[plane]
-    +--> SceneLight[]
+    +--> SceneLight[] / MapFlickeringEffect[]
+    +--> SceneEntityPickList --> SceneEntityPickEntry --> ScreenSpaceBounds
     +--> OcclusionManager
                +--> Occluder[]
                +--> OcclusionRasterizer
 
 GraphicsToolkit
-    +--> creates TerrainSurface
-    +--> creates Model from ModelDefinition
-    +--> concrete OpenGL / Direct3D / software backends
+    +--> createTerrainSurface
+    +--> createModel(ModelDefinition)
+    +--> create SceneLight
+    +--> OpenGL / Direct3D / software backends
 ```
 
-This is the vocabulary that should be copied into Hagalaz code and API design. Do not introduce `Class###`-inspired names into the server or web renderer.
+New Hagalaz server/web code should use this vocabulary, never the generated source identifiers.
 
-## TerrainBuilder member names
+## TerrainBuilder members
 
-The following members are sufficiently understood for documentation and future GameClient source renaming.
+| Canonical member | Current member | Confidence |
+| --- | --- | --- |
+| `sceneGraph` | `aClass356_2767` | Verified |
+| `floorOverlayDefinitions` | `aClass418_2765` | Verified |
+| `floorUnderlayDefinitions` | `aClass499_2819` | Verified |
+| `terrainData` | `aTerrainData_2811` | Verified |
+| `tileHeights` | `tileHeights` | Verified |
+| `overlayIds` | `overlayIds` | Verified |
+| `underlayIds` | `underlayIds` | Verified |
+| `overlayShapes` | `overlayPaths` | High |
+| `overlayRotations` | `overlayRotations` | Verified |
+| `cameraAdjustments` | `cameraAdjustments` | Existing readable field; exact higher-level semantics remain later work |
+| `setShadingDelayed` | `method2684` | High |
+| `releaseTerrainBuildScratch` | `method2685` | High |
+| `initializeHeightArea` | `method2687` | High |
+| `readCollisionData` | `readCollisionData` | Verified |
+| `readDynamicChunkCollisionData` | `method2689` | High |
+| `createTerrainSurfaces` | `readGroundMapData` | High |
+| `buildTerrainSurfaces` | `method2692` | Verified responsibility |
+| `readLandscapeData` | `readLandscapeData` | Verified |
 
-| Canonical member | Current source member | Confidence | Meaning |
-| --- | --- | --- | --- |
-| `sceneGraph` | `aClass356_2767` | Verified | Scene graph receiving built terrain and scene objects. |
-| `floorOverlayDefinitions` | `aClass418_2765` | Verified | Floor overlay definition manager. |
-| `floorUnderlayDefinitions` | `aClass499_2819` | Verified | Floor underlay definition manager. |
-| `terrainData` | `aTerrainData_2811` | Verified | Terrain flags / effective-plane metadata. |
-| `tileHeights` | `tileHeights` | Verified | Per-plane corner/height grid. |
-| `overlayIds` | `overlayIds` | Verified | Per-tile overlay IDs. |
-| `underlayIds` | `underlayIds` | Verified | Per-tile underlay IDs. |
-| `overlayShapes` | `overlayPaths` | High | Per-tile floor-overlay shape/path value decoded from `(opcode - 2) / 4`. `shape` is clearer for renderer documentation. |
-| `overlayRotations` | `overlayRotations` | Verified | Per-tile overlay rotation `0..3`. |
-| `cameraAdjustments` | `cameraAdjustments` | Verified field name | Per-plane map-provided adjustment grid; exact camera/roof semantics remain a later fidelity topic. |
-| `setShadingDelayed` | `method2684` | High | Enables delayed terrain shading/shadow-related accumulation. |
-| `releaseTerrainBuildScratch` | `method2685` | High | Clears terrain-color/material accumulation arrays and ends delayed-build scratch state. |
-| `initializeHeightArea` | `method2687` | High | Initializes/fills a rectangular height area and repairs boundaries. |
-| `readCollisionData` | `readCollisionData` | Verified | Decodes terrain flags for collision across a normal 64x64 region. |
-| `readDynamicChunkCollisionData` | `method2689` | High | Reads/rotates one dynamic 8x8 region part into destination collision/height space. |
-| `createTerrainSurfaces` | `readGroundMapData` | High | Allocates renderer terrain surfaces for the active planes through `GraphicsToolkit`. |
-| `buildTerrainSurfaces` | `method2692` | Verified responsibility | Resolves floor definitions, colors/material inputs and shaped tiles into the terrain surfaces. |
-| `readLandscapeData` | `readLandscapeData` | Verified | Decodes one tile's terrain opcode list including height, overlay, flags and underlay. |
+Large scratch arrays inside terrain material/shape construction remain intentionally unnamed until each role is proven.
 
-Some large terrain-build scratch arrays are still intentionally unnamed. Their meaning should be derived from the particular material/shape algorithm before they are renamed, rather than receiving names such as `temp1` or `colors2`.
+## TerrainSurface members
 
-## TerrainSurface member names
+| Canonical member | Current member | Confidence |
+| --- | --- | --- |
+| `heightGrid` | `anIntArrayArray6394` | Verified |
+| `tileCountX` | `anInt6397` | Verified |
+| `tileCountY` | `anInt6393` | Verified |
+| `tileSize` | `anInt6395` | Verified |
+| `tileShift` | `anInt6396` | Verified |
+| `getInterpolatedHeight` | `method6416` | Verified |
+| `getTileHeight` | `method6417` | Verified |
 
-| Canonical member | Current source member | Confidence | Meaning |
-| --- | --- | --- | --- |
-| `heightGrid` | `anIntArrayArray6394` | Verified | Corner/grid heights used by exact and interpolated height queries. |
-| `tileCountX` | `anInt6397` | Verified | Terrain width in tiles. |
-| `tileCountY` | `anInt6393` | Verified | Terrain height/depth in tiles. |
-| `tileSize` | `anInt6395` | Verified | Scene units per tile; normally 512 for map terrain. |
-| `tileShift` | `anInt6396` | Verified | `log2(tileSize)` used for tile lookup and interpolation. |
-| `getInterpolatedHeight` | `method6416` | Verified | Bilinear interpolation of four height-grid corners for a world/scene position. |
-| `getTileHeight` | `method6417` | Verified | Direct grid height lookup. |
+Remaining abstract methods should be named only after comparing equivalent operations across multiple renderer backends.
 
-The remaining abstract methods cover backend-specific terrain building, drawing, shadow/mask and resource operations. They should be renamed per behavior after comparing their implementations across the renderer backends; a one-backend guess is not sufficient.
+## FloorUnderlayDefinition members
 
-## FloorUnderlayDefinition member names
+The underlay is one of the clearest definition formats.
 
-The underlay definition is one of the strongest deobfuscation targets because its decode and color conversion are self-contained.
+| Canonical member | Current member | Confidence |
+| --- | --- | --- |
+| `rgbColor` | `anInt5860` | Verified |
+| `hue` | `anInt5855` | Verified |
+| `saturation` | `anInt5861` | Verified |
+| `lightness` | `anInt5862` | Verified |
+| `hueMultiplier` | `anInt5863` | Verified |
+| `texture` | `anInt5856` | High |
+| `textureScale` | `anInt5857` | High |
+| `decode` | `method6072` | Verified |
+| `decodeOpcode` | `method6073` | Verified |
+| `calculateHsl` | `method6074` | Verified |
 
-| Canonical member | Current source member | Confidence | Evidence |
-| --- | --- | --- | --- |
-| `rgbColor` | `anInt5860` | Verified | Opcode `1` reads a 24-bit RGB value and immediately derives HSL data from it. |
-| `hue` | `anInt5855` | Verified | Computed from RGB hue multiplied by the hue multiplier, matching the classic RuneScape underlay-color representation. |
-| `saturation` | `anInt5861` | Verified | RGB-to-HSL saturation clamped to `0..255`. |
-| `lightness` | `anInt5862` | Verified | RGB-to-HSL lightness clamped to `0..255`. |
-| `hueMultiplier` | `anInt5863` | Verified | Saturation/lightness-derived multiplier, minimum `1`, used to scale hue. |
-| `texture` | `anInt5856` | High | Opcode `2` reads an ID with `65535 -> -1`; terrain construction passes it in the same material slot as overlay textures. |
-| `textureScale` | `anInt5857` | High | Opcode `3` reads `ushort << 2` and terrain construction carries it with the underlay texture. |
-| `decode` | `method6072` | Verified | Reads opcodes until `0`. |
-| `decodeOpcode` | `method6073` | Verified | Decodes one underlay-definition opcode. |
-| `calculateHsl` | `method6074` | Verified | Converts the decoded RGB color into hue/saturation/lightness/hue multiplier. |
+Opcode `4` and opcode `5` boolean fields are known to affect rendering/occlusion behavior, but their final semantic names should not be frozen until every use is traced.
 
-Two booleans remain deliberately semantic-but-not-overprecise:
-
-- opcode `4`: default `true`, becomes `false`; participates in shaped-terrain build behavior;
-- opcode `5`: default `true`, becomes `false`; participates in whether an upper-plane flat tile may contribute to the client's occlusion/visibility flags.
-
-Until every use is traced, name these in documentation as `renderFlag4` / `allowsOcclusion` only with an explicit confidence note. Do **not** put guessed names into a public Hagalaz API.
-
-## Floor-definition manager names
+## Floor-definition managers
 
 ### FloorUnderlayDefinitionManager
 
-| Canonical member | Current source member | Confidence |
-| --- | --- | --- |
-| `definitions` | `aNodeCache_5891` | Verified |
-| `configContainer` | `configContainer` | Verified |
-| `getFloorUnderlayDefinition` | `method6111` | Verified |
-
-The remaining instance methods are cache maintenance operations and can be named once their corresponding `NodeCache` methods are deobfuscated consistently.
+- `aNodeCache_5891` -> `definitions`
+- `method6111` -> `getFloorUnderlayDefinition`
 
 ### FloorOverlayDefinitionManager
 
-| Canonical member | Current source member | Confidence |
-| --- | --- | --- |
-| `definitions` | `aNodeCache_4296` | Verified |
-| `configContainer` | `configContainer` | Verified |
-| `getFloorOverlayDefinition` | `getOverlayType` | Verified |
-| `definitionCount` | `anInt4295` | High |
+- `aNodeCache_4296` -> `definitions`
+- `anInt4295` -> `definitionCount`
+- `getOverlayType` -> `getFloorOverlayDefinition`
 
-`anInt4294` is modified by overlay opcode `8`; its exact special-overlay/default role is not sufficiently proven yet.
+The overlay-manager field changed by overlay opcode `8` is still unresolved; do not call it a default/special overlay until proven.
 
-## SceneGraph / SceneTile names
+## SceneGraph members
 
-### SceneGraph
-
-The scene graph has enough evidence to rename its structural fields now, while leaving frame-specific visibility scratch fields for later.
-
-| Canonical member | Current source member | Confidence |
+| Canonical member | Current member | Confidence |
 | --- | --- | --- |
 | `graphicsToolkit` | `aGraphicsToolkit3645` | Verified |
 | `occlusionManager` | `aClass358_3649` | Verified |
@@ -196,21 +184,22 @@ The scene graph has enough evidence to rename its structural fields now, while l
 | `activeTerrainSurfaces` | `aClass_xaArray3676` | Verified |
 | `primaryTerrainSurfaces` | `aClass_xaArray3701` | High |
 | `alternateTerrainSurfaces` | `aClass_xaArray3658` | High |
-| `mapLights` | `aMapFlickeringEffectArray3679` | Verified |
+| `mapFlickeringEffects` | `aMapFlickeringEffectArray3679` | Verified |
+| `entityPickList` | `aClass338_3697` | High |
 | `tilesRangeX` | `tilesRangeX` | Verified |
 | `tilesRangeY` | `tilesRangeY` | Verified |
 | `maxPlanes` | `maxZ` | High |
 | `getOrCreateTile` | `method4136` | Verified responsibility |
 | `ensureTileStack` | `method4137` | High |
-| `addFloorDecoration` | `method4142` | Verified from `Map` layer/shape call sites |
-| `addWallDecoration` | `method4144` | Verified from `ShapeType.wallDecoration*` call sites |
-| `addWalls` | `method4180` | Verified from wall/corner shape call sites |
+| `addFloorDecoration` | `method4142` | Verified from placement call sites |
+| `addWallDecoration` | `method4144` | Verified from placement call sites |
+| `addWalls` | `method4180` | Verified from placement call sites |
 
-The exact names of the two scene modes represented by the primary/alternate tile/surface arrays are not yet proven. `primary`/`alternate` is intentionally less specific than guessing that one is always underwater, roof or bridge state.
+The exact semantics of the primary/alternate scene modes are not yet proven. Neutral names are preferable to guessing underwater/roof/etc.
 
-### SceneTile
+## SceneTile members
 
-| Canonical member | Current source member | Confidence |
+| Canonical member | Current member | Confidence |
 | --- | --- | --- |
 | `tileBelow` | `aClass340_3380` | Verified |
 | `plane` | `aByte3381` | High |
@@ -220,30 +209,61 @@ The exact names of the two scene modes represented by the primary/alternate tile
 | `wallDecorationB` | `aClass432_Sub1_Sub3_3385` | Verified |
 | `floorDecoration` | `aClass432_Sub1_Sub4_3386` | Verified |
 | `objectLinks` | `aClass352_3388` | High |
-| `singleTileEntity` | `aClass432_Sub1_Sub2_3391` | High; precise subtype unresolved |
+| `singleTileEntity` | `aClass432_Sub1_Sub2_3391` | High; exact subtype unresolved |
 
-The remaining shorts are tied to occlusion boundaries/metadata and should be renamed together with the corresponding `OcclusionManager` methods.
+Remaining short fields appear tied to visibility/occlusion metadata and should be renamed with the corresponding occlusion logic.
 
-## Occlusion names
+## Entity picking / bounds
 
-`OcclusionManager` is not merely a generic visibility helper. It creates oriented occluders, stores them by category, maintains a per-plane tile visibility cache and asks `OcclusionRasterizer` to rasterize/test projected occlusion geometry.
+### ScreenSpaceBounds
 
-Useful source aliases:
+The current pick-bound class is mathematically a 2D capsule:
 
-| Canonical member | Current source member | Confidence |
-| --- | --- | --- |
-| `sceneGraph` | `aClass356_3710` | Verified |
-| `rasterizer` | `aClass347_3711` | Verified |
-| `tileVisibilityCache` | `anIntArrayArrayArray3713` | High |
-| `addOccluder` | `method4216` | Verified responsibility |
-| `removeOccluder` | `method4217` | Verified responsibility |
-| `invalidate/rebuildOccluders` | `method4221` | High; exact lifecycle name should be verified before source rename |
+- two endpoints;
+- a radius;
+- an active flag;
+- `hitTest(x, y)` computes distance to the segment or either endpoint and compares with radius.
 
-`Occluder` fields should be renamed as a group after each type (`1`, `2`, `4`, `8`, `16`) is mapped to its axis/orientation. The class name itself is already sufficiently certain.
+Suggested members:
+
+- first endpoint fields -> `startX`, `startY`;
+- second endpoint fields -> `endX`, `endY`;
+- `anInt673` -> `radius`;
+- `aBoolean671` -> `active`;
+- `method944` -> `hitTest` / `containsPoint`.
+
+Use exact start/end field mapping only after tracing renderer population code, since the containment math is symmetric.
+
+### SceneEntityBounds
+
+The 3D bound stores center X/Y/Z, a horizontal radius squared and min/max limits for all axes. `method4019` rejects outside the axis-aligned limits and then tests horizontal X/Z radial distance.
+
+- `method4019` -> `contains`
+- `method4020` -> `setBounds`
+
+Field-by-field min/max naming can be done mechanically from constructor assignments when the source rename is implemented.
+
+### SceneEntityPickList / SceneEntityPickEntry
+
+`SceneGraph` asks a rendered entity for a pick entry, associates the entity, then inserts it into the ordered pick list. The entry hit-test iterates the entity's `ScreenSpaceBounds` and delegates the detailed model/entity hit test.
+
+This evidence is strong enough to prefer `SceneEntityPickList` / `SceneEntityPickEntry` over the earlier generic `SceneEntityList` / `SceneEntityEntry` names.
+
+## Occlusion members
+
+### OcclusionManager
+
+- `aClass356_3710` -> `sceneGraph`
+- `aClass347_3711` -> `rasterizer`
+- `anIntArrayArrayArray3713` -> `tileVisibilityCache`
+- `method4216` -> `addOccluder`
+- `method4217` -> `removeOccluder`
+
+Investigate `method4221` completely before selecting a lifecycle name such as `rebuildOccluders` or `invalidateOcclusion`.
+
+`Occluder` field names should be renamed as one group after types `1`, `2`, `4`, `8`, `16` are mapped to exact orientations.
 
 ## Scene entity hierarchy
-
-The scene-object layer can be understood without retaining the generated inheritance names:
 
 ```text
 SceneEntity
@@ -255,118 +275,145 @@ SceneEntity
   |     +-- precise subtype still unresolved
   |
   +-- WallDecorationEntity
-  |     +-- static/dynamic concrete implementations
+  |     +-- concrete model/animation variants
   |
   +-- FloorDecorationEntity
-  |     +-- static/dynamic concrete implementations
+  |     +-- concrete model/animation variants
   |
   +-- WallEntity
-        +-- static/dynamic concrete implementations
+        +-- concrete model/animation variants
 ```
 
-Do not rename `Sub1` / `Sub2` concrete implementations to `Static` / `Dynamic` until their animation/model lifecycle has been compared. The base category names above are verified from the `Map` placement call sites; the concrete split needs its own evidence.
+Do not rename generated concrete `Sub1`/`Sub2` implementations to `Static`/`Dynamic` until their model cache and animation/update lifecycles have been compared.
 
-## SceneLight names
+## SceneLight members
 
-`SceneLight` currently exposes enough behavior to remove `Node_Sub14` from architecture prose:
+The light is now fully interpretable at the primary-field level because `MapFlickeringEffect` creates it as `(x, y, z, radius, color, 1.0F)` and updates only the float during flicker evaluation.
 
-| Canonical member | Current source member | Confidence |
+| Canonical member | Current member | Confidence |
 | --- | --- | --- |
 | `position` | `aVector3f_7608` | Verified |
+| `radius` | `anInt7606` | Verified |
+| `color` | `anInt7607` | Verified |
+| `intensity` | `aFloat7605` | Verified |
 | `getX` | `method3318` | Verified |
 | `getY` | `method3311` | Verified |
 | `getZ` | `method3312` | Verified |
+| `getRadius` | `method3316` | Verified |
+| `getColor` | `method3313` | Verified |
+| `getIntensity` | `method3317` | Verified |
+| `setIntensity` | `method3314` | Verified |
 | `setPosition` | `method3315` | Verified |
-| scalar light parameter | `aFloat7605` / `method3317` | Medium; likely intensity/brightness but not named until usage is fully traced |
-| integer light parameter A | `anInt7606` / `method3316` | Unresolved |
-| integer light parameter B | `anInt7607` / `method3313` | Unresolved |
 
-A source rename may safely rename the class and position methods now while leaving the three material/light parameters neutral until their renderer uses are traced.
+## FlickeringLightDefinition members
+
+A map flicker with type `31` resolves this external definition and copies its values into `MapFlickeringEffect`.
+
+| Canonical member | Current member | Confidence |
+| --- | --- | --- |
+| `waveform` | `anInt5959` | Verified from receiving field/switch |
+| `speed` | `anInt5956` | High; used as time multiplier/flicker progression speed |
+| `amplitude` | `anInt5958` | Verified from intensity equation |
+| `baseIntensity` | `anInt5957` | Verified from intensity equation |
+| `decode` | `method6187` | Verified |
+| `decodeOpcode` | `method6188` | Verified |
+
+`FlickeringLightDefinitionManager.method6217` -> `getFlickeringLightDefinition`.
+
+Useful `MapFlickeringEffect` renames:
+
+- `aClass330_Sub14_3467` -> `light`
+- `anInt3473` -> `waveform`
+- `anInt3474` -> `speed`
+- `anInt3466` -> `amplitude`
+- `anInt3452` -> `baseIntensity`
+- `method4021` -> `createLight`
+- `method4022` -> `setFlickerDefinition`
+- `method4023` -> `useBuiltInFlickerPreset`
+- `method4024` -> `updateIntensity`
 
 ## Terrain-height helper names
 
-Several exact terrain-height helpers live as unrelated static methods on otherwise miscellaneous classes. **Rename the methods, not the containing classes**, unless the rest of each class is independently understood.
+Several exact terrain-height helpers live as unrelated static methods on otherwise miscellaneous classes. Rename the methods, not the whole classes, unless the containing class is independently understood.
 
-| Canonical helper | Current source locator | Confidence | Behavior |
-| --- | --- | --- | --- |
-| `generateBaseTerrainHeight` | `Class156.calculateHeight` | Verified | Combines three noise octaves, scales the result and clamps to `10..60`. The method already has a partial readable name. |
-| `interpolatedNoise` | `TextureLoader.method652` | Verified | Samples four smoothed lattice values and performs 2D cosine interpolation. |
-| `smoothedNoise` | `Class170.method2039` | Verified | Weighted corner/cardinal/center smoothing over deterministic raw noise. |
-| `rawTerrainNoise` | `AbstractQueue_Sub1.method6486` | Verified | Deterministic integer hash/noise returning `0..255`. |
-| `cosineInterpolate` | `Class20.method466` | Verified | Fixed-point interpolation using the client's cosine lookup table. |
-| `cosineTable` | `Class257.anIntArray2684` | Verified | 16,384-entry fixed-point cosine lookup. |
-| `sineTable` | `Class257.anIntArray2683` | Verified | 16,384-entry fixed-point sine lookup. |
-| `angleToRadians` | `Class257.method2541` | Verified | Converts a masked 14-bit client angle to radians. |
-
-The stable algorithm is documented in `terrain-height-generation.md`; that document should use the canonical helper names and keep these generated source locators only in a reference table.
-
-## ModelDefinition member/method names
-
-`ModelDefinition` is already well enough named to keep. Several members still need cleanup.
-
-High-confidence aliases:
-
-| Canonical member | Current source member | Confidence |
+| Canonical helper | Current source locator | Confidence |
 | --- | --- | --- |
-| `vertexX` | `vertexX` | Verified |
-| `vertexY` | `vertexY` | Verified |
-| `vertexZ` | `vertexZ` | Verified |
-| `triangleVertexA` | `triangleViewSpaceX` | Verified | Despite the current name, this is the first triangle vertex index, not a transformed view-space coordinate. |
+| `generateBaseTerrainHeight` | `Class156.calculateHeight` | Verified |
+| `interpolatedNoise` | `TextureLoader.method652` | Verified |
+| `smoothedNoise` | `Class170.method2039` | Verified |
+| `rawTerrainNoise` | `AbstractQueue_Sub1.method6486` | Verified |
+| `cosineInterpolate` | `Class20.method466` | Verified |
+| `sineTable` | `Class257.anIntArray2683` | Verified |
+| `cosineTable` | `Class257.anIntArray2684` | Verified |
+| `angleToRadians` | `Class257.method2541` | Verified |
+
+See `terrain-height-generation.md` for the full algorithm using the semantic helper names.
+
+## ModelDefinition cleanup
+
+`ModelDefinition` is well named, but several members are misleading.
+
+| Canonical member | Current member | Confidence |
+| --- | --- | --- |
+| `triangleVertexA` | `triangleViewSpaceX` | Verified |
 | `triangleVertexB` | `triangleViewSpaceY` | Verified |
 | `triangleVertexC` | `triangleViewSpaceZ` | Verified |
 | `faceColors` | `colors` | Verified |
 | `faceAlpha` | `alpha` | Verified |
 | `facePriorities` | `priorities` | Verified |
 | `faceTextures` | `textures` | Verified |
-| `decodeLegacyFormat` | `method1199` | Verified responsibility | Reads the older 18-byte-footer model layout. |
-| `decodeModernFormat` | `method1201` | Verified responsibility | Reads the newer `0xFF 0xFF`-terminated layout with the 23-byte base footer and optional sections. |
+| `decodeLegacyFormat` | `method1199` | Verified |
+| `decodeModernFormat` | `method1201` | Verified |
 | `translate` | `method1194` | Verified |
-| `rotate` | `method1195` | High; method applies rotations around the three model axes. |
+| `rotate` | `method1195` | High |
 | `scaleByPowerOfTwo` | `method1196` | Verified |
 | `recolor` | `method1185` | Verified |
 | `retexture` | `method1200` | Verified |
 
-The misleading `triangleViewSpaceX/Y/Z` names should be a priority rename because they can easily produce the wrong web mesh abstraction.
+The `triangleViewSpace*` names are actively misleading: they are triangle topology vertex indices, not view-space positions.
 
 ## GraphicsToolkit aliases
 
-Do not port or expose the obfuscated graphics API. Only a handful of operations are needed to understand the scene pipeline:
+Do not port the obfuscated graphics API. The high-value semantic operations needed for architecture are:
 
-| Canonical operation | Current source member | Confidence |
-| --- | --- | --- |
-| `createTerrainSurface` | `GraphicsToolkit.cn(...)` | Verified |
-| `createModel` | `GraphicsToolkit.cb(ModelDefinition, ...)` | Verified |
+- `GraphicsToolkit.cn(...)` -> `createTerrainSurface(...)`;
+- `GraphicsToolkit.cb(ModelDefinition, ...)` -> `createModel(...)`;
+- the map-light factory used by `MapFlickeringEffect` -> `createSceneLight(...)`.
 
-Concrete subclasses should be described in architecture as **OpenGL backend**, **Direct3D backend**, and **software backend**. Their generated subclass names belong only in a source-tracing note, not in Hagalaz APIs or the web-renderer design.
+Concrete subclasses should be described by backend: OpenGL, Direct3D and software. Generated subclass names should not enter new Hagalaz architecture.
 
-## Names deliberately not frozen yet
+## HighResolutionClock caveat
 
-The following areas still need focused tracing before source renaming:
+The `Class509` **instance** responsibility is a nanosecond clock (`System.nanoTime()`). However the class also contains unrelated static utility methods due decompiler/obfuscator bundling. If the source is renamed, verify all construction/instance call sites and avoid accidentally implying that the unrelated static methods are clock behavior. A later cleanup may be better served by extracting the clock responsibility instead of globally renaming every static reference.
 
-- the exact meaning of all secondary `FloorOverlayDefinition` fields/opcodes;
-- the two unresolved `FloorUnderlayDefinition` boolean flags beyond their known rendering/occlusion effects;
-- the precise identity of `SingleTileSceneEntity`;
-- static-versus-dynamic naming for concrete wall/wall-decoration/floor-decoration/object subclasses;
-- the exact role/name of `SceneEntityList` and `SceneEntityEntry` in rendering versus picking;
-- all occluder orientation/type constants and associated short fields on `SceneTile`;
-- the renderer-specific abstract operations on `TerrainSurface` other than height queries;
-- light color/radius/intensity parameter names on `SceneLight`;
-- secondary atmosphere, roof-hiding and visibility classes.
+## Deliberately unresolved names
 
-These are **deobfuscation tasks**, not reasons to leak generated names into new Hagalaz code. New server/web code should name data by its observed semantic purpose and keep unresolved client-only details behind the render projection.
+Continue tracing before freezing names for:
+
+- all secondary `FloorOverlayDefinition` fields/opcodes;
+- the two secondary underlay booleans;
+- exact identity of `SingleTileSceneEntity`;
+- concrete entity model/animation variants;
+- exact primary/alternate SceneGraph mode semantics;
+- occluder orientation constants and SceneTile occlusion shorts;
+- renderer-specific `TerrainSurface` operations beyond height queries;
+- atmosphere, roof-hiding and advanced visibility classes;
+- model skinning/animation/effect metadata not needed by static rendering.
+
+These are deobfuscation tasks, not reasons to leak generated names into Hagalaz.
 
 ## Recommended source-rename order
 
-A source-level GameClient cleanup should be mechanical and behavior-preserving. Use this order so each step reduces the number of generated names in the next diff:
+Use behavior-preserving, compilable rename groups:
 
-1. Floor definitions/managers: `FloorUnderlayDefinition`, `FloorUnderlayDefinitionManager`, `FloorOverlayDefinitionManager`.
-2. Terrain core: `TerrainSurface`, then `TerrainBuilder`.
-3. Scene core: `SceneTile`, `SceneObjectLink`, `SceneGraph`.
-4. Occlusion: `Occluder`, `OcclusionRasterizer`, `OcclusionManager`.
-5. Scene entity bases: `SceneEntity`, `MultiTileSceneEntity`, `SingleTileSceneEntity`, `WallEntity`, `WallDecorationEntity`, `FloorDecorationEntity`.
-6. `SceneLight`.
-7. High-confidence method/field names in the classes above.
-8. `ModelDefinition` triangle/member cleanup.
-9. Only then investigate lower-confidence render queues, concrete entity variants, atmosphere and backend-specific methods.
+1. floor definitions/managers;
+2. `TerrainSurface` and `TerrainBuilder`;
+3. `SceneTile`, `SceneObjectLink`, bounds/picking helpers and `SceneGraph`;
+4. occluder/rasterizer/occlusion manager;
+5. scene entity bases/categories;
+6. `SceneLight`, flicker definition/manager and `MapFlickeringEffect` members;
+7. high-confidence methods/fields in those classes;
+8. `ModelDefinition` topology/member cleanup;
+9. lower-confidence concrete entity variants, scene modes, atmosphere and backend-specific methods.
 
-Each source-rename commit should compile before the next group is renamed. Do not combine semantic behavior changes with the deobfuscation commits.
+Run `./gradlew build` after every group. Do not mix behavior changes or broad formatting with the rename commits.
