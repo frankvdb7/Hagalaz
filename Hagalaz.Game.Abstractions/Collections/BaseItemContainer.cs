@@ -110,14 +110,14 @@ namespace Hagalaz.Game.Abstractions.Collections
         public abstract void OnUpdate(HashSet<int>? slots = null);
 
         /// <summary>
-        /// Gets whether the current update notification is restoring a checked trade mutation.
+        /// Gets whether the current update notification is restoring a checked mutation.
         /// </summary>
-        protected bool IsRollbackNotification { get; private set; }
+        protected bool IsMutationRollbackNotification { get; private set; }
 
         /// <summary>
         /// Allows a derived container to prepare its notification state before a checked rollback.
         /// </summary>
-        protected virtual void OnRollbackStarting() { }
+        protected virtual void OnMutationRollbackStarting() { }
 
         /// <summary>
         /// Checks if the container has enough space to add a given item, considering stacking rules.
@@ -306,7 +306,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="newItems">The collection of items to add.</param>
         /// <returns>The applied mutation, including partial changes if the update callback fails.</returns>
-        protected TradeItemMutation AddRangeForTradeCore(IEnumerable<IItem?> newItems)
+        protected ItemContainerMutation AddRangeCheckedCore(IEnumerable<IItem?> newItems)
         {
             ArgumentNullException.ThrowIfNull(newItems);
 
@@ -552,7 +552,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="item">The item and count to remove.</param>
         /// <param name="preferredSlot">The preferred slot to remove from.</param>
         /// <returns>The applied mutation.</returns>
-        protected TradeItemMutation RemoveForTradeCore(IItem item, int preferredSlot = -1)
+        protected ItemContainerMutation RemoveCheckedCore(IItem item, int preferredSlot = -1)
         {
             ArgumentNullException.ThrowIfNull(item);
 
@@ -693,7 +693,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             return removed;
         }
 
-        private TradeItemMutation CreateMutation(
+        private ItemContainerMutation CreateMutation(
             IReadOnlyList<SlotChange> changes,
             int appliedCount,
             IReadOnlyList<IItem> appliedItems,
@@ -728,11 +728,11 @@ namespace Hagalaz.Game.Abstractions.Collections
             change.AfterCount = change.After?.Count ?? 0;
         }
 
-        private TradeItemMutation.RollbackOutcome TryRollback(IReadOnlyList<SlotChange> changes)
+        private ItemContainerMutation.RollbackOutcome TryRollback(IReadOnlyList<SlotChange> changes)
         {
             if (changes.Count == 0)
             {
-                return TradeItemMutation.RollbackOutcome.Restored;
+                return ItemContainerMutation.RollbackOutcome.Restored;
             }
 
             if (changes.All(change => change.RollbackApplied || Matches(change, before: true)))
@@ -742,10 +742,10 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             if (changes.Any(change => !CanApplyInverse(change)))
             {
-                return TradeItemMutation.RollbackOutcome.Failed;
+                return ItemContainerMutation.RollbackOutcome.Failed;
             }
 
-            OnRollbackStarting();
+            OnMutationRollbackStarting();
             foreach (var change in changes)
             {
                 ApplyInverse(change);
@@ -756,21 +756,21 @@ namespace Hagalaz.Game.Abstractions.Collections
             return NotifyRollback(changes);
         }
 
-        private TradeItemMutation.RollbackOutcome NotifyRollback(IReadOnlyList<SlotChange> changes)
+        private ItemContainerMutation.RollbackOutcome NotifyRollback(IReadOnlyList<SlotChange> changes)
         {
             try
             {
-                IsRollbackNotification = true;
+                IsMutationRollbackNotification = true;
                 OnUpdate(changes.Select(change => change.Slot).ToHashSet());
-                return TradeItemMutation.RollbackOutcome.Restored;
+                return ItemContainerMutation.RollbackOutcome.Restored;
             }
             catch (InvalidOperationException)
             {
-                return TradeItemMutation.RollbackOutcome.RestoredWithNotificationFailure;
+                return ItemContainerMutation.RollbackOutcome.RestoredWithNotificationFailure;
             }
             finally
             {
-                IsRollbackNotification = false;
+                IsMutationRollbackNotification = false;
             }
         }
 

@@ -25,9 +25,9 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     }
 
     /// <inheritdoc />
-    public TradeItemMutation AddRangeForTrade(IEnumerable<IItem?> items) => AddRangeForTradeCore(items);
+    public ItemContainerMutation AddRangeForTrade(IEnumerable<IItem?> items) => AddRangeCheckedCore(items);
 
     /// <inheritdoc />
-    public TradeItemMutation RemoveForTrade(IItem item, int preferredSlot = -1) =>
-        RemoveForTradeCore(item, preferredSlot);
+    public ItemContainerMutation RemoveForTrade(IItem item, int preferredSlot = -1) =>
+        RemoveCheckedCore(item, preferredSlot);
 }

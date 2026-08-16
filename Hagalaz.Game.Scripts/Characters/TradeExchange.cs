@@ -80,8 +80,8 @@ internal static class TradeExchange
         {
             var firstSource = _firstReceivesSecondOffer ? _secondOffer : _firstOffer;
             var secondSource = _firstReceivesSecondOffer ? _firstOffer : _secondOffer;
-            var firstMutations = new List<TradeItemMutation>();
-            var secondMutations = new List<TradeItemMutation>();
+            var firstMutations = new List<ItemContainerMutation>();
+            var secondMutations = new List<ItemContainerMutation>();
             try
             {
                 if (!TryRemoveAppliedDelta(firstSource, _firstReceipt, firstMutations) ||
@@ -130,7 +130,7 @@ internal static class TradeExchange
             var secondItems = SnapshotItems(_secondOffer);
             var firstDestination = GetRecoveryContainer(second, firstItems);
             var secondDestination = GetRecoveryContainer(first, secondItems);
-            var completedRecoveries = new List<TradeItemMutation>();
+            var completedRecoveries = new List<ItemContainerMutation>();
             if ((firstItems.Length > 0 && firstDestination == null) ||
                 (secondItems.Length > 0 && secondDestination == null))
             {
@@ -167,7 +167,7 @@ internal static class TradeExchange
         private static bool TryRemoveAppliedDelta(
             ITradeItemContainer source,
             TransferReceipt? receipt,
-            List<TradeItemMutation> mutations)
+            List<ItemContainerMutation> mutations)
         {
             if (receipt == null)
             {
@@ -249,7 +249,7 @@ internal static class TradeExchange
                 return false;
             }
 
-            var completedRecoveries = new List<TradeItemMutation>();
+            var completedRecoveries = new List<ItemContainerMutation>();
             if (firstDestination != null)
             {
                 if (!TryStoreEscrow(firstOffer, firstDestination, out var firstRecovery))
@@ -333,9 +333,9 @@ internal static class TradeExchange
     private static bool TryStoreEscrow(
         ITradeItemContainer offer,
         ITradeItemContainer destination,
-        out IReadOnlyList<TradeItemMutation> appliedMutations)
+        out IReadOnlyList<ItemContainerMutation> appliedMutations)
     {
-        var mutations = new List<TradeItemMutation>();
+        var mutations = new List<ItemContainerMutation>();
         appliedMutations = mutations;
         var items = SnapshotItems(offer);
         if (items.Length == 0)
@@ -343,7 +343,7 @@ internal static class TradeExchange
             return true;
         }
 
-        var destinationMutation = default(TradeItemMutation?);
+        var destinationMutation = default(ItemContainerMutation?);
         try
         {
             destinationMutation = destination.AddRangeForTrade(items);
@@ -374,7 +374,7 @@ internal static class TradeExchange
         }
     }
 
-    private static bool TryRollback(IReadOnlyList<TradeItemMutation> mutations)
+    private static bool TryRollback(IReadOnlyList<ItemContainerMutation> mutations)
     {
         var restored = true;
         for (var i = mutations.Count - 1; i >= 0; i--)
@@ -538,7 +538,7 @@ internal static class TradeExchange
 
     internal sealed class TransferReceipt
     {
-        private TradeItemMutation? _itemMutation;
+        private ItemContainerMutation? _itemMutation;
         private MoneyPouchMutation _moneyMutation = MoneyPouchMutation.Empty(succeeded: true);
 
         public TransferReceipt(IItemBuilder itemBuilder)
@@ -552,7 +552,7 @@ internal static class TradeExchange
 
         public int AppliedMoneyCount => _moneyMutation.AppliedCount;
 
-        public void SetItemMutation(TradeItemMutation mutation) => _itemMutation = mutation;
+        public void SetItemMutation(ItemContainerMutation mutation) => _itemMutation = mutation;
 
         public void SetMoneyMutation(MoneyPouchMutation mutation) => _moneyMutation = mutation;
 

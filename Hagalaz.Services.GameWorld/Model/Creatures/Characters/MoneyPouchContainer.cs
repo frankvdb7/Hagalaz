@@ -106,12 +106,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var pouchCount = Math.Min(count, int.MaxValue - Count);
-            TradeItemMutation? pouchMutation = null;
+            ItemContainerMutation? pouchMutation = null;
             if (pouchCount > 0)
             {
                 _previousCount = Count;
                 SendMoneyPouchChangedMessage(pouchCount);
-                pouchMutation = AddRangeForTradeCore([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]);
+                pouchMutation = AddRangeCheckedCore([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]);
                 if (!pouchMutation.Succeeded)
                 {
                     return new MoneyPouchMutation(false, pouchMutation, null);
@@ -168,10 +168,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var pouchCount = Math.Min(count, Count);
             _previousCount = Count;
-            TradeItemMutation? pouchMutation = null;
+            ItemContainerMutation? pouchMutation = null;
             if (pouchCount > 0)
             {
-                pouchMutation = RemoveForTradeCore(
+                pouchMutation = RemoveCheckedCore(
                     _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(),
                     0);
                 if (!pouchMutation.Succeeded)
@@ -272,13 +272,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="slots">The slots.</param>
         public override void OnUpdate(HashSet<int>? slots = null)
         {
-            if (IsRollbackNotification || _previousCount != Count)
+            if (IsMutationRollbackNotification || _previousCount != Count)
             {
                 _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, _previousCount, Count));
             }
         }
 
-        protected override void OnRollbackStarting() => _previousCount = Count;
+        protected override void OnMutationRollbackStarting() => _previousCount = Count;
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch)
         {

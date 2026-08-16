@@ -11,10 +11,10 @@ public interface ITradeItemContainer : IItemContainer
     /// <summary>
     /// Adds items and records the exact trade delta for compensation.
     /// </summary>
-    TradeItemMutation AddRangeForTrade(IEnumerable<IItem?> items);
+    ItemContainerMutation AddRangeForTrade(IEnumerable<IItem?> items);
 
     /// <summary>
     /// Removes items and records the exact trade delta for compensation.
     /// </summary>
-    TradeItemMutation RemoveForTrade(IItem item, int preferredSlot = -1);
+    ItemContainerMutation RemoveForTrade(IItem item, int preferredSlot = -1);
 }

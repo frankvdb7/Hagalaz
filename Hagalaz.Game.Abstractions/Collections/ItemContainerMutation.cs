@@ -5,9 +5,9 @@ using Hagalaz.Game.Abstractions.Model.Items;
 namespace Hagalaz.Game.Abstractions.Collections;
 
 /// <summary>
-/// Represents one exact item mutation owned by a trade operation.
+/// Represents one checked item-container mutation and its exact applied delta.
 /// </summary>
-public sealed class TradeItemMutation
+public sealed class ItemContainerMutation
 {
     internal enum RollbackOutcome
     {
@@ -22,7 +22,7 @@ public sealed class TradeItemMutation
     private bool _stateRestored;
     private bool _notificationPending;
 
-    internal TradeItemMutation(
+    internal ItemContainerMutation(
         int appliedCount,
         bool succeeded,
         IReadOnlyList<IItem> appliedItems,
@@ -55,7 +55,7 @@ public sealed class TradeItemMutation
     public bool HasChanges => AppliedCount > 0;
 
     /// <summary>
-    /// Attempts to remove only this trade's applied delta and notify the container observers.
+    /// Attempts to remove only this mutation's applied delta and notify the container observers.
     /// Unrelated changes are preserved when the exact delta remains identifiable.
     /// </summary>
     public bool TryRollback()
