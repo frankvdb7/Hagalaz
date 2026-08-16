@@ -10,6 +10,7 @@ The analysis was performed against:
 ## Documents
 
 - [Game client renderer](game-client-renderer.md) maps the partially deobfuscated client classes to stable rendering concepts and records verified terrain, object, model, scene, coordinate, and backend behavior.
+- [Map cache decode/encode guide](cache-map-codecs.md) gives byte-level implementation instructions for cache containers, `mX_Y` terrain, `lX_Y` object placements, smart/huge-smart delta coding, XTEA, canonical writing, corruption guards, round-trip tests, and the current Hagalaz codec gaps.
 - [Web renderer foundation](web-renderer-foundation.md) describes the current Hagalaz gaps, target data contracts, web architecture, rendering-engine choice, phased implementation, and verification strategy.
 
 ## Current status
@@ -29,6 +30,8 @@ This means the first implementation work belongs at the cache/render-data bounda
 5. **Preserve region and chunk semantics.** A normal map region is 64×64 tiles, has four planes, and dynamic map parts are assembled from rotated 8×8 chunks.
 6. **Fidelity before effects.** Correct heights, floor shapes/materials, object models, shape selection, rotation, and transforms come before shadows, atmosphere, animation, water, or post-processing.
 7. **Do not make MapLibre the core scene renderer.** It is useful for geographic-style overview/navigation surfaces, but its Mercator/globe camera and custom-layer model do not solve RuneScape scene decoding, model assembly, or plane semantics.
+8. **Keep cache payload and container encoding separate.** Terrain and location payload codecs must not know about compression, XTEA, CRC, Whirlpool, reference-table mutation, or Hagalaz's internal synthetic `MapCodec` stream.
+9. **Preserve source semantics needed for writing.** Runtime/effective values such as bridge-adjusted planes must not overwrite the raw source plane or original height encoding if later cache encoding depends on it.
 
 ## Terminology
 
@@ -39,5 +42,7 @@ This means the first implementation work belongs at the cache/render-data bounda
 - **Terrain flags**: collision/bridge/plane-related tile metadata; these are not the terrain height or floor material.
 - **Overlay / underlay**: floor definitions used together with tile shape/rotation and height data to construct visible terrain.
 - **Object placement**: object ID + shape + rotation + local X/Y/Z.
+- **Source plane**: plane encoded in the raw location payload before bridge/effective-plane adjustment.
+- **Effective plane**: runtime plane after terrain/bridge semantics have been applied.
 - **Object render definition**: model IDs selected by shape plus recolor/retexture, scale, offset, contouring, transform, animation, and related render metadata.
 - **Model definition**: decoded vertex/triangle/texture data from the cache before conversion to a backend-specific render model.
