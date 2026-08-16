@@ -1,7 +1,7 @@
 namespace Hagalaz.Game.Abstractions.Features.States
 {
     /// <summary>
-    /// Provides a base implementation for a state that remains active until explicitly removed.
+    /// Provides an optional empty convenience base implementation of <see cref="IState" />.
     /// </summary>
     public abstract class State : IState
     {

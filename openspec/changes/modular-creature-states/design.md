@@ -22,7 +22,7 @@ The game loop is synchronous and serialized per creature. The existing typed cre
 
 ## Decisions
 
-1. **Capability interfaces over a larger base class.** `IState` is empty. `ITimedState` owns `TicksLeft`, `IStateLifecycle` owns the removal callback currently used by production states, and `IPersistentState` opts into character persistence. A non-timed state is until-removed by construction; `State` remains only as an optional empty convenience base. A separate `TimedState` convenience base supplies duration only. `IKeepLongestDurationState` is the only reapplication opt-in; all other duplicate applications keep the active instance.
+1. **Capability interfaces over a larger base class.** `IState` is empty. `ITimedState` owns `TicksLeft`, `IStateLifecycle` owns the removal callback currently used by production states, and `IPersistentState` opts into character persistence. `State` is only an optional empty convenience base implementation of `IState`; a separate `TimedState` convenience base supplies `ITimedState`. `IKeepLongestDurationState` is the only reapplication opt-in; all other duplicate applications keep the active instance.
 
 2. **A per-creature collection owns transitions.** The concrete internal `CreatureStateCollection` is constructed by and owned by one `Creature`; it is not registered globally or exposed through a public abstraction. `Creature` forwards its existing public methods to the collection. This keeps state ownership local, avoids a second global source of truth, and gives add/remove/tick processing one place to enforce removal callbacks.
 

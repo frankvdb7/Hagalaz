@@ -1,7 +1,7 @@
 ## 1. State capabilities
 
 - [x] 1.1 Replace the coupled `IState` contract with marker and opt-in capability interfaces for timed lifetime, removal callbacks, persistence, and longer-duration reapplication.
-- [x] 1.2 Keep optional `State`/`TimedState` convenience bases for passive and timed states without an indefinite-duration sentinel.
+- [x] 1.2 Keep optional empty `State` and duration-bearing `TimedState` convenience bases without encoding lifetime in the inheritance hierarchy or using an indefinite-duration sentinel.
 
 ## 2. Creature state ownership
 

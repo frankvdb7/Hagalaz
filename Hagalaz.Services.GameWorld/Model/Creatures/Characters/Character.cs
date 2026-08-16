@@ -242,8 +242,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             GameClient = gameClient;
             Session = session;
-            // Hydration supplies the actual location after construction.
-            Location = Game.Abstractions.Model.Location.Create(0, 0, 0, 0);
             var contextProvider = serviceScope.ServiceProvider.GetRequiredService<ICharacterContextProvider>();
             contextProvider.Context = new CharacterContext(this);
             EventManager = ServiceProvider.GetRequiredService<IEventManager>();
