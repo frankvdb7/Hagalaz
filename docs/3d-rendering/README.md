@@ -11,6 +11,7 @@ The analysis was performed against:
 
 - [Game client renderer](game-client-renderer.md) maps the partially deobfuscated client classes to stable rendering concepts and records verified terrain, object, model, scene, coordinate, and backend behavior.
 - [Map cache decode/encode guide](cache-map-codecs.md) gives byte-level implementation instructions for cache containers, `mX_Y` terrain, `lX_Y` object placements, smart/huge-smart delta coding, XTEA, canonical writing, corruption guards, round-trip tests, and the current Hagalaz codec gaps.
+- [Implicit terrain height generation](terrain-height-generation.md) records the exact opcode-`0` plane-0 height algorithm, including deterministic raw noise, smoothing, cosine interpolation, client lookup-table generation, coordinate offsets, scaling, encoder implications, and required parity tests.
 - [Web renderer foundation](web-renderer-foundation.md) describes the current Hagalaz gaps, target data contracts, web architecture, rendering-engine choice, phased implementation, and verification strategy.
 
 ## Current status
