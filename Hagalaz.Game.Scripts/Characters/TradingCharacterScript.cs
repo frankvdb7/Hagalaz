@@ -28,6 +28,7 @@ namespace Hagalaz.Game.Scripts.Characters
         {
             Active,
             Completing,
+            CancellationPending,
             Completed,
             Cancelled
         }
@@ -226,29 +227,26 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public override void Tick()
         {
+            var pendingSession = _tradeSession ?? _linkedTradeSession;
+            if (pendingSession?.State == TradeState.CancellationPending)
+            {
+                pendingSession.Owner.CancelTradeSession(pendingSession);
+            }
+
             var session = _tradeSession;
             if (session != null)
             {
                 lock (session.Gate)
                 {
-                    if (IsActiveSession(session) && Target != null && SelfInterface != null && TargetInterface != null && SelfOverlay != null && TargetOverlay != null)
+                    if (IsActiveSession(session) && HasTradeWidgets())
                     {
-                        if (Target.IsDestroyed ||
-                            Character.IsDestroyed ||
-                            !SelfInterface.IsOpened ||
-                            !TargetInterface.IsOpened ||
-                            SelfInterface.Id == 335 && (!SelfOverlay.IsOpened || !TargetOverlay.IsOpened) ||
-                            TargetInterface.Id == 335 && (!SelfOverlay.IsOpened || !TargetOverlay.IsOpened) ||
-                            SelfInterface.Id != 335 && TargetInterface.Id != 335 && (SelfOverlay.IsOpened || TargetOverlay.IsOpened))
+                        if (ShouldCancelTrade())
                         {
                             CancelTradeSession(session);
                         }
-                        else if (SelfInterface.Id == 335 || TargetInterface.Id == 335)
+                        else if (IsOfferStage() && HasInventorySlotChange())
                         {
-                            if (Character.Inventory.FreeSlots != LastMyInventoryFreeSlots || Target.Inventory.FreeSlots != LastTargetInventoryFreeSlots)
-                            {
-                                RefreshFreeInventorySlots();
-                            }
+                            RefreshFreeInventorySlots();
                         }
                     }
                 }
@@ -261,6 +259,81 @@ namespace Hagalaz.Game.Scripts.Characters
                     LastRequest = null;
                 }
             }
+        }
+
+        private bool IsOfferStage() => SelfInterface?.Id == 335 || TargetInterface?.Id == 335;
+
+        private bool HasTradeWidgets()
+        {
+            if (Target == null)
+            {
+                return false;
+            }
+
+            if (SelfInterface == null)
+            {
+                return false;
+            }
+
+            if (TargetInterface == null)
+            {
+                return false;
+            }
+
+            return SelfOverlay != null && TargetOverlay != null;
+        }
+
+        private bool HasInventorySlotChange()
+        {
+            var target = Target;
+            if (target == null)
+            {
+                return false;
+            }
+
+            if (Character.Inventory.FreeSlots != LastMyInventoryFreeSlots)
+            {
+                return true;
+            }
+
+            return target.Inventory.FreeSlots != LastTargetInventoryFreeSlots;
+        }
+
+        private bool ShouldCancelTrade()
+        {
+            var target = Target;
+            var selfInterface = SelfInterface;
+            var targetInterface = TargetInterface;
+            var selfOverlay = SelfOverlay;
+            var targetOverlay = TargetOverlay;
+            if (target == null)
+            {
+                return false;
+            }
+
+            if (selfInterface == null || targetInterface == null)
+            {
+                return false;
+            }
+
+            if (selfOverlay == null || targetOverlay == null)
+            {
+                return false;
+            }
+
+            if (target.IsDestroyed || Character.IsDestroyed)
+            {
+                return true;
+            }
+
+            if (!selfInterface.IsOpened || !targetInterface.IsOpened)
+            {
+                return true;
+            }
+
+            return IsOfferStage()
+                ? !selfOverlay.IsOpened || !targetOverlay.IsOpened
+                : selfOverlay.IsOpened || targetOverlay.IsOpened;
         }
 
         /// <summary>
@@ -281,6 +354,8 @@ namespace Hagalaz.Game.Scripts.Characters
 
             var session = new TradeSessionState(this, target);
             _tradeSession = session;
+            SelfContainer = new TradeContainer();
+            TargetContainer = new TradeContainer();
             TradeSession = true;
             SelfAccepted = false;
             TargetAccepted = false;
@@ -355,9 +430,6 @@ namespace Hagalaz.Game.Scripts.Characters
                 CancelTradeSession();
                 return;
             }
-
-            SelfContainer = [];
-            TargetContainer = [];
 
             SelfInterface?.DrawString(17, "Trading With: " + Target.DisplayName);
             TargetInterface?.DrawString(17, "Trading With: " + Character.DisplayName);
@@ -1059,8 +1131,6 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                var inventorySnapshot = TradeExchange.Snapshot(character.Inventory);
-                var offerSnapshot = TradeExchange.Snapshot(offer);
                 var removed = character.Inventory.Remove(toRemove, preferredSlot);
                 if (removed <= 0)
                 {
@@ -1069,16 +1139,23 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 var toAdd = item.Clone();
                 toAdd.Count = removed;
-                if (!offer.Add(toAdd))
+                var offerCountBefore = offer.GetCount(toAdd);
+                try
                 {
-                    RestoreOrThrow(TradeExchange.Restore(character.Inventory, inventorySnapshot));
-                    RestoreOrThrow(TradeExchange.Restore(offer, offerSnapshot));
-                    return false;
+                    if (offer.Add(toAdd))
+                    {
+                        RefreshTradeOfferScreenLocked(session);
+                        ProcessTradeChangeLocked(session, self, false);
+                        return true;
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    RestoreOrThrow(TradeExchange.RollbackItemAdd(offer, toAdd, offerCountBefore));
                 }
 
-                RefreshTradeOfferScreenLocked(session);
-                ProcessTradeChangeLocked(session, self, false);
-                return true;
+                RestoreOrThrow(character.Inventory.Add(toAdd));
+                return false;
             }
         }
 
@@ -1114,9 +1191,6 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                var inventorySnapshot = TradeExchange.Snapshot(character.Inventory);
-                var moneyPouchSnapshot = TradeExchange.Snapshot(character.MoneyPouch);
-                var offerSnapshot = TradeExchange.Snapshot(offer);
                 var removed = offer.Remove(toRemove, preferredSlot);
                 if (removed <= 0)
                 {
@@ -1124,15 +1198,33 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
 
                 toAdd.Count = removed;
-                var added = item.Id == 995
-                    ? character.MoneyPouch.Add(removed)
-                    : character.Inventory.Add(toAdd);
-                if (!added)
+                if (item.Id == 995)
                 {
-                    RestoreOrThrow(TradeExchange.Restore(character.Inventory, inventorySnapshot));
-                    RestoreOrThrow(TradeExchange.Restore(character.MoneyPouch, moneyPouchSnapshot));
-                    RestoreOrThrow(TradeExchange.Restore(offer, offerSnapshot));
-                    return false;
+                    if (!TradeExchange.AddMoney(character, removed, out var moneyDelta))
+                    {
+                        RestoreOrThrow(TradeExchange.RemoveAddedMoney(character, moneyDelta, _itemBuilder));
+                        RestoreOrThrow(offer.Add(toAdd));
+                        return false;
+                    }
+                }
+                else
+                {
+                    var inventoryCountBefore = character.Inventory.GetCount(toAdd);
+                    try
+                    {
+                        if (!character.Inventory.Add(toAdd))
+                        {
+                            RestoreOrThrow(TradeExchange.RollbackItemAdd(character.Inventory, toAdd, inventoryCountBefore));
+                            RestoreOrThrow(offer.Add(toAdd));
+                            return false;
+                        }
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        RestoreOrThrow(TradeExchange.RollbackItemAdd(character.Inventory, toAdd, inventoryCountBefore));
+                        RestoreOrThrow(offer.Add(toAdd));
+                        return false;
+                    }
                 }
 
                 RefreshTradeOfferScreenLocked(session);
@@ -1164,25 +1256,35 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                var moneySnapshot = TradeExchange.Snapshot(character.MoneyPouch);
-                var offerSnapshot = TradeExchange.Snapshot(offer);
-                var removed = character.MoneyPouch.Remove(requestedCount);
+                var removed = TradeExchange.RemoveMoney(character, requestedCount, out var moneyDelta);
                 if (removed <= 0)
                 {
+                    if (moneyDelta.HasChanges)
+                    {
+                        RestoreOrThrow(TradeExchange.RestoreRemovedMoney(character, moneyDelta, _itemBuilder));
+                    }
+
                     return false;
                 }
 
                 coinOffer.Count = removed;
-                if (!offer.Add(coinOffer))
+                var offerCountBefore = offer.GetCount(coinOffer);
+                try
                 {
-                    RestoreOrThrow(TradeExchange.Restore(character.MoneyPouch, moneySnapshot));
-                    RestoreOrThrow(TradeExchange.Restore(offer, offerSnapshot));
-                    return false;
+                    if (offer.Add(coinOffer))
+                    {
+                        RefreshTradeOfferScreenLocked(session);
+                        ProcessTradeChangeLocked(session, self, false);
+                        return true;
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    RestoreOrThrow(TradeExchange.RollbackItemAdd(offer, coinOffer, offerCountBefore));
                 }
 
-                RefreshTradeOfferScreenLocked(session);
-                ProcessTradeChangeLocked(session, self, false);
-                return true;
+                RestoreOrThrow(TradeExchange.RestoreRemovedMoney(character, moneyDelta, _itemBuilder));
+                return false;
             }
         }
 
@@ -1640,11 +1742,17 @@ namespace Hagalaz.Game.Scripts.Characters
         {
             lock (session.Gate)
             {
-                if (!IsActiveSession(session))
+                if (session.State is TradeState.Completed or TradeState.Cancelled)
                 {
                     return;
                 }
 
+                if (session.State == TradeState.Completing)
+                {
+                    return;
+                }
+
+                session.State = TradeState.CancellationPending;
                 if (!TradeExchange.TryRefund(Character, SelfContainer, session.Target, TargetContainer, _itemBuilder))
                 {
                     return;
@@ -1686,9 +1794,25 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 session.State = TradeState.Completing;
                 var target = session.Target;
-                if (!TradeExchange.TryExchange(Character, SelfContainer, target, TargetContainer, _itemBuilder))
+                var exchanged = false;
+                try
                 {
-                    session.State = TradeState.Active;
+                    exchanged = TradeExchange.TryExchange(Character, SelfContainer, target, TargetContainer, _itemBuilder);
+                }
+                catch (InvalidOperationException)
+                {
+                    exchanged = false;
+                }
+                finally
+                {
+                    if (!exchanged && session.State == TradeState.Completing)
+                    {
+                        session.State = TradeState.Active;
+                    }
+                }
+
+                if (!exchanged)
+                {
                     CancelTradeSession(session);
                     return;
                 }
@@ -1744,9 +1868,10 @@ namespace Hagalaz.Game.Scripts.Characters
                 target.Widgets.CloseWidget(TargetOverlay);
             }
 
-            if (ReferenceEquals(session.TargetScript?._linkedTradeSession, session))
+            var targetScript = session.TargetScript;
+            if (targetScript != null && ReferenceEquals(targetScript._linkedTradeSession, session))
             {
-                session.TargetScript._linkedTradeSession = null;
+                targetScript._linkedTradeSession = null;
             }
 
             Target = null;

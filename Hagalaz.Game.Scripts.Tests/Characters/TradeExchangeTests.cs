@@ -64,8 +64,10 @@ public sealed class TradeExchangeTests
     [TestMethod]
     public void TryExchange_WhenRecipientMutationFails_RollsBackBothRecipients()
     {
-        var firstInventory = new TestInventory(14) { FailNextUpdate = true };
+        var firstInventory = new TestInventory(14);
         var secondInventory = new TestInventory(14);
+        firstInventory.Add(new TestItem(200, 1)).Should().BeTrue();
+        firstInventory.FailNextUpdate = true;
         var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
         var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
         var firstOffer = new TestItemContainer(StorageType.Normal, 14);
@@ -76,7 +78,8 @@ public sealed class TradeExchangeTests
         var result = TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder());
 
         result.Should().BeFalse();
-        firstInventory.TakenSlots.Should().Be(0);
+        firstInventory.GetCountById(200).Should().Be(1);
+        firstInventory.GetCountById(100).Should().Be(0);
         secondInventory.TakenSlots.Should().Be(0);
         firstOffer.GetCountById(100).Should().Be(1);
         secondOffer.GetCountById(101).Should().Be(1);
@@ -119,6 +122,25 @@ public sealed class TradeExchangeTests
         result.Should().BeTrue();
         firstInventory.GetCountById(100).Should().Be(1);
         second.MoneyPouch.Count.Should().Be(125);
+    }
+
+    [TestMethod]
+    public void RemoveMoney_WhenPouchIsShort_TracksInventoryCoinsForRollback()
+    {
+        var inventory = new TestInventory(14);
+        var moneyPouch = new TestMoneyPouch(inventory);
+        var character = CreateCharacter(inventory, moneyPouch);
+        moneyPouch.Add(100).Should().BeTrue();
+        inventory.Add(new TestItem(995, 50, stackable: true)).Should().BeTrue();
+
+        var removed = TradeExchange.RemoveMoney(character, 120, out var delta);
+
+        removed.Should().Be(120);
+        delta.PouchCount.Should().Be(100);
+        delta.InventoryCount.Should().Be(20);
+        TradeExchange.RestoreRemovedMoney(character, delta, CreateItemBuilder()).Should().BeTrue();
+        moneyPouch.Count.Should().Be(100);
+        inventory.GetCountById(995).Should().Be(50);
     }
 
     [TestMethod]
@@ -192,6 +214,31 @@ public sealed class TradeExchangeTests
         secondInventory.GetCountById(101).Should().Be(1);
         script.TradeSession.Should().BeFalse();
         GetField(targetScript, "_linkedTradeSession").Should().BeNull();
+    }
+
+    [TestMethod]
+    public void TargetTick_RetriesPendingCancellationAfterCapacityIsRestored()
+    {
+        var firstInventory = new TestInventory(1);
+        var secondInventory = new TestInventory(14);
+        firstInventory.Add(new TestItem(200, 1)).Should().BeTrue();
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var script = CreatePreparedScript(first, second, first.MoneyPouch, second.MoneyPouch);
+        var targetScript = CreateScript(second);
+        var session = GetField(script, "_tradeSession");
+        SetProperty(session!, "TargetScript", targetScript);
+        SetField(targetScript, "_linkedTradeSession", session!);
+
+        script.OnDestroy();
+
+        script.TradeSession.Should().BeTrue();
+        firstInventory.Remove(new TestItem(200, 1)).Should().Be(1);
+        targetScript.Tick();
+
+        firstInventory.GetCountById(100).Should().Be(1);
+        secondInventory.GetCountById(101).Should().Be(1);
+        script.TradeSession.Should().BeFalse();
     }
 
     [TestMethod]
@@ -424,7 +471,14 @@ public sealed class TradeExchangeTests
 
         public bool MoveToInventory(int count) => false;
 
-        public int Remove(int count) => base.Remove(new TestItem(995, count, stackable: true));
+        public int Remove(int count)
+        {
+            var removed = base.Remove(new TestItem(995, count, stackable: true));
+            var remaining = count - removed;
+            return remaining <= 0
+                ? removed
+                : removed + _overflowInventory.Remove(new TestItem(995, remaining, stackable: true));
+        }
     }
 
     private sealed class TestItem : IItem
