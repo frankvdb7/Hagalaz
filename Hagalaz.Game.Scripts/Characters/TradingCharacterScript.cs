@@ -1148,21 +1148,15 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 var toAdd = item.Clone();
                 toAdd.Count = removed;
-                var offerCountBefore = offer.GetCount(toAdd);
-                try
+                var offerMutation = offer.AddRangeWithMutation([toAdd]);
+                if (offerMutation.Succeeded)
                 {
-                    if (offer.Add(toAdd))
-                    {
-                        RefreshTradeOfferScreenLocked(session);
-                        ProcessTradeChangeLocked(session, self, false);
-                        return true;
-                    }
-                }
-                catch (InvalidOperationException)
-                {
-                    RestoreOrThrow(TradeExchange.RollbackItemAdd(offer, toAdd, offerCountBefore));
+                    RefreshTradeOfferScreenLocked(session);
+                    ProcessTradeChangeLocked(session, self, false);
+                    return true;
                 }
 
+                RestoreOrThrow(offerMutation.TryRollback());
                 RestoreOrThrow(character.Inventory.Add(toAdd));
                 return false;
             }
@@ -1209,28 +1203,19 @@ namespace Hagalaz.Game.Scripts.Characters
                 toAdd.Count = removed;
                 if (item.Id == 995)
                 {
-                    if (!TradeExchange.AddMoney(character, removed, out var moneyDelta))
+                    if (!TradeExchange.AddMoney(character, removed, _itemBuilder, out var moneyMutation))
                     {
-                        RestoreOrThrow(TradeExchange.RemoveAddedMoney(character, moneyDelta, _itemBuilder));
+                        RestoreOrThrow(TradeExchange.RemoveAddedMoney(moneyMutation));
                         RestoreOrThrow(offer.Add(toAdd));
                         return false;
                     }
                 }
                 else
                 {
-                    var inventoryCountBefore = character.Inventory.GetCount(toAdd);
-                    try
+                    var inventoryMutation = character.Inventory.AddRangeWithMutation([toAdd]);
+                    if (!inventoryMutation.Succeeded)
                     {
-                        if (!character.Inventory.Add(toAdd))
-                        {
-                            RestoreOrThrow(TradeExchange.RollbackItemAdd(character.Inventory, toAdd, inventoryCountBefore));
-                            RestoreOrThrow(offer.Add(toAdd));
-                            return false;
-                        }
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        RestoreOrThrow(TradeExchange.RollbackItemAdd(character.Inventory, toAdd, inventoryCountBefore));
+                        RestoreOrThrow(inventoryMutation.TryRollback());
                         RestoreOrThrow(offer.Add(toAdd));
                         return false;
                     }
@@ -1265,34 +1250,28 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                var removed = TradeExchange.RemoveMoney(character, requestedCount, out var moneyDelta);
+                var removed = TradeExchange.RemoveMoney(character, requestedCount, _itemBuilder, out var moneyMutation);
                 if (removed <= 0)
                 {
-                    if (moneyDelta.HasChanges)
+                    if (moneyMutation.HasChanges)
                     {
-                        RestoreOrThrow(TradeExchange.RestoreRemovedMoney(character, moneyDelta, _itemBuilder));
+                        RestoreOrThrow(TradeExchange.RestoreRemovedMoney(moneyMutation));
                     }
 
                     return false;
                 }
 
                 coinOffer.Count = removed;
-                var offerCountBefore = offer.GetCount(coinOffer);
-                try
+                var offerMutation = offer.AddRangeWithMutation([coinOffer]);
+                if (offerMutation.Succeeded)
                 {
-                    if (offer.Add(coinOffer))
-                    {
-                        RefreshTradeOfferScreenLocked(session);
-                        ProcessTradeChangeLocked(session, self, false);
-                        return true;
-                    }
-                }
-                catch (InvalidOperationException)
-                {
-                    RestoreOrThrow(TradeExchange.RollbackItemAdd(offer, coinOffer, offerCountBefore));
+                    RefreshTradeOfferScreenLocked(session);
+                    ProcessTradeChangeLocked(session, self, false);
+                    return true;
                 }
 
-                RestoreOrThrow(TradeExchange.RestoreRemovedMoney(character, moneyDelta, _itemBuilder));
+                RestoreOrThrow(offerMutation.TryRollback());
+                RestoreOrThrow(TradeExchange.RestoreRemovedMoney(moneyMutation));
                 return false;
             }
         }
@@ -1762,10 +1741,22 @@ namespace Hagalaz.Game.Scripts.Characters
         {
             lock (session.Gate)
             {
-                if (session.State != TradeState.CompensationPending ||
-                    session.PendingCompensation == null ||
-                    !session.PendingCompensation.TryCompensate())
+                if (session.State != TradeState.CompensationPending || session.PendingCompensation == null)
                 {
+                    return;
+                }
+
+                if (!session.PendingCompensation.TryCompensate())
+                {
+                    if (!forceConservation || !session.PendingCompensation.TryConserve(Character, session.Target))
+                    {
+                        return;
+                    }
+
+                    session.PendingCompensation = null;
+                    session.RetryCancellationAfterCompensation = false;
+                    session.State = TradeState.Cancelled;
+                    ResetTradeSessionLocked(session);
                     return;
                 }
 
@@ -1855,6 +1846,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
                 catch (InvalidOperationException)
                 {
+                    exchange = TradeExchange.TransferResult.Failed();
                 }
                 finally
                 {

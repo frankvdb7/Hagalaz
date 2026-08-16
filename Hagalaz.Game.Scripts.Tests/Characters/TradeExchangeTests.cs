@@ -5,12 +5,15 @@ using System.Threading.Tasks;
 using AwesomeAssertions;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Characters;
+using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -133,12 +136,12 @@ public sealed class TradeExchangeTests
         moneyPouch.Add(100).Should().BeTrue();
         inventory.Add(new TestItem(995, 50, stackable: true)).Should().BeTrue();
 
-        var removed = TradeExchange.RemoveMoney(character, 120, out var delta);
+        var removed = TradeExchange.RemoveMoney(character, 120, CreateItemBuilder(), out var delta);
 
         removed.Should().Be(120);
         delta.PouchCount.Should().Be(100);
         delta.InventoryCount.Should().Be(20);
-        TradeExchange.RestoreRemovedMoney(character, delta, CreateItemBuilder()).Should().BeTrue();
+        TradeExchange.RestoreRemovedMoney(delta).Should().BeTrue();
         moneyPouch.Count.Should().Be(100);
         inventory.GetCountById(995).Should().Be(50);
     }
@@ -246,10 +249,12 @@ public sealed class TradeExchangeTests
     {
         var firstInventory = new TestInventory(0);
         var secondInventory = new TestInventory(0);
-        var firstRewards = new TestRewardContainer();
-        var secondRewards = new TestRewardContainer();
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory), firstRewards);
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory), secondRewards);
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstRewards = CreateRewardContainer(first);
+        var secondRewards = CreateRewardContainer(second);
+        first.Rewards.Returns(firstRewards);
+        second.Rewards.Returns(secondRewards);
         var script = CreatePreparedScript(first, second, first.MoneyPouch, second.MoneyPouch);
         var firstOffer = script.SelfContainer;
         var secondOffer = script.TargetContainer;
@@ -261,17 +266,22 @@ public sealed class TradeExchangeTests
         secondRewards.GetCountById(101).Should().Be(1);
         firstOffer.GetCountById(100).Should().Be(0);
         secondOffer.GetCountById(101).Should().Be(0);
+
+        var firstReloadedRewards = CreateRewardContainer(first);
+        firstReloadedRewards.Hydrate(firstRewards.Dehydrate());
+        firstReloadedRewards.GetCountById(100).Should().Be(1);
+
+        var secondReloadedRewards = CreateRewardContainer(second);
+        secondReloadedRewards.Hydrate(secondRewards.Dehydrate());
+        secondReloadedRewards.GetCountById(101).Should().Be(1);
     }
 
     [TestMethod]
     public void FinishTradeSession_WhenCompensationFails_DoesNotRefundEscrow()
     {
-        var firstInventory = Substitute.For<IInventoryContainer>();
-        ConfigureEmptyContainer(firstInventory);
-        firstInventory.AddRange(Arg.Any<IEnumerable<IItem?>>()).Returns(true);
-        firstInventory.GetCount(Arg.Any<IItem>()).Returns(0, 1);
-        firstInventory.Remove(Arg.Any<IItem>(), Arg.Any<int>(), Arg.Any<bool>()).Returns(0);
+        var firstInventory = new TestInventory(14);
         var secondInventory = new TestInventory(14) { FailNextUpdate = true };
+        secondInventory.BeforeNextUpdateFailure = () => secondInventory.GetById(100)!.Count++;
         var firstMoneyPouch = new TestMoneyPouch(firstInventory);
         var secondMoneyPouch = new TestMoneyPouch(secondInventory);
         var first = CreateCharacter(firstInventory, firstMoneyPouch);
@@ -285,17 +295,42 @@ public sealed class TradeExchangeTests
         GetProperty(session!, "State")!.ToString().Should().Be("CompensationPending");
         script.SelfContainer.GetCountById(100).Should().Be(1);
         script.TargetContainer.GetCountById(101).Should().Be(1);
+        secondInventory.GetCountById(100).Should().Be(2);
+    }
+
+    [TestMethod]
+    public void Destroy_WhenCompensationRemainsPending_CommitsAppliedDeltaAndTerminates()
+    {
+        var firstInventory = new TestInventory(14);
+        var secondInventory = new TestInventory(14) { FailNextUpdate = true };
+        secondInventory.BeforeNextUpdateFailure = () => secondInventory.GetById(100)!.Count++;
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var secondRewards = CreateRewardContainer(second);
+        second.Rewards.Returns(secondRewards);
+        var script = CreatePreparedScript(first, second, first.MoneyPouch, second.MoneyPouch);
+        var secondOffer = script.TargetContainer;
+
+        script.FinishTradeSession();
+        script.TradeSession.Should().BeTrue();
+
+        script.OnDestroy();
+
+        script.TradeSession.Should().BeFalse();
+        script.SelfContainer.Should().BeNull();
+        script.TargetContainer.Should().BeNull();
+        firstInventory.GetCountById(101).Should().Be(0);
+        secondInventory.GetCountById(100).Should().Be(2);
+        secondRewards.GetCountById(101).Should().Be(1);
+        secondOffer.GetCountById(101).Should().Be(0);
     }
 
     [TestMethod]
     public void TryRefund_WhenCompensationFails_ReturnsPendingWithoutClearingEscrow()
     {
-        var firstInventory = Substitute.For<IInventoryContainer>();
-        ConfigureEmptyContainer(firstInventory);
-        firstInventory.AddRange(Arg.Any<IEnumerable<IItem?>>()).Returns(true);
-        firstInventory.GetCount(Arg.Any<IItem>()).Returns(0, 1);
-        firstInventory.Remove(Arg.Any<IItem>(), Arg.Any<int>(), Arg.Any<bool>()).Returns(0);
+        var firstInventory = new TestInventory(14);
         var secondInventory = new TestInventory(14) { FailNextUpdate = true };
+        secondInventory.BeforeNextUpdateFailure = () => secondInventory.GetById(101)!.Count++;
         var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
         var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
         var firstOffer = new TradingCharacterScript.TradeContainer();
@@ -309,6 +344,7 @@ public sealed class TradeExchangeTests
         result.Compensation.Should().NotBeNull();
         firstOffer.GetCountById(100).Should().Be(1);
         secondOffer.GetCountById(101).Should().Be(1);
+        secondInventory.GetCountById(101).Should().Be(2);
     }
 
     [TestMethod]
@@ -458,6 +494,16 @@ public sealed class TradeExchangeTests
         return character;
     }
 
+    private static RewardContainer CreateRewardContainer(ICharacter owner)
+    {
+        var services = new ServiceCollection()
+            .AddSingleton<IItemBuilder>(CreateItemBuilder())
+            .BuildServiceProvider();
+        owner.ServiceProvider.Returns(services);
+        owner.EventManager.Returns(Substitute.For<IEventManager>());
+        return new RewardContainer(owner);
+    }
+
     private static IMoneyPouchContainer CreateEmptyMoneyPouch()
     {
         var moneyPouch = Substitute.For<IMoneyPouchContainer>();
@@ -494,6 +540,8 @@ public sealed class TradeExchangeTests
     {
         public bool FailNextUpdate { get; set; }
 
+        public Action? BeforeNextUpdateFailure { get; set; }
+
         public TestItemContainer(StorageType type, int capacity) : base(type, capacity) { }
 
         public override void OnUpdate(HashSet<int>? slots = null)
@@ -503,6 +551,8 @@ public sealed class TradeExchangeTests
                 return;
             }
 
+            BeforeNextUpdateFailure?.Invoke();
+            BeforeNextUpdateFailure = null;
             FailNextUpdate = false;
             throw new InvalidOperationException("Controlled container failure.");
         }
@@ -513,13 +563,6 @@ public sealed class TradeExchangeTests
         public TestInventory(int capacity) : base(StorageType.Normal, capacity) { }
 
         public bool DropItem(IItem item) => false;
-    }
-
-    private sealed class TestRewardContainer : TestItemContainer, IRewardContainer
-    {
-        public TestRewardContainer() : base(StorageType.AlwaysStack, 255) { }
-
-        public int Claim(IItem item, int count) => -1;
     }
 
     private sealed class TestMoneyPouch : TestItemContainer, IMoneyPouchContainer

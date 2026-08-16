@@ -46,18 +46,107 @@ internal static class TradeExchange
     {
         private readonly TransferReceipt? _firstReceipt;
         private readonly TransferReceipt? _secondReceipt;
+        private readonly IItemContainer _firstOffer;
+        private readonly IItemContainer _secondOffer;
+        private readonly bool _firstReceivesSecondOffer;
 
-        public TradeCompensation(TransferReceipt? firstReceipt, TransferReceipt? secondReceipt)
+        public TradeCompensation(
+            TransferReceipt? firstReceipt,
+            TransferReceipt? secondReceipt,
+            IItemContainer firstOffer,
+            IItemContainer secondOffer,
+            bool firstReceivesSecondOffer)
         {
             _firstReceipt = firstReceipt;
             _secondReceipt = secondReceipt;
+            _firstOffer = firstOffer;
+            _secondOffer = secondOffer;
+            _firstReceivesSecondOffer = firstReceivesSecondOffer;
         }
 
         public bool TryCompensate()
         {
-            var secondCompensated = Rollback(_secondReceipt, includeAttemptedItems: true);
-            var firstCompensated = Rollback(_firstReceipt, includeAttemptedItems: true);
+            var secondCompensated = Rollback(_secondReceipt);
+            var firstCompensated = Rollback(_firstReceipt);
             return secondCompensated & firstCompensated;
+        }
+
+        /// <summary>
+        /// Commits the exact applied portions of a failed transfer and stores the
+        /// remaining offer value in the existing recovery containers.
+        /// </summary>
+        public bool TryConserve(ICharacter first, ICharacter second)
+        {
+            var firstSource = _firstReceivesSecondOffer ? _secondOffer : _firstOffer;
+            var secondSource = _firstReceivesSecondOffer ? _firstOffer : _secondOffer;
+            var firstMutations = new List<ItemContainerMutation>();
+            var secondMutations = new List<ItemContainerMutation>();
+
+            if (!TryRemoveAppliedDelta(firstSource, _firstReceipt, firstMutations) ||
+                !TryRemoveAppliedDelta(secondSource, _secondReceipt, secondMutations))
+            {
+                TryRollback(secondMutations);
+                TryRollback(firstMutations);
+                return false;
+            }
+
+            if (TryConserveEscrow(first, _firstOffer, second, _secondOffer))
+            {
+                return true;
+            }
+
+            // The recovery containers must accept the remaining escrow before the
+            // source offers are changed permanently.
+            if (!TryRollback(secondMutations) || !TryRollback(firstMutations))
+            {
+                return false;
+            }
+
+            return false;
+        }
+
+        private static bool TryRemoveAppliedDelta(
+            IItemContainer source,
+            TransferReceipt? receipt,
+            List<ItemContainerMutation> mutations)
+        {
+            if (receipt == null)
+            {
+                return true;
+            }
+
+            foreach (var item in receipt.AppliedItems)
+            {
+                var mutation = source.RemoveWithMutation(item);
+                mutations.Add(mutation);
+                if (!mutation.Succeeded || mutation.AppliedCount != item.Count)
+                {
+                    return false;
+                }
+            }
+
+            if (receipt.AppliedMoneyCount <= 0)
+            {
+                return true;
+            }
+
+            var moneyMutation = source.RemoveWithMutation(receipt.ItemBuilder.Create()
+                .WithId(CoinsItemId)
+                .WithCount(receipt.AppliedMoneyCount)
+                .Build());
+            mutations.Add(moneyMutation);
+            return moneyMutation.Succeeded && moneyMutation.AppliedCount == receipt.AppliedMoneyCount;
+        }
+
+        private static bool TryRollback(IReadOnlyList<ItemContainerMutation> mutations)
+        {
+            var restored = true;
+            for (var i = mutations.Count - 1; i >= 0; i--)
+            {
+                restored &= mutations[i].TryRollback();
+            }
+
+            return restored;
         }
     }
 
@@ -154,137 +243,94 @@ internal static class TradeExchange
     internal static int RemoveMoney(
         ICharacter character,
         int requestedCount,
-        out MoneyDelta delta)
+        IItemBuilder itemBuilder,
+        out MoneyMutation mutation)
     {
-        var before = CaptureMoneyBalance(character);
-        int removed;
-        try
+        if (requestedCount <= 0)
         {
-            removed = character.MoneyPouch.Remove(requestedCount);
-        }
-        catch (InvalidOperationException)
-        {
-            delta = CaptureRemovedMoney(before, character);
+            mutation = MoneyMutation.Empty(succeeded: false);
             return 0;
         }
 
-        delta = CaptureRemovedMoney(before, character);
+        var pouchCount = Math.Min(requestedCount, character.MoneyPouch.Count);
+        var pouchMutation = pouchCount > 0
+            ? character.MoneyPouch.RemoveWithMutation(CreateCoins(itemBuilder, pouchCount))
+            : null;
+        if (pouchMutation != null && !pouchMutation.Succeeded)
+        {
+            mutation = new MoneyMutation(false, pouchMutation, null);
+            return 0;
+        }
+
+        var removed = pouchMutation?.AppliedCount ?? 0;
+        var remaining = requestedCount - removed;
+        ItemContainerMutation? inventoryMutation = null;
+        if (remaining > 0)
+        {
+            inventoryMutation = character.Inventory.RemoveWithMutation(CreateCoins(itemBuilder, remaining));
+            removed += inventoryMutation.AppliedCount;
+            if (!inventoryMutation.Succeeded)
+            {
+                mutation = new MoneyMutation(false, pouchMutation, inventoryMutation);
+                return 0;
+            }
+        }
+
+        mutation = new MoneyMutation(true, pouchMutation, inventoryMutation);
         return removed;
     }
 
     internal static bool AddMoney(
         ICharacter character,
         int count,
-        out MoneyDelta delta)
+        IItemBuilder itemBuilder,
+        out MoneyMutation mutation)
     {
-        var before = CaptureMoneyBalance(character);
-        bool added;
-        try
+        if (count <= 0)
         {
-            added = character.MoneyPouch.Add(count);
-        }
-        catch (InvalidOperationException)
-        {
-            delta = CaptureAddedMoney(before, character);
+            mutation = MoneyMutation.Empty(succeeded: false);
             return false;
         }
 
-        delta = CaptureAddedMoney(before, character);
-        return added;
+        var pouchCount = Math.Min(count, int.MaxValue - character.MoneyPouch.Count);
+        var pouchMutation = pouchCount > 0
+            ? character.MoneyPouch.AddRangeWithMutation([CreateCoins(itemBuilder, pouchCount)])
+            : null;
+        if (pouchMutation != null && !pouchMutation.Succeeded)
+        {
+            mutation = new MoneyMutation(false, pouchMutation, null);
+            return false;
+        }
+
+        var added = pouchMutation?.AppliedCount ?? 0;
+        var remaining = count - added;
+        ItemContainerMutation? inventoryMutation = null;
+        if (remaining > 0)
+        {
+            inventoryMutation = character.Inventory.AddRangeWithMutation([CreateCoins(itemBuilder, remaining)]);
+            added += inventoryMutation.AppliedCount;
+            if (!inventoryMutation.Succeeded)
+            {
+                mutation = new MoneyMutation(false, pouchMutation, inventoryMutation);
+                return false;
+            }
+        }
+
+        var succeeded = added == count;
+        mutation = new MoneyMutation(succeeded, pouchMutation, inventoryMutation);
+        return succeeded;
     }
 
     internal static bool RestoreRemovedMoney(
-        ICharacter character,
-        MoneyDelta delta,
-        IItemBuilder itemBuilder)
+        MoneyMutation mutation)
     {
-        var restored = true;
-        if (delta.PouchCount > 0)
-        {
-            restored &= character.MoneyPouch.Add(delta.PouchCount);
-        }
-
-        if (delta.InventoryCount > 0)
-        {
-            var coins = itemBuilder.Create().WithId(CoinsItemId).WithCount(delta.InventoryCount).Build();
-            restored &= character.Inventory.Add(coins);
-        }
-
-        return restored;
+        return mutation.TryRollback();
     }
 
     internal static bool RemoveAddedMoney(
-        ICharacter character,
-        MoneyDelta delta,
-        IItemBuilder itemBuilder)
+        MoneyMutation mutation)
     {
-        return TryRemoveAddedMoney(character, delta, itemBuilder, out _);
-    }
-
-    private static bool TryRemoveAddedMoney(
-        ICharacter character,
-        MoneyDelta delta,
-        IItemBuilder itemBuilder,
-        out MoneyDelta remaining)
-    {
-        var remainingInventory = delta.InventoryCount;
-        if (delta.InventoryCount > 0)
-        {
-            var coins = itemBuilder.Create().WithId(CoinsItemId).WithCount(delta.InventoryCount).Build();
-            var before = character.Inventory.GetCountById(CoinsItemId);
-            try
-            {
-                var removed = character.Inventory.Remove(coins);
-                remainingInventory = Math.Max(0, delta.InventoryCount - Math.Min(delta.InventoryCount, removed));
-            }
-            catch (InvalidOperationException)
-            {
-                var after = character.Inventory.GetCountById(CoinsItemId);
-                var removed = Math.Max(0, before - after);
-                remainingInventory = Math.Max(0, delta.InventoryCount - Math.Min(delta.InventoryCount, removed));
-            }
-        }
-
-        var remainingPouch = delta.PouchCount;
-        if (delta.PouchCount > 0)
-        {
-            var before = character.MoneyPouch.Count;
-            try
-            {
-                var removed = character.MoneyPouch.Remove(delta.PouchCount);
-                remainingPouch = Math.Max(0, delta.PouchCount - Math.Min(delta.PouchCount, removed));
-            }
-            catch (InvalidOperationException)
-            {
-                remainingPouch = Math.Max(0, delta.PouchCount - Math.Max(0, before - character.MoneyPouch.Count));
-            }
-        }
-
-        remaining = new(remainingPouch, remainingInventory);
-        return !remaining.HasChanges;
-    }
-
-    internal static bool RemoveExact(IItemContainer container, IItem item)
-    {
-        try
-        {
-            return container.Remove(item.Clone(), update: false) == item.Count;
-        }
-        catch (InvalidOperationException)
-        {
-            return false;
-        }
-    }
-
-    internal static bool RollbackItemAdd(IItemContainer container, IItem item, int countBefore)
-    {
-        var added = container.GetCount(item) - countBefore;
-        if (added <= 0)
-        {
-            return true;
-        }
-
-        return RemoveExact(container, item.Clone(Math.Min(added, item.Count)));
+        return mutation.TryRollback();
     }
 
     private static IItemContainer? GetRecoveryContainer(
@@ -318,11 +364,13 @@ internal static class TradeExchange
             return true;
         }
 
-        var recoveryReceipt = new RecoveryReceipt(offer, destination, items);
+        var recoveryReceipt = new RecoveryReceipt(offer, items);
         receipt = recoveryReceipt;
         try
         {
-            if (!destination.HasSpaceForRange(items) || !destination.AddRange(items))
+            var destinationMutation = destination.AddRangeWithMutation(items);
+            recoveryReceipt.SetDestinationMutation(destinationMutation);
+            if (!destinationMutation.Succeeded)
             {
                 if (!recoveryReceipt.Rollback())
                 {
@@ -382,28 +430,46 @@ internal static class TradeExchange
                 return TransferResult.Failed();
             }
 
-            firstReceipt = new TransferReceipt(first, itemBuilder);
-            secondReceipt = new TransferReceipt(second, itemBuilder);
+            firstReceipt = new TransferReceipt(itemBuilder);
+            secondReceipt = new TransferReceipt(itemBuilder);
 
             if (!TryReceive(first, firstReceived, firstReceipt) ||
                 !TryReceive(second, secondReceived, secondReceipt))
             {
-                return CreateFailedTransferResult(firstReceipt, secondReceipt);
+                return CreateFailedTransferResult(
+                    firstReceipt,
+                    secondReceipt,
+                    firstOffer,
+                    secondOffer,
+                    firstReceivesSecondOffer);
             }
 
             return TransferResult.Succeeded();
         }
         catch (InvalidOperationException)
         {
-            return CreateFailedTransferResult(firstReceipt, secondReceipt);
+            return CreateFailedTransferResult(
+                firstReceipt,
+                secondReceipt,
+                firstOffer,
+                secondOffer,
+                firstReceivesSecondOffer);
         }
     }
 
     private static TransferResult CreateFailedTransferResult(
         TransferReceipt? firstReceipt,
-        TransferReceipt? secondReceipt)
+        TransferReceipt? secondReceipt,
+        IItemContainer firstOffer,
+        IItemContainer secondOffer,
+        bool firstReceivesSecondOffer)
     {
-        var compensation = new TradeCompensation(firstReceipt, secondReceipt);
+        var compensation = new TradeCompensation(
+            firstReceipt,
+            secondReceipt,
+            firstOffer,
+            secondOffer,
+            firstReceivesSecondOffer);
         return compensation.TryCompensate()
             ? TransferResult.Failed()
             : TransferResult.CompensationIncomplete(compensation);
@@ -450,13 +516,12 @@ internal static class TradeExchange
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
         if (nonCoinItems.Length > 0)
         {
-            receipt.MarkItemsAttempted(nonCoinItems);
-            if (!character.Inventory.AddRange(nonCoinItems))
+            var itemMutation = character.Inventory.AddRangeWithMutation(nonCoinItems);
+            receipt.SetItemMutation(itemMutation);
+            if (!itemMutation.Succeeded)
             {
                 return false;
             }
-
-            receipt.MarkItemsApplied();
         }
 
         var coinCount = items
@@ -472,16 +537,16 @@ internal static class TradeExchange
             return false;
         }
 
-        var added = AddMoney(character, (int)coinCount, out var delta);
-        receipt.SetMoneyDelta(delta);
+        var added = AddMoney(character, (int)coinCount, receipt.ItemBuilder, out var delta);
+        receipt.SetMoneyMutation(delta);
         return added;
     }
 
-    private static bool Rollback(TransferReceipt? receipt, bool includeAttemptedItems)
+    private static bool Rollback(TransferReceipt? receipt)
     {
         try
         {
-            return receipt == null || receipt.Rollback(includeAttemptedItems);
+            return receipt == null || receipt.Rollback();
         }
         catch (InvalidOperationException)
         {
@@ -492,149 +557,109 @@ internal static class TradeExchange
     private static IItem[] SnapshotItems(IItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
 
-    private static MoneyBalance CaptureMoneyBalance(ICharacter character) =>
-        new(character.MoneyPouch.Count, character.Inventory.GetCountById(CoinsItemId));
+    private static IItem CreateCoins(IItemBuilder itemBuilder, int count) =>
+        itemBuilder.Create().WithId(CoinsItemId).WithCount(count).Build();
 
-    private static MoneyDelta CaptureRemovedMoney(MoneyBalance before, ICharacter character)
+    internal sealed class MoneyMutation
     {
-        var after = CaptureMoneyBalance(character);
-        return new(
-            Math.Max(0, before.PouchCount - after.PouchCount),
-            Math.Max(0, before.InventoryCount - after.InventoryCount));
-    }
+        private readonly ItemContainerMutation? _pouchMutation;
+        private readonly ItemContainerMutation? _inventoryMutation;
 
-    private static MoneyDelta CaptureAddedMoney(MoneyBalance before, ICharacter character)
-    {
-        var after = CaptureMoneyBalance(character);
-        return new(
-            Math.Max(0, after.PouchCount - before.PouchCount),
-            Math.Max(0, after.InventoryCount - before.InventoryCount));
-    }
+        public MoneyMutation(
+            bool succeeded,
+            ItemContainerMutation? pouchMutation,
+            ItemContainerMutation? inventoryMutation)
+        {
+            Succeeded = succeeded;
+            _pouchMutation = pouchMutation;
+            _inventoryMutation = inventoryMutation;
+        }
 
-    internal readonly record struct MoneyDelta(int PouchCount, int InventoryCount)
-    {
-        public bool HasChanges => PouchCount > 0 || InventoryCount > 0;
-    }
+        public bool Succeeded { get; }
 
-    private readonly record struct MoneyBalance(int PouchCount, int InventoryCount);
+        public int PouchCount => _pouchMutation?.AppliedCount ?? 0;
+
+        public int InventoryCount => _inventoryMutation?.AppliedCount ?? 0;
+
+        public int AppliedCount => PouchCount + InventoryCount;
+
+        public bool HasChanges => AppliedCount > 0;
+
+        public bool TryRollback()
+        {
+            var inventoryRestored = _inventoryMutation?.TryRollback() ?? true;
+            var pouchRestored = _pouchMutation?.TryRollback() ?? true;
+            return inventoryRestored & pouchRestored;
+        }
+
+        public static MoneyMutation Empty(bool succeeded) => new(succeeded, null, null);
+    }
 
     private sealed class RecoveryReceipt
     {
         private readonly IItemContainer _offer;
-        private readonly IItemContainer _destination;
-        private readonly IReadOnlyList<ItemDelta> _items;
-        private readonly bool[] _removedFromOffer;
+        private readonly IReadOnlyList<IItem> _items;
+        private readonly List<ItemContainerMutation> _offerMutations = [];
+        private ItemContainerMutation? _destinationMutation;
 
-        public RecoveryReceipt(IItemContainer offer, IItemContainer destination, IReadOnlyList<IItem> items)
+        public RecoveryReceipt(IItemContainer offer, IReadOnlyList<IItem> items)
         {
             _offer = offer;
-            _destination = destination;
-            _items = items
-                .Select(item => new ItemDelta(item, destination.GetCount(item)))
-                .ToArray();
-            _removedFromOffer = new bool[_items.Count];
+            _items = items;
         }
+
+        public void SetDestinationMutation(ItemContainerMutation mutation) => _destinationMutation = mutation;
 
         public bool RemoveFromOffer(int index)
         {
-            var removed = RemoveExact(_offer, _items[index].Item);
-            if (removed)
-            {
-                _removedFromOffer[index] = true;
-            }
-
-            return removed;
+            var item = _items[index];
+            var mutation = _offer.RemoveWithMutation(item);
+            _offerMutations.Add(mutation);
+            return mutation.Succeeded && mutation.AppliedCount == item.Count;
         }
 
         public bool Rollback()
         {
-            var destinationRestored = true;
-            foreach (var item in _items)
+            var offerRestored = true;
+            for (var i = _offerMutations.Count - 1; i >= 0; i--)
             {
-                destinationRestored &= RollbackItemAdd(_destination, item.Item, item.CountBefore);
+                offerRestored &= _offerMutations[i].TryRollback();
             }
 
-            if (!destinationRestored)
+            if (!offerRestored)
             {
                 return false;
             }
 
-            var offerRestored = true;
-            for (var i = 0; i < _items.Count; i++)
-            {
-                if (!_removedFromOffer[i])
-                {
-                    continue;
-                }
-
-                try
-                {
-                    var restored = _offer.Add(_items[i].Item.Clone());
-                    offerRestored &= restored;
-                    if (restored)
-                    {
-                        _removedFromOffer[i] = false;
-                    }
-                }
-                catch (InvalidOperationException)
-                {
-                    offerRestored = false;
-                }
-            }
-
-            return offerRestored;
+            return _destinationMutation?.TryRollback() ?? true;
         }
-
-        private readonly record struct ItemDelta(IItem Item, int CountBefore);
     }
 
     internal sealed class TransferReceipt
     {
-        private readonly ICharacter _recipient;
-        private IReadOnlyList<ItemDelta> _items = [];
-        private bool _itemsApplied;
-        private bool _itemsAttempted;
-        private MoneyDelta _moneyDelta;
+        private ItemContainerMutation? _itemMutation;
+        private MoneyMutation _moneyMutation = MoneyMutation.Empty(succeeded: true);
 
-        public TransferReceipt(ICharacter recipient, IItemBuilder itemBuilder)
+        public TransferReceipt(IItemBuilder itemBuilder)
         {
-            _recipient = recipient;
             ItemBuilder = itemBuilder;
         }
 
         public IItemBuilder ItemBuilder { get; }
 
-        public void MarkItemsAttempted(IReadOnlyList<IItem> items)
+        public IReadOnlyList<IItem> AppliedItems => _itemMutation?.AppliedItems ?? [];
+
+        public int AppliedMoneyCount => _moneyMutation.AppliedCount;
+
+        public void SetItemMutation(ItemContainerMutation mutation) => _itemMutation = mutation;
+
+        public void SetMoneyMutation(MoneyMutation mutation) => _moneyMutation = mutation;
+
+        public bool Rollback()
         {
-            _items = items
-                .Select(item => new ItemDelta(item, _recipient.Inventory.GetCount(item)))
-                .ToArray();
-            _itemsAttempted = true;
+            var itemsRestored = _itemMutation?.TryRollback() ?? true;
+            var moneyRestored = _moneyMutation.TryRollback();
+            return itemsRestored & moneyRestored;
         }
-
-        public void MarkItemsApplied() => _itemsApplied = true;
-
-        public void SetMoneyDelta(MoneyDelta delta) => _moneyDelta = delta;
-
-        public bool Rollback(bool includeAttemptedItems)
-        {
-            var restored = true;
-            if (_itemsApplied || includeAttemptedItems && _itemsAttempted)
-            {
-                foreach (var item in _items)
-                {
-                    restored &= RollbackItemAdd(_recipient.Inventory, item.Item, item.CountBefore);
-                }
-            }
-
-            if (_moneyDelta.PouchCount > 0 || _moneyDelta.InventoryCount > 0)
-            {
-                restored &= TryRemoveAddedMoney(_recipient, _moneyDelta, ItemBuilder, out _moneyDelta);
-            }
-
-            return restored;
-        }
-
-        private readonly record struct ItemDelta(IItem Item, int CountBefore);
     }
 }

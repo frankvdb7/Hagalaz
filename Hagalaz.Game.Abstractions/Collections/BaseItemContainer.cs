@@ -280,70 +280,153 @@ namespace Hagalaz.Game.Abstractions.Collections
         {
             ArgumentNullException.ThrowIfNull(newItems);
 
-            if (!HasSpaceForRange(newItems))
+            var items = newItems.ToArray();
+            if (!HasSpaceForRange(items))
             {
                 return false;
             }
 
             var slotsToUpdate = new HashSet<int>();
+            return ApplyAddRange(items, slotsToUpdate, changes: null, appliedItems: null, out _)
+                && ApplyAddRangeUpdate(slotsToUpdate);
+        }
 
-            using (var enumerator = newItems.GetEnumerator())
+        /// <summary>
+        /// Adds a collection of items and records the exact slot and item changes.
+        /// </summary>
+        /// <param name="newItems">The collection of items to add.</param>
+        /// <returns>The applied mutation, including partial changes if the update callback fails.</returns>
+        public ItemContainerMutation AddRangeWithMutation(IEnumerable<IItem?> newItems)
+        {
+            ArgumentNullException.ThrowIfNull(newItems);
+
+            var changes = new List<SlotChange>();
+            var appliedItems = new List<IItem>();
+            try
             {
-                while (enumerator.MoveNext())
+                var items = newItems.ToArray();
+                if (!HasSpaceForRange(items))
                 {
-                    var current = enumerator.Current;
-                    if (current == null)
+                    return CreateMutation(changes, 0, appliedItems, succeeded: false);
+                }
+
+                var slotsToUpdate = new HashSet<int>();
+                if (!ApplyAddRange(items, slotsToUpdate, changes, appliedItems, out var appliedCount))
+                {
+                    return CreateMutation(changes, appliedCount, appliedItems, succeeded: false);
+                }
+
+                _version++;
+                try
+                {
+                    OnUpdate(slotsToUpdate);
+                }
+                catch (InvalidOperationException)
+                {
+                    return CreateMutation(changes, appliedCount, appliedItems, succeeded: false);
+                }
+
+                return CreateMutation(changes, appliedCount, appliedItems, succeeded: true);
+            }
+            catch (InvalidOperationException)
+            {
+                return CreateMutation(
+                    changes,
+                    changes.Sum(change => change.AppliedCount),
+                    appliedItems,
+                    succeeded: false);
+            }
+        }
+
+        private bool ApplyAddRangeUpdate(HashSet<int> slotsToUpdate)
+        {
+            OnUpdate(slotsToUpdate);
+            _version++;
+            return true;
+        }
+
+        private bool ApplyAddRange(
+            IEnumerable<IItem?> newItems,
+            HashSet<int> slotsToUpdate,
+            List<SlotChange>? changes,
+            List<IItem>? appliedItems,
+            out int appliedCount)
+        {
+            appliedCount = 0;
+            using var enumerator = newItems.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                var current = enumerator.Current;
+                if (current == null)
+                {
+                    continue;
+                }
+
+                for (var i = 0; i < Items.Length; i++)
+                {
+                    var item = Items[i];
+                    if (item == null || item.Id != current.Id || !item.ItemScript.CanStackItem(item, current, Type == StorageType.AlwaysStack))
                     {
                         continue;
                     }
 
-                    for (var i = 0; i < Items.Length; i++)
+                    var total = item.Count + (long)current.Count;
+                    if (total > int.MaxValue)
                     {
-                        // If an identical item is located in this container.
-                        var item = Items[i];
-                        if (item != null && item.Id == current.Id && item.ItemScript.CanStackItem(item, current, Type == StorageType.AlwaysStack))
-                        {
-                            var total = item.Count + (long)current.Count;
-                            if (total > int.MaxValue)
-                            {
-                                return false;
-                            }
-
-                            item.Count = (int)total;
-                            slotsToUpdate.Add(i);
-                            goto end;
-                        }
+                        return false;
                     }
 
-                    if (Type == StorageType.AlwaysStack || current.ItemDefinition.Stackable || current.ItemDefinition.Noted)
+                    CaptureBefore(changes, i);
+                    item.Count = (int)total;
+                    UpdateAfter(changes, i);
+                    slotsToUpdate.Add(i);
+                    appliedCount += current.Count;
+                    appliedItems?.Add(current.Clone());
+                    goto end;
+                }
+
+                if (Type == StorageType.AlwaysStack || current.ItemDefinition.Stackable || current.ItemDefinition.Noted)
+                {
+                    var slot = GetFreeSlot();
+                    if (slot == -1)
                     {
-                        // Not existing in container.
-                        var slot = GetFreeSlot();
-                        if (slot == -1) return false;
-                        Items[slot] = current;
-                        slotsToUpdate.Add(slot);
-                    }
-                    else
-                    {
-                        if (FreeSlots < current.Count) return false;
-                        for (var j = 0; j < current.Count; j++)
-                        {
-                            var freeSlot = GetFreeSlot();
-                            Items[freeSlot] = current.Clone();
-                            Items[freeSlot]!.Count = 1;
-                            slotsToUpdate.Add(freeSlot);
-                        }
+                        return false;
                     }
 
-                    end:
+                    CaptureBefore(changes, slot);
+                    Items[slot] = current;
+                    UpdateAfter(changes, slot);
+                    slotsToUpdate.Add(slot);
+                    appliedCount += current.Count;
+                    appliedItems?.Add(current.Clone());
+                }
+                else
+                {
+                    if (FreeSlots < current.Count)
                     {
-                        continue;
+                        return false;
                     }
+
+                    for (var j = 0; j < current.Count; j++)
+                    {
+                        var freeSlot = GetFreeSlot();
+                        CaptureBefore(changes, freeSlot);
+                        Items[freeSlot] = current.Clone();
+                        Items[freeSlot]!.Count = 1;
+                        UpdateAfter(changes, freeSlot);
+                        slotsToUpdate.Add(freeSlot);
+                    }
+
+                    appliedCount += current.Count;
+                    appliedItems?.Add(current.Clone());
+                }
+
+                end:
+                {
+                    continue;
                 }
             }
 
-            OnUpdate(slotsToUpdate);
-            _version++;
             return true;
         }
 
@@ -506,6 +589,231 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             return removed;
+        }
+
+        /// <summary>
+        /// Removes items and records the exact slot and item changes.
+        /// </summary>
+        /// <param name="item">The item and count to remove.</param>
+        /// <param name="preferredSlot">The preferred slot to remove from.</param>
+        /// <returns>The applied mutation.</returns>
+        public ItemContainerMutation RemoveWithMutation(IItem item, int preferredSlot = -1)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+
+            var changes = new List<SlotChange>();
+            try
+            {
+                var slotsToUpdate = new HashSet<int>();
+                var removed = ApplyRemove(item, preferredSlot, slotsToUpdate, changes);
+                if (removed <= 0)
+                {
+                    return CreateMutation(changes, 0, [], succeeded: true);
+                }
+
+                _version++;
+                try
+                {
+                    OnUpdate(slotsToUpdate);
+                }
+                catch (InvalidOperationException)
+                {
+                    return CreateMutation(changes, removed, [], succeeded: false);
+                }
+
+                return CreateMutation(changes, removed, [], succeeded: true);
+            }
+            catch (InvalidOperationException)
+            {
+                return CreateMutation(changes, changes.Sum(change => change.AppliedCount), [], succeeded: false);
+            }
+        }
+
+        private int ApplyRemove(
+            IItem item,
+            int preferredSlot,
+            HashSet<int> slotsToUpdate,
+            List<SlotChange> changes)
+        {
+            var removed = 0;
+            if (Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted)
+            {
+                var remaining = item.Count;
+                for (var slot = 0; slot < Items.Length; slot++)
+                {
+                    if (remaining <= 0)
+                    {
+                        break;
+                    }
+
+                    var slotItem = Items[slot];
+                    if (slotItem == null || !slotItem.Equals(item))
+                    {
+                        continue;
+                    }
+
+                    CaptureBefore(changes, slot);
+                    var removedFromSlot = Math.Min(slotItem.Count, remaining);
+                    if (slotItem.Count > remaining)
+                    {
+                        slotItem.Count -= remaining;
+                    }
+                    else if (CountToResetTo != -1)
+                    {
+                        slotItem.Count = CountToResetTo;
+                    }
+                    else
+                    {
+                        Items[slot] = null;
+                    }
+
+                    UpdateAfter(changes, slot);
+                    slotsToUpdate.Add(slot);
+                    removed += removedFromSlot;
+                    remaining -= removedFromSlot;
+                }
+
+                return removed;
+            }
+
+            var slotIndex = GetSlotByItem(item);
+            if (preferredSlot != -1)
+            {
+                var slotItem = Items[preferredSlot];
+                if (slotItem != null && slotItem.Equals(item, true))
+                {
+                    slotIndex = preferredSlot;
+                }
+            }
+
+            var toRemove = item.Count;
+            while (toRemove > 0)
+            {
+                if (slotIndex == -1 && (slotIndex = GetSlotByItem(item)) == -1)
+                {
+                    break;
+                }
+
+                var slotItem = Items[slotIndex];
+                if (slotItem == null)
+                {
+                    continue;
+                }
+
+                CaptureBefore(changes, slotIndex);
+                if (slotItem.Count > toRemove)
+                {
+                    slotItem.Count -= toRemove;
+                    removed += toRemove;
+                    UpdateAfter(changes, slotIndex);
+                    slotsToUpdate.Add(slotIndex);
+                    break;
+                }
+
+                removed += slotItem.Count;
+                toRemove -= slotItem.Count;
+                if (CountToResetTo != -1)
+                {
+                    slotItem.Count = CountToResetTo;
+                }
+                else
+                {
+                    Items[slotIndex] = null;
+                }
+
+                UpdateAfter(changes, slotIndex);
+                slotsToUpdate.Add(slotIndex);
+                slotIndex = GetSlotByItem(item);
+            }
+
+            return removed;
+        }
+
+        private ItemContainerMutation CreateMutation(
+            IReadOnlyList<SlotChange> changes,
+            int appliedCount,
+            IReadOnlyList<IItem> appliedItems,
+            bool succeeded) =>
+            new(appliedCount, succeeded, appliedItems, () => TryRollback(changes));
+
+        private void CaptureBefore(List<SlotChange>? changes, int slot)
+        {
+            if (changes == null || changes.Any(change => change.Slot == slot))
+            {
+                return;
+            }
+
+            var item = Items[slot];
+            changes.Add(new SlotChange(slot, item, item?.Count ?? 0));
+        }
+
+        private void UpdateAfter(List<SlotChange>? changes, int slot)
+        {
+            if (changes == null)
+            {
+                return;
+            }
+
+            var change = changes.FirstOrDefault(candidate => candidate.Slot == slot);
+            if (change == null)
+            {
+                return;
+            }
+
+            change.After = Items[slot];
+            change.AfterCount = change.After?.Count ?? 0;
+        }
+
+        private bool TryRollback(IReadOnlyList<SlotChange> changes)
+        {
+            if (changes.Count == 0 || changes.All(change => Matches(change, before: true)))
+            {
+                return true;
+            }
+
+            if (changes.Any(change => !Matches(change, before: false)))
+            {
+                return false;
+            }
+
+            foreach (var change in changes)
+            {
+                Items[change.Slot] = change.Before;
+                if (change.Before != null)
+                {
+                    change.Before.Count = change.BeforeCount;
+                }
+            }
+
+            _version++;
+            return true;
+        }
+
+        private bool Matches(SlotChange change, bool before)
+        {
+            var expected = before ? change.Before : change.After;
+            var expectedCount = before ? change.BeforeCount : change.AfterCount;
+            var actual = Items[change.Slot];
+            return ReferenceEquals(actual, expected) && (expected == null || actual!.Count == expectedCount);
+        }
+
+        private sealed class SlotChange
+        {
+            public SlotChange(int slot, IItem? before, int beforeCount)
+            {
+                Slot = slot;
+                Before = before;
+                BeforeCount = beforeCount;
+                After = before;
+                AfterCount = beforeCount;
+            }
+
+            public int Slot { get; }
+            public IItem? Before { get; }
+            public int BeforeCount { get; }
+            public IItem? After { get; set; }
+            public int AfterCount { get; set; }
+            public int AppliedCount => Math.Abs(AfterCount - BeforeCount);
         }
 
         /// <summary>
