@@ -13,8 +13,5 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
             OnRemovedCallback?.Invoke();
         }
 
-        public void OnAdded(ICreature creature)
-        {
-        }
     }
 }

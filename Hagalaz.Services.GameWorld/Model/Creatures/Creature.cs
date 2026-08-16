@@ -29,7 +29,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly List<IHitBar> _renderedHitBars = new(sbyte.MaxValue);
         private readonly Queue<IAnimation> _queuedAnimations = new();
         private readonly Queue<IGraphic> _queuedGraphics = new();
-        private readonly ICreatureStateCollection _stateCollection;
+        private readonly CreatureStateCollection _stateCollection;
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
         private CreatureUpdateState _updateState = CreatureUpdateState.Initializing;
         private readonly IServiceScope _serviceScope = default!;
@@ -746,7 +746,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <returns></returns>
 
         /// <summary>
-        ///     Adds a state to the creature using the state-declared reapplication policy.
+        ///     Adds a state to the creature, keeping existing instances unless a timed state opts into keeping the longer duration.
         /// </summary>
         /// <param name="state">The state.</param>
         public void AddState(IState state)

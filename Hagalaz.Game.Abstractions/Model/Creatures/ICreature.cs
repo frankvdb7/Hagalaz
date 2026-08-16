@@ -187,7 +187,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <param name="target">The creature that was killed.</param>
         void OnTargetKilled(ICreature target);
         /// <summary>
-        /// Adds a state to the creature using the state type's declared reapplication policy.
+        /// Adds a state to the creature, keeping existing instances unless a timed state opts into keeping the longer duration.
         /// </summary>
         /// <param name="state">The state to add.</param>
         void AddState(IState state);

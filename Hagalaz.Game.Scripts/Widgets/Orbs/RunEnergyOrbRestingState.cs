@@ -16,8 +16,5 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             OnRemovedCallback?.Invoke();
         }
 
-        public void OnAdded(ICreature creature)
-        {
-        }
     }
 }

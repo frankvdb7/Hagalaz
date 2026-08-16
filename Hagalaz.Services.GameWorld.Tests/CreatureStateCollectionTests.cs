@@ -42,19 +42,6 @@ public sealed class CreatureStateCollectionTests
     }
 
     [TestMethod]
-    public void PassiveState_IsNotTicked()
-    {
-        var collection = CreateCollection();
-        var state = new TestPassiveState();
-        collection.Add(state);
-
-        collection.ProcessTick();
-
-        Assert.AreEqual(0, state.TickCount);
-        Assert.IsTrue(collection.Has(typeof(TestPassiveState)));
-    }
-
-    [TestMethod]
     public void TimedState_UsesKeepLongestDurationPolicy()
     {
         var collection = CreateCollection();
@@ -64,14 +51,16 @@ public sealed class CreatureStateCollectionTests
         var shorter = new KeepLongestTimedState { TicksLeft = 2 };
         collection.Add(shorter);
         Assert.AreSame(existing, collection.States.Single());
+        Assert.AreEqual(0, existing.RemovedCount);
 
         var longer = new KeepLongestTimedState { TicksLeft = 6 };
         collection.Add(longer);
         Assert.AreSame(longer, collection.States.Single());
+        Assert.AreEqual(1, existing.RemovedCount);
     }
 
     [TestMethod]
-    public void TimedStateWithoutReapplicationPolicy_UsesNeutralKeepExistingDefault()
+    public void TimedStateWithoutKeepLongestCapability_UsesKeepExistingDefault()
     {
         var collection = CreateCollection();
         var existing = new TestTimedState { TicksLeft = 5 };
@@ -83,20 +72,7 @@ public sealed class CreatureStateCollectionTests
     }
 
     [TestMethod]
-    public void TimedState_CanDeclareIndependentReapplicationPolicy()
-    {
-        var collection = CreateCollection();
-        var existing = new ReplaceTimedState { TicksLeft = 5 };
-        collection.Add(existing);
-
-        var replacement = new ReplaceTimedState { TicksLeft = 1 };
-        collection.Add(replacement);
-
-        Assert.AreSame(replacement, collection.States.Single());
-    }
-
-    [TestMethod]
-    public void RejectedDuplicate_DoesNotRaiseLifecycleCallbacks()
+    public void RejectedDuplicate_DoesNotRaiseRemovalCallback()
     {
         var collection = CreateCollection();
         var existing = new LifecycleState();
@@ -104,45 +80,7 @@ public sealed class CreatureStateCollectionTests
 
         collection.Add(new LifecycleState());
 
-        Assert.AreEqual(1, existing.AddedCount);
         Assert.AreEqual(0, existing.RemovedCount);
-    }
-
-    [TestMethod]
-    public void Replacement_RaisesOneRemoveAndOneAdd()
-    {
-        var collection = CreateCollection();
-        var existing = new ReplaceLifecycleState();
-        collection.Add(existing);
-
-        var replacement = new ReplaceLifecycleState();
-        collection.Add(replacement);
-
-        Assert.AreEqual(1, existing.AddedCount);
-        Assert.AreEqual(1, existing.RemovedCount);
-        Assert.AreEqual(1, replacement.AddedCount);
-        Assert.AreEqual(0, replacement.RemovedCount);
-    }
-
-    [TestMethod]
-    public void TickMutation_DoesNotRemoveAReplacement()
-    {
-        var collection = CreateCollection();
-        collection.Add(new TestPassiveState());
-        var tickable = new TestTickableState
-        {
-            OnTick = () =>
-            {
-                collection.Remove(typeof(TestPassiveState));
-                collection.Add(new TestPassiveState());
-            }
-        };
-        collection.Add(tickable);
-
-        collection.ProcessTick();
-
-        Assert.IsTrue(collection.Has(typeof(TestPassiveState)));
-        Assert.AreEqual(1, tickable.TickCount);
     }
 
     [TestMethod]
@@ -182,7 +120,6 @@ public sealed class CreatureStateCollectionTests
 
     private sealed class TestPassiveState : State
     {
-        public int TickCount { get; private set; }
     }
 
     private sealed class TestTimedState : State, ITimedState
@@ -190,48 +127,16 @@ public sealed class CreatureStateCollectionTests
         public int TicksLeft { get; set; }
     }
 
-    private sealed class KeepLongestTimedState : TimedState, IKeepLongestDurationState
+    private sealed class KeepLongestTimedState : TimedState, IKeepLongestDurationState, IStateLifecycle
     {
-    }
-
-    private sealed class ReplaceTimedState : State, ITimedState, IStateReapplicationPolicy
-    {
-        public int TicksLeft { get; set; }
-
-        public StateReapplicationPolicy ReapplicationPolicy => StateReapplicationPolicy.Replace;
-    }
-
-    private sealed class TestTickableState : State, ITickableState
-    {
-        public Action? OnTick { get; init; }
-
-        public int TickCount { get; private set; }
-
-        public void Tick()
-        {
-            TickCount++;
-            OnTick?.Invoke();
-        }
-    }
-
-    private sealed class LifecycleState : State, IStateLifecycle
-    {
-        public int AddedCount { get; private set; }
         public int RemovedCount { get; private set; }
-
-        public void OnAdded(ICreature creature) => AddedCount++;
 
         public void OnRemoved(ICreature creature) => RemovedCount++;
     }
 
-    private sealed class ReplaceLifecycleState : State, IStateLifecycle, IStateReapplicationPolicy
+    private sealed class LifecycleState : State, IStateLifecycle
     {
-        public int AddedCount { get; private set; }
         public int RemovedCount { get; private set; }
-
-        public StateReapplicationPolicy ReapplicationPolicy => StateReapplicationPolicy.Replace;
-
-        public void OnAdded(ICreature creature) => AddedCount++;
 
         public void OnRemoved(ICreature creature) => RemovedCount++;
     }

@@ -9,7 +9,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
     /// <summary>
     /// Stores and processes the states owned by one creature.
     /// </summary>
-    internal sealed class CreatureStateCollection : ICreatureStateCollection
+    internal sealed class CreatureStateCollection
     {
         private readonly ICreature _creature;
         private readonly Dictionary<Type, IState> _states = new();
@@ -27,16 +27,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             var stateType = state.GetType();
             if (_states.TryGetValue(stateType, out var existingState))
             {
-                var policy = GetReapplicationPolicy(state);
-
-                if (policy == StateReapplicationPolicy.KeepExisting)
-                {
-                    return;
-                }
-
-                if (policy == StateReapplicationPolicy.KeepLongestDuration &&
-                    (state is not ITimedState newTimedState || existingState is not ITimedState existingTimedState ||
-                     newTimedState.TicksLeft <= existingTimedState.TicksLeft))
+                if (state is not IKeepLongestDurationState newTimedState ||
+                    existingState is not IKeepLongestDurationState existingTimedState ||
+                    newTimedState.TicksLeft <= existingTimedState.TicksLeft)
                 {
                     return;
                 }
@@ -51,7 +44,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
 
             _states.Add(stateType, state);
-            NotifyAdded(state);
         }
 
         public void Remove(Type stateType) => Remove(stateType, expectedState: null);
@@ -76,12 +68,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                         continue;
                     }
 
-                    if (state is ITickableState tickableState)
-                    {
-                        tickableState.Tick();
-                    }
-
-                    if (!IsActive(state) || state is not ITimedState timedState)
+                    if (state is not ITimedState timedState)
                     {
                         continue;
                     }
@@ -105,11 +92,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         private bool IsActive(IState state) => _states.TryGetValue(state.GetType(), out var activeState) && ReferenceEquals(activeState, state);
 
-        private static StateReapplicationPolicy GetReapplicationPolicy(IState state) =>
-            state is IStateReapplicationPolicy reapplication
-                ? reapplication.ReapplicationPolicy
-                : StateReapplicationPolicy.KeepExisting;
-
         private void Remove(Type stateType, IState? expectedState)
         {
             if (!_states.TryGetValue(stateType, out var state) || expectedState is not null && !ReferenceEquals(state, expectedState))
@@ -119,14 +101,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
             _states.Remove(stateType);
             NotifyRemoved(state);
-        }
-
-        private void NotifyAdded(IState state)
-        {
-            if (state is IStateLifecycle lifecycle)
-            {
-                lifecycle.OnAdded(_creature);
-            }
         }
 
         private void NotifyRemoved(IState state)

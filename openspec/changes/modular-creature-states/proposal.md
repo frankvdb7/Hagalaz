@@ -4,10 +4,10 @@ The current creature state abstraction forces passive equipment markers, timed c
 
 ## What Changes
 
-- **BREAKING** Reduce `IState` to the marker contract and add opt-in capabilities for timed lifetime, custom ticking, lifecycle callbacks, and persistence.
+- **BREAKING** Reduce `IState` to the marker contract and add opt-in capabilities for timed lifetime, removal callbacks, and persistence.
 - Extract state storage, reapplication, lifecycle dispatch, and expiration from `Creature` into a focused per-creature state collection owned by the creature.
 - Represent passive states as `IState` implementations without `ITimedState` and remove `int.MaxValue` lifetime sentinels from the migrated call sites.
-- Make reapplication policy explicit, preserving longest-duration behavior only for timed states and keeping passive duplicate applications without false callbacks.
+- Keep duplicate applications by default and preserve longest-duration behavior only for timed states that explicitly opt into `IKeepLongestDurationState`.
 - Make state dehydration opt-in through a persistent-state capability; restore only known persistent states and skip unknown or runtime-only records safely.
 - Explicitly classify the durable states carried by the existing character snapshot: `DefaultSkulledState`, the three God Wars/Saradomin rope markers, and `LodestoneActivatedState`. Equipment, prayer, combat/session, activity, and NPC-derived markers remain runtime-only.
 - Require every persistent state discovered at startup to declare `StateMetaDataAttribute` with a stable identifier; fail registration clearly when that invariant is violated.
