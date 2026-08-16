@@ -7,7 +7,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// Defines the contract for a player's bank container, extending the base <see cref="IItemContainer"/>
     /// with methods specific to bank operations like depositing from other containers and withdrawing.
     /// </summary>
-    public interface IBankContainer : IItemContainer
+    public interface IBankContainer : ITradeItemContainer
     {
         /// <summary>
         /// Deposits the contents of the player's money pouch into the bank.

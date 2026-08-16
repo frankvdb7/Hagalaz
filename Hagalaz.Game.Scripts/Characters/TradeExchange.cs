@@ -46,15 +46,15 @@ internal static class TradeExchange
     {
         private readonly TransferReceipt? _firstReceipt;
         private readonly TransferReceipt? _secondReceipt;
-        private readonly IItemContainer _firstOffer;
-        private readonly IItemContainer _secondOffer;
+        private readonly ITradeItemContainer _firstOffer;
+        private readonly ITradeItemContainer _secondOffer;
         private readonly bool _firstReceivesSecondOffer;
 
         public TradeCompensation(
             TransferReceipt? firstReceipt,
             TransferReceipt? secondReceipt,
-            IItemContainer firstOffer,
-            IItemContainer secondOffer,
+            ITradeItemContainer firstOffer,
+            ITradeItemContainer secondOffer,
             bool firstReceivesSecondOffer)
         {
             _firstReceipt = firstReceipt;
@@ -72,32 +72,46 @@ internal static class TradeExchange
         }
 
         /// <summary>
-        /// Commits the exact applied portions of a failed transfer and stores the
-        /// remaining offer value in the existing recovery containers.
+        /// Completes a failed transfer through one consistent recovery outcome.
+        /// A refund restores value to its original owner; an exchange stores any
+        /// remaining opposite-side value for its intended recipient.
         /// </summary>
         public bool TryConserve(ICharacter first, ICharacter second)
         {
             var firstSource = _firstReceivesSecondOffer ? _secondOffer : _firstOffer;
             var secondSource = _firstReceivesSecondOffer ? _firstOffer : _secondOffer;
-            var firstMutations = new List<ItemContainerMutation>();
-            var secondMutations = new List<ItemContainerMutation>();
+            var firstMutations = new List<TradeItemMutation>();
+            var secondMutations = new List<TradeItemMutation>();
 
             if (!TryRemoveAppliedDelta(firstSource, _firstReceipt, firstMutations) ||
                 !TryRemoveAppliedDelta(secondSource, _secondReceipt, secondMutations))
             {
-                TryRollback(secondMutations);
-                TryRollback(firstMutations);
+                var failedSecondMutationsRestored = TryRollback(secondMutations);
+                var failedFirstMutationsRestored = TryRollback(firstMutations);
+                if (!failedSecondMutationsRestored || !failedFirstMutationsRestored)
+                {
+                    return false;
+                }
+
                 return false;
             }
 
-            if (TryConserveEscrow(first, _firstOffer, second, _secondOffer))
+            if (!_firstReceivesSecondOffer &&
+                TryConserveEscrow(first, _firstOffer, second, _secondOffer))
             {
                 return true;
             }
 
-            // The recovery containers must accept the remaining escrow before the
-            // source offers are changed permanently.
-            if (!TryRollback(secondMutations) || !TryRollback(firstMutations))
+            if (_firstReceivesSecondOffer && TryCompleteExchange(first, second, firstMutations, secondMutations))
+            {
+                return true;
+            }
+
+            // If recovery cannot complete, restore the offer mutations and leave
+            // the compensation pending for another checked attempt.
+            var secondMutationsRestored = TryRollback(secondMutations);
+            var firstMutationsRestored = TryRollback(firstMutations);
+            if (!secondMutationsRestored || !firstMutationsRestored)
             {
                 return false;
             }
@@ -105,10 +119,55 @@ internal static class TradeExchange
             return false;
         }
 
+        private bool TryCompleteExchange(
+            ICharacter first,
+            ICharacter second,
+            IReadOnlyList<TradeItemMutation> firstMutations,
+            IReadOnlyList<TradeItemMutation> secondMutations)
+        {
+            RecoveryReceipt? firstRecovery = null;
+            RecoveryReceipt? secondRecovery = null;
+            var firstItems = SnapshotItems(_firstOffer);
+            var secondItems = SnapshotItems(_secondOffer);
+            var firstDestination = GetRecoveryContainer(second, firstItems);
+            var secondDestination = GetRecoveryContainer(first, secondItems);
+            if ((firstItems.Length > 0 && firstDestination == null) ||
+                (secondItems.Length > 0 && secondDestination == null))
+            {
+                return false;
+            }
+
+            if (firstDestination != null &&
+                !TryStoreEscrow(_firstOffer, firstDestination, out firstRecovery))
+            {
+                return false;
+            }
+
+            if (secondDestination != null &&
+                !TryStoreEscrow(_secondOffer, secondDestination, out secondRecovery))
+            {
+                var firstRecoveryRestored = firstRecovery?.Rollback() ?? true;
+                var secondRecoveryRestored = secondRecovery?.Rollback() ?? true;
+                var secondSourceRestored = TryRollback(secondMutations);
+                var firstSourceRestored = TryRollback(firstMutations);
+                if (!firstRecoveryRestored ||
+                    !secondRecoveryRestored ||
+                    !secondSourceRestored ||
+                    !firstSourceRestored)
+                {
+                    return false;
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
         private static bool TryRemoveAppliedDelta(
-            IItemContainer source,
+            ITradeItemContainer source,
             TransferReceipt? receipt,
-            List<ItemContainerMutation> mutations)
+            List<TradeItemMutation> mutations)
         {
             if (receipt == null)
             {
@@ -117,7 +176,7 @@ internal static class TradeExchange
 
             foreach (var item in receipt.AppliedItems)
             {
-                var mutation = source.RemoveWithMutation(item);
+                var mutation = source.RemoveForTrade(item);
                 mutations.Add(mutation);
                 if (!mutation.Succeeded || mutation.AppliedCount != item.Count)
                 {
@@ -130,7 +189,7 @@ internal static class TradeExchange
                 return true;
             }
 
-            var moneyMutation = source.RemoveWithMutation(receipt.ItemBuilder.Create()
+            var moneyMutation = source.RemoveForTrade(receipt.ItemBuilder.Create()
                 .WithId(CoinsItemId)
                 .WithCount(receipt.AppliedMoneyCount)
                 .Build());
@@ -138,7 +197,7 @@ internal static class TradeExchange
             return moneyMutation.Succeeded && moneyMutation.AppliedCount == receipt.AppliedMoneyCount;
         }
 
-        private static bool TryRollback(IReadOnlyList<ItemContainerMutation> mutations)
+        private static bool TryRollback(IReadOnlyList<TradeItemMutation> mutations)
         {
             var restored = true;
             for (var i = mutations.Count - 1; i >= 0; i--)
@@ -152,41 +211,41 @@ internal static class TradeExchange
 
     public static bool TryExchange(
         ICharacter first,
-        IItemContainer firstOffer,
+        ITradeItemContainer firstOffer,
         ICharacter second,
-        IItemContainer secondOffer,
+        ITradeItemContainer secondOffer,
         IItemBuilder itemBuilder) =>
         TryExchangeDetailed(first, firstOffer, second, secondOffer, itemBuilder).Status == TransferStatus.Succeeded;
 
     internal static TransferResult TryExchangeDetailed(
         ICharacter first,
-        IItemContainer firstOffer,
+        ITradeItemContainer firstOffer,
         ICharacter second,
-        IItemContainer secondOffer,
+        ITradeItemContainer secondOffer,
         IItemBuilder itemBuilder) =>
         TryTransfer(first, firstOffer, second, secondOffer, itemBuilder);
 
     public static bool TryRefund(
         ICharacter first,
-        IItemContainer firstOffer,
+        ITradeItemContainer firstOffer,
         ICharacter second,
-        IItemContainer secondOffer,
+        ITradeItemContainer secondOffer,
         IItemBuilder itemBuilder) =>
         TryRefundDetailed(first, firstOffer, second, secondOffer, itemBuilder).Status == TransferStatus.Succeeded;
 
     internal static TransferResult TryRefundDetailed(
         ICharacter first,
-        IItemContainer firstOffer,
+        ITradeItemContainer firstOffer,
         ICharacter second,
-        IItemContainer secondOffer,
+        ITradeItemContainer secondOffer,
         IItemBuilder itemBuilder) =>
         TryTransfer(first, firstOffer, second, secondOffer, itemBuilder, firstReceivesSecondOffer: false);
 
     internal static bool TryConserveEscrow(
         ICharacter first,
-        IItemContainer firstOffer,
+        ITradeItemContainer firstOffer,
         ICharacter second,
-        IItemContainer secondOffer)
+        ITradeItemContainer secondOffer)
     {
         RecoveryReceipt? firstReceipt = null;
         RecoveryReceipt? secondReceipt = null;
@@ -209,12 +268,9 @@ internal static class TradeExchange
 
             if (secondDestination != null && !TryStoreEscrow(secondOffer, secondDestination, out secondReceipt))
             {
-                if (secondReceipt != null && !secondReceipt.Rollback())
-                {
-                    return false;
-                }
-
-                if (firstReceipt != null && !firstReceipt.Rollback())
+                var secondRestored = secondReceipt?.Rollback() ?? true;
+                var firstRestored = firstReceipt?.Rollback() ?? true;
+                if (!secondRestored || !firstRestored)
                 {
                     return false;
                 }
@@ -226,12 +282,9 @@ internal static class TradeExchange
         }
         catch (InvalidOperationException)
         {
-            if (secondReceipt != null && !secondReceipt.Rollback())
-            {
-                return false;
-            }
-
-            if (firstReceipt != null && !firstReceipt.Rollback())
+            var secondRestored = secondReceipt?.Rollback() ?? true;
+            var firstRestored = firstReceipt?.Rollback() ?? true;
+            if (!secondRestored || !firstRestored)
             {
                 return false;
             }
@@ -243,97 +296,34 @@ internal static class TradeExchange
     internal static int RemoveMoney(
         ICharacter character,
         int requestedCount,
-        IItemBuilder itemBuilder,
-        out MoneyMutation mutation)
+        out MoneyPouchMutation mutation)
     {
-        if (requestedCount <= 0)
-        {
-            mutation = MoneyMutation.Empty(succeeded: false);
-            return 0;
-        }
-
-        var pouchCount = Math.Min(requestedCount, character.MoneyPouch.Count);
-        var pouchMutation = pouchCount > 0
-            ? character.MoneyPouch.RemoveWithMutation(CreateCoins(itemBuilder, pouchCount))
-            : null;
-        if (pouchMutation != null && !pouchMutation.Succeeded)
-        {
-            mutation = new MoneyMutation(false, pouchMutation, null);
-            return 0;
-        }
-
-        var removed = pouchMutation?.AppliedCount ?? 0;
-        var remaining = requestedCount - removed;
-        ItemContainerMutation? inventoryMutation = null;
-        if (remaining > 0)
-        {
-            inventoryMutation = character.Inventory.RemoveWithMutation(CreateCoins(itemBuilder, remaining));
-            removed += inventoryMutation.AppliedCount;
-            if (!inventoryMutation.Succeeded)
-            {
-                mutation = new MoneyMutation(false, pouchMutation, inventoryMutation);
-                return 0;
-            }
-        }
-
-        mutation = new MoneyMutation(true, pouchMutation, inventoryMutation);
-        return removed;
+        mutation = character.MoneyPouch.RemoveForTrade(requestedCount);
+        return mutation.AppliedCount;
     }
 
     internal static bool AddMoney(
         ICharacter character,
         int count,
-        IItemBuilder itemBuilder,
-        out MoneyMutation mutation)
+        out MoneyPouchMutation mutation)
     {
-        if (count <= 0)
-        {
-            mutation = MoneyMutation.Empty(succeeded: false);
-            return false;
-        }
-
-        var pouchCount = Math.Min(count, int.MaxValue - character.MoneyPouch.Count);
-        var pouchMutation = pouchCount > 0
-            ? character.MoneyPouch.AddRangeWithMutation([CreateCoins(itemBuilder, pouchCount)])
-            : null;
-        if (pouchMutation != null && !pouchMutation.Succeeded)
-        {
-            mutation = new MoneyMutation(false, pouchMutation, null);
-            return false;
-        }
-
-        var added = pouchMutation?.AppliedCount ?? 0;
-        var remaining = count - added;
-        ItemContainerMutation? inventoryMutation = null;
-        if (remaining > 0)
-        {
-            inventoryMutation = character.Inventory.AddRangeWithMutation([CreateCoins(itemBuilder, remaining)]);
-            added += inventoryMutation.AppliedCount;
-            if (!inventoryMutation.Succeeded)
-            {
-                mutation = new MoneyMutation(false, pouchMutation, inventoryMutation);
-                return false;
-            }
-        }
-
-        var succeeded = added == count;
-        mutation = new MoneyMutation(succeeded, pouchMutation, inventoryMutation);
-        return succeeded;
+        mutation = character.MoneyPouch.AddForTrade(count);
+        return mutation.Succeeded;
     }
 
     internal static bool RestoreRemovedMoney(
-        MoneyMutation mutation)
+        MoneyPouchMutation mutation)
     {
         return mutation.TryRollback();
     }
 
     internal static bool RemoveAddedMoney(
-        MoneyMutation mutation)
+        MoneyPouchMutation mutation)
     {
         return mutation.TryRollback();
     }
 
-    private static IItemContainer? GetRecoveryContainer(
+    private static ITradeItemContainer? GetRecoveryContainer(
         ICharacter character,
         IReadOnlyList<IItem> items)
     {
@@ -353,8 +343,8 @@ internal static class TradeExchange
     }
 
     private static bool TryStoreEscrow(
-        IItemContainer offer,
-        IItemContainer destination,
+        ITradeItemContainer offer,
+        ITradeItemContainer destination,
         out RecoveryReceipt? receipt)
     {
         receipt = null;
@@ -368,7 +358,7 @@ internal static class TradeExchange
         receipt = recoveryReceipt;
         try
         {
-            var destinationMutation = destination.AddRangeWithMutation(items);
+            var destinationMutation = destination.AddRangeForTrade(items);
             recoveryReceipt.SetDestinationMutation(destinationMutation);
             if (!destinationMutation.Succeeded)
             {
@@ -408,9 +398,9 @@ internal static class TradeExchange
 
     private static TransferResult TryTransfer(
         ICharacter first,
-        IItemContainer firstOffer,
+        ITradeItemContainer firstOffer,
         ICharacter second,
-        IItemContainer secondOffer,
+        ITradeItemContainer secondOffer,
         IItemBuilder itemBuilder,
         bool firstReceivesSecondOffer = true)
     {
@@ -460,8 +450,8 @@ internal static class TradeExchange
     private static TransferResult CreateFailedTransferResult(
         TransferReceipt? firstReceipt,
         TransferReceipt? secondReceipt,
-        IItemContainer firstOffer,
-        IItemContainer secondOffer,
+        ITradeItemContainer firstOffer,
+        ITradeItemContainer secondOffer,
         bool firstReceivesSecondOffer)
     {
         var compensation = new TradeCompensation(
@@ -516,7 +506,7 @@ internal static class TradeExchange
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
         if (nonCoinItems.Length > 0)
         {
-            var itemMutation = character.Inventory.AddRangeWithMutation(nonCoinItems);
+            var itemMutation = character.Inventory.AddRangeForTrade(nonCoinItems);
             receipt.SetItemMutation(itemMutation);
             if (!itemMutation.Succeeded)
             {
@@ -537,7 +527,7 @@ internal static class TradeExchange
             return false;
         }
 
-        var added = AddMoney(character, (int)coinCount, receipt.ItemBuilder, out var delta);
+        var added = AddMoney(character, (int)coinCount, out var delta);
         receipt.SetMoneyMutation(delta);
         return added;
     }
@@ -557,63 +547,25 @@ internal static class TradeExchange
     private static IItem[] SnapshotItems(IItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
 
-    private static IItem CreateCoins(IItemBuilder itemBuilder, int count) =>
-        itemBuilder.Create().WithId(CoinsItemId).WithCount(count).Build();
-
-    internal sealed class MoneyMutation
-    {
-        private readonly ItemContainerMutation? _pouchMutation;
-        private readonly ItemContainerMutation? _inventoryMutation;
-
-        public MoneyMutation(
-            bool succeeded,
-            ItemContainerMutation? pouchMutation,
-            ItemContainerMutation? inventoryMutation)
-        {
-            Succeeded = succeeded;
-            _pouchMutation = pouchMutation;
-            _inventoryMutation = inventoryMutation;
-        }
-
-        public bool Succeeded { get; }
-
-        public int PouchCount => _pouchMutation?.AppliedCount ?? 0;
-
-        public int InventoryCount => _inventoryMutation?.AppliedCount ?? 0;
-
-        public int AppliedCount => PouchCount + InventoryCount;
-
-        public bool HasChanges => AppliedCount > 0;
-
-        public bool TryRollback()
-        {
-            var inventoryRestored = _inventoryMutation?.TryRollback() ?? true;
-            var pouchRestored = _pouchMutation?.TryRollback() ?? true;
-            return inventoryRestored & pouchRestored;
-        }
-
-        public static MoneyMutation Empty(bool succeeded) => new(succeeded, null, null);
-    }
-
     private sealed class RecoveryReceipt
     {
-        private readonly IItemContainer _offer;
+        private readonly ITradeItemContainer _offer;
         private readonly IReadOnlyList<IItem> _items;
-        private readonly List<ItemContainerMutation> _offerMutations = [];
-        private ItemContainerMutation? _destinationMutation;
+        private readonly List<TradeItemMutation> _offerMutations = [];
+        private TradeItemMutation? _destinationMutation;
 
-        public RecoveryReceipt(IItemContainer offer, IReadOnlyList<IItem> items)
+        public RecoveryReceipt(ITradeItemContainer offer, IReadOnlyList<IItem> items)
         {
             _offer = offer;
             _items = items;
         }
 
-        public void SetDestinationMutation(ItemContainerMutation mutation) => _destinationMutation = mutation;
+        public void SetDestinationMutation(TradeItemMutation mutation) => _destinationMutation = mutation;
 
         public bool RemoveFromOffer(int index)
         {
             var item = _items[index];
-            var mutation = _offer.RemoveWithMutation(item);
+            var mutation = _offer.RemoveForTrade(item);
             _offerMutations.Add(mutation);
             return mutation.Succeeded && mutation.AppliedCount == item.Count;
         }
@@ -637,8 +589,8 @@ internal static class TradeExchange
 
     internal sealed class TransferReceipt
     {
-        private ItemContainerMutation? _itemMutation;
-        private MoneyMutation _moneyMutation = MoneyMutation.Empty(succeeded: true);
+        private TradeItemMutation? _itemMutation;
+        private MoneyPouchMutation _moneyMutation = MoneyPouchMutation.Empty(succeeded: true);
 
         public TransferReceipt(IItemBuilder itemBuilder)
         {
@@ -651,9 +603,9 @@ internal static class TradeExchange
 
         public int AppliedMoneyCount => _moneyMutation.AppliedCount;
 
-        public void SetItemMutation(ItemContainerMutation mutation) => _itemMutation = mutation;
+        public void SetItemMutation(TradeItemMutation mutation) => _itemMutation = mutation;
 
-        public void SetMoneyMutation(MoneyMutation mutation) => _moneyMutation = mutation;
+        public void SetMoneyMutation(MoneyPouchMutation mutation) => _moneyMutation = mutation;
 
         public bool Rollback()
         {

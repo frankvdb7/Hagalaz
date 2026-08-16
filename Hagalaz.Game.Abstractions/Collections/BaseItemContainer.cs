@@ -10,7 +10,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// Provides a foundational, abstract implementation for an item container,
     /// offering core logic for managing a collection of <see cref="IItem"/> objects.
     /// </summary>
-    public abstract class BaseItemContainer : IItemContainer
+    public abstract class BaseItemContainer : ITradeItemContainer
     {
         /// <summary>
         /// The internal array storing the item objects.
@@ -296,7 +296,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="newItems">The collection of items to add.</param>
         /// <returns>The applied mutation, including partial changes if the update callback fails.</returns>
-        public ItemContainerMutation AddRangeWithMutation(IEnumerable<IItem?> newItems)
+        public TradeItemMutation AddRangeForTrade(IEnumerable<IItem?> newItems)
         {
             ArgumentNullException.ThrowIfNull(newItems);
 
@@ -514,79 +514,19 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <returns>The number of items actually removed.</returns>
         public int Remove(IItem item, int preferredSlot = -1, bool update = true)
         {
-            var removed = 0;
-
-            if (Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted)
+            var slots = new HashSet<int>();
+            var removed = ApplyRemove(item, preferredSlot, slots, changes: null);
+            if (removed <= 0)
             {
-                for (var slot = 0; slot < Items.Length; slot++)
-                {
-                    var slotItem = Items[slot];
-                    if (slotItem == null || !slotItem.Equals(item)) continue;
-                    if (slotItem.Count > item.Count)
-                    {
-                        removed = item.Count;
-                        slotItem.Count -= item.Count;
-                    }
-                    else
-                    {
-                        removed = slotItem.Count;
-                        if (CountToResetTo != -1)
-                            slotItem.Count = CountToResetTo;
-                        else
-                            Items[slot] = null;
-                    }
-
-                    if (update)
-                    {
-                        OnUpdate([slot]);
-                    }
-                }
-            }
-            else
-            {
-                var slots = new HashSet<int>();
-                var slot = GetSlotByItem(item);
-                if (preferredSlot != -1)
-                {
-                    var slotItem = Items[preferredSlot];
-                    if (slotItem != null && slotItem.Equals(item, true)) slot = preferredSlot;
-                }
-
-                var toRemove = item.Count;
-                while (toRemove > 0)
-                {
-                    if (slot == -1 && (slot = GetSlotByItem(item)) == -1) break;
-                    var slotItem = Items[slot];
-                    if (slotItem == null)
-                    {
-                        continue;
-                    }
-
-                    if (slotItem.Count > toRemove)
-                    {
-                        removed += toRemove;
-                        slotItem.Count -= toRemove;
-                        break;
-                    }
-
-                    removed += slotItem.Count;
-                    toRemove -= slotItem.Count;
-                    if (CountToResetTo != -1)
-                        slotItem.Count = CountToResetTo;
-                    else
-                        Items[slot] = null;
-
-                    slots.Add(slot);
-                    slot = GetSlotByItem(item);
-                }
-
-                if (update) OnUpdate(slots);
+                return 0;
             }
 
-            if (removed > 0)
+            if (update)
             {
-                _version++;
+                OnUpdate(slots);
             }
+
+            _version++;
 
             return removed;
         }
@@ -597,7 +537,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="item">The item and count to remove.</param>
         /// <param name="preferredSlot">The preferred slot to remove from.</param>
         /// <returns>The applied mutation.</returns>
-        public ItemContainerMutation RemoveWithMutation(IItem item, int preferredSlot = -1)
+        public TradeItemMutation RemoveForTrade(IItem item, int preferredSlot = -1)
         {
             ArgumentNullException.ThrowIfNull(item);
 
@@ -633,7 +573,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             IItem item,
             int preferredSlot,
             HashSet<int> slotsToUpdate,
-            List<SlotChange> changes)
+            List<SlotChange>? changes)
         {
             var removed = 0;
             if (Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted)
@@ -729,7 +669,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             return removed;
         }
 
-        private ItemContainerMutation CreateMutation(
+        private TradeItemMutation CreateMutation(
             IReadOnlyList<SlotChange> changes,
             int appliedCount,
             IReadOnlyList<IItem> appliedItems,

@@ -136,7 +136,7 @@ public sealed class TradeExchangeTests
         moneyPouch.Add(100).Should().BeTrue();
         inventory.Add(new TestItem(995, 50, stackable: true)).Should().BeTrue();
 
-        var removed = TradeExchange.RemoveMoney(character, 120, CreateItemBuilder(), out var delta);
+        var removed = TradeExchange.RemoveMoney(character, 120, out var delta);
 
         removed.Should().Be(120);
         delta.PouchCount.Should().Be(100);
@@ -299,14 +299,16 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void Destroy_WhenCompensationRemainsPending_CommitsAppliedDeltaAndTerminates()
+    public void Destroy_WhenCompensationRemainsPending_CompletesExchangeThroughRecoveryContainer()
     {
         var firstInventory = new TestInventory(14);
         var secondInventory = new TestInventory(14) { FailNextUpdate = true };
         secondInventory.BeforeNextUpdateFailure = () => secondInventory.GetById(100)!.Count++;
         var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
         var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstRewards = CreateRewardContainer(first);
         var secondRewards = CreateRewardContainer(second);
+        first.Rewards.Returns(firstRewards);
         second.Rewards.Returns(secondRewards);
         var script = CreatePreparedScript(first, second, first.MoneyPouch, second.MoneyPouch);
         var secondOffer = script.TargetContainer;
@@ -321,8 +323,13 @@ public sealed class TradeExchangeTests
         script.TargetContainer.Should().BeNull();
         firstInventory.GetCountById(101).Should().Be(0);
         secondInventory.GetCountById(100).Should().Be(2);
-        secondRewards.GetCountById(101).Should().Be(1);
+        firstRewards.GetCountById(101).Should().Be(1);
+        secondRewards.GetCountById(101).Should().Be(0);
         secondOffer.GetCountById(101).Should().Be(0);
+
+        var firstReloadedRewards = CreateRewardContainer(first);
+        firstReloadedRewards.Hydrate(firstRewards.Dehydrate());
+        firstReloadedRewards.GetCountById(101).Should().Be(1);
     }
 
     [TestMethod]
@@ -596,6 +603,36 @@ public sealed class TradeExchangeTests
             return overflow == 0 || _overflowInventory.Add(new TestItem(995, overflow, stackable: true));
         }
 
+        public MoneyPouchMutation AddForTrade(int count)
+        {
+            if (count <= 0)
+            {
+                return MoneyPouchMutation.Empty(succeeded: false);
+            }
+
+            var inPouch = Math.Min(int.MaxValue - Count, count);
+            var pouchMutation = inPouch > 0
+                ? AddRangeForTrade([new TestItem(995, inPouch, stackable: true)])
+                : null;
+            if (pouchMutation != null && !pouchMutation.Succeeded)
+            {
+                return new MoneyPouchMutation(false, pouchMutation, null);
+            }
+
+            var remaining = count - (pouchMutation?.AppliedCount ?? 0);
+            if (remaining <= 0)
+            {
+                return new MoneyPouchMutation(true, pouchMutation, null);
+            }
+
+            var inventoryMutation = _overflowInventory.AddRangeForTrade(
+                [new TestItem(995, remaining, stackable: true)]);
+            return new MoneyPouchMutation(
+                (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount == count,
+                pouchMutation,
+                inventoryMutation);
+        }
+
         public bool AddFromInventory(int count) => false;
 
         public bool MoveToInventory(int count) => false;
@@ -607,6 +644,37 @@ public sealed class TradeExchangeTests
             return remaining <= 0
                 ? removed
                 : removed + _overflowInventory.Remove(new TestItem(995, remaining, stackable: true));
+        }
+
+        public MoneyPouchMutation RemoveForTrade(int count)
+        {
+            if (count <= 0)
+            {
+                return MoneyPouchMutation.Empty(succeeded: false);
+            }
+
+            var fromPouch = Math.Min(Count, count);
+            var pouchMutation = fromPouch > 0
+                ? base.RemoveForTrade(new TestItem(995, fromPouch, stackable: true))
+                : null;
+            if (pouchMutation != null && !pouchMutation.Succeeded)
+            {
+                return new MoneyPouchMutation(false, pouchMutation, null);
+            }
+
+            var remaining = count - (pouchMutation?.AppliedCount ?? 0);
+            if (remaining <= 0)
+            {
+                return new MoneyPouchMutation(true, pouchMutation, null);
+            }
+
+            var inventoryMutation = _overflowInventory.RemoveForTrade(
+                new TestItem(995, remaining, stackable: true));
+            var removed = (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount;
+            return new MoneyPouchMutation(
+                removed == count,
+                pouchMutation,
+                inventoryMutation);
         }
     }
 

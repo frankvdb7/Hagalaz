@@ -1148,7 +1148,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 var toAdd = item.Clone();
                 toAdd.Count = removed;
-                var offerMutation = offer.AddRangeWithMutation([toAdd]);
+                var offerMutation = offer.AddRangeForTrade([toAdd]);
                 if (offerMutation.Succeeded)
                 {
                     RefreshTradeOfferScreenLocked(session);
@@ -1203,7 +1203,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 toAdd.Count = removed;
                 if (item.Id == 995)
                 {
-                    if (!TradeExchange.AddMoney(character, removed, _itemBuilder, out var moneyMutation))
+                    if (!TradeExchange.AddMoney(character, removed, out var moneyMutation))
                     {
                         RestoreOrThrow(TradeExchange.RemoveAddedMoney(moneyMutation));
                         RestoreOrThrow(offer.Add(toAdd));
@@ -1212,7 +1212,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
                 else
                 {
-                    var inventoryMutation = character.Inventory.AddRangeWithMutation([toAdd]);
+                    var inventoryMutation = character.Inventory.AddRangeForTrade([toAdd]);
                     if (!inventoryMutation.Succeeded)
                     {
                         RestoreOrThrow(inventoryMutation.TryRollback());
@@ -1250,7 +1250,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return false;
                 }
 
-                var removed = TradeExchange.RemoveMoney(character, requestedCount, _itemBuilder, out var moneyMutation);
+                var removed = TradeExchange.RemoveMoney(character, requestedCount, out var moneyMutation);
                 if (removed <= 0)
                 {
                     if (moneyMutation.HasChanges)
@@ -1262,7 +1262,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
 
                 coinOffer.Count = removed;
-                var offerMutation = offer.AddRangeWithMutation([coinOffer]);
+                var offerMutation = offer.AddRangeForTrade([coinOffer]);
                 if (offerMutation.Succeeded)
                 {
                     RefreshTradeOfferScreenLocked(session);

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -94,6 +95,42 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         /// <summary>
+        /// Adds coins using the normal pouch overflow behavior while retaining
+        /// the exact mutations needed by a trade compensation.
+        /// </summary>
+        public MoneyPouchMutation AddForTrade(int count)
+        {
+            if (count <= 0)
+            {
+                return MoneyPouchMutation.Empty(succeeded: false);
+            }
+
+            var pouchCount = Math.Min(count, int.MaxValue - Count);
+            TradeItemMutation? pouchMutation = null;
+            if (pouchCount > 0)
+            {
+                _previousCount = Count;
+                SendMoneyPouchChangedMessage(pouchCount);
+                pouchMutation = AddRangeForTrade([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]);
+                if (!pouchMutation.Succeeded)
+                {
+                    return new MoneyPouchMutation(false, pouchMutation, null);
+                }
+            }
+
+            var remaining = count - (pouchMutation?.AppliedCount ?? 0);
+            if (remaining <= 0)
+            {
+                return new MoneyPouchMutation(true, pouchMutation, null);
+            }
+
+            var inventoryMutation = _owner.Inventory.AddRangeForTrade(
+                [_itemBuilder.Create().WithId(995).WithCount(remaining).Build()]);
+            var added = (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount;
+            return new MoneyPouchMutation(added == count, pouchMutation, inventoryMutation);
+        }
+
+        /// <summary>
         /// Removes the specified count.
         /// </summary>
         /// <param name="count">The count.</param>
@@ -116,6 +153,45 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _previousCount = Count;
             SendMoneyPouchChangedMessage(-count);
             return Remove(_itemBuilder.Create().WithId(995).WithCount(count).Build(), 0);
+        }
+
+        /// <summary>
+        /// Removes coins using the normal pouch underflow behavior while retaining
+        /// the exact mutations needed by a trade compensation.
+        /// </summary>
+        public MoneyPouchMutation RemoveForTrade(int count)
+        {
+            if (count <= 0)
+            {
+                return MoneyPouchMutation.Empty(succeeded: false);
+            }
+
+            var pouchCount = Math.Min(count, Count);
+            _previousCount = Count;
+            TradeItemMutation? pouchMutation = null;
+            if (pouchCount > 0)
+            {
+                pouchMutation = RemoveForTrade(
+                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(),
+                    0);
+                if (!pouchMutation.Succeeded)
+                {
+                    return new MoneyPouchMutation(false, pouchMutation, null);
+                }
+            }
+
+            var remaining = count - (pouchMutation?.AppliedCount ?? 0);
+            if (remaining <= 0)
+            {
+                SendMoneyPouchChangedMessage(-(pouchMutation?.AppliedCount ?? 0));
+                return new MoneyPouchMutation(true, pouchMutation, null);
+            }
+
+            var inventoryMutation = _owner.Inventory.RemoveForTrade(
+                _itemBuilder.Create().WithId(995).WithCount(remaining).Build());
+            var removed = (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount;
+            SendMoneyPouchChangedMessage(-removed);
+            return new MoneyPouchMutation(removed == count, pouchMutation, inventoryMutation);
         }
 
         /// <summary>

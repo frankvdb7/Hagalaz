@@ -90,21 +90,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         bool AddRange(IEnumerable<IItem?> newItems);
 
         /// <summary>
-        /// Adds a collection of items and returns the exact applied mutation for checked rollback.
-        /// </summary>
-        /// <param name="newItems">The collection of items to add.</param>
-        /// <returns>The applied mutation, including partial changes if the update callback fails.</returns>
-        ItemContainerMutation AddRangeWithMutation(IEnumerable<IItem?> newItems);
-
-        /// <summary>
-        /// Removes items and returns the exact applied mutation for checked rollback.
-        /// </summary>
-        /// <param name="item">The item and count to remove.</param>
-        /// <param name="preferredSlot">The preferred slot to remove from.</param>
-        /// <returns>The applied mutation.</returns>
-        ItemContainerMutation RemoveWithMutation(IItem item, int preferredSlot = -1);
-
-        /// <summary>
         /// Determines whether the container holds at least a specified amount of an item with the given ID.
         /// </summary>
         /// <param name="id">The ID of the item to check for.</param>

@@ -42,5 +42,15 @@
         /// <param name="count">The number of coins to remove.</param>
         /// <returns>The number of coins that were actually removed.</returns>
         int Remove(int count);
+
+        /// <summary>
+        /// Adds coins using the pouch's normal overflow rules and returns a checked trade mutation.
+        /// </summary>
+        MoneyPouchMutation AddForTrade(int count);
+
+        /// <summary>
+        /// Removes coins using the pouch's normal underflow rules and returns a checked trade mutation.
+        /// </summary>
+        MoneyPouchMutation RemoveForTrade(int count);
     }
 }
