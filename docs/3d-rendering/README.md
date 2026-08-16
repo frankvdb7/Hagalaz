@@ -9,10 +9,19 @@ The analysis was performed against:
 
 ## Documents
 
-- [Game client renderer](game-client-renderer.md) maps the partially deobfuscated client classes to stable rendering concepts and records verified terrain, object, model, scene, coordinate, and backend behavior.
+- [Rendering deobfuscation map](client-rendering-deobfuscation.md) defines the canonical human-readable names for the terrain, scene, floor-material, occlusion, entity, light and model concepts found in the decompiled client, including confidence and source locators.
+- [Game client renderer](game-client-renderer.md) records the verified terrain, object, model, scene, coordinate and renderer-backend behavior using those semantic names.
 - [Map cache decode/encode guide](cache-map-codecs.md) gives byte-level implementation instructions for cache containers, `mX_Y` terrain, `lX_Y` object placements, smart/huge-smart delta coding, XTEA, canonical writing, corruption guards, round-trip tests, and the current Hagalaz codec gaps.
 - [Implicit terrain height generation](terrain-height-generation.md) records the exact opcode-`0` plane-0 height algorithm, including deterministic raw noise, smoothing, cosine interpolation, client lookup-table generation, coordinate offsets, scaling, encoder implications, and required parity tests.
 - [Web renderer foundation](web-renderer-foundation.md) describes the current Hagalaz gaps, target data contracts, web architecture, rendering-engine choice, phased implementation, and verification strategy.
+
+## Naming rule
+
+The GameClient is only partially deobfuscated, but generated names such as `Class274`, `Class356`, `Class491` and `method6416` are **not architecture**.
+
+The documents in this directory use stable semantic names such as `TerrainBuilder`, `SceneGraph`, `FloorUnderlayDefinition`, `OcclusionManager`, `TerrainSurface` and `SceneLight`. The generated identifiers belong only in the [deobfuscation source-locator map](client-rendering-deobfuscation.md) so somebody can find the current decompiled source until the source-level rename is completed.
+
+Do not copy a generated GameClient identifier into a new Hagalaz API, DTO, service, TypeScript type or renderer abstraction. If a client concept is not sufficiently understood to name, keep it internal and document the uncertainty instead of exporting an obfuscated name.
 
 ## Current status
 
@@ -33,6 +42,7 @@ This means the first implementation work belongs at the cache/render-data bounda
 7. **Do not make MapLibre the core scene renderer.** It is useful for geographic-style overview/navigation surfaces, but its Mercator/globe camera and custom-layer model do not solve RuneScape scene decoding, model assembly, or plane semantics.
 8. **Keep cache payload and container encoding separate.** Terrain and location payload codecs must not know about compression, XTEA, CRC, Whirlpool, reference-table mutation, or Hagalaz's internal synthetic `MapCodec` stream.
 9. **Preserve source semantics needed for writing.** Runtime/effective values such as bridge-adjusted planes must not overwrite the raw source plane or original height encoding if later cache encoding depends on it.
+10. **Use semantic names, never generated decompiler names, in new architecture.** Generated source identifiers exist only as temporary source locators and must not become permanent server/web vocabulary.
 
 ## Terminology
 
