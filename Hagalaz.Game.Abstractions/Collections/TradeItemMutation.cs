@@ -9,16 +9,24 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// </summary>
 public sealed class TradeItemMutation
 {
+    internal enum RollbackOutcome
+    {
+        Failed,
+        Restored,
+        RestoredWithNotificationFailure
+    }
+
     private readonly int _appliedCount;
     private readonly IReadOnlyList<IItem> _appliedItems;
-    private readonly Func<bool> _rollback;
-    private bool _rolledBack;
+    private readonly Func<RollbackOutcome> _rollback;
+    private bool _stateRestored;
+    private bool _notificationPending;
 
     internal TradeItemMutation(
         int appliedCount,
         bool succeeded,
         IReadOnlyList<IItem> appliedItems,
-        Func<bool> rollback)
+        Func<RollbackOutcome> rollback)
     {
         _appliedCount = appliedCount;
         Succeeded = succeeded;
@@ -29,7 +37,7 @@ public sealed class TradeItemMutation
     /// <summary>
     /// Gets the number of units still applied by this mutation.
     /// </summary>
-    public int AppliedCount => _rolledBack ? 0 : _appliedCount;
+    public int AppliedCount => _stateRestored ? 0 : _appliedCount;
 
     /// <summary>
     /// Gets whether the requested mutation was applied completely.
@@ -39,7 +47,7 @@ public sealed class TradeItemMutation
     /// <summary>
     /// Gets the exact item delta still applied by an add operation.
     /// </summary>
-    public IReadOnlyList<IItem> AppliedItems => _rolledBack ? [] : _appliedItems;
+    public IReadOnlyList<IItem> AppliedItems => _stateRestored ? [] : _appliedItems;
 
     /// <summary>
     /// Gets whether this mutation still changes the container.
@@ -47,21 +55,29 @@ public sealed class TradeItemMutation
     public bool HasChanges => AppliedCount > 0;
 
     /// <summary>
-    /// Attempts to restore the exact pre-mutation slot and item state.
+    /// Attempts to remove only this trade's applied delta and notify the container observers.
+    /// Unrelated changes are preserved when the exact delta remains identifiable.
     /// </summary>
     public bool TryRollback()
     {
-        if (_rolledBack || _appliedCount == 0)
+        if (_appliedCount == 0 || (_stateRestored && !_notificationPending))
         {
             return true;
         }
 
-        var restored = _rollback();
-        if (restored)
+        var outcome = _rollback();
+        switch (outcome)
         {
-            _rolledBack = true;
+            case RollbackOutcome.Restored:
+                _stateRestored = true;
+                _notificationPending = false;
+                return true;
+            case RollbackOutcome.RestoredWithNotificationFailure:
+                _stateRestored = true;
+                _notificationPending = true;
+                return false;
+            default:
+                return false;
         }
-
-        return restored;
     }
 }

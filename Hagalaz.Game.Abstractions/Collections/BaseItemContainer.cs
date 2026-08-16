@@ -728,54 +728,139 @@ namespace Hagalaz.Game.Abstractions.Collections
             change.AfterCount = change.After?.Count ?? 0;
         }
 
-        private bool TryRollback(IReadOnlyList<SlotChange> changes)
+        private TradeItemMutation.RollbackOutcome TryRollback(IReadOnlyList<SlotChange> changes)
         {
             if (changes.Count == 0)
             {
-                return true;
+                return TradeItemMutation.RollbackOutcome.Restored;
             }
 
-            if (changes.All(change => Matches(change, before: true)))
+            if (changes.All(change => change.RollbackApplied || Matches(change, before: true)))
             {
                 return NotifyRollback(changes);
             }
 
-            if (changes.Any(change => !Matches(change, before: false)))
+            if (changes.Any(change => !CanApplyInverse(change)))
             {
-                return false;
+                return TradeItemMutation.RollbackOutcome.Failed;
             }
 
             OnRollbackStarting();
             foreach (var change in changes)
             {
-                Items[change.Slot] = change.Before;
-                if (change.Before != null)
-                {
-                    change.Before.Count = change.BeforeCount;
-                }
+                ApplyInverse(change);
+                change.RollbackApplied = true;
             }
 
             _version++;
             return NotifyRollback(changes);
         }
 
-        private bool NotifyRollback(IReadOnlyList<SlotChange> changes)
+        private TradeItemMutation.RollbackOutcome NotifyRollback(IReadOnlyList<SlotChange> changes)
         {
             try
             {
                 IsRollbackNotification = true;
                 OnUpdate(changes.Select(change => change.Slot).ToHashSet());
-                return true;
+                return TradeItemMutation.RollbackOutcome.Restored;
             }
             catch (InvalidOperationException)
             {
-                return false;
+                return TradeItemMutation.RollbackOutcome.RestoredWithNotificationFailure;
             }
             finally
             {
                 IsRollbackNotification = false;
             }
         }
+
+        private bool CanApplyInverse(SlotChange change)
+        {
+            if (change.RollbackApplied || Matches(change, before: true))
+            {
+                return true;
+            }
+
+            if (IsAddition(change))
+            {
+                return true;
+            }
+
+            var actual = Items[change.Slot];
+            if (ReferenceEquals(change.Before, change.After) && change.After != null)
+            {
+                if (!ReferenceEquals(actual, change.After))
+                {
+                    return false;
+                }
+
+                var delta = (long)change.AfterCount - change.BeforeCount;
+                return delta < 0
+                    ? actual.Count <= int.MaxValue + delta
+                    : actual.Count >= delta;
+            }
+
+            return ReferenceEquals(actual, change.After);
+        }
+
+        private void ApplyInverse(SlotChange change)
+        {
+            if (change.RollbackApplied || Matches(change, before: true))
+            {
+                return;
+            }
+
+            var actual = Items[change.Slot];
+            if (IsAddition(change))
+            {
+                if (!ReferenceEquals(actual, change.After))
+                {
+                    return;
+                }
+
+                var addedCount = change.AfterCount - change.BeforeCount;
+                if (actual!.Count <= addedCount)
+                {
+                    Items[change.Slot] = null;
+                }
+                else
+                {
+                    actual.Count -= addedCount;
+                }
+
+                return;
+            }
+
+            if (ReferenceEquals(change.Before, change.After) && change.After != null)
+            {
+                var delta = (long)change.AfterCount - change.BeforeCount;
+                var restoredCount = actual!.Count - delta;
+                actual.Count = (int)restoredCount;
+                return;
+            }
+
+            if (change.Before == null)
+            {
+                var remainingCount = actual!.Count - change.AfterCount;
+                if (remainingCount <= 0)
+                {
+                    Items[change.Slot] = null;
+                }
+                else
+                {
+                    actual.Count = remainingCount;
+                }
+
+                return;
+            }
+
+            Items[change.Slot] = change.Before;
+            change.Before.Count = change.BeforeCount;
+        }
+
+        private static bool IsAddition(SlotChange change) =>
+            change.Before == null && change.After != null ||
+            ReferenceEquals(change.Before, change.After) && change.AfterCount > change.BeforeCount;
 
         private bool Matches(SlotChange change, bool before)
         {
@@ -801,6 +886,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             public int BeforeCount { get; }
             public IItem? After { get; set; }
             public int AfterCount { get; set; }
+            public bool RollbackApplied { get; set; }
             public int AppliedCount => Math.Abs(AfterCount - BeforeCount);
         }
 

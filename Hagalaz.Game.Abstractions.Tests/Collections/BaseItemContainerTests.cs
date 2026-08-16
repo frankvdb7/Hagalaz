@@ -456,6 +456,19 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void TradeMutation_Rollback_PreservesUnrelatedStackChanges()
+        {
+            var existing = CreateItem(1, 10, stackable: true);
+            var container = new TestableItemContainer(StorageType.Normal, [existing], 10);
+            var mutation = container.AddRangeForTrade([CreateItem(1, 5, stackable: true)]);
+
+            existing.Count -= 3;
+
+            Assert.IsTrue(mutation.TryRollback());
+            Assert.AreEqual(7, existing.Count);
+        }
+
+        [TestMethod]
         public void Remove_ItemNotInContainer_ReturnsZero()
         {
             // Arrange

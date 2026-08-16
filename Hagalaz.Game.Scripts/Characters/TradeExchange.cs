@@ -49,7 +49,6 @@ internal static class TradeExchange
         private readonly ITradeItemContainer _firstOffer;
         private readonly ITradeItemContainer _secondOffer;
         private readonly bool _firstReceivesSecondOffer;
-        private readonly List<RecoveryReceipt> _pendingRecoveries = [];
 
         public TradeCompensation(
             TransferReceipt? firstReceipt,
@@ -79,96 +78,87 @@ internal static class TradeExchange
         /// </summary>
         public bool TryConserve(ICharacter first, ICharacter second)
         {
-            if (!TryResolvePendingRecoveries(_pendingRecoveries))
-            {
-                return false;
-            }
-
             var firstSource = _firstReceivesSecondOffer ? _secondOffer : _firstOffer;
             var secondSource = _firstReceivesSecondOffer ? _firstOffer : _secondOffer;
             var firstMutations = new List<TradeItemMutation>();
             var secondMutations = new List<TradeItemMutation>();
-
-            if (!TryRemoveAppliedDelta(firstSource, _firstReceipt, firstMutations) ||
-                !TryRemoveAppliedDelta(secondSource, _secondReceipt, secondMutations))
+            try
             {
-                var failedSecondMutationsRestored = TryRollback(secondMutations);
-                var failedFirstMutationsRestored = TryRollback(firstMutations);
-                if (!failedSecondMutationsRestored || !failedFirstMutationsRestored)
+                if (!TryRemoveAppliedDelta(firstSource, _firstReceipt, firstMutations) ||
+                    !TryRemoveAppliedDelta(secondSource, _secondReceipt, secondMutations))
+                {
+                    TradeExchange.TryRollback(secondMutations);
+                    TradeExchange.TryRollback(firstMutations);
+                    return false;
+                }
+
+                if (!_firstReceivesSecondOffer &&
+                    TryConserveEscrow(first, _firstOffer, second, _secondOffer))
+                {
+                    return true;
+                }
+
+                if (_firstReceivesSecondOffer && TryCompleteExchange(first, second))
+                {
+                    return true;
+                }
+
+                // If recovery cannot complete, restore the offer mutations and leave
+                // the compensation pending for another checked attempt.
+                var secondMutationsRestored = TradeExchange.TryRollback(secondMutations);
+                var firstMutationsRestored = TradeExchange.TryRollback(firstMutations);
+                if (!secondMutationsRestored || !firstMutationsRestored)
                 {
                     return false;
                 }
 
                 return false;
             }
-
-            if (!_firstReceivesSecondOffer &&
-                TryConserveEscrow(first, _firstOffer, second, _secondOffer, _pendingRecoveries))
+            catch (InvalidOperationException)
             {
-                return true;
-            }
-
-            if (_firstReceivesSecondOffer && TryCompleteExchange(first, second, firstMutations, secondMutations))
-            {
-                return true;
-            }
-
-            // If recovery cannot complete, restore the offer mutations and leave
-            // the compensation pending for another checked attempt.
-            var secondMutationsRestored = TryRollback(secondMutations);
-            var firstMutationsRestored = TryRollback(firstMutations);
-            if (!secondMutationsRestored || !firstMutationsRestored)
-            {
+                TradeExchange.TryRollback(secondMutations);
+                TradeExchange.TryRollback(firstMutations);
                 return false;
             }
-
-            return false;
         }
 
         private bool TryCompleteExchange(
             ICharacter first,
-            ICharacter second,
-            IReadOnlyList<TradeItemMutation> firstMutations,
-            IReadOnlyList<TradeItemMutation> secondMutations)
+            ICharacter second)
         {
-            RecoveryReceipt? firstRecovery = null;
-            RecoveryReceipt? secondRecovery = null;
             var firstItems = SnapshotItems(_firstOffer);
             var secondItems = SnapshotItems(_secondOffer);
             var firstDestination = GetRecoveryContainer(second, firstItems);
             var secondDestination = GetRecoveryContainer(first, secondItems);
+            var completedRecoveries = new List<TradeItemMutation>();
             if ((firstItems.Length > 0 && firstDestination == null) ||
                 (secondItems.Length > 0 && secondDestination == null))
             {
                 return false;
             }
 
-            if (firstDestination != null &&
-                !TryStoreEscrow(_firstOffer, firstDestination, out firstRecovery))
+            if (firstDestination != null)
             {
-                var firstRecoveryRestored = firstRecovery?.Rollback() ?? true;
-                TrackFailedRecovery(_pendingRecoveries, firstRecovery, firstRecoveryRestored);
-                return false;
-            }
-
-            if (secondDestination != null &&
-                !TryStoreEscrow(_secondOffer, secondDestination, out secondRecovery))
-            {
-                var firstRecoveryRestored = firstRecovery?.Rollback() ?? true;
-                var secondRecoveryRestored = secondRecovery?.Rollback() ?? true;
-                TrackFailedRecovery(_pendingRecoveries, firstRecovery, firstRecoveryRestored);
-                TrackFailedRecovery(_pendingRecoveries, secondRecovery, secondRecoveryRestored);
-                var secondSourceRestored = TryRollback(secondMutations);
-                var firstSourceRestored = TryRollback(firstMutations);
-                if (!firstRecoveryRestored ||
-                    !secondRecoveryRestored ||
-                    !secondSourceRestored ||
-                    !firstSourceRestored)
+                if (!TryStoreEscrow(_firstOffer, firstDestination, out var firstRecovery))
                 {
+                    TryRollback(firstRecovery);
+                    TryRollback(completedRecoveries);
                     return false;
                 }
 
-                return false;
+                completedRecoveries.AddRange(firstRecovery);
+            }
+
+            if (secondDestination != null)
+            {
+                if (!TryStoreEscrow(_secondOffer, secondDestination, out var secondRecovery))
+                {
+                    TryRollback(secondRecovery);
+                    TryRollback(completedRecoveries);
+                    return false;
+                }
+
+                completedRecoveries.AddRange(secondRecovery);
             }
 
             return true;
@@ -207,16 +197,6 @@ internal static class TradeExchange
             return moneyMutation.Succeeded && moneyMutation.AppliedCount == receipt.AppliedMoneyCount;
         }
 
-        private static bool TryRollback(IReadOnlyList<TradeItemMutation> mutations)
-        {
-            var restored = true;
-            for (var i = mutations.Count - 1; i >= 0; i--)
-            {
-                restored &= mutations[i].TryRollback();
-            }
-
-            return restored;
-        }
     }
 
     public static bool TryExchange(
@@ -255,16 +235,8 @@ internal static class TradeExchange
         ICharacter first,
         ITradeItemContainer firstOffer,
         ICharacter second,
-        ITradeItemContainer secondOffer,
-        ICollection<RecoveryReceipt>? pendingRecoveries = null)
+        ITradeItemContainer secondOffer)
     {
-        if (pendingRecoveries != null && !TryResolvePendingRecoveries(pendingRecoveries))
-        {
-            return false;
-        }
-
-        RecoveryReceipt? firstReceipt = null;
-        RecoveryReceipt? secondReceipt = null;
         try
         {
             var firstItems = SnapshotItems(firstOffer);
@@ -277,68 +249,35 @@ internal static class TradeExchange
                 return false;
             }
 
-            if (firstDestination != null && !TryStoreEscrow(firstOffer, firstDestination, out firstReceipt))
+            var completedRecoveries = new List<TradeItemMutation>();
+            if (firstDestination != null)
             {
-                var firstRestored = firstReceipt?.Rollback() ?? true;
-                TrackFailedRecovery(pendingRecoveries, firstReceipt, firstRestored);
-                return false;
-            }
-
-            if (secondDestination != null && !TryStoreEscrow(secondOffer, secondDestination, out secondReceipt))
-            {
-                var secondRestored = secondReceipt?.Rollback() ?? true;
-                var firstRestored = firstReceipt?.Rollback() ?? true;
-                TrackFailedRecovery(pendingRecoveries, secondReceipt, secondRestored);
-                TrackFailedRecovery(pendingRecoveries, firstReceipt, firstRestored);
-                if (!secondRestored || !firstRestored)
+                if (!TryStoreEscrow(firstOffer, firstDestination, out var firstRecovery))
                 {
+                    TryRollback(firstRecovery);
                     return false;
                 }
 
-                return false;
+                completedRecoveries.AddRange(firstRecovery);
+            }
+
+            if (secondDestination != null)
+            {
+                if (!TryStoreEscrow(secondOffer, secondDestination, out var secondRecovery))
+                {
+                    TryRollback(secondRecovery);
+                    TryRollback(completedRecoveries);
+                    return false;
+                }
+
+                completedRecoveries.AddRange(secondRecovery);
             }
 
             return true;
         }
         catch (InvalidOperationException)
         {
-            var secondRestored = secondReceipt?.Rollback() ?? true;
-            var firstRestored = firstReceipt?.Rollback() ?? true;
-            TrackFailedRecovery(pendingRecoveries, secondReceipt, secondRestored);
-            TrackFailedRecovery(pendingRecoveries, firstReceipt, firstRestored);
-            if (!secondRestored || !firstRestored)
-            {
-                return false;
-            }
-
             return false;
-        }
-    }
-
-    private static bool TryResolvePendingRecoveries(ICollection<RecoveryReceipt> pendingRecoveries)
-    {
-        var restored = true;
-        foreach (var recovery in pendingRecoveries)
-        {
-            restored &= recovery.Rollback();
-        }
-
-        if (restored)
-        {
-            pendingRecoveries.Clear();
-        }
-
-        return restored;
-    }
-
-    private static void TrackFailedRecovery(
-        ICollection<RecoveryReceipt>? pendingRecoveries,
-        RecoveryReceipt? recovery,
-        bool restored)
-    {
-        if (!restored && recovery != null && pendingRecoveries != null && !pendingRecoveries.Contains(recovery))
-        {
-            pendingRecoveries.Add(recovery);
         }
     }
 
@@ -394,40 +333,34 @@ internal static class TradeExchange
     private static bool TryStoreEscrow(
         ITradeItemContainer offer,
         ITradeItemContainer destination,
-        out RecoveryReceipt? receipt)
+        out IReadOnlyList<TradeItemMutation> appliedMutations)
     {
-        receipt = null;
+        var mutations = new List<TradeItemMutation>();
+        appliedMutations = mutations;
         var items = SnapshotItems(offer);
         if (items.Length == 0)
         {
             return true;
         }
 
-        var recoveryReceipt = new RecoveryReceipt(offer, items);
-        receipt = recoveryReceipt;
+        var destinationMutation = default(TradeItemMutation?);
         try
         {
-            var destinationMutation = destination.AddRangeForTrade(items);
-            recoveryReceipt.SetDestinationMutation(destinationMutation);
+            destinationMutation = destination.AddRangeForTrade(items);
+            mutations.Add(destinationMutation);
             if (!destinationMutation.Succeeded)
             {
-                if (!recoveryReceipt.Rollback())
-                {
-                    return false;
-                }
-
+                TryRollback(mutations);
                 return false;
             }
 
             for (var i = 0; i < items.Length; i++)
             {
-                if (!recoveryReceipt.RemoveFromOffer(i))
+                var mutation = offer.RemoveForTrade(items[i]);
+                mutations.Add(mutation);
+                if (!mutation.Succeeded || mutation.AppliedCount != items[i].Count)
                 {
-                    if (!recoveryReceipt.Rollback())
-                    {
-                        return false;
-                    }
-
+                    TryRollback(mutations);
                     return false;
                 }
             }
@@ -436,13 +369,20 @@ internal static class TradeExchange
         }
         catch (InvalidOperationException)
         {
-            if (!recoveryReceipt.Rollback())
-            {
-                return false;
-            }
-
+            TryRollback(mutations);
             return false;
         }
+    }
+
+    private static bool TryRollback(IReadOnlyList<TradeItemMutation> mutations)
+    {
+        var restored = true;
+        for (var i = mutations.Count - 1; i >= 0; i--)
+        {
+            restored &= mutations[i].TryRollback();
+        }
+
+        return restored;
     }
 
     private static TransferResult TryTransfer(
@@ -595,42 +535,6 @@ internal static class TradeExchange
 
     private static IItem[] SnapshotItems(IItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
-
-    internal sealed class RecoveryReceipt
-    {
-        private readonly ITradeItemContainer _offer;
-        private readonly IReadOnlyList<IItem> _items;
-        private readonly List<TradeItemMutation> _offerMutations = [];
-        private TradeItemMutation? _destinationMutation;
-
-        public RecoveryReceipt(ITradeItemContainer offer, IReadOnlyList<IItem> items)
-        {
-            _offer = offer;
-            _items = items;
-        }
-
-        public void SetDestinationMutation(TradeItemMutation mutation) => _destinationMutation = mutation;
-
-        public bool RemoveFromOffer(int index)
-        {
-            var item = _items[index];
-            var mutation = _offer.RemoveForTrade(item);
-            _offerMutations.Add(mutation);
-            return mutation.Succeeded && mutation.AppliedCount == item.Count;
-        }
-
-        public bool Rollback()
-        {
-            var offerRestored = true;
-            for (var i = _offerMutations.Count - 1; i >= 0; i--)
-            {
-                offerRestored &= _offerMutations[i].TryRollback();
-            }
-
-            var destinationRestored = _destinationMutation?.TryRollback() ?? true;
-            return offerRestored & destinationRestored;
-        }
-    }
 
     internal sealed class TransferReceipt
     {

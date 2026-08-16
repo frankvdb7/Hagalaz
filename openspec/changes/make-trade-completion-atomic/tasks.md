@@ -5,7 +5,7 @@
 
 ## 2. Checked atomic exchange and cleanup
 
-- [x] 2.1 Add checked offer/refund helpers and one focused exact-delta trade-container mutation primitive for the explicit trade participants used by inventory, rewards, bank, and trade offers, preserving escrow when a reversal cannot be safely completed and notifying observers on rollback. (Acceptance: all mutation results checked; cancellation conservation; no aggregate-count rollback; unrelated container behavior unchanged)
+- [x] 2.1 Add checked offer/refund helpers and one focused exact-delta trade-container mutation primitive for the explicit trade participants used by inventory, rewards, bank, and trade offers; make rollback apply the inverse delta, notify observers, and preserve unrelated container behavior. (Acceptance: all mutation results checked; cancellation conservation; no aggregate-count rollback; unrelated container behavior unchanged)
 - [x] 2.2 Implement preflight and rollback-protected two-recipient exchange using existing containers and money-pouch behavior; clear escrow only after success. (Acceptance: capacity, mutation failure, stackable/non-stackable, and coin conservation)
 - [x] 2.3 Consolidate completion and cancellation into one terminal cleanup path and remove any reachable post-completion refund path. (Acceptance: one cleanup implementation; no refund after completion)
 - [x] 2.4 Distinguish incomplete exchange compensation from an ordinarily failed exchange; during forced destruction, complete the remaining opposite-side exchange into the intended recipient's persisted rewards/bank recovery container, while refund compensation stores remaining value for its original owner. (Acceptance: no partial exchange settlement; deterministic disconnect conservation)
@@ -14,7 +14,7 @@
 
 - [x] 3.1 Add barrier/controlled-task coverage for concurrent final accepts, repeated accepts, accept/cancel, target disconnect/logout, and independent trades. (Required regression tests 1-4 and 10-11)
 - [x] 3.2 Add focused success/failure coverage for item quantities, stackability, coin conservation, destination capacity, offer mutation, and recipient mutation rollback. (Required regression tests 5-9)
-- [x] 3.3 Add regressions for exact compensation after an unrelated recipient mutation, all-or-nothing compensation-pending destruction, recovery-receipt retention after an unrollbackable recovery mutation, rollback notifications, and recovery persistence without a later tick. (Required regression tests 12-13)
+- [x] 3.3 Add regressions for exact compensation after an unrelated recipient mutation, all-or-nothing compensation-pending destruction, exact recovery rollback after an unrelated stack change, rollback notifications, and recovery persistence without a later tick. (Required regression tests 12-13)
 
 ## 4. Validation
 

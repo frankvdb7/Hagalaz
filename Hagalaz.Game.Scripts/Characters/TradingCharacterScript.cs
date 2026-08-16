@@ -42,7 +42,6 @@ namespace Hagalaz.Game.Scripts.Characters
             public TradingCharacterScript? TargetScript { get; set; }
             public TradeState State { get; set; } = TradeState.Active;
             public TradeExchange.TradeCompensation? PendingCompensation { get; set; }
-            public List<TradeExchange.RecoveryReceipt> PendingRecoveries { get; } = [];
             public bool RetryCancellationAfterCompensation { get; set; }
 
             public TradeSessionState(TradingCharacterScript owner, ICharacter target)
@@ -1800,8 +1799,7 @@ namespace Hagalaz.Game.Scripts.Characters
                             Character,
                             SelfContainer,
                             session.Target,
-                            TargetContainer,
-                            session.PendingRecoveries))
+                            TargetContainer))
                     {
                         session.State = TradeState.Cancelled;
                         ResetTradeSessionLocked(session);
@@ -1945,7 +1943,6 @@ namespace Hagalaz.Game.Scripts.Characters
             SelfAcceptedContainerRevision = null;
             TargetAcceptedContainerRevision = null;
             session.PendingCompensation = null;
-            session.PendingRecoveries.Clear();
             session.RetryCancellationAfterCompensation = false;
             SelfContainer = null;
             TargetContainer = null;
