@@ -21,7 +21,7 @@ An active trade MUST serialize final acceptance, cancellation, interruption, and
 
 ### Requirement: Completion validates under one mutation boundary
 
-Before changing recipients or escrow, completion MUST lock all involved base containers in deterministic order, snapshot both offers, verify both accepted revisions, and verify complete recipient capacity including money-pouch overflow.
+Before changing recipients or escrow, completion MUST lock all involved `TradeItemContainer` participants in deterministic order, snapshot both offers, verify both accepted revisions, and verify complete recipient capacity including money-pouch overflow. Normal mutators on those participating containers MUST honor the same boundary; unrelated `BaseItemContainer` descendants are outside this synchronization scope.
 
 #### Scenario: Capacity is insufficient
 

@@ -114,14 +114,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             _previousCount = Count;
-            if (pouchCount > 0 && !base.Add(_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()))
+            if (pouchCount > 0 && !AddRangeForTrade([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]))
             {
                 return false;
             }
 
-            SendMoneyPouchChangedMessage(pouchCount);
+            SendMoneyPouchChangedMessageForTrade(pouchCount);
 
-            return inventoryCount <= 0 || _owner.Inventory.Add(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build());
+            return inventoryCount <= 0 || _owner.Inventory.AddRangeForTrade(
+                [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()]);
         }
 
         /// <summary>
@@ -169,19 +170,32 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             _previousCount = Count;
-            if (pouchCount > 0 && base.Remove(_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, false) != pouchCount)
+            if (pouchCount > 0 && !RemoveForTrade(
+                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0))
             {
                 return false;
             }
 
-            if (inventoryCount > 0 && _owner.Inventory.Remove(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()) != inventoryCount)
+            if (inventoryCount > 0 && !_owner.Inventory.RemoveForTrade(
+                    _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
                 return false;
             }
 
-            SendMoneyPouchChangedMessage(-count);
-            NotifyTradeUpdate([0]);
+            SendMoneyPouchChangedMessageForTrade(-count);
             return true;
+        }
+
+        private void SendMoneyPouchChangedMessageForTrade(int changeCount)
+        {
+            try
+            {
+                SendMoneyPouchChangedMessage(changeCount);
+            }
+            catch (InvalidOperationException)
+            {
+                // Trade storage has already committed; observer delivery is best effort.
+            }
         }
 
         /// <summary>

@@ -154,23 +154,25 @@ internal static class TradeExchange
     private static bool CanReceive(ICharacter character, IReadOnlyList<IItem> items, IItemBuilder itemBuilder)
     {
         var nonCoinItems = items.Where(item => item.Id != CoinsItemId).ToArray();
-        if (nonCoinItems.Length > 0 && !character.Inventory.HasSpaceForRange(nonCoinItems))
+        var coinCount = items.Where(item => item.Id == CoinsItemId).Sum(item => (long)item.Count);
+        if (coinCount > int.MaxValue)
         {
             return false;
         }
 
-        long pouchSpace = int.MaxValue - (long)character.MoneyPouch.Count;
-        long inventoryCoins = 0;
-        foreach (var item in items.Where(item => item.Id == CoinsItemId))
+        var pouchSpace = int.MaxValue - (long)character.MoneyPouch.Count;
+        var inventoryCoins = Math.Max(0, coinCount - pouchSpace);
+        var recipientItems = nonCoinItems;
+        if (inventoryCoins > 0)
         {
-            var pouchCoins = Math.Min(pouchSpace, item.Count);
-            pouchSpace -= pouchCoins;
-            inventoryCoins += item.Count - pouchCoins;
+            var overflowCoins = itemBuilder.Create()
+                .WithId(CoinsItemId)
+                .WithCount((int)inventoryCoins)
+                .Build();
+            recipientItems = nonCoinItems.Append(overflowCoins).ToArray();
         }
 
-        return inventoryCoins <= int.MaxValue &&
-               (inventoryCoins <= 0 || character.Inventory.HasSpaceFor(
-                   itemBuilder.Create().WithId(CoinsItemId).WithCount((int)inventoryCoins).Build()));
+        return character.Inventory.HasSpaceForRange(recipientItems);
     }
 
     private static ITradeItemContainer? GetRecoveryContainer(ICharacter character, IReadOnlyList<IItem> items)

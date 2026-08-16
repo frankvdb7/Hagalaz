@@ -5,6 +5,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using System.Collections.Generic;
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 
 namespace Hagalaz.Game.Abstractions.Tests.Collections
@@ -680,6 +682,45 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             };
 
             Assert.ThrowsExactly<InvalidOperationException>(() => container.AddRange([CreateItem(1, 1)]));
+            Assert.AreEqual(1, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void NormalMutation_UsesTradeSynchronizationBoundary()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            using var started = new ManualResetEventSlim();
+            using var proceed = new ManualResetEventSlim();
+            using var finished = new ManualResetEventSlim();
+
+            Task mutation;
+            bool startedInTime;
+            bool finishedWhileLocked;
+            lock (container.MutationLock)
+            {
+                mutation = Task.Run(() =>
+                {
+                    started.Set();
+                    proceed.Wait();
+                    try
+                    {
+                        container.Add(CreateItem(1, 1));
+                    }
+                    finally
+                    {
+                        finished.Set();
+                    }
+                });
+
+                startedInTime = started.Wait(TimeSpan.FromSeconds(1));
+                proceed.Set();
+                finishedWhileLocked = finished.Wait(TimeSpan.FromMilliseconds(100));
+            }
+
+            Assert.IsTrue(startedInTime);
+            Assert.IsFalse(finishedWhileLocked);
+            Assert.IsTrue(finished.Wait(TimeSpan.FromSeconds(1)));
+            mutation.GetAwaiter().GetResult();
             Assert.AreEqual(1, container.TakenSlots);
         }
 

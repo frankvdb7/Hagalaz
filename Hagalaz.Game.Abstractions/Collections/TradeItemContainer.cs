@@ -33,6 +33,37 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     {
     }
 
+    public override bool Add(int slot, IItem item) => ExecuteLocked(() => base.Add(slot, item));
+
+    public override bool Add(IItem item) => ExecuteLocked(() => base.Add(item));
+
+    public override bool AddRange(IEnumerable<IItem?> items) => ExecuteLocked(() => base.AddRange(items));
+
+    public override void AddAndRemoveFrom(IItemContainer container)
+    {
+        ExecuteWithContainerLock(container, () => base.AddAndRemoveFrom(container));
+    }
+
+    public override int Remove(IItem item, int preferredSlot = -1, bool update = true) =>
+        ExecuteLocked(() => base.Remove(item, preferredSlot, update));
+
+    public override void Remove(BaseItemContainer container, bool update = true)
+    {
+        ExecuteWithContainerLock(container, () => base.Remove(container, update));
+    }
+
+    public override void Replace(int slot, IItem item) => ExecuteLocked(() => base.Replace(slot, item));
+
+    public override void Move(int fromSlot, int toSlot) => ExecuteLocked(() => base.Move(fromSlot, toSlot));
+
+    public override void Swap(int fromSlot, int toSlot) => ExecuteLocked(() => base.Swap(fromSlot, toSlot));
+
+    public override void Sort() => ExecuteLocked(base.Sort);
+
+    public override void Clear(bool update) => ExecuteLocked(() => base.Clear(update));
+
+    public override void SetItems(IItem[] items, bool update) => ExecuteLocked(() => base.SetItems(items, update));
+
     /// <inheritdoc />
     public bool AddRangeForTrade(IEnumerable<IItem?> items)
     {
@@ -145,6 +176,39 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
         catch (InvalidOperationException)
         {
             // Storage mutation has already committed; observer delivery is best effort.
+        }
+    }
+
+    private T ExecuteLocked<T>(Func<T> mutation)
+    {
+        lock (MutationLock)
+        {
+            return mutation();
+        }
+    }
+
+    private void ExecuteLocked(Action mutation)
+    {
+        lock (MutationLock)
+        {
+            mutation();
+        }
+    }
+
+    private void ExecuteWithContainerLock(IItemContainer container, Action mutation)
+    {
+        if (container is not TradeItemContainer other || ReferenceEquals(this, other))
+        {
+            ExecuteLocked(mutation);
+            return;
+        }
+
+        var first = MutationOrder <= other.MutationOrder ? this : other;
+        var second = ReferenceEquals(first, this) ? other : this;
+        lock (first.MutationLock)
+        lock (second.MutationLock)
+        {
+            mutation();
         }
     }
 }

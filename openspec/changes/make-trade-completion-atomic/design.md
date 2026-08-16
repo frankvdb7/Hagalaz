@@ -2,13 +2,13 @@
 
 Trade callbacks can run concurrently. The session gate serializes lifecycle decisions, but it does not by itself protect inventory, money-pouch, or offer containers from unrelated synchronous mutations. There is no existing pairwise character lock.
 
-The design therefore uses a small neutral boundary already owned by each container: a private mutation lock and stable lock order. Normal `BaseItemContainer` mutators use that boundary. `TradeItemContainer` adds only the checked boolean operations needed by trade. No trade concept is placed in the base class.
+The design therefore uses a small opt-in boundary owned by `TradeItemContainer`: a private mutation lock and stable lock order. Its inherited normal mutators and checked trade operations use that boundary, while unrelated `BaseItemContainer` descendants remain unlocked and unchanged. No trade concept is placed in the base class.
 
 ## Decisions
 
 1. **One owner and four states.** `TradingCharacterScript` owns `Active`, `Completing`, `Completed`, and `Cancelled`. The session gate prevents duplicate completion or cancellation. A failed completion returns to active processing and can then follow the ordinary cancellation path.
 
-2. **Lock before snapshot and validation.** `TradeExchange` gathers the two offer containers, both inventories, and both money pouches, sorts distinct base containers by their stable order, and locks them synchronously. It snapshots offers and validates capacity only after the locks are held.
+2. **Lock before snapshot and validation.** `TradeExchange` gathers the two offer containers, both inventories, and both money pouches, sorts distinct participating `TradeItemContainer` instances by their stable order, and locks them synchronously. It snapshots offers and validates capacity only after the locks are held.
 
 3. **Boolean domain operations.** `ITradeItemContainer` exposes only checked add/remove success. `IMoneyPouchContainer` exposes boolean `AddForTrade`/`RemoveForTrade`; the pouch owns its overflow and underflow rules, including inventory coins and pouch notifications. No mutation handle escapes the operation.
 

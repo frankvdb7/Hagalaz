@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Characters;
@@ -89,6 +90,25 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void MoneyPouchTradeAdd_WhenNotificationFails_CompletesTheMutation()
+    {
+        var inventory = new TestInventory(14);
+        var character = CreateCharacter(inventory, Substitute.For<IMoneyPouchContainer>());
+        character.ServiceProvider.Returns(new ServiceCollection()
+            .AddSingleton<IItemBuilder>(CreateItemBuilder())
+            .BuildServiceProvider());
+        var eventManager = Substitute.For<IEventManager>();
+        eventManager.SendEvent(Arg.Any<IEvent>()).Returns(_ => throw new InvalidOperationException("Controlled observer failure."));
+        character.EventManager.Returns(eventManager);
+        var moneyPouch = new MoneyPouchContainer(character);
+
+        var result = moneyPouch.AddForTrade(1);
+
+        result.Should().BeTrue();
+        moneyPouch.Count.Should().Be(1);
+    }
+
+    [TestMethod]
     public void TryExchange_WhenPouchIsFull_UsesInventoryForCoinOverflow()
     {
         var firstInventory = new TestInventory(1);
@@ -106,6 +126,31 @@ public sealed class TradeExchangeTests
         result.Should().BeTrue();
         firstMoneyPouch.Count.Should().Be(int.MaxValue);
         firstInventory.GetCountById(995).Should().Be(2);
+    }
+
+    [TestMethod]
+    public void TryExchange_WhenItemAndFullPouchOverflowShareOneSlot_FailsWithoutMutation()
+    {
+        var firstInventory = new TestInventory(2);
+        firstInventory.Add(new TestItem(200, 1)).Should().BeTrue();
+        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
+        firstMoneyPouch.Add(int.MaxValue).Should().BeTrue();
+        var first = CreateCharacter(firstInventory, firstMoneyPouch);
+        var secondInventory = new TestInventory(1);
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
+        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
+        secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
+        secondOffer.Add(new TestItem(995, 1, stackable: true)).Should().BeTrue();
+
+        var result = TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder());
+
+        result.Should().BeFalse();
+        firstInventory.GetCountById(101).Should().Be(0);
+        firstInventory.GetCountById(995).Should().Be(0);
+        firstMoneyPouch.Count.Should().Be(int.MaxValue);
+        secondOffer.GetCountById(101).Should().Be(1);
+        secondOffer.GetCountById(995).Should().Be(1);
     }
 
     [TestMethod]

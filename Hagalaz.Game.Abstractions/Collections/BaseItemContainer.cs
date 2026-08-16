@@ -101,7 +101,7 @@ namespace Hagalaz.Game.Abstractions.Collections
                 {
                     while (en.MoveNext())
                     {
-                        Add(en.Current);
+                        AddInitialItem(en.Current);
                     }
                 }
             }
@@ -228,7 +228,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="item">The item to add.</param>
         /// <returns><c>true</c> if the item was successfully added; otherwise, <c>false</c>.</returns>
-        public bool Add(IItem item)
+        public virtual bool Add(IItem item)
         {
             for (var slot = 0; slot < Items.Length; slot++)
             {
@@ -281,7 +281,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="newItems">The collection of items to add.</param>
         /// <returns><c>true</c> if all items were added successfully; otherwise, <c>false</c>.</returns>
-        public bool AddRange(IEnumerable<IItem?> newItems)
+        public virtual bool AddRange(IEnumerable<IItem?> newItems)
         {
             if (!AddRangeCore(newItems, out var slotsToUpdate))
             {
@@ -315,6 +315,14 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             return true;
+        }
+
+        private void AddInitialItem(IItem item)
+        {
+            if (ApplyAddRange([item], new HashSet<int>()))
+            {
+                _version++;
+            }
         }
 
         private bool ApplyAddRange(IEnumerable<IItem?> newItems, HashSet<int> slotsToUpdate)
@@ -387,7 +395,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// Transfers all items from another container into this one.
         /// </summary>
         /// <param name="container">The source container from which to transfer items.</param>
-        public void AddAndRemoveFrom(IItemContainer container)
+        public virtual void AddAndRemoveFrom(IItemContainer container)
         {
             AddAndRemoveFromCore(container);
         }
@@ -470,7 +478,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="preferredSlot">The preferred slot to remove from. If -1, any slot will be used.</param>
         /// <param name="update">If set to <c>true</c>, the <see cref="OnUpdate"/> callback is invoked.</param>
         /// <returns>The number of items actually removed.</returns>
-        public int Remove(IItem item, int preferredSlot = -1, bool update = true)
+        public virtual int Remove(IItem item, int preferredSlot = -1, bool update = true)
         {
             var slots = new HashSet<int>();
             var removed = ApplyRemove(item, preferredSlot, slots);
@@ -581,7 +589,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="container">The container holding the items to remove.</param>
         /// <param name="update">If set to <c>true</c>, the <see cref="OnUpdate"/> callback is invoked.</param>
-        public void Remove(BaseItemContainer container, bool update = true)
+        public virtual void Remove(BaseItemContainer container, bool update = true)
         {
             var slotsToUpdate = new HashSet<int>();
             for (var i = 0; i < container.Capacity; i++)
@@ -655,7 +663,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="fromSlot">The slot of the item to move.</param>
         /// <param name="toSlot">The destination slot.</param>
-        public void Move(int fromSlot, int toSlot)
+        public virtual void Move(int fromSlot, int toSlot)
         {
              if ((uint)fromSlot >= (uint)Items.Length || (uint)toSlot >= (uint)Items.Length)
             {
@@ -718,7 +726,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="fromSlot">The first slot to swap.</param>
         /// <param name="toSlot">The second slot to swap.</param>
-        public void Swap(int fromSlot, int toSlot)
+        public virtual void Swap(int fromSlot, int toSlot)
         {
             var fromItem = Items[fromSlot];
             if (fromItem == null) return;
@@ -769,7 +777,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Sorts the container by moving all items to the beginning, removing any empty slots between them.
         /// </summary>
-        public void Sort()
+        public virtual void Sort()
         {
             var baseWrite = 0;
             for (var i = 0; i < Items.Length; i++)
