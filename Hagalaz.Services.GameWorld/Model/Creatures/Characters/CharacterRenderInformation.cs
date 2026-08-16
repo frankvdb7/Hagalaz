@@ -50,7 +50,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains last character location.
         /// </summary>
         /// <value>The last location.</value>
-        public ILocation LastLocation { get; private set; }
+        private ILocation? _lastLocation;
+
+        public ILocation LastLocation =>
+            _lastLocation ?? throw new InvalidOperationException("Last location is available after character registration.");
 
         /// <summary>
         /// Gets a value indicating whether [large scene view].
@@ -103,7 +106,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             LocalNpcs = [];
             _currentGraphics = new IGraphic[4];
             _characterLocationMap = renderable.ServiceProvider.GetRequiredService<ICharacterLocationService>();
-            LastLocation = renderable.Location.Clone();
         }
 
         /// <summary>
@@ -118,7 +120,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public void OnRegistered()
         {
-            LastLocation = _owner.Location.Clone();
+            _lastLocation = _owner.Location.Clone();
             LocalCharacters.AddLast(_owner); // at itself to local characters.
             SetInViewport(_owner.Index, true);
             ScheduleFlagUpdate(Game.Abstractions.Model.Creatures.Characters.UpdateFlags.MovementType); // make yourself move normally
@@ -169,7 +171,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             _characterLocationMap.SetLocationByIndex(_owner.Index, _owner.Location);
-            LastLocation = _owner.Location.Clone();
+            _lastLocation = _owner.Location.Clone();
         }
 
         /// <summary>

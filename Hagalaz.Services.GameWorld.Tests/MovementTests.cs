@@ -74,6 +74,21 @@ public sealed class MovementTests
     }
 
     [TestMethod]
+    public void Tick_MovingRemovesRestingStateAndInvokesCleanupOnce()
+    {
+        var (creature, _, _) = CreateCreature(Location.Create(10, 10, 0), 1);
+        var removalCount = 0;
+        creature.AddState(new RestingState { OnRemovedCallback = () => removalCount++ });
+        creature.Movement.AddToQueue(Location.Create(15, 10, 0));
+
+        creature.Movement.Tick();
+        creature.Movement.Tick();
+
+        Assert.IsFalse(creature.HasState<RestingState>());
+        Assert.AreEqual(1, removalCount);
+    }
+
+    [TestMethod]
     public void Tick_RunMovement_AdvancesTwoTilesTowardQueuedWaypoint()
     {
         var start = Location.Create(10, 10, 0);

@@ -252,7 +252,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             Viewport = new Viewport(this, MapRegionService, MapSize.Default);
             Movement = new Movement(this);
 
-            // Updating core.
+            // Render information is required while appearance details are hydrated.
             RenderInformation = new CharacterRenderInformation(this);
 
             Inventory = new InventoryContainer(this, 28);

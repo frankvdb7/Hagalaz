@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Frozen" state, where a creature cannot move.
     /// </summary>
     [StateMetaData("frozen-state")]
-    public class FrozenState : State
+    public class FrozenState : TimedState, IKeepLongestDurationState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FrozenState"/> class.

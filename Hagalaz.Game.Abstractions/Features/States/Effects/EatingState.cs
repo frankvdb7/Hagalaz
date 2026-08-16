@@ -5,14 +5,14 @@ using System;
 namespace Hagalaz.Game.Abstractions.Features.States.Effects
 {
     [StateMetaData("eating-state")]
-    public class EatingState : State
+    public class EatingState : TimedState, IStateLifecycle, IKeepLongestDurationState
     {
         public Action? OnRemovedCallback { get; set; }
 
-        public override void OnStateRemoved(IState state, ICreature creature)
+        public void OnRemoved(ICreature creature)
         {
-            base.OnStateRemoved(state, creature);
             OnRemovedCallback?.Invoke();
         }
+
     }
 }

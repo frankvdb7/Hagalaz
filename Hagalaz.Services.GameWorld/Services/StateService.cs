@@ -1,31 +1,35 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
+using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Game.Abstractions.Features.States;
-using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Services.GameWorld.Providers;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
     public class StateService : IStateService
     {
-        private readonly IStateProvider _stateProvider;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly StateProvider _stateProvider;
+        private readonly IServiceProvider _scopedServiceProvider;
 
-        public StateService(IStateProvider stateProvider, IServiceProvider serviceProvider)
+        public StateService(StateProvider stateProvider, IServiceProvider scopedServiceProvider)
         {
             _stateProvider = stateProvider;
-            _serviceProvider = serviceProvider;
+            _scopedServiceProvider = scopedServiceProvider;
         }
 
-        public IState GetState(string stateId)
+        public bool TryCreateState(string stateId, [NotNullWhen(true)] out IState? state)
         {
-            var type = _stateProvider.GetStateById(stateId);
+            state = null;
+            if (!_stateProvider.TryGetStateType(stateId, out var stateType))
+            {
+                return false;
+            }
 
-            return (IState)_serviceProvider.GetRequiredService(type);
+            state = (IState)_scopedServiceProvider.GetRequiredService(stateType);
+            return true;
         }
+
+        public bool TryGetStateId(IState state, [NotNullWhen(true)] out string? stateId) => _stateProvider.TryGetStateId(state, out stateId);
     }
 }
