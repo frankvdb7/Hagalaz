@@ -15,6 +15,10 @@ The state model MUST keep `IState` free of timing, ticking, lifecycle, and persi
 - **WHEN** a creature processes a game tick with a passive state active
 - **THEN** the passive state remains active and receives no duration decrement
 
+#### Scenario: Resting uses the queried concrete state
+- **WHEN** the run-energy orb starts resting
+- **THEN** it adds a concrete `RestingState`, the typed resting query is true, and movement removes that same state and invokes its cleanup callback once
+
 ### Requirement: The creature-owned state collection owns transitions
 Each creature MUST own one concrete state collection that stores at most one active instance per concrete state type, answers typed queries, keeps duplicate applications by default, and invokes removal callbacks exactly once for actual removals.
 

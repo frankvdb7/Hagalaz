@@ -11,7 +11,7 @@
 ## 3. Existing state migration
 
 - [x] 3.1 Migrate all current duration-using states to the timed capability and remove `int.MaxValue` state lifetime initializers from the affected gameplay call sites.
-- [x] 3.2 Migrate lifecycle callback states and ensure equipment-derived, activity, and representative passive states remain until explicitly removed and runtime-only.
+- [x] 3.2 Migrate lifecycle callback states and ensure equipment-derived, activity, and representative passive states remain until explicitly removed and runtime-only. Keep resting as one concrete state so typed queries and movement cleanup use the same exact collection key.
 
 ## 4. Registry and persistence
 
@@ -22,5 +22,5 @@
 
 - [x] 5.1 Add MSTest coverage for passive/timed lifecycle, keep-longest reapplication, removal callback exactness, coexistence, and snapshot-safe mutation.
 - [x] 5.2 Add representative bow, freeze/immunity, Staff of Light, activity, keep-longest, unknown-ID, non-persistent registry, duplicate-ID, and scoped-constructor activation regressions.
-- [x] 5.3 Add end-to-end character dehydration/hydration coverage for durable timed/until-removed states, runtime-only exclusion, and equipment-driven reconnect state reconstruction.
+- [x] 5.3 Add end-to-end character dehydration/hydration coverage for durable timed/until-removed states, runtime-only exclusion, and equipment-driven reconnect state reconstruction, plus regressions for orb resting, resting recovery, movement removal, and deferred render initialization before registration.
 - [x] 5.4 Run focused tests, the GameWorld test project, affected builds, OpenSpec validation, and a clean diff review; record any unverified topology separately.

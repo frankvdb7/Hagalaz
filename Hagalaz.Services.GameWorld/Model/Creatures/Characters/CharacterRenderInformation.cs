@@ -103,9 +103,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             LocalNpcs = [];
             _currentGraphics = new IGraphic[4];
             _characterLocationMap = renderable.ServiceProvider.GetRequiredService<ICharacterLocationService>();
-            // Characters are constructed before details hydration. The real location is
-            // captured when the character is registered after hydration.
-            LastLocation = renderable.Location is null ? null! : renderable.Location.Clone();
+            LastLocation = renderable.Location.Clone();
         }
 
         /// <summary>
