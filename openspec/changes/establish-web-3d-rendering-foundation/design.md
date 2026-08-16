@@ -2,7 +2,9 @@
 
 The current Hagalaz cache map path was built for GameWorld semantics, not rendering. `MapCodec` consumes map terrain bytes but preserves only terrain flags, while `TypeEndpoints.MapMap(...)` reduces the HTTP map response further to dimensions and object placements.
 
-The verified game client has a richer two-stage terrain design. `RegionManager` loads/assembles regions, `Map`/`Class274` decode full tile data and construct terrain surfaces, and `GraphicsToolkit` hides OpenGL/Direct3D/software backends. Object/model rendering exists beyond that path, but it is deliberately outside this change.
+The verified game client has a richer two-stage terrain design. `RegionManager` loads/assembles regions, `Map`/`TerrainBuilder` decode full tile data and construct terrain surfaces, and `GraphicsToolkit` hides OpenGL/Direct3D/software backends. Object/model rendering exists beyond that path, but it is deliberately outside this change.
+
+The GameClient still contains generated decompiler identifiers in this subsystem. Those identifiers are temporary source locators, not architecture. Hagalaz documentation and new server/web code use the evidence-backed semantic vocabulary defined in `docs/3d-rendering/client-rendering-deobfuscation.md`, such as `TerrainBuilder`, `SceneGraph`, `SceneTile`, `TerrainSurface`, `FloorUnderlayDefinition` and `OcclusionManager`.
 
 The concrete goal is one authoritative 64×64 four-plane terrain region rendered in the browser from server-decoded cache semantics.
 
@@ -14,12 +16,14 @@ The concrete goal is one authoritative 64×64 four-plane terrain region rendered
 - Expose a bounded render-region projection separate from gameplay-oriented map contracts.
 - Render one representative real region in the web UI through one coordinate-conversion owner and one small renderer boundary.
 - Prove behavior with client-parity decoder/API/geometry tests.
+- Use stable semantic rendering names so generated GameClient identifiers do not become permanent Hagalaz DTO/API/TypeScript vocabulary.
 
 **Non-Goals:**
 
 - Static objects/models, model APIs, multi-region streaming, dynamic-map rendering, decoded textures, animation, atmosphere, occlusion, roof logic or live entities.
 - New distributed state, queues, retry/reconciliation mechanisms or persistent browser caching.
 - A port of the client's renderer/toolkit abstractions.
+- Completing all GameClient source-level deobfuscation inside this Hagalaz change; that source cleanup is tracked separately and this design already uses the semantic names.
 
 ## Decisions
 
@@ -69,6 +73,21 @@ Keeping the 512-unit scale also prepares the scene for future client model geome
 The first representative region proves height, floor ID, floor shape and rotation correctness. Overlay/underlay definitions expose the semantic color fields required to reproduce recognizable base floor coloration.
 
 Texture decoding/material shaders are a separate fidelity change. Texture IDs may be retained if useful for future compatibility, but missing decoded textures do not expand this change.
+
+### Use semantic names rather than generated client identifiers
+
+The GameClient source mapping is valuable evidence, but generated names are not allowed to leak into new Hagalaz contracts.
+
+The canonical vocabulary is maintained in `docs/3d-rendering/client-rendering-deobfuscation.md`. Examples:
+
+- `TerrainBuilder` for the terrain decode/build base used by `Map`;
+- `SceneGraph` / `SceneTile` for the scene owner and tile cells;
+- `TerrainSurface` for renderer-backed height/terrain surfaces;
+- `FloorOverlayDefinition` / `FloorUnderlayDefinition` for floor materials;
+- `OcclusionManager` / `Occluder` for visibility geometry;
+- `SceneEntity`, `WallEntity`, `WallDecorationEntity`, `FloorDecorationEntity` and `MultiTileSceneEntity` for scene-object categories.
+
+If a client field is not understood well enough to name, do not expose that field just to preserve parity with an opaque source identifier. Keep it internal/unresolved until behavior supplies a defensible semantic name.
 
 ### Recommend Three.js, reject MapLibre/raw WebGL for this slice
 
@@ -143,6 +162,8 @@ The endpoint is bounded to one explicit region (and whatever query/body inputs t
 
 The first transport should favor semantic clarity and testability. Do not add binary mesh transport or compression until an actual region response has been measured and the JSON representation is proven inadequate.
 
+Generated client identifiers must not appear in the public response schema. If a render semantic is not understood well enough to name, resolve it before adding it to the public contract or leave it out of the bounded milestone.
+
 ## Failure and Lifecycle Behavior
 
 - Missing/invalid cache resources use existing cache-service error mapping; the renderer does not invent flat fallback terrain.
@@ -156,6 +177,7 @@ The first transport should favor semantic clarity and testability. Do not add bi
 - **Risk: explicit border heights require neighboring data.** → Make border derivation a server projection responsibility and test it with an adjacent fixture before the browser consumes the contract.
 - **Risk: color-only floors are less visually faithful than the client.** → Accept this bounded Phase-1 trade-off; preserve semantic IDs and add decoded textures in a later fidelity change.
 - **Risk: Three.js leaks into domain contracts.** → Keep HTTP/render-domain data engine-neutral and convert only in the web renderer/geometry layer.
+- **Risk: generated GameClient names become permanent Hagalaz names.** → Treat the deobfuscation map as canonical and forbid generated identifiers in new DTO/API/TypeScript architecture.
 - **Risk: the change expands into objects/models because the client docs cover them.** → Treat object/model sections as documented follow-up knowledge; stop this change if terrain implementation requires them.
 
 ## Migration Plan
