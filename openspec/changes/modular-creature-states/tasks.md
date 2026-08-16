@@ -22,5 +22,5 @@
 
 - [x] 5.1 Add MSTest coverage for passive/timed lifecycle, keep-longest reapplication, removal callback exactness, coexistence, and snapshot-safe mutation.
 - [x] 5.2 Add representative bow, freeze/immunity, Staff of Light, activity, keep-longest, unknown-ID, non-persistent registry, duplicate-ID, and scoped-constructor activation regressions.
-- [x] 5.3 Add end-to-end character dehydration/hydration coverage for durable timed/until-removed states, runtime-only exclusion, and equipment-driven reconnect state reconstruction, plus regressions for orb resting, resting recovery, movement removal, and deferred render initialization before registration.
+- [x] 5.3 Add end-to-end character dehydration/hydration coverage for durable timed/until-removed states, runtime-only exclusion, and equipment-driven reconnect state reconstruction, plus regressions for orb resting, resting recovery, movement removal, and location-dependent render state deferred until registration while render information remains available during hydration.
 - [x] 5.4 Run focused tests, the GameWorld test project, affected builds, OpenSpec validation, and a clean diff review; record any unverified topology separately.

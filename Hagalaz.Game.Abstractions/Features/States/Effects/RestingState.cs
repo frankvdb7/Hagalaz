@@ -8,7 +8,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     ///     Contains the RestingState.
     /// </summary>
     [StateMetaData("resting-state")]
-    public class RestingState : State, IStateLifecycle
+    public class RestingState : IStateLifecycle
     {
         public Action? OnRemovedCallback { get; set; }
 

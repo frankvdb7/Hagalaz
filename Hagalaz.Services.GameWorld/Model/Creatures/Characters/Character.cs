@@ -91,13 +91,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public IGameClient GameClient { get; private set; }
 
-        private ICharacterRenderInformation? _renderInformation;
-
         /// <summary>
-        /// The character's GPI data, available after registration.
+        /// The character's GPI data.
         /// </summary>
-        public ICharacterRenderInformation RenderInformation =>
-            _renderInformation ?? throw new InvalidOperationException("Render information is available after character registration.");
+        public ICharacterRenderInformation RenderInformation { get; private set; }
 
         /// <summary>
         /// Contains character interfaces.
@@ -255,6 +252,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             Viewport = new Viewport(this, MapRegionService, MapSize.Default);
             Movement = new Movement(this);
 
+            // Render information is required while appearance details are hydrated.
+            RenderInformation = new CharacterRenderInformation(this);
+
             Inventory = new InventoryContainer(this, 28);
             Equipment = new EquipmentContainer(this, 15);
             Bank = new BankContainer(this, 500);
@@ -311,9 +311,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public override Task OnRegistered()
         {
             // initialize the most important drawing logic first
-            // Rendering information requires the location supplied by details hydration.
-            _renderInformation = new CharacterRenderInformation(this);
-            _renderInformation.OnRegistered();
+            RenderInformation.OnRegistered();
             // also sends the 'start-up' packet aka map and character sync
             UpdateMap(true, true);
 
