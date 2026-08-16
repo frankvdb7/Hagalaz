@@ -16,6 +16,22 @@ Hagalaz MUST decode RuneScape terrain rendering semantics on the server and MUST
 - **THEN** they MUST be exposed through an explicitly render-focused projection or another backward-compatible boundary
 - **AND** existing gameplay terrain-flag semantics MUST NOT silently change
 
+### Requirement: Rendering architecture uses semantic domain names
+
+Hagalaz MUST use evidence-backed semantic rendering names rather than generated GameClient/decompiler identifiers in new server and web architecture.
+
+#### Scenario: A render-focused server or web type is introduced
+- **GIVEN** the GameClient source still contains generated identifiers for part of the rendering subsystem
+- **WHEN** a new Hagalaz DTO, API contract, service, TypeScript type, renderer abstraction or architecture document represents that concept
+- **THEN** it MUST use the canonical semantic vocabulary from `docs/3d-rendering/client-rendering-deobfuscation.md`
+- **AND** it MUST NOT expose a generated `Class###`, `Entity_Sub*`, `method####` or equivalent decompiler name as the public/domain concept
+
+#### Scenario: A client field is not understood well enough to name
+- **GIVEN** a GameClient render field or behavior remains ambiguous after source tracing
+- **WHEN** the bounded terrain-render contract is designed
+- **THEN** the implementation MUST either keep that detail internal/unresolved or perform further deobfuscation before exposing it
+- **AND** MUST NOT invent a precise public name solely to remove an obfuscated identifier
+
 ### Requirement: Region terrain preserves client-parity floor semantics
 
 A renderable map region MUST preserve the terrain information consumed by the verified game-client floor builder: heights, terrain flags, overlay ID, underlay ID, overlay shape/path and overlay rotation for four planes.
