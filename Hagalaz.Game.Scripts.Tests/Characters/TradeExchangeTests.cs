@@ -340,8 +340,8 @@ public sealed class TradeExchangeTests
         secondInventory.BeforeNextUpdateFailure = () => secondInventory.GetById(101)!.Count++;
         var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
         var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
-        var firstOffer = new TradingCharacterScript.TradeContainer();
-        var secondOffer = new TradingCharacterScript.TradeContainer();
+        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
+        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
         firstOffer.Add(new TestItem(100, 1)).Should().BeTrue();
         secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
 
@@ -352,6 +352,47 @@ public sealed class TradeExchangeTests
         firstOffer.GetCountById(100).Should().Be(1);
         secondOffer.GetCountById(101).Should().Be(1);
         secondInventory.GetCountById(101).Should().Be(2);
+    }
+
+    [TestMethod]
+    public void TryConserveEscrow_WhenRecoveryRollbackFails_RetainsReceiptAcrossRetry()
+    {
+        var firstInventory = new TestInventory(14);
+        var secondInventory = new TestInventory(14);
+        var firstRewards = new TestRewardContainer(14);
+        var first = CreateCharacter(
+            firstInventory,
+            new TestMoneyPouch(firstInventory),
+            firstRewards);
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
+        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
+        firstOffer.Add(new TestItem(100, 1)).Should().BeTrue();
+        firstOffer.FailNextUpdate = true;
+        firstOffer.BeforeNextUpdateFailure = () => firstRewards.GetById(100)!.Count++;
+        var pendingRecoveries = new List<TradeExchange.RecoveryReceipt>();
+
+        TradeExchange.TryConserveEscrow(
+            first,
+            firstOffer,
+            second,
+            secondOffer,
+            pendingRecoveries).Should().BeFalse();
+
+        pendingRecoveries.Count.Should().Be(1);
+        firstOffer.GetCountById(100).Should().Be(1);
+        firstRewards.GetCountById(100).Should().Be(2);
+
+        TradeExchange.TryConserveEscrow(
+            first,
+            firstOffer,
+            second,
+            secondOffer,
+            pendingRecoveries).Should().BeFalse();
+
+        pendingRecoveries.Count.Should().Be(1);
+        firstOffer.GetCountById(100).Should().Be(1);
+        firstRewards.GetCountById(100).Should().Be(2);
     }
 
     [TestMethod]
@@ -543,7 +584,7 @@ public sealed class TradeExchangeTests
     private static object? GetProperty(object target, string name) =>
         target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
 
-    private class TestItemContainer : BaseItemContainer
+    private class TestItemContainer : TradeItemContainer
     {
         public bool FailNextUpdate { get; set; }
 
@@ -570,6 +611,13 @@ public sealed class TradeExchangeTests
         public TestInventory(int capacity) : base(StorageType.Normal, capacity) { }
 
         public bool DropItem(IItem item) => false;
+    }
+
+    private sealed class TestRewardContainer : TestItemContainer, IRewardContainer
+    {
+        public TestRewardContainer(int capacity) : base(StorageType.Normal, capacity) { }
+
+        public int Claim(IItem item, int count) => 0;
     }
 
     private sealed class TestMoneyPouch : TestItemContainer, IMoneyPouchContainer
@@ -655,7 +703,7 @@ public sealed class TradeExchangeTests
 
             var fromPouch = Math.Min(Count, count);
             var pouchMutation = fromPouch > 0
-                ? base.RemoveForTrade(new TestItem(995, fromPouch, stackable: true))
+                ? RemoveForTradeCore(new TestItem(995, fromPouch, stackable: true))
                 : null;
             if (pouchMutation != null && !pouchMutation.Succeeded)
             {

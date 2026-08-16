@@ -12,8 +12,10 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
     [TestClass]
     public class BaseItemContainerTests
     {
-        private class TestableItemContainer : BaseItemContainer
+        private class TestableItemContainer : TradeItemContainer
         {
+            public int UpdateCount { get; private set; }
+
             public TestableItemContainer(StorageType type, int capacity) : base(type, capacity)
             {
             }
@@ -24,7 +26,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
 
             public override void OnUpdate(HashSet<int>? slots = null)
             {
-                // No-op for testing
+                UpdateCount++;
             }
         }
 
@@ -423,6 +425,33 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
 
             // Assert
             Assert.AreEqual(5, removedCount);
+            Assert.AreEqual(0, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void Remove_MultipleMatchingStacks_PreservesLegacyPerStackBehavior()
+        {
+            var container = new TestableItemContainer(
+                StorageType.Normal,
+                [CreateItem(1, 3, stackable: true), CreateItem(1, 4, stackable: true)],
+                10);
+
+            var removedCount = container.Remove(CreateItem(1, 2, stackable: true));
+
+            Assert.AreEqual(2, removedCount);
+            Assert.AreEqual(1, container[0].Count);
+            Assert.AreEqual(2, container[1].Count);
+        }
+
+        [TestMethod]
+        public void TradeMutation_Rollback_NotifiesObservers()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            var mutation = container.AddRangeForTrade([CreateItem(1, 1)]);
+            var updatesAfterForwardMutation = container.UpdateCount;
+
+            Assert.IsTrue(mutation.TryRollback());
+            Assert.AreEqual(updatesAfterForwardMutation + 1, container.UpdateCount);
             Assert.AreEqual(0, container.TakenSlots);
         }
 

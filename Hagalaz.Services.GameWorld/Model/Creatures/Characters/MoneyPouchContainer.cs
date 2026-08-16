@@ -111,7 +111,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 _previousCount = Count;
                 SendMoneyPouchChangedMessage(pouchCount);
-                pouchMutation = AddRangeForTrade([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]);
+                pouchMutation = AddRangeForTradeCore([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]);
                 if (!pouchMutation.Succeeded)
                 {
                     return new MoneyPouchMutation(false, pouchMutation, null);
@@ -171,7 +171,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             TradeItemMutation? pouchMutation = null;
             if (pouchCount > 0)
             {
-                pouchMutation = RemoveForTrade(
+                pouchMutation = RemoveForTradeCore(
                     _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(),
                     0);
                 if (!pouchMutation.Succeeded)
@@ -272,8 +272,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="slots">The slots.</param>
         public override void OnUpdate(HashSet<int>? slots = null)
         {
-            if (_previousCount != Count) _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, _previousCount, Count));
+            if (IsRollbackNotification || _previousCount != Count)
+            {
+                _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, _previousCount, Count));
+            }
         }
+
+        protected override void OnRollbackStarting() => _previousCount = Count;
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch)
         {

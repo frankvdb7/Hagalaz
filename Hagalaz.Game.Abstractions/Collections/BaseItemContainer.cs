@@ -10,7 +10,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// Provides a foundational, abstract implementation for an item container,
     /// offering core logic for managing a collection of <see cref="IItem"/> objects.
     /// </summary>
-    public abstract class BaseItemContainer : ITradeItemContainer
+    public abstract class BaseItemContainer : IItemContainer
     {
         /// <summary>
         /// The internal array storing the item objects.
@@ -108,6 +108,16 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="slots">A hash set of the specific slot indices that were changed. If null, a full update is assumed.</param>
         public abstract void OnUpdate(HashSet<int>? slots = null);
+
+        /// <summary>
+        /// Gets whether the current update notification is restoring a checked trade mutation.
+        /// </summary>
+        protected bool IsRollbackNotification { get; private set; }
+
+        /// <summary>
+        /// Allows a derived container to prepare its notification state before a checked rollback.
+        /// </summary>
+        protected virtual void OnRollbackStarting() { }
 
         /// <summary>
         /// Checks if the container has enough space to add a given item, considering stacking rules.
@@ -296,7 +306,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="newItems">The collection of items to add.</param>
         /// <returns>The applied mutation, including partial changes if the update callback fails.</returns>
-        public TradeItemMutation AddRangeForTrade(IEnumerable<IItem?> newItems)
+        protected TradeItemMutation AddRangeForTradeCore(IEnumerable<IItem?> newItems)
         {
             ArgumentNullException.ThrowIfNull(newItems);
 
@@ -515,7 +525,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         public int Remove(IItem item, int preferredSlot = -1, bool update = true)
         {
             var slots = new HashSet<int>();
-            var removed = ApplyRemove(item, preferredSlot, slots, changes: null);
+            var removed = ApplyRemove(
+                item,
+                preferredSlot,
+                slots,
+                changes: null,
+                limitStackableRemoval: false);
             if (removed <= 0)
             {
                 return 0;
@@ -537,7 +552,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="item">The item and count to remove.</param>
         /// <param name="preferredSlot">The preferred slot to remove from.</param>
         /// <returns>The applied mutation.</returns>
-        public TradeItemMutation RemoveForTrade(IItem item, int preferredSlot = -1)
+        protected TradeItemMutation RemoveForTradeCore(IItem item, int preferredSlot = -1)
         {
             ArgumentNullException.ThrowIfNull(item);
 
@@ -545,7 +560,12 @@ namespace Hagalaz.Game.Abstractions.Collections
             try
             {
                 var slotsToUpdate = new HashSet<int>();
-                var removed = ApplyRemove(item, preferredSlot, slotsToUpdate, changes);
+                var removed = ApplyRemove(
+                    item,
+                    preferredSlot,
+                    slotsToUpdate,
+                    changes,
+                    limitStackableRemoval: true);
                 if (removed <= 0)
                 {
                     return CreateMutation(changes, 0, [], succeeded: true);
@@ -573,15 +593,17 @@ namespace Hagalaz.Game.Abstractions.Collections
             IItem item,
             int preferredSlot,
             HashSet<int> slotsToUpdate,
-            List<SlotChange>? changes)
+            List<SlotChange>? changes,
+            bool limitStackableRemoval)
         {
             var removed = 0;
             if (Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted)
             {
                 var remaining = item.Count;
+                var lastRemoved = 0;
                 for (var slot = 0; slot < Items.Length; slot++)
                 {
-                    if (remaining <= 0)
+                    if (limitStackableRemoval && remaining <= 0)
                     {
                         break;
                     }
@@ -593,7 +615,8 @@ namespace Hagalaz.Game.Abstractions.Collections
                     }
 
                     CaptureBefore(changes, slot);
-                    var removedFromSlot = Math.Min(slotItem.Count, remaining);
+                    var requestedFromSlot = limitStackableRemoval ? remaining : item.Count;
+                    var removedFromSlot = Math.Min(slotItem.Count, requestedFromSlot);
                     if (slotItem.Count > remaining)
                     {
                         slotItem.Count -= remaining;
@@ -609,11 +632,12 @@ namespace Hagalaz.Game.Abstractions.Collections
 
                     UpdateAfter(changes, slot);
                     slotsToUpdate.Add(slot);
-                    removed += removedFromSlot;
-                    remaining -= removedFromSlot;
+                    removed = limitStackableRemoval ? removed + removedFromSlot : removedFromSlot;
+                    lastRemoved = removedFromSlot;
+                    remaining -= limitStackableRemoval ? removedFromSlot : 0;
                 }
 
-                return removed;
+                return limitStackableRemoval ? removed : lastRemoved;
             }
 
             var slotIndex = GetSlotByItem(item);
@@ -706,9 +730,14 @@ namespace Hagalaz.Game.Abstractions.Collections
 
         private bool TryRollback(IReadOnlyList<SlotChange> changes)
         {
-            if (changes.Count == 0 || changes.All(change => Matches(change, before: true)))
+            if (changes.Count == 0)
             {
                 return true;
+            }
+
+            if (changes.All(change => Matches(change, before: true)))
+            {
+                return NotifyRollback(changes);
             }
 
             if (changes.Any(change => !Matches(change, before: false)))
@@ -716,6 +745,7 @@ namespace Hagalaz.Game.Abstractions.Collections
                 return false;
             }
 
+            OnRollbackStarting();
             foreach (var change in changes)
             {
                 Items[change.Slot] = change.Before;
@@ -726,7 +756,25 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             _version++;
-            return true;
+            return NotifyRollback(changes);
+        }
+
+        private bool NotifyRollback(IReadOnlyList<SlotChange> changes)
+        {
+            try
+            {
+                IsRollbackNotification = true;
+                OnUpdate(changes.Select(change => change.Slot).ToHashSet());
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+            finally
+            {
+                IsRollbackNotification = false;
+            }
         }
 
         private bool Matches(SlotChange change, bool before)

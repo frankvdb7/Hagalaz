@@ -42,6 +42,7 @@ namespace Hagalaz.Game.Scripts.Characters
             public TradingCharacterScript? TargetScript { get; set; }
             public TradeState State { get; set; } = TradeState.Active;
             public TradeExchange.TradeCompensation? PendingCompensation { get; set; }
+            public List<TradeExchange.RecoveryReceipt> PendingRecoveries { get; } = [];
             public bool RetryCancellationAfterCompensation { get; set; }
 
             public TradeSessionState(TradingCharacterScript owner, ICharacter target)
@@ -1794,7 +1795,13 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 if (refund.Status != TradeExchange.TransferStatus.Succeeded)
                 {
-                    if (forceConservation && TradeExchange.TryConserveEscrow(Character, SelfContainer, session.Target, TargetContainer))
+                    if (forceConservation &&
+                        TradeExchange.TryConserveEscrow(
+                            Character,
+                            SelfContainer,
+                            session.Target,
+                            TargetContainer,
+                            session.PendingRecoveries))
                     {
                         session.State = TradeState.Cancelled;
                         ResetTradeSessionLocked(session);
@@ -1938,6 +1945,7 @@ namespace Hagalaz.Game.Scripts.Characters
             SelfAcceptedContainerRevision = null;
             TargetAcceptedContainerRevision = null;
             session.PendingCompensation = null;
+            session.PendingRecoveries.Clear();
             session.RetryCancellationAfterCompensation = false;
             SelfContainer = null;
             TargetContainer = null;
@@ -1991,7 +1999,7 @@ namespace Hagalaz.Game.Scripts.Characters
         /// <summary>
         ///     Container for holding items in trade offer interfaces.
         /// </summary>
-        public class TradeContainer : BaseItemContainer
+        public class TradeContainer : TradeItemContainer
         {
             /// <summary>
             ///     Contains last slots update.

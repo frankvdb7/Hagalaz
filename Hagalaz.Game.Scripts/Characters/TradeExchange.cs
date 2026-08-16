@@ -49,6 +49,7 @@ internal static class TradeExchange
         private readonly ITradeItemContainer _firstOffer;
         private readonly ITradeItemContainer _secondOffer;
         private readonly bool _firstReceivesSecondOffer;
+        private readonly List<RecoveryReceipt> _pendingRecoveries = [];
 
         public TradeCompensation(
             TransferReceipt? firstReceipt,
@@ -78,6 +79,11 @@ internal static class TradeExchange
         /// </summary>
         public bool TryConserve(ICharacter first, ICharacter second)
         {
+            if (!TryResolvePendingRecoveries(_pendingRecoveries))
+            {
+                return false;
+            }
+
             var firstSource = _firstReceivesSecondOffer ? _secondOffer : _firstOffer;
             var secondSource = _firstReceivesSecondOffer ? _firstOffer : _secondOffer;
             var firstMutations = new List<TradeItemMutation>();
@@ -97,7 +103,7 @@ internal static class TradeExchange
             }
 
             if (!_firstReceivesSecondOffer &&
-                TryConserveEscrow(first, _firstOffer, second, _secondOffer))
+                TryConserveEscrow(first, _firstOffer, second, _secondOffer, _pendingRecoveries))
             {
                 return true;
             }
@@ -140,6 +146,8 @@ internal static class TradeExchange
             if (firstDestination != null &&
                 !TryStoreEscrow(_firstOffer, firstDestination, out firstRecovery))
             {
+                var firstRecoveryRestored = firstRecovery?.Rollback() ?? true;
+                TrackFailedRecovery(_pendingRecoveries, firstRecovery, firstRecoveryRestored);
                 return false;
             }
 
@@ -148,6 +156,8 @@ internal static class TradeExchange
             {
                 var firstRecoveryRestored = firstRecovery?.Rollback() ?? true;
                 var secondRecoveryRestored = secondRecovery?.Rollback() ?? true;
+                TrackFailedRecovery(_pendingRecoveries, firstRecovery, firstRecoveryRestored);
+                TrackFailedRecovery(_pendingRecoveries, secondRecovery, secondRecoveryRestored);
                 var secondSourceRestored = TryRollback(secondMutations);
                 var firstSourceRestored = TryRollback(firstMutations);
                 if (!firstRecoveryRestored ||
@@ -245,8 +255,14 @@ internal static class TradeExchange
         ICharacter first,
         ITradeItemContainer firstOffer,
         ICharacter second,
-        ITradeItemContainer secondOffer)
+        ITradeItemContainer secondOffer,
+        ICollection<RecoveryReceipt>? pendingRecoveries = null)
     {
+        if (pendingRecoveries != null && !TryResolvePendingRecoveries(pendingRecoveries))
+        {
+            return false;
+        }
+
         RecoveryReceipt? firstReceipt = null;
         RecoveryReceipt? secondReceipt = null;
         try
@@ -263,6 +279,8 @@ internal static class TradeExchange
 
             if (firstDestination != null && !TryStoreEscrow(firstOffer, firstDestination, out firstReceipt))
             {
+                var firstRestored = firstReceipt?.Rollback() ?? true;
+                TrackFailedRecovery(pendingRecoveries, firstReceipt, firstRestored);
                 return false;
             }
 
@@ -270,6 +288,8 @@ internal static class TradeExchange
             {
                 var secondRestored = secondReceipt?.Rollback() ?? true;
                 var firstRestored = firstReceipt?.Rollback() ?? true;
+                TrackFailedRecovery(pendingRecoveries, secondReceipt, secondRestored);
+                TrackFailedRecovery(pendingRecoveries, firstReceipt, firstRestored);
                 if (!secondRestored || !firstRestored)
                 {
                     return false;
@@ -284,12 +304,41 @@ internal static class TradeExchange
         {
             var secondRestored = secondReceipt?.Rollback() ?? true;
             var firstRestored = firstReceipt?.Rollback() ?? true;
+            TrackFailedRecovery(pendingRecoveries, secondReceipt, secondRestored);
+            TrackFailedRecovery(pendingRecoveries, firstReceipt, firstRestored);
             if (!secondRestored || !firstRestored)
             {
                 return false;
             }
 
             return false;
+        }
+    }
+
+    private static bool TryResolvePendingRecoveries(ICollection<RecoveryReceipt> pendingRecoveries)
+    {
+        var restored = true;
+        foreach (var recovery in pendingRecoveries)
+        {
+            restored &= recovery.Rollback();
+        }
+
+        if (restored)
+        {
+            pendingRecoveries.Clear();
+        }
+
+        return restored;
+    }
+
+    private static void TrackFailedRecovery(
+        ICollection<RecoveryReceipt>? pendingRecoveries,
+        RecoveryReceipt? recovery,
+        bool restored)
+    {
+        if (!restored && recovery != null && pendingRecoveries != null && !pendingRecoveries.Contains(recovery))
+        {
+            pendingRecoveries.Add(recovery);
         }
     }
 
@@ -547,7 +596,7 @@ internal static class TradeExchange
     private static IItem[] SnapshotItems(IItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
 
-    private sealed class RecoveryReceipt
+    internal sealed class RecoveryReceipt
     {
         private readonly ITradeItemContainer _offer;
         private readonly IReadOnlyList<IItem> _items;
@@ -578,12 +627,8 @@ internal static class TradeExchange
                 offerRestored &= _offerMutations[i].TryRollback();
             }
 
-            if (!offerRestored)
-            {
-                return false;
-            }
-
-            return _destinationMutation?.TryRollback() ?? true;
+            var destinationRestored = _destinationMutation?.TryRollback() ?? true;
+            return offerRestored & destinationRestored;
         }
     }
 

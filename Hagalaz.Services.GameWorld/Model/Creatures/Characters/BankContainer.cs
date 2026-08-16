@@ -17,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Class BankContainer
     /// </summary>
-    public class BankContainer : BaseItemContainer, IBankContainer, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
+    public class BankContainer : TradeItemContainer, IBankContainer, IHydratable<IReadOnlyList<HydratedItemDto>>, IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
         /// Instance of the character who owns this container.

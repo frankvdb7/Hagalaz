@@ -16,7 +16,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public class RewardContainer : BaseItemContainer, IRewardContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public class RewardContainer : TradeItemContainer, IRewardContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>

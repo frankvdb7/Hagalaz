@@ -17,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Class InventoryContainer
     /// </summary>
-    public class InventoryContainer : BaseItemContainer, IInventoryContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public class InventoryContainer : TradeItemContainer, IInventoryContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
