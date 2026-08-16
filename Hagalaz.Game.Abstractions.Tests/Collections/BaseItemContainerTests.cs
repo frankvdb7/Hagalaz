@@ -15,6 +15,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         private class TestableItemContainer : TradeItemContainer
         {
             public int UpdateCount { get; private set; }
+            public bool ThrowOnUpdate { get; set; }
 
             public TestableItemContainer(StorageType type, int capacity) : base(type, capacity)
             {
@@ -27,6 +28,10 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             public override void OnUpdate(HashSet<int>? slots = null)
             {
                 UpdateCount++;
+                if (ThrowOnUpdate)
+                {
+                    throw new InvalidOperationException("Controlled observer failure.");
+                }
             }
         }
 
@@ -452,6 +457,23 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
 
             Assert.IsTrue(mutation.TryRollback());
             Assert.AreEqual(updatesAfterForwardMutation + 1, container.UpdateCount);
+            Assert.AreEqual(0, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void CheckedMutation_ObserverFailureDoesNotFailMutation()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 10)
+            {
+                ThrowOnUpdate = true
+            };
+
+            var mutation = container.AddRangeForTrade([CreateItem(1, 1)]);
+
+            Assert.IsTrue(mutation.Succeeded);
+            Assert.IsFalse(mutation.NotificationSucceeded);
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.IsTrue(mutation.TryRollback());
             Assert.AreEqual(0, container.TakenSlots);
         }
 

@@ -305,7 +305,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// Adds a collection of items and records the exact slot and item changes.
         /// </summary>
         /// <param name="newItems">The collection of items to add.</param>
-        /// <returns>The applied mutation, including partial changes if the update callback fails.</returns>
+        /// <returns>The applied mutation and independent observer-notification result.</returns>
         protected ItemContainerMutation AddRangeCheckedCore(IEnumerable<IItem?> newItems)
         {
             ArgumentNullException.ThrowIfNull(newItems);
@@ -327,16 +327,13 @@ namespace Hagalaz.Game.Abstractions.Collections
                 }
 
                 _version++;
-                try
-                {
-                    OnUpdate(slotsToUpdate);
-                }
-                catch (InvalidOperationException)
-                {
-                    return CreateMutation(changes, appliedCount, appliedItems, succeeded: false);
-                }
-
-                return CreateMutation(changes, appliedCount, appliedItems, succeeded: true);
+                var notificationSucceeded = TryNotifyMutation(slotsToUpdate);
+                return CreateMutation(
+                    changes,
+                    appliedCount,
+                    appliedItems,
+                    succeeded: true,
+                    notificationSucceeded: notificationSucceeded);
             }
             catch (InvalidOperationException)
             {
@@ -572,16 +569,13 @@ namespace Hagalaz.Game.Abstractions.Collections
                 }
 
                 _version++;
-                try
-                {
-                    OnUpdate(slotsToUpdate);
-                }
-                catch (InvalidOperationException)
-                {
-                    return CreateMutation(changes, removed, [], succeeded: false);
-                }
-
-                return CreateMutation(changes, removed, [], succeeded: true);
+                var notificationSucceeded = TryNotifyMutation(slotsToUpdate);
+                return CreateMutation(
+                    changes,
+                    removed,
+                    [],
+                    succeeded: true,
+                    notificationSucceeded: notificationSucceeded);
             }
             catch (InvalidOperationException)
             {
@@ -697,8 +691,22 @@ namespace Hagalaz.Game.Abstractions.Collections
             IReadOnlyList<SlotChange> changes,
             int appliedCount,
             IReadOnlyList<IItem> appliedItems,
-            bool succeeded) =>
-            new(appliedCount, succeeded, appliedItems, () => TryRollback(changes));
+            bool succeeded,
+            bool notificationSucceeded = true) =>
+            new(appliedCount, succeeded, notificationSucceeded, appliedItems, () => TryRollback(changes));
+
+        private bool TryNotifyMutation(HashSet<int> slotsToUpdate)
+        {
+            try
+            {
+                OnUpdate(slotsToUpdate);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
 
         private void CaptureBefore(List<SlotChange>? changes, int slot)
         {
@@ -766,7 +774,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
             catch (InvalidOperationException)
             {
-                return ItemContainerMutation.RollbackOutcome.RestoredWithNotificationFailure;
+                return ItemContainerMutation.RollbackOutcome.Restored;
             }
             finally
             {

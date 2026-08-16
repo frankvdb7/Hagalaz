@@ -12,24 +12,24 @@ public sealed class ItemContainerMutation
     internal enum RollbackOutcome
     {
         Failed,
-        Restored,
-        RestoredWithNotificationFailure
+        Restored
     }
 
     private readonly int _appliedCount;
     private readonly IReadOnlyList<IItem> _appliedItems;
     private readonly Func<RollbackOutcome> _rollback;
     private bool _stateRestored;
-    private bool _notificationPending;
 
     internal ItemContainerMutation(
         int appliedCount,
         bool succeeded,
+        bool notificationSucceeded,
         IReadOnlyList<IItem> appliedItems,
         Func<RollbackOutcome> rollback)
     {
         _appliedCount = appliedCount;
         Succeeded = succeeded;
+        NotificationSucceeded = notificationSucceeded;
         _appliedItems = appliedItems;
         _rollback = rollback;
     }
@@ -43,6 +43,12 @@ public sealed class ItemContainerMutation
     /// Gets whether the requested mutation was applied completely.
     /// </summary>
     public bool Succeeded { get; }
+
+    /// <summary>
+    /// Gets whether the observer notification completed without throwing.
+    /// A failed notification does not undo a successful data mutation.
+    /// </summary>
+    public bool NotificationSucceeded { get; }
 
     /// <summary>
     /// Gets the exact item delta still applied by an add operation.
@@ -60,7 +66,7 @@ public sealed class ItemContainerMutation
     /// </summary>
     public bool TryRollback()
     {
-        if (_appliedCount == 0 || (_stateRestored && !_notificationPending))
+        if (_appliedCount == 0 || _stateRestored)
         {
             return true;
         }
@@ -70,12 +76,7 @@ public sealed class ItemContainerMutation
         {
             case RollbackOutcome.Restored:
                 _stateRestored = true;
-                _notificationPending = false;
                 return true;
-            case RollbackOutcome.RestoredWithNotificationFailure:
-                _stateRestored = true;
-                _notificationPending = true;
-                return false;
             default:
                 return false;
         }
