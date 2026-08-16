@@ -26,6 +26,11 @@ namespace Hagalaz.Game.Abstractions.Collections
         private int _version;
 
         /// <summary>
+        /// Advances the container revision after a derived container applies a storage mutation.
+        /// </summary>
+        protected void AdvanceRevision() => _version++;
+
+        /// <summary>
         /// Gets the item at the specified index in the container.
         /// </summary>
         /// <param name="index">The zero-based index of the item to retrieve.</param>
@@ -108,16 +113,6 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="slots">A hash set of the specific slot indices that were changed. If null, a full update is assumed.</param>
         public abstract void OnUpdate(HashSet<int>? slots = null);
-
-        /// <summary>
-        /// Gets whether the current update notification is restoring a checked mutation.
-        /// </summary>
-        protected bool IsMutationRollbackNotification { get; private set; }
-
-        /// <summary>
-        /// Allows a derived container to prepare its notification state before a checked rollback.
-        /// </summary>
-        protected virtual void OnMutationRollbackStarting() { }
 
         /// <summary>
         /// Checks if the container has enough space to add a given item, considering stacking rules.
@@ -297,52 +292,8 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
 
             var slotsToUpdate = new HashSet<int>();
-            return ApplyAddRange(items, slotsToUpdate, changes: null, appliedItems: null, out _)
+            return ApplyAddRange(items, slotsToUpdate)
                 && ApplyAddRangeUpdate(slotsToUpdate);
-        }
-
-        /// <summary>
-        /// Adds a collection of items and records the exact slot and item changes.
-        /// </summary>
-        /// <param name="newItems">The collection of items to add.</param>
-        /// <returns>The applied mutation and independent observer-notification result.</returns>
-        internal TradeItemMutation AddRangeCheckedCore(IEnumerable<IItem?> newItems)
-        {
-            ArgumentNullException.ThrowIfNull(newItems);
-
-            var changes = new List<SlotChange>();
-            var appliedItems = new List<IItem>();
-            try
-            {
-                var items = newItems.ToArray();
-                if (!HasSpaceForRange(items))
-                {
-                    return CreateMutation(changes, 0, appliedItems, succeeded: false);
-                }
-
-                var slotsToUpdate = new HashSet<int>();
-                if (!ApplyAddRange(items, slotsToUpdate, changes, appliedItems, out var appliedCount))
-                {
-                    return CreateMutation(changes, appliedCount, appliedItems, succeeded: false);
-                }
-
-                _version++;
-                var notificationSucceeded = TryNotifyMutation(slotsToUpdate);
-                return CreateMutation(
-                    changes,
-                    appliedCount,
-                    appliedItems,
-                    succeeded: true,
-                    notificationSucceeded: notificationSucceeded);
-            }
-            catch (InvalidOperationException)
-            {
-                return CreateMutation(
-                    changes,
-                    changes.Sum(change => change.AppliedCount),
-                    appliedItems,
-                    succeeded: false);
-            }
         }
 
         private bool ApplyAddRangeUpdate(HashSet<int> slotsToUpdate)
@@ -352,14 +303,8 @@ namespace Hagalaz.Game.Abstractions.Collections
             return true;
         }
 
-        private bool ApplyAddRange(
-            IEnumerable<IItem?> newItems,
-            HashSet<int> slotsToUpdate,
-            List<SlotChange>? changes,
-            List<IItem>? appliedItems,
-            out int appliedCount)
+        private bool ApplyAddRange(IEnumerable<IItem?> newItems, HashSet<int> slotsToUpdate)
         {
-            appliedCount = 0;
             using var enumerator = newItems.GetEnumerator();
             while (enumerator.MoveNext())
             {
@@ -383,12 +328,8 @@ namespace Hagalaz.Game.Abstractions.Collections
                         return false;
                     }
 
-                    CaptureBefore(changes, i);
                     item.Count = (int)total;
-                    UpdateAfter(changes, i);
                     slotsToUpdate.Add(i);
-                    appliedCount += current.Count;
-                    appliedItems?.Add(current.Clone());
                     goto end;
                 }
 
@@ -400,12 +341,8 @@ namespace Hagalaz.Game.Abstractions.Collections
                         return false;
                     }
 
-                    CaptureBefore(changes, slot);
                     Items[slot] = current;
-                    UpdateAfter(changes, slot);
                     slotsToUpdate.Add(slot);
-                    appliedCount += current.Count;
-                    appliedItems?.Add(current.Clone());
                 }
                 else
                 {
@@ -417,15 +354,10 @@ namespace Hagalaz.Game.Abstractions.Collections
                     for (var j = 0; j < current.Count; j++)
                     {
                         var freeSlot = GetFreeSlot();
-                        CaptureBefore(changes, freeSlot);
                         Items[freeSlot] = current.Clone();
                         Items[freeSlot]!.Count = 1;
-                        UpdateAfter(changes, freeSlot);
                         slotsToUpdate.Add(freeSlot);
                     }
-
-                    appliedCount += current.Count;
-                    appliedItems?.Add(current.Clone());
                 }
 
                 end:
@@ -522,12 +454,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         public int Remove(IItem item, int preferredSlot = -1, bool update = true)
         {
             var slots = new HashSet<int>();
-            var removed = ApplyRemove(
-                item,
-                preferredSlot,
-                slots,
-                changes: null,
-                limitStackableRemoval: false);
+            var removed = ApplyRemove(item, preferredSlot, slots);
             if (removed <= 0)
             {
                 return 0;
@@ -543,77 +470,25 @@ namespace Hagalaz.Game.Abstractions.Collections
             return removed;
         }
 
-        /// <summary>
-        /// Removes items and records the exact slot and item changes.
-        /// </summary>
-        /// <param name="item">The item and count to remove.</param>
-        /// <param name="preferredSlot">The preferred slot to remove from.</param>
-        /// <returns>The applied mutation.</returns>
-        internal TradeItemMutation RemoveCheckedCore(IItem item, int preferredSlot = -1)
-        {
-            ArgumentNullException.ThrowIfNull(item);
-
-            var changes = new List<SlotChange>();
-            try
-            {
-                var slotsToUpdate = new HashSet<int>();
-                var removed = ApplyRemove(
-                    item,
-                    preferredSlot,
-                    slotsToUpdate,
-                    changes,
-                    limitStackableRemoval: true);
-                if (removed <= 0)
-                {
-                    return CreateMutation(changes, 0, [], succeeded: true);
-                }
-
-                _version++;
-                var notificationSucceeded = TryNotifyMutation(slotsToUpdate);
-                return CreateMutation(
-                    changes,
-                    removed,
-                    [],
-                    succeeded: true,
-                    notificationSucceeded: notificationSucceeded);
-            }
-            catch (InvalidOperationException)
-            {
-                return CreateMutation(changes, changes.Sum(change => change.AppliedCount), [], succeeded: false);
-            }
-        }
-
-        private int ApplyRemove(
-            IItem item,
-            int preferredSlot,
-            HashSet<int> slotsToUpdate,
-            List<SlotChange>? changes,
-            bool limitStackableRemoval)
+        private int ApplyRemove(IItem item, int preferredSlot, HashSet<int> slotsToUpdate)
         {
             var removed = 0;
             if (Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted)
             {
-                var remaining = item.Count;
                 var lastRemoved = 0;
                 for (var slot = 0; slot < Items.Length; slot++)
                 {
-                    if (limitStackableRemoval && remaining <= 0)
-                    {
-                        break;
-                    }
-
                     var slotItem = Items[slot];
                     if (slotItem == null || !slotItem.Equals(item))
                     {
                         continue;
                     }
 
-                    CaptureBefore(changes, slot);
-                    var requestedFromSlot = limitStackableRemoval ? remaining : item.Count;
+                    var requestedFromSlot = item.Count;
                     var removedFromSlot = Math.Min(slotItem.Count, requestedFromSlot);
-                    if (slotItem.Count > remaining)
+                    if (slotItem.Count > item.Count)
                     {
-                        slotItem.Count -= remaining;
+                        slotItem.Count -= item.Count;
                     }
                     else if (CountToResetTo != -1)
                     {
@@ -624,14 +499,12 @@ namespace Hagalaz.Game.Abstractions.Collections
                         Items[slot] = null;
                     }
 
-                    UpdateAfter(changes, slot);
                     slotsToUpdate.Add(slot);
-                    removed = limitStackableRemoval ? removed + removedFromSlot : removedFromSlot;
+                    removed = removedFromSlot;
                     lastRemoved = removedFromSlot;
-                    remaining -= limitStackableRemoval ? removedFromSlot : 0;
                 }
 
-                return limitStackableRemoval ? removed : lastRemoved;
+                return lastRemoved;
             }
 
             var slotIndex = GetSlotByItem(item);
@@ -658,12 +531,10 @@ namespace Hagalaz.Game.Abstractions.Collections
                     continue;
                 }
 
-                CaptureBefore(changes, slotIndex);
                 if (slotItem.Count > toRemove)
                 {
                     slotItem.Count -= toRemove;
                     removed += toRemove;
-                    UpdateAfter(changes, slotIndex);
                     slotsToUpdate.Add(slotIndex);
                     break;
                 }
@@ -679,223 +550,11 @@ namespace Hagalaz.Game.Abstractions.Collections
                     Items[slotIndex] = null;
                 }
 
-                UpdateAfter(changes, slotIndex);
                 slotsToUpdate.Add(slotIndex);
                 slotIndex = GetSlotByItem(item);
             }
 
             return removed;
-        }
-
-        private TradeItemMutation CreateMutation(
-            IReadOnlyList<SlotChange> changes,
-            int appliedCount,
-            IReadOnlyList<IItem> appliedItems,
-            bool succeeded,
-            bool notificationSucceeded = true) =>
-            new(appliedCount, succeeded, notificationSucceeded, appliedItems, () => TryRollback(changes));
-
-        private bool TryNotifyMutation(HashSet<int> slotsToUpdate)
-        {
-            try
-            {
-                OnUpdate(slotsToUpdate);
-                return true;
-            }
-            catch (InvalidOperationException)
-            {
-                return false;
-            }
-        }
-
-        private void CaptureBefore(List<SlotChange>? changes, int slot)
-        {
-            if (changes == null || changes.Any(change => change.Slot == slot))
-            {
-                return;
-            }
-
-            var item = Items[slot];
-            changes.Add(new SlotChange(slot, item, item?.Count ?? 0));
-        }
-
-        private void UpdateAfter(List<SlotChange>? changes, int slot)
-        {
-            if (changes == null)
-            {
-                return;
-            }
-
-            var change = changes.FirstOrDefault(candidate => candidate.Slot == slot);
-            if (change == null)
-            {
-                return;
-            }
-
-            change.After = Items[slot];
-            change.AfterCount = change.After?.Count ?? 0;
-        }
-
-        private TradeItemMutation.RollbackOutcome TryRollback(IReadOnlyList<SlotChange> changes)
-        {
-            if (changes.Count == 0)
-            {
-                return TradeItemMutation.RollbackOutcome.Restored;
-            }
-
-            if (changes.All(change => change.RollbackApplied || Matches(change, before: true)))
-            {
-                return NotifyRollback(changes);
-            }
-
-            if (changes.Any(change => !CanApplyInverse(change)))
-            {
-                return TradeItemMutation.RollbackOutcome.Failed;
-            }
-
-            OnMutationRollbackStarting();
-            foreach (var change in changes)
-            {
-                ApplyInverse(change);
-                change.RollbackApplied = true;
-            }
-
-            _version++;
-            return NotifyRollback(changes);
-        }
-
-        private TradeItemMutation.RollbackOutcome NotifyRollback(IReadOnlyList<SlotChange> changes)
-        {
-            try
-            {
-                IsMutationRollbackNotification = true;
-                OnUpdate(changes.Select(change => change.Slot).ToHashSet());
-                return TradeItemMutation.RollbackOutcome.Restored;
-            }
-            catch (InvalidOperationException)
-            {
-                return TradeItemMutation.RollbackOutcome.Restored;
-            }
-            finally
-            {
-                IsMutationRollbackNotification = false;
-            }
-        }
-
-        private bool CanApplyInverse(SlotChange change)
-        {
-            if (change.RollbackApplied || Matches(change, before: true))
-            {
-                return true;
-            }
-
-            if (IsAddition(change))
-            {
-                return true;
-            }
-
-            var actual = Items[change.Slot];
-            if (ReferenceEquals(change.Before, change.After) && change.After != null)
-            {
-                if (!ReferenceEquals(actual, change.After))
-                {
-                    return false;
-                }
-
-                var delta = (long)change.AfterCount - change.BeforeCount;
-                return delta < 0
-                    ? actual.Count <= int.MaxValue + delta
-                    : actual.Count >= delta;
-            }
-
-            return ReferenceEquals(actual, change.After);
-        }
-
-        private void ApplyInverse(SlotChange change)
-        {
-            if (change.RollbackApplied || Matches(change, before: true))
-            {
-                return;
-            }
-
-            var actual = Items[change.Slot];
-            if (IsAddition(change))
-            {
-                if (!ReferenceEquals(actual, change.After))
-                {
-                    return;
-                }
-
-                var addedCount = change.AfterCount - change.BeforeCount;
-                if (actual!.Count <= addedCount)
-                {
-                    Items[change.Slot] = null;
-                }
-                else
-                {
-                    actual.Count -= addedCount;
-                }
-
-                return;
-            }
-
-            if (ReferenceEquals(change.Before, change.After) && change.After != null)
-            {
-                var delta = (long)change.AfterCount - change.BeforeCount;
-                var restoredCount = actual!.Count - delta;
-                actual.Count = (int)restoredCount;
-                return;
-            }
-
-            if (change.Before == null)
-            {
-                var remainingCount = actual!.Count - change.AfterCount;
-                if (remainingCount <= 0)
-                {
-                    Items[change.Slot] = null;
-                }
-                else
-                {
-                    actual.Count = remainingCount;
-                }
-
-                return;
-            }
-
-            Items[change.Slot] = change.Before;
-            change.Before.Count = change.BeforeCount;
-        }
-
-        private static bool IsAddition(SlotChange change) =>
-            change.Before == null && change.After != null ||
-            ReferenceEquals(change.Before, change.After) && change.AfterCount > change.BeforeCount;
-
-        private bool Matches(SlotChange change, bool before)
-        {
-            var expected = before ? change.Before : change.After;
-            var expectedCount = before ? change.BeforeCount : change.AfterCount;
-            var actual = Items[change.Slot];
-            return ReferenceEquals(actual, expected) && (expected == null || actual!.Count == expectedCount);
-        }
-
-        private sealed class SlotChange
-        {
-            public SlotChange(int slot, IItem? before, int beforeCount)
-            {
-                Slot = slot;
-                Before = before;
-                BeforeCount = beforeCount;
-                After = before;
-                AfterCount = beforeCount;
-            }
-
-            public int Slot { get; }
-            public IItem? Before { get; }
-            public int BeforeCount { get; }
-            public IItem? After { get; set; }
-            public int AfterCount { get; set; }
-            public bool RollbackApplied { get; set; }
-            public int AppliedCount => Math.Abs(AfterCount - BeforeCount);
         }
 
         /// <summary>

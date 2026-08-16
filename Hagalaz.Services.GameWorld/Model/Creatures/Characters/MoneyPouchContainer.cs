@@ -111,7 +111,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 _previousCount = Count;
                 SendMoneyPouchChangedMessage(pouchCount);
-                pouchMutation = AddRangeCheckedCore([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]);
+                pouchMutation = AddRangeForTradeMutation([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]);
                 if (!pouchMutation.Succeeded)
                 {
                     return new MoneyPouchMutation(false, pouchMutation, null);
@@ -171,7 +171,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             TradeItemMutation? pouchMutation = null;
             if (pouchCount > 0)
             {
-                pouchMutation = RemoveCheckedCore(
+                pouchMutation = RemoveForTradeMutation(
                     _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(),
                     0);
                 if (!pouchMutation.Succeeded)

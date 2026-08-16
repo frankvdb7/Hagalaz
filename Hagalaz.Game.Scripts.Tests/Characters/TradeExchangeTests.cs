@@ -722,7 +722,7 @@ public sealed class TradeExchangeTests
 
             var fromPouch = Math.Min(Count, count);
             var pouchMutation = fromPouch > 0
-                ? RemoveCheckedCore(new TestItem(995, fromPouch, stackable: true))
+                ? RemoveForTradeMutation(new TestItem(995, fromPouch, stackable: true))
                 : null;
             if (pouchMutation != null && !pouchMutation.Succeeded)
             {
