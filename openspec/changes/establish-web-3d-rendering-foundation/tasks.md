@@ -6,6 +6,7 @@
 - [x] 1.4 Document the current Hagalaz gaps, target ownership boundaries, renderer decision and explicitly separated follow-up milestones.
 - [x] 1.5 Document byte-level map decode/encode behavior: cache-container versus payload boundaries, `mX_Y` terrain, `lX_Y` object delta coding, smart/huge-smart integers, XTEA, source/effective plane handling, canonical encoding, corruption guards, write-back order and round-trip fixtures.
 - [x] 1.6 Record known encoder hazards that must not be treated as cache-faithful behavior: the synthetic `MapCodec` length prefix, bridge-adjusted source-plane loss, unsorted per-object location deltas, `WriteHugeSmart` boundary behavior and the missing XTEA-aware cache writer.
+- [x] 1.7 Deobfuscate the rendering documentation vocabulary: define evidence-backed semantic names for terrain, scene graph, tiles, floor definitions, occlusion, scene entities, lights and model members; keep generated GameClient identifiers only in one source-locator map and track source-level renaming separately in `Hagalaz.GameClient`.
 
 ## 2. Render-Focused Terrain Decoding
 
@@ -41,3 +42,4 @@
 - [ ] 5.4 Run the relevant solution/project build, strict OpenSpec validation and `git diff --check`.
 - [ ] 5.5 If implementation requires object/model rendering, decoded textures/shaders, multi-region streaming, dynamic-map assembly, live entities or a second cache/state owner, stop and create a separate OpenSpec change instead of expanding this one.
 - [ ] 5.6 Do not claim cache write/round-trip support from the existing reduced `MapCodec` tests. Any future mutation milestone must separately prove payload encode/decode parity, XTEA-aware persisted writes and read-back validation against a disposable cache fixture.
+- [ ] 5.7 New Hagalaz server/web rendering types MUST use semantic domain names from the deobfuscation map and MUST NOT introduce generated GameClient identifiers into DTOs, APIs, services or TypeScript architecture.
