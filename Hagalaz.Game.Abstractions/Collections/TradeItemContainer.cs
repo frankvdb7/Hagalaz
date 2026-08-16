@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Items;
 
@@ -25,9 +26,41 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     }
 
     /// <inheritdoc />
-    public ItemContainerMutation AddRangeForTrade(IEnumerable<IItem?> items) => AddRangeCheckedCore(items);
+    public bool AddRangeForTrade(IEnumerable<IItem?> items)
+    {
+        var mutation = AddRangeForTradeMutation(items);
+        if (mutation.Succeeded)
+        {
+            return true;
+        }
+
+        RollbackOrThrow(mutation);
+        return false;
+    }
 
     /// <inheritdoc />
-    public ItemContainerMutation RemoveForTrade(IItem item, int preferredSlot = -1) =>
+    public bool RemoveForTrade(IItem item, int preferredSlot = -1)
+    {
+        var mutation = RemoveForTradeMutation(item, preferredSlot);
+        if (mutation.Succeeded)
+        {
+            return true;
+        }
+
+        RollbackOrThrow(mutation);
+        return false;
+    }
+
+    internal TradeItemMutation AddRangeForTradeMutation(IEnumerable<IItem?> items) => AddRangeCheckedCore(items);
+
+    internal TradeItemMutation RemoveForTradeMutation(IItem item, int preferredSlot = -1) =>
         RemoveCheckedCore(item, preferredSlot);
+
+    private static void RollbackOrThrow(TradeItemMutation mutation)
+    {
+        if (!mutation.TryRollback())
+        {
+            throw new InvalidOperationException("Trade container operation could not be restored.");
+        }
+    }
 }

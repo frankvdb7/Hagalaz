@@ -18,7 +18,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public class MoneyPouchContainer : BaseItemContainer, IMoneyPouchContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public class MoneyPouchContainer : TradeItemContainer, IMoneyPouchContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -106,7 +106,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             var pouchCount = Math.Min(count, int.MaxValue - Count);
-            ItemContainerMutation? pouchMutation = null;
+            TradeItemMutation? pouchMutation = null;
             if (pouchCount > 0)
             {
                 _previousCount = Count;
@@ -124,7 +124,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return new MoneyPouchMutation(true, pouchMutation, null);
             }
 
-            var inventoryMutation = _owner.Inventory.AddRangeForTrade(
+            var inventoryMutation = GetTradeContainer(_owner.Inventory).AddRangeForTradeMutation(
                 [_itemBuilder.Create().WithId(995).WithCount(remaining).Build()]);
             var added = (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount;
             return new MoneyPouchMutation(added == count, pouchMutation, inventoryMutation);
@@ -168,7 +168,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             var pouchCount = Math.Min(count, Count);
             _previousCount = Count;
-            ItemContainerMutation? pouchMutation = null;
+            TradeItemMutation? pouchMutation = null;
             if (pouchCount > 0)
             {
                 pouchMutation = RemoveCheckedCore(
@@ -187,7 +187,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return new MoneyPouchMutation(true, pouchMutation, null);
             }
 
-            var inventoryMutation = _owner.Inventory.RemoveForTrade(
+            var inventoryMutation = GetTradeContainer(_owner.Inventory).RemoveForTradeMutation(
                 _itemBuilder.Create().WithId(995).WithCount(remaining).Build());
             var removed = (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount;
             SendMoneyPouchChangedMessage(-removed);
@@ -277,6 +277,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, _previousCount, Count));
             }
         }
+
+        private static TradeItemContainer GetTradeContainer(IInventoryContainer container) =>
+            container as TradeItemContainer ??
+            throw new InvalidOperationException("Trade inventory must use the checked trade-container implementation.");
 
         protected override void OnMutationRollbackStarting() => _previousCount = Count;
 

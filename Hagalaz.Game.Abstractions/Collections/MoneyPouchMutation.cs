@@ -5,13 +5,13 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// </summary>
 public sealed class MoneyPouchMutation
 {
-    private readonly ItemContainerMutation? _pouchMutation;
-    private readonly ItemContainerMutation? _inventoryMutation;
+    private readonly TradeItemMutation? _pouchMutation;
+    private readonly TradeItemMutation? _inventoryMutation;
 
-    public MoneyPouchMutation(
+    internal MoneyPouchMutation(
         bool succeeded,
-        ItemContainerMutation? pouchMutation,
-        ItemContainerMutation? inventoryMutation)
+        TradeItemMutation? pouchMutation,
+        TradeItemMutation? inventoryMutation)
     {
         Succeeded = succeeded;
         _pouchMutation = pouchMutation;

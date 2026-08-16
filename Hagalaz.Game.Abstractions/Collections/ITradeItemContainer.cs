@@ -9,12 +9,12 @@ namespace Hagalaz.Game.Abstractions.Collections;
 public interface ITradeItemContainer : IItemContainer
 {
     /// <summary>
-    /// Adds items and records the exact trade delta for compensation.
+    /// Adds all items as one checked trade operation.
     /// </summary>
-    ItemContainerMutation AddRangeForTrade(IEnumerable<IItem?> items);
+    bool AddRangeForTrade(IEnumerable<IItem?> items);
 
     /// <summary>
-    /// Removes items and records the exact trade delta for compensation.
+    /// Removes the item as one checked trade operation.
     /// </summary>
-    ItemContainerMutation RemoveForTrade(IItem item, int preferredSlot = -1);
+    bool RemoveForTrade(IItem item, int preferredSlot = -1);
 }

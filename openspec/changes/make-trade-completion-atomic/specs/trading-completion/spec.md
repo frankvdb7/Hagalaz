@@ -62,10 +62,10 @@ The exchange MUST either apply the complete opposite offers to both recipients o
 - **WHEN** adding the complete offer to either recipient reports failure or throws
 - **THEN** only the exact applied trade item and coin deltas are compensated, unrelated recipient contents are not replaced, escrow remains consistent, and no successful partial exchange is later refunded as if it were still offered; if compensation cannot complete, the session enters compensation-pending and refund is blocked until compensation succeeds
 
-#### Scenario: Destruction finds compensation still pending
+#### Scenario: Destruction finds exchange compensation still pending
 
-- **WHEN** destruction cannot safely roll back a recorded recipient mutation
-- **THEN** an exchange completes the remaining opposite-side value into the intended recipient's inventory or existing Rewards/Bank recovery container, while a refund returns remaining value to its original owner; no partial exchange/refund outcome is exposed and terminal cleanup does not depend on another character tick
+- **WHEN** destruction cannot safely roll back a recorded recipient mutation from an exchange
+- **THEN** it does not use Rewards/Bank to commit a partial exchange or refund the remaining escrow; the exchange remains compensation-pending until the exact recipient mutations can be reconciled
 
 #### Scenario: A cancelled trade returns escrow
 

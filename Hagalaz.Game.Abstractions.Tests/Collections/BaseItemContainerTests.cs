@@ -452,7 +452,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         public void TradeMutation_Rollback_NotifiesObservers()
         {
             var container = new TestableItemContainer(StorageType.Normal, 10);
-            var mutation = container.AddRangeForTrade([CreateItem(1, 1)]);
+            var mutation = container.AddRangeForTradeMutation([CreateItem(1, 1)]);
             var updatesAfterForwardMutation = container.UpdateCount;
 
             Assert.IsTrue(mutation.TryRollback());
@@ -468,7 +468,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
                 ThrowOnUpdate = true
             };
 
-            var mutation = container.AddRangeForTrade([CreateItem(1, 1)]);
+            var mutation = container.AddRangeForTradeMutation([CreateItem(1, 1)]);
 
             Assert.IsTrue(mutation.Succeeded);
             Assert.IsFalse(mutation.NotificationSucceeded);
@@ -482,7 +482,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         {
             var existing = CreateItem(1, 10, stackable: true);
             var container = new TestableItemContainer(StorageType.Normal, [existing], 10);
-            var mutation = container.AddRangeForTrade([CreateItem(1, 5, stackable: true)]);
+            var mutation = container.AddRangeForTradeMutation([CreateItem(1, 5, stackable: true)]);
 
             existing.Count -= 3;
 

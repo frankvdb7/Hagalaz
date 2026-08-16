@@ -9,7 +9,7 @@ Trade completion currently mutates two players and the in-memory offer container
 - Validate accepted state, offer contents, destination capacity, and money-pouch capacity before applying an exchange.
 - Check every inventory, trade-container, and money-pouch mutation, restoring the pre-operation destination state when a checked operation fails.
 - Route completion, cancellation, disconnect, and logout cleanup through one terminal cleanup path, with no escrow refund after successful completion.
-- Keep an ordinary refund that cannot currently fit in a character container pending for linked-lifecycle retry; during destruction, synchronously store unrefundable escrow in the existing persisted rewards container or bank instead of depending on a later tick.
+- Keep an ordinary refund that cannot currently fit in a character container pending for linked-lifecycle retry; during destruction, synchronously store untouched cancellation escrow in the existing persisted rewards container or bank instead of depending on a later tick. A compensation-pending exchange does not use those recovery containers to settle a partial exchange.
 - Link the target character's lifecycle to the owning trade session so target disconnect/logout cleanup uses the same operation gate.
 - Preserve the existing trade containers, character inventory/money-pouch APIs, and character persistence flow.
 - Add deterministic MSTest coverage for races, failure paths, conservation, capacity, modification invalidation, and independent trades.

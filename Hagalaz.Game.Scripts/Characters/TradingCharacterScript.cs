@@ -1148,7 +1148,7 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 var toAdd = item.Clone();
                 toAdd.Count = removed;
-                var offerMutation = offer.AddRangeForTrade([toAdd]);
+                var offerMutation = TradeExchange.AddRangeForTrade(offer, [toAdd]);
                 if (offerMutation.Succeeded)
                 {
                     RefreshTradeOfferScreenLocked(session);
@@ -1212,7 +1212,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
                 else
                 {
-                    var inventoryMutation = character.Inventory.AddRangeForTrade([toAdd]);
+                    var inventoryMutation = TradeExchange.AddRangeForTrade(character.Inventory, [toAdd]);
                     if (!inventoryMutation.Succeeded)
                     {
                         RestoreOrThrow(inventoryMutation.TryRollback());
@@ -1262,7 +1262,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 }
 
                 coinOffer.Count = removed;
-                var offerMutation = offer.AddRangeForTrade([coinOffer]);
+                var offerMutation = TradeExchange.AddRangeForTrade(offer, [coinOffer]);
                 if (offerMutation.Succeeded)
                 {
                     RefreshTradeOfferScreenLocked(session);

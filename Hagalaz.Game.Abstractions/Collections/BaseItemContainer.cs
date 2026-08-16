@@ -306,7 +306,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="newItems">The collection of items to add.</param>
         /// <returns>The applied mutation and independent observer-notification result.</returns>
-        protected ItemContainerMutation AddRangeCheckedCore(IEnumerable<IItem?> newItems)
+        internal TradeItemMutation AddRangeCheckedCore(IEnumerable<IItem?> newItems)
         {
             ArgumentNullException.ThrowIfNull(newItems);
 
@@ -549,7 +549,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="item">The item and count to remove.</param>
         /// <param name="preferredSlot">The preferred slot to remove from.</param>
         /// <returns>The applied mutation.</returns>
-        protected ItemContainerMutation RemoveCheckedCore(IItem item, int preferredSlot = -1)
+        internal TradeItemMutation RemoveCheckedCore(IItem item, int preferredSlot = -1)
         {
             ArgumentNullException.ThrowIfNull(item);
 
@@ -687,7 +687,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             return removed;
         }
 
-        private ItemContainerMutation CreateMutation(
+        private TradeItemMutation CreateMutation(
             IReadOnlyList<SlotChange> changes,
             int appliedCount,
             IReadOnlyList<IItem> appliedItems,
@@ -736,11 +736,11 @@ namespace Hagalaz.Game.Abstractions.Collections
             change.AfterCount = change.After?.Count ?? 0;
         }
 
-        private ItemContainerMutation.RollbackOutcome TryRollback(IReadOnlyList<SlotChange> changes)
+        private TradeItemMutation.RollbackOutcome TryRollback(IReadOnlyList<SlotChange> changes)
         {
             if (changes.Count == 0)
             {
-                return ItemContainerMutation.RollbackOutcome.Restored;
+                return TradeItemMutation.RollbackOutcome.Restored;
             }
 
             if (changes.All(change => change.RollbackApplied || Matches(change, before: true)))
@@ -750,7 +750,7 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             if (changes.Any(change => !CanApplyInverse(change)))
             {
-                return ItemContainerMutation.RollbackOutcome.Failed;
+                return TradeItemMutation.RollbackOutcome.Failed;
             }
 
             OnMutationRollbackStarting();
@@ -764,17 +764,17 @@ namespace Hagalaz.Game.Abstractions.Collections
             return NotifyRollback(changes);
         }
 
-        private ItemContainerMutation.RollbackOutcome NotifyRollback(IReadOnlyList<SlotChange> changes)
+        private TradeItemMutation.RollbackOutcome NotifyRollback(IReadOnlyList<SlotChange> changes)
         {
             try
             {
                 IsMutationRollbackNotification = true;
                 OnUpdate(changes.Select(change => change.Slot).ToHashSet());
-                return ItemContainerMutation.RollbackOutcome.Restored;
+                return TradeItemMutation.RollbackOutcome.Restored;
             }
             catch (InvalidOperationException)
             {
-                return ItemContainerMutation.RollbackOutcome.Restored;
+                return TradeItemMutation.RollbackOutcome.Restored;
             }
             finally
             {

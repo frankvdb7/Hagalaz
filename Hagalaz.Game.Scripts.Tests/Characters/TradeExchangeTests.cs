@@ -294,7 +294,7 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void Destroy_WhenDataCompensationRemainsPending_CompletesExchangeThroughRecoveryContainer()
+    public void Destroy_WhenExchangeCompensationRemainsPending_DoesNotCommitPartialExchangeToRecoveryContainers()
     {
         var firstInventory = new TestInventory(14);
         var secondInventory = new TestInventory(14) { FailRollbackCount = 3 };
@@ -316,20 +316,12 @@ public sealed class TradeExchangeTests
 
         script.OnDestroy();
 
-        script.TradeSession.Should().BeFalse();
-        script.SelfContainer.Should().BeNull();
-        script.TargetContainer.Should().BeNull();
-        firstInventory.GetCountById(101).Should().Be(0);
-        secondInventory.GetCountById(100).Should().Be(1);
+        script.TradeSession.Should().BeTrue();
+        script.SelfContainer.Should().NotBeNull();
+        script.TargetContainer.Should().NotBeNull();
+        firstRewards.GetCountById(101).Should().Be(0);
         secondRewards.GetCountById(100).Should().Be(0);
-        secondRewards.GetCountById(102).Should().Be(1);
-        firstRewards.GetCountById(101).Should().Be(1);
-        secondRewards.GetCountById(101).Should().Be(0);
-        secondOffer.GetCountById(101).Should().Be(0);
-
-        var firstReloadedRewards = CreateRewardContainer(first);
-        firstReloadedRewards.Hydrate(firstRewards.Dehydrate());
-        firstReloadedRewards.GetCountById(101).Should().Be(1);
+        secondRewards.GetCountById(102).Should().Be(0);
     }
 
     [TestMethod]
@@ -687,7 +679,7 @@ public sealed class TradeExchangeTests
 
             var inPouch = Math.Min(int.MaxValue - Count, count);
             var pouchMutation = inPouch > 0
-                ? AddRangeForTrade([new TestItem(995, inPouch, stackable: true)])
+                ? TradeExchange.AddRangeForTrade(this, [new TestItem(995, inPouch, stackable: true)])
                 : null;
             if (pouchMutation != null && !pouchMutation.Succeeded)
             {
@@ -700,7 +692,7 @@ public sealed class TradeExchangeTests
                 return new MoneyPouchMutation(true, pouchMutation, null);
             }
 
-            var inventoryMutation = _overflowInventory.AddRangeForTrade(
+            var inventoryMutation = TradeExchange.AddRangeForTrade(_overflowInventory,
                 [new TestItem(995, remaining, stackable: true)]);
             return new MoneyPouchMutation(
                 (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount == count,
@@ -743,7 +735,7 @@ public sealed class TradeExchangeTests
                 return new MoneyPouchMutation(true, pouchMutation, null);
             }
 
-            var inventoryMutation = _overflowInventory.RemoveForTrade(
+            var inventoryMutation = TradeExchange.RemoveForTrade(_overflowInventory,
                 new TestItem(995, remaining, stackable: true));
             var removed = (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount;
             return new MoneyPouchMutation(
