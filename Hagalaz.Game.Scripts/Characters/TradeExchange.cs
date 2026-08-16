@@ -89,7 +89,7 @@ internal static class TradeExchange
     internal static bool TryConserveEscrow(ICharacter first, ITradeItemContainer firstOffer, ICharacter second,
         ITradeItemContainer secondOffer)
     {
-        var containers = new List<BaseItemContainer>();
+        var containers = new List<TradeItemContainer>();
         AddContainer(containers, firstOffer);
         AddContainer(containers, secondOffer);
         AddContainer(containers, first.Rewards);
@@ -191,10 +191,10 @@ internal static class TradeExchange
     private static IItem[] SnapshotItems(IItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
 
-    private static List<BaseItemContainer> GetContainers(ITradeItemContainer firstOffer, ITradeItemContainer secondOffer,
+    private static List<TradeItemContainer> GetContainers(ITradeItemContainer firstOffer, ITradeItemContainer secondOffer,
         ICharacter first, ICharacter second)
     {
-        var containers = new List<BaseItemContainer>();
+        var containers = new List<TradeItemContainer>();
         AddContainer(containers, firstOffer);
         AddContainer(containers, secondOffer);
         AddContainer(containers, first.Inventory);
@@ -204,22 +204,22 @@ internal static class TradeExchange
         return containers;
     }
 
-    private static void AddContainer(List<BaseItemContainer> containers, IItemContainer? container)
+    private static void AddContainer(List<TradeItemContainer> containers, IItemContainer? container)
     {
-        if (container is BaseItemContainer baseContainer && !containers.Contains(baseContainer))
+        if (container is TradeItemContainer tradeContainer && !containers.Contains(tradeContainer))
         {
-            containers.Add(baseContainer);
+            containers.Add(tradeContainer);
         }
     }
 
-    private static LockScope AcquireLocks(IEnumerable<BaseItemContainer> containers) =>
+    private static LockScope AcquireLocks(IEnumerable<TradeItemContainer> containers) =>
         new(containers.OrderBy(container => container.MutationOrder));
 
     private sealed class LockScope : IDisposable
     {
-        private readonly IReadOnlyList<BaseItemContainer> _containers;
+        private readonly IReadOnlyList<TradeItemContainer> _containers;
 
-        public LockScope(IEnumerable<BaseItemContainer> containers)
+        public LockScope(IEnumerable<TradeItemContainer> containers)
         {
             _containers = containers.ToArray();
             foreach (var container in _containers)

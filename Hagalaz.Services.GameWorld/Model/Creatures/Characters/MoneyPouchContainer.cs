@@ -180,7 +180,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             SendMoneyPouchChangedMessage(-count);
-            NotifyUpdate([0]);
+            NotifyTradeUpdate([0]);
             return true;
         }
 

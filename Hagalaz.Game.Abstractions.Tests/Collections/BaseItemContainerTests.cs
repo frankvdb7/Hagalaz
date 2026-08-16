@@ -672,6 +672,18 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void AddRange_WhenObserverFails_PropagatesTheFailureForNormalMutation()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 10)
+            {
+                ThrowOnUpdate = true
+            };
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => container.AddRange([CreateItem(1, 1)]));
+            Assert.AreEqual(1, container.TakenSlots);
+        }
+
+        [TestMethod]
         public void Sort_WithEmptySlots_RemovesGaps()
         {
             // Arrange

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Collections;
@@ -9,6 +10,19 @@ namespace Hagalaz.Game.Abstractions.Collections;
 /// </summary>
 public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContainer
 {
+    private static long _nextMutationOrder;
+    private readonly object _mutationLock = new();
+
+    /// <summary>
+    /// Gets the synchronization boundary shared by trade operations on this container.
+    /// </summary>
+    internal object MutationLock => _mutationLock;
+
+    /// <summary>
+    /// Gets the stable order used when trade operations lock multiple containers.
+    /// </summary>
+    internal long MutationOrder { get; } = Interlocked.Increment(ref _nextMutationOrder);
+
     protected TradeItemContainer(StorageType type, int capacity)
         : base(type, capacity)
     {
@@ -24,10 +38,18 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     {
         ArgumentNullException.ThrowIfNull(items);
 
+        HashSet<int> slotsToUpdate;
         lock (MutationLock)
         {
-            return base.AddRange(items);
+            if (!AddRangeCore(items, out slotsToUpdate))
+            {
+                return false;
+            }
         }
+
+        NotifyTradeUpdate(slotsToUpdate);
+        AdvanceRevision();
+        return true;
     }
 
     /// <inheritdoc />
@@ -35,20 +57,29 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     {
         ArgumentNullException.ThrowIfNull(item);
 
+        HashSet<int> slotsToUpdate;
         lock (MutationLock)
         {
-            return RemoveExact(item, preferredSlot);
+            if (!RemoveExact(item, preferredSlot, out slotsToUpdate))
+            {
+                return false;
+            }
         }
+
+        NotifyTradeUpdate(slotsToUpdate);
+        AdvanceRevision();
+        return true;
     }
 
-    private bool RemoveExact(IItem item, int preferredSlot)
+    private bool RemoveExact(IItem item, int preferredSlot, out HashSet<int> slotsToUpdate)
     {
+        slotsToUpdate = [];
         if (GetCount(item) < item.Count)
         {
             return false;
         }
 
-        var slots = new HashSet<int>();
+        slotsToUpdate = new HashSet<int>();
         var remaining = item.Count;
         var slot = preferredSlot >= 0 && preferredSlot < Capacity && Items[preferredSlot]?.Equals(item, true) == true
             ? preferredSlot
@@ -80,13 +111,11 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
                 slotItem.Count -= removed;
             }
 
-            slots.Add(slot);
+            slotsToUpdate.Add(slot);
             remaining -= removed;
             slot = -1;
         }
 
-        NotifyUpdate(slots);
-        AdvanceRevision();
         return true;
     }
 
@@ -104,13 +133,14 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
     }
 
     /// <summary>
-    /// Delivers a trade-container update without turning observer failures into a failed settlement.
+    /// Delivers a checked trade update without turning observer failures into a
+    /// failed settlement. Normal inherited mutations do not use this path.
     /// </summary>
-    protected override void NotifyUpdate(HashSet<int>? slots = null)
+    protected void NotifyTradeUpdate(HashSet<int>? slots = null)
     {
         try
         {
-            base.NotifyUpdate(slots);
+            OnUpdate(slots);
         }
         catch (InvalidOperationException)
         {
