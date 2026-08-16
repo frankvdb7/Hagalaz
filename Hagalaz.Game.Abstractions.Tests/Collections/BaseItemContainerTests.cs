@@ -449,48 +449,6 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
-        public void TradeMutation_Rollback_NotifiesObservers()
-        {
-            var container = new TestableItemContainer(StorageType.Normal, 10);
-            var mutation = container.AddRangeForTradeMutation([CreateItem(1, 1)]);
-            var updatesAfterForwardMutation = container.UpdateCount;
-
-            Assert.IsTrue(mutation.TryRollback());
-            Assert.AreEqual(updatesAfterForwardMutation + 1, container.UpdateCount);
-            Assert.AreEqual(0, container.TakenSlots);
-        }
-
-        [TestMethod]
-        public void CheckedMutation_ObserverFailureDoesNotFailMutation()
-        {
-            var container = new TestableItemContainer(StorageType.Normal, 10)
-            {
-                ThrowOnUpdate = true
-            };
-
-            var mutation = container.AddRangeForTradeMutation([CreateItem(1, 1)]);
-
-            Assert.IsTrue(mutation.Succeeded);
-            Assert.IsFalse(mutation.NotificationSucceeded);
-            Assert.AreEqual(1, container.TakenSlots);
-            Assert.IsTrue(mutation.TryRollback());
-            Assert.AreEqual(0, container.TakenSlots);
-        }
-
-        [TestMethod]
-        public void TradeMutation_Rollback_PreservesUnrelatedStackChanges()
-        {
-            var existing = CreateItem(1, 10, stackable: true);
-            var container = new TestableItemContainer(StorageType.Normal, [existing], 10);
-            var mutation = container.AddRangeForTradeMutation([CreateItem(1, 5, stackable: true)]);
-
-            existing.Count -= 3;
-
-            Assert.IsTrue(mutation.TryRollback());
-            Assert.AreEqual(7, existing.Count);
-        }
-
-        [TestMethod]
         public void Remove_ItemNotInContainer_ReturnsZero()
         {
             // Arrange

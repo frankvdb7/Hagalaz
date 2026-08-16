@@ -44,13 +44,13 @@
         int Remove(int count);
 
         /// <summary>
-        /// Adds coins using the pouch's normal overflow rules and returns a checked trade mutation.
+        /// Adds coins using the pouch's normal overflow rules as one checked trade operation.
         /// </summary>
-        MoneyPouchMutation AddForTrade(int count);
+        bool AddForTrade(int count);
 
         /// <summary>
-        /// Removes coins using the pouch's normal underflow rules and returns a checked trade mutation.
+        /// Removes coins using the pouch's normal underflow rules as one checked trade operation.
         /// </summary>
-        MoneyPouchMutation RemoveForTrade(int count);
+        bool RemoveForTrade(int count);
     }
 }

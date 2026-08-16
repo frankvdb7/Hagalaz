@@ -1,87 +1,71 @@
 ## ADDED Requirements
 
-### Requirement: Trade completion has one serialized terminal transition
+### Requirement: A trade has one serialized terminal transition
 
-An active trade MUST have one serialized owner for acceptance, completion, cancellation, and linked target cleanup. Completion MUST transition an active trade to a terminal outcome at most once.
+An active trade MUST serialize final acceptance, cancellation, interruption, and linked target cleanup through its owner session gate. Completion and cancellation MUST each be terminal and idempotent.
 
-#### Scenario: Two final accepts arrive concurrently
+#### Scenario: Concurrent final accepts
 
-- **WHEN** both accepted players release their final confirmation through a controlled barrier
-- **THEN** exactly one completion operation transfers the exchange and exactly one terminal cleanup occurs
-
-#### Scenario: A final accept is repeated after completion begins
-
-- **WHEN** a repeated final-accept packet arrives while completion is already completing or terminal
-- **THEN** it performs no additional transfer, refund, or cleanup
+- **WHEN** both participants release final confirmation concurrently
+- **THEN** exactly one completion runs and the session performs one terminal cleanup
 
 #### Scenario: Accept and cancel race
 
-- **WHEN** a final accept and cancellation are released concurrently for the same active trade
-- **THEN** the trade has exactly one valid terminal outcome and no item or coin is transferred and refunded twice
+- **WHEN** completion and cancellation race for one active session
+- **THEN** exactly one valid outcome wins and no value is transferred twice
 
-#### Scenario: Two unrelated trades are active
+#### Scenario: Independent trades
 
-- **WHEN** completion operations run concurrently for two different trade sessions
-- **THEN** each trade progresses independently without sharing terminal state or blocking the other trade's correctness
+- **WHEN** two unrelated sessions complete concurrently
+- **THEN** each session remains independently usable
 
-### Requirement: A confirmed exchange is validated before mutation
+### Requirement: Completion validates under one mutation boundary
 
-The trade owner MUST confirm that the session is active, both participants are accepted, and the offers have not changed since confirmation before mutating either recipient. It MUST verify that both inventories and money pouches can receive their complete opposite offers.
+Before changing recipients or escrow, completion MUST lock all involved base containers in deterministic order, snapshot both offers, verify both accepted revisions, and verify complete recipient capacity including money-pouch overflow.
 
-#### Scenario: Destination capacity changes before completion
+#### Scenario: Capacity is insufficient
 
-- **WHEN** either recipient loses the capacity required for the accepted offer before completion
-- **THEN** completion fails without clearing escrow or partially changing either recipient, and the trade follows the consistent cancellation/refund outcome when refund is possible
+- **WHEN** either recipient cannot receive its complete opposite offer
+- **THEN** completion returns failure without clearing either offer
 
-#### Scenario: An offer changes after acceptance
+#### Scenario: An offer changed after acceptance
 
-- **WHEN** an accepted participant modifies an offer before completion
-- **THEN** both confirmations are invalidated through the existing trade-change flow and the old confirmation cannot complete the changed offer
+- **WHEN** an offer revision differs from the accepted revision
+- **THEN** both confirmations are invalidated and the old confirmation cannot complete the changed offer
 
-#### Scenario: An offered container no longer matches confirmation
+### Requirement: Completion is complete or untouched
 
-- **WHEN** a trade-container revision differs from the revision recorded at final confirmation
-- **THEN** completion is rejected without consuming the offer containers
+Completion MUST deliver both complete opposite offers and clear both escrow containers only after both checked deliveries succeed. It MUST NOT use recovery containers or settle a partial exchange.
 
-### Requirement: The exchange and refund preserve all value
+#### Scenario: Items and coins are exchanged
 
-The exchange MUST either apply the complete opposite offers to both recipients or leave both recipients and both existing trade containers consistent. Every inventory, trade-container, and money-pouch mutation result MUST be checked.
+- **WHEN** both offers contain stackable, non-stackable, or coin values
+- **THEN** each recipient receives exactly the other offer and escrow is empty
 
-#### Scenario: Stackable and non-stackable items are exchanged
+#### Scenario: A checked delivery fails
 
-- **WHEN** both participants offer stackable quantities and non-stackable item quantities
-- **THEN** the recipients receive exactly those quantities and the total quantity across participants and escrow is conserved
+- **WHEN** a preflight or checked delivery reports failure
+- **THEN** completion returns failure, leaves escrow available for cancellation, and retains no compensation state
 
-#### Scenario: Money-pouch coins are exchanged
+### Requirement: Cancellation returns escrow exactly once
 
-- **WHEN** either participant offers coins from the money pouch
-- **THEN** the recipient receives the exact coin count, including any supported money-pouch overflow behavior, and total coins are conserved
+Cancellation MUST use checked refund operations under the same container boundary and reach `Cancelled` only after both offers are returned. Forced destruction MAY move untouched escrow to the existing persisted Rewards/Bank recovery destination when normal refund cannot fit.
 
-#### Scenario: A recipient mutation fails
+#### Scenario: Refund fits
 
-- **WHEN** adding the complete offer to either recipient reports failure or throws
-- **THEN** only the exact applied trade item and coin deltas are compensated, unrelated recipient contents are not replaced, escrow remains consistent, and no successful partial exchange is later refunded as if it were still offered; if compensation cannot complete, the session enters compensation-pending and refund is blocked until compensation succeeds
+- **WHEN** an active trade is cancelled
+- **THEN** each owner receives its own offer once, both offers are cleared, and the session is cancelled
 
-#### Scenario: Destruction finds exchange compensation still pending
+#### Scenario: Forced destruction cannot fit
 
-- **WHEN** destruction cannot safely roll back a recorded recipient mutation from an exchange
-- **THEN** it does not use Rewards/Bank to commit a partial exchange or refund the remaining escrow; the exchange remains compensation-pending until the exact recipient mutations can be reconciled
+- **WHEN** an owner is destroyed while untouched escrow cannot fit in its inventory or pouch
+- **THEN** the existing recovery container receives the escrow and the session reaches terminal cleanup without relying on a later tick
 
-#### Scenario: A cancelled trade returns escrow
+### Requirement: Completed trades cannot be refunded
 
-- **WHEN** an active trade is cancelled, interrupted, or disconnected before successful completion
-- **THEN** all escrowed items and coins are returned exactly once and the trade reaches the cancelled terminal state only after checked refunds succeed; if capacity temporarily prevents an ordinary refund, cancellation remains pending for a linked lifecycle retry, while destruction synchronously stores the escrow in the participant's persisted rewards container or bank before cleanup
+Once completion succeeds, later cancellation, disconnect, or logout callbacks MUST observe terminal state and MUST NOT return exchanged escrow to the original owners.
 
-### Requirement: Disconnect and cleanup cannot refund a completed trade
+#### Scenario: Target disconnects during completion
 
-Completion, cancellation, disconnect, and logout MUST converge on one terminal cleanup implementation. Once completion succeeds, no later lifecycle callback may return the exchanged escrow to its original owner.
-
-#### Scenario: The target disconnects during completion
-
-- **WHEN** target destruction/logout races with the owner's exchange operation
-- **THEN** the target lifecycle uses the same session gate and the result is either one completed exchange or one consistent cancellation, never both
-
-#### Scenario: Completion cleanup runs
-
-- **WHEN** both recipients have received their complete offers
-- **THEN** escrow is cleared, interfaces and input handlers are reset, the session link is removed, and no refund branch is reachable
+- **WHEN** target cleanup races with completion
+- **THEN** the shared session gate produces one completed exchange or one consistent cancellation, never both

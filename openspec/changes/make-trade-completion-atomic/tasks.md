@@ -1,22 +1,22 @@
 ## 1. Session ownership and serialization
 
-- [x] 1.1 Add the owner-controlled trade session gate/terminal state and link target lifecycle cleanup to that same session. (Acceptance: serialized terminal transition; disconnect cleanup)
-- [x] 1.2 Route final acceptance, offer changes, cancellation, interruption, destruction, and confirmation revision checks through the shared protected operation. (Acceptance: repeated packets; accept/cancel race; offer invalidation)
+- [x] 1.1 Keep one owner-controlled session gate and link target lifecycle cleanup to that session.
+- [x] 1.2 Restrict lifecycle to Active, Completing, Completed, and Cancelled; make accept/cancel/destruction terminal transitions idempotent.
 
-## 2. Checked atomic exchange and cleanup
+## 2. Checked completion and refund
 
-- [x] 2.1 Add checked offer/refund helpers and one focused opt-in trade-container operation whose public result is success/failure while exact compensation remains internal; commit storage independently of observer delivery, record notification failure separately, and make rollback apply the inverse delta while preserving unrelated container behavior. (Acceptance: all mutation results checked; cancellation conservation; no aggregate-count rollback; unrelated container behavior unchanged)
-- [x] 2.2 Implement preflight and rollback-protected two-recipient exchange using existing containers and money-pouch behavior; clear escrow only after success. (Acceptance: capacity, mutation failure, stackable/non-stackable, and coin conservation)
-- [x] 2.3 Consolidate completion and cancellation into one terminal cleanup path and remove any reachable post-completion refund path. (Acceptance: one cleanup implementation; no refund after completion)
-- [x] 2.4 Distinguish incomplete exchange compensation from an ordinarily failed exchange; do not use persisted rewards/bank recovery to settle a compensation-pending exchange, while forced destruction may store untouched cancellation escrow for its original owner. (Acceptance: no partial exchange settlement; scoped disconnect conservation)
+- [x] 2.1 Add a neutral per-container synchronization boundary and deterministic multi-container acquisition without adding trade behavior to `BaseItemContainer`.
+- [x] 2.2 Keep opt-in trade-container operations boolean-only and preserve normal container semantics.
+- [x] 2.3 Make money-pouch trade operations boolean-only while retaining pouch overflow/underflow ownership and notifications.
+- [x] 2.4 Implement locked preflight, complete exchange, normal refund, and forced untouched-escrow recovery; do not retain receipts or compensation state.
 
-## 3. Deterministic regression coverage
+## 3. Regression coverage
 
-- [x] 3.1 Add barrier/controlled-task coverage for concurrent final accepts, repeated accepts, accept/cancel, target disconnect/logout, and independent trades. (Required regression tests 1-4 and 10-11)
-- [x] 3.2 Add focused success/failure coverage for item quantities, stackability, coin conservation, destination capacity, offer mutation, and recipient mutation rollback. (Required regression tests 5-9)
-- [x] 3.3 Add regressions for exact compensation after an unrelated recipient mutation, all-or-nothing compensation-pending destruction, exact recovery rollback after an unrelated stack change, rollback notifications, and recovery persistence without a later tick. (Required regression tests 12-13)
+- [x] 3.1 Cover concurrent/repeated completion, accept/cancel, target cleanup, and independent trades.
+- [x] 3.2 Cover capacity, offer revision, stackable/non-stackable items, coins, notification failure, refund, and conservation.
+- [x] 3.3 Remove tests that assert rollback objects, deferred compensation, partial settlement, or aggregate-count restoration.
 
 ## 4. Validation
 
-- [x] 4.1 Run the focused `Hagalaz.Game.Scripts.Tests` trade suite and the relevant container tests to a clean exit.
-- [x] 4.2 Run strict OpenSpec validation, a dependent build, and final diff/status review; report any unavailable distributed validation separately.
+- [x] 4.1 Run focused trade and base-container tests and dependent builds.
+- [x] 4.2 Run strict OpenSpec validation and final stale-reference/diff checks.

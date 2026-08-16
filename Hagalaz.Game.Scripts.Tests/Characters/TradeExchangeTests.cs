@@ -41,8 +41,8 @@ public sealed class TradeExchangeTests
         first.MoneyPouch.Count.Should().Be(250);
         second.Inventory.GetCountById(100).Should().Be(20);
         second.Inventory.GetCountById(101).Should().Be(1);
-        firstOffer.GetCountById(100).Should().Be(20);
-        secondOffer.GetCountById(995).Should().Be(250);
+        firstOffer.GetCountById(100).Should().Be(0);
+        secondOffer.GetCountById(995).Should().Be(0);
     }
 
     [TestMethod]
@@ -84,8 +84,8 @@ public sealed class TradeExchangeTests
         firstInventory.GetCountById(200).Should().Be(1);
         firstInventory.GetCountById(101).Should().Be(1);
         secondInventory.GetCountById(100).Should().Be(1);
-        firstOffer.GetCountById(100).Should().Be(1);
-        secondOffer.GetCountById(101).Should().Be(1);
+        firstOffer.GetCountById(100).Should().Be(0);
+        secondOffer.GetCountById(101).Should().Be(0);
     }
 
     [TestMethod]
@@ -125,25 +125,6 @@ public sealed class TradeExchangeTests
         result.Should().BeTrue();
         firstInventory.GetCountById(100).Should().Be(1);
         second.MoneyPouch.Count.Should().Be(125);
-    }
-
-    [TestMethod]
-    public void RemoveMoney_WhenPouchIsShort_TracksInventoryCoinsForRollback()
-    {
-        var inventory = new TestInventory(14);
-        var moneyPouch = new TestMoneyPouch(inventory);
-        var character = CreateCharacter(inventory, moneyPouch);
-        moneyPouch.Add(100).Should().BeTrue();
-        inventory.Add(new TestItem(995, 50, stackable: true)).Should().BeTrue();
-
-        var removed = TradeExchange.RemoveMoney(character, 120, out var delta);
-
-        removed.Should().Be(120);
-        delta.PouchCount.Should().Be(100);
-        delta.InventoryCount.Should().Be(20);
-        TradeExchange.RestoreRemovedMoney(delta).Should().BeTrue();
-        moneyPouch.Count.Should().Be(100);
-        inventory.GetCountById(995).Should().Be(50);
     }
 
     [TestMethod]
@@ -220,31 +201,6 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void TargetTick_RetriesPendingCancellationAfterCapacityIsRestored()
-    {
-        var firstInventory = new TestInventory(1);
-        var secondInventory = new TestInventory(14);
-        firstInventory.Add(new TestItem(200, 1)).Should().BeTrue();
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
-        var script = CreatePreparedScript(first, second, first.MoneyPouch, second.MoneyPouch);
-        var targetScript = CreateScript(second);
-        var session = GetField(script, "_tradeSession");
-        SetProperty(session!, "TargetScript", targetScript);
-        SetField(targetScript, "_linkedTradeSession", session!);
-
-        script.OnDestroy();
-
-        script.TradeSession.Should().BeTrue();
-        firstInventory.Remove(new TestItem(200, 1)).Should().Be(1);
-        targetScript.Tick();
-
-        firstInventory.GetCountById(100).Should().Be(1);
-        secondInventory.GetCountById(101).Should().Be(1);
-        script.TradeSession.Should().BeFalse();
-    }
-
-    [TestMethod]
     public void Destroy_WhenRefundCannotFit_StoresEscrowInPersistentRecoveryContainers()
     {
         var firstInventory = new TestInventory(0);
@@ -294,59 +250,6 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void Destroy_WhenExchangeCompensationRemainsPending_DoesNotCommitPartialExchangeToRecoveryContainers()
-    {
-        var firstInventory = new TestInventory(14);
-        var secondInventory = new TestInventory(14) { FailRollbackCount = 3 };
-        secondInventory.Add(new TestItem(102, 1) { ThrowOnStackCheck = true }).Should().BeTrue();
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
-        var firstRewards = CreateRewardContainer(first);
-        var secondRewards = CreateRewardContainer(second);
-        first.Rewards.Returns(firstRewards);
-        second.Rewards.Returns(secondRewards);
-        var script = CreatePreparedScript(first, second, first.MoneyPouch, second.MoneyPouch);
-        var firstOffer = script.SelfContainer;
-        var secondOffer = script.TargetContainer;
-        firstOffer.Add(new TestItem(102, 1)).Should().BeTrue();
-        SetProperty(script, "SelfAcceptedContainerRevision", firstOffer.Revision);
-
-        script.FinishTradeSession();
-        script.TradeSession.Should().BeTrue();
-
-        script.OnDestroy();
-
-        script.TradeSession.Should().BeTrue();
-        script.SelfContainer.Should().NotBeNull();
-        script.TargetContainer.Should().NotBeNull();
-        firstRewards.GetCountById(101).Should().Be(0);
-        secondRewards.GetCountById(100).Should().Be(0);
-        secondRewards.GetCountById(102).Should().Be(0);
-    }
-
-    [TestMethod]
-    public void TryRefund_WhenRecipientNotificationFails_ReturnsSucceeded()
-    {
-        var firstInventory = new TestInventory(14);
-        var secondInventory = new TestInventory(14) { FailNextUpdate = true };
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
-        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
-        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
-        firstOffer.Add(new TestItem(100, 1)).Should().BeTrue();
-        secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
-
-        var result = TradeExchange.TryRefundDetailed(first, firstOffer, second, secondOffer, CreateItemBuilder());
-
-        result.Status.Should().Be(TradeExchange.TransferStatus.Succeeded);
-        result.Compensation.Should().BeNull();
-        firstOffer.GetCountById(100).Should().Be(1);
-        secondOffer.GetCountById(101).Should().Be(1);
-        firstInventory.GetCountById(100).Should().Be(1);
-        secondInventory.GetCountById(101).Should().Be(1);
-    }
-
-    [TestMethod]
     public void TryConserveEscrow_WhenSourceNotificationFails_CommitsMove()
     {
         var firstInventory = new TestInventory(14);
@@ -378,30 +281,6 @@ public sealed class TradeExchangeTests
 
         firstOffer.GetCountById(100).Should().Be(0);
         firstRewards.GetCountById(100).Should().Be(1);
-    }
-
-    [TestMethod]
-    public void TryConserveEscrow_WhenSecondRecoveryMutationFails_RollsBackFirstRecovery()
-    {
-        var firstInventory = new TestInventory(14);
-        var secondInventory = new TestInventory(14);
-        var firstRewards = new TestRewardContainer(14);
-        var secondRewards = new TestRewardContainer(14);
-        secondRewards.Add(new TestItem(101, 1)).Should().BeTrue();
-        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory), firstRewards);
-        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory), secondRewards);
-        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
-        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
-        firstOffer.Add(new TestItem(100, 1)).Should().BeTrue();
-        secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
-        ((TestItem)secondOffer.GetById(101)!).ThrowOnEquals = true;
-
-        TradeExchange.TryConserveEscrow(first, firstOffer, second, secondOffer).Should().BeFalse();
-
-        firstOffer.GetCountById(100).Should().Be(1);
-        firstRewards.GetCountById(100).Should().Be(0);
-        secondOffer.GetCountById(101).Should().Be(1);
-        secondRewards.GetCountById(101).Should().Be(1);
     }
 
     [TestMethod]
@@ -597,8 +476,6 @@ public sealed class TradeExchangeTests
     {
         public bool FailNextUpdate { get; set; }
 
-        public int FailRollbackCount { get; set; }
-
         public TestItemContainer(StorageType type, int capacity) : base(type, capacity) { }
 
         public override void OnUpdate(HashSet<int>? slots = null)
@@ -612,17 +489,6 @@ public sealed class TradeExchangeTests
             throw new InvalidOperationException("Controlled container failure.");
         }
 
-        protected override void OnMutationRollbackStarting()
-        {
-            if (FailRollbackCount <= 0)
-            {
-                base.OnMutationRollbackStarting();
-                return;
-            }
-
-            FailRollbackCount--;
-            throw new InvalidOperationException("Controlled rollback failure.");
-        }
     }
 
     private class TestInventory : TestItemContainer, IInventoryContainer
@@ -670,34 +536,27 @@ public sealed class TradeExchangeTests
             return overflow == 0 || _overflowInventory.Add(new TestItem(995, overflow, stackable: true));
         }
 
-        public MoneyPouchMutation AddForTrade(int count)
+        public bool AddForTrade(int count)
         {
             if (count <= 0)
             {
-                return MoneyPouchMutation.Empty(succeeded: false);
+                return false;
             }
 
             var inPouch = Math.Min(int.MaxValue - Count, count);
-            var pouchMutation = inPouch > 0
-                ? TradeExchange.AddRangeForTrade(this, [new TestItem(995, inPouch, stackable: true)])
-                : null;
-            if (pouchMutation != null && !pouchMutation.Succeeded)
+            var overflow = count - inPouch;
+            if (overflow > 0 && !_overflowInventory.HasSpaceFor(new TestItem(995, overflow, stackable: true)))
             {
-                return new MoneyPouchMutation(false, pouchMutation, null);
+                return false;
             }
 
-            var remaining = count - (pouchMutation?.AppliedCount ?? 0);
-            if (remaining <= 0)
+            if (inPouch > 0 && !TradeExchange.AddRangeForTrade(this, [new TestItem(995, inPouch, stackable: true)]))
             {
-                return new MoneyPouchMutation(true, pouchMutation, null);
+                return false;
             }
 
-            var inventoryMutation = TradeExchange.AddRangeForTrade(_overflowInventory,
-                [new TestItem(995, remaining, stackable: true)]);
-            return new MoneyPouchMutation(
-                (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount == count,
-                pouchMutation,
-                inventoryMutation);
+            return overflow <= 0 || TradeExchange.AddRangeForTrade(_overflowInventory,
+                [new TestItem(995, overflow, stackable: true)]);
         }
 
         public bool AddFromInventory(int count) => false;
@@ -713,35 +572,28 @@ public sealed class TradeExchangeTests
                 : removed + _overflowInventory.Remove(new TestItem(995, remaining, stackable: true));
         }
 
-        public MoneyPouchMutation RemoveForTrade(int count)
+        public bool RemoveForTrade(int count)
         {
             if (count <= 0)
             {
-                return MoneyPouchMutation.Empty(succeeded: false);
+                return false;
             }
 
             var fromPouch = Math.Min(Count, count);
-            var pouchMutation = fromPouch > 0
-                ? RemoveForTradeMutation(new TestItem(995, fromPouch, stackable: true))
-                : null;
-            if (pouchMutation != null && !pouchMutation.Succeeded)
+            var remaining = count - fromPouch;
+            if (remaining > _overflowInventory.GetCountById(995))
             {
-                return new MoneyPouchMutation(false, pouchMutation, null);
+                return false;
             }
 
-            var remaining = count - (pouchMutation?.AppliedCount ?? 0);
-            if (remaining <= 0)
+            if (fromPouch > 0 && !TradeExchange.RemoveForTrade(this,
+                    new TestItem(995, fromPouch, stackable: true)))
             {
-                return new MoneyPouchMutation(true, pouchMutation, null);
+                return false;
             }
 
-            var inventoryMutation = TradeExchange.RemoveForTrade(_overflowInventory,
+            return remaining <= 0 || TradeExchange.RemoveForTrade(_overflowInventory,
                 new TestItem(995, remaining, stackable: true));
-            var removed = (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount;
-            return new MoneyPouchMutation(
-                removed == count,
-                pouchMutation,
-                inventoryMutation);
         }
     }
 

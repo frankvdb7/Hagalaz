@@ -95,39 +95,33 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         /// <summary>
-        /// Adds coins using the normal pouch overflow behavior while retaining
-        /// the exact mutations needed by a trade compensation.
+        /// Adds coins using the normal pouch overflow behavior as one checked
+        /// trade operation. The caller must hold the pouch and inventory
+        /// mutation boundaries while using this method.
         /// </summary>
-        public MoneyPouchMutation AddForTrade(int count)
+        public bool AddForTrade(int count)
         {
             if (count <= 0)
             {
-                return MoneyPouchMutation.Empty(succeeded: false);
+                return false;
             }
 
             var pouchCount = Math.Min(count, int.MaxValue - Count);
-            TradeItemMutation? pouchMutation = null;
-            if (pouchCount > 0)
+            var inventoryCount = count - pouchCount;
+            if (inventoryCount > 0 && !_owner.Inventory.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
             {
-                _previousCount = Count;
-                SendMoneyPouchChangedMessage(pouchCount);
-                pouchMutation = AddRangeForTradeMutation([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]);
-                if (!pouchMutation.Succeeded)
-                {
-                    return new MoneyPouchMutation(false, pouchMutation, null);
-                }
+                return false;
             }
 
-            var remaining = count - (pouchMutation?.AppliedCount ?? 0);
-            if (remaining <= 0)
+            _previousCount = Count;
+            if (pouchCount > 0 && !base.Add(_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()))
             {
-                return new MoneyPouchMutation(true, pouchMutation, null);
+                return false;
             }
 
-            var inventoryMutation = GetTradeContainer(_owner.Inventory).AddRangeForTradeMutation(
-                [_itemBuilder.Create().WithId(995).WithCount(remaining).Build()]);
-            var added = (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount;
-            return new MoneyPouchMutation(added == count, pouchMutation, inventoryMutation);
+            SendMoneyPouchChangedMessage(pouchCount);
+
+            return inventoryCount <= 0 || _owner.Inventory.Add(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build());
         }
 
         /// <summary>
@@ -156,42 +150,38 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         /// <summary>
-        /// Removes coins using the normal pouch underflow behavior while retaining
-        /// the exact mutations needed by a trade compensation.
+        /// Removes coins using the normal pouch underflow behavior as one checked
+        /// trade operation. The caller must hold the pouch and inventory
+        /// mutation boundaries while using this method.
         /// </summary>
-        public MoneyPouchMutation RemoveForTrade(int count)
+        public bool RemoveForTrade(int count)
         {
             if (count <= 0)
             {
-                return MoneyPouchMutation.Empty(succeeded: false);
+                return false;
             }
 
             var pouchCount = Math.Min(count, Count);
+            var inventoryCount = count - pouchCount;
+            if (inventoryCount > _owner.Inventory.GetCountById(995))
+            {
+                return false;
+            }
+
             _previousCount = Count;
-            TradeItemMutation? pouchMutation = null;
-            if (pouchCount > 0)
+            if (pouchCount > 0 && base.Remove(_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0, false) != pouchCount)
             {
-                pouchMutation = RemoveForTradeMutation(
-                    _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(),
-                    0);
-                if (!pouchMutation.Succeeded)
-                {
-                    return new MoneyPouchMutation(false, pouchMutation, null);
-                }
+                return false;
             }
 
-            var remaining = count - (pouchMutation?.AppliedCount ?? 0);
-            if (remaining <= 0)
+            if (inventoryCount > 0 && _owner.Inventory.Remove(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()) != inventoryCount)
             {
-                SendMoneyPouchChangedMessage(-(pouchMutation?.AppliedCount ?? 0));
-                return new MoneyPouchMutation(true, pouchMutation, null);
+                return false;
             }
 
-            var inventoryMutation = GetTradeContainer(_owner.Inventory).RemoveForTradeMutation(
-                _itemBuilder.Create().WithId(995).WithCount(remaining).Build());
-            var removed = (pouchMutation?.AppliedCount ?? 0) + inventoryMutation.AppliedCount;
-            SendMoneyPouchChangedMessage(-removed);
-            return new MoneyPouchMutation(removed == count, pouchMutation, inventoryMutation);
+            SendMoneyPouchChangedMessage(-count);
+            NotifyUpdate([0]);
+            return true;
         }
 
         /// <summary>
@@ -272,17 +262,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="slots">The slots.</param>
         public override void OnUpdate(HashSet<int>? slots = null)
         {
-            if (IsMutationRollbackNotification || _previousCount != Count)
+            if (_previousCount != Count)
             {
                 _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, _previousCount, Count));
             }
         }
-
-        private static TradeItemContainer GetTradeContainer(IInventoryContainer container) =>
-            container as TradeItemContainer ??
-            throw new InvalidOperationException("Trade inventory must use the checked trade-container implementation.");
-
-        protected override void OnMutationRollbackStarting() => _previousCount = Count;
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch)
         {
