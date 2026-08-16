@@ -10,6 +10,7 @@
 - Make terminal state transitions explicit and owned by the initiating `TradingCharacterScript`.
 - Preflight both recipients, apply the exchange using existing item-container and money-pouch APIs, and compensate only the exact trade deltas if a checked mutation fails.
 - Keep escrow in the existing trade containers until the complete exchange or refund succeeds.
+- Make disconnect cleanup deterministic by storing unrefundable escrow in the existing persisted rewards container, with the bank as an existing-capacity fallback.
 - Preserve the existing character persistence behavior after in-memory character state changes.
 
 **Non-Goals:**
@@ -29,17 +30,17 @@
 
 3. **Make all trade mutations checked and serialized.** Existing offer handlers will use focused script methods that hold the session gate while moving an item or coin between a character container and a trade container. If the destination trade-container add or refund fails, the source mutation is reversed and the operation remains non-terminal. Acceptance records the offer-container revisions; completion verifies both revisions and both accepted flags before using the offers.
 
-4. **Apply the exchange as a checked two-recipient operation.** The owner separates coin offers from item offers, validates item capacity and money-pouch overflow capacity for each recipient, and checks every `AddRange`/money-pouch result. Each recipient records only the item and coin deltas made by the exchange; a failure compensates those exact deltas without replacing a whole inventory or money pouch. The offer containers are cleared only after both recipients receive their complete opposite offer, and escrow remains available for one consistent cancellation/refund attempt.
+4. **Apply the exchange as a checked two-recipient operation.** The owner separates coin offers from item offers, validates item capacity and money-pouch overflow capacity for each recipient, and checks every `AddRange`/money-pouch result. Each recipient records only the item and coin deltas made by the exchange; a failure compensates those exact deltas without replacing a whole inventory or money pouch. The exchange reports compensation-incomplete separately, so completion cannot fall through to refund while a recipient still holds an unremoved trade delta. The offer containers are cleared only after both recipients receive their complete opposite offer, and escrow remains available for one consistent cancellation/refund attempt.
 
    A remove-first exchange was rejected because it creates a period in which a later destination failure requires reconstructing escrow. A destination-only preflight without compensation was rejected because capacity can change between validation and mutation and existing mutation APIs report failure. Whole-container replacement was rejected because unrelated gameplay could mutate a character container outside the trade gate.
 
-5. **Keep one terminal cleanup implementation.** Successful completion transitions to `completed` and invokes shared interface/input/link reset without refund. Cancellation transitions only after all escrow is returned successfully; it invokes the same reset method with refund already complete. This prevents a successful exchange from reaching the old refund branch and leaves escrow intact if a refund cannot be applied safely.
+5. **Keep one terminal cleanup implementation.** Successful completion transitions to `completed` and invokes shared interface/input/link reset without refund. Ordinary cancellation transitions only after all escrow is returned successfully; it invokes the same reset method with refund already complete. Destruction first attempts the normal refund and, when capacity prevents it, synchronously stores each offer in the participant's persisted rewards container or bank before terminal cleanup. This prevents a successful exchange from reaching the old refund branch and prevents disconnect cleanup from depending on a future character tick.
 
 ## Risks / Trade-offs
 
-- [Risk] A non-standard `IItemContainer` implementation could report a checked mutation failure after a partial update → compensation is scoped to the recorded trade item/coin deltas, failed cancellation remains pending, and the linked session retries on a later tick instead of clearing escrow.
+- [Risk] A non-standard `IItemContainer` implementation could report a checked mutation failure after a partial update → compensation is scoped to the recorded trade item/coin deltas, compensation-incomplete state blocks refund, and the linked session retries compensation before any cancellation attempt.
 - [Risk] Holding a synchronous lock while container update events notify listeners could expose re-entrant callbacks → the gate is re-entrant for the owning thread, terminal state is set before cleanup callbacks, and no asynchronous wait occurs while held.
-- [Risk] A refund may be temporarily impossible if a character's inventory changed after offering → leave the session/escrow active rather than discard items, allowing a later cleanup attempt to preserve conservation.
+- [Risk] A refund may be temporarily impossible if a character's inventory changed after offering → ordinary cancellation remains pending for a linked retry, while destruction uses the existing persisted rewards/bank containers before clearing in-memory escrow.
 
 ## Migration Plan
 

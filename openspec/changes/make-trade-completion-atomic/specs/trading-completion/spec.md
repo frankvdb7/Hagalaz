@@ -60,12 +60,12 @@ The exchange MUST either apply the complete opposite offers to both recipients o
 #### Scenario: A recipient mutation fails
 
 - **WHEN** adding the complete offer to either recipient reports failure or throws
-- **THEN** only the recorded trade item and coin deltas are compensated, unrelated recipient contents are not replaced, escrow remains consistent, and no successful partial exchange is later refunded as if it were still offered
+- **THEN** only the recorded trade item and coin deltas are compensated, unrelated recipient contents are not replaced, escrow remains consistent, and no successful partial exchange is later refunded as if it were still offered; if compensation cannot complete, the session enters compensation-pending and refund is blocked until compensation succeeds
 
 #### Scenario: A cancelled trade returns escrow
 
 - **WHEN** an active trade is cancelled, interrupted, or disconnected before successful completion
-- **THEN** all escrowed items and coins are returned exactly once and the trade reaches the cancelled terminal state only after checked refunds succeed; if capacity temporarily prevents the refund, cancellation remains pending for a linked lifecycle retry
+- **THEN** all escrowed items and coins are returned exactly once and the trade reaches the cancelled terminal state only after checked refunds succeed; if capacity temporarily prevents an ordinary refund, cancellation remains pending for a linked lifecycle retry, while destruction synchronously stores the escrow in the participant's persisted rewards container or bank before cleanup
 
 ### Requirement: Disconnect and cleanup cannot refund a completed trade
 

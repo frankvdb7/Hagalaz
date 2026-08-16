@@ -242,6 +242,76 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void Destroy_WhenRefundCannotFit_StoresEscrowInPersistentRecoveryContainers()
+    {
+        var firstInventory = new TestInventory(0);
+        var secondInventory = new TestInventory(0);
+        var firstRewards = new TestRewardContainer();
+        var secondRewards = new TestRewardContainer();
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory), firstRewards);
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory), secondRewards);
+        var script = CreatePreparedScript(first, second, first.MoneyPouch, second.MoneyPouch);
+        var firstOffer = script.SelfContainer;
+        var secondOffer = script.TargetContainer;
+
+        script.OnDestroy();
+
+        script.TradeSession.Should().BeFalse();
+        firstRewards.GetCountById(100).Should().Be(1);
+        secondRewards.GetCountById(101).Should().Be(1);
+        firstOffer.GetCountById(100).Should().Be(0);
+        secondOffer.GetCountById(101).Should().Be(0);
+    }
+
+    [TestMethod]
+    public void FinishTradeSession_WhenCompensationFails_DoesNotRefundEscrow()
+    {
+        var firstInventory = Substitute.For<IInventoryContainer>();
+        ConfigureEmptyContainer(firstInventory);
+        firstInventory.AddRange(Arg.Any<IEnumerable<IItem?>>()).Returns(true);
+        firstInventory.GetCount(Arg.Any<IItem>()).Returns(0, 1);
+        firstInventory.Remove(Arg.Any<IItem>(), Arg.Any<int>(), Arg.Any<bool>()).Returns(0);
+        var secondInventory = new TestInventory(14) { FailNextUpdate = true };
+        var firstMoneyPouch = new TestMoneyPouch(firstInventory);
+        var secondMoneyPouch = new TestMoneyPouch(secondInventory);
+        var first = CreateCharacter(firstInventory, firstMoneyPouch);
+        var second = CreateCharacter(secondInventory, secondMoneyPouch);
+        var script = CreatePreparedScript(first, second, firstMoneyPouch, secondMoneyPouch);
+        var session = GetField(script, "_tradeSession");
+
+        script.FinishTradeSession();
+
+        script.TradeSession.Should().BeTrue();
+        GetProperty(session!, "State")!.ToString().Should().Be("CompensationPending");
+        script.SelfContainer.GetCountById(100).Should().Be(1);
+        script.TargetContainer.GetCountById(101).Should().Be(1);
+    }
+
+    [TestMethod]
+    public void TryRefund_WhenCompensationFails_ReturnsPendingWithoutClearingEscrow()
+    {
+        var firstInventory = Substitute.For<IInventoryContainer>();
+        ConfigureEmptyContainer(firstInventory);
+        firstInventory.AddRange(Arg.Any<IEnumerable<IItem?>>()).Returns(true);
+        firstInventory.GetCount(Arg.Any<IItem>()).Returns(0, 1);
+        firstInventory.Remove(Arg.Any<IItem>(), Arg.Any<int>(), Arg.Any<bool>()).Returns(0);
+        var secondInventory = new TestInventory(14) { FailNextUpdate = true };
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new TradingCharacterScript.TradeContainer();
+        var secondOffer = new TradingCharacterScript.TradeContainer();
+        firstOffer.Add(new TestItem(100, 1)).Should().BeTrue();
+        secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
+
+        var result = TradeExchange.TryRefundDetailed(first, firstOffer, second, secondOffer, CreateItemBuilder());
+
+        result.Status.Should().Be(TradeExchange.TransferStatus.CompensationIncomplete);
+        result.Compensation.Should().NotBeNull();
+        firstOffer.GetCountById(100).Should().Be(1);
+        secondOffer.GetCountById(101).Should().Be(1);
+    }
+
+    [TestMethod]
     public async Task FinishAndCancelRace_ConservesEscrow()
     {
         var firstInventory = new TestInventory(14);
@@ -372,11 +442,17 @@ public sealed class TradeExchangeTests
         return new TradingCharacterScript(contextAccessor, CreateItemBuilder());
     }
 
-    private static ICharacter CreateCharacter(IInventoryContainer inventory, IMoneyPouchContainer moneyPouch)
+    private static ICharacter CreateCharacter(
+        IInventoryContainer inventory,
+        IMoneyPouchContainer moneyPouch,
+        IRewardContainer? rewards = null,
+        IBankContainer? bank = null)
     {
         var character = Substitute.For<ICharacter>();
         character.Inventory.Returns(inventory);
         character.MoneyPouch.Returns(moneyPouch);
+        character.Rewards.Returns(rewards);
+        character.Bank.Returns(bank);
         character.Widgets.Returns(Substitute.For<IWidgetContainer>());
         character.DisplayName.Returns("Test character");
         return character;
@@ -411,6 +487,9 @@ public sealed class TradeExchangeTests
     private static void SetProperty(object target, string name, object? value) =>
         target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.SetValue(target, value);
 
+    private static object? GetProperty(object target, string name) =>
+        target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(target);
+
     private class TestItemContainer : BaseItemContainer
     {
         public bool FailNextUpdate { get; set; }
@@ -434,6 +513,13 @@ public sealed class TradeExchangeTests
         public TestInventory(int capacity) : base(StorageType.Normal, capacity) { }
 
         public bool DropItem(IItem item) => false;
+    }
+
+    private sealed class TestRewardContainer : TestItemContainer, IRewardContainer
+    {
+        public TestRewardContainer() : base(StorageType.AlwaysStack, 255) { }
+
+        public int Claim(IItem item, int count) => -1;
     }
 
     private sealed class TestMoneyPouch : TestItemContainer, IMoneyPouchContainer

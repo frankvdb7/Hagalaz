@@ -28,6 +28,7 @@ namespace Hagalaz.Game.Scripts.Characters
         {
             Active,
             Completing,
+            CompensationPending,
             CancellationPending,
             Completed,
             Cancelled
@@ -40,6 +41,8 @@ namespace Hagalaz.Game.Scripts.Characters
             public ICharacter Target { get; }
             public TradingCharacterScript? TargetScript { get; set; }
             public TradeState State { get; set; } = TradeState.Active;
+            public TradeExchange.TradeCompensation? PendingCompensation { get; set; }
+            public bool RetryCancellationAfterCompensation { get; set; }
 
             public TradeSessionState(TradingCharacterScript owner, ICharacter target)
             {
@@ -199,7 +202,7 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public override void OnDestroy()
         {
-            CancelTradeSession();
+            CancelTradeSession(forceConservation: true);
         }
 
         /// <summary>
@@ -228,9 +231,15 @@ namespace Hagalaz.Game.Scripts.Characters
         public override void Tick()
         {
             var pendingSession = _tradeSession ?? _linkedTradeSession;
+            if (pendingSession?.State == TradeState.CompensationPending)
+            {
+                pendingSession.Owner.TryCompletePendingCompensation(pendingSession, forceConservation: false);
+            }
+
+            pendingSession = _tradeSession ?? _linkedTradeSession;
             if (pendingSession?.State == TradeState.CancellationPending)
             {
-                pendingSession.Owner.CancelTradeSession(pendingSession);
+                pendingSession.Owner.CancelTradeSession(pendingSession, forceConservation: false);
             }
 
             var session = _tradeSession;
@@ -242,7 +251,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     {
                         if (ShouldCancelTrade())
                         {
-                            CancelTradeSession(session);
+                            CancelTradeSession(session, forceConservation: false);
                         }
                         else if (IsOfferStage() && HasInventorySlotChange())
                         {
@@ -1721,6 +1730,11 @@ namespace Hagalaz.Game.Scripts.Characters
         /// </summary>
         public void CancelTradeSession()
         {
+            CancelTradeSession(forceConservation: false);
+        }
+
+        private void CancelTradeSession(bool forceConservation)
+        {
             var session = _tradeSession ?? _linkedTradeSession;
             if (session == null)
             {
@@ -1729,16 +1743,41 @@ namespace Hagalaz.Game.Scripts.Characters
 
             if (!ReferenceEquals(session.Owner, this))
             {
-                session.Owner.CancelTradeSession(session);
+                session.Owner.CancelTradeSession(session, forceConservation);
                 return;
             }
 
-            CancelTradeSession(session);
+            if (forceConservation && session.State == TradeState.CompensationPending)
+            {
+                TryCompletePendingCompensation(session, forceConservation: true);
+                return;
+            }
+
+            CancelTradeSession(session, forceConservation);
         }
 
         private void LinkTradeSession(TradeSessionState session) => _linkedTradeSession = session;
 
-        private void CancelTradeSession(TradeSessionState session)
+        private void TryCompletePendingCompensation(TradeSessionState session, bool forceConservation)
+        {
+            lock (session.Gate)
+            {
+                if (session.State != TradeState.CompensationPending ||
+                    session.PendingCompensation == null ||
+                    !session.PendingCompensation.TryCompensate())
+                {
+                    return;
+                }
+
+                var retryCancellation = session.RetryCancellationAfterCompensation;
+                session.PendingCompensation = null;
+                session.RetryCancellationAfterCompensation = false;
+                session.State = retryCancellation ? TradeState.CancellationPending : TradeState.Active;
+                CancelTradeSession(session, forceConservation);
+            }
+        }
+
+        private void CancelTradeSession(TradeSessionState session, bool forceConservation)
         {
             lock (session.Gate)
             {
@@ -1747,14 +1786,29 @@ namespace Hagalaz.Game.Scripts.Characters
                     return;
                 }
 
-                if (session.State == TradeState.Completing)
+                if (session.State is TradeState.Completing or TradeState.CompensationPending)
                 {
                     return;
                 }
 
                 session.State = TradeState.CancellationPending;
-                if (!TradeExchange.TryRefund(Character, SelfContainer, session.Target, TargetContainer, _itemBuilder))
+                var refund = TradeExchange.TryRefundDetailed(Character, SelfContainer, session.Target, TargetContainer, _itemBuilder);
+                if (refund.Status == TradeExchange.TransferStatus.CompensationIncomplete)
                 {
+                    session.PendingCompensation = refund.Compensation;
+                    session.RetryCancellationAfterCompensation = true;
+                    session.State = TradeState.CompensationPending;
+                    return;
+                }
+
+                if (refund.Status != TradeExchange.TransferStatus.Succeeded)
+                {
+                    if (forceConservation && TradeExchange.TryConserveEscrow(Character, SelfContainer, session.Target, TargetContainer))
+                    {
+                        session.State = TradeState.Cancelled;
+                        ResetTradeSessionLocked(session);
+                    }
+
                     return;
                 }
 
@@ -1794,26 +1848,34 @@ namespace Hagalaz.Game.Scripts.Characters
 
                 session.State = TradeState.Completing;
                 var target = session.Target;
-                var exchanged = false;
+                TradeExchange.TransferResult? exchange = null;
                 try
                 {
-                    exchanged = TradeExchange.TryExchange(Character, SelfContainer, target, TargetContainer, _itemBuilder);
+                    exchange = TradeExchange.TryExchangeDetailed(Character, SelfContainer, target, TargetContainer, _itemBuilder);
                 }
                 catch (InvalidOperationException)
                 {
-                    exchanged = false;
                 }
                 finally
                 {
-                    if (!exchanged && session.State == TradeState.Completing)
+                    if (exchange?.Status != TradeExchange.TransferStatus.Succeeded &&
+                        session.State == TradeState.Completing)
                     {
                         session.State = TradeState.Active;
                     }
                 }
 
-                if (!exchanged)
+                if (exchange?.Status == TradeExchange.TransferStatus.CompensationIncomplete)
                 {
-                    CancelTradeSession(session);
+                    session.PendingCompensation = exchange.Compensation;
+                    session.RetryCancellationAfterCompensation = false;
+                    session.State = TradeState.CompensationPending;
+                    return;
+                }
+
+                if (exchange?.Status != TradeExchange.TransferStatus.Succeeded)
+                {
+                    CancelTradeSession(session, forceConservation: false);
                     return;
                 }
 
@@ -1883,6 +1945,8 @@ namespace Hagalaz.Game.Scripts.Characters
             TargetAccepted = false;
             SelfAcceptedContainerRevision = null;
             TargetAcceptedContainerRevision = null;
+            session.PendingCompensation = null;
+            session.RetryCancellationAfterCompensation = false;
             SelfContainer = null;
             TargetContainer = null;
             SelfIntInputHandler = null;

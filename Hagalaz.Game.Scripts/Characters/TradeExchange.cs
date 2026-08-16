@@ -15,7 +15,61 @@ internal static class TradeExchange
 {
     private const int CoinsItemId = 995;
 
+    internal enum TransferStatus
+    {
+        Succeeded,
+        Failed,
+        CompensationIncomplete
+    }
+
+    internal sealed class TransferResult
+    {
+        private TransferResult(TransferStatus status, TradeCompensation? compensation = null)
+        {
+            Status = status;
+            Compensation = compensation;
+        }
+
+        public TransferStatus Status { get; }
+
+        public TradeCompensation? Compensation { get; }
+
+        public static TransferResult Succeeded() => new(TransferStatus.Succeeded);
+
+        public static TransferResult Failed() => new(TransferStatus.Failed);
+
+        public static TransferResult CompensationIncomplete(TradeCompensation compensation) =>
+            new(TransferStatus.CompensationIncomplete, compensation);
+    }
+
+    internal sealed class TradeCompensation
+    {
+        private readonly TransferReceipt? _firstReceipt;
+        private readonly TransferReceipt? _secondReceipt;
+
+        public TradeCompensation(TransferReceipt? firstReceipt, TransferReceipt? secondReceipt)
+        {
+            _firstReceipt = firstReceipt;
+            _secondReceipt = secondReceipt;
+        }
+
+        public bool TryCompensate()
+        {
+            var secondCompensated = Rollback(_secondReceipt, includeAttemptedItems: true);
+            var firstCompensated = Rollback(_firstReceipt, includeAttemptedItems: true);
+            return secondCompensated & firstCompensated;
+        }
+    }
+
     public static bool TryExchange(
+        ICharacter first,
+        IItemContainer firstOffer,
+        ICharacter second,
+        IItemContainer secondOffer,
+        IItemBuilder itemBuilder) =>
+        TryExchangeDetailed(first, firstOffer, second, secondOffer, itemBuilder).Status == TransferStatus.Succeeded;
+
+    internal static TransferResult TryExchangeDetailed(
         ICharacter first,
         IItemContainer firstOffer,
         ICharacter second,
@@ -29,7 +83,73 @@ internal static class TradeExchange
         ICharacter second,
         IItemContainer secondOffer,
         IItemBuilder itemBuilder) =>
+        TryRefundDetailed(first, firstOffer, second, secondOffer, itemBuilder).Status == TransferStatus.Succeeded;
+
+    internal static TransferResult TryRefundDetailed(
+        ICharacter first,
+        IItemContainer firstOffer,
+        ICharacter second,
+        IItemContainer secondOffer,
+        IItemBuilder itemBuilder) =>
         TryTransfer(first, firstOffer, second, secondOffer, itemBuilder, firstReceivesSecondOffer: false);
+
+    internal static bool TryConserveEscrow(
+        ICharacter first,
+        IItemContainer firstOffer,
+        ICharacter second,
+        IItemContainer secondOffer)
+    {
+        RecoveryReceipt? firstReceipt = null;
+        RecoveryReceipt? secondReceipt = null;
+        try
+        {
+            var firstItems = SnapshotItems(firstOffer);
+            var secondItems = SnapshotItems(secondOffer);
+            var firstDestination = GetRecoveryContainer(first, firstItems);
+            var secondDestination = GetRecoveryContainer(second, secondItems);
+            if ((firstItems.Length > 0 && firstDestination == null) ||
+                (secondItems.Length > 0 && secondDestination == null))
+            {
+                return false;
+            }
+
+            if (firstDestination != null && !TryStoreEscrow(firstOffer, firstDestination, out firstReceipt))
+            {
+                return false;
+            }
+
+            if (secondDestination != null && !TryStoreEscrow(secondOffer, secondDestination, out secondReceipt))
+            {
+                if (secondReceipt != null && !secondReceipt.Rollback())
+                {
+                    return false;
+                }
+
+                if (firstReceipt != null && !firstReceipt.Rollback())
+                {
+                    return false;
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            if (secondReceipt != null && !secondReceipt.Rollback())
+            {
+                return false;
+            }
+
+            if (firstReceipt != null && !firstReceipt.Rollback())
+            {
+                return false;
+            }
+
+            return false;
+        }
+    }
 
     internal static int RemoveMoney(
         ICharacter character,
@@ -98,26 +218,57 @@ internal static class TradeExchange
         MoneyDelta delta,
         IItemBuilder itemBuilder)
     {
-        var removed = true;
+        return TryRemoveAddedMoney(character, delta, itemBuilder, out _);
+    }
+
+    private static bool TryRemoveAddedMoney(
+        ICharacter character,
+        MoneyDelta delta,
+        IItemBuilder itemBuilder,
+        out MoneyDelta remaining)
+    {
+        var remainingInventory = delta.InventoryCount;
         if (delta.InventoryCount > 0)
         {
             var coins = itemBuilder.Create().WithId(CoinsItemId).WithCount(delta.InventoryCount).Build();
-            removed &= character.Inventory.Remove(coins) == delta.InventoryCount;
+            var before = character.Inventory.GetCountById(CoinsItemId);
+            try
+            {
+                var removed = character.Inventory.Remove(coins);
+                remainingInventory = Math.Max(0, delta.InventoryCount - Math.Min(delta.InventoryCount, removed));
+            }
+            catch (InvalidOperationException)
+            {
+                var after = character.Inventory.GetCountById(CoinsItemId);
+                var removed = Math.Max(0, before - after);
+                remainingInventory = Math.Max(0, delta.InventoryCount - Math.Min(delta.InventoryCount, removed));
+            }
         }
 
+        var remainingPouch = delta.PouchCount;
         if (delta.PouchCount > 0)
         {
-            removed &= character.MoneyPouch.Remove(delta.PouchCount) == delta.PouchCount;
+            var before = character.MoneyPouch.Count;
+            try
+            {
+                var removed = character.MoneyPouch.Remove(delta.PouchCount);
+                remainingPouch = Math.Max(0, delta.PouchCount - Math.Min(delta.PouchCount, removed));
+            }
+            catch (InvalidOperationException)
+            {
+                remainingPouch = Math.Max(0, delta.PouchCount - Math.Max(0, before - character.MoneyPouch.Count));
+            }
         }
 
-        return removed;
+        remaining = new(remainingPouch, remainingInventory);
+        return !remaining.HasChanges;
     }
 
     internal static bool RemoveExact(IItemContainer container, IItem item)
     {
         try
         {
-            return container.Remove(item.Clone()) == item.Count;
+            return container.Remove(item.Clone(), update: false) == item.Count;
         }
         catch (InvalidOperationException)
         {
@@ -136,7 +287,78 @@ internal static class TradeExchange
         return RemoveExact(container, item.Clone(Math.Min(added, item.Count)));
     }
 
-    private static bool TryTransfer(
+    private static IItemContainer? GetRecoveryContainer(
+        ICharacter character,
+        IReadOnlyList<IItem> items)
+    {
+        if (items.Count == 0)
+        {
+            return character.Rewards;
+        }
+
+        if (character.Rewards != null && character.Rewards.HasSpaceForRange(items))
+        {
+            return character.Rewards;
+        }
+
+        return character.Bank != null && character.Bank.HasSpaceForRange(items)
+            ? character.Bank
+            : null;
+    }
+
+    private static bool TryStoreEscrow(
+        IItemContainer offer,
+        IItemContainer destination,
+        out RecoveryReceipt? receipt)
+    {
+        receipt = null;
+        var items = SnapshotItems(offer);
+        if (items.Length == 0)
+        {
+            return true;
+        }
+
+        var recoveryReceipt = new RecoveryReceipt(offer, destination, items);
+        receipt = recoveryReceipt;
+        try
+        {
+            if (!destination.HasSpaceForRange(items) || !destination.AddRange(items))
+            {
+                if (!recoveryReceipt.Rollback())
+                {
+                    return false;
+                }
+
+                return false;
+            }
+
+            for (var i = 0; i < items.Length; i++)
+            {
+                if (!recoveryReceipt.RemoveFromOffer(i))
+                {
+                    if (!recoveryReceipt.Rollback())
+                    {
+                        return false;
+                    }
+
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            if (!recoveryReceipt.Rollback())
+            {
+                return false;
+            }
+
+            return false;
+        }
+    }
+
+    private static TransferResult TryTransfer(
         ICharacter first,
         IItemContainer firstOffer,
         ICharacter second,
@@ -157,7 +379,7 @@ internal static class TradeExchange
             if (!CanReceive(first, firstReceived, itemBuilder) ||
                 !CanReceive(second, secondReceived, itemBuilder))
             {
-                return false;
+                return TransferResult.Failed();
             }
 
             firstReceipt = new TransferReceipt(first, itemBuilder);
@@ -166,19 +388,25 @@ internal static class TradeExchange
             if (!TryReceive(first, firstReceived, firstReceipt) ||
                 !TryReceive(second, secondReceived, secondReceipt))
             {
-                Rollback(secondReceipt, includeAttemptedItems: true);
-                Rollback(firstReceipt, includeAttemptedItems: true);
-                return false;
+                return CreateFailedTransferResult(firstReceipt, secondReceipt);
             }
 
-            return true;
+            return TransferResult.Succeeded();
         }
         catch (InvalidOperationException)
         {
-            Rollback(secondReceipt, includeAttemptedItems: true);
-            Rollback(firstReceipt, includeAttemptedItems: true);
-            return false;
+            return CreateFailedTransferResult(firstReceipt, secondReceipt);
         }
+    }
+
+    private static TransferResult CreateFailedTransferResult(
+        TransferReceipt? firstReceipt,
+        TransferReceipt? secondReceipt)
+    {
+        var compensation = new TradeCompensation(firstReceipt, secondReceipt);
+        return compensation.TryCompensate()
+            ? TransferResult.Failed()
+            : TransferResult.CompensationIncomplete(compensation);
     }
 
     private static bool CanReceive(ICharacter character, IReadOnlyList<IItem> items, IItemBuilder itemBuilder)
@@ -290,10 +518,80 @@ internal static class TradeExchange
 
     private readonly record struct MoneyBalance(int PouchCount, int InventoryCount);
 
-    private sealed class TransferReceipt
+    private sealed class RecoveryReceipt
+    {
+        private readonly IItemContainer _offer;
+        private readonly IItemContainer _destination;
+        private readonly IReadOnlyList<ItemDelta> _items;
+        private readonly bool[] _removedFromOffer;
+
+        public RecoveryReceipt(IItemContainer offer, IItemContainer destination, IReadOnlyList<IItem> items)
+        {
+            _offer = offer;
+            _destination = destination;
+            _items = items
+                .Select(item => new ItemDelta(item, destination.GetCount(item)))
+                .ToArray();
+            _removedFromOffer = new bool[_items.Count];
+        }
+
+        public bool RemoveFromOffer(int index)
+        {
+            var removed = RemoveExact(_offer, _items[index].Item);
+            if (removed)
+            {
+                _removedFromOffer[index] = true;
+            }
+
+            return removed;
+        }
+
+        public bool Rollback()
+        {
+            var destinationRestored = true;
+            foreach (var item in _items)
+            {
+                destinationRestored &= RollbackItemAdd(_destination, item.Item, item.CountBefore);
+            }
+
+            if (!destinationRestored)
+            {
+                return false;
+            }
+
+            var offerRestored = true;
+            for (var i = 0; i < _items.Count; i++)
+            {
+                if (!_removedFromOffer[i])
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var restored = _offer.Add(_items[i].Item.Clone());
+                    offerRestored &= restored;
+                    if (restored)
+                    {
+                        _removedFromOffer[i] = false;
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    offerRestored = false;
+                }
+            }
+
+            return offerRestored;
+        }
+
+        private readonly record struct ItemDelta(IItem Item, int CountBefore);
+    }
+
+    internal sealed class TransferReceipt
     {
         private readonly ICharacter _recipient;
-        private IReadOnlyList<IItem> _items = [];
+        private IReadOnlyList<ItemDelta> _items = [];
         private bool _itemsApplied;
         private bool _itemsAttempted;
         private MoneyDelta _moneyDelta;
@@ -308,7 +606,9 @@ internal static class TradeExchange
 
         public void MarkItemsAttempted(IReadOnlyList<IItem> items)
         {
-            _items = items;
+            _items = items
+                .Select(item => new ItemDelta(item, _recipient.Inventory.GetCount(item)))
+                .ToArray();
             _itemsAttempted = true;
         }
 
@@ -323,16 +623,18 @@ internal static class TradeExchange
             {
                 foreach (var item in _items)
                 {
-                    restored &= RemoveExact(_recipient.Inventory, item);
+                    restored &= RollbackItemAdd(_recipient.Inventory, item.Item, item.CountBefore);
                 }
             }
 
             if (_moneyDelta.PouchCount > 0 || _moneyDelta.InventoryCount > 0)
             {
-                restored &= RemoveAddedMoney(_recipient, _moneyDelta, ItemBuilder);
+                restored &= TryRemoveAddedMoney(_recipient, _moneyDelta, ItemBuilder, out _moneyDelta);
             }
 
             return restored;
         }
+
+        private readonly record struct ItemDelta(IItem Item, int CountBefore);
     }
 }
