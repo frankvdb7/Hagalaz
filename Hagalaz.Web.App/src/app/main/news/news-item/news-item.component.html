@@ -1,6 +1,6 @@
 <mat-card matRipple class="hover:bg-surface-container-high flex flex-grow overflow-hidden p-4 transition-colors">
-    <a class="flex flex-grow flex-col" [routerLink]="['/news', newsItem().id]">
-        <img class="thumbnail absolute inset-0 h-full w-full object-cover object-top" [ngSrc]="newsItem().image" alt="Background image" fill loading="lazy" />
+    <a class="flex flex-grow flex-col" href="/news/{{ newsItem().id }}" [routerLink]="['/news', newsItem().id]">
+        <img class="thumbnail absolute inset-0 h-full w-full object-cover object-top" [ngSrc]="newsItem().image" alt="Background" fill loading="lazy" />
         <div class="info-container z-20 flex flex-grow flex-col">
             <span class="flex-grow"></span>
             <span class="font-headline-large mb-0">{{ newsItem().title }}</span>

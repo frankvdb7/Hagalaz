@@ -17,7 +17,7 @@
     <section class="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
         <mat-card class="panel-card">
             <mat-card-header><mat-card-title>Archive Sizes</mat-card-title></mat-card-header>
-            <mat-card-actions><button mat-flat-button (click)="loadArchiveSizes()" [disabled]="loading()">Load</button></mat-card-actions>
+            <mat-card-actions><button type="button" mat-flat-button (click)="loadArchiveSizes()" [disabled]="loading()">Load</button></mat-card-actions>
             <mat-card-content>
                 @if (archiveSizes()) { <pre>{{ archiveSizes() | json }}</pre> } @else { <p class="placeholder">No data loaded yet.</p> }
             </mat-card-content>

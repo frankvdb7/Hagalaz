@@ -9,7 +9,7 @@ import { LauncherService } from "@app/launcher/launcher.service";
     templateUrl: "./footer.component.html",
     styleUrls: ["./footer.component.scss"],
     imports: [MatIcon, MatToolbar, MatIconButton, MatButtonModule, MatFabButton],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LauncherFooterComponent {
     private launcherService = inject(LauncherService);

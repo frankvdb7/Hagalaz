@@ -7,12 +7,12 @@ import { tapResponse } from "@ngrx/operators";
 import { Router } from "@angular/router";
 import { takeUntilDestroyed, toObservable } from "@angular/core/rxjs-interop";
 import { AuthStorageService } from "@app/services/auth/auth.storage.service";
-import { AuthToken } from "@app/services/auth/auth.models";
+import type { AuthToken } from "@app/services/auth/auth.models";
 
 export interface AuthState {
     authenticated: boolean;
     token: AuthToken | null;
-    error: any;
+    error: unknown;
     loading: boolean;
 }
 
@@ -92,7 +92,7 @@ export const AuthStore = signalStore(
                         patchState(store, { loading: false });
                         return EMPTY;
                     }
-                    return authService.refreshToken(token!).pipe(
+                    return authService.refreshToken(token).pipe(
                         tapResponse({
                             next: (response) => {
                                 authStorageService.setRefreshToken(response.refresh_token);
@@ -112,8 +112,8 @@ export const AuthStore = signalStore(
             const token$ = toObservable(store.token);
             token$
                 .pipe(
-                    filter((token) => !!token),
-                    switchMap((token) => interval((token!.expires_in / 2) * 1000)),
+                    filter((token): token is AuthToken => !!token),
+                    switchMap((token) => interval((token.expires_in / 2) * 1000)),
                     takeUntilDestroyed()
                 )
                 .subscribe(() => store.refreshToken());

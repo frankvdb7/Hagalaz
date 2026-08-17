@@ -1,7 +1,7 @@
 import { Injectable, inject } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
-import { GetAllCharacterStatisticsRequest, GetAllCharacterStatisticsResult } from "./character-statistics.models";
-import { Observable } from "rxjs";
+import type { GetAllCharacterStatisticsRequest, GetAllCharacterStatisticsResult } from "./character-statistics.models";
+import type { Observable } from "rxjs";
 import { environment } from "@environment/environment";
 
 @Injectable({

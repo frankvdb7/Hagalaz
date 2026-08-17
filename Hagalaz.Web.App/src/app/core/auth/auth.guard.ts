@@ -1,10 +1,10 @@
 import { inject } from "@angular/core";
-import { CanActivateFn, Router } from "@angular/router";
+import { type CanActivateFn, Router } from "@angular/router";
 import { filter, map, take } from "rxjs/operators";
 import { AuthStore } from "./auth.store";
 import { toObservable } from "@angular/core/rxjs-interop";
 
-export const authCanActivate: CanActivateFn = (next, state) => {
+export const authCanActivate: CanActivateFn = (_next, _state) => {
     const store = inject(AuthStore);
     const router = inject(Router);
     const loading$ = toObservable(store.loading);

@@ -1,4 +1,4 @@
-import { CharacterStatisticEntity, HighscoresState } from "./highscores.models";
+import type { CharacterStatisticEntity, HighscoresState } from "./highscores.models";
 import { CharacterStatType } from "@app/services/character-statistics/character-statistics.models";
 import { createFeature, createReducer, createSelector, on } from "@ngrx/store";
 import {
@@ -9,7 +9,7 @@ import {
     loadHighscoresFail,
     loadHighscoresSuccess,
 } from "@app/main/highscores/highscores.actions";
-import { createEntityAdapter, EntityAdapter } from "@ngrx/entity";
+import { createEntityAdapter, type EntityAdapter } from "@ngrx/entity";
 
 const adapter: EntityAdapter<CharacterStatisticEntity> = createEntityAdapter({
     selectId: (model) => model.name,

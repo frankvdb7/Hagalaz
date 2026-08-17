@@ -2,7 +2,7 @@ import { computed, Injectable, signal, inject } from "@angular/core";
 import { firstValueFrom } from "rxjs";
 import { AuthService } from "./auth.service";
 import { AuthStorageService } from "./auth.storage.service";
-import { AuthToken, UserInfo } from "./auth.models";
+import type { AuthToken, UserInfo } from "./auth.models";
 
 @Injectable({ providedIn: "root" })
 export class AuthStore {

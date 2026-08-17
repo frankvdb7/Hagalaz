@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnInit } from "@angular/core";
-import { NewsItem, newsItems } from "@app/main/news/news.model";
+import { ChangeDetectionStrategy, Component } from "@angular/core";
+import { type NewsItem, newsItems } from "@app/main/news/news.model";
 import { RouterLink } from "@angular/router";
 import { NewsItemComponent } from "./news-item/news-item.component";
 import { MatAnchor } from "@angular/material/button";
@@ -9,7 +9,7 @@ import { MatAnchor } from "@angular/material/button";
     templateUrl: "./news.component.html",
     styleUrls: ["./news.component.scss"],
     imports: [RouterLink, NewsItemComponent, MatAnchor],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NewsComponent {
     news: NewsItem[] = newsItems.slice(0, 5);

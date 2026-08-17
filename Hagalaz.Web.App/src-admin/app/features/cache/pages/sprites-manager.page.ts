@@ -1,5 +1,5 @@
 import { JsonPipe } from "@angular/common";
-import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from "@angular/core";
+import { ChangeDetectionStrategy, Component, type OnDestroy, inject, signal } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { MatButtonModule } from "@angular/material/button";
 import { MatCardModule } from "@angular/material/card";
@@ -30,27 +30,54 @@ export class SpritesManagerPageComponent implements OnDestroy {
     readonly loading = signal(false);
 
     readonly spriteIdForm = this.fb.nonNullable.group({ id: [0, Validators.min(0)] });
-    readonly spriteSearchForm = this.fb.nonNullable.group({ query: [""], offset: [0, Validators.min(0)], limit: [10, [Validators.min(1), Validators.max(200)]] });
+    readonly spriteSearchForm = this.fb.nonNullable.group({
+        query: [""],
+        offset: [0, Validators.min(0)],
+        limit: [10, [Validators.min(1), Validators.max(200)]],
+    });
     readonly spriteImageForm = this.fb.nonNullable.group({ id: [0, Validators.min(0)], frame: [0, Validators.min(0)] });
     readonly spriteUploadForm = this.fb.nonNullable.group({ id: [0, Validators.min(0)] });
 
     private selectedFile: File | null = null;
 
-    ngOnDestroy(): void { this.clearImageUrl(); }
-    async loadSprite(): Promise<void> { await this.run(async () => { const v = this.spriteIdForm.getRawValue(); this.spriteInfo.set(await firstValueFrom(this.spritesService.getSprite(v.id))); }); }
-    async searchSprites(): Promise<void> { await this.run(async () => { const v = this.spriteSearchForm.getRawValue(); this.searchResult.set(await firstValueFrom(this.spritesService.searchSprites(v.query, v.offset, v.limit))); }); }
-    async previewSpriteImage(): Promise<void> { await this.run(async () => { const v = this.spriteImageForm.getRawValue(); const blob = await firstValueFrom(this.spritesService.getSpriteImage(v.id, v.frame)); this.clearImageUrl(); this.imageUrl.set(URL.createObjectURL(blob)); }); }
-    onFileSelected(event: Event): void { const input = event.target as HTMLInputElement; this.selectedFile = input.files?.[0] ?? null; }
+    ngOnDestroy(): void {
+        this.clearImageUrl();
+    }
+    async loadSprite(): Promise<void> {
+        await this.run(async () => {
+            const v = this.spriteIdForm.getRawValue();
+            this.spriteInfo.set(await firstValueFrom(this.spritesService.getSprite(v.id)));
+        });
+    }
+    async searchSprites(): Promise<void> {
+        await this.run(async () => {
+            const v = this.spriteSearchForm.getRawValue();
+            this.searchResult.set(await firstValueFrom(this.spritesService.searchSprites(v.query, v.offset, v.limit)));
+        });
+    }
+    async previewSpriteImage(): Promise<void> {
+        await this.run(async () => {
+            const v = this.spriteImageForm.getRawValue();
+            const blob = await firstValueFrom(this.spritesService.getSpriteImage(v.id, v.frame));
+            this.clearImageUrl();
+            this.imageUrl.set(URL.createObjectURL(blob));
+        });
+    }
+    onFileSelected(event: Event): void {
+        const input = event.target as HTMLInputElement;
+        this.selectedFile = input.files?.[0] ?? null;
+    }
 
     async uploadSpriteImage(): Promise<void> {
-        if (!this.selectedFile) {
+        const selectedFile = this.selectedFile;
+        if (!selectedFile) {
             this.error.set("Select a PNG file before uploading.");
             return;
         }
 
         await this.run(async () => {
             const v = this.spriteUploadForm.getRawValue();
-            this.mutationResult.set(await firstValueFrom(this.spritesService.replaceSpriteImage(v.id, this.selectedFile!)));
+            this.mutationResult.set(await firstValueFrom(this.spritesService.replaceSpriteImage(v.id, selectedFile)));
         });
     }
 

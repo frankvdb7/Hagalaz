@@ -9,6 +9,6 @@ import { RouterOutlet } from "@angular/router";
         class: "flex flex-col h-full",
     },
     imports: [RouterOutlet],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent {}

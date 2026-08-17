@@ -1,4 +1,4 @@
-import { createLogger, format, Logger, transports } from "winston";
+import { createLogger, format, type Logger, transports } from "winston";
 import { injectable } from "inversify";
 
 @injectable()

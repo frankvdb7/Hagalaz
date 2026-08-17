@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { type ComponentFixture, TestBed } from "@angular/core/testing";
 import { it, describe, beforeEach, expect } from "vitest";
 import { LoginFormComponent } from "./login-form.component";
 import { importProvidersFrom, NO_ERRORS_SCHEMA } from "@angular/core";
@@ -11,18 +11,15 @@ describe("LoginFormComponent", () => {
 
     beforeEach(async () => {
         await TestBed.configureTestingModule({
-            imports: [
-                LoginFormComponent,
-                ReactiveFormsModule
-            ],
+            imports: [LoginFormComponent, ReactiveFormsModule],
             providers: [
                 importProvidersFrom(
                     NgHcaptchaModule.forRoot({
                         siteKey: "10000000-ffff-ffff-ffff-000000000001",
                     })
-                )
+                ),
             ],
-            schemas: [NO_ERRORS_SCHEMA] // Ignore unknown elements and properties
+            schemas: [NO_ERRORS_SCHEMA], // Ignore unknown elements and properties
         }).compileComponents();
 
         fixture = TestBed.createComponent(LoginFormComponent);
