@@ -9,7 +9,7 @@ import { takeUntilDestroyed, toObservable } from "@angular/core/rxjs-interop";
 import { AuthStorageService } from "@app/services/auth/auth.storage.service";
 import type { AuthToken } from "@app/services/auth/auth.models";
 
-export interface AuthState {
+interface AuthState {
     authenticated: boolean;
     token: AuthToken | null;
     error: unknown;

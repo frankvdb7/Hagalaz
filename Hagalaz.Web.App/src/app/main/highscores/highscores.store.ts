@@ -11,7 +11,7 @@ import { mapStatisticsResult, mapStatisticString } from "./highscores.functions"
 import { ActivatedRoute } from "@angular/router";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
-export interface HighscoresState {
+interface HighscoresState {
     paging: {
         type: CharacterStatType;
         page: number;

@@ -21,8 +21,7 @@
             "!.angular",
             "!out-tsc",
             "!node_modules",
-            "!.vscode",
-            "!e2e"
+            "!.vscode"
         ],
         "ignoreUnknown": true
     },

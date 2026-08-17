@@ -7,7 +7,7 @@ import { AuthStore } from "../auth/auth.store";
 import { UserService } from "@app/services/user/user.service";
 import { tapResponse } from "@ngrx/operators";
 
-export interface UserState {
+interface UserState {
     loading: boolean;
     error: unknown;
     info: UserInfo | null;
