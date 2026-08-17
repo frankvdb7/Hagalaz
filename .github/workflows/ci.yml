@@ -48,6 +48,8 @@ jobs:
         working-directory: Hagalaz.Web.App
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -61,6 +63,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Lint webapp with Biome
         run: pnpm run lint:biome
+      - name: Audit webapp with Fallow
+        uses: fallow-rs/fallow@v3
+        with:
+          root: Hagalaz.Web.App
+          command: audit
       - name: Test webapp
         run: pnpm run test
       - name: Test admin webapp
