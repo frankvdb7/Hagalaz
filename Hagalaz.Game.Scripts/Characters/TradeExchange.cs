@@ -28,6 +28,7 @@ internal static class TradeExchange
         ITradeItemContainer secondOffer, IItemBuilder itemBuilder)
     {
         using var locks = AcquireLocks(GetContainers(firstOffer, secondOffer, first, second));
+        List<ContainerSnapshot> recipientSnapshots = [];
         try
         {
             var firstItems = SnapshotItems(firstOffer);
@@ -37,8 +38,10 @@ internal static class TradeExchange
                 return false;
             }
 
+            recipientSnapshots = CaptureSnapshots(first.Inventory, first.MoneyPouch, second.Inventory, second.MoneyPouch);
             if (!Receive(first, secondItems) || !Receive(second, firstItems))
             {
+                RestoreSnapshots(recipientSnapshots);
                 return false;
             }
 
@@ -50,6 +53,7 @@ internal static class TradeExchange
         {
             // Capacity and storage checks happen under the same boundary as the
             // commit. An unexpected domain failure is reported as a failed try.
+            RestoreSnapshots(recipientSnapshots);
             return false;
         }
     }
@@ -58,6 +62,7 @@ internal static class TradeExchange
         ITradeItemContainer secondOffer, IItemBuilder itemBuilder)
     {
         using var locks = AcquireLocks(GetContainers(firstOffer, secondOffer, first, second));
+        List<ContainerSnapshot> recipientSnapshots = [];
         try
         {
             var firstItems = SnapshotItems(firstOffer);
@@ -67,8 +72,10 @@ internal static class TradeExchange
                 return false;
             }
 
+            recipientSnapshots = CaptureSnapshots(first.Inventory, first.MoneyPouch, second.Inventory, second.MoneyPouch);
             if (!Receive(first, firstItems) || !Receive(second, secondItems))
             {
+                RestoreSnapshots(recipientSnapshots);
                 return false;
             }
 
@@ -78,6 +85,7 @@ internal static class TradeExchange
         }
         catch (InvalidOperationException)
         {
+            RestoreSnapshots(recipientSnapshots);
             return false;
         }
     }
@@ -193,6 +201,33 @@ internal static class TradeExchange
     private static IItem[] SnapshotItems(IItemContainer container) =>
         container.OfType<IItem>().Select(item => item.Clone()).ToArray();
 
+    private static List<ContainerSnapshot> CaptureSnapshots(params IItemContainer?[] containers) =>
+        containers
+            .OfType<TradeItemContainer>()
+            .Distinct()
+            .Select(container =>
+            {
+                var items = (IItem[])container.ToArray();
+                var counts = items.Select(item => item?.Count ?? 0).ToArray();
+                return new ContainerSnapshot(container, items, counts);
+            })
+            .ToList();
+
+    private static void RestoreSnapshots(IEnumerable<ContainerSnapshot> snapshots)
+    {
+        foreach (var snapshot in snapshots)
+        {
+            snapshot.Container.SetItems(snapshot.Items, false);
+            for (var i = 0; i < snapshot.Items.Length; i++)
+            {
+                if (snapshot.Items[i] != null)
+                {
+                    snapshot.Items[i]!.Count = snapshot.Counts[i];
+                }
+            }
+        }
+    }
+
     private static List<TradeItemContainer> GetContainers(ITradeItemContainer firstOffer, ITradeItemContainer secondOffer,
         ICharacter first, ICharacter second)
     {
@@ -216,6 +251,8 @@ internal static class TradeExchange
 
     private static LockScope AcquireLocks(IEnumerable<TradeItemContainer> containers) =>
         new(containers.OrderBy(container => container.MutationOrder));
+
+    private sealed record ContainerSnapshot(TradeItemContainer Container, IItem[] Items, int[] Counts);
 
     private sealed class LockScope : IDisposable
     {

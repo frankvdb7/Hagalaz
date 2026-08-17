@@ -180,6 +180,54 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void TryExchange_WhenDestinationBatchReturnsFalseAfterEarlierItem_DoesNotLeavePartialCredit()
+    {
+        var firstInventory = new TestInventory(2);
+        var secondInventory = new TestInventory(3);
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
+        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
+        firstOffer.Add(new TestItem(200, 1)).Should().BeTrue();
+        secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
+        secondOffer.Add(new TestItem(102, 2)).Should().BeTrue();
+
+        TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeFalse();
+        TradeExchange.TryRefund(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeTrue();
+
+        firstInventory.GetCountById(101).Should().Be(0);
+        secondInventory.GetCountById(101).Should().Be(1);
+        secondInventory.GetCountById(102).Should().Be(2);
+        firstInventory.GetCountById(200).Should().Be(1);
+    }
+
+    [TestMethod]
+    public void TryExchange_WhenSecondRecipientFails_DoesNotLeaveFirstRecipientCredit()
+    {
+        var firstInventory = new TestInventory(3);
+        var secondInventory = new TestInventory(3);
+        var secondExisting = new TestItem(100, 1, stackable: true) { ThrowOnStackCheck = true };
+        secondInventory.Add(secondExisting).Should().BeTrue();
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
+        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
+        firstOffer.Add(new TestItem(201, 1)).Should().BeTrue();
+        firstOffer.Add(new TestItem(100, 1, stackable: true)).Should().BeTrue();
+        secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
+
+        TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeFalse();
+
+        secondExisting.ThrowOnStackCheck = false;
+        TradeExchange.TryRefund(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeTrue();
+
+        firstInventory.GetCountById(101).Should().Be(0);
+        secondInventory.GetCountById(101).Should().Be(1);
+        firstInventory.GetCountById(201).Should().Be(1);
+        firstInventory.GetCountById(100).Should().Be(1);
+    }
+
+    [TestMethod]
     public void TryRefund_ReturnsEscrowToTheOfferingCharacters()
     {
         var firstInventory = new TestInventory(1);

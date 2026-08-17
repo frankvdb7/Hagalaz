@@ -83,6 +83,7 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
             {
                 if (!AddRangeCore(items, out slotsToUpdate))
                 {
+                    RestoreSnapshot(itemsBefore, countsBefore);
                     return false;
                 }
             }
