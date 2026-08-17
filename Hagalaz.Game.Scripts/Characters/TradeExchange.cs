@@ -105,6 +105,7 @@ internal static class TradeExchange
         AddContainer(containers, second.Rewards);
         AddContainer(containers, second.Bank);
         using var locks = AcquireLocks(containers);
+        List<ContainerSnapshot> conservationSnapshots = [];
         try
         {
             var firstItems = SnapshotItems(firstOffer);
@@ -117,13 +118,16 @@ internal static class TradeExchange
                 return false;
             }
 
+            conservationSnapshots = CaptureSnapshots(firstOffer, secondOffer, firstDestination, secondDestination);
             if (firstDestination != null && firstItems.Length > 0 && !firstDestination.AddRangeForTrade(firstItems))
             {
+                RestoreSnapshots(conservationSnapshots);
                 return false;
             }
 
             if (secondDestination != null && secondItems.Length > 0 && !secondDestination.AddRangeForTrade(secondItems))
             {
+                RestoreSnapshots(conservationSnapshots);
                 return false;
             }
 
@@ -133,6 +137,7 @@ internal static class TradeExchange
         }
         catch (InvalidOperationException)
         {
+            RestoreSnapshots(conservationSnapshots);
             return false;
         }
     }

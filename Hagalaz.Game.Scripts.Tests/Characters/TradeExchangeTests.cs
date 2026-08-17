@@ -403,6 +403,31 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void TryConserveEscrow_WhenSecondRecoveryFails_RestoresFirstRecovery()
+    {
+        var firstInventory = new TestInventory(14);
+        var secondInventory = new TestInventory(14);
+        var firstRewards = new TestRewardContainer(14);
+        var secondRewards = new TestRewardContainer(2);
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory), firstRewards);
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory), secondRewards);
+        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
+        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
+        firstOffer.Add(new TestItem(100, 1)).Should().BeTrue();
+        secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
+        secondOffer.Add(new TestItem(102, 2)).Should().BeTrue();
+
+        TradeExchange.TryConserveEscrow(first, firstOffer, second, secondOffer).Should().BeFalse();
+
+        firstRewards.GetCountById(100).Should().Be(0);
+        firstOffer.GetCountById(100).Should().Be(1);
+        secondRewards.GetCountById(101).Should().Be(0);
+        secondRewards.GetCountById(102).Should().Be(0);
+        secondOffer.GetCountById(101).Should().Be(1);
+        secondOffer.GetCountById(102).Should().Be(2);
+    }
+
+    [TestMethod]
     public async Task FinishAndCancelRace_ConservesEscrow()
     {
         var firstInventory = new TestInventory(14);
