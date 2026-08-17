@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
                     }
 
                     clicker.QueueAnimation(Animation.Create(827));
-                    clicker.AddState(new HasGodWarsHoleRopeState { TicksLeft = int.MaxValue });
+                    clicker.AddState(new HasGodWarsHoleRopeState());
                     clicker.Inventory.Remove(_itemBuilder.Create().WithId(954).Build());
                     ShowRope(clicker);
                 }

@@ -1,17 +1,21 @@
+using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Game.Abstractions.Features.States;
 
 namespace Hagalaz.Game.Abstractions.Services
 {
     /// <summary>
-    /// Defines a contract for a service that provides information about states.
+    /// Defines the narrow state activation and identity contract used by character persistence.
     /// </summary>
     public interface IStateService
     {
         /// <summary>
-        /// Gets the state for a given state ID.
+        /// Creates a state for a registered state ID.
         /// </summary>
-        /// <param name="stateId">The ID of the state.</param>
-        /// <returns>The state instance if found; otherwise, <c>null</c>.</returns>
-        IState GetState(string stateId);
+        bool TryCreateState(string stateId, [NotNullWhen(true)] out IState? state);
+
+        /// <summary>
+        /// Resolves the registered stable ID for a state instance.
+        /// </summary>
+        bool TryGetStateId(IState state, [NotNullWhen(true)] out string? stateId);
     }
 }

@@ -56,7 +56,7 @@ namespace Hagalaz.Game.Scripts.GameObjects
             {
                 return;
             }
-            character.AddState(new TeleportingState { TicksLeft = int.MaxValue });
+            character.AddState(new TeleportingState { TicksLeft = 1 });
             var update = _regionUpdateBuilder.Create().WithLocation(Owner.Location).WithGraphic(Graphic.Create(3019)).Build();
             _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).QueueUpdate(update);
             // TODO - Show cutscene

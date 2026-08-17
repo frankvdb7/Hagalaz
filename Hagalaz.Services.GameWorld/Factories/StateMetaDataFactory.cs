@@ -18,15 +18,24 @@ namespace Hagalaz.Services.GameWorld.Factories
         public async IAsyncEnumerable<(string stateId, Type scriptType)> GetStates()
         {
             await Task.CompletedTask;
-            var type = typeof(IState);
-            var types = _serviceDescriptorProvider.GetServiceDescriptors()
-                .Where(x => x.ServiceType.IsAssignableTo(type))
-                .Select(x => (ScriptType: x.ImplementationType, MetaData: x.ImplementationType?.GetCustomAttribute<StateMetaDataAttribute>()));
-            foreach (var (stateType, metaData) in types)
+            var type = typeof(IPersistentState);
+            var stateTypes = new HashSet<Type>();
+            foreach (var descriptor in _serviceDescriptorProvider.GetServiceDescriptors().Where(x => x.ServiceType.IsAssignableTo(type)))
             {
-                if (stateType is null || metaData is null)
+                if (descriptor.ImplementationType is not { } stateType)
+                {
+                    throw new InvalidOperationException($"Persistent state registration '{descriptor.ServiceType.FullName}' must expose an implementation type with StateMetaDataAttribute.");
+                }
+
+                if (!stateTypes.Add(stateType))
                 {
                     continue;
+                }
+
+                var metaData = stateType.GetCustomAttribute<StateMetaDataAttribute>();
+                if (metaData is null)
+                {
+                    throw new InvalidOperationException($"Persistent state '{stateType.FullName}' must declare StateMetaDataAttribute with a stable ID.");
                 }
 
                 yield return (metaData.Id, stateType);

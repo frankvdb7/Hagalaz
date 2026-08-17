@@ -112,11 +112,11 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void Properties_AreSafe_AfterConstruction()
+        public void LastLocation_IsUnavailableBeforeRegistration()
         {
             // Assert
             Assert.IsNull(_renderInfo.CurrentAnimation, "CurrentAnimation should be null by default.");
-            Assert.IsNotNull(_renderInfo.LastLocation, "LastLocation should be initialized in constructor.");
+            Assert.ThrowsExactly<InvalidOperationException>(() => _ = _renderInfo.LastLocation);
         }
     }
 }

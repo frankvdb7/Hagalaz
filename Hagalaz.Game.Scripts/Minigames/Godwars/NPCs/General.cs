@@ -67,6 +67,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
         /// <summary>
         ///     Get's called when owner is found.
         /// </summary>
-        protected override void Initialize() => Owner.AddState(new VengeanceImmunityState { TicksLeft = int.MaxValue });
+        protected override void Initialize() => Owner.AddState(new VengeanceImmunityState());
     }
 }

@@ -1,4 +1,6 @@
+using System;
 using Hagalaz.Game.Abstractions.Features.States;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 
 namespace Hagalaz.Game.Abstractions.Features.States.Effects
 {
@@ -6,7 +8,10 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     ///     Contains the RestingState.
     /// </summary>
     [StateMetaData("resting-state")]
-    public class RestingState : State
+    public class RestingState : IStateLifecycle
     {
+        public Action? OnRemovedCallback { get; set; }
+
+        public void OnRemoved(ICreature creature) => OnRemovedCallback?.Invoke();
     }
 }

@@ -271,6 +271,6 @@ namespace Hagalaz.Game.Scripts.Npcs
         /// <summary>
         ///     Get's called when owner is found.
         /// </summary>
-        protected override void Initialize() => Owner.AddState(new NpcTypeUndeadState { TicksLeft = int.MaxValue });
+        protected override void Initialize() => Owner.AddState(new NpcTypeUndeadState());
     }
 }
