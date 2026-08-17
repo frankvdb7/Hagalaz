@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { ILauncherApi } from "src/typings/launcher-api";
+import { ILauncherApi } from "../../typings/launcher-api";
 
 @Injectable({
     providedIn: "root",
