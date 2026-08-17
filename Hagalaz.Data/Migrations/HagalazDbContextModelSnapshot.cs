@@ -449,6 +449,14 @@ namespace Hagalaz.Data.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("SnapshotFingerprint")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .HasDefaultValue("")
+                        .HasColumnName("snapshot_fingerprint");
+
                     b.Property<long>("SnapshotRevision")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
@@ -2925,146 +2933,6 @@ namespace Hagalaz.Data.Migrations
                     b.HasAnnotation("MySQL:Collation", "latin1_swedish_ci");
 
                     MySQLPropertyBuilderExtensions.ForMySQLHasCharset(b, "latin1");
-                });
-
-            modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesBarrow", b =>
-                {
-                    b.Property<uint>("MasterId")
-                        .HasColumnType("int(11) unsigned")
-                        .HasColumnName("master_id");
-
-                    b.Property<byte>("BrotherKilled0")
-                        .HasColumnType("tinyint(1) unsigned")
-                        .HasColumnName("brother_killed_0");
-
-                    b.Property<byte>("BrotherKilled1")
-                        .HasColumnType("tinyint(1) unsigned")
-                        .HasColumnName("brother_killed_1");
-
-                    b.Property<byte>("BrotherKilled2")
-                        .HasColumnType("tinyint(1) unsigned")
-                        .HasColumnName("brother_killed_2");
-
-                    b.Property<byte>("BrotherKilled3")
-                        .HasColumnType("tinyint(1) unsigned")
-                        .HasColumnName("brother_killed_3");
-
-                    b.Property<byte>("BrotherKilled4")
-                        .HasColumnType("tinyint(1) unsigned")
-                        .HasColumnName("brother_killed_4");
-
-                    b.Property<byte>("BrotherKilled5")
-                        .HasColumnType("tinyint(1) unsigned")
-                        .HasColumnName("brother_killed_5");
-
-                    b.Property<byte>("BrotherKilled6")
-                        .HasColumnType("tinyint(1) unsigned")
-                        .HasColumnName("brother_killed_6");
-
-                    b.Property<byte>("CryptStartIndex")
-                        .HasColumnType("tinyint(1) unsigned")
-                        .HasColumnName("crypt_start_index");
-
-                    b.Property<int>("KillCount")
-                        .HasColumnType("int(11)")
-                        .HasColumnName("kill_count");
-
-                    b.Property<byte>("LootedChest")
-                        .HasColumnType("tinyint(1) unsigned")
-                        .HasColumnName("looted_chest");
-
-                    b.Property<byte>("TunnelIndex")
-                        .HasColumnType("tinyint(1) unsigned")
-                        .HasColumnName("tunnel_index");
-
-                    b.HasKey("MasterId")
-                        .HasName("PRIMARY");
-
-                    b.ToTable("minigames_barrows", (string)null);
-
-                    b.HasAnnotation("MySQL:Collation", "utf8_general_ci");
-
-                    MySQLPropertyBuilderExtensions.ForMySQLHasCharset(b, "utf8");
-                });
-
-            modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesDuelArena", b =>
-                {
-                    b.Property<uint>("MasterId")
-                        .HasColumnType("int(11) unsigned")
-                        .HasColumnName("master_id");
-
-                    b.Property<string>("FavouriteRules")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("favourite_rules");
-
-                    b.Property<string>("PreviousRules")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("previous_rules");
-
-                    b.HasKey("MasterId")
-                        .HasName("PRIMARY");
-
-                    b.ToTable("minigames_duel_arena", (string)null);
-
-                    b.HasAnnotation("MySQL:Collation", "utf8_general_ci");
-
-                    MySQLPropertyBuilderExtensions.ForMySQLHasCharset(b, "utf8");
-                });
-
-            modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesGodwar", b =>
-                {
-                    b.Property<uint>("MasterId")
-                        .HasColumnType("int(11) unsigned")
-                        .HasColumnName("master_id");
-
-                    b.Property<short>("ArmadylKillCount")
-                        .HasColumnType("smallint(6)")
-                        .HasColumnName("armadyl_kill_count");
-
-                    b.Property<short>("BandosKillCount")
-                        .HasColumnType("smallint(6)")
-                        .HasColumnName("bandos_kill_count");
-
-                    b.Property<short>("SaradominKillCount")
-                        .HasColumnType("smallint(6)")
-                        .HasColumnName("saradomin_kill_count");
-
-                    b.Property<short>("ZamorakKillCount")
-                        .HasColumnType("smallint(6)")
-                        .HasColumnName("zamorak_kill_count");
-
-                    b.HasKey("MasterId")
-                        .HasName("PRIMARY");
-
-                    b.ToTable("minigames_godwars", (string)null);
-
-                    b.HasAnnotation("MySQL:Collation", "utf8_general_ci");
-
-                    MySQLPropertyBuilderExtensions.ForMySQLHasCharset(b, "utf8");
-                });
-
-            modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesTzhaarCave", b =>
-                {
-                    b.Property<uint>("MasterId")
-                        .HasColumnType("int(11) unsigned")
-                        .HasColumnName("master_id");
-
-                    b.Property<uint>("CurrentWaveId")
-                        .HasColumnType("int(11) unsigned")
-                        .HasColumnName("current_wave_id");
-
-                    b.HasKey("MasterId")
-                        .HasName("PRIMARY");
-
-                    b.HasIndex(new[] { "CurrentWaveId" }, "current_wave_id_foreign_key");
-
-                    b.ToTable("minigames_tzhaar_cave", (string)null);
-
-                    b.HasAnnotation("MySQL:Collation", "utf8_general_ci");
-
-                    MySQLPropertyBuilderExtensions.ForMySQLHasCharset(b, "utf8");
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesTzhaarCaveWave", b =>
@@ -6226,54 +6094,6 @@ namespace Hagalaz.Data.Migrations
                     b.Navigation("ItemLoot");
                 });
 
-            modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesBarrow", b =>
-                {
-                    b.HasOne("Hagalaz.Data.Entities.Character", "Master")
-                        .WithOne("MinigamesBarrow")
-                        .HasForeignKey("Hagalaz.Data.Entities.MinigamesBarrow", "MasterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("master_id_foreign_key_20");
-
-                    b.Navigation("Master");
-                });
-
-            modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesDuelArena", b =>
-                {
-                    b.HasOne("Hagalaz.Data.Entities.Character", "Master")
-                        .WithOne("MinigamesDuelArena")
-                        .HasForeignKey("Hagalaz.Data.Entities.MinigamesDuelArena", "MasterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("master_id_foreign_key_21");
-
-                    b.Navigation("Master");
-                });
-
-            modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesGodwar", b =>
-                {
-                    b.HasOne("Hagalaz.Data.Entities.Character", "Master")
-                        .WithOne("MinigamesGodwar")
-                        .HasForeignKey("Hagalaz.Data.Entities.MinigamesGodwar", "MasterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("master_id_foreign_key_22");
-
-                    b.Navigation("Master");
-                });
-
-            modelBuilder.Entity("Hagalaz.Data.Entities.MinigamesTzhaarCave", b =>
-                {
-                    b.HasOne("Hagalaz.Data.Entities.Character", "Master")
-                        .WithOne("MinigamesTzhaarCave")
-                        .HasForeignKey("Hagalaz.Data.Entities.MinigamesTzhaarCave", "MasterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("master_id_foreign_key_23");
-
-                    b.Navigation("Master");
-                });
-
             modelBuilder.Entity("Hagalaz.Data.Entities.MusicLocation", b =>
                 {
                     b.HasOne("Hagalaz.Data.Entities.MusicDefinition", "Music")
@@ -6556,17 +6376,6 @@ namespace Hagalaz.Data.Migrations
 
                     b.Navigation("ClansMemberRecruiters");
 
-                    b.Navigation("MinigamesBarrow")
-                        .IsRequired();
-
-                    b.Navigation("MinigamesDuelArena")
-                        .IsRequired();
-
-                    b.Navigation("MinigamesGodwar")
-                        .IsRequired();
-
-                    b.Navigation("MinigamesTzhaarCave")
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Hagalaz.Data.Entities.CharactersAppeal", b =>

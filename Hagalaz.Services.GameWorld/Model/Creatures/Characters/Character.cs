@@ -252,7 +252,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             Viewport = new Viewport(this, MapRegionService, MapSize.Default);
             Movement = new Movement(this);
 
-            // Updating core.
+            // Render information is required while appearance details are hydrated.
             RenderInformation = new CharacterRenderInformation(this);
 
             Inventory = new InventoryContainer(this, 28);
@@ -308,12 +308,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Get's called when entity is registered to world.
         /// </summary>
-        public override async Task OnRegistered()
+        public override Task OnRegistered()
         {
             // initialize the most important drawing logic first
             RenderInformation.OnRegistered();
             // also sends the 'start-up' packet aka map and character sync
-            await UpdateMapAsync(true, true);
+            UpdateMap(true, true);
 
             // and then initialize the rest
             SetLocation(Location, true, true);
@@ -330,6 +330,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 AddState(new LodestoneEdgevilleState());
 
             OnInit();
+            return Task.CompletedTask;
         }
 
         /// <summary>

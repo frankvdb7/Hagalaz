@@ -4,7 +4,7 @@ namespace Hagalaz.Characters.Messages;
 
 /// <summary>
 /// Durable, one-way character snapshot persistence command.
-/// The character service applies commands idempotently by snapshot revision.
+/// The character service classifies commands by snapshot revision and content fingerprint.
 /// </summary>
 public record PersistCharacterCommand(
     Guid CorrelationId,

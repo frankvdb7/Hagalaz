@@ -8,6 +8,7 @@ namespace Hagalaz.Services.Characters.Services
     public interface ICharacterService
     {
         public Task<Result<bool>> GetExistsAsync(uint masterId);
+        public Task<Result<long>> GetSnapshotRevisionAsync(uint masterId);
         public Task<Result<Appearance>> GetAppearanceAsync(uint masterId);
         public Task<Result<Statistics>> GetStatisticsAsync(uint masterId);
         public Task<Result<Details>> GetDetailsAsync(uint masterId);

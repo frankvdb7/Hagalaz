@@ -165,6 +165,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 var session = sessionRegistration.Session;
                 var signInSucceeded = false;
                 var characterRegistered = false;
+                var revisionInitialized = false;
                 ICharacter? registeredCharacter = null;
                 try
                 {
@@ -206,6 +207,9 @@ namespace Hagalaz.Services.GameWorld.Services
                         return SignInResult.Fail;
                     }
 
+                    _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
+                    revisionInitialized = true;
+
                     if (!await _characterService.AddAsync(character))
                     {
                         _logger.LogWarning("Unable to add character '{character}'", character);
@@ -240,7 +244,14 @@ namespace Hagalaz.Services.GameWorld.Services
                         {
                             try
                             {
-                                await _characterService.RemoveAsync(registeredCharacter!);
+                                if (await _characterService.RemoveAsync(registeredCharacter!))
+                                {
+                                    _characterPersistenceService.Forget(masterId);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
+                                }
                             }
                             catch (OperationCanceledException ex)
                             {
@@ -249,6 +260,28 @@ namespace Hagalaz.Services.GameWorld.Services
                             catch (Exception ex) when (ex is not OperationCanceledException)
                             {
                                 _logger.LogError(ex, "Failed to remove character after world sign-in failed");
+                            }
+                        }
+                        else if (revisionInitialized)
+                        {
+                            try
+                            {
+                                if (await _characterService.FindByMasterId(masterId) == null)
+                                {
+                                    _characterPersistenceService.Forget(masterId);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("Character '{MasterId}' was already registered after world sign-in failed; retaining persistence state for the existing character", masterId);
+                                }
+                            }
+                            catch (OperationCanceledException ex)
+                            {
+                                _logger.LogError(ex, "Unable to determine character registration after world sign-in failed; retaining persistence state");
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                _logger.LogError(ex, "Unable to determine character registration after world sign-in failed; retaining persistence state");
                             }
                         }
 

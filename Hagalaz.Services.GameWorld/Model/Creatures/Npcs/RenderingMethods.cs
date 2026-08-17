@@ -108,12 +108,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Updates client by sending required packets.
         /// </summary>
-        protected override Task UpdateTick()
+        protected override void UpdateTick()
         {
             if (Viewport.ShouldRebuild())
                 Viewport.RebuildView();
             Viewport.UpdateTick();
-            return Task.CompletedTask;
         }
 
         /// <summary>

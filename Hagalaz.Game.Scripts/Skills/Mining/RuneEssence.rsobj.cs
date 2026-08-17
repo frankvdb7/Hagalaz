@@ -1,10 +1,14 @@
-﻿using System.Threading.Tasks;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Scripts.Skills.Runecrafting;
 
@@ -43,13 +47,8 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                var ore = _itemBuilder.Create()
-                    .WithId(clicker.Statistics.GetSkillLevel(StatisticsConstants.Mining) >= 30
-                        ? RunecraftingConstants.PureEssence
-                        : RunecraftingConstants.RuneEssence)
-                    .Build();
                 const double mineChance = 0.75;
-                clicker.QueueTask(() => StartRuneEssenceMining(clicker, Owner, ore, mineChance, _expAmount));
+                clicker.QueueTask(() => StartRuneEssenceMiningAsync(clicker, Owner, mineChance, _expAmount));
             }
             else if (clickType == GameObjectClickType.Option6Click)
             {
@@ -57,18 +56,31 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
             }
         }
 
-        /// <summary>
-        ///     Starts the rune essence mining.
-        /// </summary>
-        /// <param name="character">The character.</param>
-        /// <param name="rocks">The rocks.</param>
-        /// <param name="ore">The ore.</param>
-        /// <param name="mineChance">The mine chance.</param>
-        /// <param name="expReceived">The exp recieved.</param>
-        public async Task StartRuneEssenceMining(ICharacter character, IGameObject rocks, IItem ore, double mineChance, double expReceived)
+        private async Task StartRuneEssenceMiningAsync(
+            ICharacter character,
+            IGameObject rocks,
+            double mineChance,
+            double expReceived)
         {
+            var pickaxes = await _miningService.FindAllPickaxes();
+            BeginRuneEssenceMining(character, rocks, pickaxes, mineChance, expReceived);
+        }
+
+        private void BeginRuneEssenceMining(
+            ICharacter character,
+            IGameObject rocks,
+            IReadOnlyList<PickaxeDto> pickaxes,
+            double mineChance,
+            double expReceived)
+        {
+            var ore = _itemBuilder.Create()
+                .WithId(character.Statistics.GetSkillLevel(StatisticsConstants.Mining) >= 30
+                    ? RunecraftingConstants.PureEssence
+                    : RunecraftingConstants.RuneEssence)
+                .Build();
+
             // check if character has usable pickaxe.
-            var pickaxeData = Mining.FindPickaxe(character, await _miningService.FindAllPickaxes());
+            var pickaxeData = Mining.FindPickaxe(character, pickaxes);
             if (pickaxeData == null)
             {
                 character.SendChatMessage(MiningConstants.NoPickaxeFound);
@@ -82,9 +94,8 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                 return;
             }
 
-            async ValueTask<bool> Callback()
+            bool Callback()
             {
-                await Task.CompletedTask;
                 if (!character.Inventory.Add(ore))
                 {
                     return false;

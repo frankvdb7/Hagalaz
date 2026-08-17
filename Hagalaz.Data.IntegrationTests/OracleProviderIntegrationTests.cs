@@ -51,6 +51,25 @@ public sealed class OracleProviderIntegrationTests
 
         Assert.IsFalse((await context.Database.GetPendingMigrationsAsync()).Any());
         Assert.IsTrue(await context.Database.CanConnectAsync());
+
+        await context.Database.OpenConnectionAsync();
+
+        foreach (var tableName in new[]
+                 {
+                     "minigames_barrows",
+                     "minigames_duel_arena",
+                     "minigames_godwars",
+                     "minigames_tzhaar_cave"
+                 })
+        {
+            Assert.IsFalse(
+                await TableExistsAsync(context, tableName),
+                $"The legacy table '{tableName}' should have been removed.");
+        }
+
+        Assert.IsTrue(
+            await TableExistsAsync(context, "minigames_tzhaar_cave_waves"),
+            "The TzHaar wave-definition table must remain.");
     }
 
     [TestMethod]
@@ -66,12 +85,14 @@ public sealed class OracleProviderIntegrationTests
 
         await using var context = CreateContext();
         var applied = await context.Database.GetAppliedMigrationsAsync();
-        Assert.HasCount(5, applied);
+        Assert.HasCount(7, applied);
         Assert.Contains("20240316233038_InitialCreate", applied);
         Assert.Contains("20250721222703_UpdateOpenIddict7", applied);
         Assert.Contains("20251119194916_UpdateStateId", applied);
         Assert.Contains("20260730191421_AddCharacterSnapshotRevision", applied);
         Assert.Contains("20260730225943_AddMassTransitCharacterPersistenceOutbox", applied);
+        Assert.Contains("20260810072238_AddCharacterSnapshotFingerprint", applied);
+        Assert.Contains("20260810120113_RemoveLegacyMinigamePersistence", applied);
     }
 
     [TestMethod]
@@ -113,5 +134,23 @@ public sealed class OracleProviderIntegrationTests
             .Options;
 
         return new HagalazDbContext(options);
+    }
+
+    private static async Task<bool> TableExistsAsync(HagalazDbContext context, string tableName)
+    {
+        await using var command = context.Database.GetDbConnection().CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = DATABASE()
+              AND table_name = @tableName;
+            """;
+
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "@tableName";
+        parameter.Value = tableName;
+        command.Parameters.Add(parameter);
+
+        return Convert.ToInt32(await command.ExecuteScalarAsync()) > 0;
     }
 }

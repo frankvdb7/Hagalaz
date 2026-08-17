@@ -19,6 +19,7 @@ namespace Hagalaz.Services.GameWorld.Store.Model
         public required int Id { get; init; }
         public required string Name { get; init; }
         public required string IpAddress { get; init; }
+        public required int Port { get; init; }
         public required WorldLocationInfo Location { get; init; }
         public required WorldSettingsInfo Settings { get; init; }
         public bool Online { get; set; }

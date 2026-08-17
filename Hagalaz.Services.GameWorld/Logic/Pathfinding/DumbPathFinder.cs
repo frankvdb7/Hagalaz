@@ -41,6 +41,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
             {
                 if (QueueSize <= ++path.Steps)
                 {
+                    path.Successful = false;
+                    path.MovedNear = x != from.X || y != from.Y;
                     return path;
                 }
                 var direction = DirectionHelper.GetDirection(x, y, to.X, to.Y);
@@ -83,7 +85,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
             {
                 if (!IsTraversable(x + 1, y, z, CollisionFlag.TraversableEastBlocked) ||
                     !IsTraversable(x, y + 1, z, CollisionFlag.TraversableNorthBlocked) ||
-                    !IsTraversable(x + 1, y + 1, z, CollisionFlag.TraversableNorthWestBlocked))
+                    !IsTraversable(x + 1, y + 1, z, CollisionFlag.TraversableNorthEastBlocked))
                 {
                     path.Successful = false;
                     return;
@@ -237,7 +239,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 }
 
                 x--;
-                y++;
+                y--;
             }
             else if (direction == DirectionFlag.West)
             {

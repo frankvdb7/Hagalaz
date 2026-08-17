@@ -11,6 +11,7 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Thieving
 {
@@ -72,7 +73,8 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             }
 
             // check if someone else has stole from this stall.
-            var objRegion = _gameObject.Region;
+            var regionService = _performer.ServiceProvider.GetRequiredService<IMapRegionService>();
+            var objRegion = regionService.GetOrCreateMapRegion(_gameObject.Location.RegionId, _gameObject.Location.Dimension, false);
             var obj = objRegion.FindStandardGameObject(_gameObject.Location.RegionLocalX, _gameObject.Location.RegionLocalY, _gameObject.Location.Z);
             if (obj == null || obj.IsDestroyed || obj.Id != _gameObject.Id)
             {

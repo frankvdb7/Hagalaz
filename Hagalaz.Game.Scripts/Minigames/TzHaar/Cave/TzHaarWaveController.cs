@@ -48,7 +48,6 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave
                 return;
             }
 
-            //var database = ServiceLocator.Current.GetInstance<ISqlDatabaseManager>();
             if (CurrentWaveId >= FinalWaveId)
             {
                 var dialog = _character.ServiceProvider.GetRequiredService<WinDialogue>();

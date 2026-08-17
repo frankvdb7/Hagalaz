@@ -47,7 +47,9 @@ namespace Hagalaz.Game.Scripts.Commands
                     Name = "currentregion",
                     CommandFunc = async (character, arguments) =>
                     {
-                        character.SendChatMessage("Current Region Id: " + character.Region.Id, ChatMessageType.ConsoleText);
+                        var regionService = character.ServiceProvider.GetRequiredService<IMapRegionService>();
+                        var region = regionService.GetOrCreateMapRegion(character.Location.RegionId, character.Location.Dimension, false);
+                        character.SendChatMessage("Current Region Id: " + region.Id, ChatMessageType.ConsoleText);
                         return true;
                     },
                     Permission = Permission.SystemAdministrator
@@ -377,7 +379,6 @@ namespace Hagalaz.Game.Scripts.Commands
                     {
                         var name = string.Join(" ", arguments);
                         // TODO
-                        //IMasterConnectionAdapter adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.Mute).Serialize());
                         return true;
                     },
@@ -395,7 +396,6 @@ namespace Hagalaz.Game.Scripts.Commands
 
                         var name = string.Join(" ", arguments);
                         // TODO
-                        //var adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.UnMute).Serialize());
                         return true;
                     },
@@ -408,7 +408,6 @@ namespace Hagalaz.Game.Scripts.Commands
                     {
                         var cmsd = string.Join(" ", arguments);
                         // TODO
-                        //var adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, cmsd, SubmitOffenceType.IpBan).Serialize());
                         return true;
                     },
@@ -426,7 +425,6 @@ namespace Hagalaz.Game.Scripts.Commands
 
                         var cfmd = string.Join(" ", arguments);
                         // TODO
-                        //var adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, cfmd, SubmitOffenceType.UnIpBan).Serialize());
                         return true;
                     },
@@ -439,7 +437,6 @@ namespace Hagalaz.Game.Scripts.Commands
                     {
                         var name = string.Join(" ", arguments);
                         // TODO
-                        //var adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.Ban).Serialize());
                         return true;
                     },
@@ -452,7 +449,6 @@ namespace Hagalaz.Game.Scripts.Commands
                     {
                         var name = string.Join(" ", arguments);
                         // TODO
-                        //var adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.UnBan).Serialize());
                         return true;
                     },
@@ -465,7 +461,6 @@ namespace Hagalaz.Game.Scripts.Commands
                     {
                         var name = string.Join(" ", arguments);
                         // TODO
-                        //IMasterConnectionAdapter adapter = ServiceLocator.Current.GetInstance<IMasterConnectionAdapter>();
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.Kick).Serialize());
                         return true;
                     },

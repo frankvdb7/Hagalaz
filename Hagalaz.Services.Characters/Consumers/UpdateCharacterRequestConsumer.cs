@@ -49,17 +49,24 @@ namespace Hagalaz.Services.Characters.Consumers
                     return;
                 }
 
-                if (message.SnapshotRevision <= character.SnapshotRevision)
+                var snapshotFingerprint = CharacterSnapshotFingerprint.Compute(message);
+                var outcome = Classify(message, character, snapshotFingerprint);
+                if (outcome != CharacterPersistenceOutcome.Committed)
                 {
                     _metrics.RecordDuplicateOrStale();
-                    await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId));
+                    if (outcome == CharacterPersistenceOutcome.Conflict)
+                    {
+                        _metrics.RecordConflict();
+                    }
+
+                    await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId, outcome));
                     return;
                 }
 
-                await ApplySnapshotAsync(message, character);
+                await ApplySnapshotAsync(message, character, snapshotFingerprint);
                 await _unitOfWork.CommitAsync();
                 _metrics.RecordApplied();
-                await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId));
+                await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId, CharacterPersistenceOutcome.Committed));
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -96,10 +103,17 @@ namespace Hagalaz.Services.Characters.Consumers
                     throw new InvalidOperationException($"Character '{message.MasterId}' was not found while applying a persistence command.");
                 }
 
-                if (message.SnapshotRevision <= character.SnapshotRevision)
+                var snapshotFingerprint = CharacterSnapshotFingerprint.Compute(message);
+                var outcome = Classify(message, character, snapshotFingerprint);
+                if (outcome != CharacterPersistenceOutcome.Committed)
                 {
                     _metrics.RecordDuplicateOrStale();
-                    await PublishAcknowledgementAsync(context, message);
+                    if (outcome == CharacterPersistenceOutcome.Conflict)
+                    {
+                        _metrics.RecordConflict();
+                    }
+
+                    await PublishAcknowledgementAsync(context, message, outcome);
                     await _unitOfWork.CommitAsync();
                     return;
                 }
@@ -107,8 +121,8 @@ namespace Hagalaz.Services.Characters.Consumers
                 // SnapshotRevision is configured as an EF concurrency token. The
                 // acknowledgement is added to the EF bus outbox before this commit,
                 // making the state change and durable acknowledgement one transaction.
-                await ApplySnapshotAsync(message, character);
-                await PublishAcknowledgementAsync(context, message);
+                await ApplySnapshotAsync(message, character, snapshotFingerprint);
+                await PublishAcknowledgementAsync(context, message, CharacterPersistenceOutcome.Committed);
                 await _unitOfWork.CommitAsync();
                 _metrics.RecordApplied();
             }
@@ -134,12 +148,14 @@ namespace Hagalaz.Services.Characters.Consumers
 
         private Task PublishAcknowledgementAsync(
             ConsumeContext<PersistCharacterCommand> context,
-            PersistCharacterCommand message)
+            PersistCharacterCommand message,
+            CharacterPersistenceOutcome outcome)
         {
             var acknowledgement = new PersistCharacterAcknowledged(
                 message.CorrelationId,
                 message.MasterId,
-                message.SnapshotRevision);
+                message.SnapshotRevision,
+                outcome);
 
             // The scoped publish endpoint is backed by the EF bus outbox in the
             // running service. Keep the consume-context fallback for isolated
@@ -149,9 +165,30 @@ namespace Hagalaz.Services.Characters.Consumers
                 : _publishEndpoint.Publish(acknowledgement);
         }
 
-        private async Task ApplySnapshotAsync(ICharacterPersistenceMessage message, Hagalaz.Data.Entities.Character character)
+        private static CharacterPersistenceOutcome Classify(
+            ICharacterPersistenceMessage message,
+            Hagalaz.Data.Entities.Character character,
+            string snapshotFingerprint)
+        {
+            if (message.SnapshotRevision > character.SnapshotRevision)
+            {
+                return CharacterPersistenceOutcome.Committed;
+            }
+
+            return message.SnapshotRevision == character.SnapshotRevision &&
+                   !string.IsNullOrEmpty(character.SnapshotFingerprint) &&
+                   character.SnapshotFingerprint == snapshotFingerprint
+                ? CharacterPersistenceOutcome.Duplicate
+                : CharacterPersistenceOutcome.Conflict;
+        }
+
+        private async Task ApplySnapshotAsync(
+            ICharacterPersistenceMessage message,
+            Hagalaz.Data.Entities.Character character,
+            string snapshotFingerprint)
         {
             character.SnapshotRevision = message.SnapshotRevision;
+            character.SnapshotFingerprint = snapshotFingerprint;
 
             character.CoordX = checked((short)message.Details.CoordX);
             character.CoordY = checked((short)message.Details.CoordY);

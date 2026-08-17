@@ -14,11 +14,13 @@ namespace Hagalaz.Game.Scripts.GameObjects
     {
         private readonly IRsTaskService _rsTaskService;
         private readonly IItemBuilder _itemBuilder;
+        private readonly IMapRegionService _mapRegionService;
 
-        public Cabbage(IRsTaskService rsTaskService, IItemBuilder itemBuilder)
+        public Cabbage(IRsTaskService rsTaskService, IItemBuilder itemBuilder, IMapRegionService mapRegionService)
         {
             _rsTaskService = rsTaskService;
             _itemBuilder = itemBuilder;
+            _mapRegionService = mapRegionService;
         }
 
         /// <summary>
@@ -42,8 +44,9 @@ namespace Hagalaz.Game.Scripts.GameObjects
                         if (clicker.Inventory.Add(_itemBuilder.Create().WithId(1965).Build()))
                         {
                             // delete the cabbage object.
-                            Owner.Region.Remove(Owner);
-                            _rsTaskService.Schedule(new RsTask(() => Owner.Region.Add(Owner), 100));
+                            _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Remove(Owner);
+                            _rsTaskService.Schedule(new RsTask(() =>
+                                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Add(Owner), 100));
                             clicker.SendChatMessage("You pulled the cabbage out of the ground.");
                         }
                         else

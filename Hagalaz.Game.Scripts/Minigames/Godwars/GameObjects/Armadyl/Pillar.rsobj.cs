@@ -6,6 +6,7 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
@@ -17,11 +18,13 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
     {
         private readonly IRegionUpdateBuilder _regionUpdateBuilder;
         private readonly IMovementBuilder _movementBuilder;
+        private readonly IMapRegionService _mapRegionService;
 
-        public Pillar(IRegionUpdateBuilder regionUpdateBuilder, IMovementBuilder movementBuilder)
+        public Pillar(IRegionUpdateBuilder regionUpdateBuilder, IMovementBuilder movementBuilder, IMapRegionService mapRegionService)
         {
             _regionUpdateBuilder = regionUpdateBuilder;
             _movementBuilder = movementBuilder;
+            _mapRegionService = mapRegionService;
         }
 
         /// <summary>
@@ -61,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
                             .WithLocation(Location.Create(2872, 5274, 2, 0))
                             .WithGraphic(Graphic.Create(2103))
                             .Build();
-                        Owner.Region.QueueUpdate(update);
+                        _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).QueueUpdate(update);
                         clicker.FaceLocation(Owner.Location);
 
                         clicker.QueueTask(new RsTask(() =>

@@ -4,16 +4,12 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {
@@ -22,7 +18,6 @@ namespace Hagalaz.Services.GameWorld.Tests
     {
         private ICharacter _owner = null!;
         private IServiceProvider _serviceProvider = null!;
-        private ICharacterStore _characterStore = null!;
         private ICharacterLocationService _locationService = null!;
         private CharacterRenderInformation _renderInfo = null!;
         private ILocation _location = null!;
@@ -32,7 +27,6 @@ namespace Hagalaz.Services.GameWorld.Tests
         {
             _owner = Substitute.For<ICharacter>();
             _serviceProvider = Substitute.For<IServiceProvider>();
-            _characterStore = Substitute.For<ICharacterStore>();
             _locationService = Substitute.For<ICharacterLocationService>();
             _location = Substitute.For<ILocation>();
 
@@ -40,7 +34,6 @@ namespace Hagalaz.Services.GameWorld.Tests
             _owner.Location.Returns(_location);
             _location.Clone().Returns(_location);
 
-            _serviceProvider.GetService(typeof(ICharacterStore)).Returns(_characterStore);
             _serviceProvider.GetService(typeof(ICharacterLocationService)).Returns(_locationService);
 
             _renderInfo = new CharacterRenderInformation(_owner);
@@ -75,20 +68,18 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public async Task Update_SendsCorrectMessages()
+        public void Update_SendsCorrectMessages()
         {
             // Arrange
             var session = Substitute.For<IGameSession>();
             _owner.Session.Returns(session);
-
-            _characterStore.FindAllAsync().Returns(new List<ICharacter>().ToAsyncEnumerable());
 
             var viewport = Substitute.For<IViewport>();
             _owner.Viewport.Returns(viewport);
             viewport.VisibleCreatures.Returns(new List<ICreature>());
 
             // Act
-            await _renderInfo.Update();
+            _renderInfo.Update(new Dictionary<int, ICharacter>());
 
             // Assert
             session.Received(1).SendMessage(Arg.Any<DrawCharactersMessage>());
@@ -121,11 +112,11 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void Properties_AreSafe_AfterConstruction()
+        public void LastLocation_IsUnavailableBeforeRegistration()
         {
             // Assert
             Assert.IsNull(_renderInfo.CurrentAnimation, "CurrentAnimation should be null by default.");
-            Assert.IsNotNull(_renderInfo.LastLocation, "LastLocation should be initialized in constructor.");
+            Assert.ThrowsExactly<InvalidOperationException>(() => _ = _renderInfo.LastLocation);
         }
     }
 }

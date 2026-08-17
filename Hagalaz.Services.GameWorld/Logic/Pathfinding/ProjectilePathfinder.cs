@@ -1,4 +1,5 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+using System;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
@@ -6,167 +7,161 @@ using Hagalaz.Game.Abstractions.Services;
 namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
 {
     /// <summary>
-    /// 
+    /// Traces projectile line of sight through map collision flags.
     /// </summary>
     public class ProjectilePathFinder : PathFinderBase, IProjectilePathFinder
     {
+        private const CollisionFlag FullLineOfSightBlocker = CollisionFlag.ObjectBlock;
+
         public ProjectilePathFinder(IMapRegionService regionService) : base(regionService) { }
 
         /// <summary>
-        /// Finds a path from the location to the end location.
+        /// Finds a projectile line of sight from the source tile to the target tile.
         /// </summary>
-        /// <param name="from">From.</param>
-        /// <param name="selfSize">Size of the self.</param>
-        /// <param name="to">To.</param>
-        /// <param name="targetSizeX">The target size x.</param>
-        /// <param name="targetSizeY">The target size y.</param>
-        /// <param name="rotation">The rotation.</param>
-        /// <param name="shape">The shape.</param>
-        /// <param name="surroundings">The surroundings.</param>
-        /// <param name="moveNear">if set to <c>true</c> [move near].</param>
-        /// <returns></returns>
         public override IPath Find(
             IVector3 from, int selfSize, IVector3 to, int targetSizeX, int targetSizeY, int rotation, int shape, int surroundings, bool moveNear)
         {
-            var x = from.X;
-            var y = from.Y;
-            var z = from.Z;
-
             var path = new Path
             {
-                Successful = true
+                Successful = from.Z == to.Z
             };
-            while (x != to.X || y != to.Y)
-            {
-                if (QueueSize <= ++path.Steps)
-                {
-                    return path;
-                }
 
-                var direction = DirectionHelper.GetDirection(x, y, to.X, to.Y);
-                CheckSingleTraversal(path, direction, ref x, ref y, ref z);
-                if (!path.Successful)
-                {
-                    path.MovedNear = x != from.X || y != from.Y;
-                    break;
-                }
+            if (!path.Successful || (from.X == to.X && from.Y == to.Y))
+            {
+                return path;
             }
 
+            var deltaX = to.X - from.X;
+            var deltaY = to.Y - from.Y;
+            var xFlags = FullLineOfSightBlocker | (deltaX < 0 ? CollisionFlag.BlockedEast : CollisionFlag.BlockedWest);
+            var yFlags = FullLineOfSightBlocker | (deltaY < 0 ? CollisionFlag.BlockedNorth : CollisionFlag.BlockedSouth);
+            var diagonalFlag = GetDiagonalLineOfSightBlocker(deltaX, deltaY);
+
+            var successful = Math.Abs(deltaX) > Math.Abs(deltaY)
+                ? TraceXAxis(path, from.X, from.Y, from.Z, to.X, deltaX, deltaY, xFlags, yFlags, diagonalFlag)
+                : TraceYAxis(path, from.X, from.Y, from.Z, to.Y, deltaX, deltaY, xFlags, yFlags, diagonalFlag);
+
+            if (!successful)
+            {
+                path.Successful = false;
+                path.MovedNear = path.Steps > 0;
+                return path;
+            }
+
+            path.Add(Location.Create(to.X, to.Y, to.Z));
             return path;
         }
 
-        private void CheckSingleTraversal(Path path, DirectionFlag direction, ref int x, ref int y, ref int z)
+        private bool TraceXAxis(
+            Path path, int fromX, int fromY, int z, int targetX, int deltaX, int deltaY, CollisionFlag xFlags, CollisionFlag yFlags, CollisionFlag diagonalFlag)
         {
-            if (direction == DirectionFlag.North)
+            var x = fromX;
+            var yBig = (fromY << 16) + 0x8000;
+            if (deltaY < 0)
             {
-                if (!IsTraversable(x, y + 1, z, CollisionFlag.TraversableNorthBlocked))
-                {
-                    path.Successful = false;
-                    return;
-                }
-
-                y++;
-            }
-            else if (direction == DirectionFlag.NorthEast)
-            {
-                if (!IsTraversable(x + 1, y, z, CollisionFlag.TraversableEastBlocked) ||
-                    !IsTraversable(x, y + 1, z, CollisionFlag.TraversableNorthBlocked) ||
-                    !IsTraversable(x + 1, y + 1, z, CollisionFlag.TraversableNorthEastBlocked))
-                {
-                    path.Successful = false;
-                    return;
-                }
-
-                x++;
-                y++;
-            }
-            else if (direction == DirectionFlag.East)
-            {
-                if (!IsTraversable(x + 1, y, z, CollisionFlag.TraversableEastBlocked))
-                {
-                    path.Successful = false;
-                    return;
-                }
-
-                x++;
-            }
-            else if (direction == DirectionFlag.SouthEast)
-            {
-                if (!IsTraversable(x + 1, y, z, CollisionFlag.TraversableEastBlocked) ||
-                    !IsTraversable(x, y - 1, z, CollisionFlag.TraversableSouthBlocked) ||
-                    !IsTraversable(x + 1, y - 1, z, CollisionFlag.TraversableSouthEastBlocked))
-                {
-                    path.Successful = false;
-                    return;
-                }
-
-                x++;
-                y--;
-            }
-            else if (direction == DirectionFlag.South)
-            {
-                if (!IsTraversable(x, y - 1, z, CollisionFlag.TraversableSouthBlocked))
-                {
-                    path.Successful = false;
-                    return;
-                }
-
-                y--;
-            }
-            else if (direction == DirectionFlag.SouthWest)
-            {
-                if (!IsTraversable(x - 1, y, z, CollisionFlag.TraversableWestBlocked) ||
-                    !IsTraversable(x, y - 1, z, CollisionFlag.TraversableSouthBlocked) ||
-                    !IsTraversable(x - 1, y - 1, z, CollisionFlag.TraversableSouthWestBlocked))
-                {
-                    path.Successful = false;
-                    return;
-                }
-
-                x--;
-                y++;
-            }
-            else if (direction == DirectionFlag.West)
-            {
-                if (!IsTraversable(x - 1, y, z, CollisionFlag.TraversableWestBlocked))
-                {
-                    path.Successful = false;
-                    return;
-                }
-
-                x--;
-            }
-            else if (direction == DirectionFlag.NorthWest)
-            {
-                if (!IsTraversable(x - 1, y, z, CollisionFlag.TraversableWestBlocked) ||
-                    !IsTraversable(x, y + 1, z, CollisionFlag.TraversableNorthBlocked) ||
-                    !IsTraversable(x - 1, y + 1, z, CollisionFlag.TraversableNorthWestBlocked))
-                {
-                    path.Successful = false;
-                    return;
-                }
-
-                x--;
-                y++;
+                yBig--;
             }
 
-            path.Add(Location.Create(x, y, z));
+            var slope = (deltaY << 16) / Math.Abs(deltaX);
+            var direction = deltaX < 0 ? -1 : 1;
+
+            while (x != targetX)
+            {
+                if (QueueSize <= ++path.Steps)
+                {
+                    return false;
+                }
+
+                x += direction;
+
+                var y = GetTileCoordinate(yBig);
+                if (!IsTraversable(x, y, z, xFlags))
+                {
+                    return false;
+                }
+
+                yBig += slope;
+                var nextY = GetTileCoordinate(yBig);
+                if (nextY != y && !IsTraversable(x, nextY, z, yFlags))
+                {
+                    return false;
+                }
+
+                if (nextY != y && IsDiagonalRay(deltaX, deltaY) && !IsTraversable(x, nextY, z, diagonalFlag))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
-        /// <summary>
-        /// Determines whether the specified x is traversable.
-        /// </summary>
-        /// <param name="x">The x.</param>
-        /// <param name="y">The y.</param>
-        /// <param name="z">The z.</param>
-        /// <param name="flag">The flag.</param>
-        /// <returns>
-        ///   <c>true</c> if the specified x is traversable; otherwise, <c>false</c>.
-        /// </returns>
-        private bool IsTraversable(int x, int y, int z, CollisionFlag flag)
+        private bool TraceYAxis(
+            Path path, int fromX, int fromY, int z, int targetY, int deltaX, int deltaY, CollisionFlag xFlags, CollisionFlag yFlags, CollisionFlag diagonalFlag)
         {
-            var clippingFlag = GetClippingFlag(x, y, z);
-            return (clippingFlag & flag) == 0 || ((clippingFlag & CollisionFlag.ObjectBlock) != 0 && (clippingFlag & CollisionFlag.ObjectAllowRange) != 0) || (clippingFlag & CollisionFlag.FloorBlock) == 0;
+            var y = fromY;
+            var xBig = (fromX << 16) + 0x8000;
+            if (deltaX < 0)
+            {
+                xBig--;
+            }
+
+            var slope = (deltaX << 16) / Math.Abs(deltaY);
+            var direction = deltaY < 0 ? -1 : 1;
+
+            while (y != targetY)
+            {
+                if (QueueSize <= ++path.Steps)
+                {
+                    return false;
+                }
+
+                y += direction;
+
+                var x = GetTileCoordinate(xBig);
+                if (!IsTraversable(x, y, z, yFlags))
+                {
+                    return false;
+                }
+
+                xBig += slope;
+                var nextX = GetTileCoordinate(xBig);
+                if (nextX != x && !IsTraversable(nextX, y, z, xFlags))
+                {
+                    return false;
+                }
+
+                if (nextX != x && IsDiagonalRay(deltaX, deltaY) && !IsTraversable(nextX, y, z, diagonalFlag))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static int GetTileCoordinate(int fixedPointCoordinate) => (int)((uint)fixedPointCoordinate >> 16);
+
+        private static bool IsDiagonalRay(int deltaX, int deltaY) => Math.Abs(deltaX) == Math.Abs(deltaY);
+
+        private static CollisionFlag GetDiagonalLineOfSightBlocker(int deltaX, int deltaY)
+        {
+            if (deltaX < 0)
+            {
+                return deltaY < 0 ? CollisionFlag.BlockedNorthEast : CollisionFlag.BlockedSouthEast;
+            }
+
+            return deltaY < 0 ? CollisionFlag.BlockedNorthWest : CollisionFlag.BlockedSouthWest;
+        }
+
+        private bool IsTraversable(int x, int y, int z, CollisionFlag flags)
+        {
+            if ((GetClippingFlag(x, y, z) & flags) != 0)
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

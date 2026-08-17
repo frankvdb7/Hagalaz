@@ -219,6 +219,20 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void UpdateCharacterResponse_MissingOrUnknownOutcomeIsNotSuccessful()
+        {
+            var missingOutcome = new UpdateCharacterResponse(Guid.NewGuid(), 1u);
+            var unknownOutcome = new UpdateCharacterResponse(
+                Guid.NewGuid(),
+                1u,
+                (CharacterPersistenceOutcome)99);
+
+            Assert.IsNull(missingOutcome.Outcome);
+            Assert.IsFalse(missingOutcome.Outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate);
+            Assert.IsFalse(unknownOutcome.Outcome is CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate);
+        }
+
+        [TestMethod]
         public async Task Should_dehydrate_concurrent_characters_independently()
         {
             await using var provider = new ServiceCollection()
@@ -297,7 +311,10 @@ namespace Hagalaz.Services.GameWorld.Tests
             public async Task Consume(ConsumeContext<UpdateCharacterRequest> context)
             {
                 var message = context.Message;
-                await context.RespondAsync(new UpdateCharacterResponse(message.CorrelationId, message.MasterId));
+                await context.RespondAsync(new UpdateCharacterResponse(
+                    message.CorrelationId,
+                    message.MasterId,
+                    CharacterPersistenceOutcome.Committed));
             }
         }
 

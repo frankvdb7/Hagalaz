@@ -30,6 +30,7 @@ namespace Hagalaz.Services.Characters.Consumers
                 await context.RespondAsync(new CharacterNotFound(message.CorrelationId, message.MasterId));
                 return;
             }
+            var snapshotRevision = (await _characterService.GetSnapshotRevisionAsync(message.MasterId)).Value;
             var result = await GetCharacterAsync(message.MasterId);
             var appearance = _mapper.Map<AppearanceDto>(result.appearance.ValueOrDefault);
             var statistics = _mapper.Map<StatisticsDto>(result.statistics.ValueOrDefault);
@@ -44,7 +45,7 @@ namespace Hagalaz.Services.Characters.Consumers
             var itemAppearanceCollection = _mapper.Map<ItemAppearanceCollectionDto>(result.itemAppearances.ValueOrDefault);
             var state = _mapper.Map<StateDto>(result.state.ValueOrDefault);
 
-            await context.RespondAsync(new GetCharacterResponse(message.CorrelationId, message.MasterId, appearance, details, statistics, itemCollection, familiar, music, farming, slayer, notes, profile, itemAppearanceCollection, state));
+            await context.RespondAsync(new GetCharacterResponse(message.CorrelationId, message.MasterId, appearance, details, statistics, itemCollection, familiar, music, farming, slayer, notes, profile, itemAppearanceCollection, state, snapshotRevision));
         }
 
         public async Task<(Result<Appearance> appearance,

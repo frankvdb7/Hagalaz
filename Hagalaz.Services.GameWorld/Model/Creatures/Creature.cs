@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -30,7 +29,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private readonly List<IHitBar> _renderedHitBars = new(sbyte.MaxValue);
         private readonly Queue<IAnimation> _queuedAnimations = new();
         private readonly Queue<IGraphic> _queuedGraphics = new();
-        protected readonly Dictionary<Type, IState> States = new();
+        private readonly CreatureStateCollection _stateCollection;
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
         private CreatureUpdateState _updateState = CreatureUpdateState.Initializing;
         private readonly IServiceScope _serviceScope = default!;
@@ -96,22 +95,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         /// <value>The combat.</value>
         public ICreatureCombat Combat { get; protected set; } = default!;
-
-        /// <summary>
-        ///     Contains entity map region.
-        /// </summary>
-        /// <value>The region.</value>
-        public IMapRegion Region
-        {
-            get
-            {
-                if (Location == null)
-                {
-                    throw new InvalidOperationException($"{nameof(Location)} is not initialized yet.");
-                }
-                return MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
-            }
-        }
 
         /// <summary>
         ///     Contains creature to which this creature is facing ,
@@ -185,6 +168,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         {
             _serviceScope = serviceScope;
             _taskService = serviceScope.ServiceProvider.GetRequiredService<ICreatureTaskService>();
+            _stateCollection = new CreatureStateCollection(this);
         }
 
         /// <summary>
@@ -200,7 +184,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         ///     Executes updating procedures such as sending update packets.
         /// </summary>
-        protected abstract Task UpdateTick();
+        protected abstract void UpdateTick();
 
         /// <summary>
         ///     Executes reseting procedures such as reseting update flags.
@@ -240,7 +224,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
             if (Location != null)
             {
-                RemoveFromRegion(Region);
+                var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
+                RemoveFromRegion(region);
             }
             Area?.OnCreatureExitArea(this);
             OnDestroy();
@@ -264,9 +249,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         {
             Viewport.RebuildView();
             SetLocation(Location, true, true);
-
-            foreach (var state in States.Values)
-                state.OnStateAdded(state, this);
 
             OnInit();
             return Task.CompletedTask;
@@ -509,7 +491,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
         public bool ApplyStandardState(IState state, Type immunityStateType)
         {
-            if (States.ContainsKey(immunityStateType))
+            if (_stateCollection.Has(immunityStateType))
                 return false;
             AddState(state);
             return true;
@@ -650,23 +632,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         ///     Tick used for generating update cycle info.
         /// </summary>
-        public Task MajorClientPrepareUpdateTickAsync()
+        public void MajorClientPrepareUpdateTick()
         {
             if (_updateState != CreatureUpdateState.ServerUpdate)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             _updateState = CreatureUpdateState.ClientPrepareUpdate;
 
             UpdatesPrepareTick();
-            return Task.CompletedTask;
         }
 
         /// <summary>
         ///     Tick used for updating rendering information.
         /// </summary>
-        public async Task MajorClientUpdateTickAsync()
+        public void MajorClientUpdateTick()
         {
             if (_updateState != CreatureUpdateState.ClientPrepareUpdate)
             {
@@ -675,17 +656,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
             _updateState = CreatureUpdateState.ClientUpdate;
 
-            await UpdateTick();
+            UpdateTick();
         }
 
         /// <summary>
         ///     Tick used for cleaning up rendering information.
         /// </summary>
-        public Task MajorClientUpdateResetTickAsync()
+        public void MajorClientUpdateResetTick()
         {
             if (_updateState != CreatureUpdateState.ClientUpdate)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             _updateState = CreatureUpdateState.ClientUpdateReset;
@@ -700,7 +681,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             Movement.Reset();
             ResetTick();
             _updateState = CreatureUpdateState.Idle;
-            return Task.CompletedTask;
+        }
+
+        protected bool TryBeginClientUpdate()
+        {
+            if (_updateState != CreatureUpdateState.ClientPrepareUpdate)
+            {
+                return false;
+            }
+
+            _updateState = CreatureUpdateState.ClientUpdate;
+            return true;
         }
 
         /// <summary>
@@ -727,85 +718,27 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         ///     Process creature states.
         /// </summary>
-        private void ProcessStates()
-        {
-            if (States.Count == 0)
-            {
-                return;
-            }
-
-            // Optimization: Use ArrayPool to track removals, avoiding ToList() heap allocations.
-            // We still need a snapshot of values to safely allow state.Tick() to modify the dictionary (add/remove states).
-            // Using ArrayPool for the snapshot to avoid heap allocations.
-            var statesCount = States.Count;
-            var statesBuffer = ArrayPool<IState>.Shared.Rent(statesCount);
-
-            try
-            {
-                States.Values.CopyTo(statesBuffer, 0);
-
-                Type[]? toRemove = null;
-                var removeCount = 0;
-
-                for (var i = 0; i < statesCount; i++)
-                {
-                    var state = statesBuffer[i];
-                    state.Tick();
-                    if (state.TicksLeft <= 0)
-                    {
-                        toRemove ??= ArrayPool<Type>.Shared.Rent(statesCount);
-                        toRemove[removeCount++] = state.GetType();
-                    }
-                }
-
-                if (toRemove != null)
-                {
-                    try
-                    {
-                        for (var i = 0; i < removeCount; i++)
-                        {
-                            RemoveState(toRemove[i]);
-                        }
-                    }
-                    finally
-                    {
-                        ArrayPool<Type>.Shared.Return(toRemove, true);
-                    }
-                }
-            }
-            finally
-            {
-                ArrayPool<IState>.Shared.Return(statesBuffer, true);
-            }
-        }
+        private void ProcessStates() => _stateCollection.ProcessTick();
 
         /// <summary>
         ///     Get's if this creature has specific state.
         /// </summary>
         /// <returns><c>true</c> if the specified type has state; otherwise, <c>false</c>.</returns>
-        public bool HasState<T>() where T : IState => States.ContainsKey(typeof(T));
-
-        private void RemoveState(Type type)
-        {
-            if (States.Remove(type, out var state))
-            {
-                state.OnStateRemoved(state, this);
-            }
-        }
+        public bool HasState<T>() where T : IState => _stateCollection.Has(typeof(T));
 
         /// <summary>
         ///     Remove's specific state from creature.
         /// </summary>
         public void RemoveState<T>() where T : IState
         {
-            RemoveState(typeof(T));
+            _stateCollection.Remove(typeof(T));
         }
 
         /// <summary>
         ///     Get's creature states.
         /// </summary>
         /// <returns>List{State}.</returns>
-        public IEnumerable<IState> GetStates() => States.Values;
+        public IEnumerable<IState> GetStates() => _stateCollection.States;
 
         /// <summary>
         ///     Gets the states.
@@ -813,25 +746,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <returns></returns>
 
         /// <summary>
-        ///     Add's specific state to creature.
-        ///     If this creature already contains same type state then
-        ///     the one with longest expiry time remains.
+        ///     Adds a state to the creature, keeping existing instances unless a timed state opts into keeping the longer duration.
         /// </summary>
         /// <param name="state">The state.</param>
         public void AddState(IState state)
         {
-            var type = state.GetType();
-            if (States.TryGetValue(type, out var existingState))
-            {
-                if (state.TicksLeft <= existingState.TicksLeft)
-                {
-                    return;
-                }
-                RemoveState(type);
-            }
-
-            States.Add(type, state);
-            state.OnStateAdded(state, this);
+            _stateCollection.Add(state);
         }
 
         /// <summary>

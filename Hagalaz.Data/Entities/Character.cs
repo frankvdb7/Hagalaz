@@ -50,6 +50,7 @@ namespace Hagalaz.Data.Entities
         public DateTimeOffset? LastLobbyLogin { get; set; }
         public DateTimeOffset? LastGameLogin { get; set; }
         public long SnapshotRevision { get; set; }
+        public string SnapshotFingerprint { get; set; } = string.Empty;
         public short Birthyear { get; set; }
         public short CoordX { get; set; }
         public short CoordY { get; set; }
@@ -64,10 +65,6 @@ namespace Hagalaz.Data.Entities
         public virtual CharactersSlayerTask CharactersSlayerTask { get; set; } = null!;
         public virtual CharactersStatistic CharactersStatistic { get; set; } = null!;
         public virtual ClansMember ClansMemberMaster { get; set; } = null!;
-        public virtual MinigamesBarrow MinigamesBarrow { get; set; } = null!;
-        public virtual MinigamesDuelArena MinigamesDuelArena { get; set; } = null!;
-        public virtual MinigamesGodwar MinigamesGodwar { get; set; } = null!;
-        public virtual MinigamesTzhaarCave MinigamesTzhaarCave { get; set; } = null!;
         public virtual ICollection<Aspnetuserclaim> Aspnetuserclaims { get; set; }
         public virtual ICollection<Aspnetuserlogin> Aspnetuserlogins { get; set; }
         public virtual ICollection<Aspnetusertoken> Aspnetusertokens { get; set; }

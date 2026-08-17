@@ -948,9 +948,6 @@
           "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[10.0.10, )"
         }
       },
-      "hagalaz.dependencyinjection.extensions": {
-        "type": "Project"
-      },
       "hagalaz.exceptions": {
         "type": "Project"
       },
@@ -960,7 +957,6 @@
       "hagalaz.game": {
         "type": "Project",
         "dependencies": {
-          "Hagalaz.DependencyInjection.Extensions": "[1.0.0, )",
           "Hagalaz.Game.Abstractions": "[1.0.0, )",
           "Nito.AsyncEx": "[5.1.2, )",
           "QuadTrees.Core": "[1.0.0, )"
@@ -978,7 +974,6 @@
       "hagalaz.game.common": {
         "type": "Project",
         "dependencies": {
-          "Hagalaz.DependencyInjection.Extensions": "[1.0.0, )",
           "Hagalaz.Game.Abstractions": "[1.0.0, )"
         }
       },

@@ -77,9 +77,11 @@ using Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders;
 using Hagalaz.Services.GameWorld.Providers;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
-using Hagalaz.Workers;
+using Hagalaz.Services.GameWorld.Configuration;
+using Hagalaz.Services.GameWorld.Health;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Identity;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using Hagalaz.Services.Extensions;
@@ -111,7 +113,11 @@ namespace Hagalaz.Services.GameWorld
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddHealthChecks();
+            services.AddSingleton<WorldLifecycleState>();
+            services.AddSingleton<IStartupTaskState>(provider => provider.GetRequiredService<WorldLifecycleState>());
+            services.AddSingleton<WorldInstanceIdentity>();
+            services.AddSingleton<WorldRegistrationStore>();
+            services.AddHealthChecks().AddCheck<WorldReadinessHealthCheck>("world-readiness");
 
             var redisConnection = Configuration.GetConnectionString("cache")
                 ?? throw new InvalidOperationException("The Redis cache connection string is required.");
@@ -141,9 +147,9 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IAuthenticationService, AuthenticationService>();
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();
-            services.AddSingleton<IBackgroundTaskQueue>(_ => new DefaultBackgroundTaskQueue(DefaultBackgroundTaskQueue.DefaultCapacity));
-            services.AddHostedService<WorldStatusService>();
-            services.AddHostedService<QueuedHostedService>();
+            services.AddSingleton<MapRegionLoadScheduler>();
+            services.AddSingleton<IMapRegionLoadScheduler>(provider => provider.GetRequiredService<MapRegionLoadScheduler>());
+            services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<MapRegionLoadScheduler>());
             services.AddHostedService<GameWorkerService>();
             services.AddSingleton<InMemoryEventBus>();
             services.AddSingleton<IEventBus>(provider => provider.GetRequiredService<InMemoryEventBus>());
@@ -214,7 +220,6 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ICharacterPersistenceService, CharacterPersistenceService>();
             services.AddScoped<ICharacterLogoutService, CharacterLogoutService>();
             services.AddSingleton<CharacterPersistenceState>();
-            services.AddSingleton<SnapshotRevisionGenerator>();
             services.AddScoped<ICharacterDehydrator, AppearanceDehydrator>();
             services.AddScoped<ICharacterDehydrator, DetailsDehydrator>();
             services.AddScoped<ICharacterDehydrator, StatisticsDehydrator>();
@@ -247,6 +252,7 @@ namespace Hagalaz.Services.GameWorld
 
             // map
             services.AddSingleton<IMapRegionService, MapRegionService>();
+            services.AddSingleton<IMapUpdateService, MapUpdateService>();
             services.AddScoped<IMapRegionLoader, MapRegionLoader>();
             services.AddHostedService<MapRegionBackgroundService>();
             services.AddSingleton<ILocationBuilder, LocationBuilder>();
@@ -432,7 +438,9 @@ namespace Hagalaz.Services.GameWorld
 
             // world options
             services.Configure<WorldOptions>(Configuration.GetSection(WorldOptions.Key), options => options.BindNonPublicProperties = true);
-            services.Configure<WorldOptions>(options => options.Id = Configuration.GetValue(ServiceDefaults.EnvironmentVariables.HagalazWorldId, 1));
+            services.Configure<WorldOptions>(options => options.Id = Configuration.GetValue<int?>(ServiceDefaults.EnvironmentVariables.HagalazWorldId) ?? 0);
+            services.AddSingleton<IValidateOptions<WorldOptions>, WorldOptionsValidator>();
+            services.AddOptions<WorldOptions>().ValidateOnStart();
             services.Configure<CombatOptions>(Configuration.GetSection(CombatOptions.Key));
             services.Configure<ItemOptions>(Configuration.GetSection(ItemOptions.Key));
             services.Configure<GroundItemOptions>(Configuration.GetSection(GroundItemOptions.Key));
@@ -668,6 +676,16 @@ namespace Hagalaz.Services.GameWorld
 
                     cfg.Host(host);
 
+                    var statusEndpointName = $"hagalaz-gameworld-status-{context.GetRequiredService<WorldInstanceIdentity>().InstanceId}";
+                    cfg.ReceiveEndpoint(statusEndpointName, endpoint =>
+                    {
+                        endpoint.Durable = false;
+                        endpoint.AutoDelete = true;
+                        endpoint.ConfigureConsumer<WorldStatusRequestConsumer>(context);
+                        endpoint.ConfigureConsumer<WorldOnlineConsumer>(context);
+                        endpoint.ConfigureConsumer<WorldOfflineConsumer>(context);
+                    });
+
                     cfg.ConfigureEndpoints(context);
                 });
 
@@ -689,6 +707,7 @@ namespace Hagalaz.Services.GameWorld
                 x.AddConsumer<CharacterPersistenceAcknowledgedConsumer>();
             });
             // Register after MassTransit so shutdown flushes run while the message bus is still available.
+            services.AddHostedService<WorldStatusService>();
             services.AddHostedService<CharacterDehydrationWorkerService>();
             services.AddMediator(options =>
             {

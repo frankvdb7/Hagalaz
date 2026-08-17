@@ -359,7 +359,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 }
 
                 if (_currentMapX < GraphSize - 1 && _currentMapY > 0 && _directions[_currentMapX + 1, _currentMapY - 1] == 0 &&
-                    (GetClippingFlag(absX + 1, absY - 1, z) & CollisionFlag.TraversableSouthWestBlocked) == 0 &&
+                    (GetClippingFlag(absX + 1, absY - 1, z) & CollisionFlag.TraversableSouthEastBlocked) == 0 &&
                     (GetClippingFlag(absX + 1, absY, z) & CollisionFlag.TraversableEastBlocked) == 0 &&
                     (GetClippingFlag(absX, absY - 1, z) & CollisionFlag.TraversableSouthBlocked) == 0)
                 {
@@ -413,7 +413,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 }
 
                 if (_currentMapX > 0 && _directions[_currentMapX - 1, _currentMapY] == 0 &&
-                    (GetClippingFlag(absX, absY - 1, z) & CollisionFlag.TraversableSouthWestBlocked) == 0 &&
+                    (GetClippingFlag(absX - 1, absY, z) & CollisionFlag.TraversableSouthWestBlocked) == 0 &&
                     (GetClippingFlag(absX - 1, absY + 1, z) & CollisionFlag.TraversableNorthWestBlocked) == 0)
                 {
                     Check(_currentMapX - 1, _currentMapY, DirectionFlag.West, thisCost);
@@ -421,7 +421,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
 
                 if (_currentMapY < GraphSize - 2 && _directions[_currentMapX, _currentMapY + 1] == 0 &&
                     (GetClippingFlag(absX, absY + 2, z) & CollisionFlag.TraversableNorthWestBlocked) == 0 &&
-                    (GetClippingFlag(absX + 1, absY + 2, z) & CollisionFlag.TraversableNorthWestBlocked) == 0)
+                    (GetClippingFlag(absX + 1, absY + 2, z) & CollisionFlag.TraversableNorthEastBlocked) == 0)
                 {
                     Check(_currentMapX, _currentMapY + 1, DirectionFlag.North, thisCost);
                 }
@@ -532,7 +532,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 }
                 north:
                 {
-                    if (_currentMapY < GraphSize - 2 && _directions[_currentMapX, _currentMapY + 1] == 0 &&
+                    if (_currentMapY < GraphSize - selfSize && _directions[_currentMapX, _currentMapY + 1] == 0 &&
                         (GetClippingFlag(absX, absY + selfSize, z) & CollisionFlag.TraversableNorthWestBlocked) == 0 &&
                         (GetClippingFlag(absX + (selfSize - 1), absY + selfSize, z) & CollisionFlag.TraversableNorthEastBlocked) == 0)
                     {
@@ -549,7 +549,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 }
                 east:
                 {
-                    if (_currentMapX < GraphSize - 2 && _directions[_currentMapX + 1, _currentMapY] == 0 &&
+                    if (_currentMapX < GraphSize - selfSize && _directions[_currentMapX + 1, _currentMapY] == 0 &&
                         (GetClippingFlag(absX + selfSize, absY, z) & CollisionFlag.TraversableSouthEastBlocked) == 0 &&
                         (GetClippingFlag(absX + selfSize, absY + (selfSize - 1), z) & CollisionFlag.TraversableNorthEastBlocked) == 0)
                     {
@@ -579,12 +579,12 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                             }
                         }
 
-                        Check(_currentMapX - 1, _currentMapY + 1, DirectionFlag.SouthWest, thisCost);
+                        Check(_currentMapX - 1, _currentMapY - 1, DirectionFlag.SouthWest, thisCost);
                     }
                 }
                 northWest:
                 {
-                    if (_currentMapX > 0 && _currentMapY < GraphSize - 2 && _directions[_currentMapX - 1, _currentMapY + 1] == 0 &&
+                    if (_currentMapX > 0 && _currentMapY < GraphSize - selfSize && _directions[_currentMapX - 1, _currentMapY + 1] == 0 &&
                         (GetClippingFlag(absX - 1, absY + 1, z) & CollisionFlag.TraversableSouthWestBlocked) == 0 &&
                         (GetClippingFlag(absX - 1, absY + selfSize, z) & CollisionFlag.TraversableNorthWestBlocked) == 0 &&
                         (GetClippingFlag(absX, absY + selfSize, z) & CollisionFlag.TraversableNorthEastBlocked) == 0)
@@ -602,7 +602,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 }
                 southEast:
                 {
-                    if (_currentMapX < GraphSize - 2 && _currentMapY > 0 && _directions[_currentMapX + 1, _currentMapY - 1] == 0 &&
+                    if (_currentMapX < GraphSize - selfSize && _currentMapY > 0 && _directions[_currentMapX + 1, _currentMapY - 1] == 0 &&
                         (GetClippingFlag(absX + 1, absY - 1, z) & CollisionFlag.TraversableSouthWestBlocked) == 0 &&
                         (GetClippingFlag(absX + selfSize, absY - 1, z) & CollisionFlag.TraversableSouthEastBlocked) == 0 &&
                         (GetClippingFlag(absX + selfSize, absY + (selfSize - 2), z) & CollisionFlag.TraversableNorthEastBlocked) == 0)
@@ -615,12 +615,12 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                             }
                         }
 
-                        Check(_currentMapX - 1, _currentMapY + 1, DirectionFlag.SouthEast, thisCost);
+                        Check(_currentMapX + 1, _currentMapY - 1, DirectionFlag.SouthEast, thisCost);
                     }
                 }
                 northEast:
                 {
-                    if (_currentMapX < GraphSize - 2 && _currentMapY < GraphSize - 2 && _directions[_currentMapX + 1, _currentMapY + 1] == 0 &&
+                    if (_currentMapX < GraphSize - selfSize && _currentMapY < GraphSize - selfSize && _directions[_currentMapX + 1, _currentMapY + 1] == 0 &&
                         (GetClippingFlag(absX + 1, absY + selfSize, z) & CollisionFlag.TraversableNorthWestBlocked) == 0 &&
                         (GetClippingFlag(absX + selfSize, absY + selfSize, z) & CollisionFlag.TraversableNorthEastBlocked) == 0 &&
                         (GetClippingFlag(absX + selfSize, absY + 1, z) & CollisionFlag.TraversableSouthEastBlocked) == 0)

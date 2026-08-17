@@ -139,7 +139,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             public override void TemporaryMovementTypeEnabled(MovementType type) { }
             protected override void ContentTick() { }
             protected override void UpdatesPrepareTick() { }
-            protected override Task UpdateTick() => Task.CompletedTask;
+            protected override void UpdateTick() { }
             protected override void ResetTick() { }
             protected override void OnLocationChange(ILocation? oldLocation) { }
             protected override void OnRegionChange() { }

@@ -1,4 +1,6 @@
-﻿namespace Hagalaz.Game.Messages
+using System;
+
+namespace Hagalaz.Game.Messages
 {
     public record WorldOnlineMessage
     {
@@ -16,12 +18,18 @@
             public required string Name { get; init; }
             public required int Flag { get; init; }
         }
-        
+
         public required int Id { get; init; }
         public required string Name { get; init; }
         public required string IpAddress { get; init; }
+        public required int Port { get; init; }
         public required int CharacterCount { get; init; }
         public required WorldSettings Settings { get; init; }
         public required WorldLocation Location { get; init; }
+        public string InstanceId { get; init; } = string.Empty;
+        public long Generation { get; init; }
+        public DateTimeOffset StartedAt { get; init; }
+        public DateTimeOffset LastSeenAt { get; init; }
+        public DateTimeOffset LeaseExpiresAt { get; init; }
     }
 }
