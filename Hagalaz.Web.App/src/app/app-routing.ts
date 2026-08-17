@@ -1,4 +1,4 @@
-import { Routes } from "@angular/router";
+import type { Routes } from "@angular/router";
 import { environment } from "@environment/environment";
 
 export function getAppRoutes(): Routes {

@@ -8,6 +8,6 @@ import { CardTitleComponent } from "../../../common/components/card-title/card-t
     templateUrl: "./privacy-policy-page.component.html",
     styleUrl: "./privacy-policy-page.component.css",
     host: { class: "flex flex-auto" },
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PrivacyPolicyPageComponent {}

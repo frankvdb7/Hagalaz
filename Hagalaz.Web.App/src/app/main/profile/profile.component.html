@@ -8,7 +8,7 @@
         <mat-divider></mat-divider>
         <div>
             @for (link of links; track link.url) {
-                <a mat-button routerLinkActive [routerLink]="link.url" #rla="routerLinkActive" [color]="rla.isActive ? 'primary' : undefined" class="w-full">
+                <a mat-button href="{{ link.url }}" routerLinkActive [routerLink]="link.url" #rla="routerLinkActive" [color]="rla.isActive ? 'primary' : undefined" class="w-full">
                     {{ link.label }}
                 </a>
             }

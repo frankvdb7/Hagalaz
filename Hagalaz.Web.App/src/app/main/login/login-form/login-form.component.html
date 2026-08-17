@@ -1,4 +1,4 @@
-<form class="grid grid-flow-row" role="form" [formGroup]="form" (ngSubmit)="onSubmit()">
+<form class="grid grid-flow-row" [formGroup]="form" (ngSubmit)="onSubmit()">
     <mat-form-field appearance="fill" color="primary">
         <mat-label>Email address</mat-label>
         <input formControlName="email" type="email" required autocomplete="email" matInput />
@@ -31,7 +31,7 @@
         }
     </div>
     @if (error()) {
-        <mat-error role="alert" class="mb-4 flex items-center justify-center gap-4">
+        <mat-error class="mb-4 flex items-center justify-center gap-4">
             <mat-icon class="shrink-0">error</mat-icon>
             {{ error() }}</mat-error
         >

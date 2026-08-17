@@ -1,4 +1,4 @@
-import { Environment, EnvironmentName } from "@environment/model";
+import type { Environment } from "@environment/model";
 import { prodEnvironment } from "@environment/common";
 
 export const environment: Environment = {

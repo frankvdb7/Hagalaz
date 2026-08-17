@@ -1,6 +1,6 @@
 import { provideHttpClient, withFetch, withInterceptors, withInterceptorsFromDi } from "@angular/common/http";
 
-import { enableProdMode, importProvidersFrom, provideAppInitializer, inject, provideZonelessChangeDetection, provideZoneChangeDetection } from "@angular/core";
+import { enableProdMode, importProvidersFrom, provideAppInitializer, inject, provideZonelessChangeDetection } from "@angular/core";
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideRouter, TitleStrategy, withComponentInputBinding, withViewTransitions } from "@angular/router";
 import { provideServiceWorker } from "@angular/service-worker";

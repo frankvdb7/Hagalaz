@@ -1,7 +1,7 @@
 import { CharacterStatType } from "@app/services/character-statistics/character-statistics.models";
 import { patchState, signalStore, withHooks, withMethods, withState } from "@ngrx/signals";
 import { setAllEntities, withEntities } from "@ngrx/signals/entities";
-import { CharacterStatisticEntity } from "./highscores.models";
+import type { CharacterStatisticEntity } from "./highscores.models";
 import { rxMethod } from "@ngrx/signals/rxjs-interop";
 import { debounceTime, pipe, switchMap, tap, timeout } from "rxjs";
 import { inject } from "@angular/core";

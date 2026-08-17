@@ -1,7 +1,7 @@
-import { assertInInjectionContext, computed, inject, Signal } from "@angular/core";
+import { assertInInjectionContext, inject, type Signal } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
-import { ActivatedRoute, Data, ParamMap, Params, UrlSegment } from "@angular/router";
-import { Observable } from "rxjs";
+import { ActivatedRoute, type Data, type ParamMap, type Params, type UrlSegment } from "@angular/router";
+import type { Observable } from "rxjs";
 
 export function routerParams(): Signal<Params> {
     assertInInjectionContext(routerParams);

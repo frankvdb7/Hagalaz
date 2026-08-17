@@ -1,6 +1,5 @@
 import { NgModule } from "@angular/core";
-import { Routes, RouterModule } from "@angular/router";
-import { RegisterComponent } from "./register.component";
+import { type Routes, RouterModule } from "@angular/router";
 
 const routes: Routes = [
     {

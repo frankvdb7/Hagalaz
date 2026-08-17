@@ -1,4 +1,4 @@
-import { Routes } from "@angular/router";
+import type { Routes } from "@angular/router";
 import { adminCanActivate } from "./core/guards/admin.guard";
 
 export const routes: Routes = [

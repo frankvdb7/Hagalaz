@@ -1,11 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
 import { CharacterStatType } from "@app/services/character-statistics/character-statistics.models";
-import { MatPaginator, PageEvent } from "@angular/material/paginator";
+import { MatPaginator, type PageEvent } from "@angular/material/paginator";
 import { Router, RouterLink } from "@angular/router";
 import { MatError, MatFormField, MatLabel } from "@angular/material/form-field";
 import { MatCard, MatCardActions, MatCardContent, MatCardHeader, MatCardTitle } from "@angular/material/card";
 import { ErrorPipe } from "@app/common/pipes/error/error.pipe";
-import { DecimalPipe, LowerCasePipe, NgOptimizedImage } from "@angular/common";
+import { DecimalPipe, LowerCasePipe } from "@angular/common";
 import { MatTableModule } from "@angular/material/table";
 import { MatOption, MatSelect, MatSelectTrigger } from "@angular/material/select";
 import { LoadingComponent } from "@app/common/components/loading/loading.component";

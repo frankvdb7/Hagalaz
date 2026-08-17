@@ -1,5 +1,5 @@
 import { computed, effect, inject } from "@angular/core";
-import { UserInfo } from "@app/services/user/user.model";
+import type { UserInfo } from "@app/services/user/user.model";
 import { patchState, signalStore, withComputed, withHooks, withMethods, withState } from "@ngrx/signals";
 import { rxMethod } from "@ngrx/signals/rxjs-interop";
 import { pipe, switchMap, timeout } from "rxjs";

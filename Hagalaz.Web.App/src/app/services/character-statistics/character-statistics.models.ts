@@ -1,4 +1,4 @@
-import { MultiValueResult, PagingMetaDataModel, PagingModel, SortType } from "@app/services/models";
+import type { MultiValueResult, PagingMetaDataModel, PagingModel, SortType } from "@app/services/models";
 
 export enum CharacterStatType {
     Attack = "Attack",

@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { type ComponentFixture, TestBed } from "@angular/core/testing";
 import { it, describe, beforeEach, expect, vi, afterEach } from "vitest";
 import { LauncherHeaderComponent } from "./header.component";
 import { LauncherService } from "@app/launcher/launcher.service";
@@ -26,12 +26,12 @@ describe("LauncherHeaderComponent", () => {
 
     // Mock SvgLoader
     const mockSvgLoader = {
-        load: (url: string, options?: any) => {
+        load: (_url: string, _options?: unknown) => {
             // Return a simple SVG as mock content
             const mockSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" /></svg>';
             return of(mockSvg);
         },
-        getSvg: (url: string, options?: any) => {
+        getSvg: (_url: string, _options?: unknown) => {
             // Return a simple SVG as mock content
             const mockSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" /></svg>';
             return of(mockSvg);

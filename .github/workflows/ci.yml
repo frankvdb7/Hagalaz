@@ -59,6 +59,8 @@ jobs:
           cache-dependency-path: Hagalaz.Web.App/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Lint webapp with Biome
+        run: pnpm run lint:biome
       - name: Test webapp
         run: pnpm run test
       - name: Test admin webapp
