@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
@@ -17,7 +18,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// 
     /// </summary>
-    public class MoneyPouchContainer : BaseItemContainer, IMoneyPouchContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public class MoneyPouchContainer : TradeItemContainer, IMoneyPouchContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -94,6 +95,61 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         /// <summary>
+        /// Adds coins using the normal pouch overflow behavior as one checked
+        /// trade operation. This method acquires the pouch and inventory
+        /// mutation boundaries together.
+        /// </summary>
+        public bool AddForTrade(int count) => ExecuteWithInventoryBoundary(() => AddForTradeCore(count));
+
+        private bool AddForTradeCore(int count)
+        {
+            if (count <= 0)
+            {
+                return false;
+            }
+
+            var itemsBefore = (IItem?[])Items.Clone();
+            var countsBefore = itemsBefore.Select(item => item?.Count ?? 0).ToArray();
+            var previousCountBefore = _previousCount;
+            try
+            {
+                var pouchCount = Math.Min(count, int.MaxValue - Count);
+                var inventoryCount = count - pouchCount;
+                if (inventoryCount > 0 && !_owner.Inventory.HasSpaceFor(_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
+                {
+                    return false;
+                }
+
+                _previousCount = Count;
+                if (pouchCount > 0 && !AddRangeForTrade([_itemBuilder.Create().WithId(995).WithCount(pouchCount).Build()]))
+                {
+                    return false;
+                }
+
+                SendMoneyPouchChangedMessageForTrade(pouchCount);
+
+                if (inventoryCount <= 0)
+                {
+                    return true;
+                }
+
+                if (!_owner.Inventory.AddRangeForTrade(
+                        [_itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()]))
+                {
+                    RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
+                    return false;
+                }
+
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Removes the specified count.
         /// </summary>
         /// <param name="count">The count.</param>
@@ -116,6 +172,125 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _previousCount = Count;
             SendMoneyPouchChangedMessage(-count);
             return Remove(_itemBuilder.Create().WithId(995).WithCount(count).Build(), 0);
+        }
+
+        /// <summary>
+        /// Removes coins using the normal pouch underflow behavior as one checked
+        /// trade operation. This method acquires the pouch and inventory
+        /// mutation boundaries together.
+        /// </summary>
+        public bool RemoveForTrade(int count) => ExecuteWithInventoryBoundary(() => RemoveForTradeCore(count));
+
+        private bool RemoveForTradeCore(int count)
+        {
+            if (count <= 0)
+            {
+                return false;
+            }
+
+            var itemsBefore = (IItem?[])Items.Clone();
+            var countsBefore = itemsBefore.Select(item => item?.Count ?? 0).ToArray();
+            var previousCountBefore = _previousCount;
+            try
+            {
+                var pouchCount = Math.Min(count, Count);
+                var inventoryCount = count - pouchCount;
+                if (inventoryCount > _owner.Inventory.GetCountById(995))
+                {
+                    return false;
+                }
+
+                _previousCount = Count;
+                if (pouchCount > 0 && !RemoveForTrade(
+                        _itemBuilder.Create().WithId(995).WithCount(pouchCount).Build(), 0))
+                {
+                    return false;
+                }
+
+                if (inventoryCount > 0 && !_owner.Inventory.RemoveForTrade(
+                        _itemBuilder.Create().WithId(995).WithCount(inventoryCount).Build()))
+                {
+                    RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
+                    return false;
+                }
+
+                SendMoneyPouchChangedMessageForTrade(-count);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                RestoreTradeState(itemsBefore, countsBefore, previousCountBefore);
+                return false;
+            }
+        }
+
+        private bool ExecuteWithInventoryBoundary(Func<bool> operation)
+        {
+            if (_owner.Inventory is not TradeItemContainer inventory)
+            {
+                return false;
+            }
+
+            var first = MutationOrder <= inventory.MutationOrder ? this : inventory;
+            var second = ReferenceEquals(first, this) ? inventory : this;
+            lock (first.MutationLock)
+            lock (second.MutationLock)
+            {
+                return operation();
+            }
+        }
+
+        private void RestoreTradeState(IItem?[] items, IReadOnlyList<int> counts, int previousCount)
+        {
+            var currentCount = Count;
+            Items = items;
+            for (var i = 0; i < items.Length; i++)
+            {
+                if (items[i] != null)
+                {
+                    items[i]!.Count = counts[i];
+                }
+            }
+
+            if (currentCount != Count)
+            {
+                _previousCount = currentCount;
+                SendMoneyPouchChangedMessageForTrade(Count - currentCount);
+                try
+                {
+                    OnUpdate();
+                }
+                catch (InvalidOperationException)
+                {
+                    // The authoritative state is restored; observer delivery is best effort.
+                }
+            }
+
+            _previousCount = previousCount;
+        }
+
+        public override void SetItems(IItem[] items, bool update)
+        {
+            var previousCount = _previousCount;
+            base.SetItems(items, false);
+            if (update && previousCount != Count)
+            {
+                _previousCount = previousCount;
+                SendMoneyPouchChangedMessageForTrade(Count - previousCount);
+                OnUpdate();
+            }
+        }
+
+        private void SendMoneyPouchChangedMessageForTrade(int changeCount)
+        {
+            try
+            {
+                SendMoneyPouchChangedMessage(changeCount);
+            }
+            catch (InvalidOperationException)
+            {
+                // Trade storage has already committed; observer delivery is best effort.
+            }
         }
 
         /// <summary>
@@ -196,7 +371,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="slots">The slots.</param>
         public override void OnUpdate(HashSet<int>? slots = null)
         {
-            if (_previousCount != Count) _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, _previousCount, Count));
+            if (_previousCount != Count)
+            {
+                var previousCount = _previousCount;
+                _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, previousCount, Count));
+                _previousCount = Count;
+            }
         }
 
         public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch)

@@ -26,6 +26,11 @@ namespace Hagalaz.Game.Abstractions.Collections
         private int _version;
 
         /// <summary>
+        /// Advances the container revision after a derived container applies a storage mutation.
+        /// </summary>
+        protected void AdvanceRevision() => _version++;
+
+        /// <summary>
         /// Gets the item at the specified index in the container.
         /// </summary>
         /// <param name="index">The zero-based index of the item to retrieve.</param>
@@ -96,7 +101,7 @@ namespace Hagalaz.Game.Abstractions.Collections
                 {
                     while (en.MoveNext())
                     {
-                        Add(en.Current);
+                        AddInitialItem(en.Current);
                     }
                 }
             }
@@ -223,7 +228,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="item">The item to add.</param>
         /// <returns><c>true</c> if the item was successfully added; otherwise, <c>false</c>.</returns>
-        public bool Add(IItem item)
+        public virtual bool Add(IItem item)
         {
             for (var slot = 0; slot < Items.Length; slot++)
             {
@@ -276,74 +281,113 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="newItems">The collection of items to add.</param>
         /// <returns><c>true</c> if all items were added successfully; otherwise, <c>false</c>.</returns>
-        public bool AddRange(IEnumerable<IItem?> newItems)
+        public virtual bool AddRange(IEnumerable<IItem?> newItems)
         {
-            ArgumentNullException.ThrowIfNull(newItems);
-
-            if (!HasSpaceForRange(newItems))
+            if (!AddRangeCore(newItems, out var slotsToUpdate))
             {
                 return false;
             }
 
-            var slotsToUpdate = new HashSet<int>();
+            OnUpdate(slotsToUpdate);
+            AdvanceRevision();
+            return true;
+        }
 
-            using (var enumerator = newItems.GetEnumerator())
+        /// <summary>
+        /// Applies the shared add-range storage implementation and returns the
+        /// changed slots for the caller's notification boundary.
+        /// </summary>
+        protected bool AddRangeCore(IEnumerable<IItem?> newItems, out HashSet<int> slotsToUpdate)
+        {
+            ArgumentNullException.ThrowIfNull(newItems);
+
+            var items = newItems.ToArray();
+            if (!HasSpaceForRange(items))
             {
-                while (enumerator.MoveNext())
+                slotsToUpdate = [];
+                return false;
+            }
+
+            slotsToUpdate = new HashSet<int>();
+            if (!ApplyAddRange(items, slotsToUpdate))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private void AddInitialItem(IItem item)
+        {
+            if (ApplyAddRange([item], new HashSet<int>()))
+            {
+                _version++;
+            }
+        }
+
+        private bool ApplyAddRange(IEnumerable<IItem?> newItems, HashSet<int> slotsToUpdate)
+        {
+            using var enumerator = newItems.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                var current = enumerator.Current;
+                if (current == null)
                 {
-                    var current = enumerator.Current;
-                    if (current == null)
+                    continue;
+                }
+
+                for (var i = 0; i < Items.Length; i++)
+                {
+                    var item = Items[i];
+                    if (item == null || item.Id != current.Id || !item.ItemScript.CanStackItem(item, current, Type == StorageType.AlwaysStack))
                     {
                         continue;
                     }
 
-                    for (var i = 0; i < Items.Length; i++)
+                    var total = item.Count + (long)current.Count;
+                    if (total > int.MaxValue)
                     {
-                        // If an identical item is located in this container.
-                        var item = Items[i];
-                        if (item != null && item.Id == current.Id && item.ItemScript.CanStackItem(item, current, Type == StorageType.AlwaysStack))
-                        {
-                            var total = item.Count + (long)current.Count;
-                            if (total > int.MaxValue)
-                            {
-                                return false;
-                            }
-
-                            item.Count = (int)total;
-                            slotsToUpdate.Add(i);
-                            goto end;
-                        }
+                        return false;
                     }
 
-                    if (Type == StorageType.AlwaysStack || current.ItemDefinition.Stackable || current.ItemDefinition.Noted)
+                    item.Count = (int)total;
+                    slotsToUpdate.Add(i);
+                    goto end;
+                }
+
+                if (Type == StorageType.AlwaysStack || current.ItemDefinition.Stackable || current.ItemDefinition.Noted)
+                {
+                    var slot = GetFreeSlot();
+                    if (slot == -1)
                     {
-                        // Not existing in container.
-                        var slot = GetFreeSlot();
-                        if (slot == -1) return false;
-                        Items[slot] = current;
-                        slotsToUpdate.Add(slot);
-                    }
-                    else
-                    {
-                        if (FreeSlots < current.Count) return false;
-                        for (var j = 0; j < current.Count; j++)
-                        {
-                            var freeSlot = GetFreeSlot();
-                            Items[freeSlot] = current.Clone();
-                            Items[freeSlot]!.Count = 1;
-                            slotsToUpdate.Add(freeSlot);
-                        }
+                        return false;
                     }
 
-                    end:
+                    Items[slot] = current;
+                    slotsToUpdate.Add(slot);
+                }
+                else
+                {
+                    if (FreeSlots < current.Count)
                     {
-                        continue;
+                        return false;
                     }
+
+                    for (var j = 0; j < current.Count; j++)
+                    {
+                        var freeSlot = GetFreeSlot();
+                        Items[freeSlot] = current.Clone();
+                        Items[freeSlot]!.Count = 1;
+                        slotsToUpdate.Add(freeSlot);
+                    }
+                }
+
+                end:
+                {
+                    continue;
                 }
             }
 
-            OnUpdate(slotsToUpdate);
-            _version++;
             return true;
         }
 
@@ -351,7 +395,12 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// Transfers all items from another container into this one.
         /// </summary>
         /// <param name="container">The source container from which to transfer items.</param>
-        public void AddAndRemoveFrom(IItemContainer container)
+        public virtual void AddAndRemoveFrom(IItemContainer container)
+        {
+            AddAndRemoveFromCore(container);
+        }
+
+        private void AddAndRemoveFromCore(IItemContainer container)
         {
             var slotsToUpdate = new HashSet<int>();
 
@@ -429,80 +478,106 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <param name="preferredSlot">The preferred slot to remove from. If -1, any slot will be used.</param>
         /// <param name="update">If set to <c>true</c>, the <see cref="OnUpdate"/> callback is invoked.</param>
         /// <returns>The number of items actually removed.</returns>
-        public int Remove(IItem item, int preferredSlot = -1, bool update = true)
+        public virtual int Remove(IItem item, int preferredSlot = -1, bool update = true)
+        {
+            var slots = new HashSet<int>();
+            var removed = ApplyRemove(item, preferredSlot, slots);
+            if (removed <= 0)
+            {
+                return 0;
+            }
+
+            if (update)
+            {
+                OnUpdate(slots);
+            }
+
+            _version++;
+
+            return removed;
+        }
+
+        private int ApplyRemove(IItem item, int preferredSlot, HashSet<int> slotsToUpdate)
         {
             var removed = 0;
-
             if (Type == StorageType.AlwaysStack || item.ItemDefinition.Stackable || item.ItemDefinition.Noted)
             {
+                var lastRemoved = 0;
                 for (var slot = 0; slot < Items.Length; slot++)
                 {
                     var slotItem = Items[slot];
-                    if (slotItem == null || !slotItem.Equals(item)) continue;
-                    if (slotItem.Count > item.Count)
-                    {
-                        removed = item.Count;
-                        slotItem.Count -= item.Count;
-                    }
-                    else
-                    {
-                        removed = slotItem.Count;
-                        if (CountToResetTo != -1)
-                            slotItem.Count = CountToResetTo;
-                        else
-                            Items[slot] = null;
-                    }
-
-                    if (update)
-                    {
-                        OnUpdate([slot]);
-                    }
-                }
-            }
-            else
-            {
-                var slots = new HashSet<int>();
-                var slot = GetSlotByItem(item);
-                if (preferredSlot != -1)
-                {
-                    var slotItem = Items[preferredSlot];
-                    if (slotItem != null && slotItem.Equals(item, true)) slot = preferredSlot;
-                }
-
-                var toRemove = item.Count;
-                while (toRemove > 0)
-                {
-                    if (slot == -1 && (slot = GetSlotByItem(item)) == -1) break;
-                    var slotItem = Items[slot];
-                    if (slotItem == null)
+                    if (slotItem == null || !slotItem.Equals(item))
                     {
                         continue;
                     }
 
-                    if (slotItem.Count > toRemove)
+                    var requestedFromSlot = item.Count;
+                    var removedFromSlot = Math.Min(slotItem.Count, requestedFromSlot);
+                    if (slotItem.Count > item.Count)
                     {
-                        removed += toRemove;
-                        slotItem.Count -= toRemove;
-                        break;
+                        slotItem.Count -= item.Count;
+                    }
+                    else if (CountToResetTo != -1)
+                    {
+                        slotItem.Count = CountToResetTo;
+                    }
+                    else
+                    {
+                        Items[slot] = null;
                     }
 
-                    removed += slotItem.Count;
-                    toRemove -= slotItem.Count;
-                    if (CountToResetTo != -1)
-                        slotItem.Count = CountToResetTo;
-                    else
-                        Items[slot] = null;
-
-                    slots.Add(slot);
-                    slot = GetSlotByItem(item);
+                    slotsToUpdate.Add(slot);
+                    lastRemoved = removedFromSlot;
                 }
 
-                if (update) OnUpdate(slots);
+                return lastRemoved;
             }
 
-            if (removed > 0)
+            var slotIndex = GetSlotByItem(item);
+            if (preferredSlot != -1)
             {
-                _version++;
+                var slotItem = Items[preferredSlot];
+                if (slotItem != null && slotItem.Equals(item, true))
+                {
+                    slotIndex = preferredSlot;
+                }
+            }
+
+            var toRemove = item.Count;
+            while (toRemove > 0)
+            {
+                if (slotIndex == -1 && (slotIndex = GetSlotByItem(item)) == -1)
+                {
+                    break;
+                }
+
+                var slotItem = Items[slotIndex];
+                if (slotItem == null)
+                {
+                    continue;
+                }
+
+                if (slotItem.Count > toRemove)
+                {
+                    slotItem.Count -= toRemove;
+                    removed += toRemove;
+                    slotsToUpdate.Add(slotIndex);
+                    break;
+                }
+
+                removed += slotItem.Count;
+                toRemove -= slotItem.Count;
+                if (CountToResetTo != -1)
+                {
+                    slotItem.Count = CountToResetTo;
+                }
+                else
+                {
+                    Items[slotIndex] = null;
+                }
+
+                slotsToUpdate.Add(slotIndex);
+                slotIndex = GetSlotByItem(item);
             }
 
             return removed;
@@ -513,7 +588,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="container">The container holding the items to remove.</param>
         /// <param name="update">If set to <c>true</c>, the <see cref="OnUpdate"/> callback is invoked.</param>
-        public void Remove(BaseItemContainer container, bool update = true)
+        public virtual void Remove(BaseItemContainer container, bool update = true)
         {
             var slotsToUpdate = new HashSet<int>();
             for (var i = 0; i < container.Capacity; i++)
@@ -587,7 +662,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="fromSlot">The slot of the item to move.</param>
         /// <param name="toSlot">The destination slot.</param>
-        public void Move(int fromSlot, int toSlot)
+        public virtual void Move(int fromSlot, int toSlot)
         {
              if ((uint)fromSlot >= (uint)Items.Length || (uint)toSlot >= (uint)Items.Length)
             {
@@ -650,7 +725,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// </summary>
         /// <param name="fromSlot">The first slot to swap.</param>
         /// <param name="toSlot">The second slot to swap.</param>
-        public void Swap(int fromSlot, int toSlot)
+        public virtual void Swap(int fromSlot, int toSlot)
         {
             var fromItem = Items[fromSlot];
             if (fromItem == null) return;
@@ -701,7 +776,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <summary>
         /// Sorts the container by moving all items to the beginning, removing any empty slots between them.
         /// </summary>
-        public void Sort()
+        public virtual void Sort()
         {
             var baseWrite = 0;
             for (var i = 0; i < Items.Length; i++)
