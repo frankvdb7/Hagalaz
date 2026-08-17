@@ -527,7 +527,6 @@ namespace Hagalaz.Game.Abstractions.Collections
                     }
 
                     slotsToUpdate.Add(slot);
-                    removed = removedFromSlot;
                     lastRemoved = removedFromSlot;
                 }
 

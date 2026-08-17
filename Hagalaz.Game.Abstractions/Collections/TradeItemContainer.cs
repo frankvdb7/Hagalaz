@@ -72,8 +72,23 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
         HashSet<int> slotsToUpdate;
         lock (MutationLock)
         {
-            if (!AddRangeCore(items, out slotsToUpdate))
+            var itemsBefore = (IItem?[])Items.Clone();
+            var countsBefore = new int[itemsBefore.Length];
+            for (var i = 0; i < itemsBefore.Length; i++)
             {
+                countsBefore[i] = itemsBefore[i]?.Count ?? 0;
+            }
+
+            try
+            {
+                if (!AddRangeCore(items, out slotsToUpdate))
+                {
+                    return false;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                RestoreSnapshot(itemsBefore, countsBefore);
                 return false;
             }
         }
@@ -81,6 +96,19 @@ public abstract class TradeItemContainer : BaseItemContainer, ITradeItemContaine
         NotifyTradeUpdate(slotsToUpdate);
         AdvanceRevision();
         return true;
+    }
+
+    private void RestoreSnapshot(IItem?[] items, IReadOnlyList<int> counts)
+    {
+        for (var i = 0; i < items.Length; i++)
+        {
+            if (items[i] != null)
+            {
+                items[i]!.Count = counts[i];
+            }
+        }
+
+        Items = items;
     }
 
     /// <inheritdoc />

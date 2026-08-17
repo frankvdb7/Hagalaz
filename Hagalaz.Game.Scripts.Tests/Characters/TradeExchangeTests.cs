@@ -154,6 +154,32 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void TryExchange_WhenDestinationStackCheckFailsDuringBatch_DoesNotLeavePartialCredit()
+    {
+        var firstInventory = new TestInventory(3);
+        firstInventory.Add(new TestItem(100, 1, stackable: true) { ThrowOnStackCheck = true }).Should().BeTrue();
+        var secondInventory = new TestInventory(3);
+        var first = CreateCharacter(firstInventory, new TestMoneyPouch(firstInventory));
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
+        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
+        firstOffer.Add(new TestItem(200, 1)).Should().BeTrue();
+        secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
+        secondOffer.Add(new TestItem(100, 1, stackable: true)).Should().BeTrue();
+
+        TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeFalse();
+        TradeExchange.TryRefund(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeTrue();
+
+        firstInventory.GetCountById(101).Should().Be(0);
+        firstInventory.GetCountById(200).Should().Be(1);
+        secondInventory.GetCountById(101).Should().Be(1);
+        secondInventory.GetCountById(100).Should().Be(1);
+        firstOffer.GetCountById(200).Should().Be(0);
+        secondOffer.GetCountById(101).Should().Be(0);
+        secondOffer.GetCountById(100).Should().Be(0);
+    }
+
+    [TestMethod]
     public void TryRefund_ReturnsEscrowToTheOfferingCharacters()
     {
         var firstInventory = new TestInventory(1);
