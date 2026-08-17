@@ -212,7 +212,7 @@ internal static class TradeExchange
             .Distinct()
             .Select(container =>
             {
-                var items = (IItem[])container.ToArray();
+                var items = container.ToArray();
                 var counts = items.Select(item => item?.Count ?? 0).ToArray();
                 return new ContainerSnapshot(container, items, counts);
             })
