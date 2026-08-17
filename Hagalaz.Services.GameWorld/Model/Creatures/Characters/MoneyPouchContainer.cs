@@ -255,6 +255,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (currentCount != Count)
             {
                 _previousCount = currentCount;
+                SendMoneyPouchChangedMessageForTrade(Count - currentCount);
                 try
                 {
                     OnUpdate();
@@ -266,6 +267,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             _previousCount = previousCount;
+        }
+
+        public override void SetItems(IItem[] items, bool update)
+        {
+            var previousCount = _previousCount;
+            base.SetItems(items, false);
+            if (update && previousCount != Count)
+            {
+                _previousCount = previousCount;
+                SendMoneyPouchChangedMessageForTrade(Count - previousCount);
+                OnUpdate();
+            }
         }
 
         private void SendMoneyPouchChangedMessageForTrade(int changeCount)

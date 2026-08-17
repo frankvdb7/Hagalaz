@@ -135,6 +135,8 @@ public sealed class TradeExchangeTests
 
         firstMoneyPouch.Count.Should().Be(0);
         eventManager.Received(2).SendEvent(Arg.Any<IEvent>());
+        first.Received(1).SendChatMessage("10 coins have been added to your money pouch.");
+        first.Received(1).SendChatMessage("10 coins have been removed from your money pouch.");
     }
 
     [TestMethod]
