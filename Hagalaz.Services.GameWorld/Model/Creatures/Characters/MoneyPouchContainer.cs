@@ -242,12 +242,26 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         private void RestoreTradeState(IItem?[] items, IReadOnlyList<int> counts, int previousCount)
         {
+            var currentCount = Count;
             Items = items;
             for (var i = 0; i < items.Length; i++)
             {
                 if (items[i] != null)
                 {
                     items[i]!.Count = counts[i];
+                }
+            }
+
+            if (currentCount != Count)
+            {
+                _previousCount = currentCount;
+                try
+                {
+                    OnUpdate();
+                }
+                catch (InvalidOperationException)
+                {
+                    // The authoritative state is restored; observer delivery is best effort.
                 }
             }
 
@@ -346,7 +360,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             if (_previousCount != Count)
             {
-                _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, _previousCount, Count));
+                var previousCount = _previousCount;
+                _owner.EventManager.SendEvent(new MoneyPouchChangedEvent(_owner, previousCount, Count));
+                _previousCount = Count;
             }
         }
 

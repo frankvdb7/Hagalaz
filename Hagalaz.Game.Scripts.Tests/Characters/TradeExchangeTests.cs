@@ -109,6 +109,35 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
+    public void TryExchange_WhenPouchCreditIsRestored_NotifiesTheRestoredCount()
+    {
+        var firstInventory = new TestInventory(3);
+        var secondInventory = new TestInventory(3);
+        var first = CreateCharacter(firstInventory, Substitute.For<IMoneyPouchContainer>());
+        first.ServiceProvider.Returns(new ServiceCollection()
+            .AddSingleton<IItemBuilder>(CreateItemBuilder())
+            .BuildServiceProvider());
+        var eventManager = Substitute.For<IEventManager>();
+        first.EventManager.Returns(eventManager);
+        var firstMoneyPouch = new MoneyPouchContainer(first);
+        first.MoneyPouch.Returns(firstMoneyPouch);
+
+        var secondExisting = new TestItem(100, 1, stackable: true) { ThrowOnStackCheck = true };
+        secondInventory.Add(secondExisting).Should().BeTrue();
+        var second = CreateCharacter(secondInventory, new TestMoneyPouch(secondInventory));
+        var firstOffer = new TestItemContainer(StorageType.Normal, 14);
+        var secondOffer = new TestItemContainer(StorageType.Normal, 14);
+        firstOffer.Add(new TestItem(201, 1)).Should().BeTrue();
+        firstOffer.Add(new TestItem(100, 1, stackable: true)).Should().BeTrue();
+        secondOffer.Add(new TestItem(995, 10, stackable: true)).Should().BeTrue();
+
+        TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeFalse();
+
+        firstMoneyPouch.Count.Should().Be(0);
+        eventManager.Received(2).SendEvent(Arg.Any<IEvent>());
+    }
+
+    [TestMethod]
     public void TryExchange_WhenPouchIsFull_UsesInventoryForCoinOverflow()
     {
         var firstInventory = new TestInventory(1);
@@ -215,8 +244,10 @@ public sealed class TradeExchangeTests
         firstOffer.Add(new TestItem(201, 1)).Should().BeTrue();
         firstOffer.Add(new TestItem(100, 1, stackable: true)).Should().BeTrue();
         secondOffer.Add(new TestItem(101, 1)).Should().BeTrue();
+        var firstInventoryUpdatesBeforeExchange = firstInventory.UpdateCount;
 
         TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeFalse();
+        firstInventory.UpdateCount.Should().Be(firstInventoryUpdatesBeforeExchange + 2);
 
         secondExisting.ThrowOnStackCheck = false;
         TradeExchange.TryRefund(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeTrue();
@@ -619,11 +650,13 @@ public sealed class TradeExchangeTests
     private class TestItemContainer : TradeItemContainer
     {
         public bool FailNextUpdate { get; set; }
+        public int UpdateCount { get; private set; }
 
         public TestItemContainer(StorageType type, int capacity) : base(type, capacity) { }
 
         public override void OnUpdate(HashSet<int>? slots = null)
         {
+            UpdateCount++;
             if (!FailNextUpdate)
             {
                 return;

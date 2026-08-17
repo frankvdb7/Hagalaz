@@ -222,13 +222,21 @@ internal static class TradeExchange
     {
         foreach (var snapshot in snapshots)
         {
-            snapshot.Container.SetItems(snapshot.Items, false);
             for (var i = 0; i < snapshot.Items.Length; i++)
             {
                 if (snapshot.Items[i] != null)
                 {
                     snapshot.Items[i]!.Count = snapshot.Counts[i];
                 }
+            }
+
+            try
+            {
+                snapshot.Container.SetItems(snapshot.Items, true);
+            }
+            catch (InvalidOperationException)
+            {
+                // The authoritative state is restored; observer delivery is best effort.
             }
         }
     }
