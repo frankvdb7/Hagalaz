@@ -60,7 +60,8 @@ public sealed class OracleProviderIntegrationTests
                      "minigames_duel_arena",
                      "minigames_godwars",
                      "minigames_tzhaar_cave",
-                     "characters_permissions"
+                     "characters_permissions",
+                     "characters_preferences"
                  })
         {
             Assert.IsFalse(
@@ -87,7 +88,7 @@ public sealed class OracleProviderIntegrationTests
         await using var context = CreateContext();
         var applied = await context.Database.GetAppliedMigrationsAsync();
         await context.Database.OpenConnectionAsync();
-        Assert.HasCount(8, applied);
+        Assert.HasCount(9, applied);
         Assert.Contains("20240316233038_InitialCreate", applied);
         Assert.Contains("20250721222703_UpdateOpenIddict7", applied);
         Assert.Contains("20251119194916_UpdateStateId", applied);
@@ -96,6 +97,7 @@ public sealed class OracleProviderIntegrationTests
         Assert.Contains("20260810072238_AddCharacterSnapshotFingerprint", applied);
         Assert.Contains("20260810120113_RemoveLegacyMinigamePersistence", applied);
         Assert.Contains("20260818183057_RemoveObsoleteCharacterPermissions", applied);
+        Assert.Contains("20260818192702_RemoveObsoleteCharacterPreferences", applied);
         Assert.IsTrue(await TableExistsAsync(context, "aspnetroles"));
         Assert.IsTrue(await TableExistsAsync(context, "aspnetuserroles"));
     }
