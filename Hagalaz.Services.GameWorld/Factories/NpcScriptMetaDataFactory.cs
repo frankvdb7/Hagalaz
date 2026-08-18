@@ -8,19 +8,16 @@ using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Services.GameWorld.Providers;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Factories
 {
     public class NpcScriptMetaDataFactory : INpcScriptFactory
     {
         private readonly IServiceDescriptorProvider _serviceDescriptorProvider;
-        private readonly IServiceProvider _serviceProvider;
 
-        public NpcScriptMetaDataFactory(IServiceDescriptorProvider serviceDescriptorProvider, IServiceProvider serviceProvider)
+        public NpcScriptMetaDataFactory(IServiceDescriptorProvider serviceDescriptorProvider)
         {
             _serviceDescriptorProvider = serviceDescriptorProvider;
-            _serviceProvider = serviceProvider;
         }
 
         public async IAsyncEnumerable<(int npcId, Type scriptType)> GetScripts([EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -38,22 +35,14 @@ namespace Hagalaz.Services.GameWorld.Factories
                     continue;
                 }
 
-                if (metaData is not null)
+                if (metaData is null)
                 {
-                    foreach (var npcId in metaData.NpcIds)
-                    {
-                        yield return (npcId, scriptType);
-                    }
+                    continue;
                 }
-                else
+
+                foreach (var npcId in metaData.NpcIds)
                 {
-#pragma warning disable CS0618 // Type or member is obsolete
-                    var script = (INpcScript)_serviceProvider.GetRequiredService(scriptType);
-                    foreach (var npcId in script.GetSuitableNpcs())
-                    {
-                        yield return (npcId, scriptType);
-                    }
-#pragma warning restore CS0618 // Type or member is obsolete
+                    yield return (npcId, scriptType);
                 }
             }
         }

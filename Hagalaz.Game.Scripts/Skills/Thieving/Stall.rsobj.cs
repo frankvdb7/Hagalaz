@@ -10,6 +10,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
 {
     /// <summary>
     /// </summary>
+    [GameObjectScriptMetaData([4706, 4708, 34384, 34383, 14011, 34387, 34382, 34386, 4111, 4116, 4121, 4126, 59731])]
     public class Stall : GameObjectScript
     {
         private readonly IMapRegionService _mapRegionService;
@@ -52,17 +53,6 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             }
 
             base.OnCharacterClickPerform(clicker, clickType);
-        }
-
-        /// <summary>
-        ///     Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        public override int[] GetSuitableObjects()
-        {
-            var objects = new List<int>();
-            objects.AddRange(Thieving.Sd.SelectMany(sd => sd.GameObjectIDs));
-            return objects.ToArray();
         }
 
         /// <summary>
