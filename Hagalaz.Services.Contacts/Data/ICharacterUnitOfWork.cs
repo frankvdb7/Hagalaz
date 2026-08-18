@@ -7,6 +7,5 @@ namespace Hagalaz.Services.Contacts.Data
         ICharacterRepository CharacterRepository { get; }
         ICharacterProfilesRepository CharacterProfilesRepository { get; }
         ICharacterContactsRepository CharacterContactsRepository { get; }
-        ICharacterPermissionsRepository CharacterPermissionsRepository { get; }
     }
 }

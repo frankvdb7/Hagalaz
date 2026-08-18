@@ -33,7 +33,6 @@ namespace Hagalaz.Data
         public virtual DbSet<CharactersMusicPlaylist> CharactersMusicPlaylists { get; set; } = null!;
         public virtual DbSet<CharactersNote> CharactersNotes { get; set; } = null!;
         public virtual DbSet<CharactersOffence> CharactersOffences { get; set; } = null!;
-        public virtual DbSet<CharactersPermission> CharactersPermissions { get; set; } = null!;
         public virtual DbSet<CharactersPreference> CharactersPreferences { get; set; } = null!;
         public virtual DbSet<CharactersQuest> CharactersQuests { get; set; } = null!;
         public virtual DbSet<CharactersReport> CharactersReports { get; set; } = null!;
@@ -772,34 +771,6 @@ namespace Hagalaz.Data
                     .WithMany(p => p.CharactersOffenceModerators)
                     .HasForeignKey(d => d.ModeratorId)
                     .HasConstraintName("moderator_id_foreign_key");
-            });
-
-            modelBuilder.Entity<CharactersPermission>(entity =>
-            {
-                entity.HasKey(e => new
-                    {
-                        e.MasterId, e.Permission
-                    })
-                    .HasName("PRIMARY")
-                    .HasAnnotation("MySQL:IndexPrefixLength",
-                        new[]
-                        {
-                            0, 0
-                        });
-
-                entity.ToTable("characters_permissions");
-
-                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
-
-                entity.Property(e => e.MasterId).HasColumnName("master_id");
-
-                entity.Property(e => e.Permission)
-                    .HasColumnType("enum('SystemAdministrator','GameAdministrator','GameModerator','Donator')")
-                    .HasColumnName("permission")
-                    .ForMySQLHasCollation("utf8mb4_0900_ai_ci")
-                    .ForMySQLHasCharset("utf8mb4");
-
-                entity.HasOne(d => d.Master).WithMany(p => p.CharactersPermissions).HasForeignKey(d => d.MasterId).HasConstraintName("master_id_foreign_key_7");
             });
 
             modelBuilder.Entity<CharactersPreference>(entity =>
