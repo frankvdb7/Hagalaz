@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -11,13 +10,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
     /// </summary>
     public interface INpcScript : ICreatureScript
     {
-        /// <summary>
-        /// Gets the NPC IDs that this script is suitable for.
-        /// </summary>
-        /// <returns>An array of NPC IDs.</returns>
-        [Obsolete("Please use NpcScriptMetaData attribute instead")]
-        int[] GetSuitableNpcs();
-
         /// <summary>
         /// Gets the pathfinder the NPC will use.
         /// </summary>

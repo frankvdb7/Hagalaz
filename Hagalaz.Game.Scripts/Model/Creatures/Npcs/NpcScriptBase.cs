@@ -1,5 +1,4 @@
 ﻿using System.Linq;
-using System;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
@@ -28,14 +27,6 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// </summary>
         /// <value>The owner.</value>
         protected INpc Owner;
-
-        /// <summary>
-        /// <summary>
-        /// Get's npcIDS which are suitable for this script.
-        /// </summary>
-        /// <returns>System.Int32[][].</returns>
-        [Obsolete("Use an NpcScriptFactory or NpcScriptMetaData instead")]
-        public virtual int[] GetSuitableNpcs() => [];
 
         /// <summary>
         /// Get's called when owner is found.

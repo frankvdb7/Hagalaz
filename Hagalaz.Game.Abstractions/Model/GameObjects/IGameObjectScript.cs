@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -10,13 +9,6 @@ namespace Hagalaz.Game.Abstractions.Model.GameObjects
     /// </summary>
     public interface IGameObjectScript
     {
-        /// <summary>
-        /// Gets the object IDs that this script is suitable for.
-        /// </summary>
-        /// <returns>An array of object IDs.</returns>
-        [Obsolete("Please use GameObjectScriptMetaData attribute instead")]
-        int[] GetSuitableObjects();
-
         /// <summary>
         /// Initializes the script with its owning game object.
         /// </summary>
