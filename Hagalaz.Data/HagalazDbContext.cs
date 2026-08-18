@@ -33,7 +33,6 @@ namespace Hagalaz.Data
         public virtual DbSet<CharactersMusicPlaylist> CharactersMusicPlaylists { get; set; } = null!;
         public virtual DbSet<CharactersNote> CharactersNotes { get; set; } = null!;
         public virtual DbSet<CharactersOffence> CharactersOffences { get; set; } = null!;
-        public virtual DbSet<CharactersPreference> CharactersPreferences { get; set; } = null!;
         public virtual DbSet<CharactersQuest> CharactersQuests { get; set; } = null!;
         public virtual DbSet<CharactersReport> CharactersReports { get; set; } = null!;
         public virtual DbSet<CharactersReward> CharactersRewards { get; set; } = null!;
@@ -771,95 +770,6 @@ namespace Hagalaz.Data
                     .WithMany(p => p.CharactersOffenceModerators)
                     .HasForeignKey(d => d.ModeratorId)
                     .HasConstraintName("moderator_id_foreign_key");
-            });
-
-            modelBuilder.Entity<CharactersPreference>(entity =>
-            {
-                entity.HasKey(e => e.MasterId).HasName("PRIMARY");
-
-                entity.ToTable("characters_preferences");
-
-                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
-
-                entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
-
-                entity.Property(e => e.AcceptAid).HasColumnType("tinyint(3) unsigned").HasColumnName("accept_aid").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.AssistFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("assist_filter");
-
-                entity.Property(e => e.AttackStyleOptionId).HasColumnType("tinyint(3) unsigned").HasColumnName("attack_style_option_id");
-
-                entity.Property(e => e.AutoRetaliating).HasColumnType("tinyint(3) unsigned").HasColumnName("auto_retaliating").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.BankTabs).HasMaxLength(32).HasColumnName("bank_tabs").HasDefaultValueSql("'0,0,0,0,0,0,0,0'");
-
-                entity.Property(e => e.Bankx).HasColumnType("int(11)").HasColumnName("bankx").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.CcLastEntered).HasMaxLength(20).HasColumnName("cc_last_entered").HasDefaultValueSql("''");
-
-                entity.Property(e => e.ChatEffects).HasColumnType("tinyint(3) unsigned").HasColumnName("chat_effects").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.ClanFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("clan_filter");
-
-                entity.Property(e => e.DefensiveCasting).HasColumnType("tinyint(3) unsigned").HasColumnName("defensive_casting");
-
-                entity.Property(e => e.FcLastEntered).HasMaxLength(12).HasColumnName("fc_last_entered").HasDefaultValueSql("''");
-
-                entity.Property(e => e.FcLootShare).HasColumnType("tinyint(3) unsigned").HasColumnName("fc_loot_share");
-
-                entity.Property(e => e.FcName).HasMaxLength(20).HasColumnName("fc_name").HasDefaultValueSql("''");
-
-                entity.Property(e => e.FcRankEnter).HasColumnType("tinyint(3)").HasColumnName("fc_rank_enter").HasDefaultValueSql("'-1'");
-
-                entity.Property(e => e.FcRankKick).HasColumnType("tinyint(3)").HasColumnName("fc_rank_kick").HasDefaultValueSql("'7'");
-
-                entity.Property(e => e.FcRankLoot).HasColumnType("tinyint(3)").HasColumnName("fc_rank_loot").HasDefaultValueSql("'-2'");
-
-                entity.Property(e => e.FcRankTalk).HasColumnType("tinyint(3)").HasColumnName("fc_rank_talk").HasDefaultValueSql("'-1'");
-
-                entity.Property(e => e.FilterProfanity).HasColumnType("tinyint(3) unsigned").HasColumnName("filter_profanity");
-
-                entity.Property(e => e.FriendsFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("friends_filter");
-
-                entity.Property(e => e.GameFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("game_filter");
-
-                entity.Property(e => e.GuestCcLastEntered).HasMaxLength(20).HasColumnName("guest_cc_last_entered").HasDefaultValueSql("''");
-
-                entity.Property(e => e.HideCombatSpells).HasColumnType("tinyint(3) unsigned").HasColumnName("hide_combat_spells");
-
-                entity.Property(e => e.HideMiscSpells).HasColumnType("tinyint(3) unsigned").HasColumnName("hide_misc_spells");
-
-                entity.Property(e => e.HideSkillSpells).HasColumnType("tinyint(3) unsigned").HasColumnName("hide_skill_spells");
-
-                entity.Property(e => e.HideTeleportSpells).HasColumnType("tinyint(3) unsigned").HasColumnName("hide_teleport_spells");
-
-                entity.Property(e => e.MagicBook).HasColumnType("smallint(6) unsigned").HasColumnName("magic_book").HasDefaultValueSql("'192'");
-
-                entity.Property(e => e.MoneyPouchDisplay).HasColumnType("tinyint(3) unsigned").HasColumnName("money_pouch_display").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.PmAvailability).HasColumnType("tinyint(3) unsigned").HasColumnName("pm_availability");
-
-                entity.Property(e => e.PrayerBook).HasColumnType("tinyint(3) unsigned").HasColumnName("prayer_book");
-
-                entity.Property(e => e.PublicFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("public_filter");
-
-                entity.Property(e => e.QuickPrayers).HasMaxLength(255).HasColumnName("quick_prayers").HasDefaultValueSql("'0'");
-
-                entity.Property(e => e.RightClickReporting).HasColumnType("tinyint(3) unsigned").HasColumnName("right_click_reporting");
-
-                entity.Property(e => e.Running).HasColumnType("tinyint(3) unsigned").HasColumnName("running");
-
-                entity.Property(e => e.SingleMouse).HasColumnType("tinyint(3) unsigned").HasColumnName("single_mouse");
-
-                entity.Property(e => e.SplitChat).HasColumnType("tinyint(3) unsigned").HasColumnName("split_chat");
-
-                entity.Property(e => e.SumLeftClickOption).HasColumnType("tinyint(3) unsigned").HasColumnName("sum_left_click_option");
-
-                entity.Property(e => e.TradeFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("trade_filter");
-
-                entity.Property(e => e.XpCounterDisplay).HasColumnType("tinyint(3) unsigned").HasColumnName("xp_counter_display").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.XpCounterPopup).HasColumnType("tinyint(3) unsigned").HasColumnName("xp_counter_popup").HasDefaultValueSql("'1'");
             });
 
             modelBuilder.Entity<CharactersQuest>(entity =>
