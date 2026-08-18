@@ -6,6 +6,7 @@ using Hagalaz.Cache.Abstractions;
 using Hagalaz.Security;
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Network.Handshake.Decoders;
+using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -229,6 +230,94 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsNull(message);
         }
 
+        [TestMethod]
+        public void WorldHandshakeDecoder_ValidPayload_ContiguousAndMultiSegmentInputProduceEquivalentRequests()
+        {
+            var rsaBlock = CreateRsaBlock();
+            var cacheApi = Substitute.For<ICacheAPI>();
+            cacheApi.GetFileCount(byte.MaxValue).Returns(2);
+            var decoder = new WorldHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                cacheApi);
+            var encryptedPayload = EncryptPayload(CreateValidPayload(world: true));
+
+            var contiguousResult = decoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: true, encryptedPayload),
+                out var contiguousMessage);
+            var segmentedResult = decoder.TryDecodeMessage(
+                CreateSegmentedHandshakeInput(rsaBlock, includeWorldLoginFlag: true, encryptedPayload),
+                out var segmentedMessage);
+
+            Assert.IsTrue(contiguousResult);
+            Assert.IsTrue(segmentedResult);
+            Assert.IsInstanceOfType<WorldSignInRequest>(contiguousMessage);
+            Assert.IsInstanceOfType<WorldSignInRequest>(segmentedMessage);
+            AssertEquivalentRequests((WorldSignInRequest)contiguousMessage!, (WorldSignInRequest)segmentedMessage!);
+        }
+
+        [TestMethod]
+        public void LobbyHandshakeDecoder_ValidPayload_ContiguousAndMultiSegmentInputProduceEquivalentRequests()
+        {
+            var rsaBlock = CreateRsaBlock();
+            var cacheApi = Substitute.For<ICacheAPI>();
+            cacheApi.GetFileCount(byte.MaxValue).Returns(2);
+            var decoder = new LobbyHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                cacheApi);
+            var encryptedPayload = EncryptPayload(CreateValidPayload(world: false));
+
+            var contiguousResult = decoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: false, encryptedPayload),
+                out var contiguousMessage);
+            var segmentedResult = decoder.TryDecodeMessage(
+                CreateSegmentedHandshakeInput(rsaBlock, includeWorldLoginFlag: false, encryptedPayload),
+                out var segmentedMessage);
+
+            Assert.IsTrue(contiguousResult);
+            Assert.IsTrue(segmentedResult);
+            Assert.IsInstanceOfType<LobbySignInRequest>(contiguousMessage);
+            Assert.IsInstanceOfType<LobbySignInRequest>(segmentedMessage);
+            AssertEquivalentRequests((LobbySignInRequest)contiguousMessage!, (LobbySignInRequest)segmentedMessage!);
+        }
+
+        [TestMethod]
+        public void WorldHandshakeDecoder_MissingCacheCrc_ReturnsFalse()
+        {
+            var rsaBlock = CreateRsaBlock();
+            var cacheApi = Substitute.For<ICacheAPI>();
+            cacheApi.GetFileCount(byte.MaxValue).Returns(2);
+            var decoder = new WorldHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                cacheApi);
+            var encryptedPayload = EncryptPayload(CreatePayloadWithMissingCacheCrc(world: true));
+
+            var result = decoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: true, encryptedPayload),
+                out var message);
+
+            Assert.IsFalse(result);
+            Assert.IsNull(message);
+        }
+
+        [TestMethod]
+        public void LobbyHandshakeDecoder_MissingCacheCrc_ReturnsFalse()
+        {
+            var rsaBlock = CreateRsaBlock();
+            var cacheApi = Substitute.For<ICacheAPI>();
+            cacheApi.GetFileCount(byte.MaxValue).Returns(2);
+            var decoder = new LobbyHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                cacheApi);
+            var encryptedPayload = EncryptPayload(CreatePayloadWithMissingCacheCrc(world: false));
+
+            var result = decoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: false, encryptedPayload),
+                out var message);
+
+            Assert.IsFalse(result);
+            Assert.IsNull(message);
+        }
+
         private static ReadOnlySequence<byte> CreateSequence(params byte[][] segments)
         {
             var first = new BufferSegment(segments[0]);
@@ -288,6 +377,170 @@ namespace Hagalaz.Services.GameWorld.Tests
             return payload.ToArray();
         }
 
+        private static byte[] CreateValidPayload(bool world)
+        {
+            var payload = CreatePayloadPrefix(world);
+            AppendHardwareBlock(payload);
+
+            if (world)
+            {
+                AppendInt32(payload, 1234);
+                AppendInt64(payload, 987654321);
+                AppendEmptyString(payload);
+                payload.Add(0);
+                payload.Add(0);
+                payload.Add(0);
+                payload.Add(0);
+                payload.Add(3);
+                AppendInt32(payload, 55);
+                AppendEmptyString(payload);
+                payload.Add(0);
+            }
+            else
+            {
+                AppendEmptyString(payload);
+                AppendInt32(payload, 66);
+                AppendInt32(payload, 77);
+                AppendEmptyString(payload);
+            }
+
+            AppendInt32(payload, 0x11223344);
+            while (payload.Count % 8 != 0)
+            {
+                payload.Add(0);
+            }
+            return payload.ToArray();
+        }
+
+        private static byte[] CreatePayloadWithMissingCacheCrc(bool world)
+        {
+            var payload = CreatePayloadPrefix(world);
+            AppendHardwareBlock(payload);
+
+            if (world)
+            {
+                AppendInt32(payload, 1234);
+                AppendInt64(payload, 987654321);
+                AppendEmptyString(payload);
+                payload.Add(0);
+                payload.Add(0);
+                payload.Add(0);
+                payload.Add(0);
+                payload.Add(3);
+                AppendInt32(payload, 55);
+                AppendAlignedServerToken(payload, includeLoggedInFromLobby: true);
+                payload.Add(0);
+            }
+            else
+            {
+                AppendEmptyString(payload);
+                AppendInt32(payload, 66);
+                AppendInt32(payload, 77);
+                AppendAlignedServerToken(payload, includeLoggedInFromLobby: false);
+            }
+
+            Assert.AreEqual(0, payload.Count % 8);
+            return payload.ToArray();
+        }
+
+        private static List<byte> CreatePayloadPrefix(bool world)
+        {
+            var payload = new List<byte> { 0 };
+            AppendInt64(payload, 1);
+            if (world)
+            {
+                payload.Add(2);
+                AppendInt16(payload, 1024);
+                AppendInt16(payload, 768);
+                payload.Add(1);
+                AppendInt32(payload, 0);
+            }
+            else
+            {
+                payload.Add(7);
+                payload.Add(8);
+            }
+
+            for (var index = 0; index < 24; index++)
+            {
+                payload.Add((byte)(index + 1));
+            }
+            AppendEmptyString(payload);
+            if (world)
+            {
+                AppendInt32(payload, 0);
+            }
+            payload.Add(0);
+            return payload;
+        }
+
+        private static void AppendHardwareBlock(List<byte> payload)
+        {
+            payload.Add(6);
+            payload.Add(1);
+            payload.Add(1);
+            payload.Add(2);
+            payload.Add(3);
+            payload.Add(4);
+            payload.Add(5);
+            payload.Add(6);
+            payload.Add(0);
+            AppendInt16(payload, 2048);
+            payload.Add(4);
+            payload.Add(1);
+            payload.Add(2);
+            payload.Add(3);
+            AppendInt16(payload, 100);
+            AppendStartDelimitedEmptyString(payload);
+            AppendStartDelimitedEmptyString(payload);
+            AppendStartDelimitedEmptyString(payload);
+            AppendStartDelimitedEmptyString(payload);
+            payload.Add(1);
+            AppendInt16(payload, 2026);
+            AppendStartDelimitedEmptyString(payload);
+            AppendStartDelimitedEmptyString(payload);
+            payload.Add(8);
+            payload.Add(9);
+            AppendInt32(payload, 10);
+            AppendInt32(payload, 11);
+            AppendInt32(payload, 12);
+            AppendInt32(payload, 13);
+        }
+
+        private static void AppendAlignedServerToken(List<byte> payload, bool includeLoggedInFromLobby)
+        {
+            var suffixLength = includeLoggedInFromLobby ? 2 : 1;
+            var contentLength = (8 - ((payload.Count + suffixLength) % 8)) % 8;
+            for (var index = 0; index < contentLength; index++)
+            {
+                payload.Add((byte)'x');
+            }
+            payload.Add(0);
+        }
+
+        private static void AppendEmptyString(List<byte> buffer) => buffer.Add(0);
+
+        private static void AppendStartDelimitedEmptyString(List<byte> buffer)
+        {
+            buffer.Add(0);
+            buffer.Add(0);
+        }
+
+        private static void AssertEquivalentRequests(ClientSignInRequest expected, ClientSignInRequest actual)
+        {
+            Assert.AreEqual(expected.ClientRevision, actual.ClientRevision);
+            Assert.AreEqual(expected.ClientRevisionPatch, actual.ClientRevisionPatch);
+            Assert.AreEqual(expected.Login, actual.Login);
+            Assert.AreEqual(expected.Password, actual.Password);
+            CollectionAssert.AreEqual(expected.IsaacSeed, actual.IsaacSeed);
+            CollectionAssert.AreEqual(expected.CacheCRCs, actual.CacheCRCs);
+            Assert.AreEqual(expected.ClientId, actual.ClientId);
+            Assert.AreEqual(expected.Language, actual.Language);
+            Assert.AreEqual(expected.DisplayMode, actual.DisplayMode);
+            Assert.AreEqual(expected.ClientSizeX, actual.ClientSizeX);
+            Assert.AreEqual(expected.ClientSizeY, actual.ClientSizeY);
+        }
+
         private static byte[] EncryptPayload(byte[] plaintext)
         {
             var encrypted = new byte[plaintext.Length];
@@ -311,6 +564,13 @@ namespace Hagalaz.Services.GameWorld.Tests
             input[0] = (byte)(packetSize >> 8);
             input[1] = (byte)packetSize;
             return new ReadOnlySequence<byte>(input.ToArray());
+        }
+
+        private static ReadOnlySequence<byte> CreateSegmentedHandshakeInput(byte[] rsaBlock, bool includeWorldLoginFlag, byte[] encryptedPayload)
+        {
+            var contiguousInput = CreateHandshakeInput(rsaBlock, includeWorldLoginFlag, encryptedPayload).ToArray();
+            var splitIndex = contiguousInput.Length - encryptedPayload.Length + 3;
+            return CreateSequence(contiguousInput[..splitIndex], contiguousInput[splitIndex..]);
         }
 
         private static void AppendInt16(List<byte> buffer, int value)

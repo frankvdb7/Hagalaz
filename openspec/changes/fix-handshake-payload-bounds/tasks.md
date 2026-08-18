@@ -7,7 +7,7 @@
 ## 2. Decoder integration and regression coverage
 
 - [x] 2.1 Route world and lobby handshake decoders through the shared bounded XTEA helper without changing successful sign-in fields.
-- [x] 2.2 Add focused tests for exact packet lengths, contiguous versus multi-segment encrypted input, stale/unwritten capacity, non-aligned payloads, truncated fields/cache CRCs, and pooled cleanup.
+- [x] 2.2 Add focused decoder tests comparing valid world/lobby requests from contiguous versus multi-segment input, rejecting missing/truncated cache CRCs, and covering exact packet lengths, stale/unwritten capacity, non-aligned payloads, truncated fields, and pooled cleanup.
 
 ## 3. Verification
 
