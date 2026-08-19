@@ -16,7 +16,6 @@ using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Game.Resources;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Combat;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -90,6 +89,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IOptions<CombatOptions> _combatOptions;
 
         private readonly IOptions<SkillOptions> _skillOptions;
+        private readonly IHitSplatBuilder _hitSplatBuilder;
 
         /// <summary>
         /// Gets the character's combat level. (Including summoning)
@@ -274,7 +274,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Constructs new statistics class.
         /// </summary>
         /// <param name="owner">The owner.</param>
-        public CharacterStatistics(ICharacter owner)
+        public CharacterStatistics(
+            ICharacter owner,
+            IOptions<CombatOptions> combatOptions,
+            IOptions<SkillOptions> skillOptions,
+            IHitSplatBuilder hitSplatBuilder)
         {
             _owner = owner;
             Bonuses = new Bonuses();
@@ -296,8 +300,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             RunEnergy = MaximumRunEnergy;
             SpecialEnergy = MaximumSpecialEnergy;
 
-            _combatOptions = owner.ServiceProvider.GetRequiredService<IOptions<CombatOptions>>();
-            _skillOptions = owner.ServiceProvider.GetRequiredService<IOptions<SkillOptions>>();
+            _combatOptions = combatOptions;
+            _skillOptions = skillOptions;
+            _hitSplatBuilder = hitSplatBuilder;
         }
 
         /// <summary>
@@ -1341,7 +1346,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 if (PoisonAmount >= 10)
                 {
                     var amt = DamageLifePoints(PoisonAmount);
-                    var splat = _owner.ServiceProvider.GetRequiredService<IHitSplatBuilder>()
+                    var splat = _hitSplatBuilder
                         .Create()
                         .AddSprite(builder => builder.WithDamage(amt).WithSplatType(HitSplatType.HitPoisonDamage))
                         .Build();

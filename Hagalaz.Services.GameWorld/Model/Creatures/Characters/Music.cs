@@ -13,7 +13,6 @@ using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Game.Extensions;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -36,6 +35,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ICharacter _owner;
 
         private readonly IClientMapDefinitionProvider _clientMapDefinitionProvider;
+        private readonly IMusicService _musicService;
 
         /// <summary>
         /// The unlocked music.
@@ -103,11 +103,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Initializes a new instance of the <see cref="Music"/> class.
         /// </summary>
         /// <param name="owner">The owner.</param>
-        public Music(ICharacter owner)
+        public Music(ICharacter owner, IClientMapDefinitionProvider clientMapDefinitionProvider, IMusicService musicService)
         {
             _owner = owner;
             PlayingMusicIndex = -1;
-            _clientMapDefinitionProvider = owner.ServiceProvider.GetRequiredService<IClientMapDefinitionProvider>();
+            _clientMapDefinitionProvider = clientMapDefinitionProvider;
+            _musicService = musicService;
         }
 
         /// <summary>
@@ -184,8 +185,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _owner.QueueTask(async () =>
             {
-                var service = _owner.ServiceProvider.GetRequiredService<IMusicService>();
-                var music = await service.FindMusicByIndex(musicIndex);
+                var music = await _musicService.FindMusicByIndex(musicIndex);
                 if (music != null)
                 {
                     _owner.SendChatMessage(music.Hint);

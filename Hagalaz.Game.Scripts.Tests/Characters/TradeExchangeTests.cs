@@ -14,7 +14,6 @@ using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Characters;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -94,13 +93,10 @@ public sealed class TradeExchangeTests
     {
         var inventory = new TestInventory(14);
         var character = CreateCharacter(inventory, Substitute.For<IMoneyPouchContainer>());
-        character.ServiceProvider.Returns(new ServiceCollection()
-            .AddSingleton<IItemBuilder>(CreateItemBuilder())
-            .BuildServiceProvider());
         var eventManager = Substitute.For<IEventManager>();
         eventManager.SendEvent(Arg.Any<IEvent>()).Returns(_ => throw new InvalidOperationException("Controlled observer failure."));
         character.EventManager.Returns(eventManager);
-        var moneyPouch = new MoneyPouchContainer(character);
+        var moneyPouch = new MoneyPouchContainer(character, CreateItemBuilder());
 
         var result = moneyPouch.AddForTrade(1);
 
@@ -114,12 +110,9 @@ public sealed class TradeExchangeTests
         var firstInventory = new TestInventory(3);
         var secondInventory = new TestInventory(3);
         var first = CreateCharacter(firstInventory, Substitute.For<IMoneyPouchContainer>());
-        first.ServiceProvider.Returns(new ServiceCollection()
-            .AddSingleton<IItemBuilder>(CreateItemBuilder())
-            .BuildServiceProvider());
         var eventManager = Substitute.For<IEventManager>();
         first.EventManager.Returns(eventManager);
-        var firstMoneyPouch = new MoneyPouchContainer(first);
+        var firstMoneyPouch = new MoneyPouchContainer(first, CreateItemBuilder());
         first.MoneyPouch.Returns(firstMoneyPouch);
 
         var secondExisting = new TestItem(100, 1, stackable: true) { ThrowOnStackCheck = true };
@@ -609,12 +602,8 @@ public sealed class TradeExchangeTests
 
     private static RewardContainer CreateRewardContainer(ICharacter owner)
     {
-        var services = new ServiceCollection()
-            .AddSingleton<IItemBuilder>(CreateItemBuilder())
-            .BuildServiceProvider();
-        owner.ServiceProvider.Returns(services);
         owner.EventManager.Returns(Substitute.For<IEventManager>());
-        return new RewardContainer(owner);
+        return new RewardContainer(owner, CreateItemBuilder());
     }
 
     private static IMoneyPouchContainer CreateEmptyMoneyPouch()

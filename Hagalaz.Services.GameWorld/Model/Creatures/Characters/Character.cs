@@ -2,21 +2,38 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Authorization;
+using Hagalaz.Game.Abstractions.Builders.Animation;
+using Hagalaz.Game.Abstractions.Builders.Audio;
+using Hagalaz.Game.Abstractions.Builders.Graphic;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
+using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Collections;
+using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Features.Clans;
+using Hagalaz.Game.Abstractions.Features;
 using Hagalaz.Game.Abstractions.Features.Shops;
+using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Data;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Common.Events;
+using Hagalaz.Configuration;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Model.Maps;
 using Hagalaz.Services.GameWorld.Providers;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -44,6 +61,18 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// The path finder
         /// </summary>
         private readonly IPathFinder _pathFinder;
+
+        private readonly IMapRegionService _mapRegionService;
+        private readonly IMapUpdateService _mapUpdateService;
+        private readonly IMusicService _musicService;
+        private readonly IGameCommandPrompt _gameCommandPrompt;
+        private readonly ILogger<ICharacter> _logger;
+        private readonly IAudioBuilder _audioBuilder;
+        private readonly IGameMessageService _gameMessageService;
+        private readonly IFamiliarScriptProvider _familiarScriptProvider;
+        private readonly IFamiliarScriptActivator _familiarScriptActivator;
+        private readonly IStateService _stateService;
+        private readonly ICharacterScriptActivator _characterScriptActivator;
 
         /// <summary>
         /// The event manager
@@ -237,45 +266,100 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public ClientChatType CurrentChatType { get; set; }
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-        public Character(IServiceScope serviceScope, IGameSession session, IGameClient gameClient) : base(serviceScope)
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+        public Character(
+            IServiceScope serviceScope,
+            IGameSession session,
+            IGameClient gameClient,
+            ICharacterContextProvider contextProvider,
+            IEventManager eventManager,
+            IScopedGameMediator mediator,
+            ISmartPathFinder pathFinder,
+            IProjectilePathFinder projectilePathFinder,
+            IOptions<CombatOptions> combatOptions,
+            IOptions<SkillOptions> skillOptions,
+            IDefaultCharacterScriptProvider defaultCharacterScriptProvider,
+            ICharacterScriptActivator characterScriptActivator,
+            IFamiliarScriptProvider familiarScriptProvider,
+            IFamiliarScriptActivator familiarScriptActivator,
+            IStateService stateService,
+            IMapRegionService mapRegionService,
+            IMapUpdateService mapUpdateService,
+            IMusicService musicService,
+            IGameCommandPrompt gameCommandPrompt,
+            ILogger<ICharacter> logger,
+            IAudioBuilder audioBuilder,
+            IGameMessageService gameMessageService,
+            IItemBuilder itemBuilder,
+            IGroundItemBuilder groundItemBuilder,
+            IAnimationBuilder animationBuilder,
+            IGraphicBuilder graphicBuilder,
+            IProjectileBuilder projectileBuilder,
+            IHitSplatBuilder hitSplatBuilder,
+            INpcService npcService,
+            IBodyDataRepository bodyDataRepository,
+            ICharacterNpcScriptProvider characterNpcScriptProvider,
+            ICharacterNpcScriptActivator characterNpcScriptActivator,
+            IItemPartFactory itemPartFactory,
+            ICharacterLocationService characterLocationService,
+            IItemService itemService,
+            IClientMapDefinitionProvider clientMapDefinitionProvider,
+            ISlayerService slayerService,
+            IRatesService ratesService,
+            ISlayerTaskGenerator slayerTaskGenerator,
+            ISlayerTaskCompletedDialogue slayerTaskCompletedDialogue,
+            IFarmingService farmingService,
+            IGameObjectService gameObjectService,
+            IWidgetScriptProvider widgetScriptProvider)
+            : base(serviceScope)
         {
             GameClient = gameClient;
             Session = session;
-            var contextProvider = serviceScope.ServiceProvider.GetRequiredService<ICharacterContextProvider>();
+            _mapRegionService = mapRegionService;
+            _mapUpdateService = mapUpdateService;
+            _musicService = musicService;
+            _gameCommandPrompt = gameCommandPrompt;
+            _logger = logger;
+            _audioBuilder = audioBuilder;
+            _gameMessageService = gameMessageService;
+            _familiarScriptProvider = familiarScriptProvider;
+            _familiarScriptActivator = familiarScriptActivator;
+            _stateService = stateService;
+            _characterScriptActivator = characterScriptActivator;
             contextProvider.Context = new CharacterContext(this);
-            EventManager = ServiceProvider.GetRequiredService<IEventManager>();
-            _pathFinder = ServiceProvider.GetRequiredService<ISmartPathFinder>();
+            EventManager = eventManager;
+            _pathFinder = pathFinder;
             Configurations = new Configurations(this);
-            Widgets = new WidgetContainer(this);
+            Widgets = new WidgetContainer(this, widgetScriptProvider);
 
-            Viewport = new Viewport(this, MapRegionService, MapSize.Default);
-            Movement = new Movement(this);
+            Viewport = new Viewport(this, mapRegionService, MapSize.Default);
+            Movement = new Movement(this, pathFinder, mediator);
 
             // Render information is required while appearance details are hydrated.
-            RenderInformation = new CharacterRenderInformation(this);
+            RenderInformation = new CharacterRenderInformation(this, characterLocationService);
 
-            Inventory = new InventoryContainer(this, 28);
-            Equipment = new EquipmentContainer(this, 15);
-            Bank = new BankContainer(this, 500);
-            Rewards = new RewardContainer(this);
-            MoneyPouch = new MoneyPouchContainer(this);
-            Statistics = new CharacterStatistics(this);
-            Appearance = new CharacterAppearance(this);
-            Prayers = new Prayers(this);
-            Combat = new CharacterCombat(this);
+            Inventory = new InventoryContainer(this, 28, mapRegionService, groundItemBuilder, itemBuilder);
+            Equipment = new EquipmentContainer(this, 15, itemBuilder);
+            Bank = new BankContainer(this, 500, itemBuilder);
+            Rewards = new RewardContainer(this, itemBuilder);
+            MoneyPouch = new MoneyPouchContainer(this, itemBuilder);
+            Statistics = new CharacterStatistics(this, combatOptions, skillOptions, hitSplatBuilder);
+            Appearance = new CharacterAppearance(this, npcService, bodyDataRepository, characterNpcScriptProvider, characterNpcScriptActivator, itemPartFactory);
+            Prayers = new Prayers(this, animationBuilder, graphicBuilder);
+            Combat = new CharacterCombat(this, animationBuilder, graphicBuilder, projectileBuilder, mapRegionService, groundItemBuilder, hitSplatBuilder,
+                projectilePathFinder, pathFinder, combatOptions);
             Quests = new Quests(this);
-            Farming = new Farming(this);
-            Slayer = new Slayer(this);
-            Music = new Music(this);
+            Farming = new Farming(this, farmingService, gameObjectService);
+            Slayer = new Slayer(this, slayerService, ratesService, slayerTaskGenerator, slayerTaskCompletedDialogue, mediator);
+            Music = new Music(this, clientMapDefinitionProvider, musicService);
             Notes = new Notes(this);
-            Magic = new Magic(this);
+            Magic = new Magic(this, itemService);
             Profile = new Profile();
 
             // load scripts.
-            var scripts = ServiceProvider.GetRequiredService<IDefaultCharacterScriptProvider>().GetAllScripts().Cast<ICharacterScript>().ToList();
+            var scripts = defaultCharacterScriptProvider.GetAllScripts().Cast<ICharacterScript>().ToList();
             _scripts = scripts.ToDictionary(s => s.GetType(), s => s);
         }
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
         /// <summary>
         /// Character's cannot be destroyed,

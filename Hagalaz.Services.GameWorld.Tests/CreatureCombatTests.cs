@@ -1,5 +1,7 @@
 using Hagalaz.Game.Abstractions.Builders.Animation;
 using Hagalaz.Game.Abstractions.Builders.Graphic;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -35,22 +37,17 @@ namespace Hagalaz.Services.GameWorld.Tests
             _mockOwner.Viewport.Returns(_mockViewport);
             _mockViewport.VisibleCreatures.Returns(_visibleCreatures);
 
-            var serviceProviderMock = Substitute.For<IServiceProvider>();
-            serviceProviderMock.GetService(typeof(IAnimationBuilder)).Returns(Substitute.For<IAnimationBuilder>());
-            serviceProviderMock.GetService(typeof(IGraphicBuilder)).Returns(Substitute.For<IGraphicBuilder>());
-            serviceProviderMock.GetService(typeof(IProjectileBuilder)).Returns(Substitute.For<IProjectileBuilder>());
-            serviceProviderMock.GetService(typeof(IProjectilePathFinder)).Returns(Substitute.For<IProjectilePathFinder>());
-            serviceProviderMock.GetService(typeof(ISmartPathFinder)).Returns(Substitute.For<ISmartPathFinder>());
-            serviceProviderMock.GetService(typeof(IMapRegionService)).Returns(Substitute.For<IMapRegionService>());
-
-            var combatOptions = new CombatOptions();
-            var optionsMock = Substitute.For<IOptions<CombatOptions>>();
-            optionsMock.Value.Returns(combatOptions);
-            serviceProviderMock.GetService(typeof(IOptions<CombatOptions>)).Returns(optionsMock);
-
-            _mockOwner.ServiceProvider.Returns(serviceProviderMock);
-
-            _characterCombat = new TestableCharacterCombat(_mockOwner);
+            _characterCombat = new TestableCharacterCombat(
+                _mockOwner,
+                Substitute.For<IAnimationBuilder>(),
+                Substitute.For<IGraphicBuilder>(),
+                Substitute.For<IProjectileBuilder>(),
+                Substitute.For<IMapRegionService>(),
+                Substitute.For<IGroundItemBuilder>(),
+                Substitute.For<IHitSplatBuilder>(),
+                Substitute.For<IProjectilePathFinder>(),
+                Substitute.For<ISmartPathFinder>(),
+                Options.Create(new CombatOptions()));
         }
 
         [TestMethod]
@@ -178,7 +175,21 @@ namespace Hagalaz.Services.GameWorld.Tests
 
     public class TestableCharacterCombat : CharacterCombat
     {
-        public TestableCharacterCombat(ICharacter owner) : base(owner) { }
+        public TestableCharacterCombat(
+            ICharacter owner,
+            IAnimationBuilder animationBuilder,
+            IGraphicBuilder graphicBuilder,
+            IProjectileBuilder projectileBuilder,
+            IMapRegionService mapRegionService,
+            IGroundItemBuilder groundItemBuilder,
+            IHitSplatBuilder hitSplatBuilder,
+            IProjectilePathFinder projectilePathFinder,
+            ISmartPathFinder smartPathFinder,
+            IOptions<CombatOptions> combatOptions)
+            : base(owner, animationBuilder, graphicBuilder, projectileBuilder, mapRegionService, groundItemBuilder,
+                hitSplatBuilder, projectilePathFinder, smartPathFinder, combatOptions)
+        {
+        }
 
         public void SetDead(bool isDead)
         {

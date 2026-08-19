@@ -6,7 +6,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Protocol;
-using Microsoft.Extensions.DependencyInjection;
 using Characters_UpdateFlags = Hagalaz.Game.Abstractions.Model.Creatures.Characters.UpdateFlags;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -99,13 +98,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <value>The current animation.</value>
         public IAnimation? CurrentAnimation { get; private set; }
 
-        public CharacterRenderInformation(ICharacter renderable)
+        public CharacterRenderInformation(ICharacter renderable, ICharacterLocationService characterLocationService)
         {
             _owner = renderable;
             LocalCharacters = [];
             LocalNpcs = [];
             _currentGraphics = new IGraphic[4];
-            _characterLocationMap = renderable.ServiceProvider.GetRequiredService<ICharacterLocationService>();
+            _characterLocationMap = characterLocationService;
         }
 
         /// <summary>

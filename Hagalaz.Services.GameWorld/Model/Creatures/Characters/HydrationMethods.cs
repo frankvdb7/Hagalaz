@@ -9,7 +9,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Services.Model;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -178,9 +177,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(HydratedFamiliarDto hydration)
         {
-            var provider = ServiceProvider.GetRequiredService<IFamiliarScriptProvider>();
-            var scriptType = provider.FindFamiliarScriptTypeById(hydration.FamiliarId);
-            FamiliarScript = (IFamiliarScript)ServiceProvider.GetRequiredService(scriptType);
+            var scriptType = _familiarScriptProvider.FindFamiliarScriptTypeById(hydration.FamiliarId);
+            FamiliarScript = _familiarScriptActivator.Create(scriptType);
             if (FamiliarScript is IHydratable<HydratedFamiliar> hydratable)
             {
                 hydratable.Hydrate(new HydratedFamiliar
@@ -313,10 +311,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(HydratedStateDto hydration)
         {
-            var stateService = ServiceProvider.GetRequiredService<IStateService>();
             foreach (var state in hydration.StatesEx)
             {
-                if (!stateService.TryCreateState(state.Id, out var stateObject) || stateObject is not IPersistentState)
+                if (!_stateService.TryCreateState(state.Id, out var stateObject) || stateObject is not IPersistentState)
                 {
                     continue;
                 }
@@ -332,11 +329,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         HydratedStateDto IDehydratable<HydratedStateDto>.Dehydrate()
         {
-            var stateService = ServiceProvider.GetRequiredService<IStateService>();
             var states = new List<HydratedStateDto.HydratedStateExDto>();
             foreach (var state in GetStates())
             {
-                if (state is not IPersistentState || !stateService.TryGetStateId(state, out var stateId))
+                if (state is not IPersistentState || !_stateService.TryGetStateId(state, out var stateId))
                 {
                     continue;
                 }

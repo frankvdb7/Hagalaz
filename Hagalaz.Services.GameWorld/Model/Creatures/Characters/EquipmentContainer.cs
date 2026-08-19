@@ -11,7 +11,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -25,6 +24,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Instance of the character who owns this container.
         /// </summary>
         private readonly ICharacter _owner;
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         /// Gets the item by the specified array index.
@@ -38,9 +38,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         /// <param name="capacity">The capacity of the container.</param>
-        public EquipmentContainer(ICharacter owner, int capacity)
+        public EquipmentContainer(ICharacter owner, int capacity, IItemBuilder itemBuilder)
             : base(StorageType.Normal, capacity) =>
-            _owner = owner;
+            (_owner, _itemBuilder) = (owner, itemBuilder);
 
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
@@ -326,10 +326,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void Hydrate(IReadOnlyList<HydratedItemDto> equipment)
         {
             var items = new IItem[Capacity];
-            var itemBuilder = _owner.ServiceProvider.GetRequiredService<IItemBuilder>();
             foreach (var hydrated in equipment)
             {
-                var builder = itemBuilder.Create().WithId(hydrated.ItemId).WithCount(hydrated.Count);
+                var builder = _itemBuilder.Create().WithId(hydrated.ItemId).WithCount(hydrated.Count);
                 if (!string.IsNullOrEmpty(hydrated.ExtraData))
                 {
                     builder.WithExtraData(hydrated.ExtraData);
