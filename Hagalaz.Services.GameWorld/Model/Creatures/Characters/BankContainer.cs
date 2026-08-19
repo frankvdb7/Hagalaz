@@ -10,7 +10,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Resources;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -35,11 +34,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         /// <param name="capacity">The capacity of the container.</param>
-        public BankContainer(ICharacter owner, int capacity)
+        public BankContainer(ICharacter owner, int capacity, IItemBuilder itemBuilder)
             : base(StorageType.AlwaysStack, capacity)
         {
             _owner = owner;
-            _itemBuilder = owner.ServiceProvider.GetRequiredService<IItemBuilder>();
+            _itemBuilder = itemBuilder;
             _maximumCapacity = capacity;
         }
 

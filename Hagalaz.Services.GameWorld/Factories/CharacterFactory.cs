@@ -18,8 +18,15 @@ namespace Hagalaz.Services.GameWorld.Factories
         public ICharacter Create(IGameSession session, IGameClient client)
         {
             var serviceScope = _serviceProvider.CreateScope();
-            var character = new Character(serviceScope, session, client);
-            return character;
+            try
+            {
+                return ActivatorUtilities.CreateInstance<Character>(serviceScope.ServiceProvider, serviceScope, session, client);
+            }
+            catch
+            {
+                serviceScope.Dispose();
+                throw;
+            }
         }
     }
 }

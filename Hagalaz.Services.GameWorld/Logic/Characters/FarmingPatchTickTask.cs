@@ -8,7 +8,6 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
-using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Logic.Characters
@@ -32,6 +31,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         /// The owner.
         /// </summary>
         private readonly ICharacter _owner;
+        private readonly IFarmingService _farmingService;
+        private readonly IGameObjectService _gameObjectService;
 
         /// <summary>
         /// The flags
@@ -63,12 +64,17 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         /// </summary>
         /// <param name="owner">The owner.</param>
         /// <param name="patchObjectID">The patch object identifier.</param>
-        public FarmingPatchTickTask(ICharacter owner, int patchObjectID)
+        public FarmingPatchTickTask(
+            ICharacter owner,
+            int patchObjectID,
+            IFarmingService farmingService,
+            IGameObjectService gameObjectService)
             : base()
         {
             _owner = owner;
-            var farmingManager = _owner.ServiceProvider.GetRequiredService<IFarmingService>();
-            PatchDefinition = farmingManager.FindPatchById(patchObjectID).Result!;
+            _farmingService = farmingService;
+            _gameObjectService = gameObjectService;
+            PatchDefinition = _farmingService.FindPatchById(patchObjectID).Result!;
             CurrentCycle = 0;
             TickActionMethod = Tick;
         }
@@ -234,8 +240,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         {
             _owner.QueueTask(async () =>
             {
-                var manager = _owner.ServiceProvider.GetRequiredService<IGameObjectService>();
-                var objDefinition = await manager.FindGameObjectDefinitionById(PatchDefinition.ObjectID);
+                var objDefinition = await _gameObjectService.FindGameObjectDefinitionById(PatchDefinition.ObjectID);
                 _owner.Configurations.SendBitConfiguration(objDefinition.VarpBitFileId,
                     HasCondition(PatchCondition.Planted) ? GetVarpBitValue() : CurrentCycle);
             });
@@ -374,8 +379,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             TickCount = -hydration.CurrentCycleTicks;
             if (HasCondition(PatchCondition.Planted))
             {
-                var farmingManager = _owner.ServiceProvider.GetRequiredService<IFarmingService>();
-                Seed = farmingManager.FindSeedById(hydration.SeedId).Result;
+                Seed = _farmingService.FindSeedById(hydration.SeedId).Result;
             }
 
             // calculate the current cycle

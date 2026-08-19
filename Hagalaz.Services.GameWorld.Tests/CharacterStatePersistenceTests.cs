@@ -4,15 +4,21 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.Animation;
+using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Builders.Graphic;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
+using Hagalaz.Game.Abstractions.Features;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
+using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -123,7 +129,50 @@ public sealed class CharacterStatePersistenceTests
         Register(serviceProvider, itemBuilder);
         Register<IStateService>(serviceProvider, stateService);
 
-        var character = new Character(serviceScope, Substitute.For<IGameSession>(), Substitute.For<IGameClient>());
+        var character = new Character(
+            serviceScope,
+            Substitute.For<IGameSession>(),
+            Substitute.For<IGameClient>(),
+            Substitute.For<ICharacterContextProvider>(),
+            Substitute.For<IEventManager>(),
+            Substitute.For<IScopedGameMediator>(),
+            Substitute.For<ISmartPathFinder>(),
+            Substitute.For<IProjectilePathFinder>(),
+            Options.Create(new CombatOptions()),
+            Options.Create(new SkillOptions()),
+            scripts,
+            Substitute.For<ICharacterScriptActivator>(),
+            Substitute.For<IFamiliarScriptProvider>(),
+            Substitute.For<IFamiliarScriptActivator>(),
+            stateService,
+            Substitute.For<IMapRegionService>(),
+            Substitute.For<IMapUpdateService>(),
+            Substitute.For<IMusicService>(),
+            Substitute.For<IGameCommandPrompt>(),
+            Substitute.For<Microsoft.Extensions.Logging.ILogger<ICharacter>>(),
+            Substitute.For<IAudioBuilder>(),
+            Substitute.For<IGameMessageService>(),
+            itemBuilder,
+            Substitute.For<IGroundItemBuilder>(),
+            Substitute.For<IAnimationBuilder>(),
+            Substitute.For<IGraphicBuilder>(),
+            Substitute.For<IProjectileBuilder>(),
+            Substitute.For<IHitSplatBuilder>(),
+            Substitute.For<INpcService>(),
+            bodyDataRepository,
+            Substitute.For<ICharacterNpcScriptProvider>(),
+            Substitute.For<ICharacterNpcScriptActivator>(),
+            Substitute.For<IItemPartFactory>(),
+            Substitute.For<ICharacterLocationService>(),
+            Substitute.For<IItemService>(),
+            Substitute.For<IClientMapDefinitionProvider>(),
+            Substitute.For<ISlayerService>(),
+            Substitute.For<IRatesService>(),
+            Substitute.For<ISlayerTaskGenerator>(),
+            Substitute.For<ISlayerTaskCompletedDialogue>(),
+            Substitute.For<IFarmingService>(),
+            Substitute.For<IGameObjectService>(),
+            Substitute.For<IWidgetScriptProvider>());
         ((IHydratable<HydratedDetailsDto>)character).Hydrate(new HydratedDetailsDto
         {
             CoordX = 3200,

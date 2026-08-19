@@ -11,7 +11,6 @@ using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Resources;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Utilities;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -57,11 +56,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contstructs a container for character inventories.
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
-        public MoneyPouchContainer(ICharacter owner)
+        public MoneyPouchContainer(ICharacter owner, IItemBuilder itemBuilder)
             : base(StorageType.Normal, 1)
         {
             _owner = owner;
-            _itemBuilder = owner.ServiceProvider.GetRequiredService<IItemBuilder>();
+            _itemBuilder = itemBuilder;
             var coins = _itemBuilder.Create().WithId(995).WithCount(0).Build();
             Items = [coins];
             CountToResetTo = 0;
