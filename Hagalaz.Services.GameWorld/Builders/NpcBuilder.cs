@@ -1,13 +1,21 @@
 using System;
 using Hagalaz.Game.Abstractions.Builders.Npc;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Logic.Loot;
+using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Model.Creatures.Npcs;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
@@ -47,15 +55,25 @@ namespace Hagalaz.Services.GameWorld.Builders
             Func<INpc, INpcScript> npcScriptFactory = owner => scriptFactory(scriptActivator, owner);
             var npcService = _serviceProvider.GetRequiredService<INpcService>();
             var definition = npcService.FindNpcDefinitionById(_id);
-            return ActivatorUtilities.CreateInstance<Npc>(
-                _serviceProvider,
+            return new Npc(
                 _serviceScope,
                 _location,
-                _minimumBounds!,
-                _maximumBounds!,
+                _minimumBounds,
+                _maximumBounds,
                 npcScriptFactory,
-                _faceDirection!,
-                definition);
+                _faceDirection,
+                definition,
+                _serviceProvider.GetRequiredService<IEventManager>(),
+                _serviceProvider.GetRequiredService<IScopedGameMediator>(),
+                _serviceProvider.GetRequiredService<ISmartPathFinder>(),
+                _serviceProvider.GetRequiredService<IMapRegionService>(),
+                _serviceProvider.GetRequiredService<IProjectilePathFinder>(),
+                _serviceProvider.GetRequiredService<IOptions<CombatOptions>>(),
+                _serviceProvider.GetRequiredService<IHitSplatBuilder>(),
+                npcService,
+                _serviceProvider.GetRequiredService<ILootService>(),
+                _serviceProvider.GetRequiredService<ILootGenerator>(),
+                _serviceProvider.GetRequiredService<IGroundItemBuilder>());
         }
 
         public INpcHandle Spawn()

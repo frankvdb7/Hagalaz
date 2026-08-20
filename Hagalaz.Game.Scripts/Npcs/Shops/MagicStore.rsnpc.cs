@@ -13,10 +13,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
         }
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() { }
 
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.

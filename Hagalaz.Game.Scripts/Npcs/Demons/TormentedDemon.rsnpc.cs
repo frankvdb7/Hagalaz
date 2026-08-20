@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
@@ -357,10 +357,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
             }
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize() { }
 
         /// <summary>
         ///     Get's if this npc can be poisoned.

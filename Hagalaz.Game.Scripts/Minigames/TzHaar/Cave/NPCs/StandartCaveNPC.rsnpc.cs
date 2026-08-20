@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -87,11 +87,5 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
             }
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

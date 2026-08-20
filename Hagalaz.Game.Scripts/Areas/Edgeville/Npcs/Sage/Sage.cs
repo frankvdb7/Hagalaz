@@ -12,13 +12,6 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Sage
         {
         }
         /// <summary>
-        ///     Initializes this instance.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
-
-        /// <summary>
         ///     Called when [character click perform].
         /// </summary>
         /// <param name="clicker">The clicker.</param>

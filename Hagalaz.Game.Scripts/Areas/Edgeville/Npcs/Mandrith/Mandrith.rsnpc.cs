@@ -11,12 +11,6 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
         }
-        /// <summary>
-        ///     Initializes this instance.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
 
         /// <summary>
         ///     Called when [character click perform].

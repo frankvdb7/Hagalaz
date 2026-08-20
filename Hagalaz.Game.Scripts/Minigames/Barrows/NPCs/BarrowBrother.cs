@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
@@ -119,11 +119,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
         /// <param name="target">The target.</param>
         public override void OnSetTarget(ICreature target) => CharacterTarget = target as ICharacter;
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

@@ -113,6 +113,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             _npcService = npcService;
             _pathFinder = pathFinder;
             _widgetScriptActivator = widgetScriptActivator;
+            GenerateAttackType(null);
         }
 
         /// <summary>
@@ -652,11 +653,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                 break;
             }
         }
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize() => GenerateAttackType(null);
 
         /// <summary>
         ///     Tick's npc.

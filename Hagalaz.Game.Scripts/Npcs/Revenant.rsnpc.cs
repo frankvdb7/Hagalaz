@@ -49,6 +49,7 @@ namespace Hagalaz.Game.Scripts.Npcs
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
+            Owner.AddState(new NpcTypeUndeadState());
         }
 
         /// <summary>
@@ -269,9 +270,5 @@ namespace Hagalaz.Game.Scripts.Npcs
         /// </summary>
         public override void OnSpawn() => _attack = (Attack)RandomStatic.Generator.Next(0, 3);
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize() => Owner.AddState(new NpcTypeUndeadState());
     }
 }

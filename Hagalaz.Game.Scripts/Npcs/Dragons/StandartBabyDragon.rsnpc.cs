@@ -16,11 +16,8 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
         public StandartBabyDragon(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
+            Owner.AddState(new NpcTypeDragonState());
         }
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() => Owner.AddState(new NpcTypeDragonState());
 
         /// <summary>
         ///     Render's attack.

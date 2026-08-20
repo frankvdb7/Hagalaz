@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -31,11 +31,5 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.PvPMaster
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

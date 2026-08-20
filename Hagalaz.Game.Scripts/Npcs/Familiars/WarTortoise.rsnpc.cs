@@ -19,11 +19,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
             IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(owner, itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder, itemBuilder, widgetScriptActivator) { }
 
         /// <summary>
-        ///     Initializes the beast of burden.
-        /// </summary>
-        protected override void InitializeBob() { }
-
-        /// <summary>
         ///     Contains the capacity of the inventory.
         /// </summary>
         public override int InventoryCapacity => 18;

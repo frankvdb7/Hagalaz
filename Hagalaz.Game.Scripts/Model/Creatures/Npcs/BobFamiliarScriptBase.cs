@@ -45,9 +45,9 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         }
 
         /// <summary>
-        /// Initializes the familiar.
+        /// Creates the beast of burden inventory after the familiar has been attached to its summoner.
         /// </summary>
-        protected sealed override void InitializeFamiliar()
+        protected sealed override void OnAttachedToSummoner()
         {
             Inventory = _itemContainerFactory.Create(Summoner, StorageType.Normal, InventoryCapacity);
             if (_pendingInventory is not null && Inventory is IHydratable<IReadOnlyList<HydratedItem>> hydratable)
@@ -55,14 +55,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 hydratable.Hydrate(_pendingInventory);
                 _pendingInventory = null;
             }
-
-            InitializeBob();
         }
-
-        /// <summary>
-        /// Initializes the beast of burden.
-        /// </summary>
-        protected abstract void InitializeBob();
 
         /// <summary>
         /// Get's called when npc is killed.

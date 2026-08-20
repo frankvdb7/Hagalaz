@@ -374,7 +374,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             _familiarScriptType = _familiarScriptProvider.FindFamiliarScriptTypeById(definition.NpcId);
             var script = (IFamiliarScript)activator.Create(_familiarScriptType, owner);
-            script.InitializeSummoner(this, definition);
+            script.AttachToSummoner(this, definition);
 
             if (_familiarState is not null && script is IHydratable<HydratedFamiliar> hydratable)
             {

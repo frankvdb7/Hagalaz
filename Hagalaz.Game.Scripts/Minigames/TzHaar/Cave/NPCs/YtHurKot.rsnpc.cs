@@ -33,6 +33,23 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         {
             _npcRegistration = npcRegistration;
             _regionManager = regionManager;
+            FindJad();
+        }
+
+        private void FindJad()
+        {
+            var active = _regionManager.FindRegionsByDimension(Owner.Location.Dimension);
+            foreach (var region in active)
+            {
+                foreach (var npc in region.FindAllNpcs())
+                {
+                    if (npc.Appearance.CompositeID == 2745)
+                    {
+                        _jad = npc;
+                        return;
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -99,25 +116,6 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
             Owner.QueueGraphic(Graphic.Create(444));
             _jad.Statistics.HealLifePoints(RandomStatic.Generator.Next(0, 100));
             _healTick = 0;
-        }
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-            var active = _regionManager.FindRegionsByDimension(Owner.Location.Dimension);
-            foreach (var region in active)
-            {
-                foreach (var npc in region.FindAllNpcs())
-                {
-                    if (npc.Appearance.CompositeID == 2745)
-                    {
-                        _jad = npc;
-                        return;
-                    }
-                }
-            }
         }
 
         /// <summary>

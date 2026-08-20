@@ -36,11 +36,5 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Martin
             }
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

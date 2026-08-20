@@ -215,11 +215,6 @@ namespace Hagalaz.Game.Scripts.Pnpcs
         public override bool CanBeLootedBy(ICreature killer) => true;
 
         /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize() { }
-
-        /// <summary>
         ///     Ticks this instance.
         /// </summary>
         public override void Tick()

@@ -19,11 +19,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
             IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(owner, itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder, itemBuilder, widgetScriptActivator) { }
 
         /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void InitializeBob() { }
-
-        /// <summary>
         ///     Contains the capacity of the inventory.
         /// </summary>
         public override int InventoryCapacity => 30;

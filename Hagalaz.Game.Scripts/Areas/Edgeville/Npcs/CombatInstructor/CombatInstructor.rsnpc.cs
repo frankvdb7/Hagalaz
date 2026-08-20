@@ -30,11 +30,5 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.CombatInstructor
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

@@ -9,11 +9,5 @@
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
         }
-        /// <summary>
-        /// Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

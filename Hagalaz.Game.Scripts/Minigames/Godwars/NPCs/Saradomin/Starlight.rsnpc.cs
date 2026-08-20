@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
@@ -30,11 +30,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
         /// </returns>
         public override AttackBonus GetAttackBonusType() => AttackBonus.Stab;
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

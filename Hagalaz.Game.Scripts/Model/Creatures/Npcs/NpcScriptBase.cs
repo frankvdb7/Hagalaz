@@ -46,11 +46,6 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             (TScript)_widgetScriptActivator.Create(character, typeof(TScript));
 
         /// <summary>
-        /// Performs script-specific construction after the owner and required services are available.
-        /// </summary>
-        protected virtual void Initialize() { }
-
-        /// <summary>
         /// Respawns this npc.
         /// By default, this unregisters the NPC if the CanSpawn method returns false.
         /// Otherwise, this calls the Respawn method of the NPC.
@@ -85,7 +80,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// Get's called when npc is created.
         /// By default, this method does nothing.
         /// </summary>
-        public virtual void OnCreate() => Initialize();
+        public virtual void OnCreate() { }
 
         /// <summary>
         /// Get's called when npc killed its target.

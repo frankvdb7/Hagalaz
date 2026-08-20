@@ -75,6 +75,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
             _projectileBuilder = projectileBuilder;
             _mapRegionService = mapRegionService;
             _pathFinder = pathFinder;
+            GenerateAttackType(null);
         }
 
         /// <summary>
@@ -583,12 +584,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
         /// </returns>
         public override bool CanPoison() => false;
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-            GenerateAttackType(null);
-        }
     }
 }

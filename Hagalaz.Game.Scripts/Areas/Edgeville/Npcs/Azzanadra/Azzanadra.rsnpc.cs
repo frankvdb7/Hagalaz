@@ -29,11 +29,5 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Azzanadra
             }
         }
 
-        /// <summary>
-        ///     Initializes this instance.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

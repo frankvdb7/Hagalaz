@@ -15,11 +15,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
         public SpiritWolf(INpc owner, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(owner, pathFinder, npcService, itemService, itemBuilder, widgetScriptActivator) { }
 
         /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void InitializeFamiliar() { }
-
-        /// <summary>
         ///     Performs the special attack.
         /// </summary>
         /// <param name="target">The target.</param>

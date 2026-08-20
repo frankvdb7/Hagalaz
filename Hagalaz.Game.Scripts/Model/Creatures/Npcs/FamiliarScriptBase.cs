@@ -86,21 +86,14 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         }
 
         /// <summary>
-        /// Initializes the specified owner.
+        /// Attaches this familiar to its summoner.
         /// </summary>
         /// <param name="summoner">The summoner.</param>
         /// <param name="definition">The definition.</param>
-        public void InitializeSummoner(ICharacter summoner, SummoningDto definition)
+        public void AttachToSummoner(ICharacter summoner, SummoningDto definition)
         {
             Summoner = summoner;
             Definition = definition;
-        }
-
-        /// <summary>
-        /// Get's called when owner is found.
-        /// </summary>
-        protected sealed override void Initialize()
-        {
             SpecialMovePoints = 60;
 
             // Load event handlers.
@@ -142,13 +135,13 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 return false;
             }));
 
-            InitializeFamiliar();
+            OnAttachedToSummoner();
         }
 
         /// <summary>
-        /// Initializes the familiar.
+        /// Applies setup that is specific to the familiar type after it has been attached to its summoner.
         /// </summary>
-        protected virtual void InitializeFamiliar() { }
+        protected virtual void OnAttachedToSummoner() { }
 
         /// <summary>
         /// Perform's attack on specific target.

@@ -1,6 +1,6 @@
 ## 1. Compose the NPC graph from the child scope
 
-- [x] 1.1 Change `NpcBuilder` to resolve the selected script and definition from the child scope and activate `Npc` with typed dependencies and explicit runtime inputs.
+- [x] 1.1 Change `NpcBuilder` to resolve the selected script, definition, and typed constructor dependencies from the child scope and call `Npc` directly with explicit runtime inputs.
 - [x] 1.2 Pass the typed NPC service into `NpcHandle` and update unregister construction without adding another scope owner.
 - [x] 1.3 Move the NPC owner and common script services into required base/script constructors and remove the owner-binding initialization API.
 
@@ -14,7 +14,7 @@
 
 - [x] 3.1 Update familiar, player-NPC, and specialized NPC scripts to receive their required services directly, and defer familiar restoration until the owner-aware NPC composition step.
 - [x] 3.2 Replace concrete NPC-script dialogue/widget provider calls with the typed widget activator helper and update all affected callers.
-- [x] 3.3 Update focused construction tests (including movement and unregister) and verify existing script, spawn, and lifecycle suites remain green.
+- [x] 3.3 Update focused construction tests (including movement, unregister, omitted optional NPC values, and constructor/attachment setup) and verify existing script, spawn, and lifecycle suites remain green.
 
 ## 4. Validate the change
 

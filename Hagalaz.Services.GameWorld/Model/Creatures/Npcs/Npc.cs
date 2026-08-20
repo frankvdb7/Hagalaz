@@ -109,6 +109,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             minimumLocation ??= defaultLocation.Translate(-9, -9, 0);
             maximumLocation ??= defaultLocation.Translate(9, 9, 0);
 
+            Location = defaultLocation.Clone();
             SetDefinition(definition);
             RenderInformation = new NpcRenderInformation(this);
             Bounds = new Bounds(definition.BoundsType, defaultLocation.Clone(), minimumLocation, maximumLocation);
@@ -119,7 +120,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             SpawnFaceDirection = spawnFaceDirection is DirectionFlag.None or null
                 ? DirectionHelper.GetNpcFaceDirection(definition.SpawnFaceDirection)
                 : spawnFaceDirection.Value;
-            Location = defaultLocation.Clone();
             Script = scriptFactory(this);
         }
 

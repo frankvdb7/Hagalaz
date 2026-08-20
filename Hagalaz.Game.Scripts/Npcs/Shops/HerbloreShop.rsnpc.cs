@@ -32,11 +32,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

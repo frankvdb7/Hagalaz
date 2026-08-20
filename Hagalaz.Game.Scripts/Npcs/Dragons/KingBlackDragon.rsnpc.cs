@@ -64,12 +64,8 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
         {
             _hitSplatBuilder = hitSplatBuilder;
             _projectileBuilder = projectileBuilder;
+            Owner.AddState(new NpcTypeDragonState());
         }
-
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() => Owner.AddState(new NpcTypeDragonState());
 
         /// <summary>
         ///     Perform's attack on specific target.

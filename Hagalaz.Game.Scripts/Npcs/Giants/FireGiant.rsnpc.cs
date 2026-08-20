@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -17,10 +17,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Giants
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
         }
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() { }
 
         /// <summary>
         ///     Render's attack.

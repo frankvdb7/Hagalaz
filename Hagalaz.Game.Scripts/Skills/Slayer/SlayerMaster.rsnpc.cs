@@ -48,11 +48,5 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
             }
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

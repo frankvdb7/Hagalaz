@@ -1,3 +1,4 @@
+using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -31,6 +32,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         public PickPockatableNpc(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
+            _definition = Thieving.Ppd.First(def => def.NpcIDs.Contains(owner.Definition.Id));
         }
         /// <summary>
         ///     The pickpocket definition.
@@ -56,22 +58,5 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-            foreach (var def in Thieving.Ppd)
-            {
-                foreach (var npcId in def.NpcIDs)
-                {
-                    if (npcId == Owner.Definition.Id)
-                    {
-                        _definition = def;
-                        return;
-                    }
-                }
-            }
-        }
     }
 }
