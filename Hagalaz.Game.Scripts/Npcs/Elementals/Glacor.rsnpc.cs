@@ -98,13 +98,21 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         private readonly IRegionUpdateBuilder _regionUpdateBuilder;
         private readonly IProjectileBuilder _projectileBuilder;
         private readonly IHitSplatBuilder _hitSplatBuilder;
+        private readonly INpcService _npcService;
+        private readonly ISimplePathFinder _pathFinder;
+        private readonly IWidgetScriptActivator _widgetScriptActivator;
 
-        public Glacor(INpcBuilder npcBuilder, IRegionUpdateBuilder regionUpdateBuilder, IProjectileBuilder projectileBuilder, IHitSplatBuilder hitSplatBuilder)
+        public Glacor(INpc owner, INpcBuilder npcBuilder, IRegionUpdateBuilder regionUpdateBuilder, IProjectileBuilder projectileBuilder, IHitSplatBuilder hitSplatBuilder,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _npcBuilder = npcBuilder;
             _regionUpdateBuilder = regionUpdateBuilder;
             _projectileBuilder = projectileBuilder;
             _hitSplatBuilder = hitSplatBuilder;
+            _npcService = npcService;
+            _pathFinder = pathFinder;
+            _widgetScriptActivator = widgetScriptActivator;
         }
 
         /// <summary>
@@ -260,9 +268,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
             Owner.QueueTask(new RsTask(() =>
                 {
-                    RegisterGlacyte(14304, center, new EnduringGlacyte(Owner));
-                    RegisterGlacyte(14303, left, new SappingGlacyte(Owner));
-                    RegisterGlacyte(14302, right, new UnstableGlacyte(Owner, _hitSplatBuilder));
+                    RegisterGlacyte(14304, center, (_, owner) => new EnduringGlacyte(owner, Owner, _npcService, _pathFinder, _widgetScriptActivator));
+                    RegisterGlacyte(14303, left, (_, owner) => new SappingGlacyte(owner, Owner, _npcService, _pathFinder, _widgetScriptActivator));
+                    RegisterGlacyte(14302, right, (_, owner) => new UnstableGlacyte(owner, Owner, _hitSplatBuilder, _npcService, _pathFinder, _widgetScriptActivator));
                 },
                 CreatureHelper.CalculateTicksForClientTicks(delay)));
 
@@ -270,12 +278,12 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             _glacyteDeadCount = 0;
         }
 
-        private void RegisterGlacyte(int id, ILocation location, INpcScript script)
+        private void RegisterGlacyte(int id, ILocation location, Func<INpcScriptActivator, INpc, INpcScript> scriptFactory)
         {
             var handle = _npcBuilder.Create()
                 .WithId(id)
                 .WithLocation(location)
-                .WithScript(script)
+                .WithScript(scriptFactory)
                 .Spawn();
             var glacyte = handle.Npc;
             glacyte.QueueTask(new RsTask(() => glacyte.Combat.SetTarget(Owner.Combat.Target), 1));

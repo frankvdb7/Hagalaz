@@ -20,12 +20,20 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         /// </summary>
         private int _healTick;
         
-        private INpcService _npcRegistration;
+        private readonly INpcService _npcRegistration;
 
         /// <summary>
         /// 
         /// </summary>
-        private IMapRegionService _regionManager;
+        private readonly IMapRegionService _regionManager;
+
+        public YtHurKot(INpc owner, INpcService npcRegistration, IMapRegionService regionManager,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+            _npcRegistration = npcRegistration;
+            _regionManager = regionManager;
+        }
 
         /// <summary>
         ///     Determines whether this instance [can set target] the specified target.
@@ -98,8 +106,6 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         /// </summary>
         protected override void Initialize()
         {
-            _npcRegistration = Owner.ServiceProvider.GetRequiredService<INpcService>();
-            _regionManager =  Owner.ServiceProvider.GetRequiredService<IMapRegionService>();
             var active = _regionManager.FindRegionsByDimension(Owner.Location.Dimension);
             foreach (var region in active)
             {

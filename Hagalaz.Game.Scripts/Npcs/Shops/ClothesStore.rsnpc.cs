@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     [NpcScriptMetaData([548])]
     public class ClothesStore : NpcScriptBase
     {
+        public ClothesStore(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

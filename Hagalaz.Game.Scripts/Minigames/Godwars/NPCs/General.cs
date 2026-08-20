@@ -10,6 +10,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
     /// </summary>
     public abstract class General : NpcScriptBase
     {
+        protected General(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Get's called when npc is destroyed permanently.
         ///     By default, this method does nothing.

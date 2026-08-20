@@ -9,6 +9,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
     [NpcScriptMetaData([6256])]
     public class SpiritualRanger : SaradominFaction
     {
+        public SpiritualRanger(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Get's attack bonus type of this npc.
         ///     By default , this method does return AttackBonus.Crush

@@ -17,7 +17,22 @@ namespace Hagalaz.Game.Scripts.Pnpcs
     [CharacterNpcScriptMetaData([2417, 3334])]
     public class WildyWyrm : CharacterNpcScriptBase
     {
-        public WildyWyrm(ITypeProvider<IItemDefinition> itemProvider) => _itemProvider = itemProvider;
+        private readonly ILootService _lootService;
+        private readonly IGroundItemBuilder _groundItemBuilder;
+        private readonly ILootGenerator _lootGenerator;
+
+        public WildyWyrm(
+            ITypeProvider<IItemDefinition> itemProvider,
+            INpcService npcService,
+            ILootService lootService,
+            IGroundItemBuilder groundItemBuilder,
+            ILootGenerator lootGenerator) : base(npcService)
+        {
+            _itemProvider = itemProvider;
+            _lootService = lootService;
+            _groundItemBuilder = groundItemBuilder;
+            _lootGenerator = lootGenerator;
+        }
 
         /// <summary>
         /// </summary>
@@ -115,18 +130,15 @@ namespace Hagalaz.Game.Scripts.Pnpcs
 
             Owner.QueueTask(async () =>
             {
-                var lootService = Owner.ServiceProvider.GetRequiredService<ILootService>();
-                var table = await lootService.FindNpcLootTable(Definition.LootTableId);
+                var table = await _lootService.FindNpcLootTable(Definition.LootTableId);
                 if (table == null)
                 {
                     return;
                 }
 
-                var groundItemBuilder = Owner.ServiceProvider.GetRequiredService<IGroundItemBuilder>();
-                var lootGenerator = Owner.ServiceProvider.GetRequiredService<ILootGenerator>();
-                foreach (var loot in lootGenerator.GenerateLoot<ILootItem>(new CharacterLootParams(table, kill)))
+                foreach (var loot in _lootGenerator.GenerateLoot<ILootItem>(new CharacterLootParams(table, kill)))
                 {
-                    groundItemBuilder.Create()
+                    _groundItemBuilder.Create()
                         .WithItem(itemBuilder => itemBuilder.Create().WithId(loot.Item.Id).WithCount(loot.Count))
                         .WithLocation(Owner.Location)
                         .WithOwner(kill)

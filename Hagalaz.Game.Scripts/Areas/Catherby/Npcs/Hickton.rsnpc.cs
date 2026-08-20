@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue;
@@ -9,6 +9,10 @@ namespace Hagalaz.Game.Scripts.Areas.Catherby.Npcs
     [NpcScriptMetaData([575])]
     public class Hickton : NpcScriptBase
     {
+        public Hickton(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -24,7 +28,7 @@ namespace Hagalaz.Game.Scripts.Areas.Catherby.Npcs
             }
             else if (clickType == NpcClickType.Option1Click)
             {
-                var fletchingSkillDialogue = clicker.ServiceProvider.GetRequiredService<SkillCapeDialogue>();
+                var fletchingSkillDialogue = CreateWidgetScript<SkillCapeDialogue>(clicker);
                 fletchingSkillDialogue.SkillID = StatisticsConstants.Fletching;
                 clicker.Widgets.OpenDialogue(fletchingSkillDialogue, true, Owner);
             }

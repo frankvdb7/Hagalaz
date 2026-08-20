@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Logic.Characters.Model;
@@ -21,30 +22,42 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
     public abstract class BobFamiliarScriptBase : FamiliarScriptBase, IHydratable<IReadOnlyList<HydratedItem>>, IDehydratable<IReadOnlyList<HydratedItem>>
     {
         private readonly IGroundItemBuilder _groundItemBuilder;
+        private readonly IItemContainerFactory _itemContainerFactory;
+        private IReadOnlyList<HydratedItem>? _pendingInventory;
 
         /// <summary>
         /// Contains the inventory.
         /// </summary>
-        public IFamiliarInventoryContainer Inventory { get; private set; }
+        public IFamiliarInventoryContainer Inventory { get; private set; } = default!;
 
         /// <summary>
         /// Contains the capacity of the inventory.
         /// </summary>
         public abstract int InventoryCapacity { get; }
 
-        public BobFamiliarScriptBase(
+        public BobFamiliarScriptBase(INpc owner,
             IItemContainerFactory itemContainerFactory, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService,
-            IGroundItemBuilder groundItemBuilder)
-            : base(pathFinder, npcService, itemService)
+            IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, pathFinder, npcService, itemService, itemBuilder, widgetScriptActivator)
         {
             _groundItemBuilder = groundItemBuilder;
-            Inventory = itemContainerFactory.Create(Summoner, StorageType.Normal, InventoryCapacity);
+            _itemContainerFactory = itemContainerFactory;
         }
 
         /// <summary>
         /// Initializes the familiar.
         /// </summary>
-        protected sealed override void InitializeFamiliar() => InitializeBob();
+        protected sealed override void InitializeFamiliar()
+        {
+            Inventory = _itemContainerFactory.Create(Summoner, StorageType.Normal, InventoryCapacity);
+            if (_pendingInventory is not null && Inventory is IHydratable<IReadOnlyList<HydratedItem>> hydratable)
+            {
+                hydratable.Hydrate(_pendingInventory);
+                _pendingInventory = null;
+            }
+
+            InitializeBob();
+        }
 
         /// <summary>
         /// Initializes the beast of burden.
@@ -118,7 +131,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         {
             if (clickType == NpcClickType.Option3Click && Summoner == clicker)
             {
-                var script = clicker.ServiceProvider.GetRequiredService<FamiliarInventoryWidget>();
+                var script = CreateWidgetScript<FamiliarInventoryWidget>(clicker);
                 clicker.Widgets.OpenWidget(671, 0, script, true);
             }
             else
@@ -127,6 +140,12 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 
         public void Hydrate(IReadOnlyList<HydratedItem> hydration)
         {
+            if (Inventory is null)
+            {
+                _pendingInventory = hydration;
+                return;
+            }
+
             if (Inventory is IHydratable<IReadOnlyList<HydratedItem>> hydratable)
             {
                 hydratable.Hydrate(hydration);
@@ -135,6 +154,11 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 
         IReadOnlyList<HydratedItem> IDehydratable<IReadOnlyList<HydratedItem>>.Dehydrate()
         {
+            if (Inventory is null)
+            {
+                return new List<HydratedItem>();
+            }
+
             if (Inventory is IDehydratable<IReadOnlyList<HydratedItem>> dehydratable)
             {
                 return dehydratable.Dehydrate();

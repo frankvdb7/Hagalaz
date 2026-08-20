@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses.Dagannoth
     [NpcScriptMetaData([2883])]
     public class DagannothRex : NpcScriptBase
     {
+        public DagannothRex(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Get's called when owner is found.
         /// </summary>

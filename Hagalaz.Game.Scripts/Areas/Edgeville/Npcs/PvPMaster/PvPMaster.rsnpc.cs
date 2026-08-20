@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.PvPMaster
     [NpcScriptMetaData([6539])]
     public class PvPMaster : NpcScriptBase
     {
+        public PvPMaster(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -19,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.PvPMaster
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var script = clicker.ServiceProvider.GetRequiredService<PvPMasterDialogue>();
+                var script = CreateWidgetScript<PvPMasterDialogue>(clicker);
                 clicker.Widgets.OpenChatboxOverlay((int)DialogueInterfaces.Send2TextChatRight, 0, script, false, Owner);
                 return;
             }

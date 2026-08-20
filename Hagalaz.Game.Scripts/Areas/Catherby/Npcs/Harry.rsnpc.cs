@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Areas.Catherby.Npcs
     [NpcScriptMetaData([576])]
     public class Harry : NpcScriptBase
     {
+        public Harry(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

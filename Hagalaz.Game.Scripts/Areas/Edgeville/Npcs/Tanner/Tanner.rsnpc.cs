@@ -12,7 +12,8 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Tanner
     {
         private readonly ICraftingSkillService _craftingSkillService;
 
-        public Tanner(ICraftingSkillService craftingSkillService) => _craftingSkillService = craftingSkillService;
+        public Tanner(INpc owner, ICraftingSkillService craftingSkillService, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) => _craftingSkillService = craftingSkillService;
 
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.

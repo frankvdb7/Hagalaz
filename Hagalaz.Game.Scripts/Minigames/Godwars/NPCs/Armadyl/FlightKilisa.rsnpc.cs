@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
     [NpcScriptMetaData([6227])]
     public class FlightKilisa : BodyGuard
     {
+        public FlightKilisa(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Get's if this npc can be attacked by the specified character ('attacker').
         ///     By default , this method does check if this npc is attackable.

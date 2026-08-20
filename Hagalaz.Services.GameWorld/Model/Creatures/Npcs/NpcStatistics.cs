@@ -5,7 +5,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Services.GameWorld.Model.Creatures.Combat;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
 {
@@ -17,7 +16,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Contains owner of this class.
         /// </summary>
-        private readonly Npc _owner;
+        private readonly INpc _owner;
+        private readonly IHitSplatBuilder _hitSplatBuilder;
 
         /// <summary>
         /// Contains skills data of this npc.
@@ -107,9 +107,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// Construct's new statistics class.
         /// </summary>
         /// <param name="owner">The owner.</param>
-        public NpcStatistics(Npc owner)
+        public NpcStatistics(INpc owner, IHitSplatBuilder hitSplatBuilder)
         {
             _owner = owner;
+            _hitSplatBuilder = hitSplatBuilder;
             CombatLevel = _owner.Definition.CombatLevel;
             LifePoints = _owner.Definition.MaxLifePoints;
             Bonuses = _owner.Definition.Bonuses.Copy();
@@ -400,8 +401,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 if (PoisonAmount >= 10)
                 {
                     var amt = DamageLifePoints(PoisonAmount);
-                    var splat = _owner.ServiceProvider.GetRequiredService<IHitSplatBuilder>()
-                        .Create()
+                    var splat = _hitSplatBuilder.Create()
                         .AddSprite(builder => builder.WithDamage(amt).WithSplatType(HitSplatType.HitPoisonDamage))
                         .Build();
                     _owner.QueueHitSplat(splat);

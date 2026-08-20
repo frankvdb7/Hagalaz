@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
     [NpcScriptMetaData([2026])]
     public class DharokTheWretched : BarrowBrother
     {
+        public DharokTheWretched(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Get's called when owner is found.
         /// </summary>

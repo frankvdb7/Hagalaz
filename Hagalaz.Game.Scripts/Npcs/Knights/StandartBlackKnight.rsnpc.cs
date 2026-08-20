@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Knights
     [NpcScriptMetaData([178, 179])]
     public class StandartBlackKnight : NpcScriptBase
     {
+        public StandartBlackKnight(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
     [NpcScriptMetaData([4702, 4703, 4704, 4705])]
     public class BlackDemon : NpcScriptBase
     {
+        public BlackDemon(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

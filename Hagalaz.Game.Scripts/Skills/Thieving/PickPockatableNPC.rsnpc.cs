@@ -28,6 +28,10 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
     ])]
     public class PickPockatableNpc : NpcScriptBase
     {
+        public PickPockatableNpc(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     The pickpocket definition.
         /// </summary>

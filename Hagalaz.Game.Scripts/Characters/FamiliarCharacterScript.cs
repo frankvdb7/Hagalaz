@@ -8,10 +8,11 @@ namespace Hagalaz.Game.Scripts.Characters
     public class FamiliarCharacterScript : CharacterScriptBase, IDefaultCharacterScript
     {
         private readonly INpcBuilder _npcBuilder;
+        private readonly ISummoningService _summoningService;
 
-        public FamiliarCharacterScript(ICharacterContextAccessor contextAccessor, INpcBuilder npcBuilder)
+        public FamiliarCharacterScript(ICharacterContextAccessor contextAccessor, INpcBuilder npcBuilder, ISummoningService summoningService)
             : base(contextAccessor) =>
-            _npcBuilder = npcBuilder;
+            (_npcBuilder, _summoningService) = (npcBuilder, summoningService);
 
         protected override void Initialize() { }
 
@@ -22,11 +23,17 @@ namespace Hagalaz.Game.Scripts.Characters
                 return;
             }
 
+            var definition = _summoningService.FindDefinitionByNpcId(Character.FamiliarId).GetAwaiter().GetResult();
+            if (definition is null)
+            {
+                return;
+            }
+
             _npcBuilder
                 .Create()
-                .WithId(Character.FamiliarScript.Familiar.Appearance.CompositeID)
+                .WithId(Character.FamiliarId)
                 .WithLocation(Character.Location)
-                .WithScript(Character.FamiliarScript)
+                .WithScript((activator, owner) => Character.CreateFamiliar(owner, definition, activator))
                 .Spawn();
         }
     }

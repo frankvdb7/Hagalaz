@@ -3,5 +3,8 @@
     /// <summary>
     /// Default script for npc transformation.
     /// </summary>
-    public class DefaultCharacterNpcScript : CharacterNpcScriptBase { }
+    public class DefaultCharacterNpcScript : CharacterNpcScriptBase
+    {
+        public DefaultCharacterNpcScript(Hagalaz.Game.Abstractions.Services.INpcService npcService) : base(npcService) { }
+    }
 }

@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.Clans;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.Shops;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Services.Model;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
@@ -84,6 +87,18 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// Gets the script for the character's currently summoned familiar.
         /// </summary>
         IFamiliarScript FamiliarScript { get; }
+        /// <summary>
+        /// Gets the NPC identifier of the familiar being restored or currently summoned.
+        /// </summary>
+        int FamiliarId { get; }
+        /// <summary>
+        /// Creates and attaches the familiar script for this character.
+        /// </summary>
+        /// <param name="owner">The NPC that owns the script.</param>
+        /// <param name="definition">The familiar's summoning definition.</param>
+        /// <param name="activator">The activator from the NPC's child scope.</param>
+        /// <returns>The created familiar script.</returns>
+        IFamiliarScript CreateFamiliar(INpc owner, SummoningDto definition, INpcScriptActivator activator);
         /// <summary>
         /// Gets the special permissions and rights assigned to this character.
         /// </summary>

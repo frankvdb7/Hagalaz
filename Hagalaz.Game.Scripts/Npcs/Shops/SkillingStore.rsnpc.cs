@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     [NpcScriptMetaData([531])]
     public class SkillingStore : NpcScriptBase
     {
+        public SkillingStore(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

@@ -185,7 +185,6 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ICharacterRenderMasksWriter, CharacterRenderMasksWriter>();
             services.AddScoped<IDefaultCharacterScriptProvider, DefaultCharacterScriptProvider>();
             services.AddScoped<ICharacterScriptActivator, CharacterScriptActivator>();
-            services.AddScoped<IFamiliarScriptActivator, FamiliarScriptActivator>();
             services.AddScoped<ICharacterNpcScriptActivator, CharacterNpcScriptActivator>();
             services.AddSingleton<CharacterNpcScriptProvider>();
             services.AddSingleton<ICharacterNpcScriptProvider>(provider => provider.GetRequiredService<CharacterNpcScriptProvider>());
@@ -251,6 +250,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IFamiliarScriptProvider>(provider => provider.GetRequiredService<FamiliarScriptProvider>());
             services.AddScoped<IFamiliarScriptFactory, FamiliarScriptFactory>();
             services.AddScoped<INpcScriptFactory, NpcScriptMetaDataFactory>();
+            services.AddScoped<INpcScriptActivator, NpcScriptActivator>();
             services.AddSingleton<INpcBuilder, NpcBuilder>();
 
             // map

@@ -13,6 +13,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
     [NpcScriptMetaData([52, 4665, 4666, 1589, 3588, 4667, 4668, 3376])]
     public class StandartBabyDragon : NpcScriptBase
     {
+        public StandartBabyDragon(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

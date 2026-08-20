@@ -45,7 +45,8 @@ namespace Hagalaz.Game.Scripts.Npcs
         /// </summary>
         private Attack _attack;
 
-        public Revenant(IProjectileBuilder projectileBuilder)
+        public Revenant(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

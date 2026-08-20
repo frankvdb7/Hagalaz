@@ -38,6 +38,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 
         private readonly INpcService _npcService;
         private readonly IItemService _itemService;
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         /// Sets the definition.
@@ -73,11 +74,15 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// </value>
         public bool UsingSpecialMove { get; private set; }
 
-        public FamiliarScriptBase(ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService)
+        public FamiliarScriptBase(INpc owner,
+            ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder,
+            IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _pathFinder = pathFinder;
             _npcService = npcService;
             _itemService = itemService;
+            _itemBuilder = itemBuilder;
         }
 
         /// <summary>
@@ -192,8 +197,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 return;
             }
 
-            var itemBuilder = Summoner.ServiceProvider.GetRequiredService<IItemBuilder>();
-            Summoner.Inventory.Remove(itemBuilder.Create().WithId(Definition.PouchId).Build());
+            Summoner.Inventory.Remove(_itemBuilder.Create().WithId(Definition.PouchId).Build());
             ResetTimer();
             Summoner.SendChatMessage("Your familiar has been renewed.");
         }
@@ -324,7 +328,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             if (clickType == NpcClickType.Option1Click && Summoner == clicker)
             {
                 clicker.Interrupt(this);
-                var script = clicker.ServiceProvider.GetRequiredService<StandardFamiliarDialogue>();
+                var script = CreateWidgetScript<StandardFamiliarDialogue>(clicker);
                 clicker.Widgets.OpenDialogue(script, false, Owner);
             }
             else
@@ -395,8 +399,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// <param name="target">The target.</param>
         public virtual void PerformSpecialMove(IRuneObject target)
         {
-            var itemBuilder = Summoner.ServiceProvider.GetRequiredService<IItemBuilder>();
-            if (Summoner.Inventory.Remove(itemBuilder.Create().WithId(Definition.ScrollId).Build()) >= 1)
+            if (Summoner.Inventory.Remove(_itemBuilder.Create().WithId(Definition.ScrollId).Build()) >= 1)
             {
                 DrainSpecialMovePoints(GetRequiredSpecialMovePoints());
                 SetUsingSpecialMove(false);

@@ -62,13 +62,11 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 return;
             }
 
-            var provider = character.ServiceProvider.GetRequiredService<IFamiliarScriptProvider>();
-            var scriptType = provider.FindFamiliarScriptTypeById(def.NpcId);
             _npcBuilder
                 .Create()
                 .WithId(def.NpcId)
                 .WithLocation(character.Location)
-                .WithScript(scriptType)
+                .WithScript((activator, owner) => character.CreateFamiliar(owner, def, activator))
                 .Spawn();
             character.Inventory.Remove(item, slot);
             character.Statistics.DamageSkill(StatisticsConstants.Summoning, def.SummonSpawnCost);

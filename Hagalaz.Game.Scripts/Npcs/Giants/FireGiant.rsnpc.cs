@@ -13,6 +13,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Giants
     [NpcScriptMetaData([1582, 1583, 1584, 1585, 1586])]
     public class FireGiant : NpcScriptBase
     {
+        public FireGiant(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

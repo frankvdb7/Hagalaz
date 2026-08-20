@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
     [NpcScriptMetaData([6261])]
     public class SergeantStrongstack : BodyGuard
     {
+        public SergeantStrongstack(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Get's attack bonus type of this npc.
         ///     By default , this method does return AttackBonus.Crush

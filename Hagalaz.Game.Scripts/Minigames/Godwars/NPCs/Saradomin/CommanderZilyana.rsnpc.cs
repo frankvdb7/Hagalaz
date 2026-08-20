@@ -34,7 +34,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
             _speakData.Add("All praise Saradomin!", 3262);
         }
 
-        public CommanderZilyana(IAudioBuilder soundBuilder) => _soundBuilder = soundBuilder;
+        public CommanderZilyana(INpc owner, IAudioBuilder soundBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) => _soundBuilder = soundBuilder;
 
         /// <summary>
         ///     Contains speak data.

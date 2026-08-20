@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
     /// </summary>
     public abstract class BarrowBrother : NpcScriptBase
     {
+        protected BarrowBrother(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     The character target.
         /// </summary>

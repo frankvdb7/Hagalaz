@@ -19,6 +19,10 @@ using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Logic.Characters.Model;
+using Hagalaz.Game.Abstractions.Logic.Hydrations;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
@@ -70,7 +74,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IAudioBuilder _audioBuilder;
         private readonly IGameMessageService _gameMessageService;
         private readonly IFamiliarScriptProvider _familiarScriptProvider;
-        private readonly IFamiliarScriptActivator _familiarScriptActivator;
+        private Type? _familiarScriptType;
+        private HydratedFamiliar? _familiarState;
+        private IReadOnlyList<HydratedItem>? _familiarInventory;
         private readonly IStateService _stateService;
         private readonly ICharacterScriptActivator _characterScriptActivator;
 
@@ -207,6 +213,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public IFamiliarScript FamiliarScript { get; set; }
 
         /// <summary>
+        /// Contains the NPC identifier of the familiar being restored or currently summoned.
+        /// </summary>
+        public int FamiliarId { get; private set; }
+
+        /// <summary>
         /// Contains the previous display name.
         /// </summary>
         public string? PreviousDisplayName { get; set; }
@@ -280,7 +291,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IDefaultCharacterScriptProvider defaultCharacterScriptProvider,
             ICharacterScriptActivator characterScriptActivator,
             IFamiliarScriptProvider familiarScriptProvider,
-            IFamiliarScriptActivator familiarScriptActivator,
             IStateService stateService,
             IMapRegionService mapRegionService,
             IMapUpdateService mapUpdateService,
@@ -322,7 +332,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _audioBuilder = audioBuilder;
             _gameMessageService = gameMessageService;
             _familiarScriptProvider = familiarScriptProvider;
-            _familiarScriptActivator = familiarScriptActivator;
             _stateService = stateService;
             _characterScriptActivator = characterScriptActivator;
             contextProvider.Context = new CharacterContext(this);
@@ -360,6 +369,29 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _scripts = scripts.ToDictionary(s => s.GetType(), s => s);
         }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+
+        public IFamiliarScript CreateFamiliar(INpc owner, SummoningDto definition, INpcScriptActivator activator)
+        {
+            _familiarScriptType = _familiarScriptProvider.FindFamiliarScriptTypeById(definition.NpcId);
+            var script = (IFamiliarScript)activator.Create(_familiarScriptType, owner);
+            script.InitializeSummoner(this, definition);
+
+            if (_familiarState is not null && script is IHydratable<HydratedFamiliar> hydratable)
+            {
+                hydratable.Hydrate(_familiarState);
+            }
+
+            if (_familiarInventory is not null && script is IHydratable<IReadOnlyList<HydratedItem>> inventory)
+            {
+                inventory.Hydrate(_familiarInventory);
+            }
+
+            FamiliarId = definition.NpcId;
+            FamiliarScript = script;
+            _familiarState = null;
+            _familiarInventory = null;
+            return script;
+        }
 
         /// <summary>
         /// Character's cannot be destroyed,

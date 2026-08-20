@@ -58,7 +58,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
         /// </summary>
         private Attacks _attackType = Attacks.Normal;
 
-        public KingBlackDragon(IHitSplatBuilder hitSplatBuilder, IProjectileBuilder projectileBuilder)
+        public KingBlackDragon(INpc owner, IHitSplatBuilder hitSplatBuilder, IProjectileBuilder projectileBuilder,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _hitSplatBuilder = hitSplatBuilder;
             _projectileBuilder = projectileBuilder;

@@ -42,7 +42,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// </summary>
         /// <param name="glacor">The parent glacor.</param>
         /// <param name="hitSplatBuilder">The hit splat builder.</param>
-        public UnstableGlacyte(INpc glacor, IHitSplatBuilder hitSplatBuilder)
+        public UnstableGlacyte(INpc owner, INpc glacor, IHitSplatBuilder hitSplatBuilder,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _glacor = glacor;
             _hitSplatBuilder = hitSplatBuilder;

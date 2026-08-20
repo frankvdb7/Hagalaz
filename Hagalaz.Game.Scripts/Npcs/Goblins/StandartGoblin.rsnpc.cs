@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Goblins
     [NpcScriptMetaData([2274, 2275, 2276, 2277, 2278, 2279, 2280, 2281])]
     public class StandartGoblin : NpcScriptBase
     {
+        public StandartGoblin(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

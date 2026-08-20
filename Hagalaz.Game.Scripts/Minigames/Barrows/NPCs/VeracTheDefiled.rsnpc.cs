@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
     [NpcScriptMetaData([2030])]
     public class VeracTheDefiled : BarrowBrother
     {
+        public VeracTheDefiled(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Perform's attack on specific target.
         /// </summary>

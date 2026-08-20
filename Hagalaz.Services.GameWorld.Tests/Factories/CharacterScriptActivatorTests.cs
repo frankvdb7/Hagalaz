@@ -1,5 +1,6 @@
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Services.GameWorld.Factories;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,20 +29,9 @@ public sealed class CharacterScriptActivatorTests
     }
 
     [TestMethod]
-    public void FamiliarScriptActivator_ResolvesTypeFromProvidedScope()
+    public void NpcScriptContract_DoesNotExposeOwnerInitialization()
     {
-        var rootScript = Substitute.For<IFamiliarScript>();
-        var scopedScript = Substitute.For<IFamiliarScript>();
-        using var provider = new ServiceCollection()
-            .AddSingleton(rootScript)
-            .AddScoped<IFamiliarScript>(_ => scopedScript)
-            .BuildServiceProvider();
-        using var scope = provider.CreateScope();
-
-        var result = new FamiliarScriptActivator(scope.ServiceProvider).Create(typeof(IFamiliarScript));
-
-        Assert.AreSame(scopedScript, result);
-        Assert.AreNotSame(rootScript, result);
+        Assert.IsNull(typeof(INpcScript).GetMethod("Initialize"));
     }
 
     [TestMethod]
@@ -79,4 +69,5 @@ public sealed class CharacterScriptActivatorTests
         Assert.AreSame(scopedScript, result);
         Assert.AreNotSame(rootScript, result);
     }
+
 }

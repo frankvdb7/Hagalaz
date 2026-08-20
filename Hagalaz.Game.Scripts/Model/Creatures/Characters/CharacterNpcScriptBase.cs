@@ -25,7 +25,9 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Characters
         /// <summary>
         /// The NPC definitionRepository
         /// </summary>
-        private INpcService _npcDefinitionRepository;
+        private readonly INpcService _npcService;
+
+        protected CharacterNpcScriptBase(INpcService npcService) => _npcService = npcService;
 
         /// <summary>
         /// Get's called when owner is found.
@@ -193,8 +195,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Characters
         public void Initialize(ICharacter owner)
         {
             Owner = owner;
-            _npcDefinitionRepository = owner.ServiceProvider.GetRequiredService<INpcService>();
-            Definition = _npcDefinitionRepository.FindNpcDefinitionById(Owner.Appearance.NpcId);
+            Definition = _npcService.FindNpcDefinitionById(Owner.Appearance.NpcId);
             Initialize();
         }
 

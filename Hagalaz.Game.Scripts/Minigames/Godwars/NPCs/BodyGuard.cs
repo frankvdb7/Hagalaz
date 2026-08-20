@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
     /// </summary>
     public abstract class BodyGuard : NpcScriptBase
     {
+        protected BodyGuard(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Get's if this npc can aggro attack specific character.
         ///     By default this method does check if character is character.

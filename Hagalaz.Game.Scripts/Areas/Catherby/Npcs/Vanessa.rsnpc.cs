@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Areas.Catherby.Npcs
     [NpcScriptMetaData([2305])]
     public class Vanessa : NpcScriptBase
     {
+        public Vanessa(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

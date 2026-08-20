@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
@@ -10,7 +10,8 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
     {
         private readonly ISlayerService _slayerRepository;
 
-        public SlayerMaster(ISlayerService slayerRepository) => _slayerRepository = slayerRepository;
+        public SlayerMaster(INpc owner, ISlayerService slayerRepository, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) => _slayerRepository = slayerRepository;
 
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
@@ -27,19 +28,19 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
             }
             else if (clickType == NpcClickType.Option3Click)
             {
-                var dialogue = clicker.ServiceProvider.GetRequiredService<SlayerMasterDialogue>();
+                var dialogue = CreateWidgetScript<SlayerMasterDialogue>(clicker);
                 clicker.Widgets.OpenDialogue(dialogue, true, Owner);
                 dialogue.PerformDialogueOptionClick("Please give me a task.");
             }
             else if (clickType == NpcClickType.Option1Click)
             {
-                var dialogue = clicker.ServiceProvider.GetRequiredService<SlayerMasterDialogue>();
+                var dialogue = CreateWidgetScript<SlayerMasterDialogue>(clicker);
                 clicker.Widgets.OpenDialogue(dialogue, true, Owner);
             }
             else if (clickType == NpcClickType.Option5Click)
             {
                 // rewards
-                clicker.Widgets.OpenWidget(164, 0, clicker.ServiceProvider.GetRequiredService<RewardsBuyScreen>(), true);
+                clicker.Widgets.OpenWidget(164, 0, CreateWidgetScript<RewardsBuyScreen>(clicker), true);
             }
             else
             {

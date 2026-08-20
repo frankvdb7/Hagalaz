@@ -20,7 +20,8 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         ///     Initializes a new instance of the <see cref="EnduringGlacyte" /> class.
         /// </summary>
         /// <param name="glacor">The parent glacor.</param>
-        public EnduringGlacyte(INpc glacor) => _glacor = glacor;
+        public EnduringGlacyte(INpc owner, INpc glacor, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) => _glacor = glacor;
 
         /// <summary>
         ///     Called when [set target].

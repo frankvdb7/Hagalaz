@@ -12,6 +12,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     [NpcScriptMetaData([5913])]
     public class RunesStore : NpcScriptBase
     {
+        public RunesStore(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue;
@@ -9,6 +9,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     [NpcScriptMetaData([1658])]
     public class MagicStore : NpcScriptBase
     {
+        public MagicStore(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>
@@ -25,7 +29,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var skillCapeDialogue = clicker.ServiceProvider.GetRequiredService<SkillCapeDialogue>();
+                var skillCapeDialogue = CreateWidgetScript<SkillCapeDialogue>(clicker);
                 skillCapeDialogue.SkillID = StatisticsConstants.Magic;
                 clicker.Widgets.OpenDialogue(skillCapeDialogue, true, Owner);
                 return;

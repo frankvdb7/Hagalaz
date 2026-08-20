@@ -143,7 +143,6 @@ public sealed class CharacterStatePersistenceTests
             scripts,
             Substitute.For<ICharacterScriptActivator>(),
             Substitute.For<IFamiliarScriptProvider>(),
-            Substitute.For<IFamiliarScriptActivator>(),
             stateService,
             Substitute.For<IMapRegionService>(),
             Substitute.For<IMapUpdateService>(),

@@ -12,7 +12,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
     public class SergeantSteelWill : BodyGuard
     {
         private readonly IProjectileBuilder _projectileBuilder;
-        public SergeantSteelWill(IProjectileBuilder projectileBuilder)
+        public SergeantSteelWill(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

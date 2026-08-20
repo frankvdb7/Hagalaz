@@ -78,10 +78,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 moneyPouch.Hydrate(hydration.MoneyPouch);
             }
 
-            if (FamiliarScript is IHydratable<IReadOnlyList<HydratedItem>> familiarInventory)
+            var familiarInventory = hydration.FamiliarInventory.Select(item => new HydratedItem(item.ItemId, item.Count, item.SlotId, item.ExtraData))
+                .ToList();
+            if (FamiliarScript is IHydratable<IReadOnlyList<HydratedItem>> familiarInventoryHydratable)
             {
-                familiarInventory.Hydrate(hydration.FamiliarInventory.Select(item => new HydratedItem(item.ItemId, item.Count, item.SlotId, item.ExtraData))
-                    .ToList());
+                familiarInventoryHydratable.Hydrate(familiarInventory);
+            }
+            else if (familiarInventory.Count > 0)
+            {
+                _familiarInventory = familiarInventory;
             }
         }
 
@@ -177,17 +182,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(HydratedFamiliarDto hydration)
         {
-            var scriptType = _familiarScriptProvider.FindFamiliarScriptTypeById(hydration.FamiliarId);
-            FamiliarScript = _familiarScriptActivator.Create(scriptType);
-            if (FamiliarScript is IHydratable<HydratedFamiliar> hydratable)
+            FamiliarId = hydration.FamiliarId;
+            _familiarScriptType = _familiarScriptProvider.FindFamiliarScriptTypeById(hydration.FamiliarId);
+            _familiarState = new HydratedFamiliar
             {
-                hydratable.Hydrate(new HydratedFamiliar
-                {
-                    TicksRemaining = hydration.TicksRemaining,
-                    IsUsingSpecialMove = hydration.IsUsingSpecialMove,
-                    SpecialMovePoints = hydration.SpecialMovePoints
-                });
-            }
+                TicksRemaining = hydration.TicksRemaining,
+                IsUsingSpecialMove = hydration.IsUsingSpecialMove,
+                SpecialMovePoints = hydration.SpecialMovePoints
+            };
         }
 
         HydratedFamiliarDto IDehydratable<HydratedFamiliarDto>.Dehydrate()

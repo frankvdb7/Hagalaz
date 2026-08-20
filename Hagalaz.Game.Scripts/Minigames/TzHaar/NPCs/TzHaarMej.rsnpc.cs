@@ -7,6 +7,10 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.NPCs
     [NpcScriptMetaData([2591, 2592, 2594, 2595, 2596, 2597])]
     public class TzHaarMej : MagicNpcScriptBase
     {
+        public TzHaarMej(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Gets the magic damage.
         /// </summary>

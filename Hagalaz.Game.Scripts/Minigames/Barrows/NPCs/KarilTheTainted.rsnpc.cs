@@ -17,7 +17,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public KarilTheTainted(IProjectileBuilder projectileBuilder)
+        public KarilTheTainted(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

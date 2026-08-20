@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Wilfred
     [ItemScriptMetaData([4906])]
     public class Wilfred : NpcScriptBase
     {
+        public Wilfred(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -19,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Wilfred
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var woodcuttingSkillCape = clicker.ServiceProvider.GetRequiredService<SkillCapeDialogue.SkillCapeDialogue>();
+                var woodcuttingSkillCape = CreateWidgetScript<SkillCapeDialogue.SkillCapeDialogue>(clicker);
                 woodcuttingSkillCape.SkillID = StatisticsConstants.Woodcutting;
                 clicker.Widgets.OpenDialogue(woodcuttingSkillCape, true, Owner);
             }

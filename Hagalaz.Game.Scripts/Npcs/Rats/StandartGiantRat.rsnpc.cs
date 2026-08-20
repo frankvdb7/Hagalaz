@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Rats
     [NpcScriptMetaData([86, 87, 446, 4395, 8828, 8829])]
     public class StandartGiantRat : NpcScriptBase
     {
+        public StandartGiantRat(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

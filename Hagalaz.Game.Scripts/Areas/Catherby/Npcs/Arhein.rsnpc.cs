@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Areas.Catherby.Npcs
     [NpcScriptMetaData([563])]
     public class Arhein : NpcScriptBase
     {
+        public Arhein(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

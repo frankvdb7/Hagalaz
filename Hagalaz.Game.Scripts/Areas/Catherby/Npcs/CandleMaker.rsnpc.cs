@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Areas.Catherby.Npcs
     [NpcScriptMetaData([562])]
     public class CandleMaker : NpcScriptBase
     {
+        public CandleMaker(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

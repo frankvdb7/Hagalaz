@@ -12,7 +12,8 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
     {
         protected readonly INpcBuilder NpcBuilder;
 
-        public StandardCaveNpc(INpcBuilder npcBuilder) => NpcBuilder = npcBuilder;
+        public StandardCaveNpc(INpc owner, INpcBuilder npcBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) => NpcBuilder = npcBuilder;
 
         /// <summary>
         ///     Determines whether this instance [can set target] the specified target.

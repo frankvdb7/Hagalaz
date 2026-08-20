@@ -15,6 +15,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Spiders
     [NpcScriptMetaData([134, 1009])]
     public class PoisonSpider : NpcScriptBase
     {
+        public PoisonSpider(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Initializes this script.
         /// </summary>

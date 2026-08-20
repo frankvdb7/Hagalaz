@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
     [NpcScriptMetaData([6248])]
     public class Starlight : BodyGuard
     {
+        public Starlight(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Get's attack style of this npc.
         ///     By default , this method does return AttackStyle.Accurate.

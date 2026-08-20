@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Authorization;
+using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -8,6 +9,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
@@ -26,22 +28,27 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// Contains owner npc.
         /// </summary>
         /// <value>The owner.</value>
-        protected INpc Owner;
+        protected INpc Owner { get; }
 
-        /// <summary>
-        /// Get's called when owner is found.
-        /// </summary>
-        protected virtual void Initialize() { }
+        private readonly INpcService _npcService;
+        private readonly IPathFinder _pathFinder;
+        private readonly IWidgetScriptActivator _widgetScriptActivator;
 
-        /// <summary>
-        /// Initializes this script with given owner.
-        /// </summary>
-        /// <param name="owner">The owner.</param>
-        public void Initialize(INpc owner)
+        protected NpcScriptBase(INpc owner, INpcService npcService, IPathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
         {
             Owner = owner;
-            Initialize();
+            _npcService = npcService;
+            _pathFinder = pathFinder;
+            _widgetScriptActivator = widgetScriptActivator;
         }
+
+        protected TScript CreateWidgetScript<TScript>(ICharacter character) where TScript : class, IWidgetScript =>
+            (TScript)_widgetScriptActivator.Create(character, typeof(TScript));
+
+        /// <summary>
+        /// Performs script-specific construction after the owner and required services are available.
+        /// </summary>
+        protected virtual void Initialize() { }
 
         /// <summary>
         /// Respawns this npc.
@@ -53,7 +60,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             if (CanSpawn())
                 Owner.Respawn();
             else
-                Owner.ServiceProvider.GetRequiredService<INpcService>().UnregisterAsync(Owner).Wait();
+                _npcService.UnregisterAsync(Owner).Wait();
         }
 
         /// <summary>
@@ -78,7 +85,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// Get's called when npc is created.
         /// By default, this method does nothing.
         /// </summary>
-        public virtual void OnCreate() { }
+        public virtual void OnCreate() => Initialize();
 
         /// <summary>
         /// Get's called when npc killed its target.
@@ -237,7 +244,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// By default, this method returns the simple path finder when in combat
         /// and the standart path finder for random walking.
         /// </summary>
-        public virtual IPathFinder GetPathfinder() => Owner.ServiceProvider.GetRequiredService<IPathFinderProvider>().Simple;
+        public virtual IPathFinder GetPathfinder() => _pathFinder;
 
         /// <summary>
         /// Get's if this npc can aggro attack specific character.
@@ -441,7 +448,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var script = clicker.ServiceProvider.GetRequiredService<DefaultNpcDialogueScript>();
+                var script = CreateWidgetScript<DefaultNpcDialogueScript>(clicker);
                 clicker.Widgets.OpenDialogue(script, false, Owner);
             }
             else if (clicker.Permissions.HasAtLeastXPermission(Permission.GameAdministrator))

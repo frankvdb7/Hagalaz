@@ -8,7 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
     [NpcScriptMetaData([2736, 2737])]
     public class TzKek : StandardCaveNpc
     {
-        public TzKek(INpcBuilder npcBuilder) : base(npcBuilder) { }
+        public TzKek(INpc owner, INpcBuilder npcBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator) : base(owner, npcBuilder, npcService, pathFinder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Happens when attacker attack reaches the npc.

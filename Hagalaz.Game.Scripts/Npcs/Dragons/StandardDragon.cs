@@ -18,6 +18,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
     ])]
     public class StandardDragon : NpcScriptBase
     {
+        public StandardDragon(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     The attack bonus.
         /// </summary>

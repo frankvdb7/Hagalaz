@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -13,9 +14,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
     [NpcScriptMetaData([6794, 6795])]
     public class SpiritTerrorBird : BobFamiliarScriptBase
     {
-        public SpiritTerrorBird(
+        public SpiritTerrorBird(INpc owner,
             IItemContainerFactory itemContainerFactory, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService,
-            IGroundItemBuilder groundItemBuilder) : base(itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder) { }
+            IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(owner, itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder, itemBuilder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Initializes the bob.

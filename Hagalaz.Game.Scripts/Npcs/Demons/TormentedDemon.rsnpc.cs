@@ -73,7 +73,8 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
         /// </summary>
         private ICharacter? _weakener;
 
-        public TormentedDemon(IProjectileBuilder projectileBuilder)
+        public TormentedDemon(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

@@ -40,12 +40,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
         void RenderDefence(int delay);
 
         /// <summary>
-        /// Initializes the script with its owning NPC.
-        /// </summary>
-        /// <param name="owner">The NPC that this script is attached to.</param>
-        void Initialize(INpc owner);
-
-        /// <summary>
         /// A callback executed when an attacker's hit connects with the NPC.
         /// </summary>
         /// <param name="attacker">The creature that performed the attack.</param>

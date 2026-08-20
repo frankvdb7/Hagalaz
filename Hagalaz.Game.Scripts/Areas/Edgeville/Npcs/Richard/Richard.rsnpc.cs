@@ -10,6 +10,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Richard
     [NpcScriptMetaData([1783])]
     public class Richard : NpcScriptBase
     {
+        public Richard(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Called when [character click perform].
         /// </summary>

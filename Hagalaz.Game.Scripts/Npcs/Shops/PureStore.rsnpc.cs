@@ -10,6 +10,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     [NpcScriptMetaData([541])]
     public class PureStore : NpcScriptBase
     {
+        public PureStore(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and

@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Scripts;
+using Hagalaz.Game.Abstractions.Factories;
 
 namespace Hagalaz.Game.Abstractions.Builders.Npc
 {
@@ -34,13 +35,6 @@ namespace Hagalaz.Game.Abstractions.Builders.Npc
         INpcOptional WithMaximumBounds(ILocation location);
 
         /// <summary>
-        /// Attaches a specific script instance to the NPC to define its behavior.
-        /// </summary>
-        /// <param name="script">An instance of a class that implements <see cref="INpcScript"/>.</param>
-        /// <returns>The same builder instance to allow for further optional configuration.</returns>
-        INpcOptional WithScript(INpcScript script);
-
-        /// <summary>
         /// Attaches a script to the NPC by its type. The script will be resolved from the dependency injection container.
         /// </summary>
         /// <typeparam name="TScript">The type of the script, which must implement <see cref="INpcScript"/>.</typeparam>
@@ -53,6 +47,13 @@ namespace Hagalaz.Game.Abstractions.Builders.Npc
         /// <param name="type">The type of the script, which must implement <see cref="INpcScript"/>.</param>
         /// <returns>The same builder instance to allow for further optional configuration.</returns>
         INpcOptional WithScript(Type type);
+
+        /// <summary>
+        /// Attaches a script factory to the NPC.
+        /// </summary>
+        /// <param name="factory">A factory that receives the NPC-scope activator and created NPC and returns its script.</param>
+        /// <returns>The same builder instance to allow for further optional configuration.</returns>
+        INpcOptional WithScript(Func<INpcScriptActivator, INpc, INpcScript> factory);
 
         /// <summary>
         /// Sets the initial direction the NPC should face upon spawning.

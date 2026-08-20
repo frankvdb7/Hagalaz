@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.NPCs
     [NpcScriptMetaData([2620])]
     public class TzHaarHurTel : NpcScriptBase
     {
+        public TzHaarHurTel(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and

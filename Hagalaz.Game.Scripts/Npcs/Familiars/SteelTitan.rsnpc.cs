@@ -1,5 +1,6 @@
 ﻿using System;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -25,10 +26,13 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
         /// </summary>
         private int _attackType;
 
-        public SteelTitan(ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IProjectileBuilder projectileBuilder) : base(
+        public SteelTitan(INpc owner, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder, IProjectileBuilder projectileBuilder,
+            IWidgetScriptActivator widgetScriptActivator) : base(owner,
             pathFinder,
             npcService,
-            itemService) =>
+            itemService,
+            itemBuilder,
+            widgetScriptActivator) =>
             _projectileBuilder = projectileBuilder;
 
         /// <summary>
