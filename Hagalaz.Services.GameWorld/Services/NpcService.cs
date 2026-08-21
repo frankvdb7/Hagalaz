@@ -34,7 +34,26 @@ namespace Hagalaz.Services.GameWorld.Services
                 throw new InvalidOperationException($"Failed to add npc '{npc}'.");
             }
 
-            await npc.OnRegistered();
+            try
+            {
+                await npc.OnRegistered();
+            }
+            catch
+            {
+                try
+                {
+                    if (!await _npcStore.RemoveAsync(npc))
+                    {
+                        _logger.LogError("Failed to roll back npc registration for '{npc}'", npc);
+                    }
+                }
+                catch (Exception rollbackException)
+                {
+                    _logger.LogError(rollbackException, "Failed to roll back npc registration for '{npc}'", npc);
+                }
+
+                throw;
+            }
         }
 
         public async Task UnregisterAsync(INpc npc)

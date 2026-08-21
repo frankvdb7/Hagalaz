@@ -17,6 +17,12 @@ The NPC composition graph MUST expose ordinary service dependencies through type
 - **THEN** the scope owned by that NPC is disposed by the existing creature lifetime
 - **AND** scoped dependencies are not resolved from or promoted to the application root
 
+#### Scenario: NPC construction failure disposes the child scope
+
+- **WHEN** `NpcBuilder` has created a child scope but dependency resolution, script activation, or NPC construction throws
+- **THEN** the builder disposes that child scope
+- **AND** scoped disposable dependencies are released even though no NPC was constructed
+
 ### Requirement: NPC-owned components declare service requirements
 
 `Npc`, `Movement`, `NpcAppearance`, `NpcStatistics`, `NpcCombat`, `NpcRenderInformation`, and `NpcHandle` MUST receive each ordinary service they use through required typed constructor or composition-boundary inputs. They MUST NOT use an owner `ServiceProvider` for ordinary service resolution.
@@ -110,6 +116,13 @@ The dependency refactor MUST preserve existing NPC spawn, unregister, script, mo
 - **THEN** registration reports failure to the composition boundary
 - **AND** `NpcBuilder.Spawn()` does not return an NPC handle
 - **AND** the partially composed NPC is destroyed so its scope and owned lifecycle resources are released
+
+#### Scenario: NPC registration rolls back after initialization failure
+
+- **WHEN** the NPC store accepts an NPC but `OnRegistered()` throws
+- **THEN** the same NPC is removed from the store
+- **AND** the original registration exception is propagated
+- **AND** a destroyed or partially registered NPC is not retained by the world store
 
 #### Scenario: NPC combat and loot retain behavior
 

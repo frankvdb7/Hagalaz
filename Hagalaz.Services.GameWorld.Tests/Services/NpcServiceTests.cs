@@ -27,6 +27,22 @@ public sealed class NpcServiceTests
     }
 
     [TestMethod]
+    public async Task RegisterAsync_WhenOnRegisteredFails_RemovesNpcAndPreservesException()
+    {
+        var expectedException = new InvalidOperationException("initialization failed");
+        var npc = Substitute.For<INpc>();
+        npc.OnRegistered().Returns(Task.FromException(expectedException));
+        var npcStore = new SuccessfulNpcStore();
+        var npcService = CreateNpcService(npcStore);
+
+        var actualException = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => npcService.RegisterAsync(npc));
+
+        Assert.AreSame(expectedException, actualException);
+        Assert.AreSame(npc, npcStore.RemovedNpc);
+    }
+
+    [TestMethod]
     public async Task UnregisterDestroyedStaleFamiliar_DoesNotChangeActiveFamiliar()
     {
         var familiarA = Substitute.For<INpc>();
@@ -73,13 +89,19 @@ public sealed class NpcServiceTests
 
     private sealed class SuccessfulNpcStore(bool addResult = true) : INpcStore
     {
+        public INpc? RemovedNpc { get; private set; }
+
         public IAsyncEnumerable<INpc> FindAllAsync() => throw new NotSupportedException();
 
         public ValueTask<int> CountAsync() => throw new NotSupportedException();
 
         public ValueTask<bool> AddAsync(INpc npc) => new(addResult);
 
-        public ValueTask<bool> RemoveAsync(INpc npc) => new(true);
+        public ValueTask<bool> RemoveAsync(INpc npc)
+        {
+            RemovedNpc = npc;
+            return new(true);
+        }
 
         public ValueTask<INpc?> FindAsync(Func<INpc, bool> predicate) => throw new NotSupportedException();
     }
