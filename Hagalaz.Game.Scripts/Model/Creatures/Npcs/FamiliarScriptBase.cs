@@ -104,42 +104,55 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             SpecialMovePoints = 60;
             _isDetached = false;
 
-            // Load event handlers.
-
-            _summoningAllowHandler = Summoner.RegisterEventHandler(new EventHappened<SummoningAllowEvent>((e) =>
+            try
             {
-                // Dissallow summoning.
-                if (Summoner.HasFamiliar())
+                // Load event handlers.
+
+                _summoningAllowHandler = Summoner.RegisterEventHandler(new EventHappened<SummoningAllowEvent>((e) =>
                 {
-                    Summoner.SendChatMessage("You can not spawn another familiar!");
-                    return true;
-                }
+                    // Dissallow summoning.
+                    if (Summoner.HasFamiliar())
+                    {
+                        Summoner.SendChatMessage("You can not spawn another familiar!");
+                        return true;
+                    }
 
-                UnregisterHandler<SummoningAllowEvent>(ref _summoningAllowHandler);
-                return false;
-            }));
+                    UnregisterHandler<SummoningAllowEvent>(ref _summoningAllowHandler);
+                    return false;
+                }));
 
-            _summonerDiedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDiedEvent>((e) =>
+                _summonerDiedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDiedEvent>((e) =>
+                {
+                    Owner.OnDeath();
+                    UnregisterHandler<CreatureDiedEvent>(ref _summonerDiedHandler);
+                    return false;
+                }));
+
+                _familiarDismissHandler = Summoner.RegisterEventHandler(new EventHappened<FamiliarDismissEvent>((e) =>
+                {
+                    _npcService.UnregisterAsync(Owner);
+                    UnregisterHandler<FamiliarDismissEvent>(ref _familiarDismissHandler);
+                    return false;
+                }));
+
+                _setCombatTargetHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureSetCombatTargetEvent>((e) =>
+                {
+                    Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(e.CombatTarget), 1));
+                    return false;
+                }));
+
+                OnAttachedToSummoner();
+            }
+            catch
             {
-                Owner.OnDeath();
-                UnregisterHandler<CreatureDiedEvent>(ref _summonerDiedHandler);
-                return false;
-            }));
-
-            _familiarDismissHandler = Summoner.RegisterEventHandler(new EventHappened<FamiliarDismissEvent>((e) =>
-            {
-                _npcService.UnregisterAsync(Owner);
-                UnregisterHandler<FamiliarDismissEvent>(ref _familiarDismissHandler);
-                return false;
-            }));
-
-            _setCombatTargetHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureSetCombatTargetEvent>((e) =>
-            {
-                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(e.CombatTarget), 1));
-                return false;
-            }));
-
-            OnAttachedToSummoner();
+                UnregisterSummonerHandlers();
+                _isDetached = true;
+                Summoner = default!;
+                Definition = default!;
+                SpecialMovePoints = 0;
+                UsingSpecialMove = false;
+                throw;
+            }
         }
 
         /// <summary>
@@ -220,10 +233,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             }
 
             _isDetached = true;
-            UnregisterHandler<SummoningAllowEvent>(ref _summoningAllowHandler);
-            UnregisterHandler<CreatureDiedEvent>(ref _summonerDiedHandler);
-            UnregisterHandler<FamiliarDismissEvent>(ref _familiarDismissHandler);
-            UnregisterHandler<CreatureSetCombatTargetEvent>(ref _setCombatTargetHandler);
+            UnregisterSummonerHandlers();
             Summoner.DetachFamiliar(Familiar);
 
             if (Summoner.IsDestroyed)
@@ -232,6 +242,14 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             }
 
             Summoner.SendChatMessage("Your familiar vanished.");
+        }
+
+        private void UnregisterSummonerHandlers()
+        {
+            UnregisterHandler<SummoningAllowEvent>(ref _summoningAllowHandler);
+            UnregisterHandler<CreatureDiedEvent>(ref _summonerDiedHandler);
+            UnregisterHandler<FamiliarDismissEvent>(ref _familiarDismissHandler);
+            UnregisterHandler<CreatureSetCombatTargetEvent>(ref _setCombatTargetHandler);
         }
 
         private void UnregisterHandler<TEvent>(ref EventHappened? handler) where TEvent : ICreatureEvent

@@ -115,13 +115,12 @@ The dependency refactor MUST preserve existing NPC spawn, unregister, script, mo
 - **WHEN** the NPC store rejects an NPC during registration
 - **THEN** registration reports failure to the composition boundary
 - **AND** `NpcBuilder.Spawn()` does not return an NPC handle
-- **AND** the partially composed NPC is destroyed at the common registration boundary so direct `Build()` callers also release its scope and owned lifecycle resources
+- **AND** `NpcBuilder.Spawn()` destroys the partially composed NPC so its scope and owned lifecycle resources are released
 
 #### Scenario: NPC registration rolls back after initialization failure
 
 - **WHEN** the NPC store accepts an NPC but `OnRegistered()` throws
 - **THEN** the same NPC is removed from the store
-- **AND** the same NPC is destroyed at the common registration boundary so direct `Build()` callers do not retain map-region membership or its child scope
 - **AND** the original registration exception is propagated
 - **AND** a destroyed or partially registered NPC is not retained by the world store
 

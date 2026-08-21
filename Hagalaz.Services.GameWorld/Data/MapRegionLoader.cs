@@ -23,7 +23,6 @@ namespace Hagalaz.Services.GameWorld.Data
 {
     public class MapRegionLoader : IMapRegionLoader
     {
-        private readonly INpcService _npcService;
         private readonly INpcSpawnRepository _npcSpawnRepository;
         private readonly IGroundItemSpawnRepository _itemSpawnRepository;
         private readonly IGameObjectSpawnRepository _objectSpawnRepository;
@@ -37,7 +36,6 @@ namespace Hagalaz.Services.GameWorld.Data
         private readonly ILogger<MapRegionLoader> _logger;
 
         public MapRegionLoader(
-            INpcService npcService,
             INpcSpawnRepository npcSpawnRepository,
             IGroundItemSpawnRepository itemSpawnRepository,
             IGameObjectSpawnRepository objectSpawnRepository,
@@ -50,7 +48,6 @@ namespace Hagalaz.Services.GameWorld.Data
             IMapper mapper,
             ILogger<MapRegionLoader> logger)
         {
-            _npcService = npcService;
             _npcSpawnRepository = npcSpawnRepository;
             _itemSpawnRepository = itemSpawnRepository;
             _objectSpawnRepository = objectSpawnRepository;
@@ -97,26 +94,20 @@ namespace Hagalaz.Services.GameWorld.Data
         private async Task LoadAllNpcsAsync(IMapRegion region, ILocation min, ILocation max)
         {
             var spawnsInRegion = await _mapper.ProjectTo<NpcSpawnDto>(_npcSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync();
-            var npcsInRegion = spawnsInRegion.Select(spawn =>
+            foreach (var spawn in spawnsInRegion)
             {
                 var location = spawn.Location.Copy(region.BaseLocation.Dimension);
                 var minBounds = spawn.MinimumBounds.Copy(region.BaseLocation.Dimension);
                 var maxBounds = spawn.MaximumBounds.Copy(region.BaseLocation.Dimension);
                 var faceDirection = spawn.SpawnDirection.HasValue ? DirectionHelper.GetNpcFaceDirection(spawn.SpawnDirection.Value) : DirectionFlag.None;
-                var npc = _npcBuilder
+                _npcBuilder
                     .Create()
                     .WithId(spawn.NpcId)
                     .WithLocation(location)
                     .WithMinimumBounds(minBounds)
                     .WithMaximumBounds(maxBounds)
                     .WithFaceDirection(faceDirection)
-                    .Build();
-                return npc;
-            });
-
-            foreach (var npc in npcsInRegion)
-            {
-                await _npcService.RegisterAsync(npc);
+                    .Spawn();
             }
         }
 

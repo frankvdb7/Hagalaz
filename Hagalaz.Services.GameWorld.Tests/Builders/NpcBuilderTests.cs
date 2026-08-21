@@ -1,7 +1,6 @@
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Npc;
-using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -12,15 +11,10 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Data.Model;
-using Hagalaz.Services.GameWorld.Services;
-using Hagalaz.Services.GameWorld.Store;
-using AutoMapper;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -169,83 +163,6 @@ public sealed class NpcBuilderTests
         handle.Npc.Script.Received(1).OnSpawn();
     }
 
-    [TestMethod]
-    public async Task BuildThenRegister_WhenRegistrationFails_DestroysNpcAndDisposesNpcScope()
-    {
-        var definition = new NpcDefinition(1)
-        {
-            BoundsType = BoundsType.Static,
-            DisplayName = "Test NPC",
-            WalksRandomly = false,
-        };
-        var npcTypeProvider = Substitute.For<ITypeProvider<INpcType>>();
-        npcTypeProvider.Get(definition.Id).Returns(definition);
-        var mapper = Substitute.For<IMapper>();
-        mapper.Map<INpcDefinition>(definition).Returns(definition);
-        var npcDefinitionStore = new NpcDefinitionStore(
-            Substitute.For<IServiceProvider>(),
-            npcTypeProvider,
-            mapper,
-            Substitute.For<ILogger<NpcDefinitionStore>>());
-        var npcStore = new TrackingNpcStore();
-        var npcService = new NpcService(
-            npcStore,
-            npcDefinitionStore,
-            Substitute.For<ITypeProvider<INpcDefinition>>(),
-            Substitute.For<ILogger<NpcService>>());
-        var script = Substitute.For<INpcScript>();
-        var expectedException = new InvalidOperationException("registration failed");
-        script.When(x => x.OnSpawn()).Do(_ => throw expectedException);
-        var mapRegion = Substitute.For<IMapRegion>();
-        var mapRegionService = Substitute.For<IMapRegionService>();
-        var area = Substitute.For<IArea>();
-        var areaService = Substitute.For<IAreaService>();
-        areaService.FindAreaByLocation(Arg.Any<ILocation>()).Returns(area);
-        mapRegionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IMapSize>())
-            .Returns(new[] { mapRegion });
-        mapRegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>()).Returns(mapRegion);
-        ScopedDependency? scopedDependency = null;
-
-        var services = new ServiceCollection()
-            .AddScoped<ScopedDependency>()
-            .AddSingleton<INpcService>(npcService)
-            .AddSingleton(Substitute.For<ICreatureTaskService>())
-            .AddSingleton(Substitute.For<IEventManager>())
-            .AddSingleton(Substitute.For<IScopedGameMediator>())
-            .AddSingleton(Substitute.For<ISmartPathFinder>())
-            .AddSingleton(mapRegionService)
-            .AddSingleton(areaService)
-            .AddSingleton(Substitute.For<IProjectilePathFinder>())
-            .AddSingleton<IOptions<CombatOptions>>(Options.Create(new CombatOptions()))
-            .AddSingleton(Substitute.For<IHitSplatBuilder>())
-            .AddSingleton(Substitute.For<ILootService>())
-            .AddSingleton(Substitute.For<ILootGenerator>())
-            .AddSingleton(Substitute.For<IGroundItemBuilder>())
-            .AddSingleton(Substitute.For<INpcScriptProvider>())
-            .AddSingleton(Substitute.For<INpcScriptActivator>())
-            .BuildServiceProvider();
-        var builder = new NpcBuilder(services, services.GetRequiredService<INpcScriptProvider>());
-
-        var npc = builder.Create()
-            .WithId(definition.Id)
-            .WithLocation(new Location(3200, 3200, 0, 0))
-            .WithScript((_, owner) =>
-            {
-                scopedDependency = owner.ServiceProvider.GetRequiredService<ScopedDependency>();
-                return script;
-            })
-            .Build();
-
-        var actualException = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => npcService.RegisterAsync(npc));
-
-        Assert.AreSame(expectedException, actualException);
-        Assert.IsTrue(npc.IsDestroyed);
-        Assert.AreSame(npc, npcStore.RemovedNpc);
-        Assert.IsNotNull(scopedDependency);
-        Assert.IsTrue(scopedDependency!.IsDisposed);
-        mapRegion.Received(1).Remove(npc);
-    }
-
     private sealed class ScopedDependency : IDisposable
     {
         public bool IsDisposed { get; private set; }
@@ -253,22 +170,4 @@ public sealed class NpcBuilderTests
         public void Dispose() => IsDisposed = true;
     }
 
-    private sealed class TrackingNpcStore : INpcStore
-    {
-        public INpc? RemovedNpc { get; private set; }
-
-        public IAsyncEnumerable<INpc> FindAllAsync() => throw new NotSupportedException();
-
-        public ValueTask<int> CountAsync() => throw new NotSupportedException();
-
-        public ValueTask<bool> AddAsync(INpc npc) => new(true);
-
-        public ValueTask<bool> RemoveAsync(INpc npc)
-        {
-            RemovedNpc = npc;
-            return new(true);
-        }
-
-        public ValueTask<INpc?> FindAsync(Func<INpc, bool> predicate) => throw new NotSupportedException();
-    }
 }

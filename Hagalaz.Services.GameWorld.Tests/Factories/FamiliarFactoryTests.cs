@@ -217,8 +217,10 @@ public sealed class FamiliarFactoryTests
 
         restorationState.SetFamiliar(restoredDefinition);
         restorationState.SetInventory([new HydratedItem(1, 1, 0, null)]);
-        definitions.FindByNpcId(restoredDefinition.FamiliarId).Returns((SummoningDto?)null);
-        summoner.FamiliarScript.Returns((IFamiliarScript?)null);
+        SummoningDto? missingDefinition = null;
+        IFamiliarScript? missingScript = null;
+        definitions.FindByNpcId(restoredDefinition.FamiliarId).Returns(missingDefinition);
+        summoner.FamiliarScript.Returns(missingScript);
         summoner.FamiliarId.Returns(0);
         summoner.Location.Returns(location);
         builder.Create().Returns(npcId);

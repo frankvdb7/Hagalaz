@@ -40,6 +40,59 @@ public sealed class FamiliarScriptBaseTests
     }
 
     [TestMethod]
+    public void AttachToSummoner_WhenSetupFails_UnregistersAllSummonerHandlersAndResetsState()
+    {
+        var summoner = Substitute.For<ICharacter>();
+        var script = CreateScript(Substitute.For<INpc>());
+        var expectedException = new InvalidOperationException("familiar setup failed");
+        script.AttachException = expectedException;
+
+        summoner.RegisterEventHandler(Arg.Any<EventHappened<SummoningAllowEvent>>())
+            .Returns(Substitute.For<EventHappened>());
+        summoner.RegisterEventHandler(Arg.Any<EventHappened<CreatureDiedEvent>>())
+            .Returns(Substitute.For<EventHappened>());
+        summoner.RegisterEventHandler(Arg.Any<EventHappened<FamiliarDismissEvent>>())
+            .Returns(Substitute.For<EventHappened>());
+        summoner.RegisterEventHandler(Arg.Any<EventHappened<CreatureSetCombatTargetEvent>>())
+            .Returns(Substitute.For<EventHappened>());
+
+        var actualException = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            script.AttachToSummoner(summoner, new SummoningDto { NpcId = 6815 }));
+
+        Assert.AreSame(expectedException, actualException);
+        summoner.Received(1).UnregisterEventHandler<SummoningAllowEvent>(Arg.Any<EventHappened>());
+        summoner.Received(1).UnregisterEventHandler<CreatureDiedEvent>(Arg.Any<EventHappened>());
+        summoner.Received(1).UnregisterEventHandler<FamiliarDismissEvent>(Arg.Any<EventHappened>());
+        summoner.Received(1).UnregisterEventHandler<CreatureSetCombatTargetEvent>(Arg.Any<EventHappened>());
+        Assert.IsNull(script.Summoner);
+        Assert.IsNull(script.Definition);
+        Assert.AreEqual(0, script.SpecialMovePoints);
+        Assert.IsFalse(script.UsingSpecialMove);
+    }
+
+    [TestMethod]
+    public void AttachToSummoner_WhenHandlerRegistrationFails_UnregistersEarlierHandlers()
+    {
+        var summoner = Substitute.For<ICharacter>();
+        var script = CreateScript(Substitute.For<INpc>());
+        var expectedException = new InvalidOperationException("handler registration failed");
+        var summoningAllowHandler = Substitute.For<EventHappened>();
+
+        summoner.RegisterEventHandler(Arg.Any<EventHappened<SummoningAllowEvent>>())
+            .Returns(summoningAllowHandler);
+        summoner.When(x => x.RegisterEventHandler<CreatureDiedEvent>(Arg.Any<EventHappened<CreatureDiedEvent>>()))
+            .Do(_ => throw expectedException);
+
+        var actualException = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            script.AttachToSummoner(summoner, new SummoningDto { NpcId = 6815 }));
+
+        Assert.AreSame(expectedException, actualException);
+        summoner.Received(1).UnregisterEventHandler<SummoningAllowEvent>(summoningAllowHandler);
+        Assert.IsNull(script.Summoner);
+        Assert.IsNull(script.Definition);
+    }
+
+    [TestMethod]
     public void OnDestroy_DetachesTheFamiliarFromItsSummoner()
     {
         var summoner = Substitute.For<ICharacter>();
@@ -144,6 +197,15 @@ public sealed class FamiliarScriptBaseTests
     {
         public bool AttachedSetupRan { get; private set; }
 
-        protected override void OnAttachedToSummoner() => AttachedSetupRan = true;
+        public Exception? AttachException { get; set; }
+
+        protected override void OnAttachedToSummoner()
+        {
+            AttachedSetupRan = true;
+            if (AttachException is not null)
+            {
+                throw AttachException;
+            }
+        }
     }
 }
