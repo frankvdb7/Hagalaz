@@ -34,6 +34,24 @@ public sealed class FamiliarScriptBaseTests
         Assert.IsTrue(script.AttachedSetupRan);
     }
 
+    [TestMethod]
+    public void OnDestroy_DetachesTheFamiliarFromItsSummoner()
+    {
+        var summoner = Substitute.For<ICharacter>();
+        var script = new TestFamiliarScript(
+            Substitute.For<INpc>(),
+            Substitute.For<ISmartPathFinder>(),
+            Substitute.For<INpcService>(),
+            Substitute.For<IItemService>(),
+            Substitute.For<IItemBuilder>(),
+            Substitute.For<IWidgetScriptActivator>());
+
+        script.AttachToSummoner(summoner, new SummoningDto { NpcId = 6815 });
+        script.OnDestroy();
+
+        summoner.Received(1).DetachFamiliar(script.Familiar);
+    }
+
     private sealed class TestFamiliarScript(
         INpc owner,
         ISmartPathFinder pathFinder,

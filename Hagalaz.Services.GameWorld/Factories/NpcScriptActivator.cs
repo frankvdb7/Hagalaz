@@ -10,12 +10,10 @@ namespace Hagalaz.Services.GameWorld.Factories
     /// </summary>
     public sealed class NpcScriptActivator(IServiceProvider serviceProvider) : INpcScriptActivator
     {
-        public INpcScript Create(Type scriptType, INpc owner, params object[] arguments)
-        {
-            var constructorArguments = new object[arguments.Length + 1];
-            constructorArguments[0] = owner;
-            arguments.CopyTo(constructorArguments, 1);
-            return (INpcScript)ActivatorUtilities.CreateInstance(serviceProvider, scriptType, constructorArguments);
-        }
+        public INpcScript Create(Type scriptType, INpc owner) =>
+            (INpcScript)ActivatorUtilities.CreateInstance(serviceProvider, scriptType, owner);
+
+        public TScript CreateWithParent<TScript>(INpc owner, INpc parent) where TScript : INpcScript =>
+            (TScript)ActivatorUtilities.CreateInstance(serviceProvider, typeof(TScript), owner, parent);
     }
 }

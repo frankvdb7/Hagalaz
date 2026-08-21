@@ -73,10 +73,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ILogger<ICharacter> _logger;
         private readonly IAudioBuilder _audioBuilder;
         private readonly IGameMessageService _gameMessageService;
-        private readonly IFamiliarScriptProvider _familiarScriptProvider;
-        private Type? _familiarScriptType;
-        private HydratedFamiliar? _familiarState;
-        private IReadOnlyList<HydratedItem>? _familiarInventory;
         private readonly IStateService _stateService;
         private readonly ICharacterScriptActivator _characterScriptActivator;
 
@@ -290,7 +286,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IOptions<SkillOptions> skillOptions,
             IDefaultCharacterScriptProvider defaultCharacterScriptProvider,
             ICharacterScriptActivator characterScriptActivator,
-            IFamiliarScriptProvider familiarScriptProvider,
             IStateService stateService,
             IMapRegionService mapRegionService,
             IMapUpdateService mapUpdateService,
@@ -331,7 +326,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _logger = logger;
             _audioBuilder = audioBuilder;
             _gameMessageService = gameMessageService;
-            _familiarScriptProvider = familiarScriptProvider;
             _stateService = stateService;
             _characterScriptActivator = characterScriptActivator;
             contextProvider.Context = new CharacterContext(this);
@@ -370,36 +364,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-        public IFamiliarScript CreateFamiliar(INpc owner, SummoningDto definition, INpcScriptActivator activator)
+        public void AttachFamiliar(IFamiliarScript familiar, int familiarId)
         {
-            _familiarScriptType = _familiarScriptProvider.FindFamiliarScriptTypeById(definition.NpcId);
-            var script = (IFamiliarScript)activator.Create(_familiarScriptType, owner);
-            script.AttachToSummoner(this, definition);
-
-            if (_familiarState is not null && script is IHydratable<HydratedFamiliar> hydratable)
-            {
-                hydratable.Hydrate(_familiarState);
-            }
-
-            if (_familiarInventory is not null && script is IHydratable<IReadOnlyList<HydratedItem>> inventory)
-            {
-                inventory.Hydrate(_familiarInventory);
-            }
-
-            FamiliarId = definition.NpcId;
-            FamiliarScript = script;
-            _familiarState = null;
-            _familiarInventory = null;
-            return script;
+            FamiliarId = familiarId;
+            FamiliarScript = familiar;
         }
 
-        public void DetachFamiliar()
+        public void DetachFamiliar(INpc familiar)
         {
+            if (FamiliarScript is null || !ReferenceEquals(FamiliarScript.Familiar, familiar))
+            {
+                return;
+            }
+
             FamiliarScript = null!;
             FamiliarId = 0;
-            _familiarScriptType = null;
-            _familiarState = null;
-            _familiarInventory = null;
         }
 
         /// <summary>

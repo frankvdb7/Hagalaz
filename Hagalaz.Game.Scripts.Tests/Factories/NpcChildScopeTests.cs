@@ -65,7 +65,7 @@ public sealed class NpcChildScopeTests
         var child = builder.Create()
             .WithId(definition.Id)
             .WithLocation(new Location(3200, 3200, 0, 0))
-            .WithScript((activator, owner) => activator.Create(typeof(ScopeAwareNpcScript), owner, parentNpc))
+            .WithScript((activator, owner) => activator.CreateWithParent<ScopeAwareNpcScript>(owner, parentNpc))
             .Spawn()
             .Npc;
 

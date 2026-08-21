@@ -49,7 +49,7 @@ The common NPC script path MUST receive its NPC service, path finder, and charac
 - **WHEN** an NPC is composed with a runtime-selected script
 - **THEN** the script is constructed with the NPC service from the same child scope, a path finder, and the typed widget script activator
 - **AND** the owner is supplied through the owner-aware script construction or activation boundary
-- **AND** any additional domain relationship values are supplied as typed activation arguments
+- **AND** domain relationships use a dedicated typed activation contract rather than an arbitrary argument bag
 - **AND** the script can use those inputs without accessing `INpc.ServiceProvider`
 
 #### Scenario: NPC dialogue creates a character-scoped widget script
@@ -57,6 +57,34 @@ The common NPC script path MUST receive its NPC service, path finder, and charac
 - **WHEN** an NPC script opens a dialogue or NPC-owned widget for a character
 - **THEN** it creates the requested script through the typed widget activator for that character
 - **AND** the created script comes from the character's scope
+
+### Requirement: Familiar composition stays at the application boundary
+
+Familiar creation and restoration MUST be coordinated by `IFamiliarFactory`. `ICharacter` MUST expose only the domain state transitions for attaching an already-created familiar and detaching the specific active familiar; it MUST NOT depend on NPC script activation, summoning definitions, or pending restoration state.
+
+#### Scenario: Familiar creation supplies an owner-aware script
+
+- **WHEN** a character summons a familiar
+- **THEN** the familiar factory creates the NPC through the NPC builder
+- **AND** it activates the selected script with the newly-created NPC as owner
+- **AND** it attaches the summoner and familiar definition before NPC registration
+- **AND** it attaches the created familiar to the character through an explicit state transition
+
+#### Scenario: Familiar restoration supplies persisted state
+
+- **WHEN** character hydration contains familiar and familiar-inventory data
+- **THEN** the hydrators store that data in scoped restoration state
+- **AND** the familiar factory resolves the definition and composes the owner-aware familiar during character registration
+- **AND** it applies the persisted familiar state and inventory before registration completes
+- **AND** the character does not create or activate the familiar itself
+
+#### Scenario: Missing familiar definition rejects restoration atomically
+
+- **WHEN** character hydration contains a familiar identifier that is absent from the startup-loaded summoning definition store
+- **THEN** familiar restoration returns without attaching an active familiar
+- **AND** the character reports no familiar through `HasFamiliar()`
+- **AND** the scoped pending familiar state and inventory are cleared
+- **AND** a later normal summon does not receive the rejected restoration data
 
 ### Requirement: NPC behavior remains unchanged
 
@@ -77,6 +105,13 @@ The dependency refactor MUST preserve existing NPC spawn, unregister, script, mo
 #### Scenario: Familiar removal clears character state
 
 - **WHEN** a familiar is dismissed, despawns, or is otherwise unregistered
-- **THEN** the character's active familiar script and familiar ID are cleared together
+- **THEN** the familiar lifecycle asks the character to detach the specific familiar being removed
+- **AND** the character's active familiar script and familiar ID are cleared together only when that familiar is still active
 - **AND** `HasFamiliar()` returns `false`
 - **AND** the character can summon another familiar
+
+#### Scenario: Stale familiar removal preserves the newer familiar
+
+- **WHEN** familiar A is replaced by familiar B and a delayed or duplicate removal for A is processed
+- **THEN** the generic NPC unregister path does not mutate character familiar state
+- **AND** identity-aware familiar detachment leaves B active

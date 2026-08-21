@@ -62,7 +62,7 @@ namespace Hagalaz.Game.Scripts
             services.AddSingleton<IHerbloreSkillService, HerbloreSkillService>();
             services.AddSingleton<IPotionSkillService, PotionSkillService>();
             services.AddSingleton<IFishingSkillService, FishingSkillService>();
-            services.AddSingleton<ISummoningSkillService, SummoningSkillService>();
+            services.AddScoped<ISummoningSkillService, SummoningSkillService>();
             services.AddSingleton<IWoodcuttingSkillService, WoodcuttingSkillService>();
             services.AddSingleton<ICraftingSkillService, CraftingSkillService>();
             services.AddSingleton<IFarmingSkillService, FarmingSkillService>();

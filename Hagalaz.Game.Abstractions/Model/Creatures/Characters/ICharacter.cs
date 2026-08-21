@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.Clans;
@@ -92,17 +91,16 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// </summary>
         int FamiliarId { get; }
         /// <summary>
-        /// Creates and attaches the familiar script for this character.
+        /// Attaches an already-created familiar to this character.
         /// </summary>
-        /// <param name="owner">The NPC that owns the script.</param>
-        /// <param name="definition">The familiar's summoning definition.</param>
-        /// <param name="activator">The activator from the NPC's child scope.</param>
-        /// <returns>The created familiar script.</returns>
-        IFamiliarScript CreateFamiliar(INpc owner, SummoningDto definition, INpcScriptActivator activator);
+        /// <param name="familiar">The familiar script to attach.</param>
+        /// <param name="familiarId">The NPC identifier of the familiar.</param>
+        void AttachFamiliar(IFamiliarScript familiar, int familiarId);
         /// <summary>
-        /// Detaches the active familiar and clears its persisted identifier and pending state.
+        /// Detaches the specified familiar if it is still the active familiar.
         /// </summary>
-        void DetachFamiliar();
+        /// <param name="familiar">The familiar being removed.</param>
+        void DetachFamiliar(INpc familiar);
         /// <summary>
         /// Gets the special permissions and rights assigned to this character.
         /// </summary>

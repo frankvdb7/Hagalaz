@@ -1,5 +1,5 @@
 ﻿using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Builders.Npc;
+using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Cache.Logic;
@@ -15,9 +15,9 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
     /// </summary>
     public class SummoningSkillService : ISummoningSkillService
     {
-        private readonly INpcBuilder _npcBuilder;
+        private readonly IFamiliarFactory _familiarFactory;
 
-        public SummoningSkillService(INpcBuilder npcBuilder) => _npcBuilder = npcBuilder;
+        public SummoningSkillService(IFamiliarFactory familiarFactory) => _familiarFactory = familiarFactory;
 
         /// <summary>
         ///     Summons the specified FamiliarScript.
@@ -62,12 +62,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 return;
             }
 
-            _npcBuilder
-                .Create()
-                .WithId(def.NpcId)
-                .WithLocation(character.Location)
-                .WithScript((activator, owner) => character.CreateFamiliar(owner, def, activator))
-                .Spawn();
+            _familiarFactory.Spawn(character, def);
             character.Inventory.Remove(item, slot);
             character.Statistics.DamageSkill(StatisticsConstants.Summoning, def.SummonSpawnCost);
             character.Statistics.AddExperience(StatisticsConstants.Summoning, def.SummonExperience);

@@ -210,6 +210,8 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// </summary>
         public override void OnDestroy()
         {
+            Summoner.DetachFamiliar(Familiar);
+
             if (Summoner.IsDestroyed)
             {
                 return;

@@ -16,32 +16,33 @@ namespace Hagalaz.Services.GameWorld.Tests.Services;
 public sealed class NpcServiceTests
 {
     [TestMethod]
-    public async Task UnregisterFamiliar_ClearsSummonerStateAndAllowsResummon()
+    public async Task UnregisterDestroyedStaleFamiliar_DoesNotChangeActiveFamiliar()
     {
-        var familiarId = 6815;
-        var familiarScript = Substitute.For<IFamiliarScript>();
+        var familiarA = Substitute.For<INpc>();
+        var familiarB = Substitute.For<INpc>();
+        var familiarScriptA = Substitute.For<IFamiliarScript>();
+        var familiarScriptB = Substitute.For<IFamiliarScript>();
         var character = Substitute.For<ICharacter>();
-        character.FamiliarId.Returns(_ => familiarId);
-        character.FamiliarScript.Returns(_ => familiarId == 0 ? null! : familiarScript);
-        character.When(character => character.DetachFamiliar()).Do(_ => familiarId = 0);
-        familiarScript.Summoner.Returns(character);
+        character.FamiliarId.Returns(6816);
+        character.FamiliarScript.Returns(familiarScriptB);
+        familiarScriptA.Summoner.Returns(character);
+        familiarScriptA.Familiar.Returns(familiarA);
+        familiarScriptB.Familiar.Returns(familiarB);
 
-        var npc = Substitute.For<INpc>();
-        npc.IsDestroyed.Returns(false);
-        npc.Script.Returns(familiarScript);
+        familiarA.IsDestroyed.Returns(true);
+        familiarA.Script.Returns(familiarScriptA);
 
         var npcStore = new SuccessfulNpcStore();
         var npcService = CreateNpcService(npcStore);
 
         Assert.IsTrue(character.HasFamiliar());
 
-        await npcService.UnregisterAsync(npc);
+        await npcService.UnregisterAsync(familiarA);
 
-        Assert.IsFalse(character.HasFamiliar());
-        character.Received(1).DetachFamiliar();
-
-        familiarId = 6816;
+        Assert.AreSame(familiarScriptB, character.FamiliarScript);
+        Assert.AreEqual(6816, character.FamiliarId);
         Assert.IsTrue(character.HasFamiliar());
+        character.DidNotReceive().DetachFamiliar(Arg.Any<INpc>());
     }
 
     private static NpcService CreateNpcService(INpcStore npcStore)

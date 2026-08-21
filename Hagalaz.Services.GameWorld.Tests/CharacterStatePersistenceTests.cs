@@ -22,6 +22,7 @@ using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
@@ -89,19 +90,41 @@ public sealed class CharacterStatePersistenceTests
     public void DetachFamiliar_ClearsStateAndAllowsResummon()
     {
         var character = CreateCharacter(new TestStateService(), out _);
-        character.Hydrate(new HydratedFamiliarDto { FamiliarId = 6815 });
-        character.FamiliarScript = Substitute.For<IFamiliarScript>();
+        var familiar = Substitute.For<INpc>();
+        var familiarScript = Substitute.For<IFamiliarScript>();
+        familiarScript.Familiar.Returns(familiar);
+        character.AttachFamiliar(familiarScript, 6815);
 
         Assert.IsTrue(character.HasFamiliar());
 
-        character.DetachFamiliar();
+        character.DetachFamiliar(familiar);
 
         Assert.IsFalse(character.HasFamiliar());
         Assert.AreEqual(0, character.FamiliarId);
 
-        character.Hydrate(new HydratedFamiliarDto { FamiliarId = 6816 });
-        character.FamiliarScript = Substitute.For<IFamiliarScript>();
+        character.AttachFamiliar(familiarScript, 6816);
 
+        Assert.IsTrue(character.HasFamiliar());
+    }
+
+    [TestMethod]
+    public void DetachFamiliar_StaleNpcDoesNotClearNewerFamiliar()
+    {
+        var character = CreateCharacter(new TestStateService(), out _);
+        var familiarA = Substitute.For<INpc>();
+        var familiarB = Substitute.For<INpc>();
+        var scriptA = Substitute.For<IFamiliarScript>();
+        var scriptB = Substitute.For<IFamiliarScript>();
+        scriptA.Familiar.Returns(familiarA);
+        scriptB.Familiar.Returns(familiarB);
+
+        character.AttachFamiliar(scriptA, 6815);
+        character.AttachFamiliar(scriptB, 6816);
+
+        character.DetachFamiliar(familiarA);
+
+        Assert.AreSame(scriptB, character.FamiliarScript);
+        Assert.AreEqual(6816, character.FamiliarId);
         Assert.IsTrue(character.HasFamiliar());
     }
 
@@ -163,7 +186,6 @@ public sealed class CharacterStatePersistenceTests
             Options.Create(new SkillOptions()),
             scripts,
             Substitute.For<ICharacterScriptActivator>(),
-            Substitute.For<IFamiliarScriptProvider>(),
             stateService,
             Substitute.For<IMapRegionService>(),
             Substitute.For<IMapUpdateService>(),

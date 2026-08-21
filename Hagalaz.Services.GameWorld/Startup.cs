@@ -66,6 +66,7 @@ using Hagalaz.Services.GameWorld.Logic.Hydrators;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
 using Hagalaz.Services.GameWorld.Mediator;
 using Hagalaz.Services.GameWorld.Mediator.Consumers;
+using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Network.Consumers;
 using Hagalaz.Services.GameWorld.Network.Handshake;
 using Hagalaz.Services.GameWorld.Network.Handshake.Decoders;
@@ -251,6 +252,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IFamiliarScriptFactory, FamiliarScriptFactory>();
             services.AddScoped<INpcScriptFactory, NpcScriptMetaDataFactory>();
             services.AddScoped<INpcScriptActivator, NpcScriptActivator>();
+            services.AddScoped<FamiliarRestorationState>();
+            services.AddScoped<IFamiliarFactory, FamiliarFactory>();
             services.AddSingleton<INpcBuilder, NpcBuilder>();
 
             // map

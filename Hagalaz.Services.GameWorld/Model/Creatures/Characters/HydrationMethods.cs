@@ -21,7 +21,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         IHydratable<HydratedDetailsDto>,
         IHydratable<HydratedItemCollectionDto>,
         IHydratable<HydratedStatisticsDto>,
-        IHydratable<HydratedFamiliarDto>,
         IHydratable<HydratedMusicDto>,
         IHydratable<HydratedFarmingDto>,
         IHydratable<HydratedSlayerDto>,
@@ -83,10 +82,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (FamiliarScript is IHydratable<IReadOnlyList<HydratedItem>> familiarInventoryHydratable)
             {
                 familiarInventoryHydratable.Hydrate(familiarInventory);
-            }
-            else if (familiarInventory.Count > 0)
-            {
-                _familiarInventory = familiarInventory;
             }
         }
 
@@ -178,18 +173,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             return new HydratedStatisticsDto();
-        }
-
-        public void Hydrate(HydratedFamiliarDto hydration)
-        {
-            FamiliarId = hydration.FamiliarId;
-            _familiarScriptType = _familiarScriptProvider.FindFamiliarScriptTypeById(hydration.FamiliarId);
-            _familiarState = new HydratedFamiliar
-            {
-                TicksRemaining = hydration.TicksRemaining,
-                IsUsingSpecialMove = hydration.IsUsingSpecialMove,
-                SpecialMovePoints = hydration.SpecialMovePoints
-            };
         }
 
         HydratedFamiliarDto IDehydratable<HydratedFamiliarDto>.Dehydrate()

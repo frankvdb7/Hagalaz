@@ -263,9 +263,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
             Owner.QueueTask(new RsTask(() =>
                 {
-                    RegisterGlacyte(14304, center, (activator, owner) => activator.Create(typeof(EnduringGlacyte), owner, Owner));
-                    RegisterGlacyte(14303, left, (activator, owner) => activator.Create(typeof(SappingGlacyte), owner, Owner));
-                    RegisterGlacyte(14302, right, (activator, owner) => activator.Create(typeof(UnstableGlacyte), owner, Owner));
+                    RegisterGlacyte(14304, center, (activator, owner) => activator.CreateWithParent<EnduringGlacyte>(owner, Owner));
+                    RegisterGlacyte(14303, left, (activator, owner) => activator.CreateWithParent<SappingGlacyte>(owner, Owner));
+                    RegisterGlacyte(14302, right, (activator, owner) => activator.CreateWithParent<UnstableGlacyte>(owner, Owner));
                 },
                 CreatureHelper.CalculateTicksForClientTicks(delay)));
 
