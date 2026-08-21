@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
@@ -22,6 +23,51 @@ namespace Hagalaz.Services.GameWorld.Tests.Builders;
 [TestClass]
 public sealed class NpcBuilderTests
 {
+    [TestMethod]
+    public void Spawn_WhenRegistrationFails_DestroysNpcAndDoesNotReturnHandle()
+    {
+        var definition = new NpcDefinition(1)
+        {
+            BoundsType = BoundsType.Static,
+            DisplayName = "Test NPC",
+            WalksRandomly = false,
+        };
+        var npcService = Substitute.For<INpcService>();
+        npcService.FindNpcDefinitionById(definition.Id).Returns(definition);
+        npcService.RegisterAsync(Arg.Any<INpc>())
+            .Returns(_ => throw new InvalidOperationException("registration failed"));
+
+        var script = Substitute.For<INpcScript>();
+        var mapRegion = Substitute.For<IMapRegion>();
+        var mapRegionService = Substitute.For<IMapRegionService>();
+        mapRegionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>()).Returns(mapRegion);
+        var services = new ServiceCollection()
+            .AddSingleton(Substitute.For<ICreatureTaskService>())
+            .AddSingleton(Substitute.For<IEventManager>())
+            .AddSingleton(Substitute.For<IScopedGameMediator>())
+            .AddSingleton(Substitute.For<ISmartPathFinder>())
+            .AddSingleton(mapRegionService)
+            .AddSingleton(Substitute.For<IProjectilePathFinder>())
+            .AddSingleton<IOptions<CombatOptions>>(Options.Create(new CombatOptions()))
+            .AddSingleton(Substitute.For<IHitSplatBuilder>())
+            .AddSingleton(npcService)
+            .AddSingleton(Substitute.For<ILootService>())
+            .AddSingleton(Substitute.For<ILootGenerator>())
+            .AddSingleton(Substitute.For<IGroundItemBuilder>())
+            .AddSingleton(Substitute.For<INpcScriptProvider>())
+            .AddSingleton(Substitute.For<INpcScriptActivator>())
+            .BuildServiceProvider();
+        var builder = new NpcBuilder(services, services.GetRequiredService<INpcScriptProvider>());
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => builder.Create()
+            .WithId(definition.Id)
+            .WithLocation(new Location(3200, 3200, 0, 0))
+            .WithScript((_, _) => script)
+            .Spawn());
+
+        script.Received(1).OnDestroy();
+    }
+
     [TestMethod]
     public void Spawn_WithoutOptionalBoundsOrFaceDirection_BuildsAndRegistersNpc()
     {

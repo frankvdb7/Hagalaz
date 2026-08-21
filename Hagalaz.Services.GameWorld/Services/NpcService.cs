@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -30,7 +31,7 @@ namespace Hagalaz.Services.GameWorld.Services
             if (!await _npcStore.AddAsync(npc))
             {
                 _logger.LogWarning("Failed to add npc '{npc}'", npc);
-                return;
+                throw new InvalidOperationException($"Failed to add npc '{npc}'.");
             }
 
             await npc.OnRegistered();

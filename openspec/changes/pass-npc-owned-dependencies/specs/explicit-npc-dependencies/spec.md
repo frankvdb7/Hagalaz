@@ -75,8 +75,16 @@ Familiar creation and restoration MUST be coordinated by `IFamiliarFactory`. `IC
 - **WHEN** character hydration contains familiar and familiar-inventory data
 - **THEN** the hydrators store that data in scoped restoration state
 - **AND** the familiar factory resolves the definition and composes the owner-aware familiar during character registration
-- **AND** it applies the persisted familiar state and inventory before registration completes
+- **AND** the restored familiar's persisted runtime state, including remaining ticks and inventory, is effective after the complete registration and `OnSpawn` lifecycle
 - **AND** the character does not create or activate the familiar itself
+
+#### Scenario: Familiar registration failure rolls back active state
+
+- **WHEN** familiar script activation attaches a familiar to the character but NPC store registration rejects the NPC or NPC registration throws
+- **THEN** familiar spawning fails without returning a successful NPC handle
+- **AND** the character detaches that same familiar instance
+- **AND** failed restoration clears its scoped pending familiar state and inventory
+- **AND** a failed normal summon is not treated as a successful summon by its caller
 
 #### Scenario: Missing familiar definition rejects restoration atomically
 
@@ -95,6 +103,13 @@ The dependency refactor MUST preserve existing NPC spawn, unregister, script, mo
 - **WHEN** an NPC is spawned and later unregistered
 - **THEN** registration and removal use the same NPC service and child scope as before
 - **AND** script callbacks and scope disposal occur in the existing lifecycle order
+
+#### Scenario: Rejected NPC registration is not successful
+
+- **WHEN** the NPC store rejects an NPC during registration
+- **THEN** registration reports failure to the composition boundary
+- **AND** `NpcBuilder.Spawn()` does not return an NPC handle
+- **AND** the partially composed NPC is destroyed so its scope and owned lifecycle resources are released
 
 #### Scenario: NPC combat and loot retain behavior
 
@@ -115,3 +130,9 @@ The dependency refactor MUST preserve existing NPC spawn, unregister, script, mo
 - **WHEN** familiar A is replaced by familiar B and a delayed or duplicate removal for A is processed
 - **THEN** the generic NPC unregister path does not mutate character familiar state
 - **AND** identity-aware familiar detachment leaves B active
+
+#### Scenario: Familiar teardown releases summoner handlers
+
+- **WHEN** familiar A is dismissed and destroyed before familiar B is summoned
+- **THEN** A unregisters every event handler it registered on the summoner during its teardown
+- **AND** a subsequent combat-target event is handled only by B

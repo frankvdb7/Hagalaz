@@ -16,6 +16,17 @@ namespace Hagalaz.Services.GameWorld.Tests.Services;
 public sealed class NpcServiceTests
 {
     [TestMethod]
+    public async Task RegisterAsync_WhenStoreRejectsNpc_ThrowsAndDoesNotRegisterNpc()
+    {
+        var npc = Substitute.For<INpc>();
+        var npcService = CreateNpcService(new SuccessfulNpcStore(false));
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => npcService.RegisterAsync(npc));
+
+        await npc.DidNotReceive().OnRegistered();
+    }
+
+    [TestMethod]
     public async Task UnregisterDestroyedStaleFamiliar_DoesNotChangeActiveFamiliar()
     {
         var familiarA = Substitute.For<INpc>();
@@ -60,13 +71,13 @@ public sealed class NpcServiceTests
             Substitute.For<ILogger<NpcService>>());
     }
 
-    private sealed class SuccessfulNpcStore : INpcStore
+    private sealed class SuccessfulNpcStore(bool addResult = true) : INpcStore
     {
         public IAsyncEnumerable<INpc> FindAllAsync() => throw new NotSupportedException();
 
         public ValueTask<int> CountAsync() => throw new NotSupportedException();
 
-        public ValueTask<bool> AddAsync(INpc npc) => throw new NotSupportedException();
+        public ValueTask<bool> AddAsync(INpc npc) => new(addResult);
 
         public ValueTask<bool> RemoveAsync(INpc npc) => new(true);
 

@@ -22,8 +22,24 @@ public sealed class FamiliarFactory(
     ISummoningDefinitionStore summoningDefinitionStore,
     FamiliarRestorationState restorationState) : IFamiliarFactory
 {
-    public INpcHandle Spawn(ICharacter summoner, SummoningDto definition) =>
-        Configure(definition, summoner, (activator, owner) => CreateScript(summoner, owner, definition, activator)).Spawn();
+    public INpcHandle Spawn(ICharacter summoner, SummoningDto definition)
+    {
+        IFamiliarScript? script = null;
+
+        try
+        {
+            return Configure(definition, summoner, (activator, owner) =>
+            {
+                script = CreateScript(summoner, owner, definition, activator);
+                return script;
+            }).Spawn();
+        }
+        catch
+        {
+            DetachFamiliar(summoner, script);
+            throw;
+        }
+    }
 
     public bool TryRestore(ICharacter summoner)
     {
@@ -39,14 +55,38 @@ public sealed class FamiliarFactory(
             return false;
         }
 
+        IFamiliarScript? restoredScript = null;
+        INpcHandle? handle = null;
+
         try
         {
-            Configure(definition, summoner, (activator, owner) => RestoreScript(summoner, owner, definition, activator)).Spawn();
+            handle = Configure(definition, summoner, (activator, owner) =>
+            {
+                restoredScript = CreateScript(summoner, owner, definition, activator);
+                return restoredScript;
+            }).Spawn();
+
+            if (restoredScript is null)
+            {
+                throw new InvalidOperationException("The familiar NPC was not composed during registration.");
+            }
+
+            ApplyRestoredState(restoredScript);
+            restorationState.Clear();
             return true;
         }
         catch
         {
-            restorationState.Clear();
+            try
+            {
+                handle?.Unregister();
+            }
+            finally
+            {
+                DetachFamiliar(summoner, restoredScript);
+                restorationState.Clear();
+            }
+
             throw;
         }
     }
@@ -71,14 +111,8 @@ public sealed class FamiliarFactory(
         return script;
     }
 
-    private IFamiliarScript RestoreScript(
-        ICharacter summoner,
-        INpc owner,
-        SummoningDto definition,
-        INpcScriptActivator activator)
+    private void ApplyRestoredState(IFamiliarScript script)
     {
-        var script = Activate(summoner, owner, definition, activator);
-
         if (restorationState.Familiar is not null && script is IHydratable<HydratedFamiliar> hydratable)
         {
             hydratable.Hydrate(restorationState.Familiar);
@@ -88,10 +122,14 @@ public sealed class FamiliarFactory(
         {
             inventory.Hydrate(restorationState.Inventory);
         }
+    }
 
-        summoner.AttachFamiliar(script, definition.NpcId);
-        restorationState.Clear();
-        return script;
+    private static void DetachFamiliar(ICharacter summoner, IFamiliarScript? script)
+    {
+        if (script is not null)
+        {
+            summoner.DetachFamiliar(script.Familiar);
+        }
     }
 
     private IFamiliarScript Activate(

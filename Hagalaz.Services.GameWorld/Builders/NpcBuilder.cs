@@ -80,8 +80,20 @@ namespace Hagalaz.Services.GameWorld.Builders
         {
             var npc = Build();
             var npcService = _serviceProvider.GetRequiredService<INpcService>();
-            npcService.RegisterAsync(npc).Wait();
-            return new NpcHandle(npc, npcService);
+            try
+            {
+                npcService.RegisterAsync(npc).GetAwaiter().GetResult();
+                return new NpcHandle(npc, npcService);
+            }
+            catch
+            {
+                if (!npc.IsDestroyed)
+                {
+                    npc.Destroy();
+                }
+
+                throw;
+            }
         }
 
         public INpcOptional WithMinimumBounds(ILocation location)
