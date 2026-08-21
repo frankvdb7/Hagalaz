@@ -187,7 +187,7 @@ pnpm run launcher:build
 
 ### Backend
 
-The backend has a suite of unit tests that can be run by executing the following command from the root directory:
+The backend has a suite of unit tests. To run them, execute the following command from the root directory:
 
 ```bash
 dotnet test Hagalaz.sln
