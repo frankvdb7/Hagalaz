@@ -44,11 +44,12 @@ The NPC composition graph MUST expose ordinary service dependencies through type
 
 The common NPC script path MUST receive its NPC service, path finder, and character-widget activation capability through required typed constructor inputs. Runtime-selected NPC scripts and NPC-related dialogue/widget scripts MUST NOT use an arbitrary service provider at the point of use.
 
-#### Scenario: NPC script initializes with scoped services
+#### Scenario: NPC script activates with scoped services
 
 - **WHEN** an NPC is composed with a runtime-selected script
 - **THEN** the script is constructed with the NPC service from the same child scope, a path finder, and the typed widget script activator
-- **AND** the script binds the NPC through `Initialize(INpc owner)`
+- **AND** the owner is supplied through the owner-aware script construction or activation boundary
+- **AND** any additional domain relationship values are supplied as typed activation arguments
 - **AND** the script can use those inputs without accessing `INpc.ServiceProvider`
 
 #### Scenario: NPC dialogue creates a character-scoped widget script
@@ -72,3 +73,10 @@ The dependency refactor MUST preserve existing NPC spawn, unregister, script, mo
 - **WHEN** an NPC attacks, dies, or produces loot
 - **THEN** the same combat calculations, callbacks, loot table, loot generator, and ground-item builder are used
 - **AND** only dependency acquisition changes
+
+#### Scenario: Familiar removal clears character state
+
+- **WHEN** a familiar is dismissed, despawns, or is otherwise unregistered
+- **THEN** the character's active familiar script and familiar ID are cleared together
+- **AND** `HasFamiliar()` returns `false`
+- **AND** the character can summon another familiar

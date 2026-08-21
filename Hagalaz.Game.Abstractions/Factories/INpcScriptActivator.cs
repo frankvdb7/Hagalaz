@@ -13,7 +13,8 @@ namespace Hagalaz.Game.Abstractions.Factories
         /// </summary>
         /// <param name="scriptType">The concrete NPC script type.</param>
         /// <param name="owner">The NPC that will own the script.</param>
+        /// <param name="arguments">Additional typed runtime constructor arguments.</param>
         /// <returns>The created NPC script.</returns>
-        INpcScript Create(Type scriptType, INpc owner);
+        INpcScript Create(Type scriptType, INpc owner, params object[] arguments);
     }
 }

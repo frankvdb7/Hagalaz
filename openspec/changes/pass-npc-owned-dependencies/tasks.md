@@ -12,9 +12,9 @@
 
 ## 3. Migrate related NPC script paths and callers
 
-- [x] 3.1 Update familiar, player-NPC, and specialized NPC scripts to receive their required services directly, and defer familiar restoration until the owner-aware NPC composition step.
+- [x] 3.1 Update familiar, player-NPC, and specialized NPC scripts to receive their required services directly, defer familiar restoration until the owner-aware NPC composition step, and use the startup-loaded summoning definition store for synchronous registration.
 - [x] 3.2 Replace concrete NPC-script dialogue/widget provider calls with the typed widget activator helper and update all affected callers.
-- [x] 3.3 Update focused construction tests (including movement, unregister, omitted optional NPC values, and constructor/attachment setup) and verify existing script, spawn, and lifecycle suites remain green.
+- [x] 3.3 Update focused construction and familiar lifecycle tests (including movement, unregister, omitted optional NPC values, constructor/attachment setup, and dismiss/despawn state reset) and verify existing script, spawn, and lifecycle suites remain green.
 
 ## 4. Validate the change
 

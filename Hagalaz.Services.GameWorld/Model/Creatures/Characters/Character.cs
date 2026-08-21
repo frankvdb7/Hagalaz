@@ -393,6 +393,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return script;
         }
 
+        public void DetachFamiliar()
+        {
+            FamiliarScript = null!;
+            FamiliarId = 0;
+            _familiarScriptType = null;
+            _familiarState = null;
+            _familiarInventory = null;
+        }
+
         /// <summary>
         /// Character's cannot be destroyed,
         /// they must be unlinked manually.

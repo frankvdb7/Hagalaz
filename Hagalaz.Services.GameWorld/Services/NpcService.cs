@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
@@ -38,6 +39,11 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async Task UnregisterAsync(INpc npc)
         {
+            if (npc.Script is IFamiliarScript familiarScript)
+            {
+                familiarScript.Summoner.DetachFamiliar();
+            }
+
             if (npc.IsDestroyed)
             {
                 _logger.LogWarning("Failed to unregister destroyed npc '{npc}'", npc);

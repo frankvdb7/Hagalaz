@@ -12,6 +12,7 @@ The change must preserve that lifetime boundary, runtime-selected script types, 
 - Make `Npc` and its owned movement, rendering, appearance, statistics, combat, and handle dependencies explicit.
 - Make the common NPC script services and the NPC owner required constructor dependencies.
 - Preserve construction order, scope identity, spawn/unregister behavior, and gameplay results.
+- Keep familiar character registration free of synchronous database I/O by using startup-loaded summoning definitions.
 - Leave the general `Creature` hierarchy and unrelated provider-based services unchanged.
 
 **Non-Goals:**
@@ -28,13 +29,15 @@ The change must preserve that lifetime boundary, runtime-selected script types, 
 
 3. **Pass each owned component its actual services.** `Movement`, `NpcAppearance`, `NpcStatistics`, and `NpcCombat` receive only the services they use. `NpcCombat` uses the explicit `CreatureCombat` constructor already established by the character dependency work. A shared `NpcDependencies` object was rejected because it would hide the dependency graph behind a service bag.
 
-4. **Inject shared script services and the owner through construction.** `NpcBuilder` supplies a narrow `INpcScriptActivator` to `Npc`, and the activator creates the selected script with the newly constructed NPC as an explicit runtime argument. `NpcScriptBase` therefore receives `INpc`, `INpcService`, `IPathFinder`, and `IWidgetScriptActivator` through its required constructor, stores them for callbacks, and exposes typed `CreateWidgetScript<T>`. The generic script initialization lifecycle method is removed. Setup that belongs to a concrete NPC is performed in its constructor, while familiar setup is performed by the domain-specific `IFamiliarScript.AttachToSummoner` operation before hydration and registration. `OnCreate` remains an independent overridable registration callback. A service bag, `IServiceProvider` in scripts, and optional constructor dependencies were rejected.
+4. **Inject shared script services and runtime values through construction.** `NpcBuilder` supplies a narrow `INpcScriptActivator` to `Npc`, and the activator creates the selected script with the newly constructed NPC as an explicit runtime argument. It also accepts additional typed runtime values for domain relationships, such as a Glacyte's parent Glacor; all ordinary services remain resolved from the NPC's own child scope. `NpcScriptBase` therefore receives `INpc`, `INpcService`, `IPathFinder`, and `IWidgetScriptActivator` through its required constructor, stores them for callbacks, and exposes typed `CreateWidgetScript<T>`. The generic script initialization lifecycle method is removed. Setup that belongs to a concrete NPC is performed in its constructor, while familiar setup is performed by the domain-specific `IFamiliarScript.AttachToSummoner` operation before hydration and registration. `OnCreate` remains an independent overridable registration callback. A service bag, `IServiceProvider` in scripts, and optional constructor dependencies were rejected.
 
 5. **Keep script-specific dependencies in script constructors.** Familiar scripts receive their item builder directly, player-NPC scripts receive `INpcService`, and specialized NPC scripts receive their map, loot, and path-finding services directly. Existing constructors remain required arguments; no optional compatibility overloads are added.
 
 6. **Pass the resolved NPC service into `NpcHandle`.** The builder already owns the child-scope service resolution during spawn. The handle retains that typed service instead of resolving it again from `Npc` when unregistering. The handle does not create or own a second scope.
 
 7. **Keep familiar restoration compatible with owner-first construction.** Character hydration stores the familiar type and persisted state until the familiar NPC is composed. The character then creates the owner-aware script through the same typed activation boundary, attaches its summoner data and familiar-specific handlers/inventory, applies persisted state, and exposes the script before NPC registration. This avoids constructing an NPC script without its required owner or adding a generic owner-binding lifecycle API.
+
+8. **Use a startup-loaded summoning definition store for synchronous familiar registration.** `FamiliarCharacterScript.OnRegistered` remains synchronous, so it reads the familiar definition from a singleton store populated by the existing startup service executor. The general `ISummoningService` remains asynchronous for skill operations; blocking an EF query from a character callback is not an acceptable lookup path.
 
 ## Risks / Trade-offs
 

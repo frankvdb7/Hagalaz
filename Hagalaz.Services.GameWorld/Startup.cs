@@ -385,6 +385,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IPrayerRepository, PrayerRepository>();
             services.AddScoped<IRunecraftingService, RunecraftingService>();
             services.AddScoped<IRunecraftingRepository, RunecraftingRepository>();
+            services.AddSingleton<SummoningDefinitionStore>();
+            services.AddSingleton<ISummoningDefinitionStore>(provider => provider.GetRequiredService<SummoningDefinitionStore>());
             services.AddScoped<ISummoningDefinitionRepository, SummoningDefinitionRepository>();
             services.AddScoped<ISummoningService, SummoningService>();
             services.AddScoped<IFishingSpotDefinitionRepository, FishingSpotDefinitionRepository>();
@@ -745,6 +747,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<ItemStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<LootStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<NpcDefinitionStore>());
+            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<SummoningDefinitionStore>());
 
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<ItemScriptProvider>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<GameObjectScriptProvider>());

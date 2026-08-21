@@ -28,6 +28,7 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Configuration;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Providers;
@@ -82,6 +83,26 @@ public sealed class CharacterStatePersistenceTests
 
         Assert.IsTrue(restored.HasState<BowEquippedState>());
         equipmentScript.Received(1).OnEquipped(Arg.Any<IItem>(), restored);
+    }
+
+    [TestMethod]
+    public void DetachFamiliar_ClearsStateAndAllowsResummon()
+    {
+        var character = CreateCharacter(new TestStateService(), out _);
+        character.Hydrate(new HydratedFamiliarDto { FamiliarId = 6815 });
+        character.FamiliarScript = Substitute.For<IFamiliarScript>();
+
+        Assert.IsTrue(character.HasFamiliar());
+
+        character.DetachFamiliar();
+
+        Assert.IsFalse(character.HasFamiliar());
+        Assert.AreEqual(0, character.FamiliarId);
+
+        character.Hydrate(new HydratedFamiliarDto { FamiliarId = 6816 });
+        character.FamiliarScript = Substitute.For<IFamiliarScript>();
+
+        Assert.IsTrue(character.HasFamiliar());
     }
 
     private static Character CreateCharacter(TestStateService stateService, out IEquipmentScript equipmentScript)

@@ -100,6 +100,10 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// <returns>The created familiar script.</returns>
         IFamiliarScript CreateFamiliar(INpc owner, SummoningDto definition, INpcScriptActivator activator);
         /// <summary>
+        /// Detaches the active familiar and clears its persisted identifier and pending state.
+        /// </summary>
+        void DetachFamiliar();
+        /// <summary>
         /// Gets the special permissions and rights assigned to this character.
         /// </summary>
         Permission Permissions { get; }

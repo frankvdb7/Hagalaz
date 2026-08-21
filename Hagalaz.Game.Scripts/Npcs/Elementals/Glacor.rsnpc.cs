@@ -98,9 +98,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         private readonly IRegionUpdateBuilder _regionUpdateBuilder;
         private readonly IProjectileBuilder _projectileBuilder;
         private readonly IHitSplatBuilder _hitSplatBuilder;
-        private readonly INpcService _npcService;
-        private readonly ISimplePathFinder _pathFinder;
-        private readonly IWidgetScriptActivator _widgetScriptActivator;
 
         public Glacor(INpc owner, INpcBuilder npcBuilder, IRegionUpdateBuilder regionUpdateBuilder, IProjectileBuilder projectileBuilder, IHitSplatBuilder hitSplatBuilder,
             INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
@@ -110,9 +107,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             _regionUpdateBuilder = regionUpdateBuilder;
             _projectileBuilder = projectileBuilder;
             _hitSplatBuilder = hitSplatBuilder;
-            _npcService = npcService;
-            _pathFinder = pathFinder;
-            _widgetScriptActivator = widgetScriptActivator;
             GenerateAttackType(null);
         }
 
@@ -269,9 +263,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
             Owner.QueueTask(new RsTask(() =>
                 {
-                    RegisterGlacyte(14304, center, (_, owner) => new EnduringGlacyte(owner, Owner, _npcService, _pathFinder, _widgetScriptActivator));
-                    RegisterGlacyte(14303, left, (_, owner) => new SappingGlacyte(owner, Owner, _npcService, _pathFinder, _widgetScriptActivator));
-                    RegisterGlacyte(14302, right, (_, owner) => new UnstableGlacyte(owner, Owner, _hitSplatBuilder, _npcService, _pathFinder, _widgetScriptActivator));
+                    RegisterGlacyte(14304, center, (activator, owner) => activator.Create(typeof(EnduringGlacyte), owner, Owner));
+                    RegisterGlacyte(14303, left, (activator, owner) => activator.Create(typeof(SappingGlacyte), owner, Owner));
+                    RegisterGlacyte(14302, right, (activator, owner) => activator.Create(typeof(UnstableGlacyte), owner, Owner));
                 },
                 CreatureHelper.CalculateTicksForClientTicks(delay)));
 

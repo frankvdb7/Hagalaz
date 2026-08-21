@@ -1,6 +1,7 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 
 namespace Hagalaz.Game.Scripts.Characters
@@ -8,11 +9,14 @@ namespace Hagalaz.Game.Scripts.Characters
     public class FamiliarCharacterScript : CharacterScriptBase, IDefaultCharacterScript
     {
         private readonly INpcBuilder _npcBuilder;
-        private readonly ISummoningService _summoningService;
+        private readonly ISummoningDefinitionStore _summoningDefinitionStore;
 
-        public FamiliarCharacterScript(ICharacterContextAccessor contextAccessor, INpcBuilder npcBuilder, ISummoningService summoningService)
+        public FamiliarCharacterScript(
+            ICharacterContextAccessor contextAccessor,
+            INpcBuilder npcBuilder,
+            ISummoningDefinitionStore summoningDefinitionStore)
             : base(contextAccessor) =>
-            (_npcBuilder, _summoningService) = (npcBuilder, summoningService);
+            (_npcBuilder, _summoningDefinitionStore) = (npcBuilder, summoningDefinitionStore);
 
         protected override void Initialize() { }
 
@@ -23,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 return;
             }
 
-            var definition = _summoningService.FindDefinitionByNpcId(Character.FamiliarId).GetAwaiter().GetResult();
+            var definition = _summoningDefinitionStore.FindByNpcId(Character.FamiliarId);
             if (definition is null)
             {
                 return;
