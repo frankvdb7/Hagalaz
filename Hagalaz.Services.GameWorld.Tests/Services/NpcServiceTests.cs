@@ -24,6 +24,7 @@ public sealed class NpcServiceTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => npcService.RegisterAsync(npc));
 
         await npc.DidNotReceive().OnRegistered();
+        npc.Received(1).Destroy();
     }
 
     [TestMethod]
@@ -40,6 +41,7 @@ public sealed class NpcServiceTests
 
         Assert.AreSame(expectedException, actualException);
         Assert.AreSame(npc, npcStore.RemovedNpc);
+        npc.Received(1).Destroy();
     }
 
     [TestMethod]

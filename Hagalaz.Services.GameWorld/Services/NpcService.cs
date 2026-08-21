@@ -31,6 +31,7 @@ namespace Hagalaz.Services.GameWorld.Services
             if (!await _npcStore.AddAsync(npc))
             {
                 _logger.LogWarning("Failed to add npc '{npc}'", npc);
+                DestroyFailedRegistration(npc);
                 throw new InvalidOperationException($"Failed to add npc '{npc}'.");
             }
 
@@ -51,8 +52,29 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     _logger.LogError(rollbackException, "Failed to roll back npc registration for '{npc}'", npc);
                 }
+                finally
+                {
+                    DestroyFailedRegistration(npc);
+                }
 
                 throw;
+            }
+        }
+
+        private void DestroyFailedRegistration(INpc npc)
+        {
+            if (npc.IsDestroyed)
+            {
+                return;
+            }
+
+            try
+            {
+                npc.Destroy();
+            }
+            catch (Exception destructionException)
+            {
+                _logger.LogError(destructionException, "Failed to destroy npc after registration failure '{npc}'", npc);
             }
         }
 
