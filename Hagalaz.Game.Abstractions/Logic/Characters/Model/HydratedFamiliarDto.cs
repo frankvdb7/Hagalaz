@@ -1,4 +1,4 @@
-﻿namespace Hagalaz.Services.GameWorld.Logic.Characters.Model
+namespace Hagalaz.Game.Abstractions.Logic.Characters.Model
 {
     public record HydratedFamiliarDto
     {

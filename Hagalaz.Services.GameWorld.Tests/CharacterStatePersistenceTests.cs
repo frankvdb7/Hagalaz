@@ -16,6 +16,7 @@ using Hagalaz.Game.Abstractions.Features;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Logic.Skills;
@@ -128,23 +129,26 @@ public sealed class CharacterStatePersistenceTests
     }
 
     [TestMethod]
-    public void FamiliarHydration_StoresPendingData()
+    public void FamiliarHydration_ForwardsDataToCharacterScript()
     {
-        var character = CreateCharacter(new TestStateService(), out _);
+        var familiarScript = Substitute.For<IDefaultCharacterScript, IHydratable<HydratedFamiliarDto>>();
+        var character = CreateCharacter(new TestStateService(), out _, new[] { familiarScript });
         var hydrator = new FamiliarHydrator();
+        var hydration = new HydratedFamiliarDto { FamiliarId = 6815, TicksRemaining = 50 };
 
         hydrator.Hydrate(character, new CharacterModel
         {
-            Familiar = new HydratedFamiliarDto { FamiliarId = 6815, TicksRemaining = 50 }
+            Familiar = hydration
         });
 
         Assert.IsNull(character.FamiliarScript);
-        Assert.AreEqual(6815, character.PendingFamiliarId);
+        ((IHydratable<HydratedFamiliarDto>)familiarScript).Received(1).Hydrate(hydration);
     }
 
     private static Character CreateCharacter(
         TestStateService stateService,
-        out IEquipmentScript equipmentScript)
+        out IEquipmentScript equipmentScript,
+        IEnumerable<IDefaultCharacterScript>? defaultScripts = null)
     {
         var serviceProvider = Substitute.For<IServiceProvider>();
         var serviceScope = Substitute.For<IServiceScope>();
@@ -166,7 +170,7 @@ public sealed class CharacterStatePersistenceTests
         bodyDataRepository.BodySlotCount.Returns(14);
 
         var scripts = Substitute.For<IDefaultCharacterScriptProvider>();
-        scripts.GetAllScripts().Returns(Array.Empty<IDefaultCharacterScript>());
+        scripts.GetAllScripts().Returns(defaultScripts ?? Array.Empty<IDefaultCharacterScript>());
 
         Register(serviceProvider, Substitute.For<ICreatureTaskService>());
         Register(serviceProvider, Substitute.For<IScopedGameMediator>());

@@ -1,5 +1,7 @@
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Logic.Characters.Model;
+using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -19,10 +21,10 @@ namespace Hagalaz.Game.Scripts.Tests.Characters;
 public sealed class FamiliarCharacterScriptTests
 {
     [TestMethod]
-    public void RestoredFamiliar_WhenPendingHydrationFails_IsNotActivatedOrAttached()
+    public void RestoredFamiliar_WhenHydrationFails_IsNotActivatedOrAttached()
     {
         var character = Substitute.For<ICharacter>();
-        var familiar = Substitute.For<IFamiliarScript>();
+        var familiar = Substitute.For<IFamiliarScript, IHydratable<HydratedFamiliar>>();
         var location = Substitute.For<ILocation>();
         var context = Substitute.For<ICharacterContext>();
         var contextAccessor = Substitute.For<ICharacterContextAccessor>();
@@ -37,10 +39,11 @@ public sealed class FamiliarCharacterScriptTests
         Func<INpcScriptActivator, INpc, INpcScript>? scriptFactory = null;
         var expectedException = new InvalidOperationException("familiar hydration failed");
 
-        character.PendingFamiliarId.Returns(6815);
         character.Location.Returns(location);
         character.FamiliarScript.Returns(_ => null!);
-        character.When(x => x.ApplyPendingFamiliar(familiar)).Do(_ => throw expectedException);
+        ((IHydratable<HydratedFamiliar>)familiar)
+            .When(x => x.Hydrate(Arg.Any<HydratedFamiliar>()))
+            .Do(_ => throw expectedException);
         context.Character.Returns(character);
         contextAccessor.Context.Returns(context);
         builder.Create().Returns(npcId);
@@ -50,7 +53,9 @@ public sealed class FamiliarCharacterScriptTests
         scriptProvider.FindFamiliarScriptTypeById(6815).Returns(scriptType);
         summoningService.FindDefinitionByNpcIdSync(6815).Returns(definition);
 
-        new FamiliarCharacterScript(contextAccessor, builder, scriptProvider, summoningService).OnRegistered();
+        var script = new FamiliarCharacterScript(contextAccessor, builder, scriptProvider, summoningService);
+        script.Hydrate(new HydratedFamiliarDto { FamiliarId = 6815 });
+        script.OnRegistered();
 
         var owner = Substitute.For<INpc>();
         var activator = Substitute.For<INpcScriptActivator>();
@@ -66,10 +71,14 @@ public sealed class FamiliarCharacterScriptTests
         character.DidNotReceive().RegisterEventHandler<CreatureDiedEvent>(Arg.Any<EventHappened<CreatureDiedEvent>>());
         character.DidNotReceive().RegisterEventHandler<FamiliarDismissEvent>(Arg.Any<EventHappened<FamiliarDismissEvent>>());
         character.DidNotReceive().RegisterEventHandler<CreatureSetCombatTargetEvent>(Arg.Any<EventHappened<CreatureSetCombatTargetEvent>>());
+
+        script.OnRegistered();
+
+        builder.Received(1).Create();
     }
 
     [TestMethod]
-    public void OnRegistered_WhenFamiliarDefinitionIsMissing_ClearsPendingRestoration()
+    public void OnRegistered_WhenFamiliarDefinitionIsMissing_DiscardsHydratedData()
     {
         var character = Substitute.For<ICharacter>();
         var builder = Substitute.For<INpcBuilder>();
@@ -78,22 +87,28 @@ public sealed class FamiliarCharacterScriptTests
         var scriptProvider = Substitute.For<IFamiliarScriptProvider>();
         var summoningService = Substitute.For<ISummoningService>();
 
-        character.PendingFamiliarId.Returns(6815);
         context.Character.Returns(character);
         contextAccessor.Context.Returns(context);
 
-        new FamiliarCharacterScript(contextAccessor, builder, scriptProvider, summoningService).OnRegistered();
+        var script = new FamiliarCharacterScript(contextAccessor, builder, scriptProvider, summoningService);
+        script.Hydrate(new HydratedFamiliarDto { FamiliarId = 6815 });
+        script.OnRegistered();
 
-        character.Received(1).ClearPendingFamiliar();
         builder.DidNotReceive().Create();
         scriptProvider.DidNotReceive().FindFamiliarScriptTypeById(Arg.Any<int>());
+
+        summoningService.FindDefinitionByNpcIdSync(6815).Returns(new SummoningDto { NpcId = 6815 });
+        script.OnRegistered();
+
+        summoningService.Received(1).FindDefinitionByNpcIdSync(6815);
+        builder.DidNotReceive().Create();
     }
 
     [TestMethod]
     public void OnRegistered_RestoresHydratedFamiliarThroughNpcBuilder()
     {
         var character = Substitute.For<ICharacter>();
-        var familiar = Substitute.For<IFamiliarScript>();
+        var familiar = Substitute.For<IFamiliarScript, IHydratable<HydratedFamiliar>, IHydratable<IReadOnlyList<HydratedItem>>>();
         var location = Substitute.For<ILocation>();
         var context = Substitute.For<ICharacterContext>();
         var contextAccessor = Substitute.For<ICharacterContextAccessor>();
@@ -107,7 +122,6 @@ public sealed class FamiliarCharacterScriptTests
         var scriptType = typeof(DefaultFamiliarScript);
         Func<INpcScriptActivator, INpc, INpcScript>? scriptFactory = null;
 
-        character.PendingFamiliarId.Returns(6815);
         character.Location.Returns(location);
         context.Character.Returns(character);
         contextAccessor.Context.Returns(context);
@@ -118,7 +132,23 @@ public sealed class FamiliarCharacterScriptTests
         scriptProvider.FindFamiliarScriptTypeById(6815).Returns(scriptType);
         summoningService.FindDefinitionByNpcIdSync(6815).Returns(definition);
 
-        new FamiliarCharacterScript(contextAccessor, builder, scriptProvider, summoningService).OnRegistered();
+        var script = new FamiliarCharacterScript(contextAccessor, builder, scriptProvider, summoningService);
+        var restoredState = new HydratedFamiliar
+        {
+            TicksRemaining = 37,
+            SpecialMovePoints = 12,
+            IsUsingSpecialMove = true
+        };
+        var restoredInventory = new[] { new HydratedItem(995, 3, 0, null) };
+        script.Hydrate(new HydratedFamiliarDto
+        {
+            FamiliarId = 6815,
+            TicksRemaining = restoredState.TicksRemaining,
+            SpecialMovePoints = restoredState.SpecialMovePoints,
+            IsUsingSpecialMove = restoredState.IsUsingSpecialMove
+        });
+        script.Hydrate(restoredInventory);
+        script.OnRegistered();
 
         optional.Received(1).WithScript(Arg.Any<Func<INpcScriptActivator, INpc, INpcScript>>());
         optional.Received(1).Spawn();
@@ -130,7 +160,8 @@ public sealed class FamiliarCharacterScriptTests
 
         Received.InOrder(() =>
         {
-            character.ApplyPendingFamiliar(familiar);
+            ((IHydratable<HydratedFamiliar>)familiar).Hydrate(restoredState);
+            ((IHydratable<IReadOnlyList<HydratedItem>>)familiar).Hydrate(restoredInventory);
             familiar.AttachToSummoner(character, definition);
             character.AttachFamiliar(familiar);
         });

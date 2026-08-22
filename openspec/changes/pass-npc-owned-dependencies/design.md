@@ -19,7 +19,7 @@ composition and preserving the existing lifecycle.
 
 **Non-Goals:**
 
-- Replacing the existing familiar restoration behavior with a new subsystem. Hydration may stage persisted familiar data until the owner-aware NPC composition boundary can create the script.
+- Replacing the existing familiar restoration behavior with a new subsystem. The existing familiar character script may retain persisted familiar data until the owner-aware NPC composition boundary can create the script.
 - Removing `IServiceProvider` from the shared `Creature` hierarchy or unrelated
   graphs.
 - Replacing script metadata providers, adding a service bag, or changing game
@@ -57,11 +57,12 @@ composition and preserving the existing lifecycle.
    matching active NPC from its summoner. `NpcService` remains generic.
 
 7. **Preserve familiar restoration without ownerless scripts.**
-   `FamiliarHydrator` and character hydration retain the persisted familiar
-   data as pending data. `FamiliarCharacterScript` composes the familiar
-   through `NpcBuilder`, attaches the summoner, and applies the pending state
-   through the existing hydration contracts. No familiar factory, restoration
-   coordinator, or persistence state store is added.
+   `FamiliarHydrator` forwards persisted familiar data through the existing
+   hydration contracts. `FamiliarCharacterScript` retains that data locally,
+   composes the familiar through `NpcBuilder`, attaches the summoner, and
+   applies the state through the existing familiar hydration contracts. No
+   familiar factory, restoration coordinator, or persistence state store is
+   added.
 
 ## Risks / Trade-offs
 

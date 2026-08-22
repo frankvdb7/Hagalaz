@@ -127,8 +127,8 @@ a new subsystem.
 
 - **WHEN** character hydration contains a persisted familiar
 - **THEN** `FamiliarHydrator` invokes the existing familiar hydration contract
-- **AND** hydration retains the persisted familiar data without constructing
-  an ownerless familiar script
+- **AND** the existing familiar character script retains the persisted familiar
+  data without constructing an ownerless familiar script
 - **AND** the character's familiar registration script composes the familiar
   through `NpcBuilder` with the newly-created NPC as owner
 - **AND** the persisted familiar runtime state and inventory are effective

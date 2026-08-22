@@ -205,8 +205,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <value>The familiar script.</value>
         public IFamiliarScript FamiliarScript { get; private set; }
 
-        public int PendingFamiliarId => _pendingFamiliar?.FamiliarId ?? 0;
-
         /// <summary>
         /// Contains the previous display name.
         /// </summary>
@@ -362,10 +360,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             FamiliarScript = familiar;
         }
-
-        public void ApplyPendingFamiliar(IFamiliarScript familiar) => ApplyPendingFamiliarData(familiar);
-
-        public void ClearPendingFamiliar() => ClearPendingFamiliarData();
 
         public void DetachFamiliar(INpc familiar)
         {

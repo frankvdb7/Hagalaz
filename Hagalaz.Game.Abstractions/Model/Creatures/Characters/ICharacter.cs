@@ -86,20 +86,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// </summary>
         IFamiliarScript FamiliarScript { get; }
         /// <summary>
-        /// Gets the identifier of a familiar staged during character hydration.
-        /// </summary>
-        int PendingFamiliarId { get; }
-        /// <summary>
-        /// Applies staged familiar restoration data to a newly-created familiar.
-        /// </summary>
-        /// <param name="familiar">The familiar receiving the staged data.</param>
-        void ApplyPendingFamiliar(IFamiliarScript familiar);
-
-        /// <summary>
-        /// Discards staged familiar hydration data when restoration cannot proceed.
-        /// </summary>
-        void ClearPendingFamiliar();
-        /// <summary>
         /// Attaches an already-created familiar to this character.
         /// </summary>
         /// <param name="familiar">The familiar script to attach.</param>

@@ -40,40 +40,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         IDehydratable<HydratedProfileDto>,
         IDehydratable<HydratedStateDto>
     {
-        private HydratedFamiliarDto? _pendingFamiliar;
-        private IReadOnlyList<HydratedItem>? _pendingFamiliarInventory;
-
-        private void ApplyPendingFamiliarData(IFamiliarScript familiar)
-        {
-            try
-            {
-                if (_pendingFamiliar is { } hydration && familiar is IHydratable<HydratedFamiliar> hydratable)
-                {
-                    hydratable.Hydrate(new HydratedFamiliar
-                    {
-                        TicksRemaining = hydration.TicksRemaining,
-                        IsUsingSpecialMove = hydration.IsUsingSpecialMove,
-                        SpecialMovePoints = hydration.SpecialMovePoints
-                    });
-                }
-
-                if (_pendingFamiliarInventory is not null && familiar is IHydratable<IReadOnlyList<HydratedItem>> inventory)
-                {
-                    inventory.Hydrate(_pendingFamiliarInventory);
-                }
-            }
-            finally
-            {
-                ClearPendingFamiliarData();
-            }
-        }
-
-        private void ClearPendingFamiliarData()
-        {
-            _pendingFamiliar = null;
-            _pendingFamiliarInventory = null;
-        }
-
         public void Hydrate(HydratedAppearanceDto hydration)
         {
             if (Appearance is IHydratable<HydratedAppearanceDto> hydratable)
@@ -112,14 +78,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 moneyPouch.Hydrate(hydration.MoneyPouch);
             }
 
-            var familiarInventory = hydration.FamiliarInventory.Select(item => new HydratedItem(item.ItemId, item.Count, item.SlotId, item.ExtraData)).ToList();
+            var familiarInventory = hydration.FamiliarInventory
+                .Select(item => new HydratedItem(item.ItemId, item.Count, item.SlotId, item.ExtraData))
+                .ToList();
             if (FamiliarScript is IHydratable<IReadOnlyList<HydratedItem>> familiarInventoryHydratable)
             {
                 familiarInventoryHydratable.Hydrate(familiarInventory);
             }
             else
             {
-                _pendingFamiliarInventory = familiarInventory;
+                GetScripts().OfType<IHydratable<IReadOnlyList<HydratedItem>>>().FirstOrDefault()?.Hydrate(familiarInventory);
             }
         }
 
@@ -133,7 +101,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(HydratedFamiliarDto hydration)
         {
-            _pendingFamiliar = hydration;
+            GetScripts().OfType<IHydratable<HydratedFamiliarDto>>().FirstOrDefault()?.Hydrate(hydration);
         }
 
         HydratedAppearanceDto IDehydratable<HydratedAppearanceDto>.Dehydrate()

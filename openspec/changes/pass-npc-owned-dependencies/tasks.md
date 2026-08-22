@@ -20,8 +20,9 @@
 ## 3. Migrate related NPC script paths and callers
 
 - [x] 3.1 Update familiar and specialized NPC scripts to receive required
-  services directly, preserve familiar hydration/respawn through pending data,
-  and adapt active familiar summoning within the NPC composition boundary.
+  services directly, preserve familiar hydration/respawn through the existing
+  familiar character lifecycle, and adapt active familiar summoning within the
+  NPC composition boundary.
 - [x] 3.2 Replace concrete NPC-script dialogue/widget provider calls with the
   typed widget activator helper and update affected callers.
 - [x] 3.3 Update focused construction and familiar lifecycle tests, including
