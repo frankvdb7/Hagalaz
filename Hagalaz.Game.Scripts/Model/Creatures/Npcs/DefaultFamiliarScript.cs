@@ -9,7 +9,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
     /// </summary>
     public class DefaultFamiliarScript : FamiliarScriptBase
     {
-        public DefaultFamiliarScript(INpc owner, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(owner, pathFinder, npcService, itemService, itemBuilder, widgetScriptActivator) { }
+        public DefaultFamiliarScript(ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(pathFinder, npcService, itemService, itemBuilder, widgetScriptActivator) { }
 
     }
 }

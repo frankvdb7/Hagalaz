@@ -17,6 +17,11 @@ namespace Hagalaz.Game.Abstractions.Factories
         INpcScript Create(Type scriptType, INpc owner);
 
         /// <summary>
+        /// Creates an owner-unbound familiar script for character restoration or later NPC binding.
+        /// </summary>
+        INpcScript CreateFamiliar(Type scriptType);
+
+        /// <summary>
         /// Creates a script that has a typed NPC parent relationship.
         /// </summary>
         /// <typeparam name="TScript">The concrete NPC script type.</typeparam>

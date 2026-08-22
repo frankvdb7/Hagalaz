@@ -12,7 +12,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
     [NpcScriptMetaData([6829, 6830])]
     public class SpiritWolf : FamiliarScriptBase
     {
-        public SpiritWolf(INpc owner, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(owner, pathFinder, npcService, itemService, itemBuilder, widgetScriptActivator) { }
+        public SpiritWolf(ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(pathFinder, npcService, itemService, itemBuilder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Performs the special attack.

@@ -13,6 +13,9 @@ namespace Hagalaz.Services.GameWorld.Factories
         public INpcScript Create(Type scriptType, INpc owner) =>
             (INpcScript)ActivatorUtilities.CreateInstance(serviceProvider, scriptType, owner);
 
+        public INpcScript CreateFamiliar(Type scriptType) =>
+            (INpcScript)ActivatorUtilities.CreateInstance(serviceProvider, scriptType);
+
         public TScript CreateWithParent<TScript>(INpc owner, INpc parent) where TScript : INpcScript =>
             (TScript)ActivatorUtilities.CreateInstance(serviceProvider, typeof(TScript), owner, parent);
     }

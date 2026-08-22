@@ -14,9 +14,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
     [NpcScriptMetaData([6794, 6795])]
     public class SpiritTerrorBird : BobFamiliarScriptBase
     {
-        public SpiritTerrorBird(INpc owner,
+        public SpiritTerrorBird(
             IItemContainerFactory itemContainerFactory, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService,
-            IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(owner, itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder, itemBuilder, widgetScriptActivator) { }
+            IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder, itemBuilder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Contains the capacity of the inventory.

@@ -29,9 +29,9 @@ public sealed class CharacterScriptActivatorTests
     }
 
     [TestMethod]
-    public void NpcScriptContract_DoesNotExposeOwnerInitialization()
+    public void NpcScriptContract_ExposesOwnerBindingOnly()
     {
-        Assert.IsNull(typeof(INpcScript).GetMethod("Initialize", new[] { typeof(INpc) }));
+        Assert.IsNotNull(typeof(INpcScript).GetMethod("Initialize", new[] { typeof(INpc) }));
         Assert.IsNull(typeof(INpcScript).GetMethod("Initialize", Type.EmptyTypes));
     }
 

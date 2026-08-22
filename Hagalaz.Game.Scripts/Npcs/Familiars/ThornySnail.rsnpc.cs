@@ -14,9 +14,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
     [NpcScriptMetaData([6806, 6807])]
     public class ThornySnail : BobFamiliarScriptBase
     {
-        public ThornySnail(INpc owner,
+        public ThornySnail(
             IItemContainerFactory itemContainerFactory, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService,
-            IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(owner, itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder, itemBuilder, widgetScriptActivator) { }
+            IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder, itemBuilder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Contains the capacity of the inventory.

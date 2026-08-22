@@ -11,6 +11,11 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
     public interface INpcScript : ICreatureScript
     {
         /// <summary>
+        /// Binds the script to its owning NPC.
+        /// </summary>
+        void Initialize(INpc owner);
+
+        /// <summary>
         /// Gets the pathfinder the NPC will use.
         /// </summary>
         /// <returns>The <see cref="IPathFinder"/> for the NPC.</returns>

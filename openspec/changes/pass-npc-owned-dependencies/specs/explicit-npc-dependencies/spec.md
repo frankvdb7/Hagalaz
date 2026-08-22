@@ -61,15 +61,17 @@ MUST NOT use an arbitrary service provider at the point of use.
 ### Requirement: Active familiar composition supplies the NPC owner
 
 Active familiar summoning MUST compose the familiar through `NpcBuilder` and
-the NPC child scope. It MUST NOT reintroduce owner-binding initialization or a
-generic activation argument bag.
+the NPC child scope. The familiar script may be bound to its NPC after
+owner-independent construction, but ordinary services MUST remain explicit
+and no generic activation argument bag may be introduced.
 
 #### Scenario: Familiar creation supplies an owner-aware script
 
 - **WHEN** a character summons a familiar
-- **THEN** the builder's script factory activates the selected familiar with
-  the newly-created NPC as owner
+- **THEN** the builder's script factory activates the selected familiar from
+  the NPC child scope
 - **AND** it attaches the summoner and familiar definition before registration
+- **AND** the script is bound to the newly-created NPC before it is used
 - **AND** it records the active familiar on the character
 
 ### Requirement: Familiar teardown remains domain-local
@@ -103,8 +105,9 @@ and MUST detach only their matching active NPC during teardown.
 
 The dependency refactor MUST preserve existing NPC spawn, unregister, script,
 movement, combat, rendering, loot, and active familiar behavior. Owner-aware
-familiar restoration is outside this change because the existing restoration
-boundary predates construction of the NPC owner.
+familiar restoration MUST also retain its existing hydration and registration
+path; this change MUST NOT disable persisted familiar restoration or replace it
+with a new restoration subsystem.
 
 #### Scenario: NPC spawn and unregister retain behavior
 
@@ -117,4 +120,14 @@ boundary predates construction of the NPC owner.
 - **WHEN** an NPC attacks, dies, or produces loot
 - **THEN** the same calculations, callbacks, loot table, loot generator, and
   ground-item builder are used
-- **AND** only dependency acquisition changes
+        - **AND** only dependency acquisition changes
+
+#### Scenario: Persisted familiar restoration remains active
+
+- **WHEN** character hydration contains a persisted familiar
+- **THEN** `FamiliarHydrator` invokes the existing familiar hydration contract
+- **AND** the character retains the hydrated familiar script
+- **AND** the character's familiar registration script respawns it through
+  `NpcBuilder`
+- **AND** no replacement familiar factory, restoration coordinator, or
+  persistence state store is introduced

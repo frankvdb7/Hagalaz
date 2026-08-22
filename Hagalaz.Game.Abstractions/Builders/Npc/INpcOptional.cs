@@ -49,6 +49,11 @@ namespace Hagalaz.Game.Abstractions.Builders.Npc
         INpcOptional WithScript(Type type);
 
         /// <summary>
+        /// Attaches an already-created script to the NPC.
+        /// </summary>
+        INpcOptional WithScript(INpcScript script);
+
+        /// <summary>
         /// Attaches a script factory to the NPC.
         /// </summary>
         /// <param name="factory">A factory that receives the NPC-scope activator and created NPC and returns its script.</param>

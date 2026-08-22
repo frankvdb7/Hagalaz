@@ -65,6 +65,8 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// </summary>
         public INpc Familiar => Owner;
 
+        public int FamiliarId { get; set; }
+
         /// <summary>
         /// Gets the special move points.
         /// </summary>
@@ -85,6 +87,17 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder,
             IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+            _pathFinder = pathFinder;
+            _npcService = npcService;
+            _itemService = itemService;
+            _itemBuilder = itemBuilder;
+        }
+
+        protected FamiliarScriptBase(
+            ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder,
+            IWidgetScriptActivator widgetScriptActivator)
+            : base(npcService, pathFinder, widgetScriptActivator)
         {
             _pathFinder = pathFinder;
             _npcService = npcService;
@@ -182,8 +195,15 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// </summary>
         public override void OnSpawn()
         {
-            ResetTimer();
-            Summoner.EventManager.SendEvent(new FamiliarSpawnedEvent(Summoner, Owner));
+            if (Definition is not null)
+            {
+                ResetTimer();
+            }
+
+            if (Summoner is not null)
+            {
+                Summoner.EventManager.SendEvent(new FamiliarSpawnedEvent(Summoner, Owner));
+            }
         }
 
         /// <summary>

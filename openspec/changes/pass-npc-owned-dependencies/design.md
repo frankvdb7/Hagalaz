@@ -40,9 +40,11 @@ composition and preserving the existing lifecycle.
    uses its dedicated typed `CreateWithParent<TScript>` method. No arbitrary
    constructor argument bag or service bag is introduced.
 
-4. **Remove the generic owner-binding lifecycle.** `INpcScript.Initialize` is
-   removed. Concrete NPC setup belongs in constructors. Active familiar setup
-   uses `IFamiliarScript.AttachToSummoner` after owner-aware construction and
+4. **Keep owner binding only where the existing lifecycle needs it.** Ordinary
+   NPC scripts use the typed owner-aware activation boundary. Familiar scripts
+   also retain the existing owner-independent construction path used by
+   character hydration, then bind to the created NPC through the normal NPC
+   lifecycle. Active familiar setup uses `IFamiliarScript.AttachToSummoner`
    before registration.
 
 5. **Keep familiar creation close to its existing caller.**
@@ -56,10 +58,12 @@ composition and preserving the existing lifecycle.
    attachment fails or the familiar is destroyed, and detaches only the
    matching active NPC from its summoner. `NpcService` remains generic.
 
-7. **Leave the pre-existing restoration boundary unchanged.** The former
-   restoration path constructs a familiar script before an NPC owner exists.
-   Making that path owner-aware would require a separate composition design,
-   so restoration changes are explicitly deferred rather than added here.
+7. **Preserve the existing familiar restoration path.** `FamiliarHydrator`,
+   `Character` hydration, and `FamiliarCharacterScript` continue to hydrate
+   and respawn the persisted familiar through `NpcBuilder`. The refactor adds
+   only the compatibility needed to bind an already-created familiar script to
+   its NPC; it does not introduce the removed factory, restoration coordinator,
+   or persistence state store.
 
 ## Risks / Trade-offs
 
@@ -69,9 +73,8 @@ composition and preserving the existing lifecycle.
 - Active familiar attachment can fail while registering handlers. The local
   `AttachToSummoner` cleanup resets the partially attached script and removes
   the handlers it already registered.
-- Familiar restoration still has the pre-existing owner-before-construction
-  limitation. It is recorded as follow-up work instead of being coupled to
-  this dependency refactor.
+- Familiar restoration remains on its existing character hydration and
+  registration path; no new restoration lifecycle is introduced.
 
 ## Migration Plan
 
@@ -83,7 +86,3 @@ composition and preserving the existing lifecycle.
 
 Rollback is a source revert. No persisted data or deployment migration is
 required.
-
-## Open Questions
-
-Owner-aware familiar restoration is a separate follow-up issue.

@@ -27,6 +27,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         IHydratable<HydratedNotesDto>,
         IHydratable<HydratedProfileDto>,
         IHydratable<HydratedStateDto>,
+        IHydratable<HydratedFamiliarDto>,
         IDehydratable<HydratedAppearanceDto>,
         IDehydratable<HydratedDetailsDto>,
         IDehydratable<HydratedItemCollectionDto>,
@@ -90,6 +91,22 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (Statistics is IHydratable<HydratedStatisticsDto> hydratable)
             {
                 hydratable.Hydrate(hydration);
+            }
+        }
+
+        public void Hydrate(HydratedFamiliarDto hydration)
+        {
+            var scriptType = _familiarScriptProvider.FindFamiliarScriptTypeById(hydration.FamiliarId);
+            FamiliarScript = _familiarScriptActivator.Create(scriptType);
+            FamiliarScript.FamiliarId = hydration.FamiliarId;
+            if (FamiliarScript is IHydratable<HydratedFamiliar> hydratable)
+            {
+                hydratable.Hydrate(new HydratedFamiliar
+                {
+                    TicksRemaining = hydration.TicksRemaining,
+                    IsUsingSpecialMove = hydration.IsUsingSpecialMove,
+                    SpecialMovePoints = hydration.SpecialMovePoints
+                });
             }
         }
 

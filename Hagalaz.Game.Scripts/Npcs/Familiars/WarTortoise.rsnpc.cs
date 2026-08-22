@@ -14,9 +14,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
     [NpcScriptMetaData([6815, 6816])]
     public class WarTortoise : BobFamiliarScriptBase
     {
-        public WarTortoise(INpc owner,
+        public WarTortoise(
             IItemContainerFactory itemContainerFactory, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService,
-            IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(owner, itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder, itemBuilder, widgetScriptActivator) { }
+            IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder, itemBuilder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Contains the capacity of the inventory.

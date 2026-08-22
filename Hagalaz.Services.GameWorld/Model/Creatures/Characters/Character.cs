@@ -70,6 +70,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ILogger<ICharacter> _logger;
         private readonly IAudioBuilder _audioBuilder;
         private readonly IGameMessageService _gameMessageService;
+        private readonly IFamiliarScriptProvider _familiarScriptProvider;
+        private readonly IFamiliarScriptActivator _familiarScriptActivator;
         private readonly IStateService _stateService;
         private readonly ICharacterScriptActivator _characterScriptActivator;
 
@@ -278,6 +280,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IOptions<SkillOptions> skillOptions,
             IDefaultCharacterScriptProvider defaultCharacterScriptProvider,
             ICharacterScriptActivator characterScriptActivator,
+            IFamiliarScriptProvider familiarScriptProvider,
+            IFamiliarScriptActivator familiarScriptActivator,
             IStateService stateService,
             IMapRegionService mapRegionService,
             IMapUpdateService mapUpdateService,
@@ -318,6 +322,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _logger = logger;
             _audioBuilder = audioBuilder;
             _gameMessageService = gameMessageService;
+            _familiarScriptProvider = familiarScriptProvider;
+            _familiarScriptActivator = familiarScriptActivator;
             _stateService = stateService;
             _characterScriptActivator = characterScriptActivator;
             contextProvider.Context = new CharacterContext(this);
