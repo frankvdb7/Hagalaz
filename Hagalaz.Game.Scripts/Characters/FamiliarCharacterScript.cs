@@ -60,10 +60,10 @@ namespace Hagalaz.Game.Scripts.Characters
                     .Create()
                     .WithId(familiar.FamiliarId)
                     .WithLocation(Character.Location)
-                    .WithScript((activator, owner) =>
+                    .WithScript(scriptType, script =>
                     {
-                        var script = (IFamiliarScript)activator.Create(scriptType, owner);
-                        if (script is IHydratable<HydratedFamiliar> hydratable)
+                        var familiarScript = (IFamiliarScript)script;
+                        if (familiarScript is IHydratable<HydratedFamiliar> hydratable)
                         {
                             hydratable.Hydrate(new HydratedFamiliar
                             {
@@ -73,14 +73,13 @@ namespace Hagalaz.Game.Scripts.Characters
                             });
                         }
 
-                        if (inventory is not null && script is IHydratable<IReadOnlyList<HydratedItem>> hydratableInventory)
+                        if (inventory is not null && familiarScript is IHydratable<IReadOnlyList<HydratedItem>> hydratableInventory)
                         {
                             hydratableInventory.Hydrate(inventory);
                         }
 
-                        script.AttachToSummoner(Character, definition);
-                        Character.AttachFamiliar(script);
-                        return script;
+                        familiarScript.AttachToSummoner(Character, definition);
+                        Character.AttachFamiliar(familiarScript);
                     })
                     .Spawn();
             }

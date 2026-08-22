@@ -36,7 +36,7 @@ public sealed class FamiliarCharacterScriptTests
         var summoningService = Substitute.For<ISummoningService>();
         var definition = new SummoningDto { NpcId = 6815 };
         var scriptType = typeof(DefaultFamiliarScript);
-        Func<INpcScriptActivator, INpc, INpcScript>? scriptFactory = null;
+        Action<INpcScript>? configure = null;
         var expectedException = new InvalidOperationException("familiar hydration failed");
 
         character.Location.Returns(location);
@@ -49,7 +49,7 @@ public sealed class FamiliarCharacterScriptTests
         builder.Create().Returns(npcId);
         npcId.WithId(6815).Returns(npcLocation);
         npcLocation.WithLocation(location).Returns(optional);
-        optional.WithScript(Arg.Do<Func<INpcScriptActivator, INpc, INpcScript>>(factory => scriptFactory = factory)).Returns(optional);
+        optional.WithScript(Arg.Any<Type>(), Arg.Do<Action<INpcScript>>(action => configure = action)).Returns(optional);
         scriptProvider.FindFamiliarScriptTypeById(6815).Returns(scriptType);
         summoningService.FindDefinitionByNpcIdSync(6815).Returns(definition);
 
@@ -57,11 +57,7 @@ public sealed class FamiliarCharacterScriptTests
         script.Hydrate(new HydratedFamiliarDto { FamiliarId = 6815 });
         script.OnRegistered();
 
-        var owner = Substitute.For<INpc>();
-        var activator = Substitute.For<INpcScriptActivator>();
-        activator.Create(scriptType, owner).Returns(familiar);
-
-        var actualException = Assert.ThrowsExactly<InvalidOperationException>(() => scriptFactory!(activator, owner));
+        var actualException = Assert.ThrowsExactly<InvalidOperationException>(() => configure!(familiar));
 
         Assert.AreSame(expectedException, actualException);
         Assert.IsNull(character.FamiliarScript);
@@ -120,7 +116,7 @@ public sealed class FamiliarCharacterScriptTests
         var summoningService = Substitute.For<ISummoningService>();
         var definition = new SummoningDto { NpcId = 6815 };
         var scriptType = typeof(DefaultFamiliarScript);
-        Func<INpcScriptActivator, INpc, INpcScript>? scriptFactory = null;
+        Action<INpcScript>? configure = null;
 
         character.Location.Returns(location);
         context.Character.Returns(character);
@@ -128,7 +124,7 @@ public sealed class FamiliarCharacterScriptTests
         builder.Create().Returns(npcId);
         npcId.WithId(6815).Returns(npcLocation);
         npcLocation.WithLocation(location).Returns(optional);
-        optional.WithScript(Arg.Do<Func<INpcScriptActivator, INpc, INpcScript>>(factory => scriptFactory = factory)).Returns(optional);
+        optional.WithScript(Arg.Any<Type>(), Arg.Do<Action<INpcScript>>(action => configure = action)).Returns(optional);
         scriptProvider.FindFamiliarScriptTypeById(6815).Returns(scriptType);
         summoningService.FindDefinitionByNpcIdSync(6815).Returns(definition);
 
@@ -150,13 +146,10 @@ public sealed class FamiliarCharacterScriptTests
         script.Hydrate(restoredInventory);
         script.OnRegistered();
 
-        optional.Received(1).WithScript(Arg.Any<Func<INpcScriptActivator, INpc, INpcScript>>());
+        optional.Received(1).WithScript(scriptType, Arg.Any<Action<INpcScript>>());
         optional.Received(1).Spawn();
 
-        var owner = Substitute.For<INpc>();
-        var activator = Substitute.For<INpcScriptActivator>();
-        activator.Create(scriptType, owner).Returns(familiar);
-        scriptFactory!(activator, owner);
+        configure!(familiar);
 
         Received.InOrder(() =>
         {

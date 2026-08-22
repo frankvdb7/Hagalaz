@@ -29,7 +29,9 @@ composition and preserving the existing lifecycle.
 
 1. **Use `NpcBuilder` as the NPC composition boundary.** The builder creates
    the child scope, resolves the selected script, definition, and typed NPC
-   dependencies, and calls `Npc` directly with the runtime values.
+   dependencies, activates the selected script with the real NPC owner, and
+   calls `Npc` directly with the runtime values. Callers may provide only an
+   optional domain-specific configuration action for the activated script.
 
 2. **Keep the scope as a lifetime input, not a lookup API.** `Npc` continues to
    pass the scope to `Creature` so the existing lifetime implementation owns
@@ -42,16 +44,17 @@ composition and preserving the existing lifecycle.
    bag or service bag is introduced.
 
 4. **Construct scripts with their owners.** Ordinary and familiar NPC scripts
-   use the typed owner-aware activation boundary. There is no generic
-   post-construction owner-binding lifecycle. Active familiar setup uses
-   `IFamiliarScript.AttachToSummoner` before registration. The Glacor encounter
-   binds the Enduring Glacyte to its owning Glacor gameplay relationship after
-   activation.
+   use the typed owner-aware activation boundary. `NpcBuilder` performs that
+   activation and does not expose the script activator through its fluent API.
+   There is no generic post-construction owner-binding lifecycle. Active
+   familiar setup uses `IFamiliarScript.AttachToSummoner` before registration.
+   The Glacor encounter binds the Enduring Glacyte to its owning Glacor
+   gameplay relationship after activation.
 
 5. **Keep familiar creation close to its existing caller.**
-   `SummoningSkillService` continues to use `NpcBuilder`; its script factory
-   activates the selected familiar in the NPC child scope, attaches the
-   summoner, and records the active familiar on the character. No familiar
+   `SummoningSkillService` continues to use `NpcBuilder`; its script
+   configuration attaches the summoner and records the active familiar on the
+   character after builder-owned activation. No familiar
    factory, restoration coordinator, or persistence state store is added.
 
 6. **Keep familiar teardown local to the familiar script.**

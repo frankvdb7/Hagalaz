@@ -113,7 +113,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             SetDefinition(definition);
             RenderInformation = new NpcRenderInformation(this);
             Bounds = new Bounds(definition.BoundsType, defaultLocation.Clone(), minimumLocation, maximumLocation);
-            Statistics = new NpcStatistics(this, hitSplatBuilder);
+            Statistics = new NpcStatistics(this, eventManager, hitSplatBuilder);
             Appearance = new NpcAppearance(this, npcService);
             Combat = new NpcCombat(this, npcService, lootService, lootGenerator, groundItemBuilder, projectilePathFinder,
                 smartPathFinder, combatOptions, hitSplatBuilder);

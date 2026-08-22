@@ -49,6 +49,9 @@ MUST NOT use an arbitrary service provider at the point of use.
 - **WHEN** an NPC is composed with a runtime-selected script
 - **THEN** the script is constructed with services from the same child scope
 - **AND** the owner is supplied through the owner-aware activation boundary
+- **AND** `NpcBuilder` performs script activation with
+  `INpcScriptActivator.Create(Type, owner)`
+- **AND** optional caller configuration receives only the activated script
 - **AND** Glacor/Glacyte membership is composed by local Glacor gameplay code
   rather than by enlarging the generic activator
 - **AND** no arbitrary argument bag is introduced
@@ -69,8 +72,8 @@ activation argument bag may be introduced.
 #### Scenario: Familiar creation supplies an owner-aware script
 
 - **WHEN** a character summons a familiar
-- **THEN** the builder's script factory activates the selected familiar from
-  the NPC child scope
+- **THEN** `NpcBuilder` activates the selected familiar from the NPC child
+  scope with its newly-created NPC owner
 - **AND** it attaches the summoner and familiar definition before registration
 - **AND** the script receives the newly-created NPC as its owner before it is used
 - **AND** it records the active familiar on the character

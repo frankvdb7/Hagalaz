@@ -27,7 +27,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         private ILocation? _minimumBounds;
         private ILocation? _maximumBounds;
         private Type? _scriptType;
-        private Func<INpcScriptActivator, INpc, INpcScript>? _scriptFactory;
+        private Action<INpcScript>? _scriptConfiguration;
         private DirectionFlag? _faceDirection;
         private ILocation _location = default!;
         private int _id = default!;
@@ -52,9 +52,13 @@ namespace Hagalaz.Services.GameWorld.Builders
             try
             {
                 var scriptActivator = _serviceProvider.GetRequiredService<INpcScriptActivator>();
-                var scriptFactory = _scriptFactory ?? ((activator, owner) =>
-                    activator.Create(_scriptType ?? _npcScriptProvider.GetNpcScriptTypeById(_id), owner));
-                Func<INpc, INpcScript> npcScriptFactory = owner => scriptFactory(scriptActivator, owner);
+                var scriptType = _scriptType ?? _npcScriptProvider.GetNpcScriptTypeById(_id);
+                Func<INpc, INpcScript> npcScriptFactory = owner =>
+                {
+                    var script = scriptActivator.Create(scriptType, owner);
+                    _scriptConfiguration?.Invoke(script);
+                    return script;
+                };
                 var npcService = _serviceProvider.GetRequiredService<INpcService>();
                 var definition = npcService.FindNpcDefinitionById(_id);
                 return new Npc(
@@ -107,18 +111,21 @@ namespace Hagalaz.Services.GameWorld.Builders
         public INpcOptional WithScript<TScript>() where TScript : INpcScript
         {
             _scriptType = typeof(TScript);
+            _scriptConfiguration = null;
             return this;
         }
 
         public INpcOptional WithScript(Type type)
         {
             _scriptType = type;
+            _scriptConfiguration = null;
             return this;
         }
 
-        public INpcOptional WithScript(Func<INpcScriptActivator, INpc, INpcScript> factory)
+        public INpcOptional WithScript(Type type, Action<INpcScript> configure)
         {
-            _scriptFactory = factory;
+            _scriptType = type;
+            _scriptConfiguration = configure;
             return this;
         }
 

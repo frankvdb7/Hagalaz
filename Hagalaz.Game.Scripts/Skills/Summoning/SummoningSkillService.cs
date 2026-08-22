@@ -73,12 +73,11 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 .Create()
                 .WithId(def.NpcId)
                 .WithLocation(character.Location)
-                .WithScript((activator, owner) =>
+                .WithScript(scriptType, script =>
                 {
-                    var script = (IFamiliarScript)activator.Create(scriptType, owner);
-                    script.AttachToSummoner(character, def);
-                    character.AttachFamiliar(script);
-                    return script;
+                    var familiarScript = (IFamiliarScript)script;
+                    familiarScript.AttachToSummoner(character, def);
+                    character.AttachFamiliar(familiarScript);
                 })
                 .Spawn();
             character.Inventory.Remove(item, slot);

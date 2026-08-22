@@ -37,12 +37,14 @@ public sealed class NpcBuilderTests
         npcService.RegisterAsync(Arg.Any<INpc>()).Returns(Task.CompletedTask);
 
         var script = Substitute.For<INpcScript>();
-        var builder = CreateBuilder(npcService);
+        var scriptActivator = Substitute.For<INpcScriptActivator>();
+        scriptActivator.Create(typeof(INpcScript), Arg.Any<INpc>()).Returns(script);
+        var builder = CreateBuilder(npcService, services => services.AddSingleton(scriptActivator));
 
         var handle = builder.Create()
             .WithId(definition.Id)
             .WithLocation(new Location(3200, 3200, 0, 0))
-            .WithScript((_, _) => script)
+            .WithScript(typeof(INpcScript))
             .Spawn();
 
         Assert.IsNotNull(handle.Npc);

@@ -44,7 +44,7 @@ public sealed class GlacorEncounterTests
         builder.Create().Returns(glacyteId);
         glacyteId.WithId(14303).Returns(glacyteLocation);
         glacyteLocation.WithLocation(Arg.Any<ILocation>()).Returns(optional);
-        optional.WithScript(Arg.Any<Func<INpcScriptActivator, INpc, INpcScript>>()).Returns(optional);
+        optional.WithScript(Arg.Any<Type>()).Returns(optional);
         optional.Spawn().Returns(handle);
         glacyte.RegisterEventHandler(Arg.Do<EventHappened<CreatureSetCombatTargetEvent>>(handler => targetHandlers.Add(handler)))
             .Returns((EventHappened)(_ => true));
@@ -53,7 +53,7 @@ public sealed class GlacorEncounterTests
 
         var encounter = new GlacorEncounter(glacor, builder);
         encounter.Begin();
-        encounter.SpawnGlacyte(14303, new Location(3200, 3200, 0, 0), (_, owner) => Substitute.For<INpcScript>());
+        encounter.SpawnGlacyte(14303, new Location(3200, 3200, 0, 0), typeof(SappingGlacyte));
 
         targetHandlers[0](new CreatureSetCombatTargetEvent(glacyte, target));
         Assert.IsNotNull(queuedTask);
@@ -91,7 +91,7 @@ public sealed class GlacorEncounterTests
             appearance.CompositeID.Returns(id);
             npcId.WithId(id).Returns(npcLocation);
             npcLocation.WithLocation(Arg.Any<ILocation>()).Returns(optional);
-            optional.WithScript(Arg.Any<Func<INpcScriptActivator, INpc, INpcScript>>()).Returns(optional);
+            optional.WithScript(Arg.Any<Type>()).Returns(optional);
             optional.Spawn().Returns(handle);
             glacyte.RegisterEventHandler(Arg.Any<EventHappened<CreatureSetCombatTargetEvent>>())
                 .Returns((EventHappened)(_ => true));
@@ -103,7 +103,7 @@ public sealed class GlacorEncounterTests
         encounter.Begin();
         for (var i = 0; i < glacytes.Length; i++)
         {
-            encounter.SpawnGlacyte(14304 - i, new Location(3200 + i, 3200, 0, 0), (_, _) => Substitute.For<INpcScript>());
+            encounter.SpawnGlacyte(14304 - i, new Location(3200 + i, 3200, 0, 0), typeof(SappingGlacyte));
         }
 
         deathHandlers[0](new CreatureDiedEvent(glacytes[0]));
@@ -131,7 +131,7 @@ public sealed class GlacorEncounterTests
         builder.Create().Returns(npcId);
         npcId.WithId(14304).Returns(npcLocation);
         npcLocation.WithLocation(Arg.Any<ILocation>()).Returns(optional);
-        optional.WithScript(Arg.Any<Func<INpcScriptActivator, INpc, INpcScript>>()).Returns(optional);
+        optional.WithScript(Arg.Any<Type>()).Returns(optional);
         optional.Spawn().Returns(handle);
         glacyte.RegisterEventHandler(Arg.Any<EventHappened<CreatureSetCombatTargetEvent>>())
             .Returns((EventHappened)(_ => true));
@@ -140,7 +140,7 @@ public sealed class GlacorEncounterTests
 
         var encounter = new GlacorEncounter(glacor, builder);
         encounter.Begin();
-        encounter.SpawnGlacyte(14304, new Location(3200, 3200, 0, 0), (_, _) => Substitute.For<INpcScript>());
+        encounter.SpawnGlacyte(14304, new Location(3200, 3200, 0, 0), typeof(SappingGlacyte));
 
         encounter.Clear();
 

@@ -91,14 +91,13 @@ public sealed class NpcChildScopeTests
         var npc = builder.Create()
             .WithId(definition.Id)
             .WithLocation(new Location(3200, 3200, 0, 0))
-            .WithScript((activator, owner) =>
+            .WithScript(typeof(TestBobFamiliarScript), script =>
             {
-                var script = (TestBobFamiliarScript)activator.Create(typeof(TestBobFamiliarScript), owner);
-                script.Hydrate(restoredState);
-                script.Hydrate(restoredInventory);
-                script.AttachToSummoner(summoner, summoningDefinition);
-                summoner.AttachFamiliar(script);
-                return script;
+                var familiarScript = (TestBobFamiliarScript)script;
+                familiarScript.Hydrate(restoredState);
+                familiarScript.Hydrate(restoredInventory);
+                familiarScript.AttachToSummoner(summoner, summoningDefinition);
+                summoner.AttachFamiliar(familiarScript);
             })
             .Spawn()
             .Npc;
@@ -151,7 +150,7 @@ public sealed class NpcChildScopeTests
         var child = builder.Create()
             .WithId(definition.Id)
             .WithLocation(new Location(3200, 3200, 0, 0))
-            .WithScript((activator, owner) => activator.Create(typeof(ScopeAwareNpcScript), owner))
+            .WithScript<ScopeAwareNpcScript>()
             .Spawn()
             .Npc;
 

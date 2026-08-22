@@ -64,13 +64,22 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         public INpcHandle SpawnGlacyte(
             int id,
             ILocation location,
-            Func<INpcScriptActivator, INpc, INpcScript> scriptFactory)
+            Type scriptType,
+            Action<INpcScript>? configure = null)
         {
-            var handle = _npcBuilder.Create()
+            var optional = _npcBuilder.Create()
                 .WithId(id)
-                .WithLocation(location)
-                .WithScript(scriptFactory)
-                .Spawn();
+                .WithLocation(location);
+            if (configure is null)
+            {
+                optional.WithScript(scriptType);
+            }
+            else
+            {
+                optional.WithScript(scriptType, configure);
+            }
+
+            var handle = optional.Spawn();
             var glacyte = handle.Npc;
             if (_glacor.Combat.Target is { } target)
             {

@@ -234,16 +234,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
             Owner.QueueTask(new RsTask(() =>
                 {
-                    _encounter.SpawnGlacyte(14304, center, (activator, owner) =>
-                    {
-                        var script = (EnduringGlacyte)activator.Create(typeof(EnduringGlacyte), owner);
-                        script.BindToGlacor(Owner);
-                        return script;
-                    });
-                    _encounter.SpawnGlacyte(14303, left, (activator, owner) =>
-                        activator.Create(typeof(SappingGlacyte), owner));
-                    _encounter.SpawnGlacyte(14302, right, (activator, owner) =>
-                        activator.Create(typeof(UnstableGlacyte), owner));
+                    _encounter.SpawnGlacyte(14304, center, typeof(EnduringGlacyte),
+                        script => ((EnduringGlacyte)script).BindToGlacor(Owner));
+                    _encounter.SpawnGlacyte(14303, left, typeof(SappingGlacyte));
+                    _encounter.SpawnGlacyte(14302, right, typeof(UnstableGlacyte));
                 },
                 CreatureHelper.CalculateTicksForClientTicks(delay)));
 
