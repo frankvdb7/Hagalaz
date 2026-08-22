@@ -361,8 +361,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void AttachFamiliar(IFamiliarScript familiar)
         {
             FamiliarScript = familiar;
-            ApplyPendingFamiliar(familiar);
         }
+
+        public void ApplyPendingFamiliar(IFamiliarScript familiar) => ApplyPendingFamiliarData(familiar);
 
         public void ClearPendingFamiliar() => ClearPendingFamiliarData();
 

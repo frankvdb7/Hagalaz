@@ -50,32 +50,6 @@ public sealed class NpcBuilderTests
     }
 
     [TestMethod]
-    public void Spawn_WhenRegistrationFails_DestroysTheBuiltNpc()
-    {
-        var definition = new NpcDefinition(1)
-        {
-            BoundsType = BoundsType.Static,
-            DisplayName = "Test NPC",
-            WalksRandomly = false,
-        };
-        var npcService = Substitute.For<INpcService>();
-        npcService.FindNpcDefinitionById(definition.Id).Returns(definition);
-        INpc? registeredNpc = null;
-        npcService.RegisterAsync(Arg.Do<INpc>(npc => registeredNpc = npc))
-            .Returns(Task.FromException(new InvalidOperationException("registration failed")));
-        var builder = CreateBuilder(npcService);
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => builder.Create()
-            .WithId(definition.Id)
-            .WithLocation(new Location(3200, 3200, 0, 0))
-            .WithScript((_, _) => Substitute.For<INpcScript>())
-            .Spawn());
-
-        Assert.IsNotNull(registeredNpc);
-        Assert.IsTrue(registeredNpc!.IsDestroyed);
-    }
-
-    [TestMethod]
     public void Build_WhenScriptConstructionFails_DisposesNpcScope()
     {
         var definition = new NpcDefinition(1)
@@ -108,14 +82,7 @@ public sealed class NpcBuilderTests
             .AddSingleton(Substitute.For<IEventManager>())
             .AddSingleton(Substitute.For<IScopedGameMediator>())
             .AddSingleton(Substitute.For<ISmartPathFinder>())
-            .AddSingleton<IMapRegionService>(serviceProvider =>
-            {
-                var service = Substitute.For<IMapRegionService>();
-                service.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>())
-                    .Returns(Substitute.For<IMapRegion>());
-                return service;
-            })
-            .AddSingleton(Substitute.For<IAreaService>())
+            .AddSingleton(Substitute.For<IMapRegionService>())
             .AddSingleton(Substitute.For<IProjectilePathFinder>())
             .AddSingleton<IOptions<CombatOptions>>(Options.Create(new CombatOptions()))
             .AddSingleton(Substitute.For<IHitSplatBuilder>())

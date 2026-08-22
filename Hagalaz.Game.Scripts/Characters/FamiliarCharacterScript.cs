@@ -49,6 +49,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 .WithScript((activator, owner) =>
                 {
                     var script = (IFamiliarScript)activator.Create(scriptType, owner);
+                    Character.ApplyPendingFamiliar(script);
                     script.AttachToSummoner(Character, definition);
                     Character.AttachFamiliar(script);
                     return script;

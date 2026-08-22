@@ -43,24 +43,29 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private HydratedFamiliarDto? _pendingFamiliar;
         private IReadOnlyList<HydratedItem>? _pendingFamiliarInventory;
 
-        private void ApplyPendingFamiliar(IFamiliarScript familiar)
+        private void ApplyPendingFamiliarData(IFamiliarScript familiar)
         {
-            if (_pendingFamiliar is { } hydration && familiar is IHydratable<HydratedFamiliar> hydratable)
+            try
             {
-                hydratable.Hydrate(new HydratedFamiliar
+                if (_pendingFamiliar is { } hydration && familiar is IHydratable<HydratedFamiliar> hydratable)
                 {
-                    TicksRemaining = hydration.TicksRemaining,
-                    IsUsingSpecialMove = hydration.IsUsingSpecialMove,
-                    SpecialMovePoints = hydration.SpecialMovePoints
-                });
-            }
+                    hydratable.Hydrate(new HydratedFamiliar
+                    {
+                        TicksRemaining = hydration.TicksRemaining,
+                        IsUsingSpecialMove = hydration.IsUsingSpecialMove,
+                        SpecialMovePoints = hydration.SpecialMovePoints
+                    });
+                }
 
-            if (_pendingFamiliarInventory is not null && familiar is IHydratable<IReadOnlyList<HydratedItem>> inventory)
+                if (_pendingFamiliarInventory is not null && familiar is IHydratable<IReadOnlyList<HydratedItem>> inventory)
+                {
+                    inventory.Hydrate(_pendingFamiliarInventory);
+                }
+            }
+            finally
             {
-                inventory.Hydrate(_pendingFamiliarInventory);
+                ClearPendingFamiliarData();
             }
-
-            ClearPendingFamiliarData();
         }
 
         private void ClearPendingFamiliarData()

@@ -87,17 +87,9 @@ namespace Hagalaz.Services.GameWorld.Builders
         public INpcHandle Spawn()
         {
             var npc = Build();
-            try
-            {
-                var npcService = _serviceProvider.GetRequiredService<INpcService>();
-                npcService.RegisterAsync(npc).GetAwaiter().GetResult();
-                return new NpcHandle(npc, npcService);
-            }
-            catch
-            {
-                npc.Destroy();
-                throw;
-            }
+            var npcService = _serviceProvider.GetRequiredService<INpcService>();
+            npcService.RegisterAsync(npc).GetAwaiter().GetResult();
+            return new NpcHandle(npc, npcService);
         }
 
         public INpcOptional WithMinimumBounds(ILocation location)
