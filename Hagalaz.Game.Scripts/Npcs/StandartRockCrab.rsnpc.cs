@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs
     [NpcScriptMetaData([1265, 1267])]
     public class StandardRockCrab : NpcScriptBase
     {
+        public StandardRockCrab(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Render's attack.
         /// </summary>

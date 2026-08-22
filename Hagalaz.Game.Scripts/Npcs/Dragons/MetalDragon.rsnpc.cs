@@ -16,14 +16,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public MetalDragon(IProjectileBuilder projectileBuilder) => _projectileBuilder = projectileBuilder;
-
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize()
+        public MetalDragon(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
-            base.Initialize();
+            _projectileBuilder = projectileBuilder;
             Bonus = AttackBonus.Magic;
             Style = AttackStyle.MagicNormal;
         }

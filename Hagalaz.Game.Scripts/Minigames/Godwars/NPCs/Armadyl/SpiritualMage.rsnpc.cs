@@ -10,7 +10,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
     [NpcScriptMetaData([6231])]
     public class SpiritualMage : ArmadylFaction
     {
-        public SpiritualMage(IProjectileBuilder projectileBuilder) : base(projectileBuilder) { }
+        public SpiritualMage(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator) : base(owner, projectileBuilder, npcService, pathFinder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Get's attack bonus type of this npc.

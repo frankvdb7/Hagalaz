@@ -1,15 +1,23 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System;
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
+using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Logic.Loot;
+using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Services.GameWorld.Model.Maps;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
 {
@@ -78,29 +86,41 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         public override DirectionFlag FaceDirection => LastLocation == null ? SpawnFaceDirection : base.FaceDirection;
 
         public Npc(
-            IServiceScope serviceScope, ILocation defaultLocation, ILocation? minimumLocation, ILocation? maximumLocation, INpcScript script,
-            DirectionFlag? spawnFaceDirection, INpcDefinition definition)
+            IServiceScope serviceScope, ILocation defaultLocation, ILocation? minimumLocation, ILocation? maximumLocation,
+            Func<INpc, INpcScript> scriptFactory,
+            DirectionFlag? spawnFaceDirection, INpcDefinition definition,
+            IEventManager eventManager,
+            IScopedGameMediator mediator,
+            ISmartPathFinder smartPathFinder,
+            IMapRegionService mapRegionService,
+            IProjectilePathFinder projectilePathFinder,
+            IOptions<CombatOptions> combatOptions,
+            IHitSplatBuilder hitSplatBuilder,
+            INpcService npcService,
+            ILootService lootService,
+            ILootGenerator lootGenerator,
+            IGroundItemBuilder groundItemBuilder)
             : base(serviceScope)
         {
-            EventManager = ServiceProvider.GetRequiredService<IEventManager>();
-            Viewport = new Viewport(this, ServiceProvider.GetRequiredService<IMapRegionService>(), MapSize.Small);
-            Movement = new Movement(this);
+            EventManager = eventManager;
+            Viewport = new Viewport(this, mapRegionService, MapSize.Small);
+            Movement = new Movement(this, smartPathFinder, mediator);
 
             minimumLocation ??= defaultLocation.Translate(-9, -9, 0);
             maximumLocation ??= defaultLocation.Translate(9, 9, 0);
 
+            Location = defaultLocation.Clone();
             SetDefinition(definition);
             RenderInformation = new NpcRenderInformation(this);
             Bounds = new Bounds(definition.BoundsType, defaultLocation.Clone(), minimumLocation, maximumLocation);
-            Statistics = new NpcStatistics(this);
-            Appearance = new NpcAppearance(this);
-            Combat = new NpcCombat(this);
+            Statistics = new NpcStatistics(this, eventManager, hitSplatBuilder);
+            Appearance = new NpcAppearance(this, npcService);
+            Combat = new NpcCombat(this, npcService, lootService, lootGenerator, groundItemBuilder, projectilePathFinder,
+                smartPathFinder, combatOptions, hitSplatBuilder);
             SpawnFaceDirection = spawnFaceDirection is DirectionFlag.None or null
                 ? DirectionHelper.GetNpcFaceDirection(definition.SpawnFaceDirection)
                 : spawnFaceDirection.Value;
-            Location = defaultLocation.Clone();
-            Script = script;
-            Script.Initialize(this);
+            Script = scriptFactory(this);
         }
 
         /// <summary>

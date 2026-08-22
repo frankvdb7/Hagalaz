@@ -10,7 +10,8 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.NPCs
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public TzHaarXil(IProjectileBuilder projectileBuilder) => _projectileBuilder = projectileBuilder;
+        public TzHaarXil(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) => _projectileBuilder = projectileBuilder;
 
         /// <summary>
         ///     Renders the projectile.

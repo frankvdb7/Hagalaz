@@ -13,7 +13,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public SergeantGrimSpike(IProjectileBuilder projectileBuilder)
+        public SergeantGrimSpike(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

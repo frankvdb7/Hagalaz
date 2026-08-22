@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -11,10 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     [NpcScriptMetaData([551])]
     public class WeaponStore : NpcScriptBase
     {
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() { }
+        public WeaponStore(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
 
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.

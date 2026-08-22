@@ -1,17 +1,20 @@
 ﻿using System;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
-using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
 {
@@ -29,6 +32,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// 
         /// </summary>
         private readonly INpcService _npcService;
+        private readonly ILootService _lootService;
+        private readonly ILootGenerator _lootGenerator;
+        private readonly IGroundItemBuilder _groundItemBuilder;
 
 
         /// <summary>
@@ -36,11 +42,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// NPC.
         /// </summary>
         /// <param name="owner"></param>
-        public NpcCombat(INpc owner)
-            : base(owner)
+        public NpcCombat(
+            INpc owner,
+            INpcService npcService,
+            ILootService lootService,
+            ILootGenerator lootGenerator,
+            IGroundItemBuilder groundItemBuilder,
+            IProjectilePathFinder projectilePathFinder,
+            ISmartPathFinder smartPathFinder,
+            IOptions<CombatOptions> combatOptions,
+            IHitSplatBuilder hitSplatBuilder)
+            : base(owner, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
         {
             _npc = owner;
-            _npcService = owner.ServiceProvider.GetRequiredService<INpcService>();
+            _npcService = npcService;
+            _lootService = lootService;
+            _lootGenerator = lootGenerator;
+            _groundItemBuilder = groundItemBuilder;
         }
 
         /// <summary>
@@ -95,18 +113,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             var kill = killer as ICharacter;
             kill?.QueueTask(async () =>
             {
-                var lootService = Owner.ServiceProvider.GetRequiredService<ILootService>();
-                var table = await lootService.FindNpcLootTable(_npc.Definition.LootTableId);
+                var table = await _lootService.FindNpcLootTable(_npc.Definition.LootTableId);
                 if (table == null)
                 {
                     return;
                 }
 
-                var lootGenerator = Owner.ServiceProvider.GetRequiredService<ILootGenerator>();
-                var groundItemBuilder = Owner.ServiceProvider.GetRequiredService<IGroundItemBuilder>();
-                foreach (var loot in lootGenerator.GenerateLoot<ILootItem>(new CharacterLootParams(table, kill)))
+                foreach (var loot in _lootGenerator.GenerateLoot<ILootItem>(new CharacterLootParams(table, kill)))
                 {
-                    groundItemBuilder.Create()
+                    _groundItemBuilder.Create()
                         .WithItem(builder => builder.Create().WithId(loot.Item.Id).WithCount(loot.Count))
                         .WithLocation(Owner.Location)
                         .WithOwner(kill)

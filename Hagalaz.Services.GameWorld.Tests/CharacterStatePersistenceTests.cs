@@ -16,21 +16,26 @@ using Hagalaz.Game.Abstractions.Features;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Configuration;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Providers;
+using Hagalaz.Services.GameWorld.Logic.Hydrators;
+using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -84,7 +89,66 @@ public sealed class CharacterStatePersistenceTests
         equipmentScript.Received(1).OnEquipped(Arg.Any<IItem>(), restored);
     }
 
-    private static Character CreateCharacter(TestStateService stateService, out IEquipmentScript equipmentScript)
+    [TestMethod]
+    public void DetachFamiliar_ClearsStateAndAllowsResummon()
+    {
+        var character = CreateCharacter(new TestStateService(), out _);
+        var familiar = Substitute.For<INpc>();
+        var familiarScript = Substitute.For<IFamiliarScript>();
+        familiarScript.Familiar.Returns(familiar);
+        character.AttachFamiliar(familiarScript);
+
+        Assert.IsTrue(character.HasFamiliar());
+
+        character.DetachFamiliar(familiar);
+
+        Assert.IsFalse(character.HasFamiliar());
+        character.AttachFamiliar(familiarScript);
+
+        Assert.IsTrue(character.HasFamiliar());
+    }
+
+    [TestMethod]
+    public void DetachFamiliar_StaleNpcDoesNotClearNewerFamiliar()
+    {
+        var character = CreateCharacter(new TestStateService(), out _);
+        var familiarA = Substitute.For<INpc>();
+        var familiarB = Substitute.For<INpc>();
+        var scriptA = Substitute.For<IFamiliarScript>();
+        var scriptB = Substitute.For<IFamiliarScript>();
+        scriptA.Familiar.Returns(familiarA);
+        scriptB.Familiar.Returns(familiarB);
+
+        character.AttachFamiliar(scriptA);
+        character.AttachFamiliar(scriptB);
+
+        character.DetachFamiliar(familiarA);
+
+        Assert.AreSame(scriptB, character.FamiliarScript);
+        Assert.IsTrue(character.HasFamiliar());
+    }
+
+    [TestMethod]
+    public void FamiliarHydration_ForwardsDataToCharacterScript()
+    {
+        var familiarScript = Substitute.For<IDefaultCharacterScript, IHydratable<HydratedFamiliarDto>>();
+        var character = CreateCharacter(new TestStateService(), out _, new[] { familiarScript });
+        var hydrator = new FamiliarHydrator();
+        var hydration = new HydratedFamiliarDto { FamiliarId = 6815, TicksRemaining = 50 };
+
+        hydrator.Hydrate(character, new CharacterModel
+        {
+            Familiar = hydration
+        });
+
+        Assert.IsNull(character.FamiliarScript);
+        ((IHydratable<HydratedFamiliarDto>)familiarScript).Received(1).Hydrate(hydration);
+    }
+
+    private static Character CreateCharacter(
+        TestStateService stateService,
+        out IEquipmentScript equipmentScript,
+        IEnumerable<IDefaultCharacterScript>? defaultScripts = null)
     {
         var serviceProvider = Substitute.For<IServiceProvider>();
         var serviceScope = Substitute.For<IServiceScope>();
@@ -106,7 +170,7 @@ public sealed class CharacterStatePersistenceTests
         bodyDataRepository.BodySlotCount.Returns(14);
 
         var scripts = Substitute.For<IDefaultCharacterScriptProvider>();
-        scripts.GetAllScripts().Returns(Array.Empty<IDefaultCharacterScript>());
+        scripts.GetAllScripts().Returns(defaultScripts ?? Array.Empty<IDefaultCharacterScript>());
 
         Register(serviceProvider, Substitute.For<ICreatureTaskService>());
         Register(serviceProvider, Substitute.For<IScopedGameMediator>());
@@ -142,8 +206,6 @@ public sealed class CharacterStatePersistenceTests
             Options.Create(new SkillOptions()),
             scripts,
             Substitute.For<ICharacterScriptActivator>(),
-            Substitute.For<IFamiliarScriptProvider>(),
-            Substitute.For<IFamiliarScriptActivator>(),
             stateService,
             Substitute.For<IMapRegionService>(),
             Substitute.For<IMapUpdateService>(),

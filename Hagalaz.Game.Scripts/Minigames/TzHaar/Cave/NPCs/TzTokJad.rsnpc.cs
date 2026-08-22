@@ -33,7 +33,8 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         /// </summary>
         private bool _healersSpawned;
 
-        public TzTokJad(INpcBuilder npcBuilder, IProjectileBuilder projectileBuilder) : base(npcBuilder)
+        public TzTokJad(INpc owner, INpcBuilder npcBuilder, IProjectileBuilder projectileBuilder,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator) : base(owner, npcBuilder, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

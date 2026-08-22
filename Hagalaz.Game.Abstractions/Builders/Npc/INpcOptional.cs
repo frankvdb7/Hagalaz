@@ -34,13 +34,6 @@ namespace Hagalaz.Game.Abstractions.Builders.Npc
         INpcOptional WithMaximumBounds(ILocation location);
 
         /// <summary>
-        /// Attaches a specific script instance to the NPC to define its behavior.
-        /// </summary>
-        /// <param name="script">An instance of a class that implements <see cref="INpcScript"/>.</param>
-        /// <returns>The same builder instance to allow for further optional configuration.</returns>
-        INpcOptional WithScript(INpcScript script);
-
-        /// <summary>
         /// Attaches a script to the NPC by its type. The script will be resolved from the dependency injection container.
         /// </summary>
         /// <typeparam name="TScript">The type of the script, which must implement <see cref="INpcScript"/>.</typeparam>
@@ -53,6 +46,14 @@ namespace Hagalaz.Game.Abstractions.Builders.Npc
         /// <param name="type">The type of the script, which must implement <see cref="INpcScript"/>.</param>
         /// <returns>The same builder instance to allow for further optional configuration.</returns>
         INpcOptional WithScript(Type type);
+
+        /// <summary>
+        /// Attaches a script to the NPC and applies optional domain-specific configuration after activation.
+        /// </summary>
+        /// <param name="type">The type of the script, which must implement <see cref="INpcScript"/>.</param>
+        /// <param name="configure">Optional configuration to apply to the activated script.</param>
+        /// <returns>The same builder instance to allow for further optional configuration.</returns>
+        INpcOptional WithScript(Type type, Action<INpcScript> configure);
 
         /// <summary>
         /// Sets the initial direction the NPC should face upon spawning.

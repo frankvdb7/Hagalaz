@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.NPCs
     [NpcScriptMetaData([961])]
     public class SurgeonGeneralTafani : NpcScriptBase
     {
+        public SurgeonGeneralTafani(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -19,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.NPCs
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var skillCapeDialogue = clicker.ServiceProvider.GetRequiredService<SkillCapeDialogue>();
+                var skillCapeDialogue = CreateWidgetScript<SkillCapeDialogue>(clicker);
                 skillCapeDialogue.SkillID = StatisticsConstants.Constitution;
                 clicker.Widgets.OpenDialogue(skillCapeDialogue, true, Owner);
                 return;

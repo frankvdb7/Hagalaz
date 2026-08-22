@@ -19,7 +19,9 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         private readonly IFishingSkillService _fishingSkillService;
         private readonly ICharacterStore _characterStore;
 
-        public FishingSpot(IFishingService fishingService, IFishingSkillService fishingSkillService, ICharacterStore characterStore)
+        public FishingSpot(INpc owner, IFishingService fishingService, IFishingSkillService fishingSkillService, ICharacterStore characterStore,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _fishingService = fishingService;
             _fishingSkillService = fishingSkillService;
@@ -74,11 +76,5 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
             }
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

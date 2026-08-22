@@ -14,7 +14,8 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public MithrilDragon(IProjectileBuilder projectileBuilder)
+        public MithrilDragon(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
             Bonus = AttackBonus.Magic;

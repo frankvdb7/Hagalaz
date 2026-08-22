@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Model.Events.Creatures;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
@@ -38,6 +39,14 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 
         private readonly INpcService _npcService;
         private readonly IItemService _itemService;
+        private readonly IItemBuilder _itemBuilder;
+
+        private EventHappened? _summoningAllowHandler;
+        private EventHappened? _summonerDiedHandler;
+        private EventHappened? _familiarDismissHandler;
+        private EventHappened? _setCombatTargetHandler;
+        private bool _isDetached;
+        private HydratedFamiliar? _restoredState;
 
         /// <summary>
         /// Sets the definition.
@@ -73,77 +82,84 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// </value>
         public bool UsingSpecialMove { get; private set; }
 
-        public FamiliarScriptBase(ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService)
+        public FamiliarScriptBase(INpc owner,
+            ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder,
+            IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _pathFinder = pathFinder;
             _npcService = npcService;
             _itemService = itemService;
+            _itemBuilder = itemBuilder;
         }
 
         /// <summary>
-        /// Initializes the specified owner.
+        /// Attaches this familiar to its summoner.
         /// </summary>
         /// <param name="summoner">The summoner.</param>
         /// <param name="definition">The definition.</param>
-        public void InitializeSummoner(ICharacter summoner, SummoningDto definition)
+        public void AttachToSummoner(ICharacter summoner, SummoningDto definition)
         {
             Summoner = summoner;
             Definition = definition;
-        }
-
-        /// <summary>
-        /// Get's called when owner is found.
-        /// </summary>
-        protected sealed override void Initialize()
-        {
             SpecialMovePoints = 60;
+            _isDetached = false;
 
-            // Load event handlers.
-
-            EventHappened sAllowHandler = null;
-            sAllowHandler = Summoner.RegisterEventHandler(new EventHappened<SummoningAllowEvent>((e) =>
+            try
             {
-                // Dissallow summoning.
-                if (Summoner.HasFamiliar())
+                // Load event handlers.
+
+                _summoningAllowHandler = Summoner.RegisterEventHandler(new EventHappened<SummoningAllowEvent>((e) =>
                 {
-                    Summoner.SendChatMessage("You can not spawn another familiar!");
-                    return true;
-                }
+                    // Dissallow summoning.
+                    if (Summoner.HasFamiliar())
+                    {
+                        Summoner.SendChatMessage("You can not spawn another familiar!");
+                        return true;
+                    }
 
-                Summoner.UnregisterEventHandler<SummoningAllowEvent>(sAllowHandler);
-                return false;
-            }));
+                    UnregisterHandler<SummoningAllowEvent>(ref _summoningAllowHandler);
+                    return false;
+                }));
 
-            EventHappened sDiedHandler = null;
-            sDiedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDiedEvent>((e) =>
+                _summonerDiedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDiedEvent>((e) =>
+                {
+                    Owner.OnDeath();
+                    UnregisterHandler<CreatureDiedEvent>(ref _summonerDiedHandler);
+                    return false;
+                }));
+
+                _familiarDismissHandler = Summoner.RegisterEventHandler(new EventHappened<FamiliarDismissEvent>((e) =>
+                {
+                    _npcService.UnregisterAsync(Owner);
+                    UnregisterHandler<FamiliarDismissEvent>(ref _familiarDismissHandler);
+                    return false;
+                }));
+
+                _setCombatTargetHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureSetCombatTargetEvent>((e) =>
+                {
+                    Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(e.CombatTarget), 1));
+                    return false;
+                }));
+
+                OnAttachedToSummoner();
+            }
+            catch
             {
-                Owner.OnDeath();
-                Summoner.UnregisterEventHandler<CreatureDiedEvent>(sDiedHandler);
-                return false;
-            }));
-
-            EventHappened dismissHandler = null;
-            dismissHandler = Summoner.RegisterEventHandler(new EventHappened<FamiliarDismissEvent>((e) =>
-            {
-                _npcService.UnregisterAsync(Owner);
-                Summoner.UnregisterEventHandler<FamiliarDismissEvent>(dismissHandler);
-                return false;
-            }));
-
-            EventHappened setTargetHandler = null;
-            setTargetHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureSetCombatTargetEvent>((e) =>
-            {
-                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(e.CombatTarget), 1));
-                return false;
-            }));
-
-            InitializeFamiliar();
+                UnregisterSummonerHandlers();
+                _isDetached = true;
+                Summoner = default!;
+                Definition = default!;
+                SpecialMovePoints = 0;
+                UsingSpecialMove = false;
+                throw;
+            }
         }
 
         /// <summary>
-        /// Initializes the familiar.
+        /// Applies setup that is specific to the familiar type after it has been attached to its summoner.
         /// </summary>
-        protected virtual void InitializeFamiliar() { }
+        protected virtual void OnAttachedToSummoner() { }
 
         /// <summary>
         /// Perform's attack on specific target.
@@ -168,6 +184,12 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         public override void OnSpawn()
         {
             ResetTimer();
+            if (_restoredState is not null)
+            {
+                ApplyRestoredState(_restoredState);
+                _restoredState = null;
+            }
+
             Summoner.EventManager.SendEvent(new FamiliarSpawnedEvent(Summoner, Owner));
         }
 
@@ -192,8 +214,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 return;
             }
 
-            var itemBuilder = Summoner.ServiceProvider.GetRequiredService<IItemBuilder>();
-            Summoner.Inventory.Remove(itemBuilder.Create().WithId(Definition.PouchId).Build());
+            Summoner.Inventory.Remove(_itemBuilder.Create().WithId(Definition.PouchId).Build());
             ResetTimer();
             Summoner.SendChatMessage("Your familiar has been renewed.");
         }
@@ -213,12 +234,40 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// </summary>
         public override void OnDestroy()
         {
+            if (_isDetached)
+            {
+                return;
+            }
+
+            _isDetached = true;
+            UnregisterSummonerHandlers();
+            Summoner.DetachFamiliar(Familiar);
+
             if (Summoner.IsDestroyed)
             {
                 return;
             }
 
             Summoner.SendChatMessage("Your familiar vanished.");
+        }
+
+        private void UnregisterSummonerHandlers()
+        {
+            UnregisterHandler<SummoningAllowEvent>(ref _summoningAllowHandler);
+            UnregisterHandler<CreatureDiedEvent>(ref _summonerDiedHandler);
+            UnregisterHandler<FamiliarDismissEvent>(ref _familiarDismissHandler);
+            UnregisterHandler<CreatureSetCombatTargetEvent>(ref _setCombatTargetHandler);
+        }
+
+        private void UnregisterHandler<TEvent>(ref EventHappened? handler) where TEvent : ICreatureEvent
+        {
+            if (handler is null)
+            {
+                return;
+            }
+
+            Summoner.UnregisterEventHandler<TEvent>(handler);
+            handler = null;
         }
 
         /// <summary>
@@ -324,7 +373,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             if (clickType == NpcClickType.Option1Click && Summoner == clicker)
             {
                 clicker.Interrupt(this);
-                var script = clicker.ServiceProvider.GetRequiredService<StandardFamiliarDialogue>();
+                var script = CreateWidgetScript<StandardFamiliarDialogue>(clicker);
                 clicker.Widgets.OpenDialogue(script, false, Owner);
             }
             else
@@ -395,8 +444,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// <param name="target">The target.</param>
         public virtual void PerformSpecialMove(IRuneObject target)
         {
-            var itemBuilder = Summoner.ServiceProvider.GetRequiredService<IItemBuilder>();
-            if (Summoner.Inventory.Remove(itemBuilder.Create().WithId(Definition.ScrollId).Build()) >= 1)
+            if (Summoner.Inventory.Remove(_itemBuilder.Create().WithId(Definition.ScrollId).Build()) >= 1)
             {
                 DrainSpecialMovePoints(GetRequiredSpecialMovePoints());
                 SetUsingSpecialMove(false);
@@ -592,6 +640,17 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         }
 
         public void Hydrate(HydratedFamiliar hydration)
+        {
+            _restoredState = hydration;
+            if (Summoner is null)
+            {
+                return;
+            }
+
+            ApplyRestoredState(hydration);
+        }
+
+        private void ApplyRestoredState(HydratedFamiliar hydration)
         {
             SetSpecialMovePoints(hydration.SpecialMovePoints);
             _despawnTicks = hydration.TicksRemaining;

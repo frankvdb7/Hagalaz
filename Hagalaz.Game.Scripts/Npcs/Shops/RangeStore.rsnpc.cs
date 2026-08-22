@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue;
@@ -9,6 +9,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
     [NpcScriptMetaData([682])]
     public class RangeStore : NpcScriptBase
     {
+        public RangeStore(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -20,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Shops
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var skillCapeDialogue = clicker.ServiceProvider.GetRequiredService<SkillCapeDialogue>();
+                var skillCapeDialogue = CreateWidgetScript<SkillCapeDialogue>(clicker);
                 skillCapeDialogue.SkillID = StatisticsConstants.Ranged;
                 clicker.Widgets.OpenDialogue(skillCapeDialogue, true, Owner);
                 return;

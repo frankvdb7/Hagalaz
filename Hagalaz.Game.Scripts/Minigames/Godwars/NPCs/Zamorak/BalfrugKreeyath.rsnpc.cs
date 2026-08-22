@@ -12,7 +12,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public BalfrugKreeyath(IProjectileBuilder projectileBuilder)
+        public BalfrugKreeyath(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

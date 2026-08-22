@@ -10,6 +10,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
     [NpcScriptMetaData([2029])]
     public class ToragTheCorrupted : BarrowBrother
     {
+        public ToragTheCorrupted(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Perform's attack on specific target.
         /// </summary>

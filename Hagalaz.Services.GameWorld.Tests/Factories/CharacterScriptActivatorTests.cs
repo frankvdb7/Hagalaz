@@ -28,23 +28,6 @@ public sealed class CharacterScriptActivatorTests
     }
 
     [TestMethod]
-    public void FamiliarScriptActivator_ResolvesTypeFromProvidedScope()
-    {
-        var rootScript = Substitute.For<IFamiliarScript>();
-        var scopedScript = Substitute.For<IFamiliarScript>();
-        using var provider = new ServiceCollection()
-            .AddSingleton(rootScript)
-            .AddScoped<IFamiliarScript>(_ => scopedScript)
-            .BuildServiceProvider();
-        using var scope = provider.CreateScope();
-
-        var result = new FamiliarScriptActivator(scope.ServiceProvider).Create(typeof(IFamiliarScript));
-
-        Assert.AreSame(scopedScript, result);
-        Assert.AreNotSame(rootScript, result);
-    }
-
-    [TestMethod]
     public void CharacterNpcScriptActivator_ResolvesTypeFromProvidedScope()
     {
         var rootScript = Substitute.For<ICharacterNpcScript>();
@@ -79,4 +62,5 @@ public sealed class CharacterScriptActivatorTests
         Assert.AreSame(scopedScript, result);
         Assert.AreNotSame(rootScript, result);
     }
+
 }

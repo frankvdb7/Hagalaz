@@ -9,6 +9,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
     [NpcScriptMetaData([2027])]
     public class GuthanTheInfested : BarrowBrother
     {
+        public GuthanTheInfested(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Perform's attack on specific target.
         /// </summary>
