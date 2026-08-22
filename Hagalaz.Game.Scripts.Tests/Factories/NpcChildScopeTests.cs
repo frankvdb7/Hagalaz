@@ -94,9 +94,9 @@ public sealed class NpcChildScopeTests
             .WithScript((activator, owner) =>
             {
                 var script = (TestBobFamiliarScript)activator.Create(typeof(TestBobFamiliarScript), owner);
-                script.AttachToSummoner(summoner, summoningDefinition);
                 script.Hydrate(restoredState);
                 script.Hydrate(restoredInventory);
+                script.AttachToSummoner(summoner, summoningDefinition);
                 summoner.AttachFamiliar(script);
                 return script;
             })
@@ -113,7 +113,7 @@ public sealed class NpcChildScopeTests
     }
 
     [TestMethod]
-    public void DynamicallySpawnedChildScript_UsesChildNpcScope()
+    public void DynamicallySpawnedChildScript_UsesAndOwnsChildNpcScope()
     {
         var definition = new NpcDefinition(1)
         {
@@ -161,6 +161,11 @@ public sealed class NpcChildScopeTests
 
         Assert.AreNotSame(parentMarker, script.Marker);
         Assert.AreSame(parentNpc, script.Parent);
+        Assert.IsFalse(script.Marker.Disposed);
+
+        child.Destroy();
+
+        Assert.IsTrue(script.Marker.Disposed);
     }
 
     public sealed class ScopeAwareNpcScript(
@@ -177,8 +182,11 @@ public sealed class NpcChildScopeTests
         public INpc Parent { get; } = parent;
     }
 
-    public sealed class ScopeMarker
+    public sealed class ScopeMarker : IDisposable
     {
+        public bool Disposed { get; private set; }
+
+        public void Dispose() => Disposed = true;
     }
 
     public sealed class TestBobFamiliarScript(
