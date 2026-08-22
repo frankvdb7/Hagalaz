@@ -9,8 +9,8 @@
 - **BREAKING**: Make `Npc` and its NPC-specific partial/component construction use injected services instead of resolving them from the stored scope.
 - **BREAKING**: Pass typed dependencies into `Movement`, `NpcAppearance`, `NpcStatistics`, `NpcCombat`, `NpcHandle`, and the shared combat constructor used by NPC combat.
 - Move runtime NPC script type selection and definition lookup to `NpcBuilder`, which remains the composition boundary.
-- **BREAKING**: Remove `INpcScript.Initialize(INpc owner)` and create scripts through a narrow owner-aware activator instead.
-- Remove the generic script initialization hook; move concrete NPC setup into constructors and familiar setup into the domain-specific summoner attachment operation before registration.
+- Keep `INpcScript.Initialize(INpc owner)` as the narrow owner-binding lifecycle needed by owner-independent familiar hydration, while creating common NPC scripts through a narrow owner-aware activator.
+- Move concrete NPC setup into constructors where it is safe to do so, and keep familiar setup in the domain-specific summoner attachment operation before registration.
 - Remove ordinary provider lookups from the common NPC script activation path and the directly affected specialized NPC scripts by passing their concrete services through typed construction or activation contracts.
 - Update focused NPC, movement, combat, script, spawn, and lifecycle tests to provide direct substitutes.
 

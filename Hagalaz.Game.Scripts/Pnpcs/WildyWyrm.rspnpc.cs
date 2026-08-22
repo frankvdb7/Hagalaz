@@ -17,22 +17,7 @@ namespace Hagalaz.Game.Scripts.Pnpcs
     [CharacterNpcScriptMetaData([2417, 3334])]
     public class WildyWyrm : CharacterNpcScriptBase
     {
-        private readonly ILootService _lootService;
-        private readonly IGroundItemBuilder _groundItemBuilder;
-        private readonly ILootGenerator _lootGenerator;
-
-        public WildyWyrm(
-            ITypeProvider<IItemDefinition> itemProvider,
-            INpcService npcService,
-            ILootService lootService,
-            IGroundItemBuilder groundItemBuilder,
-            ILootGenerator lootGenerator) : base(npcService)
-        {
-            _itemProvider = itemProvider;
-            _lootService = lootService;
-            _groundItemBuilder = groundItemBuilder;
-            _lootGenerator = lootGenerator;
-        }
+        public WildyWyrm(ITypeProvider<IItemDefinition> itemProvider) => _itemProvider = itemProvider;
 
         /// <summary>
         /// </summary>
@@ -130,15 +115,18 @@ namespace Hagalaz.Game.Scripts.Pnpcs
 
             Owner.QueueTask(async () =>
             {
-                var table = await _lootService.FindNpcLootTable(Definition.LootTableId);
+                var lootService = Owner.ServiceProvider.GetRequiredService<ILootService>();
+                var table = await lootService.FindNpcLootTable(Definition.LootTableId);
                 if (table == null)
                 {
                     return;
                 }
 
-                foreach (var loot in _lootGenerator.GenerateLoot<ILootItem>(new CharacterLootParams(table, kill)))
+                var groundItemBuilder = Owner.ServiceProvider.GetRequiredService<IGroundItemBuilder>();
+                var lootGenerator = Owner.ServiceProvider.GetRequiredService<ILootGenerator>();
+                foreach (var loot in lootGenerator.GenerateLoot<ILootItem>(new CharacterLootParams(table, kill)))
                 {
-                    _groundItemBuilder.Create()
+                    groundItemBuilder.Create()
                         .WithItem(itemBuilder => itemBuilder.Create().WithId(loot.Item.Id).WithCount(loot.Count))
                         .WithLocation(Owner.Location)
                         .WithOwner(kill)
@@ -213,6 +201,11 @@ namespace Hagalaz.Game.Scripts.Pnpcs
         /// <param name="killer">The killer.</param>
         /// <returns></returns>
         public override bool CanBeLootedBy(ICreature killer) => true;
+
+        /// <summary>
+        ///     Get's called when owner is found.
+        /// </summary>
+        protected override void Initialize() { }
 
         /// <summary>
         ///     Ticks this instance.

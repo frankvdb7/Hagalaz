@@ -26,6 +26,17 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
         /// </summary>
         private int _attackType;
 
+        public SteelTitan(
+            INpc owner, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder,
+            IProjectileBuilder projectileBuilder, IWidgetScriptActivator widgetScriptActivator) : base(
+            owner,
+            pathFinder,
+            npcService,
+            itemService,
+            itemBuilder,
+            widgetScriptActivator) =>
+            _projectileBuilder = projectileBuilder;
+
         public SteelTitan(ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder, IProjectileBuilder projectileBuilder,
             IWidgetScriptActivator widgetScriptActivator) : base(
             pathFinder,

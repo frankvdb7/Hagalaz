@@ -50,7 +50,7 @@ public sealed class NpcBuilderTests
     }
 
     [TestMethod]
-    public void Spawn_WithExistingScript_BindsItToCreatedNpc()
+    public void Build_WhenScriptConstructionFails_DisposesNpcScope()
     {
         var definition = new NpcDefinition(1)
         {
@@ -60,22 +60,22 @@ public sealed class NpcBuilderTests
         };
         var npcService = Substitute.For<INpcService>();
         npcService.FindNpcDefinitionById(definition.Id).Returns(definition);
-        npcService.RegisterAsync(Arg.Any<INpc>()).Returns(Task.CompletedTask);
+        var marker = new ScopeMarker();
+        var builder = CreateBuilder(npcService, services =>
+        {
+            services.AddScoped(_ => marker);
+            services.AddScoped<INpcScriptActivator, ThrowingNpcScriptActivator>();
+        });
 
-        var existingScript = Substitute.For<INpcScript>();
-        var builder = CreateBuilder(npcService);
-
-        var handle = builder.Create()
+        Assert.ThrowsExactly<InvalidOperationException>(() => builder.Create()
             .WithId(definition.Id)
             .WithLocation(new Location(3200, 3200, 0, 0))
-            .WithScript(existingScript)
-            .Spawn();
+            .Build());
 
-        Assert.AreSame(existingScript, handle.Npc.Script);
-        existingScript.Received(1).Initialize(handle.Npc);
+        Assert.IsTrue(marker.Disposed);
     }
 
-    private static NpcBuilder CreateBuilder(INpcService npcService)
+    private static NpcBuilder CreateBuilder(INpcService npcService, Action<IServiceCollection>? configure = null)
     {
         var services = new ServiceCollection()
             .AddSingleton(Substitute.For<ICreatureTaskService>())
@@ -91,9 +91,28 @@ public sealed class NpcBuilderTests
             .AddSingleton(Substitute.For<ILootGenerator>())
             .AddSingleton(Substitute.For<IGroundItemBuilder>())
             .AddSingleton(Substitute.For<INpcScriptProvider>())
-            .AddSingleton(Substitute.For<INpcScriptActivator>())
-            .BuildServiceProvider();
-        return new NpcBuilder(services, services.GetRequiredService<INpcScriptProvider>());
+            .AddSingleton(Substitute.For<INpcScriptActivator>());
+        configure?.Invoke(services);
+        var serviceProvider = services.BuildServiceProvider();
+        return new NpcBuilder(serviceProvider, serviceProvider.GetRequiredService<INpcScriptProvider>());
+    }
+
+    private sealed class ThrowingNpcScriptActivator : INpcScriptActivator
+    {
+        public ThrowingNpcScriptActivator(ScopeMarker marker) => _ = marker;
+
+        public INpcScript Create(Type scriptType, INpc owner) => throw new InvalidOperationException("script construction failed");
+
+        public INpcScript CreateFamiliar(Type scriptType) => throw new NotSupportedException();
+
+        public TScript CreateWithParent<TScript>(INpc owner, INpc parent) where TScript : INpcScript => throw new NotSupportedException();
+    }
+
+    private sealed class ScopeMarker : IDisposable
+    {
+        public bool Disposed { get; private set; }
+
+        public void Dispose() => Disposed = true;
     }
 
 }
