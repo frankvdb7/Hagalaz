@@ -27,8 +27,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             _npcBuilder = npcBuilder;
         }
 
-        public INpc Glacor => _glacor;
-
         public bool GlacytesSpawned { get; private set; }
 
         public bool GlacytesDead => _deadCount >= 3;
@@ -61,7 +59,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
             }
         }
 
-        public INpcHandle SpawnGlacyte(
+        public void SpawnGlacyte(
             int id,
             ILocation location,
             Type scriptType,
@@ -106,7 +104,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                 return false;
             }));
             _glacytes.Add(tracked);
-            return handle;
         }
 
         public void Clear()

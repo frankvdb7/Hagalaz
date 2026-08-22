@@ -27,11 +27,11 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         /// </summary>
         private readonly IMapRegionService _regionManager;
 
-        public YtHurKot(INpc owner, INpcService npcRegistration, IMapRegionService regionManager,
-            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+        public YtHurKot(INpc owner, INpcService npcService, IMapRegionService regionManager,
+            ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
-            _npcRegistration = npcRegistration;
+            _npcRegistration = npcService;
             _regionManager = regionManager;
             FindJad();
         }

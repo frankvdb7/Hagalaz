@@ -125,7 +125,7 @@ a new subsystem.
 - **WHEN** an NPC attacks, dies, or produces loot
 - **THEN** the same calculations, callbacks, loot table, loot generator, and
   ground-item builder are used
-        - **AND** only dependency acquisition changes
+  - **AND** only dependency acquisition changes
 
 #### Scenario: Persisted familiar restoration remains active
 
