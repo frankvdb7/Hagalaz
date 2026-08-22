@@ -35,15 +35,17 @@ composition and preserving the existing lifecycle.
    pass the scope to `Creature` so the existing lifetime implementation owns
    disposal. NPC-owned components receive the services they use directly.
 
-3. **Use a narrow typed activation contract.** Ordinary scripts use
-   `INpcScriptActivator.Create(Type, INpc)`. The Glacyte parent relationship
-   uses its dedicated typed `CreateWithParent<TScript>` method. No arbitrary
-   constructor argument bag or service bag is introduced.
+3. **Use a narrow typed activation contract.** NPC scripts use only
+   `INpcScriptActivator.Create(Type, INpc)`. The Glacor/Glacyte relationship
+   is composed by local Glacor gameplay code after owner-aware activation; it
+   does not enlarge the generic activator. No arbitrary constructor argument
+   bag or service bag is introduced.
 
 4. **Construct scripts with their owners.** Ordinary and familiar NPC scripts
    use the typed owner-aware activation boundary. There is no generic
    post-construction owner-binding lifecycle. Active familiar setup uses
-   `IFamiliarScript.AttachToSummoner` before registration.
+   `IFamiliarScript.AttachToSummoner` before registration. The Glacor encounter
+   binds only the Enduring Glacyte to its local encounter after activation.
 
 5. **Keep familiar creation close to its existing caller.**
    `SummoningSkillService` continues to use `NpcBuilder`; its script factory

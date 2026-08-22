@@ -16,13 +16,5 @@ namespace Hagalaz.Game.Abstractions.Factories
         /// <returns>The created NPC script.</returns>
         INpcScript Create(Type scriptType, INpc owner);
 
-        /// <summary>
-        /// Creates a script that has a typed NPC parent relationship.
-        /// </summary>
-        /// <typeparam name="TScript">The concrete NPC script type.</typeparam>
-        /// <param name="owner">The NPC that will own the script.</param>
-        /// <param name="parent">The parent NPC supplied to the script.</param>
-        /// <returns>The created NPC script.</returns>
-        TScript CreateWithParent<TScript>(INpc owner, INpc parent) where TScript : INpcScript;
     }
 }

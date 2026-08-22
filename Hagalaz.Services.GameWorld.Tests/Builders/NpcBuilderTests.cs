@@ -103,7 +103,6 @@ public sealed class NpcBuilderTests
 
         public INpcScript Create(Type scriptType, INpc owner) => throw new InvalidOperationException("script construction failed");
 
-        public TScript CreateWithParent<TScript>(INpc owner, INpc parent) where TScript : INpcScript => throw new NotSupportedException();
     }
 
     private sealed class ScopeMarker : IDisposable

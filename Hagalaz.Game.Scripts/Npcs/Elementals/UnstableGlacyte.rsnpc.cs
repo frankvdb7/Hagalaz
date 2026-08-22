@@ -30,37 +30,17 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// </summary>
         private bool _healing;
 
-        /// <summary>
-        ///     The glacor
-        /// </summary>
-        private readonly INpc _glacor;
-
         private readonly IHitSplatBuilder _hitSplatBuilder;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="UnstableGlacyte" /> class.
         /// </summary>
-        /// <param name="glacor">The parent glacor.</param>
         /// <param name="hitSplatBuilder">The hit splat builder.</param>
-        public UnstableGlacyte(INpc owner, INpc glacor, IHitSplatBuilder hitSplatBuilder,
+        public UnstableGlacyte(INpc owner, IHitSplatBuilder hitSplatBuilder,
             INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
-            _glacor = glacor;
             _hitSplatBuilder = hitSplatBuilder;
-        }
-
-        /// <summary>
-        ///     Called when [set target].
-        ///     By default, this method does nothing.
-        /// </summary>
-        /// <param name="target">The target.</param>
-        public override void OnSetTarget(ICreature target)
-        {
-            if (_glacor.Combat.Target == null)
-            {
-                _glacor.QueueTask(new RsTask(() => _glacor.Combat.SetTarget(target), 1));
-            }
         }
 
         /// <summary>

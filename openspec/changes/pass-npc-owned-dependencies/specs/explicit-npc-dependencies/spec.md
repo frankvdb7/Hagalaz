@@ -49,8 +49,9 @@ MUST NOT use an arbitrary service provider at the point of use.
 - **WHEN** an NPC is composed with a runtime-selected script
 - **THEN** the script is constructed with services from the same child scope
 - **AND** the owner is supplied through the owner-aware activation boundary
-- **AND** domain relationships use a dedicated typed activation contract rather
-  than an arbitrary argument bag
+- **AND** Glacor/Glacyte membership is composed by local Glacor gameplay code
+  rather than by enlarging the generic activator
+- **AND** no arbitrary argument bag is introduced
 
 #### Scenario: NPC dialogue creates a character-scoped widget script
 

@@ -148,19 +148,16 @@ public sealed class NpcChildScopeTests
         using var parentScope = services.CreateScope();
         var builder = new NpcBuilder(parentScope.ServiceProvider, parentScope.ServiceProvider.GetRequiredService<INpcScriptProvider>());
         var parentMarker = parentScope.ServiceProvider.GetRequiredService<ScopeMarker>();
-        var parentNpc = Substitute.For<INpc>();
-
         var child = builder.Create()
             .WithId(definition.Id)
             .WithLocation(new Location(3200, 3200, 0, 0))
-            .WithScript((activator, owner) => activator.CreateWithParent<ScopeAwareNpcScript>(owner, parentNpc))
+            .WithScript((activator, owner) => activator.Create(typeof(ScopeAwareNpcScript), owner))
             .Spawn()
             .Npc;
 
         var script = (ScopeAwareNpcScript)child.Script;
 
         Assert.AreNotSame(parentMarker, script.Marker);
-        Assert.AreSame(parentNpc, script.Parent);
         Assert.IsFalse(script.Marker.Disposed);
 
         child.Destroy();
@@ -170,7 +167,6 @@ public sealed class NpcChildScopeTests
 
     public sealed class ScopeAwareNpcScript(
         INpc owner,
-        INpc parent,
         INpcService npcService,
         ISimplePathFinder pathFinder,
         IWidgetScriptActivator widgetScriptActivator,
@@ -178,8 +174,6 @@ public sealed class NpcChildScopeTests
         : NpcScriptBase(owner, npcService, pathFinder, widgetScriptActivator)
     {
         public ScopeMarker Marker { get; } = marker;
-
-        public INpc Parent { get; } = parent;
     }
 
     public sealed class ScopeMarker : IDisposable

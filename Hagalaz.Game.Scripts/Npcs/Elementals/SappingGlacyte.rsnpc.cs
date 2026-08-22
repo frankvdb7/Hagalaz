@@ -1,7 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Npcs.Elementals
@@ -12,29 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
     public class SappingGlacyte : NpcScriptBase
     {
         /// <summary>
-        ///     The glacor.
-        /// </summary>
-        private readonly INpc _glacor;
-
-        /// <summary>
         ///     Initializes a new instance of the <see cref="SappingGlacyte" /> class.
         /// </summary>
-        /// <param name="glacor">The parent glacor.</param>
-        public SappingGlacyte(INpc owner, INpc glacor, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
-            : base(owner, npcService, pathFinder, widgetScriptActivator) => _glacor = glacor;
-
-        /// <summary>
-        ///     Called when [set target].
-        ///     By default, this method does nothing.
-        /// </summary>
-        /// <param name="target">The target.</param>
-        public override void OnSetTarget(ICreature target)
-        {
-            if (_glacor.Combat.Target == null)
-            {
-                _glacor.QueueTask(new RsTask(() => _glacor.Combat.SetTarget(target), 1));
-            }
-        }
+        public SappingGlacyte(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Get's if this npc can be attacked by the specified character ('attacker').
