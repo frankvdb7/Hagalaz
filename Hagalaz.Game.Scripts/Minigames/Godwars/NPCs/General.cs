@@ -10,6 +10,11 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
     /// </summary>
     public abstract class General : NpcScriptBase
     {
+        protected General(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+            Owner.AddState(new VengeanceImmunityState());
+        }
         /// <summary>
         ///     Get's called when npc is destroyed permanently.
         ///     By default, this method does nothing.
@@ -64,9 +69,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
         /// </returns>
         public override bool CanPoison() => false;
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize() => Owner.AddState(new VengeanceImmunityState());
     }
 }

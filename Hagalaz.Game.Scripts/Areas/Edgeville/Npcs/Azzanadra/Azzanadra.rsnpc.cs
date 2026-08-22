@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
@@ -7,6 +7,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Azzanadra
     [NpcScriptMetaData([9047])]
     public class Azzanadra : NpcScriptBase
     {
+        public Azzanadra(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Called when [character click perform].
         /// </summary>
@@ -16,7 +20,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Azzanadra
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var script = clicker.ServiceProvider.GetRequiredService<AzzanadraDialogue>();
+                var script = CreateWidgetScript<AzzanadraDialogue>(clicker);
                 clicker.Widgets.OpenDialogue(script, true, Owner);
             }
             else
@@ -25,11 +29,5 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Azzanadra
             }
         }
 
-        /// <summary>
-        ///     Initializes this instance.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

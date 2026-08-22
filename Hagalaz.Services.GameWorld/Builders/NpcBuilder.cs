@@ -1,12 +1,21 @@
 using System;
 using Hagalaz.Game.Abstractions.Builders.Npc;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.HitSplat;
+using Hagalaz.Game.Abstractions.Data;
+using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Logic.Loot;
+using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Model.Creatures.Npcs;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
@@ -17,8 +26,8 @@ namespace Hagalaz.Services.GameWorld.Builders
         private readonly INpcScriptProvider _npcScriptProvider;
         private ILocation? _minimumBounds;
         private ILocation? _maximumBounds;
-        private INpcScript? _script;
         private Type? _scriptType;
+        private Func<INpcScriptActivator, INpc, INpcScript>? _scriptFactory;
         private DirectionFlag? _faceDirection;
         private ILocation _location = default!;
         private int _id = default!;
@@ -40,21 +49,47 @@ namespace Hagalaz.Services.GameWorld.Builders
 
         public INpc Build()
         {
-            if (_script == null)
+            try
             {
-                var scriptType = _scriptType ?? _npcScriptProvider.GetNpcScriptTypeById(_id);
-                _script = (INpcScript)_serviceProvider.GetRequiredService(scriptType);
+                var scriptActivator = _serviceProvider.GetRequiredService<INpcScriptActivator>();
+                var scriptFactory = _scriptFactory ?? ((activator, owner) =>
+                    activator.Create(_scriptType ?? _npcScriptProvider.GetNpcScriptTypeById(_id), owner));
+                Func<INpc, INpcScript> npcScriptFactory = owner => scriptFactory(scriptActivator, owner);
+                var npcService = _serviceProvider.GetRequiredService<INpcService>();
+                var definition = npcService.FindNpcDefinitionById(_id);
+                return new Npc(
+                    _serviceScope,
+                    _location,
+                    _minimumBounds,
+                    _maximumBounds,
+                    npcScriptFactory,
+                    _faceDirection,
+                    definition,
+                    _serviceProvider.GetRequiredService<IEventManager>(),
+                    _serviceProvider.GetRequiredService<IScopedGameMediator>(),
+                    _serviceProvider.GetRequiredService<ISmartPathFinder>(),
+                    _serviceProvider.GetRequiredService<IMapRegionService>(),
+                    _serviceProvider.GetRequiredService<IProjectilePathFinder>(),
+                    _serviceProvider.GetRequiredService<IOptions<CombatOptions>>(),
+                    _serviceProvider.GetRequiredService<IHitSplatBuilder>(),
+                    npcService,
+                    _serviceProvider.GetRequiredService<ILootService>(),
+                    _serviceProvider.GetRequiredService<ILootGenerator>(),
+                    _serviceProvider.GetRequiredService<IGroundItemBuilder>());
             }
-            var definition = _serviceProvider.GetRequiredService<INpcService>().FindNpcDefinitionById(_id);
-            return new Npc(_serviceScope, _location, _minimumBounds, _maximumBounds, _script, _faceDirection, definition);
+            catch
+            {
+                _serviceScope.Dispose();
+                throw;
+            }
         }
 
         public INpcHandle Spawn()
         {
             var npc = Build();
-            var npcService = npc.ServiceProvider.GetRequiredService<INpcService>();
-            npcService.RegisterAsync(npc).Wait();
-            return new NpcHandle(npc);
+            var npcService = _serviceProvider.GetRequiredService<INpcService>();
+            npcService.RegisterAsync(npc).GetAwaiter().GetResult();
+            return new NpcHandle(npc, npcService);
         }
 
         public INpcOptional WithMinimumBounds(ILocation location)
@@ -69,12 +104,6 @@ namespace Hagalaz.Services.GameWorld.Builders
             return this;
         }
 
-        public INpcOptional WithScript(INpcScript script)
-        {
-            _script = script;
-            return this;
-        }
-
         public INpcOptional WithScript<TScript>() where TScript : INpcScript
         {
             _scriptType = typeof(TScript);
@@ -84,6 +113,12 @@ namespace Hagalaz.Services.GameWorld.Builders
         public INpcOptional WithScript(Type type)
         {
             _scriptType = type;
+            return this;
+        }
+
+        public INpcOptional WithScript(Func<INpcScriptActivator, INpc, INpcScript> factory)
+        {
+            _scriptFactory = factory;
             return this;
         }
 

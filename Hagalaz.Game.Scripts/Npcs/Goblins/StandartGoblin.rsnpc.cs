@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -11,10 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Goblins
     [NpcScriptMetaData([2274, 2275, 2276, 2277, 2278, 2279, 2280, 2281])]
     public class StandartGoblin : NpcScriptBase
     {
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() { }
+        public StandartGoblin(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
 
         /// <summary>
         ///     Render's attack.

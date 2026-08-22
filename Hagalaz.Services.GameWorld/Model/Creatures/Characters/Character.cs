@@ -19,6 +19,7 @@ using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
@@ -69,8 +70,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ILogger<ICharacter> _logger;
         private readonly IAudioBuilder _audioBuilder;
         private readonly IGameMessageService _gameMessageService;
-        private readonly IFamiliarScriptProvider _familiarScriptProvider;
-        private readonly IFamiliarScriptActivator _familiarScriptActivator;
         private readonly IStateService _stateService;
         private readonly ICharacterScriptActivator _characterScriptActivator;
 
@@ -204,7 +203,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains the familiar script, if any.
         /// </summary>
         /// <value>The familiar script.</value>
-        public IFamiliarScript FamiliarScript { get; set; }
+        public IFamiliarScript FamiliarScript { get; private set; }
 
         /// <summary>
         /// Contains the previous display name.
@@ -279,8 +278,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IOptions<SkillOptions> skillOptions,
             IDefaultCharacterScriptProvider defaultCharacterScriptProvider,
             ICharacterScriptActivator characterScriptActivator,
-            IFamiliarScriptProvider familiarScriptProvider,
-            IFamiliarScriptActivator familiarScriptActivator,
             IStateService stateService,
             IMapRegionService mapRegionService,
             IMapUpdateService mapUpdateService,
@@ -321,8 +318,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _logger = logger;
             _audioBuilder = audioBuilder;
             _gameMessageService = gameMessageService;
-            _familiarScriptProvider = familiarScriptProvider;
-            _familiarScriptActivator = familiarScriptActivator;
             _stateService = stateService;
             _characterScriptActivator = characterScriptActivator;
             contextProvider.Context = new CharacterContext(this);
@@ -360,6 +355,21 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _scripts = scripts.ToDictionary(s => s.GetType(), s => s);
         }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+
+        public void AttachFamiliar(IFamiliarScript familiar)
+        {
+            FamiliarScript = familiar;
+        }
+
+        public void DetachFamiliar(INpc familiar)
+        {
+            if (FamiliarScript is null || !ReferenceEquals(FamiliarScript.Familiar, familiar))
+            {
+                return;
+            }
+
+            FamiliarScript = null!;
+        }
 
         /// <summary>
         /// Character's cannot be destroyed,

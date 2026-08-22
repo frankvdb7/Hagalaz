@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -16,8 +17,13 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
     public class SummoningSkillService : ISummoningSkillService
     {
         private readonly INpcBuilder _npcBuilder;
+        private readonly IFamiliarScriptProvider _familiarScriptProvider;
 
-        public SummoningSkillService(INpcBuilder npcBuilder) => _npcBuilder = npcBuilder;
+        public SummoningSkillService(INpcBuilder npcBuilder, IFamiliarScriptProvider familiarScriptProvider)
+        {
+            _npcBuilder = npcBuilder;
+            _familiarScriptProvider = familiarScriptProvider;
+        }
 
         /// <summary>
         ///     Summons the specified FamiliarScript.
@@ -62,13 +68,18 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 return;
             }
 
-            var provider = character.ServiceProvider.GetRequiredService<IFamiliarScriptProvider>();
-            var scriptType = provider.FindFamiliarScriptTypeById(def.NpcId);
+            var scriptType = _familiarScriptProvider.FindFamiliarScriptTypeById(def.NpcId);
             _npcBuilder
                 .Create()
                 .WithId(def.NpcId)
                 .WithLocation(character.Location)
-                .WithScript(scriptType)
+                .WithScript((activator, owner) =>
+                {
+                    var script = (IFamiliarScript)activator.Create(scriptType, owner);
+                    script.AttachToSummoner(character, def);
+                    character.AttachFamiliar(script);
+                    return script;
+                })
                 .Spawn();
             character.Inventory.Remove(item, slot);
             character.Statistics.DamageSkill(StatisticsConstants.Summoning, def.SummonSpawnCost);

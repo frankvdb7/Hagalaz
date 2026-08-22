@@ -251,8 +251,6 @@
     //     /// </summary>
     //     protected override void Initialize()
     //     {
-    //         _pathFinder = Owner.ServiceProvider.GetRequiredService<ISmartPathFinder>();
-    //         _npcDefinitionRepository = Owner.ServiceProvider.GetRequiredService<INpcService>();
     //         Phases = new CombatPhaseController<AttackRotation>();
     //
     //         _initialPhase = new CombatPhase<AttackRotation>();

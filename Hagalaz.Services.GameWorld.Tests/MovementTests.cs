@@ -269,7 +269,7 @@ public sealed class MovementTests
         serviceScope.ServiceProvider.Returns(serviceProvider);
 
         var creature = new TestCreature(serviceScope, location, size);
-        creature.InitializeMovement();
+        creature.InitializeMovement(pathFinder, mediator);
         return (creature, mapRegionService, pathFinder);
     }
 
@@ -287,7 +287,7 @@ public sealed class MovementTests
         public override int Size => _size;
         public override IPathFinder PathFinder => Substitute.For<IPathFinder>();
 
-        public void InitializeMovement() => Movement = new Movement(this);
+        public void InitializeMovement(IPathFinder pathFinder, IGameMediator mediator) => Movement = new Movement(this, pathFinder, mediator);
 
         public override bool CanDestroy() => true;
         public override bool CanSuspend() => true;

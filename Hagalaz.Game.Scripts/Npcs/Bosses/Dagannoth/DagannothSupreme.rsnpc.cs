@@ -13,7 +13,8 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses.Dagannoth
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public DagannothSupreme(IProjectileBuilder projectileBuilder)
+        public DagannothSupreme(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

@@ -20,12 +20,37 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         /// </summary>
         private int _healTick;
         
-        private INpcService _npcRegistration;
+        private readonly INpcService _npcRegistration;
 
         /// <summary>
         /// 
         /// </summary>
-        private IMapRegionService _regionManager;
+        private readonly IMapRegionService _regionManager;
+
+        public YtHurKot(INpc owner, INpcService npcRegistration, IMapRegionService regionManager,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+            _npcRegistration = npcRegistration;
+            _regionManager = regionManager;
+            FindJad();
+        }
+
+        private void FindJad()
+        {
+            var active = _regionManager.FindRegionsByDimension(Owner.Location.Dimension);
+            foreach (var region in active)
+            {
+                foreach (var npc in region.FindAllNpcs())
+                {
+                    if (npc.Appearance.CompositeID == 2745)
+                    {
+                        _jad = npc;
+                        return;
+                    }
+                }
+            }
+        }
 
         /// <summary>
         ///     Determines whether this instance [can set target] the specified target.
@@ -91,27 +116,6 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
             Owner.QueueGraphic(Graphic.Create(444));
             _jad.Statistics.HealLifePoints(RandomStatic.Generator.Next(0, 100));
             _healTick = 0;
-        }
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-            _npcRegistration = Owner.ServiceProvider.GetRequiredService<INpcService>();
-            _regionManager =  Owner.ServiceProvider.GetRequiredService<IMapRegionService>();
-            var active = _regionManager.FindRegionsByDimension(Owner.Location.Dimension);
-            foreach (var region in active)
-            {
-                foreach (var npc in region.FindAllNpcs())
-                {
-                    if (npc.Appearance.CompositeID == 2745)
-                    {
-                        _jad = npc;
-                        return;
-                    }
-                }
-            }
         }
 
         /// <summary>

@@ -39,9 +39,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         /// </summary>
         private Attack _attack;
 
-        public Kreearra(
+        public Kreearra(INpc owner,
             ILocationBuilder locationBuilder, IAnimationBuilder animationBuilder, IMovementBuilder movementBuilder, IProjectileBuilder projectileBuilder,
-            IMapRegionService mapRegionService)
+            IMapRegionService mapRegionService, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _locationBuilder = locationBuilder;
             _animationBuilder = animationBuilder;

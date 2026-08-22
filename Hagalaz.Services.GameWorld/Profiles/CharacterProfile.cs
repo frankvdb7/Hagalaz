@@ -3,6 +3,7 @@ using AutoMapper;
 using Hagalaz.Authorization.Constants;
 using Hagalaz.Characters.Messages.Model;
 using Hagalaz.Game.Abstractions.Authorization;
+using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;

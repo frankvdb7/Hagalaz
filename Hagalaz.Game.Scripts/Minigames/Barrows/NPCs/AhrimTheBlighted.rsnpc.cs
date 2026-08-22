@@ -11,7 +11,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public AhrimTheBlighted(IProjectileBuilder projectileBuilder) => _projectileBuilder = projectileBuilder;
+        public AhrimTheBlighted(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) => _projectileBuilder = projectileBuilder;
 
         /// <summary>
         ///     Perform's attack on specific target.

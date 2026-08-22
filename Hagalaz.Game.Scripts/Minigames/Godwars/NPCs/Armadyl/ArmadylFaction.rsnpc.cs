@@ -18,7 +18,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public ArmadylFaction(IProjectileBuilder projectileBuilder) => _projectileBuilder = projectileBuilder;
+        public ArmadylFaction(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) => _projectileBuilder = projectileBuilder;
 
         /// <summary>
         ///     Get's attack style of this npc.

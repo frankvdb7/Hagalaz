@@ -8,7 +8,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
-using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
@@ -69,13 +68,15 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
         private readonly IProjectileBuilder _projectileBuilder;
         private readonly IMapRegionService _mapRegionService;
 
-        public CorporealBeast(IProjectileBuilder projectileBuilder, IMapRegionService mapRegionService)
+        public CorporealBeast(INpc owner, IProjectileBuilder projectileBuilder, IMapRegionService mapRegionService, ISimplePathFinder pathFinder,
+            INpcService npcService, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
             _mapRegionService = mapRegionService;
+            _pathFinder = pathFinder;
+            GenerateAttackType(null);
         }
-
-        private void InitializePathFinder() => _pathFinder = Owner.ServiceProvider.GetRequiredService<IPathFinderProvider>().Simple;
 
         /// <summary>
         ///     Perform's attack on specific target.
@@ -583,13 +584,5 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses
         /// </returns>
         public override bool CanPoison() => false;
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-            InitializePathFinder();
-            GenerateAttackType(null);
-        }
     }
 }

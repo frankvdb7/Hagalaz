@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Martin
     [NpcScriptMetaData([2270])]
     public class MartinThwait : NpcScriptBase
     {
+        public MartinThwait(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -23,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Martin
                     clicker.EventManager.SendEvent(new OpenShopEvent(clicker, 14));
                     break;
                 case NpcClickType.Option1Click:
-                    var dialogue = clicker.ServiceProvider.GetRequiredService<MartinThwaitDialogue>();
+                    var dialogue = CreateWidgetScript<MartinThwaitDialogue>(clicker);
                     clicker.Widgets.OpenDialogue(dialogue, true, Owner);
                     break;
                 default:
@@ -32,11 +36,5 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Martin
             }
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

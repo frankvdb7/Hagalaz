@@ -11,6 +11,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
     [NpcScriptMetaData([14297])]
     public class AkrisaeTheDoomed : BarrowBrother
     {
+        public AkrisaeTheDoomed(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Perform's attack on specific target.
         /// </summary>

@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Dialogues;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.ChiefThiefRobin
     [NpcScriptMetaData([11280])]
     public class ChiefThiefRobin : NpcScriptBase
     {
+        public ChiefThiefRobin(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -19,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.ChiefThiefRobin
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var script = clicker.ServiceProvider.GetRequiredService<SellStolenGoodsDialogue>();
+                var script = CreateWidgetScript<SellStolenGoodsDialogue>(clicker);
                 clicker.Widgets.OpenDialogue(script, true, Owner);
                 return;
             }
@@ -27,11 +31,5 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.ChiefThiefRobin
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

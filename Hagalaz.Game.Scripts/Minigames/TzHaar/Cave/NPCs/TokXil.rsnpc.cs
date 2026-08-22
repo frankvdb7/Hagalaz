@@ -18,7 +18,8 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
         /// </summary>
         private bool _ranging = true;
 
-        public TokXil(INpcBuilder npcBuilder, IProjectileBuilder projectileBuilder) : base(npcBuilder)
+        public TokXil(INpc owner, INpcBuilder npcBuilder, IProjectileBuilder projectileBuilder,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator) : base(owner, npcBuilder, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

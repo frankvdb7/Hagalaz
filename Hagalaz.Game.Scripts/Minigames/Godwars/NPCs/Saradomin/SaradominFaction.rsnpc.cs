@@ -12,6 +12,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
     [NpcScriptMetaData([6254, 6255, /*6256,*/ /*6257,*/ 6258, 6259])]
     public class SaradominFaction : NpcScriptBase
     {
+        public SaradominFaction(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Get's if this npc can aggro attack specific character.
         ///     By default this method does check if character is character.

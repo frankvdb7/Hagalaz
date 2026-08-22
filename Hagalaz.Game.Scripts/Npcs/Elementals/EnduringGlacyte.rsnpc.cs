@@ -11,29 +11,15 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
     [NpcScriptMetaData([14304])]
     public class EnduringGlacyte : NpcScriptBase
     {
-        /// <summary>
-        ///     The glacor
-        /// </summary>
-        private readonly INpc _glacor;
+        private GlacorEncounter? _encounter;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="EnduringGlacyte" /> class.
         /// </summary>
-        /// <param name="glacor">The parent glacor.</param>
-        public EnduringGlacyte(INpc glacor) => _glacor = glacor;
+        public EnduringGlacyte(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) { }
 
-        /// <summary>
-        ///     Called when [set target].
-        ///     By default, this method does nothing.
-        /// </summary>
-        /// <param name="target">The target.</param>
-        public override void OnSetTarget(ICreature target)
-        {
-            if (_glacor.Combat.Target == null)
-            {
-                _glacor.QueueTask(() => _glacor.Combat.SetTarget(target), 1);
-            }
-        }
+        public void BindToEncounter(GlacorEncounter encounter) => _encounter = encounter;
 
         /// <summary>
         ///     Get's if this npc can be attacked by the specified character ('attacker').
@@ -71,7 +57,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// </returns>
         public override int OnIncomingAttack(ICreature attacker, DamageType damageType, int damage, int delay)
         {
-            var distance = Owner.Location.GetDistance(_glacor.Location);
+            var distance = Owner.Location.GetDistance(_encounter!.Glacor.Location);
             const double maxDistance = 14.0;
             return (int)(distance / maxDistance * damage);
 

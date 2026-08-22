@@ -7,13 +7,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Sage
     [NpcScriptMetaData([2244])]
     public class Sage : NpcScriptBase
     {
-        /// <summary>
-        ///     Initializes this instance.
-        /// </summary>
-        protected override void Initialize()
+        public Sage(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
         }
-
         /// <summary>
         ///     Called when [character click perform].
         /// </summary>
@@ -23,7 +20,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Sage
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var script = clicker.ServiceProvider.GetRequiredService<SageDialogue>();
+                var script = CreateWidgetScript<SageDialogue>(clicker);
                 clicker.Widgets.OpenDialogue(script, true, Owner);
                 return;
             }

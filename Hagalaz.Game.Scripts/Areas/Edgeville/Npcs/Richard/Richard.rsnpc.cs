@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -10,6 +10,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Richard
     [NpcScriptMetaData([1783])]
     public class Richard : NpcScriptBase
     {
+        public Richard(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Called when [character click perform].
         /// </summary>
@@ -26,11 +30,5 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Richard
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        /// <summary>
-        ///     Initializes this instance.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

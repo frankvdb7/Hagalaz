@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
@@ -7,6 +7,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.MasterFisher
     [NpcScriptMetaData([308])]
     public class MasterFisher : NpcScriptBase
     {
+        public MasterFisher(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -18,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.MasterFisher
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var skillCapeDialogue = clicker.ServiceProvider.GetRequiredService<SkillCapeDialogue.SkillCapeDialogue>();
+                var skillCapeDialogue = CreateWidgetScript<SkillCapeDialogue.SkillCapeDialogue>(clicker);
                 skillCapeDialogue.SkillID = StatisticsConstants.Fishing;
                 clicker.Widgets.OpenDialogue(skillCapeDialogue, true, Owner);
             }

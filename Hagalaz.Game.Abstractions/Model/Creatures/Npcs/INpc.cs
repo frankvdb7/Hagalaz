@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Hagalaz.Game.Abstractions.Data;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
 {
@@ -7,6 +8,11 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
     /// </summary>
     public interface INpc : ICreature
     {
+        /// <summary>
+        /// Gets the event manager for dispatching game events.
+        /// </summary>
+        IEventManager EventManager { get; }
+
         /// <summary>
         /// Gets the handler for the NPC's visual appearance.
         /// </summary>

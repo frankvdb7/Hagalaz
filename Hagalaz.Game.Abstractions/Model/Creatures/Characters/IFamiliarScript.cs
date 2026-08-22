@@ -43,10 +43,10 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// </summary>
         void RenewFamiliar();
         /// <summary>
-        /// Initializes the script with the summoner and the familiar's definition data.
+        /// Attaches the familiar to its summoner and applies the familiar's definition data.
         /// </summary>
         /// <param name="summoner">The character who summoned the familiar.</param>
         /// <param name="definition">The data definition for the familiar.</param>
-        void InitializeSummoner(ICharacter summoner, SummoningDto definition);
+        void AttachToSummoner(ICharacter summoner, SummoningDto definition);
     }
 }

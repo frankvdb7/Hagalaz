@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -13,10 +13,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Giants
     [NpcScriptMetaData([1582, 1583, 1584, 1585, 1586])]
     public class FireGiant : NpcScriptBase
     {
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() { }
+        public FireGiant(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
 
         /// <summary>
         ///     Render's attack.
