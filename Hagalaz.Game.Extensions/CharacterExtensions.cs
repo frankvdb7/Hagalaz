@@ -30,7 +30,7 @@ namespace Hagalaz.Game.Extensions
         /// </summary>
         /// <param name="character">The character to check.</param>
         /// <returns><c>true</c> if the character has a familiar; otherwise, <c>false</c>.</returns>
-        public static bool HasFamiliar(this ICharacter character) => character.FamiliarScript != null! || character.FamiliarId != 0;
+        public static bool HasFamiliar(this ICharacter character) => character.FamiliarScript != null!;
 
         /// <summary>
         /// Checks if the character is currently a member of a clan.

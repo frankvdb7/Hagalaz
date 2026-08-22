@@ -8,7 +8,6 @@ using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Services.Model;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
@@ -87,15 +86,10 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// </summary>
         IFamiliarScript FamiliarScript { get; }
         /// <summary>
-        /// Gets the NPC identifier of the familiar being restored or currently summoned.
-        /// </summary>
-        int FamiliarId { get; }
-        /// <summary>
         /// Attaches an already-created familiar to this character.
         /// </summary>
         /// <param name="familiar">The familiar script to attach.</param>
-        /// <param name="familiarId">The NPC identifier of the familiar.</param>
-        void AttachFamiliar(IFamiliarScript familiar, int familiarId);
+        void AttachFamiliar(IFamiliarScript familiar);
         /// <summary>
         /// Detaches the specified familiar if it is still the active familiar.
         /// </summary>

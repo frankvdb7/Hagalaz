@@ -2,37 +2,34 @@
 
 ### Requirement: NPC composition uses explicit dependencies
 
-The NPC composition graph MUST expose ordinary service dependencies through typed constructor inputs or narrow typed activation inputs, and `NpcBuilder` MUST compose the graph from the per-NPC scope.
+The NPC composition graph MUST expose ordinary service dependencies through
+typed constructor inputs or narrow typed activation inputs, and `NpcBuilder`
+MUST compose the graph from the per-NPC scope.
 
 #### Scenario: NPC creation uses the child scope
 
-- **WHEN** `NpcBuilder` creates an NPC with a location, definition, and selected script type
-- **THEN** it creates or reuses the child scope for that NPC
+- **WHEN** `NpcBuilder` creates an NPC with a location, definition, and
+  selected script type
+- **THEN** it creates the child scope for that NPC
 - **AND** it resolves the selected script and definition from that scope
-- **AND** it composes `Npc` with its typed service dependencies and explicit runtime values
-
-#### Scenario: NPC destruction disposes the child scope
-
-- **WHEN** a created NPC is destroyed
-- **THEN** the scope owned by that NPC is disposed by the existing creature lifetime
-- **AND** scoped dependencies are not resolved from or promoted to the application root
+- **AND** it composes `Npc` with typed service dependencies and explicit runtime
+  values
 
 ### Requirement: NPC-owned components declare service requirements
 
-`Npc`, `Movement`, `NpcAppearance`, `NpcStatistics`, `NpcCombat`, `NpcRenderInformation`, and `NpcHandle` MUST receive each ordinary service they use through required typed constructor or composition-boundary inputs. They MUST NOT use an owner `ServiceProvider` for ordinary service resolution.
+This requirement MUST be satisfied by the NPC composition graph.
 
-#### Scenario: NPC movement and combat receive direct services
+`Npc`, `Movement`, `NpcAppearance`, `NpcStatistics`, `NpcCombat`,
+`NpcRenderInformation`, and `NpcHandle` SHALL receive each ordinary service
+they use through required typed constructor or composition-boundary inputs.
+They MUST NOT use an owner `ServiceProvider` for ordinary service resolution.
 
-- **WHEN** `Npc` constructs movement and combat
-- **THEN** it supplies the path finder, mediator, combat options, hit-splat builder, loot services, ground-item builder, and NPC service directly
-- **AND** the components do not resolve those services through the NPC owner
+#### Scenario: NPC movement, combat, appearance, and statistics use direct services
 
-#### Scenario: NPC appearance and statistics update
-
-- **WHEN** an NPC transforms or receives poison damage
-- **THEN** appearance uses its injected NPC service
-- **AND** statistics uses its injected hit-splat builder
-- **AND** neither operation performs a provider lookup
+- **WHEN** an NPC moves, attacks, transforms, or receives poison damage
+- **THEN** its owned components use the services supplied by `NpcBuilder`
+- **AND** those operations do not perform provider lookups through the NPC
+  owner
 
 #### Scenario: NPC unregisters through a handle
 
@@ -42,74 +39,82 @@ The NPC composition graph MUST expose ordinary service dependencies through type
 
 ### Requirement: NPC script activation is typed and scoped
 
-The common NPC script path MUST receive its NPC service, path finder, and character-widget activation capability through required typed constructor inputs. Runtime-selected NPC scripts and NPC-related dialogue/widget scripts MUST NOT use an arbitrary service provider at the point of use.
+The common NPC script path MUST receive its NPC service, path finder, and
+character-widget activation capability through required typed constructor
+inputs. Runtime-selected NPC scripts and NPC-related dialogue/widget scripts
+MUST NOT use an arbitrary service provider at the point of use.
 
 #### Scenario: NPC script activates with scoped services
 
 - **WHEN** an NPC is composed with a runtime-selected script
-- **THEN** the script is constructed with the NPC service from the same child scope, a path finder, and the typed widget script activator
-- **AND** the owner is supplied through the owner-aware script construction or activation boundary
-- **AND** domain relationships use a dedicated typed activation contract rather than an arbitrary argument bag
-- **AND** the script can use those inputs without accessing `INpc.ServiceProvider`
+- **THEN** the script is constructed with services from the same child scope
+- **AND** the owner is supplied through the owner-aware activation boundary
+- **AND** domain relationships use a dedicated typed activation contract rather
+  than an arbitrary argument bag
 
 #### Scenario: NPC dialogue creates a character-scoped widget script
 
 - **WHEN** an NPC script opens a dialogue or NPC-owned widget for a character
-- **THEN** it creates the requested script through the typed widget activator for that character
+- **THEN** it creates the requested script through the typed widget activator
 - **AND** the created script comes from the character's scope
 
-### Requirement: Familiar composition stays at the application boundary
+### Requirement: Active familiar composition supplies the NPC owner
 
-Familiar creation and restoration MUST be coordinated by `IFamiliarFactory`. `ICharacter` MUST expose only the domain state transitions for attaching an already-created familiar and detaching the specific active familiar; it MUST NOT depend on NPC script activation, summoning definitions, or pending restoration state.
+Active familiar summoning MUST compose the familiar through `NpcBuilder` and
+the NPC child scope. It MUST NOT reintroduce owner-binding initialization or a
+generic activation argument bag.
 
 #### Scenario: Familiar creation supplies an owner-aware script
 
 - **WHEN** a character summons a familiar
-- **THEN** the familiar factory creates the NPC through the NPC builder
-- **AND** it activates the selected script with the newly-created NPC as owner
-- **AND** it attaches the summoner and familiar definition before NPC registration
-- **AND** it attaches the created familiar to the character through an explicit state transition
+- **THEN** the builder's script factory activates the selected familiar with
+  the newly-created NPC as owner
+- **AND** it attaches the summoner and familiar definition before registration
+- **AND** it records the active familiar on the character
 
-#### Scenario: Familiar restoration supplies persisted state
+### Requirement: Familiar teardown remains domain-local
 
-- **WHEN** character hydration contains familiar and familiar-inventory data
-- **THEN** the hydrators store that data in scoped restoration state
-- **AND** the familiar factory resolves the definition and composes the owner-aware familiar during character registration
-- **AND** the restored familiar's persisted runtime state, including remaining ticks and inventory, is effective after the complete registration and `OnSpawn` lifecycle
-- **AND** the character does not create or activate the familiar itself
+The generic NPC registration service MUST NOT know about familiar-specific
+character state. Familiar scripts MUST own the event handlers they register
+and MUST detach only their matching active NPC during teardown.
 
-### Requirement: NPC behavior remains unchanged
+#### Scenario: Familiar removal clears active character state
 
-The dependency refactor MUST preserve existing NPC spawn, unregister, script, movement, combat, familiar, player-NPC, rendering, and loot behavior.
-
-#### Scenario: NPC spawn and unregister retain behavior
-
-- **WHEN** an NPC is spawned and later unregistered
-- **THEN** registration and removal use the same NPC service and child scope as before
-- **AND** script callbacks and scope disposal occur in the existing lifecycle order
-
-#### Scenario: NPC combat and loot retain behavior
-
-- **WHEN** an NPC attacks, dies, or produces loot
-- **THEN** the same combat calculations, callbacks, loot table, loot generator, and ground-item builder are used
-- **AND** only dependency acquisition changes
-
-#### Scenario: Familiar removal clears character state
-
-- **WHEN** a familiar is dismissed, despawns, or is otherwise unregistered
-- **THEN** the familiar lifecycle asks the character to detach the specific familiar being removed
-- **AND** the character's active familiar script and familiar ID are cleared together only when that familiar is still active
-- **AND** `HasFamiliar()` returns `false`
+- **WHEN** a familiar is dismissed, despawns, or is otherwise destroyed
+- **THEN** its familiar lifecycle removes its summoner handlers
+- **AND** it detaches that specific familiar from the character
 - **AND** the character can summon another familiar
 
 #### Scenario: Stale familiar removal preserves the newer familiar
 
-- **WHEN** familiar A is replaced by familiar B and a delayed or duplicate removal for A is processed
-- **THEN** the generic NPC unregister path does not mutate character familiar state
-- **AND** identity-aware familiar detachment leaves B active
+- **WHEN** familiar A is replaced by familiar B and a delayed removal for A is
+  processed
+- **THEN** generic NPC unregister does not mutate familiar state
+- **AND** identity-aware detachment leaves B active
 
-#### Scenario: Familiar teardown releases summoner handlers
+#### Scenario: Familiar attachment failure is locally cleaned up
 
-- **WHEN** familiar A is dismissed and destroyed before familiar B is summoned
-- **THEN** A unregisters every event handler it registered on the summoner during its teardown
-- **AND** a subsequent combat-target event is handled only by B
+- **WHEN** handler registration or familiar-specific setup fails during
+  `AttachToSummoner`
+- **THEN** the handlers registered before the failure are removed
+- **AND** the familiar script resets its partial attachment state
+
+### Requirement: Existing NPC behavior remains unchanged
+
+The dependency refactor MUST preserve existing NPC spawn, unregister, script,
+movement, combat, rendering, loot, and active familiar behavior. Owner-aware
+familiar restoration is outside this change because the existing restoration
+boundary predates construction of the NPC owner.
+
+#### Scenario: NPC spawn and unregister retain behavior
+
+- **WHEN** an NPC is spawned and later unregistered
+- **THEN** registration and removal use the same NPC service and child scope
+- **AND** script callbacks and scope disposal retain their existing lifecycle
+
+#### Scenario: NPC combat and loot retain behavior
+
+- **WHEN** an NPC attacks, dies, or produces loot
+- **THEN** the same calculations, callbacks, loot table, loot generator, and
+  ground-item builder are used
+- **AND** only dependency acquisition changes

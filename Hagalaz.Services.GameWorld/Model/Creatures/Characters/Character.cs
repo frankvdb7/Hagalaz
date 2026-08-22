@@ -20,9 +20,6 @@ using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Logic.Characters.Model;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
-using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
@@ -209,11 +206,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public IFamiliarScript FamiliarScript { get; set; }
 
         /// <summary>
-        /// Contains the NPC identifier of the familiar being restored or currently summoned.
-        /// </summary>
-        public int FamiliarId { get; private set; }
-
-        /// <summary>
         /// Contains the previous display name.
         /// </summary>
         public string? PreviousDisplayName { get; set; }
@@ -364,9 +356,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-        public void AttachFamiliar(IFamiliarScript familiar, int familiarId)
+        public void AttachFamiliar(IFamiliarScript familiar)
         {
-            FamiliarId = familiarId;
             FamiliarScript = familiar;
         }
 
@@ -378,7 +369,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             FamiliarScript = null!;
-            FamiliarId = 0;
         }
 
         /// <summary>

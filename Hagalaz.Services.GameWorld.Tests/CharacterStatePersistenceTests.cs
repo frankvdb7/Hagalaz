@@ -93,16 +93,14 @@ public sealed class CharacterStatePersistenceTests
         var familiar = Substitute.For<INpc>();
         var familiarScript = Substitute.For<IFamiliarScript>();
         familiarScript.Familiar.Returns(familiar);
-        character.AttachFamiliar(familiarScript, 6815);
+        character.AttachFamiliar(familiarScript);
 
         Assert.IsTrue(character.HasFamiliar());
 
         character.DetachFamiliar(familiar);
 
         Assert.IsFalse(character.HasFamiliar());
-        Assert.AreEqual(0, character.FamiliarId);
-
-        character.AttachFamiliar(familiarScript, 6816);
+        character.AttachFamiliar(familiarScript);
 
         Assert.IsTrue(character.HasFamiliar());
     }
@@ -118,13 +116,12 @@ public sealed class CharacterStatePersistenceTests
         scriptA.Familiar.Returns(familiarA);
         scriptB.Familiar.Returns(familiarB);
 
-        character.AttachFamiliar(scriptA, 6815);
-        character.AttachFamiliar(scriptB, 6816);
+        character.AttachFamiliar(scriptA);
+        character.AttachFamiliar(scriptB);
 
         character.DetachFamiliar(familiarA);
 
         Assert.AreSame(scriptB, character.FamiliarScript);
-        Assert.AreEqual(6816, character.FamiliarId);
         Assert.IsTrue(character.HasFamiliar());
     }
 

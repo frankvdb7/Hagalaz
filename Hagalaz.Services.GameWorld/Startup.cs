@@ -66,7 +66,6 @@ using Hagalaz.Services.GameWorld.Logic.Hydrators;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
 using Hagalaz.Services.GameWorld.Mediator;
 using Hagalaz.Services.GameWorld.Mediator.Consumers;
-using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Network.Consumers;
 using Hagalaz.Services.GameWorld.Network.Handshake;
 using Hagalaz.Services.GameWorld.Network.Handshake.Decoders;
@@ -252,8 +251,6 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IFamiliarScriptFactory, FamiliarScriptFactory>();
             services.AddScoped<INpcScriptFactory, NpcScriptMetaDataFactory>();
             services.AddScoped<INpcScriptActivator, NpcScriptActivator>();
-            services.AddScoped<FamiliarRestorationState>();
-            services.AddScoped<IFamiliarFactory, FamiliarFactory>();
             services.AddSingleton<INpcBuilder, NpcBuilder>();
 
             // map
@@ -388,8 +385,6 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IPrayerRepository, PrayerRepository>();
             services.AddScoped<IRunecraftingService, RunecraftingService>();
             services.AddScoped<IRunecraftingRepository, RunecraftingRepository>();
-            services.AddSingleton<SummoningDefinitionStore>();
-            services.AddSingleton<ISummoningDefinitionStore>(provider => provider.GetRequiredService<SummoningDefinitionStore>());
             services.AddScoped<ISummoningDefinitionRepository, SummoningDefinitionRepository>();
             services.AddScoped<ISummoningService, SummoningService>();
             services.AddScoped<IFishingSpotDefinitionRepository, FishingSpotDefinitionRepository>();
@@ -750,7 +745,6 @@ namespace Hagalaz.Services.GameWorld
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<ItemStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<LootStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<NpcDefinitionStore>());
-            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<SummoningDefinitionStore>());
 
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<ItemScriptProvider>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<GameObjectScriptProvider>());

@@ -1,17 +1,17 @@
+using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
-using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Services.Model;
 
 namespace Hagalaz.Services.GameWorld.Logic.Hydrators
 {
-    public class FamiliarHydrator(FamiliarRestorationState restorationState) : ICharacterHydrator
+    public class FamiliarHydrator : ICharacterHydrator
     {
         public void Hydrate(ICharacter character, CharacterModel model)
         {
-            if (model.Familiar is not null)
+            if (model.Familiar != null && character is IHydratable<HydratedFamiliarDto> hdt)
             {
-                restorationState.SetFamiliar(model.Familiar);
+                hdt.Hydrate(model.Familiar);
             }
         }
     }

@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Cache.Logic;
@@ -15,9 +16,14 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
     /// </summary>
     public class SummoningSkillService : ISummoningSkillService
     {
-        private readonly IFamiliarFactory _familiarFactory;
+        private readonly INpcBuilder _npcBuilder;
+        private readonly IFamiliarScriptProvider _familiarScriptProvider;
 
-        public SummoningSkillService(IFamiliarFactory familiarFactory) => _familiarFactory = familiarFactory;
+        public SummoningSkillService(INpcBuilder npcBuilder, IFamiliarScriptProvider familiarScriptProvider)
+        {
+            _npcBuilder = npcBuilder;
+            _familiarScriptProvider = familiarScriptProvider;
+        }
 
         /// <summary>
         ///     Summons the specified FamiliarScript.
@@ -62,7 +68,19 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 return;
             }
 
-            _familiarFactory.Spawn(character, def);
+            var scriptType = _familiarScriptProvider.FindFamiliarScriptTypeById(def.NpcId);
+            _npcBuilder
+                .Create()
+                .WithId(def.NpcId)
+                .WithLocation(character.Location)
+                .WithScript((activator, owner) =>
+                {
+                    var script = (IFamiliarScript)activator.Create(scriptType, owner);
+                    script.AttachToSummoner(character, def);
+                    character.AttachFamiliar(script);
+                    return script;
+                })
+                .Spawn();
             character.Inventory.Remove(item, slot);
             character.Statistics.DamageSkill(StatisticsConstants.Summoning, def.SummonSpawnCost);
             character.Statistics.AddExperience(StatisticsConstants.Summoning, def.SummonExperience);
