@@ -39,7 +39,7 @@ public sealed class FamiliarCharacterScriptTests
 
         character.PendingFamiliarId.Returns(6815);
         character.Location.Returns(location);
-        character.FamiliarScript.Returns((IFamiliarScript)null!);
+        character.FamiliarScript.Returns(_ => null!);
         character.When(x => x.ApplyPendingFamiliar(familiar)).Do(_ => throw expectedException);
         context.Character.Returns(character);
         contextAccessor.Context.Returns(context);
