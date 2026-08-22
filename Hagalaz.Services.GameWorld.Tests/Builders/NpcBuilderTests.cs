@@ -37,6 +37,46 @@ public sealed class NpcBuilderTests
         npcService.RegisterAsync(Arg.Any<INpc>()).Returns(Task.CompletedTask);
 
         var script = Substitute.For<INpcScript>();
+        var builder = CreateBuilder(npcService);
+
+        var handle = builder.Create()
+            .WithId(definition.Id)
+            .WithLocation(new Location(3200, 3200, 0, 0))
+            .WithScript((_, _) => script)
+            .Spawn();
+
+        Assert.IsNotNull(handle.Npc);
+        npcService.Received(1).RegisterAsync(handle.Npc);
+    }
+
+    [TestMethod]
+    public void Spawn_WithExistingScript_BindsItToCreatedNpc()
+    {
+        var definition = new NpcDefinition(1)
+        {
+            BoundsType = BoundsType.Static,
+            DisplayName = "Test NPC",
+            WalksRandomly = false,
+        };
+        var npcService = Substitute.For<INpcService>();
+        npcService.FindNpcDefinitionById(definition.Id).Returns(definition);
+        npcService.RegisterAsync(Arg.Any<INpc>()).Returns(Task.CompletedTask);
+
+        var existingScript = Substitute.For<INpcScript>();
+        var builder = CreateBuilder(npcService);
+
+        var handle = builder.Create()
+            .WithId(definition.Id)
+            .WithLocation(new Location(3200, 3200, 0, 0))
+            .WithScript(existingScript)
+            .Spawn();
+
+        Assert.AreSame(existingScript, handle.Npc.Script);
+        existingScript.Received(1).Initialize(handle.Npc);
+    }
+
+    private static NpcBuilder CreateBuilder(INpcService npcService)
+    {
         var services = new ServiceCollection()
             .AddSingleton(Substitute.For<ICreatureTaskService>())
             .AddSingleton(Substitute.For<IEventManager>())
@@ -53,19 +93,7 @@ public sealed class NpcBuilderTests
             .AddSingleton(Substitute.For<INpcScriptProvider>())
             .AddSingleton(Substitute.For<INpcScriptActivator>())
             .BuildServiceProvider();
-        var builder = new NpcBuilder(services, services.GetRequiredService<INpcScriptProvider>());
-
-        var handle = builder.Create()
-            .WithId(definition.Id)
-            .WithLocation(new Location(3200, 3200, 0, 0))
-            .WithScript((_, _) => script)
-            .Spawn();
-
-        Assert.IsNotNull(handle.Npc);
-        npcService.Received(1).RegisterAsync(handle.Npc);
-
-        handle.Npc.Script.OnSpawn();
-        handle.Npc.Script.Received(1).OnSpawn();
+        return new NpcBuilder(services, services.GetRequiredService<INpcScriptProvider>());
     }
 
 }
