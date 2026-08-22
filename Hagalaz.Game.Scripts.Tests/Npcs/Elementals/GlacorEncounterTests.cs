@@ -36,10 +36,10 @@ public sealed class GlacorEncounterTests
         ITaskItem? queuedTask = null;
 
         glacor.Combat.Returns(glacorCombat);
-        glacorCombat.Target.Returns((ICreature?)null);
+        glacorCombat.Target.ReturnsForAnyArgs(_ => null);
         glacor.QueueTask(Arg.Do<ITaskItem>(task => queuedTask = task)).Returns(Substitute.For<IRsTaskHandle>());
         glacyte.Combat.Returns(glacyteCombat);
-        glacyteCombat.Target.Returns((ICreature?)null);
+        glacyteCombat.Target.ReturnsForAnyArgs(_ => null);
         handle.Npc.Returns(glacyte);
         builder.Create().Returns(glacyteId);
         glacyteId.WithId(14303).Returns(glacyteLocation);
