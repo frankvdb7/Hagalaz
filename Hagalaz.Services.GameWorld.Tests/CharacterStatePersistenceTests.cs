@@ -128,15 +128,9 @@ public sealed class CharacterStatePersistenceTests
     }
 
     [TestMethod]
-    public void FamiliarHydration_RestoresPersistedScript()
+    public void FamiliarHydration_StoresPendingData()
     {
-        var provider = Substitute.For<IFamiliarScriptProvider>();
-        var activator = Substitute.For<IFamiliarScriptActivator>();
-        var script = Substitute.For<IFamiliarScript>();
-        provider.FindFamiliarScriptTypeById(6815).Returns(typeof(TestFamiliarScript));
-        activator.Create(typeof(TestFamiliarScript)).Returns(script);
-
-        var character = CreateCharacter(new TestStateService(), out _, provider, activator);
+        var character = CreateCharacter(new TestStateService(), out _);
         var hydrator = new FamiliarHydrator();
 
         hydrator.Hydrate(character, new CharacterModel
@@ -144,16 +138,13 @@ public sealed class CharacterStatePersistenceTests
             Familiar = new HydratedFamiliarDto { FamiliarId = 6815, TicksRemaining = 50 }
         });
 
-        Assert.AreSame(script, character.FamiliarScript);
-        Assert.AreEqual(6815, script.FamiliarId);
-        activator.Received(1).Create(typeof(TestFamiliarScript));
+        Assert.IsNull(character.FamiliarScript);
+        Assert.AreEqual(6815, character.PendingFamiliarId);
     }
 
     private static Character CreateCharacter(
         TestStateService stateService,
-        out IEquipmentScript equipmentScript,
-        IFamiliarScriptProvider? familiarScriptProvider = null,
-        IFamiliarScriptActivator? familiarScriptActivator = null)
+        out IEquipmentScript equipmentScript)
     {
         var serviceProvider = Substitute.For<IServiceProvider>();
         var serviceScope = Substitute.For<IServiceScope>();
@@ -198,9 +189,6 @@ public sealed class CharacterStatePersistenceTests
         Register(serviceProvider, itemBuilder);
         Register<IStateService>(serviceProvider, stateService);
 
-        familiarScriptProvider ??= Substitute.For<IFamiliarScriptProvider>();
-        familiarScriptActivator ??= Substitute.For<IFamiliarScriptActivator>();
-
         var character = new Character(
             serviceScope,
             Substitute.For<IGameSession>(),
@@ -214,8 +202,6 @@ public sealed class CharacterStatePersistenceTests
             Options.Create(new SkillOptions()),
             scripts,
             Substitute.For<ICharacterScriptActivator>(),
-            familiarScriptProvider,
-            familiarScriptActivator,
             stateService,
             Substitute.For<IMapRegionService>(),
             Substitute.For<IMapUpdateService>(),
@@ -255,8 +241,6 @@ public sealed class CharacterStatePersistenceTests
 
     private static void Register<T>(IServiceProvider serviceProvider, T service) where T : class =>
         serviceProvider.GetService(typeof(T)).Returns(service);
-
-    private sealed class TestFamiliarScript { }
 
     private sealed class TestStateService : IStateService
     {

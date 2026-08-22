@@ -61,9 +61,9 @@ MUST NOT use an arbitrary service provider at the point of use.
 ### Requirement: Active familiar composition supplies the NPC owner
 
 Active familiar summoning MUST compose the familiar through `NpcBuilder` and
-the NPC child scope. The familiar script may be bound to its NPC after
-owner-independent construction, but ordinary services MUST remain explicit
-and no generic activation argument bag may be introduced.
+the NPC child scope. The familiar script MUST receive its NPC owner during
+construction, ordinary services MUST remain explicit, and no generic
+activation argument bag may be introduced.
 
 #### Scenario: Familiar creation supplies an owner-aware script
 
@@ -71,7 +71,7 @@ and no generic activation argument bag may be introduced.
 - **THEN** the builder's script factory activates the selected familiar from
   the NPC child scope
 - **AND** it attaches the summoner and familiar definition before registration
-- **AND** the script is bound to the newly-created NPC before it is used
+- **AND** the script receives the newly-created NPC as its owner before it is used
 - **AND** it records the active familiar on the character
 
 ### Requirement: Familiar teardown remains domain-local
@@ -105,9 +105,10 @@ and MUST detach only their matching active NPC during teardown.
 
 The dependency refactor MUST preserve existing NPC spawn, unregister, script,
 movement, combat, rendering, loot, and active familiar behavior. Owner-aware
-familiar restoration MUST also retain its existing hydration and registration
-path; this change MUST NOT disable persisted familiar restoration or replace it
-with a new restoration subsystem.
+familiar restoration MUST retain its existing hydration and registration
+behavior; persisted data may be staged until the owner-aware NPC composition
+boundary creates the script, but this change MUST NOT replace restoration with
+a new subsystem.
 
 #### Scenario: NPC spawn and unregister retain behavior
 
@@ -126,8 +127,11 @@ with a new restoration subsystem.
 
 - **WHEN** character hydration contains a persisted familiar
 - **THEN** `FamiliarHydrator` invokes the existing familiar hydration contract
-- **AND** the character retains the hydrated familiar script
-- **AND** the character's familiar registration script respawns it through
-  `NpcBuilder`
+- **AND** hydration retains the persisted familiar data without constructing
+  an ownerless familiar script
+- **AND** the character's familiar registration script composes the familiar
+  through `NpcBuilder` with the newly-created NPC as owner
+- **AND** the persisted familiar runtime state and inventory are effective
+  after the NPC registration and spawn callbacks complete
 - **AND** no replacement familiar factory, restoration coordinator, or
   persistence state store is introduced

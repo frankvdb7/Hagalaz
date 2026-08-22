@@ -37,15 +37,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
             widgetScriptActivator) =>
             _projectileBuilder = projectileBuilder;
 
-        public SteelTitan(ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder, IProjectileBuilder projectileBuilder,
-            IWidgetScriptActivator widgetScriptActivator) : base(
-            pathFinder,
-            npcService,
-            itemService,
-            itemBuilder,
-            widgetScriptActivator) =>
-            _projectileBuilder = projectileBuilder;
-
         /// <summary>
         ///     Performs the special attack.
         /// </summary>

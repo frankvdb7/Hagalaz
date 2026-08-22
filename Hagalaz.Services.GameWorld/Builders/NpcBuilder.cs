@@ -24,7 +24,6 @@ namespace Hagalaz.Services.GameWorld.Builders
         private readonly IServiceProvider _serviceProvider;
         private readonly IServiceScope _serviceScope = default!;
         private readonly INpcScriptProvider _npcScriptProvider;
-        private INpcScript? _script;
         private ILocation? _minimumBounds;
         private ILocation? _maximumBounds;
         private Type? _scriptType;
@@ -54,7 +53,7 @@ namespace Hagalaz.Services.GameWorld.Builders
             {
                 var scriptActivator = _serviceProvider.GetRequiredService<INpcScriptActivator>();
                 var scriptFactory = _scriptFactory ?? ((activator, owner) =>
-                    _script ?? activator.Create(_scriptType ?? _npcScriptProvider.GetNpcScriptTypeById(_id), owner));
+                    activator.Create(_scriptType ?? _npcScriptProvider.GetNpcScriptTypeById(_id), owner));
                 Func<INpc, INpcScript> npcScriptFactory = owner => scriptFactory(scriptActivator, owner);
                 var npcService = _serviceProvider.GetRequiredService<INpcService>();
                 var definition = npcService.FindNpcDefinitionById(_id);
@@ -88,9 +87,17 @@ namespace Hagalaz.Services.GameWorld.Builders
         public INpcHandle Spawn()
         {
             var npc = Build();
-            var npcService = _serviceProvider.GetRequiredService<INpcService>();
-            npcService.RegisterAsync(npc).GetAwaiter().GetResult();
-            return new NpcHandle(npc, npcService);
+            try
+            {
+                var npcService = _serviceProvider.GetRequiredService<INpcService>();
+                npcService.RegisterAsync(npc).GetAwaiter().GetResult();
+                return new NpcHandle(npc, npcService);
+            }
+            catch
+            {
+                npc.Destroy();
+                throw;
+            }
         }
 
         public INpcOptional WithMinimumBounds(ILocation location)
@@ -114,12 +121,6 @@ namespace Hagalaz.Services.GameWorld.Builders
         public INpcOptional WithScript(Type type)
         {
             _scriptType = type;
-            return this;
-        }
-
-        public INpcOptional WithScript(INpcScript script)
-        {
-            _script = script;
             return this;
         }
 

@@ -1,6 +1,5 @@
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Services.GameWorld.Factories;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,13 +25,6 @@ public sealed class CharacterScriptActivatorTests
 
         Assert.AreSame(scopedScript, result);
         Assert.AreNotSame(rootScript, result);
-    }
-
-    [TestMethod]
-    public void NpcScriptContract_ExposesOwnerBindingOnly()
-    {
-        Assert.IsNotNull(typeof(INpcScript).GetMethod("Initialize", new[] { typeof(INpc) }));
-        Assert.IsNull(typeof(INpcScript).GetMethod("Initialize", Type.EmptyTypes));
     }
 
     [TestMethod]

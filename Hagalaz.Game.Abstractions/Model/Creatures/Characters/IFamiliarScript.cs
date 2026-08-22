@@ -17,10 +17,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// </summary>
         INpc Familiar { get; }
         /// <summary>
-        /// Gets the familiar NPC identifier while the script is being restored before its NPC exists.
-        /// </summary>
-        int FamiliarId { get; set; }
-        /// <summary>
         /// Gets the target type for the familiar's special move.
         /// </summary>
         /// <returns>The <see cref="FamiliarSpecialType"/> required by the special move.</returns>

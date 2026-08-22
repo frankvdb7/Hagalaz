@@ -46,6 +46,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         private EventHappened? _familiarDismissHandler;
         private EventHappened? _setCombatTargetHandler;
         private bool _isDetached;
+        private HydratedFamiliar? _restoredState;
 
         /// <summary>
         /// Sets the definition.
@@ -64,8 +65,6 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// Contains the owner of this script.
         /// </summary>
         public INpc Familiar => Owner;
-
-        public int FamiliarId { get; set; }
 
         /// <summary>
         /// Gets the special move points.
@@ -87,17 +86,6 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder,
             IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
-        {
-            _pathFinder = pathFinder;
-            _npcService = npcService;
-            _itemService = itemService;
-            _itemBuilder = itemBuilder;
-        }
-
-        protected FamiliarScriptBase(
-            ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder,
-            IWidgetScriptActivator widgetScriptActivator)
-            : base(npcService, pathFinder, widgetScriptActivator)
         {
             _pathFinder = pathFinder;
             _npcService = npcService;
@@ -195,15 +183,14 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// </summary>
         public override void OnSpawn()
         {
-            if (Definition is not null)
+            ResetTimer();
+            if (_restoredState is not null)
             {
-                ResetTimer();
+                ApplyRestoredState(_restoredState);
+                _restoredState = null;
             }
 
-            if (Summoner is not null)
-            {
-                Summoner.EventManager.SendEvent(new FamiliarSpawnedEvent(Summoner, Owner));
-            }
+            Summoner.EventManager.SendEvent(new FamiliarSpawnedEvent(Summoner, Owner));
         }
 
         /// <summary>
@@ -653,6 +640,17 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         }
 
         public void Hydrate(HydratedFamiliar hydration)
+        {
+            _restoredState = hydration;
+            if (Summoner is null)
+            {
+                return;
+            }
+
+            ApplyRestoredState(hydration);
+        }
+
+        private void ApplyRestoredState(HydratedFamiliar hydration)
         {
             SetSpecialMovePoints(hydration.SpecialMovePoints);
             _despawnTicks = hydration.TicksRemaining;

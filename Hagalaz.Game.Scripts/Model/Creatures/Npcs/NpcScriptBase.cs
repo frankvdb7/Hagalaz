@@ -28,7 +28,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         /// Contains owner npc.
         /// </summary>
         /// <value>The owner.</value>
-        protected INpc Owner { get; private set; } = default!;
+        protected INpc Owner { get; }
 
         private readonly INpcService _npcService;
         private readonly IPathFinder _pathFinder;
@@ -40,22 +40,6 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             _npcService = npcService;
             _pathFinder = pathFinder;
             _widgetScriptActivator = widgetScriptActivator;
-        }
-
-        protected NpcScriptBase(INpcService npcService, IPathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
-        {
-            _npcService = npcService;
-            _pathFinder = pathFinder;
-            _widgetScriptActivator = widgetScriptActivator;
-        }
-
-        public void Initialize(INpc owner)
-        {
-            Owner = owner;
-            if (this is IFamiliarScript familiarScript)
-            {
-                familiarScript.FamiliarId = owner.Definition.Id;
-            }
         }
 
         protected TScript CreateWidgetScript<TScript>(ICharacter character) where TScript : class, IWidgetScript =>

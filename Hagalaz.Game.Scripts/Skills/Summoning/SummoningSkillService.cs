@@ -75,7 +75,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 .WithLocation(character.Location)
                 .WithScript((activator, owner) =>
                 {
-                    var script = (IFamiliarScript)activator.CreateFamiliar(scriptType);
+                    var script = (IFamiliarScript)activator.Create(scriptType, owner);
                     script.AttachToSummoner(character, def);
                     character.AttachFamiliar(script);
                     return script;

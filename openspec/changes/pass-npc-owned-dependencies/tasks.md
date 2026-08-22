@@ -5,9 +5,8 @@
   with explicit runtime inputs.
 - [x] 1.2 Pass the typed NPC service into `NpcHandle` without adding another
   scope owner.
-- [x] 1.3 Move ordinary NPC services into required constructors while retaining
-  the existing owner-binding lifecycle where owner-independent familiar
-  hydration requires it.
+- [x] 1.3 Move ordinary NPC services into required constructors and activate
+  every NPC script with its owner.
 
 ## 2. Migrate NPC-owned components
 
@@ -21,13 +20,13 @@
 ## 3. Migrate related NPC script paths and callers
 
 - [x] 3.1 Update familiar and specialized NPC scripts to receive required
-  services directly, preserve familiar hydration/respawn, and adapt active
-  familiar summoning within the NPC composition boundary.
+  services directly, preserve familiar hydration/respawn through pending data,
+  and adapt active familiar summoning within the NPC composition boundary.
 - [x] 3.2 Replace concrete NPC-script dialogue/widget provider calls with the
   typed widget activator helper and update affected callers.
 - [x] 3.3 Update focused construction and familiar lifecycle tests, including
-  movement, omitted optional NPC values, owner-aware familiar activation, and
-  attachment cleanup.
+  movement, omitted optional NPC values, owner-aware familiar activation and
+  restoration, and attachment cleanup.
 
 ## 4. Validate the change
 

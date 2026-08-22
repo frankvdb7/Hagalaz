@@ -17,8 +17,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
             IWidgetScriptActivator widgetScriptActivator)
             : base(owner, pathFinder, npcService, itemService, itemBuilder, widgetScriptActivator) { }
 
-        public SpiritWolf(ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator) : base(pathFinder, npcService, itemService, itemBuilder, widgetScriptActivator) { }
-
         /// <summary>
         ///     Performs the special attack.
         /// </summary>

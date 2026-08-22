@@ -70,8 +70,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly ILogger<ICharacter> _logger;
         private readonly IAudioBuilder _audioBuilder;
         private readonly IGameMessageService _gameMessageService;
-        private readonly IFamiliarScriptProvider _familiarScriptProvider;
-        private readonly IFamiliarScriptActivator _familiarScriptActivator;
         private readonly IStateService _stateService;
         private readonly ICharacterScriptActivator _characterScriptActivator;
 
@@ -205,7 +203,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains the familiar script, if any.
         /// </summary>
         /// <value>The familiar script.</value>
-        public IFamiliarScript FamiliarScript { get; set; }
+        public IFamiliarScript FamiliarScript { get; private set; }
+
+        public int PendingFamiliarId => _pendingFamiliar?.FamiliarId ?? 0;
 
         /// <summary>
         /// Contains the previous display name.
@@ -280,8 +280,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IOptions<SkillOptions> skillOptions,
             IDefaultCharacterScriptProvider defaultCharacterScriptProvider,
             ICharacterScriptActivator characterScriptActivator,
-            IFamiliarScriptProvider familiarScriptProvider,
-            IFamiliarScriptActivator familiarScriptActivator,
             IStateService stateService,
             IMapRegionService mapRegionService,
             IMapUpdateService mapUpdateService,
@@ -322,8 +320,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _logger = logger;
             _audioBuilder = audioBuilder;
             _gameMessageService = gameMessageService;
-            _familiarScriptProvider = familiarScriptProvider;
-            _familiarScriptActivator = familiarScriptActivator;
             _stateService = stateService;
             _characterScriptActivator = characterScriptActivator;
             contextProvider.Context = new CharacterContext(this);
@@ -365,7 +361,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void AttachFamiliar(IFamiliarScript familiar)
         {
             FamiliarScript = familiar;
+            ApplyPendingFamiliar(familiar);
         }
+
+        public void ClearPendingFamiliar() => ClearPendingFamiliarData();
 
         public void DetachFamiliar(INpc familiar)
         {

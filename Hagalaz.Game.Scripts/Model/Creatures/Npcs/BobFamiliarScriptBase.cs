@@ -44,15 +44,6 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             _itemContainerFactory = itemContainerFactory;
         }
 
-        protected BobFamiliarScriptBase(
-            IItemContainerFactory itemContainerFactory, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService,
-            IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator)
-            : base(pathFinder, npcService, itemService, itemBuilder, widgetScriptActivator)
-        {
-            _groundItemBuilder = groundItemBuilder;
-            _itemContainerFactory = itemContainerFactory;
-        }
-
         /// <summary>
         /// Creates the beast of burden inventory after the familiar has been attached to its summoner.
         /// </summary>

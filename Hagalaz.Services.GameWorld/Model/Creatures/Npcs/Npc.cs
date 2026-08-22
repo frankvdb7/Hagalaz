@@ -121,7 +121,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 ? DirectionHelper.GetNpcFaceDirection(definition.SpawnFaceDirection)
                 : spawnFaceDirection.Value;
             Script = scriptFactory(this);
-            Script.Initialize(this);
         }
 
         /// <summary>

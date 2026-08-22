@@ -19,7 +19,7 @@ composition and preserving the existing lifecycle.
 
 **Non-Goals:**
 
-- Redesigning familiar restoration or introducing pending restoration state.
+- Replacing the existing familiar restoration behavior with a new subsystem. Hydration may stage persisted familiar data until the owner-aware NPC composition boundary can create the script.
 - Removing `IServiceProvider` from the shared `Creature` hierarchy or unrelated
   graphs.
 - Replacing script metadata providers, adding a service bag, or changing game
@@ -40,12 +40,10 @@ composition and preserving the existing lifecycle.
    uses its dedicated typed `CreateWithParent<TScript>` method. No arbitrary
    constructor argument bag or service bag is introduced.
 
-4. **Keep owner binding only where the existing lifecycle needs it.** Ordinary
-   NPC scripts use the typed owner-aware activation boundary. Familiar scripts
-   also retain the existing owner-independent construction path used by
-   character hydration, then bind to the created NPC through the normal NPC
-   lifecycle. Active familiar setup uses `IFamiliarScript.AttachToSummoner`
-   before registration.
+4. **Construct scripts with their owners.** Ordinary and familiar NPC scripts
+   use the typed owner-aware activation boundary. There is no generic
+   post-construction owner-binding lifecycle. Active familiar setup uses
+   `IFamiliarScript.AttachToSummoner` before registration.
 
 5. **Keep familiar creation close to its existing caller.**
    `SummoningSkillService` continues to use `NpcBuilder`; its script factory
@@ -58,12 +56,12 @@ composition and preserving the existing lifecycle.
    attachment fails or the familiar is destroyed, and detaches only the
    matching active NPC from its summoner. `NpcService` remains generic.
 
-7. **Preserve the existing familiar restoration path.** `FamiliarHydrator`,
-   `Character` hydration, and `FamiliarCharacterScript` continue to hydrate
-   and respawn the persisted familiar through `NpcBuilder`. The refactor adds
-   only the compatibility needed to bind an already-created familiar script to
-   its NPC; it does not introduce the removed factory, restoration coordinator,
-   or persistence state store.
+7. **Preserve familiar restoration without ownerless scripts.**
+   `FamiliarHydrator` and character hydration retain the persisted familiar
+   data as pending data. `FamiliarCharacterScript` composes the familiar
+   through `NpcBuilder`, attaches the summoner, and applies the pending state
+   through the existing hydration contracts. No familiar factory, restoration
+   coordinator, or persistence state store is added.
 
 ## Risks / Trade-offs
 
@@ -74,7 +72,8 @@ composition and preserving the existing lifecycle.
   `AttachToSummoner` cleanup resets the partially attached script and removes
   the handlers it already registered.
 - Familiar restoration remains on its existing character hydration and
-  registration path; no new restoration lifecycle is introduced.
+  registration path. Only the timing of script construction changes so the
+  script receives its real NPC owner at construction time.
 
 ## Migration Plan
 
