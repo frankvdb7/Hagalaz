@@ -49,61 +49,39 @@ namespace Hagalaz.Services.GameWorld.Builders
 
         public INpc Build()
         {
-            try
-            {
-                var scriptActivator = _serviceProvider.GetRequiredService<INpcScriptActivator>();
-                var scriptFactory = _scriptFactory ?? ((activator, owner) =>
-                    activator.Create(_scriptType ?? _npcScriptProvider.GetNpcScriptTypeById(_id), owner));
-                Func<INpc, INpcScript> npcScriptFactory = owner => scriptFactory(scriptActivator, owner);
-                var npcService = _serviceProvider.GetRequiredService<INpcService>();
-                var definition = npcService.FindNpcDefinitionById(_id);
-                return new Npc(
-                    _serviceScope,
-                    _location,
-                    _minimumBounds,
-                    _maximumBounds,
-                    npcScriptFactory,
-                    _faceDirection,
-                    definition,
-                    _serviceProvider.GetRequiredService<IEventManager>(),
-                    _serviceProvider.GetRequiredService<IScopedGameMediator>(),
-                    _serviceProvider.GetRequiredService<ISmartPathFinder>(),
-                    _serviceProvider.GetRequiredService<IMapRegionService>(),
-                    _serviceProvider.GetRequiredService<IProjectilePathFinder>(),
-                    _serviceProvider.GetRequiredService<IOptions<CombatOptions>>(),
-                    _serviceProvider.GetRequiredService<IHitSplatBuilder>(),
-                    npcService,
-                    _serviceProvider.GetRequiredService<ILootService>(),
-                    _serviceProvider.GetRequiredService<ILootGenerator>(),
-                    _serviceProvider.GetRequiredService<IGroundItemBuilder>());
-            }
-            catch
-            {
-                _serviceScope.Dispose();
-                throw;
-            }
+            var scriptActivator = _serviceProvider.GetRequiredService<INpcScriptActivator>();
+            var scriptFactory = _scriptFactory ?? ((activator, owner) =>
+                activator.Create(_scriptType ?? _npcScriptProvider.GetNpcScriptTypeById(_id), owner));
+            Func<INpc, INpcScript> npcScriptFactory = owner => scriptFactory(scriptActivator, owner);
+            var npcService = _serviceProvider.GetRequiredService<INpcService>();
+            var definition = npcService.FindNpcDefinitionById(_id);
+            return new Npc(
+                _serviceScope,
+                _location,
+                _minimumBounds,
+                _maximumBounds,
+                npcScriptFactory,
+                _faceDirection,
+                definition,
+                _serviceProvider.GetRequiredService<IEventManager>(),
+                _serviceProvider.GetRequiredService<IScopedGameMediator>(),
+                _serviceProvider.GetRequiredService<ISmartPathFinder>(),
+                _serviceProvider.GetRequiredService<IMapRegionService>(),
+                _serviceProvider.GetRequiredService<IProjectilePathFinder>(),
+                _serviceProvider.GetRequiredService<IOptions<CombatOptions>>(),
+                _serviceProvider.GetRequiredService<IHitSplatBuilder>(),
+                npcService,
+                _serviceProvider.GetRequiredService<ILootService>(),
+                _serviceProvider.GetRequiredService<ILootGenerator>(),
+                _serviceProvider.GetRequiredService<IGroundItemBuilder>());
         }
 
         public INpcHandle Spawn()
         {
-            INpc? npc = null;
-
-            try
-            {
-                npc = Build();
-                var npcService = _serviceProvider.GetRequiredService<INpcService>();
-                npcService.RegisterAsync(npc).GetAwaiter().GetResult();
-                return new NpcHandle(npc, npcService);
-            }
-            catch
-            {
-                if (npc is not null && !npc.IsDestroyed)
-                {
-                    npc.Destroy();
-                }
-
-                throw;
-            }
+            var npc = Build();
+            var npcService = _serviceProvider.GetRequiredService<INpcService>();
+            npcService.RegisterAsync(npc).GetAwaiter().GetResult();
+            return new NpcHandle(npc, npcService);
         }
 
         public INpcOptional WithMinimumBounds(ILocation location)

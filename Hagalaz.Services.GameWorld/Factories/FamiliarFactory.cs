@@ -22,24 +22,8 @@ public sealed class FamiliarFactory(
     ISummoningDefinitionStore summoningDefinitionStore,
     FamiliarRestorationState restorationState) : IFamiliarFactory
 {
-    public INpcHandle Spawn(ICharacter summoner, SummoningDto definition)
-    {
-        IFamiliarScript? script = null;
-
-        try
-        {
-            return Configure(definition, summoner, (activator, owner) =>
-            {
-                script = CreateScript(summoner, owner, definition, activator);
-                return script;
-            }).Spawn();
-        }
-        catch
-        {
-            DetachFamiliar(summoner, script);
-            throw;
-        }
-    }
+    public INpcHandle Spawn(ICharacter summoner, SummoningDto definition) =>
+        Configure(definition, summoner, (activator, owner) => CreateScript(summoner, owner, definition, activator)).Spawn();
 
     public bool TryRestore(ICharacter summoner)
     {
@@ -55,21 +39,15 @@ public sealed class FamiliarFactory(
             return false;
         }
 
-        IFamiliarScript? restoredScript = null;
-        INpcHandle? handle = null;
+        IFamiliarScript restoredScript = default!;
 
         try
         {
-            handle = Configure(definition, summoner, (activator, owner) =>
+            Configure(definition, summoner, (activator, owner) =>
             {
                 restoredScript = CreateScript(summoner, owner, definition, activator);
                 return restoredScript;
             }).Spawn();
-
-            if (restoredScript is null)
-            {
-                throw new InvalidOperationException("The familiar NPC was not composed during registration.");
-            }
 
             ApplyRestoredState(restoredScript);
             restorationState.Clear();
@@ -77,16 +55,7 @@ public sealed class FamiliarFactory(
         }
         catch
         {
-            try
-            {
-                handle?.Unregister();
-            }
-            finally
-            {
-                DetachFamiliar(summoner, restoredScript);
-                restorationState.Clear();
-            }
-
+            restorationState.Clear();
             throw;
         }
     }
@@ -121,14 +90,6 @@ public sealed class FamiliarFactory(
         if (restorationState.Inventory is not null && script is IHydratable<IReadOnlyList<HydratedItem>> inventory)
         {
             inventory.Hydrate(restorationState.Inventory);
-        }
-    }
-
-    private static void DetachFamiliar(ICharacter summoner, IFamiliarScript? script)
-    {
-        if (script is not null)
-        {
-            summoner.DetachFamiliar(script.Familiar);
         }
     }
 

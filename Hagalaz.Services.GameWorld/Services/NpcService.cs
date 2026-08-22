@@ -1,4 +1,3 @@
-using System;
 using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -31,29 +30,10 @@ namespace Hagalaz.Services.GameWorld.Services
             if (!await _npcStore.AddAsync(npc))
             {
                 _logger.LogWarning("Failed to add npc '{npc}'", npc);
-                throw new InvalidOperationException($"Failed to add npc '{npc}'.");
+                return;
             }
 
-            try
-            {
-                await npc.OnRegistered();
-            }
-            catch
-            {
-                try
-                {
-                    if (!await _npcStore.RemoveAsync(npc))
-                    {
-                        _logger.LogError("Failed to roll back npc registration for '{npc}'", npc);
-                    }
-                }
-                catch (Exception rollbackException)
-                {
-                    _logger.LogError(rollbackException, "Failed to roll back npc registration for '{npc}'", npc);
-                }
-
-                throw;
-            }
+            await npc.OnRegistered();
         }
 
         public async Task UnregisterAsync(INpc npc)

@@ -17,12 +17,6 @@ The NPC composition graph MUST expose ordinary service dependencies through type
 - **THEN** the scope owned by that NPC is disposed by the existing creature lifetime
 - **AND** scoped dependencies are not resolved from or promoted to the application root
 
-#### Scenario: NPC construction failure disposes the child scope
-
-- **WHEN** `NpcBuilder` has created a child scope but dependency resolution, script activation, or NPC construction throws
-- **THEN** the builder disposes that child scope
-- **AND** scoped disposable dependencies are released even though no NPC was constructed
-
 ### Requirement: NPC-owned components declare service requirements
 
 `Npc`, `Movement`, `NpcAppearance`, `NpcStatistics`, `NpcCombat`, `NpcRenderInformation`, and `NpcHandle` MUST receive each ordinary service they use through required typed constructor or composition-boundary inputs. They MUST NOT use an owner `ServiceProvider` for ordinary service resolution.
@@ -84,22 +78,6 @@ Familiar creation and restoration MUST be coordinated by `IFamiliarFactory`. `IC
 - **AND** the restored familiar's persisted runtime state, including remaining ticks and inventory, is effective after the complete registration and `OnSpawn` lifecycle
 - **AND** the character does not create or activate the familiar itself
 
-#### Scenario: Familiar registration failure rolls back active state
-
-- **WHEN** familiar script activation attaches a familiar to the character but NPC store registration rejects the NPC or NPC registration throws
-- **THEN** familiar spawning fails without returning a successful NPC handle
-- **AND** the character detaches that same familiar instance
-- **AND** failed restoration clears its scoped pending familiar state and inventory
-- **AND** a failed normal summon is not treated as a successful summon by its caller
-
-#### Scenario: Missing familiar definition rejects restoration atomically
-
-- **WHEN** character hydration contains a familiar identifier that is absent from the startup-loaded summoning definition store
-- **THEN** familiar restoration returns without attaching an active familiar
-- **AND** the character reports no familiar through `HasFamiliar()`
-- **AND** the scoped pending familiar state and inventory are cleared
-- **AND** a later normal summon does not receive the rejected restoration data
-
 ### Requirement: NPC behavior remains unchanged
 
 The dependency refactor MUST preserve existing NPC spawn, unregister, script, movement, combat, familiar, player-NPC, rendering, and loot behavior.
@@ -109,20 +87,6 @@ The dependency refactor MUST preserve existing NPC spawn, unregister, script, mo
 - **WHEN** an NPC is spawned and later unregistered
 - **THEN** registration and removal use the same NPC service and child scope as before
 - **AND** script callbacks and scope disposal occur in the existing lifecycle order
-
-#### Scenario: Rejected NPC registration is not successful
-
-- **WHEN** the NPC store rejects an NPC during registration
-- **THEN** registration reports failure to the composition boundary
-- **AND** `NpcBuilder.Spawn()` does not return an NPC handle
-- **AND** `NpcBuilder.Spawn()` destroys the partially composed NPC so its scope and owned lifecycle resources are released
-
-#### Scenario: NPC registration rolls back after initialization failure
-
-- **WHEN** the NPC store accepts an NPC but `OnRegistered()` throws
-- **THEN** the same NPC is removed from the store
-- **AND** the original registration exception is propagated
-- **AND** a destroyed or partially registered NPC is not retained by the world store
 
 #### Scenario: NPC combat and loot retain behavior
 

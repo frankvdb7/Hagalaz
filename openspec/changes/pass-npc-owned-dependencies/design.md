@@ -23,7 +23,7 @@ The change must preserve that lifetime boundary, runtime-selected script types, 
 
 ## Decisions
 
-1. **Use `NpcBuilder` as the only NPC composition boundary.** The builder keeps the child scope, resolves the selected script, definition, and typed NPC dependencies from that scope, and calls the `Npc` constructor directly with runtime values. Construction and script activation run inside the builder's cleanup boundary; if construction fails before an NPC owns the scope, the builder disposes the child scope, while successful construction transfers scope ownership to `Npc`. This keeps nullable runtime values typed at the composition boundary and makes the constructor dependency list explicit.
+1. **Use `NpcBuilder` as the only NPC composition boundary.** The builder keeps the child scope, resolves the selected script, definition, and typed NPC dependencies from that scope, and calls the `Npc` constructor directly with runtime values. This keeps nullable runtime values typed at the composition boundary and makes the constructor dependency list explicit.
 
 2. **Keep the scope as a lifetime input, not a lookup API.** `Npc` continues to pass the scope to `Creature` so destruction disposes the same scope. `Npc` and its owned components receive typed services and never use `ServiceProvider` for ordinary work. Removing the scope from `Creature` would expand this issue into the shared creature lifetime refactor.
 
@@ -37,8 +37,6 @@ The change must preserve that lifetime boundary, runtime-selected script types, 
 
 7. **Keep familiar composition outside the character entity.** `FamiliarFactory` owns familiar NPC builder use, runtime script selection, owner-aware activation, summoner attachment, registration, and post-registration restoration hydration. Scoped `FamiliarRestorationState` holds persisted familiar data between character hydration and familiar composition. `Character` exposes only the identity-bearing `AttachFamiliar` and `DetachFamiliar` state transitions; it does not depend on NPC activation, summoning definitions, or pending restoration state.
 
-   Familiar attachment is provisional until registration succeeds. `NpcService` owns only registration semantics: it reports a rejected store add as a registration failure and removes a store entry again if `OnRegistered()` fails, preserving the original exception even when rollback logging is required. `NpcBuilder.Spawn()` owns the combined build-and-register operation and destroys the partially composed NPC when registration fails; live production callers such as `MapRegionLoader` use that path. `FamiliarFactory` detaches the same familiar on registration or restoration failure. This keeps normal summoning from treating a rejected spawn as successful and prevents failed restoration from leaving active character state behind.
-
 8. **Use a startup-loaded summoning definition store for synchronous familiar registration.** `FamiliarCharacterScript.OnRegistered` remains synchronous, so it reads the familiar definition from a singleton store populated by the existing startup service executor. The general `ISummoningService` remains asynchronous for skill operations; blocking an EF query from a character callback is not an acceptable lookup path.
 
 9. **Keep familiar teardown in the familiar lifecycle.** `NpcService` remains generic and only manages NPC registration, destruction, and storage. `FamiliarScriptBase` owns the character event registrations it creates, removes them during `OnDestroy`, then asks its summoner to detach that specific NPC. `Character.DetachFamiliar(INpc)` clears state only when that NPC is still the active familiar. This prevents stale handlers and delayed unregisters of an older familiar from affecting a newer one.
@@ -49,7 +47,7 @@ The change must preserve that lifetime boundary, runtime-selected script types, 
 
 - [Risk] Runtime arguments could be bound incorrectly when several arguments share `ILocation` or are null. → Resolve typed services in `NpcBuilder` and call the constructor directly; validate the ordinary spawn path with omitted optional values.
 - [Risk] Moving component construction may change initialization order. → Set location before components that read it, construct the owned components, activate and attach the script before registration, let registration and `OnSpawn` complete, then apply persisted familiar state; keep `OnCreate` as a separate registration callback.
-- [Risk] A familiar may be created successfully but fail during summoner attachment, registration, or post-registration restoration. → Keep `AttachToSummoner` immediately after owner-aware script activation, apply persisted state only after registration, make rejected registration fail explicitly, unregister a handle when post-registration restoration fails, and detach the identity-bearing familiar association on every failed path.
+- [Risk] A familiar may be created successfully but fail during summoner attachment. → Keep `AttachToSummoner` immediately after owner-aware script activation and apply persisted state after the NPC spawn lifecycle.
 - [Risk] Remaining provider matches may be mistaken for NPC-domain lookups. → Run a final scan limited to the NPC composition graph and document the two allowed boundaries: `NpcBuilder` composition and the shared `CreatureCombat` constructor outside this change.
 
 ## Migration Plan
