@@ -45,7 +45,8 @@ composition and preserving the existing lifecycle.
    use the typed owner-aware activation boundary. There is no generic
    post-construction owner-binding lifecycle. Active familiar setup uses
    `IFamiliarScript.AttachToSummoner` before registration. The Glacor encounter
-   binds only the Enduring Glacyte to its local encounter after activation.
+   binds the Enduring Glacyte to its owning Glacor gameplay relationship after
+   activation.
 
 5. **Keep familiar creation close to its existing caller.**
    `SummoningSkillService` continues to use `NpcBuilder`; its script factory

@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Combat;
+using System;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -11,7 +12,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
     [NpcScriptMetaData([14304])]
     public class EnduringGlacyte : NpcScriptBase
     {
-        private GlacorEncounter? _encounter;
+        private INpc? _glacor;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="EnduringGlacyte" /> class.
@@ -19,7 +20,20 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         public EnduringGlacyte(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator) { }
 
-        public void BindToEncounter(GlacorEncounter encounter) => _encounter = encounter;
+        internal void BindToGlacor(INpc glacor)
+        {
+            ArgumentNullException.ThrowIfNull(glacor);
+
+            if (_glacor is not null)
+            {
+                throw new InvalidOperationException("This Enduring Glacyte is already bound to a Glacor.");
+            }
+
+            _glacor = glacor;
+        }
+
+        private INpc Glacor => _glacor ?? throw new InvalidOperationException(
+            "The Enduring Glacyte has not been bound to a Glacor.");
 
         /// <summary>
         ///     Get's if this npc can be attacked by the specified character ('attacker').
@@ -57,7 +71,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// </returns>
         public override int OnIncomingAttack(ICreature attacker, DamageType damageType, int damage, int delay)
         {
-            var distance = Owner.Location.GetDistance(_encounter!.Glacor.Location);
+            var distance = Owner.Location.GetDistance(Glacor.Location);
             const double maxDistance = 14.0;
             return (int)(distance / maxDistance * damage);
 

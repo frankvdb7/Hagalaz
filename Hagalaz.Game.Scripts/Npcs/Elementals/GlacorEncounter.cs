@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
     /// <summary>
     /// Coordinates the Glacor encounter's spawned Glacytes.
     /// </summary>
-    public sealed class GlacorEncounter
+    internal sealed class GlacorEncounter
     {
         private readonly INpc _glacor;
         private readonly INpcBuilder _npcBuilder;
@@ -33,11 +33,11 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
         public bool GlacytesDead => _deadCount >= 3;
 
-        public int GlacyteDeadCount => _deadCount;
+        internal int GlacyteDeadCount => _deadCount;
 
         public int LastKilledGlacyteId { get; private set; }
 
-        public int TrackedGlacyteCount => _glacytes.Count;
+        internal int TrackedGlacyteCount => _glacytes.Count;
 
         public event Action<INpc>? GlacyteDied;
 

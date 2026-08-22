@@ -152,23 +152,39 @@ public sealed class GlacorEncounterTests
     }
 
     [TestMethod]
-    public void EnduringGlacyte_UsesTheBoundEncounterGlacorForDistance()
+    public void EnduringGlacyte_UsesTheBoundGlacorForDistance()
     {
         var glacor = Substitute.For<INpc>();
         var glacyte = Substitute.For<INpc>();
         glacor.Location.Returns(new Location(3200, 3200, 0, 0));
         glacyte.Location.Returns(new Location(3200, 3207, 0, 0));
 
-        var encounter = new GlacorEncounter(glacor, Substitute.For<INpcBuilder>());
         var script = new EnduringGlacyte(
             glacyte,
             Substitute.For<INpcService>(),
             Substitute.For<ISimplePathFinder>(),
             Substitute.For<IWidgetScriptActivator>());
-        script.BindToEncounter(encounter);
+        script.BindToGlacor(glacor);
 
         var damage = script.OnIncomingAttack(Substitute.For<ICreature>(), DamageType.Standard, 100, 0);
 
         Assert.AreEqual(50, damage);
+    }
+
+    [TestMethod]
+    public void EnduringGlacyte_CannotBeBoundToMoreThanOneGlacor()
+    {
+        var glacyte = Substitute.For<INpc>();
+        var firstGlacor = Substitute.For<INpc>();
+        var secondGlacor = Substitute.For<INpc>();
+        var script = new EnduringGlacyte(
+            glacyte,
+            Substitute.For<INpcService>(),
+            Substitute.For<ISimplePathFinder>(),
+            Substitute.For<IWidgetScriptActivator>());
+
+        script.BindToGlacor(firstGlacor);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => script.BindToGlacor(secondGlacor));
     }
 }

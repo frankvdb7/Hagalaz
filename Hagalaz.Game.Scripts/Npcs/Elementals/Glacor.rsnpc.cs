@@ -237,7 +237,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                     _encounter.SpawnGlacyte(14304, center, (activator, owner) =>
                     {
                         var script = (EnduringGlacyte)activator.Create(typeof(EnduringGlacyte), owner);
-                        script.BindToEncounter(_encounter);
+                        script.BindToGlacor(Owner);
                         return script;
                     });
                     _encounter.SpawnGlacyte(14303, left, (activator, owner) =>
