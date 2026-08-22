@@ -52,5 +52,10 @@
         /// Removes coins using the pouch's normal underflow rules as one checked trade operation.
         /// </summary>
         bool RemoveForTrade(int count);
+
+        /// <summary>
+        /// Removes exactly the requested number of coins from the pouch and inventory, if available.
+        /// </summary>
+        bool TryRemoveExact(int count);
     }
 }

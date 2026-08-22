@@ -201,17 +201,12 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                     return false;
                 }
 
-                var removed = 0;
-                if (viewer.MoneyPouch.Contains(_shop.CurrencyId))
-                {
-                    removed = viewer.MoneyPouch.Remove((int)cost);
-                }
-                else if (viewer.Inventory.Contains(_shop.CurrencyId, (int)cost))
-                {
-                    removed = viewer.Inventory.Remove(_itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
-                }
+                var paid = _shop.CurrencyId == 995
+                    ? viewer.MoneyPouch.TryRemoveExact((int)cost)
+                    : viewer.Inventory.RemoveForTrade(
+                        _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount((int)cost).Build());
 
-                if (removed <= 0)
+                if (!paid)
                 {
                     viewer.SendChatMessage("You don't have enough " + _itemRepository.FindItemDefinitionById(_shop.CurrencyId).Name.ToLower() + "!");
                     return false;
