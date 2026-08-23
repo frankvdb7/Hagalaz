@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Tests.Model.Items;
 public sealed class GroundItemPickupTests
 {
     [TestMethod]
-    public void TakeItem_WhenSameGroundItemIsQueuedTwice_GrantsItOnce()
+    public void TakeItem_WhenGroundItemReferenceIsStale_DoesNotGrantAgain()
     {
         var regionService = Substitute.For<IMapRegionService>();
         var region = CreateRegion(regionService);
