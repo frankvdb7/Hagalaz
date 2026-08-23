@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-08-23
+skip_specs: true
+goal: Make OpenSpec artifact validation reproducible in CI and keep the
+  repository workflow guidance aligned with the installed setup.

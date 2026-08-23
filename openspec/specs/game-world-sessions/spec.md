@@ -49,3 +49,16 @@ The system MUST retain a local abort reservation until the old connection has be
 ### Requirement: Cleanup is exact-owner and recoverable
 
 The system MUST remove only the local session or distributed claim belonging to the expected session and MUST retain enough local state for reconciliation after a transient infrastructure failure.
+
+#### Scenario: Cleanup does not remove a replacement session
+
+- GIVEN the expected session has been replaced at the same connection
+- WHEN exact-owner cleanup runs
+- THEN the replacement session and its distributed claim remain intact
+
+#### Scenario: Cleanup failure remains recoverable
+
+- GIVEN exact-owner cleanup cannot complete because infrastructure fails temporarily
+- WHEN cleanup returns
+- THEN the local state needed to retry the cleanup is retained
+- AND the existing lease cycle can retry the cleanup
