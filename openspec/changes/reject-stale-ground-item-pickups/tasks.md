@@ -6,7 +6,7 @@
 
 ## 2. Regression coverage
 
-- [x] 2.1 Add deterministic tests for normal pickup, two stale queued references, second despawn, same-location replacement protection, and no side effects after a failed removal.
+- [x] 2.1 Add deterministic tests for the real `ItemScript.TakeItem` to `GroundItem.Despawn` to region-removal chain, plus second despawn, same-location replacement protection, and no side effects after a failed removal.
 - [x] 2.2 Add or retain coverage for inventory-full pickup and successful respawning/static ground-item consumption; verify existing behavior remains unchanged.
 
 ## 3. Validation

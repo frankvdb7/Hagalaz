@@ -28,7 +28,7 @@ The system SHALL report ground-item removal as successful only when the exact ac
 - **WHEN** a player without inventory capacity attempts a pickup
 - **THEN** the item remains active and no removal is attempted
 
-#### Scenario: Successful respawning item removal preserves respawn behavior
+#### Scenario: Successful respawnable item removal preserves respawn behavior
 
-- **WHEN** a visible respawning ground item is successfully picked up
-- **THEN** that visible instance is consumed once and the existing respawn behavior creates the replacement instance
+- **WHEN** a visible respawnable ground-item instance is successfully picked up
+- **THEN** that visible instance is consumed once and the existing respawn behavior creates the hidden respawning replacement instance
