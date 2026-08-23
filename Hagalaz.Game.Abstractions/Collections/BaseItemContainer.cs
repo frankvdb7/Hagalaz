@@ -147,42 +147,16 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// <returns><c>true</c> if all items can be added; otherwise, <c>false</c>.</returns>
         public bool HasSpaceForRange(IEnumerable<IItem?> items)
         {
-            var counts = new long[Capacity];
-            var freeSlotsLeft = FreeSlots;
-            var stacks = Type == StorageType.AlwaysStack;
-            for (var i = 0; i < Capacity; i++)
+            ArgumentNullException.ThrowIfNull(items);
+
+            var simulatedItems = new IItem?[Items.Length];
+            for (var i = 0; i < Items.Length; i++)
             {
-                var item = Items[i];
-                if (item != null) counts[i] = item.Count;
+                simulatedItems[i] = Items[i]?.Clone(Items[i]!.Count);
             }
 
-            foreach (var item in items)
-            {
-                if (item == null)
-                {
-                    continue;
-                }
-
-                for (var t = 0; t < Items.Length; t++)
-                {
-                    var localItem = Items[t];
-                    if (localItem != null && item.ItemScript.CanStackItem(item, localItem, stacks))
-                    {
-                        counts[t] += item.Count;
-                        if (counts[t] > int.MaxValue) return false; // overflow
-                        goto end;
-                    }
-                }
-
-                if (--freeSlotsLeft < 0) return false;
-
-                end:
-                {
-                    continue;
-                }
-            }
-
-            return true;
+            var simulatedRange = items.Select(item => item is null ? null : item.Clone(item.Count)).ToArray();
+            return ApplyAddRange(simulatedItems, simulatedRange, []);
         }
 
 
@@ -325,7 +299,10 @@ namespace Hagalaz.Game.Abstractions.Collections
             }
         }
 
-        private bool ApplyAddRange(IEnumerable<IItem?> newItems, HashSet<int> slotsToUpdate)
+        private bool ApplyAddRange(IEnumerable<IItem?> newItems, HashSet<int> slotsToUpdate) =>
+            ApplyAddRange(Items, newItems, slotsToUpdate);
+
+        private bool ApplyAddRange(IItem?[] targetItems, IEnumerable<IItem?> newItems, HashSet<int> slotsToUpdate)
         {
             using var enumerator = newItems.GetEnumerator();
             while (enumerator.MoveNext())
@@ -336,9 +313,9 @@ namespace Hagalaz.Game.Abstractions.Collections
                     continue;
                 }
 
-                for (var i = 0; i < Items.Length; i++)
+                for (var i = 0; i < targetItems.Length; i++)
                 {
-                    var item = Items[i];
+                    var item = targetItems[i];
                     if (item == null || item.Id != current.Id || !item.ItemScript.CanStackItem(item, current, Type == StorageType.AlwaysStack))
                     {
                         continue;
@@ -357,27 +334,27 @@ namespace Hagalaz.Game.Abstractions.Collections
 
                 if (Type == StorageType.AlwaysStack || current.ItemDefinition.Stackable || current.ItemDefinition.Noted)
                 {
-                    var slot = GetFreeSlot();
+                    var slot = GetFreeSlot(targetItems);
                     if (slot == -1)
                     {
                         return false;
                     }
 
-                    Items[slot] = current;
+                    targetItems[slot] = current;
                     slotsToUpdate.Add(slot);
                 }
                 else
                 {
-                    if (FreeSlots < current.Count)
+                    if (targetItems.Count(item => item == null) < current.Count)
                     {
                         return false;
                     }
 
                     for (var j = 0; j < current.Count; j++)
                     {
-                        var freeSlot = GetFreeSlot();
-                        Items[freeSlot] = current.Clone();
-                        Items[freeSlot]!.Count = 1;
+                        var freeSlot = GetFreeSlot(targetItems);
+                        targetItems[freeSlot] = current.Clone();
+                        targetItems[freeSlot]!.Count = 1;
                         slotsToUpdate.Add(freeSlot);
                     }
                 }
@@ -390,6 +367,9 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             return true;
         }
+
+        private int GetFreeSlot(IItem?[] targetItems) =>
+            ReferenceEquals(targetItems, Items) ? GetFreeSlot() : Array.FindIndex(targetItems, item => item == null);
 
         /// <summary>
         /// Transfers all items from another container into this one.

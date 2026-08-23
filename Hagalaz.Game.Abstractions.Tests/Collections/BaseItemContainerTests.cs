@@ -486,6 +486,75 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void AddRange_NonStackableCountNeedsMoreSlots_FailsWithoutMutation()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var existing = CreateItem(1, 1);
+            container.Add(existing);
+
+            var result = container.AddRange([CreateItem(2, 2)]);
+
+            Assert.IsFalse(result);
+            Assert.IsFalse(container.HasSpaceForRange([CreateItem(2, 2)]));
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(existing.Id, container[0].Id);
+            Assert.AreEqual(1, container[0].Count);
+        }
+
+        [TestMethod]
+        public void AddRange_NonStackableCountWithEnoughSlots_UsesOneSlotPerInstance()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+
+            var result = container.AddRange([CreateItem(1, 2)]);
+
+            Assert.IsTrue(result);
+            Assert.AreEqual(2, container.TakenSlots);
+            Assert.AreEqual(1, container[0].Count);
+            Assert.AreEqual(1, container[1].Count);
+        }
+
+        [TestMethod]
+        public void AddRange_StackableItemsWithNoExistingStack_ShareOneCreatedStack()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 1);
+            var items = new[] { CreateItem(1, 3, stackable: true), CreateItem(1, 4, stackable: true) };
+
+            Assert.IsTrue(container.HasSpaceForRange(items));
+            Assert.IsTrue(container.AddRange(items));
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(7, container[0].Count);
+        }
+
+        [TestMethod]
+        public void AddRange_CombinedStackOverflow_FailsWithoutMutation()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 1);
+            var existing = CreateItem(1, int.MaxValue - 1, stackable: true);
+            container.Add(existing);
+
+            var result = container.AddRange([CreateItem(1, 2, stackable: true)]);
+
+            Assert.IsFalse(result);
+            Assert.IsFalse(container.HasSpaceForRange([CreateItem(1, 2, stackable: true)]));
+            Assert.AreSame(existing, container[0]);
+            Assert.AreEqual(int.MaxValue - 1, container[0].Count);
+        }
+
+        [TestMethod]
+        public void AddRange_LaterItemDoesNotFit_FailsWithoutRetainingEarlierItems()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var items = new[] { CreateItem(1, 1), CreateItem(2, 2) };
+
+            Assert.IsFalse(container.HasSpaceForRange(items));
+            Assert.IsFalse(container.AddRange(items));
+            Assert.AreEqual(0, container.TakenSlots);
+            Assert.IsNull(container[0]);
+            Assert.IsNull(container[1]);
+        }
+
+        [TestMethod]
         public void AddRange_AtomicOperation_FailsIfOneItemDoesNotFit()
         {
             // Arrange
