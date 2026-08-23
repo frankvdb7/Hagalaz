@@ -179,12 +179,72 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item = CreateItem(0, 0);
             var groundItem = new GroundItem(item.ItemOnGround, item.Location, null, 0, 0, regionService);
             regionService.GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false).Returns(region);
+            region.Remove(groundItem).Returns(true);
 
             var result = groundItem.Despawn();
 
             Assert.IsTrue(result);
             regionService.Received(1).GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false);
             region.Received(1).Remove(groundItem);
+        }
+
+        [TestMethod]
+        public void Despawn_ReturnsFalse_WhenRegionDoesNotRemoveExactInstance()
+        {
+            var regionService = Substitute.For<IMapRegionService>();
+            var region = Substitute.For<IMapRegion>();
+            var item = CreateItem(0, 0);
+            var groundItem = new GroundItem(item.ItemOnGround, item.Location, null, 0, 0, regionService);
+            regionService.GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false).Returns(region);
+            region.Remove(groundItem).Returns(false);
+
+            var result = groundItem.Despawn();
+
+            Assert.IsFalse(result);
+        }
+
+        [TestMethod]
+        public void Remove_ReturnsFalse_WhenExactInstanceIsNotPresent()
+        {
+            var region = CreateRegion();
+            var activeItem = CreateItem(0, 0);
+            var staleItem = CreateItem(0, 0);
+            region.Add(activeItem);
+
+            var result = region.Remove(staleItem);
+
+            Assert.IsFalse(result);
+            Assert.IsFalse(staleItem.IsDestroyed);
+            Assert.HasCount(1, region.FindAllGroundItems());
+            Assert.AreSame(activeItem, region.FindAllGroundItems().Single());
+        }
+
+        [TestMethod]
+        public void Remove_ReturnsFalse_WhenExactInstanceWasAlreadyRemoved()
+        {
+            var region = CreateRegion();
+            var item = CreateItem(0, 0);
+            region.Add(item);
+
+            Assert.IsTrue(region.Remove(item));
+            Assert.IsFalse(region.Remove(item));
+            Assert.IsEmpty(region.FindAllGroundItems());
+        }
+
+        [TestMethod]
+        public void Remove_RespawningItem_ReplacesVisibleInstanceOnlyOnce()
+        {
+            var region = CreateRegion();
+            var item = CreateItem(2, 2);
+            region.Add(item);
+
+            Assert.IsTrue(region.Remove(item));
+            var replacement = region.FindAllGroundItems().Single();
+
+            Assert.AreNotSame(item, replacement);
+            Assert.IsTrue(replacement.IsRespawning);
+            Assert.IsFalse(region.Remove(item));
+            Assert.AreSame(replacement, region.FindAllGroundItems().Single());
         }
 
         public class SimpleGroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional, IGroundItemBuild {
