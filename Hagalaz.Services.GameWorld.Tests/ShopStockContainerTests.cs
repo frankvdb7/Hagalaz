@@ -85,6 +85,20 @@ public sealed class ShopStockContainerTests
     }
 
     [TestMethod]
+    public void BuyFromShop_WhenSplitCoinsAreUnderfunded_RejectsAndPreservesBothBalances()
+    {
+        const int cost = 10_000;
+        var scenario = CreateScenario(cost, pouchCoins: 4_000, inventoryCurrency: 5_999);
+
+        var result = scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1);
+
+        Assert.IsFalse(result);
+        Assert.AreEqual(4_000, scenario.MoneyPouch.Count);
+        Assert.AreEqual(5_999, scenario.Inventory.GetCountById(CoinId));
+        Assert.AreEqual(0, scenario.Inventory.GetCountById(ItemId));
+    }
+
+    [TestMethod]
     public void BuyFromShop_WhenBuyingSampleStock_DoesNotChargeCurrency()
     {
         var scenario = CreateScenario(cost: 10_000, sampleStock: true);
