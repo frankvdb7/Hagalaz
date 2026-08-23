@@ -11,7 +11,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
     [NpcScriptMetaData([2741, 2742])]
     public class YtMejKot : StandardCaveNpc
     {
-        public YtMejKot(INpcBuilder npcBuilder) : base(npcBuilder) { }
+        public YtMejKot(INpc owner, INpcBuilder npcBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator) : base(owner, npcBuilder, npcService, pathFinder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Perform's attack on specific target.

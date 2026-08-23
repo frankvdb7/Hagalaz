@@ -7,7 +7,6 @@ using McMaster.NETCore.Plugins;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Hagalaz.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.Connections;
 using Hagalaz.Data.Extensions;
 using Microsoft.AspNetCore.Builder;
@@ -38,13 +37,19 @@ namespace Hagalaz.Services.GameWorld
 
             builder.WebHost.UseKestrel().ConfigureKestrel(options =>
             {
+                var listenHost = builder.Configuration.GetValue<string>("World:ListenHost") ?? IPAddress.Loopback.ToString();
+                if (!IPAddress.TryParse(listenHost, out var listenAddress))
+                {
+                    throw new ArgumentException("World:ListenHost must be a valid IP address.", nameof(listenHost));
+                }
+
                 var tcpPort = builder.Configuration.GetValue<int>("TCP_PORT");
                 if (tcpPort == 0)
                 {
                     throw new ArgumentNullException(nameof(tcpPort));
                 }
 
-                options.Listen(IPAddress.Loopback,
+                options.Listen(listenAddress,
                     tcpPort,
                     listenOptions =>
                     {
@@ -82,8 +87,6 @@ namespace Hagalaz.Services.GameWorld
             app.MapDefaultEndpoints();
 
             startup.Configure(app, app.Environment, app.Services.GetRequiredService<IMapper>());
-
-            ServiceLocator.SetLocatorProvider(app.Services); // TODO - when services are refactored, remove the service locator
 
             await app.RunAsync();
         }

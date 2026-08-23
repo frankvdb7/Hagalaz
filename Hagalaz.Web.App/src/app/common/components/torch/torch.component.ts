@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, input } from "@angular/core";
+import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 import { NgOptimizedImage } from "@angular/common";
 
 @Component({
@@ -6,7 +6,7 @@ import { NgOptimizedImage } from "@angular/common";
     imports: [NgOptimizedImage],
     templateUrl: "./torch.component.html",
     styleUrls: ["./torch.component.scss"],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TorchComponent {
     readonly torchSrc = input("");

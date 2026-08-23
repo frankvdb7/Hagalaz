@@ -1,5 +1,5 @@
 import { TestBed } from "@angular/core/testing";
-import { provideHttpClient } from "@angular/common/http";
+import { provideHttpClient, withXhr } from "@angular/common/http";
 import { provideHttpClientTesting, HttpTestingController } from "@angular/common/http/testing";
 import { describe, expect, it } from "vitest";
 import { CacheSpritesService } from "./cache-sprites.service";
@@ -7,7 +7,7 @@ import { CacheSpritesService } from "./cache-sprites.service";
 describe("CacheSpritesService", () => {
     it("requests sprite png as blob", () => {
         TestBed.configureTestingModule({
-            providers: [provideHttpClient(), provideHttpClientTesting(), CacheSpritesService],
+            providers: [provideHttpClient(withXhr()), provideHttpClientTesting(), CacheSpritesService],
         });
 
         const service = TestBed.inject(CacheSpritesService);
@@ -24,7 +24,7 @@ describe("CacheSpritesService", () => {
 
     it("uploads sprite image using multipart form-data", () => {
         TestBed.configureTestingModule({
-            providers: [provideHttpClient(), provideHttpClientTesting(), CacheSpritesService],
+            providers: [provideHttpClient(withXhr()), provideHttpClientTesting(), CacheSpritesService],
         });
 
         const service = TestBed.inject(CacheSpritesService);

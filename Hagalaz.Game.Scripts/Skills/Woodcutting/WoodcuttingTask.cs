@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -25,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         /// <param name="hatchetData">The hatchet data.</param>
         /// <param name="gameObject">The game object.</param>
         /// <param name="ivyTree">if set to <c>true</c> [ivy tree].</param>
-        public WoodcuttingTask(ICharacter performer, Func<ValueTask<bool>> finishCallback, double chance, HatchetDto hatchetData, IGameObject gameObject, bool ivyTree)
+        public WoodcuttingTask(ICharacter performer, Func<bool> finishCallback, double chance, HatchetDto hatchetData, IGameObject gameObject, bool ivyTree)
         {
             _performer = performer;
             _finishCallback = finishCallback;
@@ -50,7 +49,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         /// <summary>
         ///     Contains finish callback.
         /// </summary>
-        internal readonly Func<ValueTask<bool>> _finishCallback;
+        internal readonly Func<bool> _finishCallback;
 
         /// <summary>
         ///     Contains performer.
@@ -81,7 +80,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
         ///     Contains tick implementation.
         /// </summary>
         /// <returns></returns>
-        private async void PerformTickImpl()
+        private void PerformTickImpl()
         {
             var randomValue = RandomStatic.Generator.NextDouble();
             if (randomValue <= _chance)
@@ -92,7 +91,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
                     return;
                 }
 
-                if (await _finishCallback())
+                if (_finishCallback())
                 {
                     Cancel();
                     return;

@@ -76,7 +76,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             var index = RandomStatic.Generator.Next(0, _restInfo.GetLength(0));
             Owner.QueueAnimation(Animation.Create(_restInfo[index, 0]));
             Owner.Appearance.RenderId = _restInfo[index, 1];
-            Owner.AddState(new RunEnergyOrbRestingState
+            Owner.AddState(new RestingState
             {
                 OnRemovedCallback = () =>
                 {

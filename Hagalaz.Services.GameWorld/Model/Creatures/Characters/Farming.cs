@@ -3,6 +3,7 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Logic.Characters;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 
@@ -17,6 +18,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// The owner.
         /// </summary>
         private readonly ICharacter _owner;
+        private readonly IFarmingService _farmingService;
+        private readonly IGameObjectService _gameObjectService;
 
         /// <summary>
         /// The patches.
@@ -27,7 +30,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Initializes a new instance of the <see cref="Farming"/> class.
         /// </summary>
         /// <param name="owner">The owner.</param>
-        public Farming(ICharacter owner) => _owner = owner;
+        public Farming(ICharacter owner, IFarmingService farmingService, IGameObjectService gameObjectService)
+        {
+            _owner = owner;
+            _farmingService = farmingService;
+            _gameObjectService = gameObjectService;
+        }
 
         /// <summary>
         /// Gets the or create farming patch.
@@ -42,7 +50,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return patch;
             }
 
-            var patchTickTask = new FarmingPatchTickTask(_owner, patchObjectID);
+            var patchTickTask = new FarmingPatchTickTask(_owner, patchObjectID, _farmingService, _gameObjectService);
             _patches.Add(patchObjectID, patchTickTask);
             _owner.QueueTask(patchTickTask);
             return patchTickTask;
@@ -78,7 +86,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             foreach (var hydratedPatch in hydration.Patches)
             {
-                var patch = new FarmingPatchTickTask(_owner, hydratedPatch.Id);
+                var patch = new FarmingPatchTickTask(_owner, hydratedPatch.Id, _farmingService, _gameObjectService);
                 patch.Hydrate(hydratedPatch);
                 _patches.Add(hydratedPatch.Id, patch);
                 _owner.QueueTask(patch);

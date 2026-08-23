@@ -17,6 +17,13 @@ namespace Hagalaz.Game.Abstractions.Services
         Task<SummoningDto?> FindDefinitionByNpcId(int npcId);
 
         /// <summary>
+        /// Finds a familiar definition by its NPC ID using the synchronous definition lookup boundary.
+        /// </summary>
+        /// <param name="npcId">The ID of the familiar NPC.</param>
+        /// <returns>The familiar definition if found; otherwise, <c>null</c>.</returns>
+        SummoningDto? FindDefinitionByNpcIdSync(int npcId);
+
+        /// <summary>
         /// Finds a familiar definition by its summoning pouch ID.
         /// </summary>
         /// <param name="pouchId">The item ID of the summoning pouch.</param>

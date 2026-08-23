@@ -1,7 +1,6 @@
-import { CommandResultType, COMMANDS_CHANNEL, CommandType } from "./shared";
-import { COMMAND_HANDLER_TYPE, CommandHandler } from "./handlers/handler";
+import { type CommandResultType, COMMANDS_CHANNEL, type CommandType } from "./shared";
+import { COMMAND_HANDLER_TYPE, type CommandHandler } from "./handlers/handler";
 import { ipcMain } from "electron";
-import { Command } from "./commands/command";
 import IpcMainEvent = Electron.IpcMainEvent;
 import { inject, injectable, multiInject } from "inversify";
 import IpcMainInvokeEvent = Electron.IpcMainInvokeEvent;
@@ -23,31 +22,25 @@ export class LauncherApiHandler {
         ipcMain.handle(COMMANDS_CHANNEL, this.onCommandInvoke);
     }
 
-    private getHandler(
-        event: IpcMainEvent | IpcMainInvokeEvent,
-        ...args: any[]
-    ): CommandHandler | null {
+    private getHandler(event: IpcMainEvent | IpcMainInvokeEvent, ...args: unknown[]): CommandHandler | null {
         if (!args?.length) {
             this.logger.warn("Invalid launcher api arguments", event);
             return null;
         }
-        const command: Command = args.shift();
-        if (!("commandType" in command)) {
+        const command = args.shift();
+        if (typeof command !== "object" || command === null || !("commandType" in command) || typeof command.commandType !== "string") {
             this.logger.warn("Invalid launcher api command received", command);
             return null;
         }
-        const handler = this._handlers.get(command.commandType);
+        const handler = this._handlers.get(command.commandType as CommandType);
         if (!handler) {
-            this.logger.warn(
-                "Invalid launcher api command type received",
-                command.commandType
-            );
+            this.logger.warn("Invalid launcher api command type received", command.commandType);
             return null;
         }
         return handler;
     }
 
-    private onCommandSend = async (event: IpcMainEvent, ...args: any[]) => {
+    private onCommandSend = async (event: IpcMainEvent, ...args: unknown[]) => {
         const handler = this.getHandler(event, ...args);
         if (!handler) {
             return;
@@ -55,17 +48,11 @@ export class LauncherApiHandler {
         try {
             await handler.handle(event, ...args);
         } catch (ex) {
-            this.logger.error(
-                `Failed to handle command '${handler.commandType}'`,
-                ex
-            );
+            this.logger.error(`Failed to handle command '${handler.commandType}'`, ex);
         }
     };
 
-    private onCommandInvoke = async (
-        event: IpcMainInvokeEvent,
-        ...args: any[]
-    ): Promise<CommandResultType> => {
+    private onCommandInvoke = async (event: IpcMainInvokeEvent, ...args: unknown[]): Promise<CommandResultType> => {
         const handler = this.getHandler(event, ...args);
         if (!handler) {
             return;
@@ -73,10 +60,8 @@ export class LauncherApiHandler {
         let result: CommandResultType;
         try {
             result = await handler.handle(event, ...args);
-        } catch (ex) {
-            this.logger.error(
-                `Failed to invoke command '${handler.commandType}'`
-            );
+        } catch (_ex) {
+            this.logger.error(`Failed to invoke command '${handler.commandType}'`);
             return;
         }
         return result;

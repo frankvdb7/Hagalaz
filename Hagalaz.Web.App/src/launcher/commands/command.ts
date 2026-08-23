@@ -1,5 +1,5 @@
-import { CommandResultType, CommandType } from "../shared";
+import type { CommandResultType, CommandType } from "../shared";
 
-export interface Command<TResult extends CommandResultType = any> {
+export interface Command<_TResult extends CommandResultType = CommandResultType> {
     readonly commandType: CommandType;
 }

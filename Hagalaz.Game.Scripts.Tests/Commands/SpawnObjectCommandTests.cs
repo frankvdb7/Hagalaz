@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Commands;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -25,6 +26,8 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var gameObjectOptionalMock = Substitute.For<IGameObjectOptional>();
             var gameObjectMock = Substitute.For<IGameObject>();
             var regionMock = Substitute.For<IMapRegion>();
+            var mapRegionServiceMock = Substitute.For<IMapRegionService>();
+            var location = new Location(10, 20, 0, 0);
 
             gameObjectBuilderMock.Create().Returns(gameObjectIdMock);
             gameObjectIdMock.WithId(Arg.Any<int>()).Returns(gameObjectLocationMock);
@@ -35,10 +38,12 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
 
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(IGameObjectBuilder)).Returns(gameObjectBuilderMock);
+            serviceProviderMock.GetService(typeof(IMapRegionService)).Returns(mapRegionServiceMock);
+            mapRegionServiceMock.GetOrCreateMapRegion(location.RegionId, location.Dimension, false).Returns(regionMock);
 
             var characterMock = Substitute.For<ICharacter>();
             characterMock.ServiceProvider.Returns(serviceProviderMock);
-            characterMock.Region.Returns(regionMock);
+            characterMock.Location.Returns(location);
 
             var command = new SpawnObjectCommand();
             var args = new GameCommandArgs(characterMock, new[] { "123", "10", "1" });

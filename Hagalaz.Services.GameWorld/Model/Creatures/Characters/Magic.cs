@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -17,6 +16,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains owner of this class.
         /// </summary>
         private readonly ICharacter _owner;
+        private readonly IItemService _itemService;
         /// <summary>
         /// Contains spell that is being autocasted.
         /// </summary>
@@ -30,9 +30,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Construct's new magic class with given owner.
         /// </summary>
         /// <param name="owner">The owner.</param>
-        public Magic(ICharacter owner)
+        public Magic(ICharacter owner, IItemService itemService)
         {
             _owner = owner;
+            _itemService = itemService;
         }
 
         /// <summary>
@@ -137,7 +138,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     continue;
                 }
 
-                _owner.SendChatMessage("You don't have enough " + _owner.ServiceProvider.GetRequiredService<IItemService>().FindItemDefinitionById((int)types[i]).Name.ToLower() + "s" + " to cast this spell.");
+                _owner.SendChatMessage("You don't have enough " + _itemService.FindItemDefinitionById((int)types[i]).Name.ToLower() + "s" + " to cast this spell.");
                 return false;
             }
             return true;

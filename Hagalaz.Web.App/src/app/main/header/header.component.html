@@ -13,7 +13,7 @@
         [value]="load"
     />
     <mat-toolbar-row class="relative container mx-auto flex">
-        <a class="logo z-10 w-48" routerLink="/" [ngClass]="logoAnimationClass || ''" (mouseenter)="playLogoAnimation()" (animationend)="stopLogoAnimation()">
+        <a class="logo z-10 w-48" href="/" aria-label="Home" routerLink="/" [ngClass]="logoAnimationClass || ''" (mouseenter)="playLogoAnimation()" (animationend)="stopLogoAnimation()">
             <svg-icon svgClass="block overflow-visible align-middle" src="./assets/images/logo.svg"></svg-icon>
         </a>
         @if (!smallScreen()) {
@@ -22,18 +22,18 @@
             }
             @if (authStore.authenticated()) {
                 <span class="hidden text-xs opacity-75 lg:inline-block">Logged in as &nbsp;</span>
-                <a mat-button [matMenuTriggerFor]="userMenu"
+                <button type="button" mat-button [matMenuTriggerFor]="userMenu"
                     >{{ userStore.username() }}
                     <mat-icon class="m-0">arrow_drop_down</mat-icon>
-                </a>
+                </button>
                 <mat-menu #userMenu="matMenu">
                     <ng-template matMenuContent>
-                        <a mat-menu-item routerLink="/profile">
+                        <a mat-menu-item href="/profile" routerLink="/profile">
                             <mat-icon>account_circle</mat-icon>
                             Profile
                         </a>
                         <mat-divider />
-                        <button mat-menu-item (click)="logout()">
+                        <button type="button" mat-menu-item (click)="logout()">
                             <mat-icon>logout</mat-icon>
                             Logout
                         </button>
@@ -41,13 +41,13 @@
                 </mat-menu>
             } @else {
                 <div class="gap-1">
-                    <a mat-button routerLinkActive="active" routerLink="/login">Login</a>
-                    <a mat-flat-button color="primary" routerLinkActive="active" routerLink="/register">Sign up</a>
+                    <a mat-button href="/login" routerLinkActive="active" routerLink="/login">Login</a>
+                    <a mat-flat-button href="/register" color="primary" routerLinkActive="active" routerLink="/register">Sign up</a>
                 </div>
             }
         } @else {
             <span class="flex-grow"></span>
-            <button mat-icon-button class="mr-auto">
+            <button type="button" mat-icon-button class="mr-auto">
                 <mat-icon>menu</mat-icon>
             </button>
         }

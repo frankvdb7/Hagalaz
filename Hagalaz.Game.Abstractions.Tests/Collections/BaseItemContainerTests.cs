@@ -5,6 +5,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using System.Collections.Generic;
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 
 namespace Hagalaz.Game.Abstractions.Tests.Collections
@@ -12,8 +14,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
     [TestClass]
     public class BaseItemContainerTests
     {
-        private class TestableItemContainer : BaseItemContainer
+        private class TestableItemContainer : TradeItemContainer
         {
+            public int UpdateCount { get; private set; }
+            public bool ThrowOnUpdate { get; set; }
+
             public TestableItemContainer(StorageType type, int capacity) : base(type, capacity)
             {
             }
@@ -24,7 +29,11 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
 
             public override void OnUpdate(HashSet<int>? slots = null)
             {
-                // No-op for testing
+                UpdateCount++;
+                if (ThrowOnUpdate)
+                {
+                    throw new InvalidOperationException("Controlled observer failure.");
+                }
             }
         }
 
@@ -427,6 +436,21 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
         }
 
         [TestMethod]
+        public void Remove_MultipleMatchingStacks_PreservesLegacyPerStackBehavior()
+        {
+            var container = new TestableItemContainer(
+                StorageType.Normal,
+                [CreateItem(1, 3, stackable: true), CreateItem(1, 4, stackable: true)],
+                10);
+
+            var removedCount = container.Remove(CreateItem(1, 2, stackable: true));
+
+            Assert.AreEqual(2, removedCount);
+            Assert.AreEqual(1, container[0].Count);
+            Assert.AreEqual(2, container[1].Count);
+        }
+
+        [TestMethod]
         public void Remove_ItemNotInContainer_ReturnsZero()
         {
             // Arrange
@@ -459,6 +483,75 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.AreEqual(2, container.TakenSlots);
             Assert.AreEqual(8, container[0].Count);
             Assert.AreEqual(2, container[1].Count);
+        }
+
+        [TestMethod]
+        public void AddRange_NonStackableCountNeedsMoreSlots_FailsWithoutMutation()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var existing = CreateItem(1, 1);
+            container.Add(existing);
+
+            var result = container.AddRange([CreateItem(2, 2)]);
+
+            Assert.IsFalse(result);
+            Assert.IsFalse(container.HasSpaceForRange([CreateItem(2, 2)]));
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(existing.Id, container[0].Id);
+            Assert.AreEqual(1, container[0].Count);
+        }
+
+        [TestMethod]
+        public void AddRange_NonStackableCountWithEnoughSlots_UsesOneSlotPerInstance()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+
+            var result = container.AddRange([CreateItem(1, 2)]);
+
+            Assert.IsTrue(result);
+            Assert.AreEqual(2, container.TakenSlots);
+            Assert.AreEqual(1, container[0].Count);
+            Assert.AreEqual(1, container[1].Count);
+        }
+
+        [TestMethod]
+        public void AddRange_StackableItemsWithNoExistingStack_ShareOneCreatedStack()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 1);
+            var items = new[] { CreateItem(1, 3, stackable: true), CreateItem(1, 4, stackable: true) };
+
+            Assert.IsTrue(container.HasSpaceForRange(items));
+            Assert.IsTrue(container.AddRange(items));
+            Assert.AreEqual(1, container.TakenSlots);
+            Assert.AreEqual(7, container[0].Count);
+        }
+
+        [TestMethod]
+        public void AddRange_CombinedStackOverflow_FailsWithoutMutation()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 1);
+            var existing = CreateItem(1, int.MaxValue - 1, stackable: true);
+            container.Add(existing);
+
+            var result = container.AddRange([CreateItem(1, 2, stackable: true)]);
+
+            Assert.IsFalse(result);
+            Assert.IsFalse(container.HasSpaceForRange([CreateItem(1, 2, stackable: true)]));
+            Assert.AreSame(existing, container[0]);
+            Assert.AreEqual(int.MaxValue - 1, container[0].Count);
+        }
+
+        [TestMethod]
+        public void AddRange_LaterItemDoesNotFit_FailsWithoutRetainingEarlierItems()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 2);
+            var items = new[] { CreateItem(1, 1), CreateItem(2, 2) };
+
+            Assert.IsFalse(container.HasSpaceForRange(items));
+            Assert.IsFalse(container.AddRange(items));
+            Assert.AreEqual(0, container.TakenSlots);
+            Assert.IsNull(container[0]);
+            Assert.IsNull(container[1]);
         }
 
         [TestMethod]
@@ -647,6 +740,57 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
 
             // Assert
             Assert.AreEqual(2, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void AddRange_WhenObserverFails_PropagatesTheFailureForNormalMutation()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 10)
+            {
+                ThrowOnUpdate = true
+            };
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => container.AddRange([CreateItem(1, 1)]));
+            Assert.AreEqual(1, container.TakenSlots);
+        }
+
+        [TestMethod]
+        public void NormalMutation_UsesTradeSynchronizationBoundary()
+        {
+            var container = new TestableItemContainer(StorageType.Normal, 10);
+            using var started = new ManualResetEventSlim();
+            using var proceed = new ManualResetEventSlim();
+            using var finished = new ManualResetEventSlim();
+
+            Task mutation;
+            bool startedInTime;
+            bool finishedWhileLocked;
+            lock (container.MutationLock)
+            {
+                mutation = Task.Run(() =>
+                {
+                    started.Set();
+                    proceed.Wait();
+                    try
+                    {
+                        container.Add(CreateItem(1, 1));
+                    }
+                    finally
+                    {
+                        finished.Set();
+                    }
+                });
+
+                startedInTime = started.Wait(TimeSpan.FromSeconds(1));
+                proceed.Set();
+                finishedWhileLocked = finished.Wait(TimeSpan.FromMilliseconds(100));
+            }
+
+            Assert.IsTrue(startedInTime);
+            Assert.IsFalse(finishedWhileLocked);
+            Assert.IsTrue(finished.Wait(TimeSpan.FromSeconds(1)));
+            mutation.GetAwaiter().GetResult();
+            Assert.AreEqual(1, container.TakenSlots);
         }
 
         [TestMethod]

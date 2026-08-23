@@ -20,10 +20,9 @@
         "ms-dotnettools.csharp",
         "ms-azuretools.vscode-docker",
         "ms-kubernetes-tools.vscode-kubernetes-tools",
-        "esbenp.prettier-vscode",
+        "biomejs.biome",
         "angular.ng-template",
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss"
       ]
     }

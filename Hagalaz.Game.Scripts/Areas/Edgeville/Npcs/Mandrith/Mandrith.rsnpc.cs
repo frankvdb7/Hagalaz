@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
@@ -7,10 +7,8 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
     [NpcScriptMetaData([6537])]
     public class Mandrith : NpcScriptBase
     {
-        /// <summary>
-        ///     Initializes this instance.
-        /// </summary>
-        protected override void Initialize()
+        public Mandrith(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
         }
 
@@ -23,7 +21,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var dialogue = clicker.ServiceProvider.GetRequiredService<MandrithDialogue>();
+                var dialogue = CreateWidgetScript<MandrithDialogue>(clicker);
                 clicker.Widgets.OpenDialogue(dialogue, true, Owner);
                 return;
             }

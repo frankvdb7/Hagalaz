@@ -2,10 +2,6 @@ export interface MultiValueResult<T> {
     results: T[];
 }
 
-export interface ValueResult<T> {
-    result: T;
-}
-
 export interface PagingModel {
     page: number;
     limit: number;

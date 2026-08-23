@@ -4,9 +4,9 @@ using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Events;
+using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
-using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 
@@ -162,13 +162,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         /// Creates new creature movement.
         /// </summary>
-        /// <param name="owner"></param>
-        public Movement(Creature owner)
+        public Movement(Creature owner, IPathFinder pathFinder, IGameMediator mediator)
         {
             _owner = owner;
             _movementType = MovementType.Walk;
-            _pathFinder = owner.ServiceProvider.GetRequiredService<ISmartPathFinder>();
-            owner.Mediator.ConnectHandler<ProfileValueChanged<bool>>(context =>
+            _pathFinder = pathFinder;
+            mediator.ConnectHandler<ProfileValueChanged<bool>>(context =>
             {
                 if (context.Message.Key == ProfileConstants.RunSettingsToggled)
                 {
@@ -319,26 +318,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                         continue;
                     }
 
-                    var max = Math.Max(Math.Abs(delta.X), Math.Abs(delta.Y));
-                    var deltaX = delta.X;
-                    var deltaY = delta.Y;
+                    var stepX = Math.Sign(delta.X);
+                    var stepY = Math.Sign(delta.Y);
 
-                    for (var i = 0; i < max; i++)
-                    {
-                        if ((deltaX != 0 || deltaY != 0) && maxMove-- <= 0) break;
-                        if (deltaX < 0)
-                            deltaX++;
-                        else if (deltaX > 0) deltaX--;
-                        if (deltaY < 0)
-                            deltaY++;
-                        else if (deltaY > 0) deltaY--;
-                    }
-
-                    var newLocation = Location.Create(peek.X - deltaX, peek.Y - deltaY, finalLocation.Z, finalLocation.Dimension);
-                    // TODO - Correct most x, y coordinates for size >= 2
-                    if (!_pathFinder.CheckStep(newLocation.X, newLocation.Y, newLocation.Z, delta.X, delta.Y, _owner.Size) || newLocation.Equals(finalLocation))
+                    var newLocation = Location.Create(finalLocation.X + stepX, finalLocation.Y + stepY, finalLocation.Z, finalLocation.Dimension);
+                    if (!_pathFinder.CheckStep(newLocation.X, newLocation.Y, newLocation.Z, stepX, stepY, _owner.Size))
                         break; // we didn't move
+
                     finalLocation = newLocation;
+                    maxMove--;
                 }
 
                 if (!finalLocation.Equals(_owner.Location))

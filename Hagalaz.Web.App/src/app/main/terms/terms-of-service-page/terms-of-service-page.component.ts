@@ -8,6 +8,6 @@ import { MatCard, MatCardContent } from "@angular/material/card";
     templateUrl: "./terms-of-service-page.component.html",
     styleUrl: "./terms-of-service-page.component.css",
     host: { class: "flex flex-auto" },
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TermsOfServicePageComponent {}

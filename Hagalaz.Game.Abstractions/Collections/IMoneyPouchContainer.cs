@@ -42,5 +42,20 @@
         /// <param name="count">The number of coins to remove.</param>
         /// <returns>The number of coins that were actually removed.</returns>
         int Remove(int count);
+
+        /// <summary>
+        /// Adds coins using the pouch's normal overflow rules as one checked trade operation.
+        /// </summary>
+        bool AddForTrade(int count);
+
+        /// <summary>
+        /// Removes coins using the pouch's normal underflow rules as one checked trade operation.
+        /// </summary>
+        bool RemoveForTrade(int count);
+
+        /// <summary>
+        /// Removes exactly the requested number of coins from the pouch and inventory, if available.
+        /// </summary>
+        bool TryRemoveExact(int count);
     }
 }

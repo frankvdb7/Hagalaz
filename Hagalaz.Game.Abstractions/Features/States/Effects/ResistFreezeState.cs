@@ -4,7 +4,7 @@ namespace Hagalaz.Game.Abstractions.Features.States.Effects
     /// Represents the "Resist Freeze" state.
     /// </summary>
     [StateMetaData("resist-freeze-state")]
-    public class ResistFreezeState : State
+    public class ResistFreezeState : TimedState, IKeepLongestDurationState
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ResistFreezeState"/> class.

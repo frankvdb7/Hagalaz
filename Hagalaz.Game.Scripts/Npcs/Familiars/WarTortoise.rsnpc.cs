@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -14,13 +15,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
     public class WarTortoise : BobFamiliarScriptBase
     {
         public WarTortoise(
-            IItemContainerFactory itemContainerFactory, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService,
-            IGroundItemBuilder groundItemBuilder) : base(itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder) { }
-
-        /// <summary>
-        ///     Initializes the beast of burden.
-        /// </summary>
-        protected override void InitializeBob() { }
+            INpc owner, IItemContainerFactory itemContainerFactory, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService,
+            IGroundItemBuilder groundItemBuilder, IItemBuilder itemBuilder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, itemContainerFactory, pathFinder, npcService, itemService, groundItemBuilder, itemBuilder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Contains the capacity of the inventory.

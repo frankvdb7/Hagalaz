@@ -245,8 +245,6 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             public ILocation Location => throw new NotImplementedException();
 
-            public IMapRegion Region => throw new NotImplementedException();
-
             public bool IsDestroyed => throw new NotImplementedException();
 
             public int Size => throw new NotImplementedException();
@@ -272,10 +270,10 @@ namespace Hagalaz.Services.GameWorld.Tests
             public IEnumerable<IState> GetStates() => throw new NotImplementedException();
             public bool HasEventHandler<TEventType>() where TEventType : ICreatureEvent => throw new NotImplementedException();
             public void Interrupt(object source) => throw new NotImplementedException();
-            public Task MajorClientPrepareUpdateTickAsync() => throw new NotImplementedException();
-            public Task MajorClientUpdateResetTickAsync() => throw new NotImplementedException();
+            public void MajorClientPrepareUpdateTick() => throw new NotImplementedException();
+            public void MajorClientUpdateResetTick() => throw new NotImplementedException();
             public bool HasState<T>() where T : IState => throw new NotImplementedException();
-            public Task MajorClientUpdateTickAsync() => throw new NotImplementedException();
+            public void MajorClientUpdateTick() => throw new NotImplementedException();
             public void MajorUpdateTick() => throw new NotImplementedException();
             public void OnDeath() => throw new NotImplementedException();
             public void OnKilledBy(ICreature killer) => throw new NotImplementedException();

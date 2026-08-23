@@ -102,6 +102,7 @@ namespace Hagalaz.Services.GameWorld.Builders
                 _owner,
                 respawnTicks,
                 ticks,
+                _serviceProvider.GetRequiredService<IMapRegionService>(),
                 _isRespawning);
         }
 

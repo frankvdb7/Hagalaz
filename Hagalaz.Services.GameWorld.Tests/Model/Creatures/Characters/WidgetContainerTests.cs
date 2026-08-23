@@ -6,10 +6,10 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model;
-using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Game.Abstractions.Builders.Widget;
+using Hagalaz.Game.Abstractions.Factories;
 
 namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
 {
@@ -32,13 +32,9 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
             _eventManagerMock = Substitute.For<IEventManager>();
             _characterMock.EventManager.Returns(_eventManagerMock);
 
-            var serviceProviderMock = Substitute.For<IServiceProvider>();
-            _characterMock.ServiceProvider.Returns(serviceProviderMock);
-
             _widgetScriptProviderMock = Substitute.For<IWidgetScriptProvider>();
-            serviceProviderMock.GetService(typeof(IWidgetScriptProvider)).Returns(_widgetScriptProviderMock);
 
-            _widgetContainer = new WidgetContainer(_characterMock);
+            _widgetContainer = new WidgetContainer(_characterMock, _widgetScriptProviderMock);
             _characterMock.Widgets.Returns(_widgetContainer);
         }
 
@@ -103,11 +99,12 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
         public void WidgetBuilder_BuildNonFrameWithoutActiveFrame_ThrowsInvalidOperationException()
         {
             // Arrange
-            var builder = new WidgetBuilder(_widgetScriptProviderMock);
+            var scriptActivatorMock = Substitute.For<IWidgetScriptActivator>();
+            var builder = new WidgetBuilder(_widgetScriptProviderMock, scriptActivatorMock);
             _widgetScriptProviderMock.FindScriptTypeById(100).Returns(typeof(IWidgetScript));
 
             var scriptMock = Substitute.For<IWidgetScript>();
-            _characterMock.ServiceProvider.GetService(typeof(IWidgetScript)).Returns(scriptMock);
+            scriptActivatorMock.Create(_characterMock, typeof(IWidgetScript)).Returns(scriptMock);
 
             // Act & Assert
             var ex = Assert.ThrowsExactly<InvalidOperationException>(() =>
@@ -122,11 +119,12 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters
         public void WidgetBuilder_BuildAsFrameWithoutActiveFrame_Succeeds()
         {
             // Arrange
-            var builder = new WidgetBuilder(_widgetScriptProviderMock);
+            var scriptActivatorMock = Substitute.For<IWidgetScriptActivator>();
+            var builder = new WidgetBuilder(_widgetScriptProviderMock, scriptActivatorMock);
             _widgetScriptProviderMock.FindScriptTypeById(100).Returns(typeof(IWidgetScript));
 
             var scriptMock = Substitute.For<IWidgetScript>();
-            _characterMock.ServiceProvider.GetService(typeof(IWidgetScript)).Returns(scriptMock);
+            scriptActivatorMock.Create(_characterMock, typeof(IWidgetScript)).Returns(scriptMock);
 
             // Act
             var widget = builder.ForCharacter(_characterMock)

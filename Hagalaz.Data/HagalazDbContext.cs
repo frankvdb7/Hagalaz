@@ -33,8 +33,6 @@ namespace Hagalaz.Data
         public virtual DbSet<CharactersMusicPlaylist> CharactersMusicPlaylists { get; set; } = null!;
         public virtual DbSet<CharactersNote> CharactersNotes { get; set; } = null!;
         public virtual DbSet<CharactersOffence> CharactersOffences { get; set; } = null!;
-        public virtual DbSet<CharactersPermission> CharactersPermissions { get; set; } = null!;
-        public virtual DbSet<CharactersPreference> CharactersPreferences { get; set; } = null!;
         public virtual DbSet<CharactersQuest> CharactersQuests { get; set; } = null!;
         public virtual DbSet<CharactersReport> CharactersReports { get; set; } = null!;
         public virtual DbSet<CharactersReward> CharactersRewards { get; set; } = null!;
@@ -67,10 +65,6 @@ namespace Hagalaz.Data
         public virtual DbSet<LogsConnection> LogsConnections { get; set; } = null!;
         public virtual DbSet<LogsDisplayNameChange> LogsDisplayNameChanges { get; set; } = null!;
         public virtual DbSet<LogsLoginAttempt> LogsLoginAttempts { get; set; } = null!;
-        public virtual DbSet<MinigamesBarrow> MinigamesBarrows { get; set; } = null!;
-        public virtual DbSet<MinigamesDuelArena> MinigamesDuelArenas { get; set; } = null!;
-        public virtual DbSet<MinigamesGodwar> MinigamesGodwars { get; set; } = null!;
-        public virtual DbSet<MinigamesTzhaarCave> MinigamesTzhaarCaves { get; set; } = null!;
         public virtual DbSet<MinigamesTzhaarCaveWave> MinigamesTzhaarCaveWaves { get; set; } = null!;
         public virtual DbSet<MusicDefinition> MusicDefinitions { get; set; } = null!;
         public virtual DbSet<MusicLocation> MusicLocations { get; set; } = null!;
@@ -776,123 +770,6 @@ namespace Hagalaz.Data
                     .WithMany(p => p.CharactersOffenceModerators)
                     .HasForeignKey(d => d.ModeratorId)
                     .HasConstraintName("moderator_id_foreign_key");
-            });
-
-            modelBuilder.Entity<CharactersPermission>(entity =>
-            {
-                entity.HasKey(e => new
-                    {
-                        e.MasterId, e.Permission
-                    })
-                    .HasName("PRIMARY")
-                    .HasAnnotation("MySQL:IndexPrefixLength",
-                        new[]
-                        {
-                            0, 0
-                        });
-
-                entity.ToTable("characters_permissions");
-
-                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
-
-                entity.Property(e => e.MasterId).HasColumnName("master_id");
-
-                entity.Property(e => e.Permission)
-                    .HasColumnType("enum('SystemAdministrator','GameAdministrator','GameModerator','Donator')")
-                    .HasColumnName("permission")
-                    .ForMySQLHasCollation("utf8mb4_0900_ai_ci")
-                    .ForMySQLHasCharset("utf8mb4");
-
-                entity.HasOne(d => d.Master).WithMany(p => p.CharactersPermissions).HasForeignKey(d => d.MasterId).HasConstraintName("master_id_foreign_key_7");
-            });
-
-            modelBuilder.Entity<CharactersPreference>(entity =>
-            {
-                entity.HasKey(e => e.MasterId).HasName("PRIMARY");
-
-                entity.ToTable("characters_preferences");
-
-                entity.ForMySQLHasCharset("latin1").ForMySQLHasCollation("latin1_swedish_ci");
-
-                entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
-
-                entity.Property(e => e.AcceptAid).HasColumnType("tinyint(3) unsigned").HasColumnName("accept_aid").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.AssistFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("assist_filter");
-
-                entity.Property(e => e.AttackStyleOptionId).HasColumnType("tinyint(3) unsigned").HasColumnName("attack_style_option_id");
-
-                entity.Property(e => e.AutoRetaliating).HasColumnType("tinyint(3) unsigned").HasColumnName("auto_retaliating").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.BankTabs).HasMaxLength(32).HasColumnName("bank_tabs").HasDefaultValueSql("'0,0,0,0,0,0,0,0'");
-
-                entity.Property(e => e.Bankx).HasColumnType("int(11)").HasColumnName("bankx").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.CcLastEntered).HasMaxLength(20).HasColumnName("cc_last_entered").HasDefaultValueSql("''");
-
-                entity.Property(e => e.ChatEffects).HasColumnType("tinyint(3) unsigned").HasColumnName("chat_effects").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.ClanFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("clan_filter");
-
-                entity.Property(e => e.DefensiveCasting).HasColumnType("tinyint(3) unsigned").HasColumnName("defensive_casting");
-
-                entity.Property(e => e.FcLastEntered).HasMaxLength(12).HasColumnName("fc_last_entered").HasDefaultValueSql("''");
-
-                entity.Property(e => e.FcLootShare).HasColumnType("tinyint(3) unsigned").HasColumnName("fc_loot_share");
-
-                entity.Property(e => e.FcName).HasMaxLength(20).HasColumnName("fc_name").HasDefaultValueSql("''");
-
-                entity.Property(e => e.FcRankEnter).HasColumnType("tinyint(3)").HasColumnName("fc_rank_enter").HasDefaultValueSql("'-1'");
-
-                entity.Property(e => e.FcRankKick).HasColumnType("tinyint(3)").HasColumnName("fc_rank_kick").HasDefaultValueSql("'7'");
-
-                entity.Property(e => e.FcRankLoot).HasColumnType("tinyint(3)").HasColumnName("fc_rank_loot").HasDefaultValueSql("'-2'");
-
-                entity.Property(e => e.FcRankTalk).HasColumnType("tinyint(3)").HasColumnName("fc_rank_talk").HasDefaultValueSql("'-1'");
-
-                entity.Property(e => e.FilterProfanity).HasColumnType("tinyint(3) unsigned").HasColumnName("filter_profanity");
-
-                entity.Property(e => e.FriendsFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("friends_filter");
-
-                entity.Property(e => e.GameFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("game_filter");
-
-                entity.Property(e => e.GuestCcLastEntered).HasMaxLength(20).HasColumnName("guest_cc_last_entered").HasDefaultValueSql("''");
-
-                entity.Property(e => e.HideCombatSpells).HasColumnType("tinyint(3) unsigned").HasColumnName("hide_combat_spells");
-
-                entity.Property(e => e.HideMiscSpells).HasColumnType("tinyint(3) unsigned").HasColumnName("hide_misc_spells");
-
-                entity.Property(e => e.HideSkillSpells).HasColumnType("tinyint(3) unsigned").HasColumnName("hide_skill_spells");
-
-                entity.Property(e => e.HideTeleportSpells).HasColumnType("tinyint(3) unsigned").HasColumnName("hide_teleport_spells");
-
-                entity.Property(e => e.MagicBook).HasColumnType("smallint(6) unsigned").HasColumnName("magic_book").HasDefaultValueSql("'192'");
-
-                entity.Property(e => e.MoneyPouchDisplay).HasColumnType("tinyint(3) unsigned").HasColumnName("money_pouch_display").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.PmAvailability).HasColumnType("tinyint(3) unsigned").HasColumnName("pm_availability");
-
-                entity.Property(e => e.PrayerBook).HasColumnType("tinyint(3) unsigned").HasColumnName("prayer_book");
-
-                entity.Property(e => e.PublicFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("public_filter");
-
-                entity.Property(e => e.QuickPrayers).HasMaxLength(255).HasColumnName("quick_prayers").HasDefaultValueSql("'0'");
-
-                entity.Property(e => e.RightClickReporting).HasColumnType("tinyint(3) unsigned").HasColumnName("right_click_reporting");
-
-                entity.Property(e => e.Running).HasColumnType("tinyint(3) unsigned").HasColumnName("running");
-
-                entity.Property(e => e.SingleMouse).HasColumnType("tinyint(3) unsigned").HasColumnName("single_mouse");
-
-                entity.Property(e => e.SplitChat).HasColumnType("tinyint(3) unsigned").HasColumnName("split_chat");
-
-                entity.Property(e => e.SumLeftClickOption).HasColumnType("tinyint(3) unsigned").HasColumnName("sum_left_click_option");
-
-                entity.Property(e => e.TradeFilter).HasColumnType("tinyint(3) unsigned").HasColumnName("trade_filter");
-
-                entity.Property(e => e.XpCounterDisplay).HasColumnType("tinyint(3) unsigned").HasColumnName("xp_counter_display").HasDefaultValueSql("'1'");
-
-                entity.Property(e => e.XpCounterPopup).HasColumnType("tinyint(3) unsigned").HasColumnName("xp_counter_popup").HasDefaultValueSql("'1'");
             });
 
             modelBuilder.Entity<CharactersQuest>(entity =>
@@ -2002,108 +1879,6 @@ namespace Hagalaz.Data
                 entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").HasColumnName("master_id");
 
                 entity.Property(e => e.Type).HasColumnType("tinyint(4)").HasColumnName("type");
-            });
-
-            modelBuilder.Entity<MinigamesBarrow>(entity =>
-            {
-                entity.HasKey(e => e.MasterId).HasName("PRIMARY");
-
-                entity.ToTable("minigames_barrows");
-
-                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
-
-                entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
-
-                entity.Property(e => e.BrotherKilled0).HasColumnType("tinyint(1) unsigned").HasColumnName("brother_killed_0");
-
-                entity.Property(e => e.BrotherKilled1).HasColumnType("tinyint(1) unsigned").HasColumnName("brother_killed_1");
-
-                entity.Property(e => e.BrotherKilled2).HasColumnType("tinyint(1) unsigned").HasColumnName("brother_killed_2");
-
-                entity.Property(e => e.BrotherKilled3).HasColumnType("tinyint(1) unsigned").HasColumnName("brother_killed_3");
-
-                entity.Property(e => e.BrotherKilled4).HasColumnType("tinyint(1) unsigned").HasColumnName("brother_killed_4");
-
-                entity.Property(e => e.BrotherKilled5).HasColumnType("tinyint(1) unsigned").HasColumnName("brother_killed_5");
-
-                entity.Property(e => e.BrotherKilled6).HasColumnType("tinyint(1) unsigned").HasColumnName("brother_killed_6");
-
-                entity.Property(e => e.CryptStartIndex).HasColumnType("tinyint(1) unsigned").HasColumnName("crypt_start_index");
-
-                entity.Property(e => e.KillCount).HasColumnType("int(11)").HasColumnName("kill_count");
-
-                entity.Property(e => e.LootedChest).HasColumnType("tinyint(1) unsigned").HasColumnName("looted_chest");
-
-                entity.Property(e => e.TunnelIndex).HasColumnType("tinyint(1) unsigned").HasColumnName("tunnel_index");
-
-                entity.HasOne(d => d.Master)
-                    .WithOne(p => p.MinigamesBarrow)
-                    .HasForeignKey<MinigamesBarrow>(d => d.MasterId)
-                    .HasConstraintName("master_id_foreign_key_20");
-            });
-
-            modelBuilder.Entity<MinigamesDuelArena>(entity =>
-            {
-                entity.HasKey(e => e.MasterId).HasName("PRIMARY");
-
-                entity.ToTable("minigames_duel_arena");
-
-                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
-
-                entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
-
-                entity.Property(e => e.FavouriteRules).HasColumnType("text").HasColumnName("favourite_rules");
-
-                entity.Property(e => e.PreviousRules).HasColumnType("text").HasColumnName("previous_rules");
-
-                entity.HasOne(d => d.Master)
-                    .WithOne(p => p.MinigamesDuelArena)
-                    .HasForeignKey<MinigamesDuelArena>(d => d.MasterId)
-                    .HasConstraintName("master_id_foreign_key_21");
-            });
-
-            modelBuilder.Entity<MinigamesGodwar>(entity =>
-            {
-                entity.HasKey(e => e.MasterId).HasName("PRIMARY");
-
-                entity.ToTable("minigames_godwars");
-
-                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
-
-                entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
-
-                entity.Property(e => e.ArmadylKillCount).HasColumnType("smallint(6)").HasColumnName("armadyl_kill_count");
-
-                entity.Property(e => e.BandosKillCount).HasColumnType("smallint(6)").HasColumnName("bandos_kill_count");
-
-                entity.Property(e => e.SaradominKillCount).HasColumnType("smallint(6)").HasColumnName("saradomin_kill_count");
-
-                entity.Property(e => e.ZamorakKillCount).HasColumnType("smallint(6)").HasColumnName("zamorak_kill_count");
-
-                entity.HasOne(d => d.Master)
-                    .WithOne(p => p.MinigamesGodwar)
-                    .HasForeignKey<MinigamesGodwar>(d => d.MasterId)
-                    .HasConstraintName("master_id_foreign_key_22");
-            });
-
-            modelBuilder.Entity<MinigamesTzhaarCave>(entity =>
-            {
-                entity.HasKey(e => e.MasterId).HasName("PRIMARY");
-
-                entity.ToTable("minigames_tzhaar_cave");
-
-                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
-
-                entity.HasIndex(e => e.CurrentWaveId, "current_wave_id_foreign_key");
-
-                entity.Property(e => e.MasterId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("master_id");
-
-                entity.Property(e => e.CurrentWaveId).HasColumnType("int(11) unsigned").HasColumnName("current_wave_id");
-
-                entity.HasOne(d => d.Master)
-                    .WithOne(p => p.MinigamesTzhaarCave)
-                    .HasForeignKey<MinigamesTzhaarCave>(d => d.MasterId)
-                    .HasConstraintName("master_id_foreign_key_23");
             });
 
             modelBuilder.Entity<MinigamesTzhaarCaveWave>(entity =>

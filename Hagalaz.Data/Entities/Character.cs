@@ -22,7 +22,6 @@ namespace Hagalaz.Data.Entities
             CharactersNotes = new HashSet<CharactersNote>();
             CharactersOffenceMasters = new HashSet<CharactersOffence>();
             CharactersOffenceModerators = new HashSet<CharactersOffence>();
-            CharactersPermissions = new HashSet<CharactersPermission>();
             CharactersReportReporteds = new HashSet<CharactersReport>();
             CharactersReportReporters = new HashSet<CharactersReport>();
             CharactersRewards = new HashSet<CharactersReward>();
@@ -65,10 +64,6 @@ namespace Hagalaz.Data.Entities
         public virtual CharactersSlayerTask CharactersSlayerTask { get; set; } = null!;
         public virtual CharactersStatistic CharactersStatistic { get; set; } = null!;
         public virtual ClansMember ClansMemberMaster { get; set; } = null!;
-        public virtual MinigamesBarrow MinigamesBarrow { get; set; } = null!;
-        public virtual MinigamesDuelArena MinigamesDuelArena { get; set; } = null!;
-        public virtual MinigamesGodwar MinigamesGodwar { get; set; } = null!;
-        public virtual MinigamesTzhaarCave MinigamesTzhaarCave { get; set; } = null!;
         public virtual ICollection<Aspnetuserclaim> Aspnetuserclaims { get; set; }
         public virtual ICollection<Aspnetuserlogin> Aspnetuserlogins { get; set; }
         public virtual ICollection<Aspnetusertoken> Aspnetusertokens { get; set; }
@@ -83,7 +78,6 @@ namespace Hagalaz.Data.Entities
         public virtual ICollection<CharactersNote> CharactersNotes { get; set; }
         public virtual ICollection<CharactersOffence> CharactersOffenceMasters { get; set; }
         public virtual ICollection<CharactersOffence> CharactersOffenceModerators { get; set; }
-        public virtual ICollection<CharactersPermission> CharactersPermissions { get; set; }
         public virtual ICollection<CharactersReport> CharactersReportReporteds { get; set; }
         public virtual ICollection<CharactersReport> CharactersReportReporters { get; set; }
         public virtual ICollection<CharactersReward> CharactersRewards { get; set; }

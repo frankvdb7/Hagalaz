@@ -8,7 +8,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
     [NpcScriptMetaData([2734, 2735])]
     public class TzKih : StandardCaveNpc
     {
-        public TzKih(INpcBuilder npcBuilder) : base(npcBuilder) { }
+        public TzKih(INpc owner, INpcBuilder npcBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator) : base(owner, npcBuilder, npcService, pathFinder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Perform's attack on specific target.

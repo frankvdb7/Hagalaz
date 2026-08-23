@@ -72,7 +72,6 @@ namespace Hagalaz.Game.Scripts.Characters
                 Character.QueueGraphic(_graphicBuilder.Create().WithId(1765).Build());
 
                 // TODO
-                //var database = ServiceLocator.Current.GetInstance<ISqlDatabaseManager>();
                 //await database.ExecuteAsync(new ActivityLogQuery(Character.MasterId, "Level-up", "I have achieved level " + currentLevel + " in " + StatisticsConstants.SkillNames[skillID] + "."));
                 var lvl99Count = 0;
                 for (var i = 0; i < StatisticsConstants.SkillsCount; i++)

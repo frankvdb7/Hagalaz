@@ -45,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
                         }
 
                         clicker.QueueAnimation(Animation.Create(827));
-                        clicker.AddState(new HasSaradominLastRockRopeState { TicksLeft = int.MaxValue });
+                        clicker.AddState(new HasSaradominLastRockRopeState());
                         clicker.Inventory.Remove(_itemBuilder.Create().WithId(954).Build());
                         ShowRope(clicker);
                         return;

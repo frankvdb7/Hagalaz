@@ -23,6 +23,8 @@ namespace Hagalaz.Services.Common
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            var startupState = _serviceProvider.GetService<IStartupTaskState>();
+            startupState?.MarkStarted();
             try
             {
                 List<Exception>? exceptions = null;
@@ -48,10 +50,12 @@ namespace Hagalaz.Services.Common
                     throw new AggregateException(exceptions);
                 }
 
+                startupState?.MarkCompleted();
                 _logger.LogDebug("Startup tasks successfully loaded");
             }
             catch (Exception globalEx)
             {
+                startupState?.MarkFailed();
                 _logger.LogError(globalEx, "An error occurred starting while executing start-up tasks");
             }
         }

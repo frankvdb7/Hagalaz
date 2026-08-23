@@ -11,6 +11,6 @@ import { ScrollBarDirective } from "@app/common/directives/scroll-bar.directive"
     host: {
         class: "flex flex-col flex-auto min-h-0",
     },
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LauncherComponent {}

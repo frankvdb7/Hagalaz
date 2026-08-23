@@ -75,7 +75,8 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// Removes a ground item from this region part.
         /// </summary>
         /// <param name="item">The ground item to remove.</param>
-        void Remove(IGroundItem item);
+        /// <returns><c>true</c> when the exact ground-item instance was removed; otherwise, <c>false</c>.</returns>
+        bool Remove(IGroundItem item);
 
         /// <summary>
         /// Processes an expired ground item, making it public or despawning it.

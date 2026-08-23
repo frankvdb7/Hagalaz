@@ -41,6 +41,23 @@ jobs:
           name: dotnet-test-results
           path: "**/TestResults/*.trx"
 
+  openspec:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Validate active OpenSpec artifacts
+        run: npx --yes @fission-ai/openspec@1.10.0 validate --all --strict --no-interactive
+
+      - name: Validate archived OpenSpec tasks
+        run: npx --yes @fission-ai/openspec@1.10.0 validate --archived --no-interactive
+
   webapp:
     runs-on: ubuntu-latest
     defaults:
@@ -48,6 +65,8 @@ jobs:
         working-directory: Hagalaz.Web.App
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -59,6 +78,13 @@ jobs:
           cache-dependency-path: Hagalaz.Web.App/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Lint webapp with Biome
+        run: pnpm run lint:biome
+      - name: Audit webapp with Fallow
+        uses: fallow-rs/fallow@v3
+        with:
+          root: Hagalaz.Web.App
+          command: audit
       - name: Test webapp
         run: pnpm run test
       - name: Test admin webapp

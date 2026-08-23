@@ -7,27 +7,37 @@ using MassTransit;
 
 namespace Hagalaz.Services.GameWorld.Network.Consumers
 {
+    [ExcludeFromConfigureEndpoints]
     public class WorldOnlineConsumer : IConsumer<WorldOnlineMessage>
     {
         private readonly IWorldInfoService _worldInfoService;
         private readonly IMapper _mapper;
+        private readonly WorldRegistrationStore _registrations;
 
-        public WorldOnlineConsumer(IWorldInfoService worldInfoService, IMapper mapper)
+        public WorldOnlineConsumer(
+            IWorldInfoService worldInfoService,
+            IMapper mapper,
+            WorldRegistrationStore registrations)
         {
             _worldInfoService = worldInfoService;
             _mapper = mapper;
+            _registrations = registrations;
         }
 
         public async Task Consume(ConsumeContext<WorldOnlineMessage> context)
         {
             var message = context.Message;
-            var info = _mapper.Map<WorldInfo>(message);
-            await _worldInfoService.AddOrUpdateWorldInfoAsync(info with
+            var update = _registrations.ObserveOnline(message);
+            if (!update.IsAvailable || update.ActiveMessage == null)
             {
-                IpAddress = context.SourceAddress?.Host ?? string.Empty,
-            });
+                await _worldInfoService.UpdateWorldCharacterInfoAsync(new WorldCharacterInfo(message.Id, 0, false));
+                return;
+            }
 
-            await _worldInfoService.UpdateWorldCharacterInfoAsync(new WorldCharacterInfo(message.Id, message.CharacterCount, true));
+            var activeMessage = update.ActiveMessage;
+            await _worldInfoService.AddOrUpdateWorldInfoAsync(_mapper.Map<WorldInfo>(activeMessage));
+            await _worldInfoService.UpdateWorldCharacterInfoAsync(
+                new WorldCharacterInfo(activeMessage.Id, activeMessage.CharacterCount, true));
         }
     }
 }

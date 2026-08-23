@@ -1,0 +1,59 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+  "entry": [
+    "src/main.ts",
+    "src-admin/main.ts",
+    "src/launcher/main.ts",
+    "src/launcher/preload.ts",
+    "src/test.ts",
+    "src-admin/test.ts",
+    "proxy.conf.mjs"
+  ],
+  "duplicates": {
+    "minOccurrences": 3
+  },
+  "rules": {
+    "unused-dependencies": "warn"
+  },
+  "ignoreDependencies": [
+    "@angular/language-service",
+    "tailwindcss"
+  ],
+  "ignoreUnresolvedImports": [
+    "tailwindcss"
+  ],
+  "ignoreExports": [
+    {
+      "file": "src/app/launcher/footer/footer-routing.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/app/launcher/header/header-routing.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/app/main/footer/footer-routing.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/app/main/header/header-routing.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/app/launcher/launcher-routing.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/app/main/main-routing.ts",
+      "exports": ["*"]
+    }
+  ],
+  "usedClassMembers": [
+    {
+      "extends": "TitleStrategy",
+      "members": ["updateTitle"]
+    },
+    "openAsync",
+    "initialize"
+  ]
+}

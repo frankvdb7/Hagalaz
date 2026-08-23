@@ -7,7 +7,7 @@ import { BackgroundImageService } from "@app/services/util/background-image.serv
     imports: [NgOptimizedImage],
     templateUrl: "./bg-img.component.html",
     styleUrl: "./bg-img.component.scss",
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BgImgComponent {
     bgImgService = inject(BackgroundImageService);

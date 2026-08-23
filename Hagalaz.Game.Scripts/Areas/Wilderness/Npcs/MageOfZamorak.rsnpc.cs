@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Dialogues;
@@ -9,6 +9,10 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.Npcs
     [NpcScriptMetaData([2257])]
     public class MageOfZamorak : NpcScriptBase
     {
+        public MageOfZamorak(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -20,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.Npcs
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var script = clicker.ServiceProvider.GetRequiredService<MageOfZamorakDialogue>();
+                var script = CreateWidgetScript<MageOfZamorakDialogue>(clicker);
                 clicker.Widgets.OpenDialogue(script, true, Owner);
                 return;
             }
@@ -34,11 +38,5 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness.Npcs
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

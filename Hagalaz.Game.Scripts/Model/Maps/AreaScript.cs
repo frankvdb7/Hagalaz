@@ -1,5 +1,4 @@
 ﻿using System.Linq;
-using Hagalaz.DependencyInjection.Extensions;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -19,6 +18,10 @@ namespace Hagalaz.Game.Scripts.Model.Maps
     /// </summary>
     public abstract class AreaScript : IAreaScript
     {
+        private readonly IOptions<WorldOptions> _worldOptions;
+
+        protected AreaScript(IOptions<WorldOptions> worldOptions) => _worldOptions = worldOptions;
+
         /// <summary>
         /// Contains area instance.
         /// </summary>
@@ -243,8 +246,7 @@ namespace Hagalaz.Game.Scripts.Model.Maps
         public void Initialize(IArea area)
         {
             Area = area;
-            var options = ServiceLocator.Current.GetInstance<IOptions<WorldOptions>>();
-            SpawnPoint = Location.Create(options.Value.SpawnPointX, options.Value.SpawnPointY, options.Value.SpawnPointZ);
+            SpawnPoint = Location.Create(_worldOptions.Value.SpawnPointX, _worldOptions.Value.SpawnPointY, _worldOptions.Value.SpawnPointZ);
             Initialize();
         }
 

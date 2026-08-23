@@ -160,7 +160,8 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// Removes a ground item from the region.
         /// </summary>
         /// <param name="item">The ground item to remove.</param>
-        void Remove(IGroundItem item);
+        /// <returns><c>true</c> when the exact ground-item instance was removed; otherwise, <c>false</c>.</returns>
+        bool Remove(IGroundItem item);
 
         /// <summary>
         /// Applies a collision flag to a specific tile in the region.
@@ -195,22 +196,23 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// <summary>
         /// Performs the main game logic update tick for the region.
         /// </summary>
-        Task MajorUpdateTick();
+        void MajorUpdateTick();
 
         /// <summary>
         /// Prepares the data for the client update tick.
         /// </summary>
-        Task MajorClientPrepareUpdateTick();
+        void MajorClientPrepareUpdateTick();
 
         /// <summary>
         /// Performs the main client update tick for the region.
         /// </summary>
-        Task MajorClientUpdateTick();
+        /// <param name="characters">The character view captured for this client update.</param>
+        void MajorClientUpdateTick(IReadOnlyDictionary<int, ICharacter> characters);
 
         /// <summary>
         /// Resets the update flags for the region after a client update.
         /// </summary>
-        Task MajorClientUpdateResetTick();
+        void MajorClientUpdateResetTick();
 
         /// <summary>
         /// Sends all pending zone updates for this region to a specific character.

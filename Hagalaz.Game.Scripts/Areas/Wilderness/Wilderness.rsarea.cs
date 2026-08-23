@@ -5,8 +5,10 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Scripts.Model.Maps;
 using Hagalaz.Game.Scripts.Model.Widgets;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Game.Scripts.Areas.Wilderness
 {
@@ -16,6 +18,8 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness
     [AreaScriptMetaData([1, 2, 7, 10])]
     public class Wilderness : AreaScript
     {
+        public Wilderness(IOptions<WorldOptions> worldOptions) : base(worldOptions) { }
+
         /// <summary>
         ///     Initializes area script.
         /// </summary>

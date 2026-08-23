@@ -15,7 +15,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zaros
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public BloodReaver(IProjectileBuilder projectileBuilder)
+        public BloodReaver(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

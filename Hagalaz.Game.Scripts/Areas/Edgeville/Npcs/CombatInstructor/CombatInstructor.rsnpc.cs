@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
@@ -7,6 +7,10 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.CombatInstructor
     [NpcScriptMetaData([944])]
     public class CombatInstructor : NpcScriptBase
     {
+        public CombatInstructor(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -18,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.CombatInstructor
         {
             if (clickType == NpcClickType.Option1Click)
             {
-                var script = clicker.ServiceProvider.GetRequiredService<CombatInstructorDialogue>();
+                var script = CreateWidgetScript<CombatInstructorDialogue>(clicker);
                 clicker.Widgets.OpenDialogue(script, false, Owner);
                 return;
             }
@@ -26,11 +30,5 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.CombatInstructor
             base.OnCharacterClickPerform(clicker, clickType);
         }
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

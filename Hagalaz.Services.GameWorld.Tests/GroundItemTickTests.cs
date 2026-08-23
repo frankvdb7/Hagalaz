@@ -2,6 +2,7 @@ using AutoMapper;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -21,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var npcService = Substitute.For<INpcService>();
             var regionService = Substitute.For<IMapRegionService>();
             var gameObjectBuilder = Substitute.For<IGameObjectBuilder>();
-            var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks);
+            var groundItemBuilder = new SimpleGroundItemBuilder(publicTicks, regionService);
             var mapper = new MapperConfiguration(cfg => { }, LoggerFactory.Create(_ => { })).CreateMapper();
             var location = Location.Create(0, 0);
             return new MapRegion(
@@ -46,7 +47,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             item.Count.Returns(1);
             item.Id.Returns(0);
             var location = Location.Create(10, 10);
-            return new GroundItem(item, location, null, respawnTicks, ticksLeft);
+            return new GroundItem(item, location, null, respawnTicks, ticksLeft, Substitute.For<IMapRegionService>());
         }
 
         private static IGroundItem CreatePrivateItem(bool tradable, int ticksLeft)
@@ -62,7 +63,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             item.Id.Returns(0);
             var location = Location.Create(10, 10);
             var owner = Substitute.For<ICharacter>();
-            return new GroundItem(item, location, owner, 0, ticksLeft);
+            return new GroundItem(item, location, owner, 0, ticksLeft, Substitute.For<IMapRegionService>());
         }
 
         [TestMethod]
@@ -72,7 +73,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item = CreateItem(5, 5);
             region.Add(item);
 
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
 
             Assert.AreEqual(4, item.TicksLeft);
         }
@@ -84,7 +85,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item = CreateItem(0, 1);
             region.Add(item);
 
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
 
             Assert.AreEqual(0, region.FindAllGroundItems().Count());
         }
@@ -96,8 +97,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item = CreateItem(2, 2);
             region.Add(item);
 
-            await region.MajorClientPrepareUpdateTick();
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
 
             var items = region.FindAllGroundItems().ToList();
             Assert.HasCount(1, items);
@@ -115,21 +116,21 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.Add(item);
 
             // First tick: item timer expires, should be replaced by a respawning item
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
             var respawning = region.FindAllGroundItems().Single();
             Assert.AreNotSame(item, respawning, "Item should be replaced by a respawning item");
             Assert.IsTrue(respawning.IsRespawning, "Item should be in respawning state after first tick");
             Assert.AreEqual(2, respawning.TicksLeft, "Respawning item should have its respawn ticks reset");
 
             // Second tick: respawning item timer decrements
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
             var afterSecondTick = region.FindAllGroundItems().Single();
             // Assert state, no debug output
             Assert.AreEqual(1, afterSecondTick.TicksLeft, "Respawning item ticks should decrement");
             Assert.IsTrue(afterSecondTick.IsRespawning, "Item should still be respawning");
 
             // Third tick: respawning item should become a normal item again
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
             var items = region.FindAllGroundItems().ToList();
             // Assert state, no debug output
             Assert.HasCount(1, items, "There should be one item after respawn");
@@ -145,7 +146,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var item = CreatePrivateItem(true, 1);
             region.Add(item);
 
-            await region.MajorClientPrepareUpdateTick();
+            region.MajorClientPrepareUpdateTick();
 
             var items = region.FindAllGroundItems().ToList();
             Assert.HasCount(1, items);
@@ -157,7 +158,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void CanDestroy_Returns_False_When_Respawning()
         {
             var item = CreateItem(5, 0);
-            var respawning = new GroundItem(item.ItemOnGround, item.Location, null, item.RespawnTicks, 0, true);
+            var respawning = new GroundItem(item.ItemOnGround, item.Location, null, item.RespawnTicks, 0, Substitute.For<IMapRegionService>(), true);
 
             Assert.IsFalse(respawning.CanDestroy());
         }
@@ -170,22 +171,100 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsTrue(item.CanDestroy());
         }
 
+        [TestMethod]
+        public void Despawn_RemovesItemFromLocationRegion()
+        {
+            var regionService = Substitute.For<IMapRegionService>();
+            var region = Substitute.For<IMapRegion>();
+            var item = CreateItem(0, 0);
+            var groundItem = new GroundItem(item.ItemOnGround, item.Location, null, 0, 0, regionService);
+            regionService.GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false).Returns(region);
+            region.Remove(groundItem).Returns(true);
+
+            var result = groundItem.Despawn();
+
+            Assert.IsTrue(result);
+            regionService.Received(1).GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false);
+            region.Received(1).Remove(groundItem);
+        }
+
+        [TestMethod]
+        public void Despawn_ReturnsFalse_WhenRegionDoesNotRemoveExactInstance()
+        {
+            var regionService = Substitute.For<IMapRegionService>();
+            var region = Substitute.For<IMapRegion>();
+            var item = CreateItem(0, 0);
+            var groundItem = new GroundItem(item.ItemOnGround, item.Location, null, 0, 0, regionService);
+            regionService.GetOrCreateMapRegion(item.Location.RegionId, item.Location.Dimension, false).Returns(region);
+            region.Remove(groundItem).Returns(false);
+
+            var result = groundItem.Despawn();
+
+            Assert.IsFalse(result);
+        }
+
+        [TestMethod]
+        public void Remove_ReturnsFalse_WhenExactInstanceIsNotPresent()
+        {
+            var region = CreateRegion();
+            var activeItem = CreateItem(0, 0);
+            var staleItem = CreateItem(0, 0);
+            region.Add(activeItem);
+
+            var result = region.Remove(staleItem);
+
+            Assert.IsFalse(result);
+            Assert.IsFalse(staleItem.IsDestroyed);
+            Assert.HasCount(1, region.FindAllGroundItems());
+            Assert.AreSame(activeItem, region.FindAllGroundItems().Single());
+        }
+
+        [TestMethod]
+        public void Remove_ReturnsFalse_WhenExactInstanceWasAlreadyRemoved()
+        {
+            var region = CreateRegion();
+            var item = CreateItem(0, 0);
+            region.Add(item);
+
+            Assert.IsTrue(region.Remove(item));
+            Assert.IsFalse(region.Remove(item));
+            Assert.IsEmpty(region.FindAllGroundItems());
+        }
+
+        [TestMethod]
+        public void Remove_RespawningItem_ReplacesVisibleInstanceOnlyOnce()
+        {
+            var region = CreateRegion();
+            var item = CreateItem(2, 2);
+            region.Add(item);
+
+            Assert.IsTrue(region.Remove(item));
+            var replacement = region.FindAllGroundItems().Single();
+
+            Assert.AreNotSame(item, replacement);
+            Assert.IsTrue(replacement.IsRespawning);
+            Assert.IsFalse(region.Remove(item));
+            Assert.AreSame(replacement, region.FindAllGroundItems().Single());
+        }
+
         public class SimpleGroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional, IGroundItemBuild {
             private int? _respawnTicks;
             private int? _ticks;
             private readonly int _publicTicks;
+            private readonly IMapRegionService _mapRegionService;
             private IItem _item = default!;
             private ILocation _location = default!;
             private ICharacter? _owner;
             private bool _isRespawning;
 
-            public SimpleGroundItemBuilder(int publicTicks = 100)
+            public SimpleGroundItemBuilder(int publicTicks, IMapRegionService mapRegionService)
             {
                 _publicTicks = publicTicks;
+                _mapRegionService = mapRegionService;
             }
 
             // IGroundItemBuilder
-            public IGroundItemOnGround Create() => new SimpleGroundItemBuilder(_publicTicks);
+            public IGroundItemOnGround Create() => new SimpleGroundItemBuilder(_publicTicks, _mapRegionService);
 
             // IGroundItemOnGround
             public IGroundItemLocation WithItem(IItem item) { _item = item; return this; }
@@ -219,7 +298,7 @@ namespace Hagalaz.Services.GameWorld.Tests
                     ticks = respawnTicks;
                 }
 
-                var result = new GroundItem(_item, _location, _owner, respawnTicks, ticks, _isRespawning);
+                var result = new GroundItem(_item, _location, _owner, respawnTicks, ticks, _mapRegionService, _isRespawning);
 
                 return result;
             }

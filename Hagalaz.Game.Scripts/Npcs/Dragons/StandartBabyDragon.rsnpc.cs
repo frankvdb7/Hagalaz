@@ -13,10 +13,11 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
     [NpcScriptMetaData([52, 4665, 4666, 1589, 3588, 4667, 4668, 3376])]
     public class StandartBabyDragon : NpcScriptBase
     {
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() => Owner.AddState(new NpcTypeDragonState { TicksLeft = int.MaxValue });
+        public StandartBabyDragon(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+            Owner.AddState(new NpcTypeDragonState());
+        }
 
         /// <summary>
         ///     Render's attack.

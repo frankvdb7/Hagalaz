@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { type ComponentFixture, TestBed } from "@angular/core/testing";
 import { it, describe, beforeEach, expect } from "vitest";
 import { PvpComponent } from "./pvp.component";
 

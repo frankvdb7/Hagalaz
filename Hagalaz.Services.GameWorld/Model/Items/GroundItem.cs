@@ -1,9 +1,7 @@
 ﻿using System;
-using Hagalaz.DependencyInjection.Extensions;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Services.GameWorld.Model.Items
@@ -12,14 +10,7 @@ namespace Hagalaz.Services.GameWorld.Model.Items
     {
         public IItem ItemOnGround { get; }
         public ILocation Location { get; }
-        public IMapRegion Region
-        {
-            get
-            {
-                var regionManager = ServiceLocator.Current.GetInstance<IMapRegionService>();
-                return regionManager.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
-            }
-        }
+        private readonly IMapRegionService _mapRegionService;
         public ICharacter? Owner { get; set; }
         public int TicksLeft { get; set; }
         public int RespawnTicks { get; private set; }
@@ -29,18 +20,13 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         public string Name => ItemOnGround.Name;
         public bool IsDestroyed { get; private set; }
 
-        private GroundItem(IItem itemOnGround, ILocation location)
-        {
-            ItemOnGround = itemOnGround;
-            Location = location;
-        }
-
         public GroundItem(
             IItem itemOnGround,
             ILocation location,
             ICharacter? owner,
             int respawnTicks,
             int ticksLeft,
+            IMapRegionService mapRegionService,
             bool isRespawning = false)
         {
             ItemOnGround = itemOnGround;
@@ -48,6 +34,7 @@ namespace Hagalaz.Services.GameWorld.Model.Items
             Owner = owner;
             RespawnTicks = respawnTicks;
             TicksLeft = ticksLeft;
+            _mapRegionService = mapRegionService;
             IsRespawning = isRespawning;
         }
 
@@ -99,8 +86,8 @@ namespace Hagalaz.Services.GameWorld.Model.Items
         /// <returns></returns>
         public bool Despawn()
         {
-            Region.Remove(this);
-            return true;
+            var region = _mapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
+            return region.Remove(this);
         }
 
         /// <summary>
@@ -129,6 +116,7 @@ namespace Hagalaz.Services.GameWorld.Model.Items
             Owner,
             RespawnTicks,
             TicksLeft,
+            _mapRegionService,
             IsRespawning);
 
         /// <summary>

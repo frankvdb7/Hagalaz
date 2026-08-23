@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model;
+using System;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
@@ -107,7 +108,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         {
             if (selfSize != 1)
             {
-                if (fromAbsX <= toAbsX && toAbsX <= selfSize + fromAbsX - 1 && toAbsY <= selfSize + toAbsY - 1)
+                if (fromAbsX <= toAbsX && toAbsX <= selfSize + fromAbsX - 1 && fromAbsY <= toAbsY && toAbsY <= selfSize + fromAbsY - 1)
                     return true;
             }
             else if (fromAbsX == toAbsX && fromAbsY == toAbsY)
@@ -181,7 +182,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
 
                     if (rotation == 0)
                     {
-                        if (toAbsX + 1 == fromAbsX && toAbsY >= fromAbsY && cornerY >= toAbsY && !GetClippingFlag(fromAbsX, toAbsX, z).HasFlag(CollisionFlag.WallWest))
+                        if (toAbsX + 1 == fromAbsX && toAbsY >= fromAbsY && cornerY >= toAbsY && !GetClippingFlag(fromAbsX, toAbsY, z).HasFlag(CollisionFlag.WallWest))
                             return true;
                         if (fromAbsX <= toAbsX && toAbsX <= cornerX && fromAbsY == toAbsY - selfSize && !GetClippingFlag(toAbsX, cornerY, z).HasFlag(CollisionFlag.WallNorth))
                             return true;
@@ -408,7 +409,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         {
             if (selfSize != 1)
             {
-                if (toAbsX >= currentAbsX && toAbsX <= currentAbsX + (selfSize - 1) && currentAbsY <= toAbsY && toAbsY <= selfSize - 1 + toAbsY)
+                if (toAbsX >= currentAbsX && toAbsX <= currentAbsX + (selfSize - 1) && currentAbsY <= toAbsY && toAbsY <= currentAbsY + (selfSize - 1))
                     return true;
             }
             else if (currentAbsX == toAbsX && currentAbsY == toAbsY)
@@ -428,7 +429,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                         //    return true; // old
                         if (toAbsX - selfSize == currentAbsX && toAbsY >= currentAbsY && toAbsY <= cornerY)
                             return true;
-                        if (currentAbsX <= toAbsX && toAbsX <= cornerX && currentAbsY == toAbsY + 1 && (GetClippingFlagInt(toAbsX, currentAbsX, z) & 0x2c0120) == 0)
+                        if (currentAbsX <= toAbsX && toAbsX <= cornerX && currentAbsY == toAbsY + 1 && (GetClippingFlagInt(toAbsX, currentAbsY, z) & 0x2c0120) == 0)
                             return true;
                         if (toAbsX >= currentAbsX && toAbsX <= cornerX && currentAbsY == toAbsY - selfSize && (GetClippingFlagInt(toAbsX, cornerY, z) & 0x2c0102) == 0)
                             return true;
@@ -678,6 +679,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <returns></returns>
         public bool CheckStep(int x, int y, int z, int xOffset, int yOffset, int size)
         {
+            if (xOffset is < -1 or > 1 || yOffset is < -1 or > 1 || (xOffset == 0 && yOffset == 0))
+            {
+                return false;
+            }
+
             var fromX = x - xOffset;
             var fromY = y - yOffset;
             if (size < 2)
@@ -751,7 +757,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                            CheckStep(fromX - 1, fromY - 1, z, CollisionFlag.CheckNorthEast) &&
                            CheckStep(fromX, fromY - 1, z, CollisionFlag.CheckNorthWest | CollisionFlag.CheckNorthEast);
                 }
-                else if (xOffset == 1 && yOffset == 1)
+                else if (xOffset == 1 && yOffset == -1)
                 {
                     return CheckStep(fromX + 1, fromY - 1, z, CollisionFlag.CheckNorthWest | CollisionFlag.CheckNorthEast) &&
                            CheckStep(fromX + 2, fromY - 1, z, CollisionFlag.CheckNorthWest) &&
@@ -760,14 +766,14 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 else if (xOffset == -1 && yOffset == 1)
                 {
                     return CheckStep(fromX - 1, fromY + 1, z, CollisionFlag.CheckNorthEast | CollisionFlag.CheckSouthEast) &&
-                           CheckStep(fromX - 1, fromY + 1, z, CollisionFlag.CheckSouthEast) &&
+                           CheckStep(fromX - 1, fromY + 2, z, CollisionFlag.CheckSouthEast) &&
                            CheckStep(fromX, fromY + 2, z, CollisionFlag.CheckSouthEast | CollisionFlag.CheckSouthWest);
                 }
                 else if (xOffset == 1 && yOffset == 1)
                 {
                     return CheckStep(fromX + 1, fromY + 2, z, CollisionFlag.CheckSouthEast | CollisionFlag.CheckSouthWest) &&
                            CheckStep(fromX + 2, fromY + 2, z, CollisionFlag.CheckSouthWest) &&
-                           CheckStep(fromX + 1, fromY + 1, z, CollisionFlag.CheckNorthWest | CollisionFlag.CheckSouthWest);
+                           CheckStep(fromX + 2, fromY + 1, z, CollisionFlag.CheckNorthWest | CollisionFlag.CheckSouthWest);
                 }
             }
             else
@@ -780,7 +786,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                         return false;
                     }
 
-                    for (var sizeOffset = 1; sizeOffset > size - 1; sizeOffset++)
+                    for (var sizeOffset = 1; sizeOffset < size - 1; sizeOffset++)
                     {
                         if (!CheckStep(fromX - 1, fromY + sizeOffset, z, CollisionFlag.CheckEastVariable))
                         {
@@ -796,7 +802,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                         return false;
                     }
 
-                    for (var sizeOffset = 1; sizeOffset > size - 1; sizeOffset++)
+                    for (var sizeOffset = 1; sizeOffset < size - 1; sizeOffset++)
                     {
                         if (!CheckStep(fromX + size, fromY + sizeOffset, z, CollisionFlag.CheckWestVariable))
                         {
@@ -812,7 +818,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                         return false;
                     }
 
-                    for (var sizeOffset = 1; sizeOffset > size - 1; sizeOffset++)
+                    for (var sizeOffset = 1; sizeOffset < size - 1; sizeOffset++)
                     {
                         if (!CheckStep(fromX + sizeOffset, fromY - 1, z, CollisionFlag.CheckNorthVariable))
                         {
@@ -828,7 +834,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                         return false;
                     }
 
-                    for (var sizeOffset = 1; sizeOffset > size - 1; sizeOffset++)
+                    for (var sizeOffset = 1; sizeOffset < size - 1; sizeOffset++)
                     {
                         if (!CheckStep(fromX + sizeOffset, fromY + size, z, CollisionFlag.CheckSouthVariable))
                         {
@@ -893,8 +899,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
 
                     for (var sizeOffset = 1; sizeOffset < size; sizeOffset++)
                     {
-                        if (!CheckStep(fromX + sizeOffset, fromY + size, z, CollisionFlag.CheckWestVariable) ||
-                            !CheckStep(fromX + size, fromY + sizeOffset, z, CollisionFlag.CheckSouthVariable))
+                        if (!CheckStep(fromX + sizeOffset, fromY + size, z, CollisionFlag.CheckSouthVariable) ||
+                            !CheckStep(fromX + size, fromY + sizeOffset, z, CollisionFlag.CheckWestVariable))
                         {
                             return false;
                         }
@@ -923,20 +929,46 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <returns></returns>
         public bool CheckStep(IVector3 location, int checkDistance)
         {
+            if (checkDistance <= 0)
+            {
+                return false;
+            }
+
             var previousCheck = location.ToLocation();
             for (var xDelta = -checkDistance; xDelta <= checkDistance; xDelta++)
             {
                 for (var yDelta = -checkDistance; yDelta <= checkDistance; yDelta++)
                 {
                     var check = location.ToLocation() + Location.Create(xDelta, yDelta, 0);
-                    var delta = previousCheck - check;
-                    if (!CheckStep(check, delta.X, delta.Y, 1))
+                    if (!CheckUnitPath(previousCheck, check, 1))
                     {
                         return false;
                     }
 
                     previousCheck = check;
                 }
+            }
+
+            return true;
+        }
+
+        private bool CheckUnitPath(IVector3 from, IVector3 to, int size)
+        {
+            var currentX = from.X;
+            var currentY = from.Y;
+            while (currentX != to.X || currentY != to.Y)
+            {
+                var xOffset = Math.Sign(to.X - currentX);
+                var yOffset = Math.Sign(to.Y - currentY);
+                var nextX = currentX + xOffset;
+                var nextY = currentY + yOffset;
+                if (!CheckStep(nextX, nextY, to.Z, xOffset, yOffset, size))
+                {
+                    return false;
+                }
+
+                currentX = nextX;
+                currentY = nextY;
             }
 
             return true;

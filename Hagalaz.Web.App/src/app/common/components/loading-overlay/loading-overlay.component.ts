@@ -1,5 +1,5 @@
-import { Component, OnInit, ChangeDetectionStrategy, OnDestroy, TemplateRef, ViewContainerRef, AfterViewInit, inject, viewChild } from "@angular/core";
-import { Overlay, OverlayRef } from "@angular/cdk/overlay";
+import { Component, ChangeDetectionStrategy, type OnDestroy, type TemplateRef, ViewContainerRef, type AfterViewInit, inject, viewChild } from "@angular/core";
+import { Overlay, type OverlayRef } from "@angular/cdk/overlay";
 import { TemplatePortal } from "@angular/cdk/portal";
 import { LoadingComponent } from "../loading/loading.component";
 
@@ -8,14 +8,14 @@ import { LoadingComponent } from "../loading/loading.component";
     templateUrl: "./loading-overlay.component.html",
     styleUrls: ["./loading-overlay.component.scss"],
     imports: [LoadingComponent],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoadingOverlayComponent implements AfterViewInit, OnDestroy {
     private overlay = inject(Overlay);
     private viewRef = inject(ViewContainerRef);
 
     private overlayRef!: OverlayRef;
-    readonly loadingRef = viewChild.required<TemplateRef<any>>("loading");
+    readonly loadingRef = viewChild.required<TemplateRef<unknown>>("loading");
 
     ngAfterViewInit(): void {
         const position = this.overlay.position().global().centerHorizontally().centerVertically();

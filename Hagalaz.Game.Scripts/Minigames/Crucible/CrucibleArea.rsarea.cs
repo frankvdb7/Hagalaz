@@ -3,14 +3,18 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Scripts.Minigames.Crucible.Characters;
 using Hagalaz.Game.Scripts.Model.Maps;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Game.Scripts.Minigames.Crucible
 {
     [AreaScriptMetaData([29, 30, 31, 32, 33])]
     public class CrucibleArea : AreaScript
     {
+        public CrucibleArea(IOptions<WorldOptions> worldOptions) : base(worldOptions) { }
+
         /// <summary>
         ///     Get's if character can do standart teleport. (Escape)
         ///     By default , this method returns true.

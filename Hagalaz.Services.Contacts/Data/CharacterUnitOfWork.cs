@@ -10,12 +10,10 @@ namespace Hagalaz.Services.Contacts.Data
 
         private ICharacterContactsRepository? _characterContactsRepository;
         private ICharacterRepository? _characterRepository;
-        private ICharacterPermissionsRepository? _characterPermissionsRepository;
         private ICharacterProfilesRepository? _characterProfilesRepository;
 
         public ICharacterRepository CharacterRepository => _characterRepository ??= new CharacterRepository(_context);
         public ICharacterContactsRepository CharacterContactsRepository => _characterContactsRepository ??= new CharacterContactsRepository(_context);
-        public ICharacterPermissionsRepository CharacterPermissionsRepository => _characterPermissionsRepository ??= new CharacterPermissionsRepository(_context);
         public ICharacterProfilesRepository CharacterProfilesRepository => _characterProfilesRepository ??= new CharacterProfilesRepository(_context);
 
         public CharacterUnitOfWork(HagalazDbContext context) => _context = context;

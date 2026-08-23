@@ -1,8 +1,8 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable, inject } from "@angular/core";
-import { Observable } from "rxjs";
+import type { Observable } from "rxjs";
 import { environment } from "../../../../environments/environment";
-import { ArchiveSizesDto, SearchResultDto, TypeKind, TypeMutationResultDto } from "./cache.models";
+import type { ArchiveSizesDto, SearchResultDto, TypeKind, TypeMutationResultDto } from "./cache.models";
 
 @Injectable({ providedIn: "root" })
 export class CacheTypesService {

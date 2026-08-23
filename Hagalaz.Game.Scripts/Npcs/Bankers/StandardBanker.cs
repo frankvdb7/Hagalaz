@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Bankers
     [NpcScriptMetaData([902, 14707, 2617, 13455])]
     public class StandardBanker : NpcScriptBase
     {
+        public StandardBanker(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Happens when character clicks NPC and then walks to it and reaches it.
         ///     This method is called by OnCharacterClick by default, if OnCharacter is overrided or/and
@@ -19,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bankers
         {
             if (clickType == NpcClickType.Option3Click)
             {
-                var bankScript = clicker.ServiceProvider.GetRequiredService<BankScreen>();
+                var bankScript = CreateWidgetScript<BankScreen>(clicker);
                 clicker.Widgets.OpenWidget(762, 0, bankScript, false);
             }
             else

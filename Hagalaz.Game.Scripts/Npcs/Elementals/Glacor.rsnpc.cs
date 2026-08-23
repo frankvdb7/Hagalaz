@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Npc;
@@ -12,7 +11,6 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
@@ -55,26 +53,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         }
 
         /// <summary>
-        ///     The glacytes dead.
-        /// </summary>
-        private bool _glacytesDead;
-
-        /// <summary>
-        ///     The glacyte dead count.
-        /// </summary>
-        private int _glacyteDeadCount;
-
-        /// <summary>
-        ///     The last killed glacyte identifier.
-        /// </summary>
-        private int _lastKilledGlacyteId;
-
-        /// <summary>
-        ///     The minions spawned.
-        /// </summary>
-        private bool _glacytesSpawned;
-
-        /// <summary>
         ///     The attack type.
         /// </summary>
         private AttackType _attackType;
@@ -89,22 +67,21 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// </summary>
         private bool _healing;
 
-        /// <summary>
-        ///     The glacytes
-        /// </summary>
-        private readonly List<INpcHandle> _glacytes = [];
-
-        private readonly INpcBuilder _npcBuilder;
         private readonly IRegionUpdateBuilder _regionUpdateBuilder;
         private readonly IProjectileBuilder _projectileBuilder;
         private readonly IHitSplatBuilder _hitSplatBuilder;
+        private readonly GlacorEncounter _encounter;
 
-        public Glacor(INpcBuilder npcBuilder, IRegionUpdateBuilder regionUpdateBuilder, IProjectileBuilder projectileBuilder, IHitSplatBuilder hitSplatBuilder)
+        public Glacor(INpc owner, INpcBuilder npcBuilder, IRegionUpdateBuilder regionUpdateBuilder, IProjectileBuilder projectileBuilder, IHitSplatBuilder hitSplatBuilder,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
-            _npcBuilder = npcBuilder;
             _regionUpdateBuilder = regionUpdateBuilder;
             _projectileBuilder = projectileBuilder;
             _hitSplatBuilder = hitSplatBuilder;
+            _encounter = new GlacorEncounter(Owner, npcBuilder);
+            _encounter.GlacyteDied += OnGlacyteDied;
+            GenerateAttackType(null);
         }
 
         /// <summary>
@@ -172,10 +149,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// <param name="target">The target.</param>
         public override void OnSetTarget(ICreature target)
         {
-            foreach (var glacyte in _glacytes.Where(glacyte => glacyte.Npc.Combat.Target == null))
-            {
-                glacyte.Npc.QueueTask(new RsTask(() => glacyte.Npc.Combat.SetTarget(target), 1));
-            }
+            _encounter.SetTarget(target);
         }
 
         /// <summary>
@@ -215,7 +189,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// </summary>
         private void SpawnGlacytes()
         {
-            if (_glacytesSpawned || Owner.Combat.Target == null)
+            if (_encounter.GlacytesSpawned || Owner.Combat.Target == null)
             {
                 return;
             }
@@ -260,79 +234,50 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
             Owner.QueueTask(new RsTask(() =>
                 {
-                    RegisterGlacyte(14304, center, new EnduringGlacyte(Owner));
-                    RegisterGlacyte(14303, left, new SappingGlacyte(Owner));
-                    RegisterGlacyte(14302, right, new UnstableGlacyte(Owner, _hitSplatBuilder));
+                    _encounter.SpawnGlacyte(14304, center, typeof(EnduringGlacyte),
+                        script => ((EnduringGlacyte)script).BindToGlacor(Owner));
+                    _encounter.SpawnGlacyte(14303, left, typeof(SappingGlacyte));
+                    _encounter.SpawnGlacyte(14302, right, typeof(UnstableGlacyte));
                 },
                 CreatureHelper.CalculateTicksForClientTicks(delay)));
 
-            _glacytesSpawned = true;
-            _glacyteDeadCount = 0;
+            _encounter.Begin();
         }
 
-        private void RegisterGlacyte(int id, ILocation location, INpcScript script)
+        private void OnGlacyteDied(INpc glacyte)
         {
-            var handle = _npcBuilder.Create()
-                .WithId(id)
-                .WithLocation(location)
-                .WithScript(script)
-                .Spawn();
-            var glacyte = handle.Npc;
-            glacyte.QueueTask(new RsTask(() => glacyte.Combat.SetTarget(Owner.Combat.Target), 1));
-
-            EventHappened happ = null;
-            happ = glacyte.RegisterEventHandler(new EventHappened<CreatureDiedEvent>(e =>
+            if (!_encounter.GlacytesDead)
             {
-                _glacyteDeadCount++;
-                _glacytesDead = _glacyteDeadCount >= 3;
-                _lastKilledGlacyteId = glacyte.Appearance.CompositeID;
-                if (_glacytesDead)
-                {
-                    if (_lastKilledGlacyteId == 14302)
-                    {
-                        StartCharge();
-                    }
+                return;
+            }
 
-                    var deltaX = Owner.Location.X - glacyte.Location.X;
-                    var deltaY = Owner.Location.Y - glacyte.Location.Y;
-                    if (deltaX < 0)
-                    {
-                        deltaX = -deltaX;
-                    }
+            if (_encounter.LastKilledGlacyteId == 14302)
+            {
+                StartCharge();
+            }
 
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
+            var deltaX = Math.Abs(Owner.Location.X - glacyte.Location.X);
+            var deltaY = Math.Abs(Owner.Location.Y - glacyte.Location.Y);
+            var delay = 20 + deltaX * 5 + deltaY * 5;
 
-                    var delay = 20 + deltaX * 5 + deltaY * 5;
-
-                    _projectileBuilder.Create()
-                        .WithGraphicId(2875)
-                        .FromCreature(glacyte)
-                        .ToCreature(Owner)
-                        .WithDuration(delay)
-                        .WithFromHeight(15)
-                        .WithToHeight(25)
-                        .Send();
-                }
-
-                _glacytes.Remove(handle);
-                glacyte.UnregisterEventHandler<CreatureDiedEvent>(happ);
-                return false;
-            }));
-
-            _glacytes.Add(handle);
+            _projectileBuilder.Create()
+                .WithGraphicId(2875)
+                .FromCreature(glacyte)
+                .ToCreature(Owner)
+                .WithDuration(delay)
+                .WithFromHeight(15)
+                .WithToHeight(25)
+                .Send();
         }
 
         public override int OnIncomingAttack(ICreature attacker, DamageType damageType, int damage, int delay)
         {
-            if (_glacytesSpawned && !_glacytesDead)
+            if (_encounter.GlacytesSpawned && !_encounter.GlacytesDead)
             {
                 return 0;
             }
 
-            if (_glacytesDead && _lastKilledGlacyteId == 14304)
+            if (_encounter.GlacytesDead && _encounter.LastKilledGlacyteId == 14304)
             {
                 return (int)(damage * 0.40);
             }
@@ -395,10 +340,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// </summary>
         public override void OnDeath()
         {
-            _glacytesDead = _glacytesSpawned = false;
-            _glacyteDeadCount = _lastKilledGlacyteId = 0;
-            _glacytes.Clear();
+            _encounter.Clear();
         }
+
+        public override void OnDestroy() => _encounter.Clear();
 
         /// <summary>
         ///     Get's attack speed of this npc.
@@ -409,7 +354,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         /// </returns>
         public override int GetAttackSpeed()
         {
-            if (_glacytesDead)
+            if (_encounter.GlacytesDead)
             {
                 return Owner.Definition.AttackSpeed - 1;
             }
@@ -588,7 +533,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                     }
             }
 
-            if (!_glacytesDead || _lastKilledGlacyteId != 14303)
+            if (!_encounter.GlacytesDead || _encounter.LastKilledGlacyteId != 14303)
             {
                 return;
             }
@@ -646,11 +591,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         }
 
         /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize() => GenerateAttackType(null);
-
-        /// <summary>
         ///     Tick's npc.
         ///     By default, this method does nothing.
         /// </summary>
@@ -661,12 +601,12 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                 return;
             }
 
-            if (!_glacytesSpawned && Owner.Statistics.LifePoints < Owner.Definition.MaxLifePoints / 2)
+            if (!_encounter.GlacytesSpawned && Owner.Statistics.LifePoints < Owner.Definition.MaxLifePoints / 2)
             {
                 SpawnGlacytes();
             }
 
-            if (!_glacytesDead || _lastKilledGlacyteId != 14302)
+            if (!_encounter.GlacytesDead || _encounter.LastKilledGlacyteId != 14302)
             {
                 return;
             }

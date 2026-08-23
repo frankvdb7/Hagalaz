@@ -5,12 +5,16 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 {
     [AreaScriptMetaData([21, 22, 23, 24, 25, 26])]
     public class DuelArenaPit : DuelArena
     {
+        public DuelArenaPit(IOptions<WorldOptions> worldOptions) : base(worldOptions) { }
+
         /// <summary>
         ///     Determines whether this instance [can do game object teleport] the specified character.
         /// </summary>

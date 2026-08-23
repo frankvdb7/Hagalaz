@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Commands;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -19,6 +20,8 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         private Mock<IRegionUpdateOptional> _regionUpdateOptionalMock = null!;
         private Mock<IRegionUpdateBuild> _regionUpdateBuildMock = null!;
         private Mock<IRegionPartUpdate> _regionPartUpdateMock = null!;
+        private Mock<IMapRegionService> _mapRegionServiceMock = null!;
+        private Mock<IServiceProvider> _serviceProviderMock = null!;
         private GfxCommand _gfxCommand = null!;
 
         [TestInitialize]
@@ -29,6 +32,11 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             _regionUpdateOptionalMock = new Mock<IRegionUpdateOptional>();
             _regionUpdateBuildMock = new Mock<IRegionUpdateBuild>();
             _regionPartUpdateMock = new Mock<IRegionPartUpdate>();
+            _mapRegionServiceMock = new Mock<IMapRegionService>();
+            _serviceProviderMock = new Mock<IServiceProvider>();
+            _serviceProviderMock
+                .Setup(p => p.GetService(typeof(IMapRegionService)))
+                .Returns(_mapRegionServiceMock.Object);
 
             _gfxCommand = new GfxCommand(_regionUpdateBuilderMock.Object);
 
@@ -60,7 +68,10 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var regionMock = new Mock<IMapRegion>();
             var location = new Location(10, 20, 0, 0);
             characterMock.Setup(c => c.Location).Returns(location);
-            characterMock.Setup(c => c.Region).Returns(regionMock.Object);
+            characterMock.Setup(c => c.ServiceProvider).Returns(_serviceProviderMock.Object);
+            _mapRegionServiceMock
+                .Setup(s => s.GetOrCreateMapRegion(location.RegionId, location.Dimension, false))
+                .Returns(regionMock.Object);
 
             var args = new GameCommandArgs(characterMock.Object, new[] { "gfx", "123" });
 
@@ -80,7 +91,10 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var regionMock = new Mock<IMapRegion>();
             var location = new Location(10, 20, 0, 0);
             characterMock.Setup(c => c.Location).Returns(location);
-            characterMock.Setup(c => c.Region).Returns(regionMock.Object);
+            characterMock.Setup(c => c.ServiceProvider).Returns(_serviceProviderMock.Object);
+            _mapRegionServiceMock
+                .Setup(s => s.GetOrCreateMapRegion(location.RegionId, location.Dimension, false))
+                .Returns(regionMock.Object);
 
             var args = new GameCommandArgs(characterMock.Object, new[] { "gfx", "123", "50" });
 
@@ -100,7 +114,10 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var regionMock = new Mock<IMapRegion>();
             var location = new Location(10, 20, 0, 0);
             characterMock.Setup(c => c.Location).Returns(location);
-            characterMock.Setup(c => c.Region).Returns(regionMock.Object);
+            characterMock.Setup(c => c.ServiceProvider).Returns(_serviceProviderMock.Object);
+            _mapRegionServiceMock
+                .Setup(s => s.GetOrCreateMapRegion(location.RegionId, location.Dimension, false))
+                .Returns(regionMock.Object);
 
             var args = new GameCommandArgs(characterMock.Object, new[] { "gfx", "123", "50", "2" });
 

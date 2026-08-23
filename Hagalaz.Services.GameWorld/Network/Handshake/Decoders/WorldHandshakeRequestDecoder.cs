@@ -2,7 +2,6 @@
 using System.Buffers;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Security;
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Microsoft.Extensions.Options;
@@ -25,6 +24,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 
         public bool TryDecodeMessage(in ReadOnlySequence<byte> input, out RaidoMessage? message)
         {
+            message = default;
             var reader = new SequenceReader<byte>(input);
             if (!HandshakeDecoderHelper.TryParsePacketHeader(ref reader, out var clientRevision, out var clientRevisionPatch))
             {
@@ -47,17 +47,14 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
             }
 
             // XTEA block
-            var xteaBlockSize = (int)reader.Remaining;
-            var xteaData = ArrayPool<byte>.Shared.Rent(xteaBlockSize);
-            try
-            {
-                XTEA.Decrypt(reader.UnreadSpan, xteaData, isaacSeed);
-
-                var xteaDataReader = new SequenceReader<byte>(new ReadOnlySequence<byte>(xteaData));
+            RaidoMessage? decodedMessage = default;
+            var decoded = HandshakeDecoderHelper.TryParseXteaBlock(ref reader, isaacSeed,
+                (in ReadOnlySequence<byte> xteaData) =>
+                {
+                var xteaDataReader = new SequenceReader<byte>(xteaData);
 
                 if (!xteaDataReader.TryRead(out bool isLoginString))
                 {
-                    message = default;
                     return false;
                 }
 
@@ -66,7 +63,6 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 {
                     if (!xteaDataReader.TryReadBigEndian(out long encodedLogin))
                     {
-                        message = default;
                         return false;
                     }
                     login = encodedLogin.LongToString();
@@ -75,74 +71,67 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 {
                     if (!xteaDataReader.TryRead(out login))
                     {
-                        message = default;
                         return false;
                     }
                 }
                 if (login == null)
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryRead(out byte displayMode))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryReadBigEndian(out short screenSizeX))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryReadBigEndian(out short screenSizeY))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryRead(out byte somePreferenceValue))
                 {
-                    message = default;
                     return false;
                 }
 
                 var userId = new byte[24];
                 if (!xteaDataReader.TryCopyTo(userId))
                 {
-                    message = default;
                     return false;
                 }
                 xteaDataReader.Advance(24);
 
                 if (!xteaDataReader.TryRead(out string settings))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryReadBigEndian(out int affliateId))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryRead(out byte settingsDataLength))
                 {
-                    message = default;
                     return false;
                 }
 
                 // TODO - read settings block
+                if (xteaDataReader.Remaining < settingsDataLength)
+                {
+                    return false;
+                }
                 xteaDataReader.Advance(settingsDataLength);
 
                 // start hardware block
 
                 if (!HandshakeDecoderHelper.TryParseHardwareBlock(ref xteaDataReader))
                 {
-                    message = default;
                     return false;
                 }
 
@@ -150,25 +139,21 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 
                 if (!xteaDataReader.TryReadBigEndian(out int somePacketIncrementalValue)) 
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryReadBigEndian(out long someAppletLongSetting))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryRead(out string randomLoaderId))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryRead(out bool someClientSetting2))
                 {
-                    message = default;
                     return false;
                 }
 
@@ -176,59 +161,55 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 {
                     if (!xteaDataReader.TryRead(out string clientSetting2))
                     {
-                        message = default;
                         return false;
                     }
                 }
 
                 if (!xteaDataReader.TryRead(out bool jagTheoraLoaded))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryRead(out bool supportsJavascript))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryRead(out bool someRandomBool))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryRead(out byte afflicateId))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryReadBigEndian(out int randomLoaderNumber))
                 {
-                    message = default;
                     return false;
                 }
 
                 if (!xteaDataReader.TryRead(out string serverToken))
                 {
-                    message = default;
                     return false;
                 }
                 if (!xteaDataReader.TryRead(out bool loggedInFromLobby))
                 {
-                    message = default;
                     return false;
                 }
 
                 // start cache CRC block
-                var cacheCrCs = new int[_cacheApi.GetFileCount(byte.MaxValue) - 1];
-                for (byte indexId = 0; indexId < cacheCrCs.Length; indexId++)
+                var cacheCrcCount = _cacheApi.GetFileCount(byte.MaxValue) - 1;
+                if (cacheCrcCount < 0)
+                {
+                    return false;
+                }
+                var cacheCrCs = new int[cacheCrcCount];
+                for (var indexId = 0; indexId < cacheCrCs.Length; indexId++)
                 {
                     if (!xteaDataReader.TryReadBigEndian(out int crc))
                     {
-                        message = default;
                         return false;
                     }
                     cacheCrCs[indexId] = crc;
@@ -236,7 +217,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 
                 // stop cache CRC block
 
-                message = new WorldSignInRequest
+                decodedMessage = new WorldSignInRequest
                 {
                     ClientRevision = clientRevision,
                     ClientRevisionPatch = clientRevisionPatch,
@@ -250,11 +231,9 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                     ClientSizeY = screenSizeY
                 };
                 return true;
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(xteaData);
-            }
+                });
+            message = decoded ? decodedMessage : default;
+            return decoded;
         }
     }
 }

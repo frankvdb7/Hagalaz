@@ -58,16 +58,14 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
         /// </summary>
         private Attacks _attackType = Attacks.Normal;
 
-        public KingBlackDragon(IHitSplatBuilder hitSplatBuilder, IProjectileBuilder projectileBuilder)
+        public KingBlackDragon(INpc owner, IHitSplatBuilder hitSplatBuilder, IProjectileBuilder projectileBuilder,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _hitSplatBuilder = hitSplatBuilder;
             _projectileBuilder = projectileBuilder;
+            Owner.AddState(new NpcTypeDragonState());
         }
-
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() => Owner.AddState(new NpcTypeDragonState { TicksLeft = int.MaxValue });
 
         /// <summary>
         ///     Perform's attack on specific target.

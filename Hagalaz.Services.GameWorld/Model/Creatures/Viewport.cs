@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -210,19 +209,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             BoundsMaximum = new Location(BaseAbsX + (MapSize.Size - 1), BaseAbsY + (MapSize.Size - 1), 3, ViewLocation.Dimension);
 
             _visibleRegions.AddRange(_regionService.GetMapRegionsWithinRange(ViewLocation, true, true, MapSize));
-        }
-
-        public async Task UpdateViewport()
-        {
-            if (_owner is not ICharacter character)
-            {
-                return;
-            }
-            foreach (var region in _visibleRegions)
-            {
-                await _regionService.LoadRegionAsync(region);
-                region.SendFullPartUpdates(character);
-            }
         }
 
         /// <summary>

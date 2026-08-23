@@ -14,7 +14,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
     {
         private readonly IProjectileBuilder _projectileBuilder;
 
-        public FlockleaderGeerin(IProjectileBuilder projectileBuilder)
+        public FlockleaderGeerin(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

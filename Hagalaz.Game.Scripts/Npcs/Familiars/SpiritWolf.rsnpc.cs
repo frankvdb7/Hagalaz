@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -11,12 +12,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
     [NpcScriptMetaData([6829, 6830])]
     public class SpiritWolf : FamiliarScriptBase
     {
-        public SpiritWolf(ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService) : base(pathFinder, npcService, itemService) { }
-
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void InitializeFamiliar() { }
+        public SpiritWolf(
+            INpc owner, ISmartPathFinder pathFinder, INpcService npcService, IItemService itemService, IItemBuilder itemBuilder,
+            IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, pathFinder, npcService, itemService, itemBuilder, widgetScriptActivator) { }
 
         /// <summary>
         ///     Performs the special attack.

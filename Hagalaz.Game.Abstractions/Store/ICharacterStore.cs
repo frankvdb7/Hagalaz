@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 
@@ -15,6 +16,13 @@ namespace Hagalaz.Game.Abstractions.Store
         /// </summary>
         /// <returns>An <see cref="IAsyncEnumerable{T}"/> of <see cref="ICharacter"/> instances.</returns>
         IAsyncEnumerable<ICharacter> FindAllAsync();
+
+        /// <summary>
+        /// Captures the characters currently in the store for one synchronous game tick.
+        /// </summary>
+        /// <param name="cancellationToken">Token used to cancel waiting for the store read lock.</param>
+        /// <returns>A read-only character view for the current game tick.</returns>
+        ValueTask<IReadOnlyDictionary<int, ICharacter>> GetSnapshotAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Asynchronously gets the total number of characters in the store.

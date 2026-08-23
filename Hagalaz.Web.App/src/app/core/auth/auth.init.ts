@@ -1,5 +1,5 @@
 import { inject } from "@angular/core";
-import { filter, map, Observable, take } from "rxjs";
+import { filter, map, type Observable, take } from "rxjs";
 import { AuthStore } from "./auth.store";
 import { toObservable } from "@angular/core/rxjs-interop";
 

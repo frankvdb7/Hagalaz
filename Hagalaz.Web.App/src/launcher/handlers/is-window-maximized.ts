@@ -1,5 +1,5 @@
-import { CommandHandler } from "./handler";
-import { CommandType } from "../shared";
+import type { CommandHandler } from "./handler";
+import type { CommandType } from "../shared";
 import { inject, injectable } from "inversify";
 import { LauncherApp } from "../launcher-app";
 
@@ -9,7 +9,7 @@ export class IsWindowMaximizedHandler implements CommandHandler<boolean> {
 
     constructor(@inject(LauncherApp) private app: LauncherApp) {}
 
-    async handle(event: Electron.IpcMainEvent, ...args: any[]) {
+    async handle(_event: Electron.IpcMainEvent, ..._args: unknown[]) {
         return this.app.BrowserWindow.isMaximized();
     }
 }

@@ -1,8 +1,8 @@
 import { HttpClient, HttpHeaders, HttpParams } from "@angular/common/http";
 import { Injectable, inject } from "@angular/core";
-import { Observable } from "rxjs";
+import type { Observable } from "rxjs";
 import { environment } from "../../../environments/environment";
-import { AuthToken, ResultDto, UserInfo } from "./auth.models";
+import type { AuthToken, ResultDto, UserInfo } from "./auth.models";
 
 @Injectable({ providedIn: "root" })
 export class AuthService {
@@ -28,7 +28,10 @@ export class AuthService {
         return this.http.get(`${environment.authApiUrl}connect/logout`);
     }
 
-    private getTokens(data: { username: string; password: string } | { refresh_token: string }, grantType: "password" | "refresh_token"): Observable<AuthToken> {
+    private getTokens(
+        data: { username: string; password: string } | { refresh_token: string },
+        grantType: "password" | "refresh_token"
+    ): Observable<AuthToken> {
         const options = {
             headers: new HttpHeaders({
                 "Content-Type": "application/x-www-form-urlencoded",

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -24,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         /// <summary>
         ///     Construct's new mining task.
         /// </summary>
-        public MiningTask(ICharacter performer, Func<ValueTask<bool>> finishCallback, double chance, PickaxeDto pickaxeData, IGameObject gameObject)
+        public MiningTask(ICharacter performer, Func<bool> finishCallback, double chance, PickaxeDto pickaxeData, IGameObject gameObject)
         {
             _performer = performer;
             _finishCallback = finishCallback;
@@ -42,7 +41,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         /// <summary>
         ///     Contains finish callback.
         /// </summary>
-        private readonly Func<ValueTask<bool>> _finishCallback;
+        private readonly Func<bool> _finishCallback;
 
         /// <summary>
         ///     Contains performer.
@@ -68,7 +67,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         ///     Contains tick implementation.
         /// </summary>
         /// <returns></returns>
-        private async void PerformTickImpl()
+        private void PerformTickImpl()
         {
             var randomValue = RandomStatic.Generator.NextDouble();
             if (randomValue <= _chance)
@@ -79,7 +78,7 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
                     return;
                 }
 
-                if (await _finishCallback())
+                if (_finishCallback())
                 {
                     Cancel();
                     return;

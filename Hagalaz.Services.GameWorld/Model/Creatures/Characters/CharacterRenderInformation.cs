@@ -1,15 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Linq;
 using Hagalaz.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Messages.Protocol;
-using Microsoft.Extensions.DependencyInjection;
 using Characters_UpdateFlags = Hagalaz.Game.Abstractions.Model.Creatures.Characters.UpdateFlags;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -36,7 +32,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IGraphic[] _currentGraphics;
 
         private readonly ICharacterLocationService _characterLocationMap;
-        private readonly ICharacterStore _characterStore;
 
         /// <summary>
         /// Contains local characters.
@@ -54,7 +49,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains last character location.
         /// </summary>
         /// <value>The last location.</value>
-        public ILocation LastLocation { get; private set; }
+        private ILocation? _lastLocation;
+
+        public ILocation LastLocation =>
+            _lastLocation ?? throw new InvalidOperationException("Last location is available after character registration.");
 
         /// <summary>
         /// Gets a value indicating whether [large scene view].
@@ -100,15 +98,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <value>The current animation.</value>
         public IAnimation? CurrentAnimation { get; private set; }
 
-        public CharacterRenderInformation(ICharacter renderable)
+        public CharacterRenderInformation(ICharacter renderable, ICharacterLocationService characterLocationService)
         {
             _owner = renderable;
             LocalCharacters = [];
             LocalNpcs = [];
             _currentGraphics = new IGraphic[4];
-            _characterStore = renderable.ServiceProvider.GetRequiredService<ICharacterStore>();
-            _characterLocationMap = renderable.ServiceProvider.GetRequiredService<ICharacterLocationService>();
-            LastLocation = renderable.Location.Clone();
+            _characterLocationMap = characterLocationService;
         }
 
         /// <summary>
@@ -123,7 +119,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public void OnRegistered()
         {
-            LastLocation = _owner.Location.Clone();
+            _lastLocation = _owner.Location.Clone();
             LocalCharacters.AddLast(_owner); // at itself to local characters.
             SetInViewport(_owner.Index, true);
             ScheduleFlagUpdate(Game.Abstractions.Model.Creatures.Characters.UpdateFlags.MovementType); // make yourself move normally
@@ -141,12 +137,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Send's update packet to client.
         /// </summary>
-        public async Task Update()
+        public void Update(IReadOnlyDictionary<int, ICharacter> characters)
         {
             _owner.Session.SendMessage(new DrawCharactersMessage
             {
                 Character = _owner,
-                AllCharacters = await _characterStore.FindAllAsync().ToDictionaryAsync(c => c.Index, c => c),
+                AllCharacters = characters,
                 LocalCharacters = LocalCharacters
             });
              _owner.Session.SendMessage(new DrawNpcsMessage
@@ -174,7 +170,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             }
 
             _characterLocationMap.SetLocationByIndex(_owner.Index, _owner.Location);
-            LastLocation = _owner.Location.Clone();
+            _lastLocation = _owner.Location.Clone();
         }
 
         /// <summary>

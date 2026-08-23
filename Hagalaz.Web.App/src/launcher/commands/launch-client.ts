@@ -1,6 +1,6 @@
-import { Command } from "./command";
-import { CommandType } from "../shared";
+import type { Command } from "./command";
+import type { CommandType } from "../shared";
 
-export class LaunchClientCommand implements Command<void> {
+export class LaunchClientCommand implements Command<undefined> {
     commandType: CommandType = "launch-client";
 }

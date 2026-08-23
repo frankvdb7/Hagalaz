@@ -14,7 +14,6 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Messages.Protocol;
-using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -152,9 +151,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
-            var soundBuilder = ServiceProvider.GetRequiredService<IAudioBuilder>();
-
-            var sound = soundBuilder.Create().AsMusicEffect().WithId(90).Build(); // death music effect
+            var sound = _audioBuilder.Create().AsMusicEffect().WithId(90).Build(); // death music effect
             Session.SendMessage(sound.ToMessage());
             EventManager.SendEvent(new CreatureDiedEvent(this));
             Movement.Lock(true); // reset the movement and lock the character
@@ -407,12 +404,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             if (currentExperience >= StatisticsConstants.MaximumExperience)
             {
                 // TODO
-                //var database = ServiceLocator.Current.GetInstance<ISqlDatabaseManager>();
                 //database.ExecuteAsync(new ActivityLogQuery(MasterId,
                 //    "Max-Experience",
                 //    "I have achieved 200 million XP in " + StatisticsConstants.SkillNames[skillID] + "."));
-                var announcement = ServiceProvider.GetRequiredService<IGameMessageService>();
-                announcement.MessageAsync(DisplayName + " has just achieved 200 million XP in " + StatisticsConstants.SkillNames[skillID] + ".",
+                _gameMessageService.MessageAsync(DisplayName + " has just achieved 200 million XP in " + StatisticsConstants.SkillNames[skillID] + ".",
                     GameMessageType.WorldSpecific,
                     DisplayName);
             }
@@ -499,7 +494,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <typeparam name="TScriptType">The type of the script type.</typeparam>
         /// <returns></returns>
-        public TScriptType AddScript<TScriptType>() where TScriptType : class, ICharacterScript => AddScript(ServiceProvider.GetRequiredService<TScriptType>());
+        public TScriptType AddScript<TScriptType>() where TScriptType : class, ICharacterScript => AddScript(_characterScriptActivator.Create<TScriptType>());
 
         /// <summary>
         /// Loads the script.

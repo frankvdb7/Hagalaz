@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, type OnInit } from "@angular/core";
 import { MatCard } from "@angular/material/card";
 import { CardTitleComponent } from "@app/common/components/card-title/card-title.component";
 
@@ -7,10 +7,8 @@ import { CardTitleComponent } from "@app/common/components/card-title/card-title
     templateUrl: "./pvp.component.html",
     styleUrls: ["./pvp.component.scss"],
     imports: [MatCard, CardTitleComponent],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PvpComponent implements OnInit {
-    constructor() {}
-
     ngOnInit() {}
 }

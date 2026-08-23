@@ -9,7 +9,6 @@
     <PackageReference Include="QuadTrees.Core" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Hagalaz.DependencyInjection.Extensions\Hagalaz.DependencyInjection.Extensions.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>

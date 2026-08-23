@@ -3,6 +3,7 @@ using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Game.Scripts.Commands
 {
@@ -25,7 +26,8 @@ namespace Hagalaz.Game.Scripts.Commands
                     .WithShape((ShapeType)shape)
                     .WithRotation(rotation)
                     .Build();
-                args.Character.Region.Add(gameObject);
+                var regionService = args.Character.ServiceProvider.GetRequiredService<IMapRegionService>();
+                regionService.GetOrCreateMapRegion(args.Character.Location.RegionId, args.Character.Location.Dimension, false).Add(gameObject);
             }
             return Task.CompletedTask;
         }

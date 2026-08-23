@@ -2,6 +2,8 @@ using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Region;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Commands
 {
@@ -25,7 +27,8 @@ namespace Hagalaz.Game.Scripts.Commands
                 rotation = int.Parse(cmd[3]);
             var gfx = Graphic.Create(gfxID, 0, height, rotation);
             var update = _regionUpdateBuilder.Create().WithLocation(args.Character.Location).WithGraphic(gfx).Build();
-            args.Character.Region.QueueUpdate(update);
+            var regionService = args.Character.ServiceProvider.GetRequiredService<IMapRegionService>();
+            regionService.GetOrCreateMapRegion(args.Character.Location.RegionId, args.Character.Location.Dimension, false).QueueUpdate(update);
             return Task.CompletedTask;
         }
     }

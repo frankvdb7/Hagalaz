@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -11,10 +11,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
     [NpcScriptMetaData([4702, 4703, 4704, 4705])]
     public class BlackDemon : NpcScriptBase
     {
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() { }
+        public BlackDemon(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
 
         /// <summary>
         ///     Render's attack.

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
+using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Skills;
@@ -8,7 +6,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Resources;
@@ -22,15 +19,13 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
     public class FishingSkillService : IFishingSkillService
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly ICharacterStore _characterStore;
         private readonly IRsTaskService _rsTaskService;
         private readonly IItemBuilder _itemBuilder;
         private readonly ILootGenerator _lootGenerator;
 
-        public FishingSkillService(IServiceProvider serviceProvider, ICharacterStore characterStore, IRsTaskService rsTaskService, IItemBuilder itemBuilder)
+        public FishingSkillService(IServiceProvider serviceProvider, IRsTaskService rsTaskService, IItemBuilder itemBuilder)
         {
             _serviceProvider = serviceProvider.CreateScope().ServiceProvider;
-            _characterStore = characterStore;
             _rsTaskService = rsTaskService;
             _itemBuilder = itemBuilder;
             _lootGenerator = serviceProvider.GetRequiredService<ILootGenerator>();
@@ -43,9 +38,8 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <param name="fishingSpot">The fishing spot.</param>
         /// <param name="table">The definition.</param>
         /// <returns></returns>
-        public async Task<bool> TryFish(ICharacter character, INpc fishingSpot, IFishingSpotTable? table)
+        public bool TryFish(ICharacter character, INpc fishingSpot, IFishingSpotTable? table, int characterCount)
         {
-            await Task.CompletedTask;
             if (table == null || fishingSpot.IsDestroyed || !fishingSpot.Appearance.Visible)
             {
                 return false;
@@ -88,7 +82,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 fishChance += fishingBasedChance;
             }
 
-            async ValueTask<bool> Callback()
+            bool Callback()
             {
                 foreach (var result in _lootGenerator.GenerateLoot<IFishingLoot>(new CharacterLootParams(table, character)))
                 {
@@ -120,7 +114,6 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 {
                     character.QueueAnimation(Animation.Create(-1));
 
-                    var characterCount = await _characterStore.FindAllAsync().CountAsync();
                     var respawnTick = (int)(table.RespawnTime * (1.0 + characterCount * -0.00025) * 100.0);
 
                     fishingSpot.Appearance.Visible = false;

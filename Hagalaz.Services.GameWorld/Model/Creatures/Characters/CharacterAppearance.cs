@@ -12,7 +12,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -61,11 +60,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// 
         /// </summary>
         private readonly ICharacterNpcScriptProvider _characterNpcScriptProvider;
+        private readonly ICharacterNpcScriptActivator _characterNpcScriptActivator;
 
         /// <summary>
         /// 
         /// </summary>
         private readonly IBodyDataRepository _bodyDataRepository;
+        private readonly IItemPartFactory _itemPartFactory;
 
         /// <summary>
         /// Contains boolean if character is visible.
@@ -214,11 +215,19 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Construct's new appearance class.
         /// </summary>
         /// <param name="owner"></param>
-        public CharacterAppearance(ICharacter owner)
+        public CharacterAppearance(
+            ICharacter owner,
+            INpcService npcDefinitionRepository,
+            IBodyDataRepository bodyDataRepository,
+            ICharacterNpcScriptProvider characterNpcScriptProvider,
+            ICharacterNpcScriptActivator characterNpcScriptActivator,
+            IItemPartFactory itemPartFactory)
         {
-            _npcDefinitionRepository = owner.ServiceProvider.GetRequiredService<INpcService>();
-            _bodyDataRepository = owner.ServiceProvider.GetRequiredService<IBodyDataRepository>();
-            _characterNpcScriptProvider = owner.ServiceProvider.GetRequiredService<ICharacterNpcScriptProvider>();
+            _npcDefinitionRepository = npcDefinitionRepository;
+            _bodyDataRepository = bodyDataRepository;
+            _characterNpcScriptProvider = characterNpcScriptProvider;
+            _characterNpcScriptActivator = characterNpcScriptActivator;
+            _itemPartFactory = itemPartFactory;
             _owner = owner;
             Size = 1;
             NpcId = -1;
@@ -237,7 +246,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             NpcId = npcId;
             Size = _npcDefinitionRepository.FindNpcDefinitionById(npcId).Size;
-            PnpcScript = pnpcScript ?? (ICharacterNpcScript)_owner.ServiceProvider.GetRequiredService(_characterNpcScriptProvider.GetCharacterNpcScriptTypeById(npcId));
+            PnpcScript = pnpcScript ?? _characterNpcScriptActivator.Create(_characterNpcScriptProvider.GetCharacterNpcScriptTypeById(npcId));
             PnpcScript.Initialize(_owner);
             PnpcScript.OnTurnToNpc();
             DrawCharacter();
@@ -347,7 +356,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return value;
             }
 
-            value = _owner.ServiceProvider.GetRequiredService<IItemPartFactory>().Create(itemId);
+            value = _itemPartFactory.Create(itemId);
             _allItemParts.Add(itemId, value);
             return value;
         }
@@ -542,10 +551,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(HydratedItemAppearanceCollectionDto hydration)
         {
-            var itemPartFactory = _owner.ServiceProvider.GetRequiredService<IItemPartFactory>();
             foreach (var item in hydration.Appearances)
             {
-                var itemPart = itemPartFactory.Create(item.Id);
+                var itemPart = _itemPartFactory.Create(item.Id);
                 if (itemPart is IHydratable<HydratedItemAppearanceDto> itemPartHydratable)
                 {
                     itemPartHydratable.Hydrate(item);

@@ -1,10 +1,7 @@
 ﻿using System.Linq;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Messages.Protocol;
-using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -17,31 +14,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Update's character visible regions.
         /// </summary>
-        public async Task UpdateMapAsync(bool forceUpdate, bool renderViewPort = false)
-        {
-            Viewport.RebuildView();
-            if (Viewport.NeedsDynamicDraw())
-            {
-                // TODO dynamic map
-                Session.SendMessage(new DrawDynamicMapMessage());
-                //await Session.SendPacketAsync(await ConstructMapDynamicPacketComposer.WriteDataAsync(new ConstructMapDynamicPacketComposer(), this, true));
-            }
-            else
-            {
-                Session.SendMessage(new DrawStandardMapMessage
-                {
-                    MapSizeIndex = Viewport.MapSize.Type,
-                    RenderViewport = renderViewPort,
-                    ForceUpdate = forceUpdate,
-                    CharacterIndex = Index,
-                    CharacterLocation = Location,
-                    RegionPartX = Viewport.ViewLocation.RegionPartX,
-                    RegionPartY = Viewport.ViewLocation.RegionPartY,
-                    VisibleRegionXteaKeys = Viewport.VisibleRegions.Select(region => region.XteaKeys).ToList()
-                });
-            }
-            await Viewport.UpdateViewport();
-        }
+        public void UpdateMap(bool forceUpdate, bool renderViewPort = false) =>
+            _mapUpdateService.UpdateMap(this, forceUpdate, renderViewPort);
 
         /// <summary>
         /// Notifies character that it must add itself to given region.
@@ -62,8 +36,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             this.QueueTask(async () =>
             {
-                var musicService = ServiceProvider.GetRequiredService<IMusicService>();
-                var musicIds = await musicService.FindMusicIdsByRegionId(Region.Id);
+                var region = _mapRegionService
+                    .GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
+                var musicIds = await _musicService.FindMusicIdsByRegionId(region.Id);
                 if (musicIds.Any(musicId => Music.UnlockMusic(musicId)))
                 {
                     Music.RefreshMusicList();

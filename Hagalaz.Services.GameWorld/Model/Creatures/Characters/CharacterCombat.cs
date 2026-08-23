@@ -13,14 +13,17 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
+using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -37,19 +40,35 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private readonly IAnimationBuilder _animationBuilder;
         private readonly IGraphicBuilder _graphicBuilder;
         private readonly IProjectileBuilder _projectileBuilder;
+        private readonly IMapRegionService _mapRegionService;
+        private readonly IGroundItemBuilder _groundItemBuilder;
+        private readonly IHitSplatBuilder _hitSplatBuilder;
 
         /// <summary>
         /// Construct's new combat class for specified
         /// character.
         /// </summary>
         /// <param name="owner">The owner.</param>
-        public CharacterCombat(ICharacter owner)
-            : base(owner)
+        public CharacterCombat(
+            ICharacter owner,
+            IAnimationBuilder animationBuilder,
+            IGraphicBuilder graphicBuilder,
+            IProjectileBuilder projectileBuilder,
+            IMapRegionService mapRegionService,
+            IGroundItemBuilder groundItemBuilder,
+            IHitSplatBuilder hitSplatBuilder,
+            IProjectilePathFinder projectilePathFinder,
+            ISmartPathFinder smartPathFinder,
+            IOptions<CombatOptions> combatOptions)
+            : base(owner, projectilePathFinder, smartPathFinder, combatOptions, hitSplatBuilder)
         {
             _character = owner;
-            _animationBuilder = _character.ServiceProvider.GetRequiredService<IAnimationBuilder>();
-            _graphicBuilder = _character.ServiceProvider.GetRequiredService<IGraphicBuilder>();
-            _projectileBuilder = _character.ServiceProvider.GetRequiredService<IProjectileBuilder>();
+            _animationBuilder = animationBuilder;
+            _graphicBuilder = graphicBuilder;
+            _projectileBuilder = projectileBuilder;
+            _mapRegionService = mapRegionService;
+            _groundItemBuilder = groundItemBuilder;
+            _hitSplatBuilder = hitSplatBuilder;
         }
 
 
@@ -110,7 +129,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 characterKiller.SendChatMessage(string.Format(format, _character.DisplayName));
             }
-            //var database = ServiceLocator.Current.GetInstance<ISqlDatabaseManager>();
             //database.ExecuteAsync(new ActivityLogQuery(characterKiller.MasterId, "Player Kill", "I have defeated " + _character.DisplayName + " in combat."));
 
             var itemsOnDeath = _character.GetItemsOnDeathData();
@@ -128,24 +146,24 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 groundItemOwner = characterKiller;
             }
 
-            var groundItemBuilder = groundItemOwner.ServiceProvider.GetRequiredService<IGroundItemBuilder>();
             foreach (var item in
                      itemsOnDeath.droppedItems.Where(item => item.ItemScript.CanTradeItem(item, _character))) // check the current item owner if it can trade
             {
-                var groundItem = groundItemBuilder.Create()
+                var groundItem = _groundItemBuilder.Create()
                     .WithItem(item)
                     .WithLocation(Owner.Location)
                     .WithOwner(groundItemOwner)
                     .Build();
-                Owner.Region.Add(groundItem); // we spawn it with this method, as the container was normally stacked.
+                _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false)
+                    .Add(groundItem); // we spawn it with this method, as the container was normally stacked.
             }
 
-            var bones = groundItemBuilder.Create()
+            var bones = _groundItemBuilder.Create()
                 .WithItem(builder => builder.Create().WithId(526))
                 .WithLocation(Owner.Location)
                 .WithOwner(groundItemOwner)
                 .Build();
-            Owner.Region.Add(bones);
+            _mapRegionService.GetOrCreateMapRegion(Owner.Location.RegionId, Owner.Location.Dimension, false).Add(bones);
             _character.Inventory.AddRange(itemsOnDeath.keptItems);
             _character.Inventory.OnUpdate();
             _character.Equipment.OnUpdate();
@@ -1362,7 +1380,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
             _character.Speak("Taste Vengeance!");
             _character.RemoveState<VengeanceState>();
-            var reflectSplat = _character.ServiceProvider.GetRequiredService<IHitSplatBuilder>()
+            var reflectSplat = _hitSplatBuilder
                 .Create()
                 .AddSprite(builder => builder.WithDamage(reflectBack).WithSplatType(HitSplatType.HitSimpleDamage))
                 .AddSprite(builder => builder.WithDamage(soaked).WithSplatType(HitSplatType.HitDefendedDamage))

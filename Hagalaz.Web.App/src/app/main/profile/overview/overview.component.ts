@@ -8,7 +8,7 @@ import { UserStore } from "@app/core/user/user.store";
     templateUrl: "./overview.component.html",
     styleUrls: ["./overview.component.scss"],
     imports: [MatCard, CardTitleComponent],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OverviewComponent {
     store = inject(UserStore);

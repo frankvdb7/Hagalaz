@@ -1,6 +1,3 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Model.Maps;
-
 namespace Hagalaz.Game.Abstractions.Model
 {
     /// <summary>
@@ -13,12 +10,6 @@ namespace Hagalaz.Game.Abstractions.Model
         /// Gets the current location of the entity in the game world.
         /// </summary>
         ILocation Location { get; }
-
-        /// <summary>
-        /// Gets the map region that the entity is currently in.
-        /// </summary>
-        [Obsolete("Use the IMapRegionService instead.")]
-        IMapRegion Region { get; }
 
         /// <summary>
         /// Gets a value indicating whether the entity has been destroyed and removed from the game.

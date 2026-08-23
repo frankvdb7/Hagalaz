@@ -1,6 +1,7 @@
 ﻿using System;
 using AutoMapper;
 using Hagalaz.Characters.Messages;
+using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Logic.Characters.States;

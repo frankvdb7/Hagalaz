@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
     [NpcScriptMetaData([6261])]
     public class SergeantStrongstack : BodyGuard
     {
+        public SergeantStrongstack(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         ///     Get's attack bonus type of this npc.
         ///     By default , this method does return AttackBonus.Crush
@@ -26,11 +30,5 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
         /// </returns>
         public override bool CanPoison() => false;
 
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
-        {
-        }
     }
 }

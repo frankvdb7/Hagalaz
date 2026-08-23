@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -15,10 +15,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Spiders
     [NpcScriptMetaData([134, 1009])]
     public class PoisonSpider : NpcScriptBase
     {
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() { }
+        public PoisonSpider(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
 
         /// <summary>
         ///     Render's attack.

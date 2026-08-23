@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Defines the contract for a character's inventory container, which holds the items the character is carrying.
     /// </summary>
-    public interface IInventoryContainer : IItemContainer
+    public interface IInventoryContainer : ITradeItemContainer
     {
         /// <summary>
         /// Drops a specific item from the inventory onto the ground.

@@ -5,5 +5,6 @@
         public Task AddLobbySession(int worldId, uint masterId);
         public Task AddWorldSession(int worldId, uint masterId);
         public Task RemoveSession(uint masterId);
+        public Task RemoveWorldSessions(int worldId);
     }
 }

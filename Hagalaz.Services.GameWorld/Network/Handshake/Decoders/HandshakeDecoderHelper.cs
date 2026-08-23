@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Buffers;
 using System.Numerics;
+using System.Security.Cryptography;
+using Hagalaz.Security;
 using Raido.Server.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 {
     public static class HandshakeDecoderHelper
     {
+        internal delegate bool XteaPayloadParser(in ReadOnlySequence<byte> payload);
         public static bool TryParsePacketHeader(ref SequenceReader<byte> reader, out int clientRevision, out int clientRevisionPatch)
         {
-            if (!reader.TryReadBigEndian(out short packetSize) || reader.Remaining < packetSize)
+            if (!reader.TryReadBigEndian(out short packetSize) || packetSize < 0 || reader.Remaining != packetSize)
             {
                 clientRevision = default;
                 clientRevisionPatch = default;
@@ -29,7 +32,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 
         public static bool TryParseRsaHeader(ref SequenceReader<byte> reader, BigInteger privateKey, BigInteger modulusKey, out BigInteger rsaBigInteger)
         {
-            if (!reader.TryReadBigEndian(out short rsaHeaderSize) || reader.Remaining < rsaHeaderSize)
+            if (!reader.TryReadBigEndian(out short rsaHeaderSize) || rsaHeaderSize <= 0 || reader.Remaining < rsaHeaderSize)
             {
                 rsaBigInteger = default;
                 return false;
@@ -55,23 +58,25 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(rsaBuffer);
+                CryptographicOperations.ZeroMemory(rsaBuffer.AsSpan(0, rsaHeaderSize));
+                ArrayPool<byte>.Shared.Return(rsaBuffer, clearArray: true);
             }
         }
 
         public static bool TryParseRsaBlock(BigInteger rsaBigInteger, out uint[] isaacSeed, out string password)
         {
             var rsaData = ArrayPool<byte>.Shared.Rent(rsaBigInteger.GetByteCount());
+            var rsaDataLength = 0;
             try
             {
-                if (!rsaBigInteger.TryWriteBytes(rsaData, out var _, false, true))
+                if (!rsaBigInteger.TryWriteBytes(rsaData, out rsaDataLength, false, true) || rsaDataLength <= 0)
                 {
                     isaacSeed = default!;
                     password = default!;
                     return false;
                 }
 
-                var rsaDataReader = new SequenceReader<byte>(new ReadOnlySequence<byte>(rsaData));
+                var rsaDataReader = new SequenceReader<byte>(new ReadOnlySequence<byte>(rsaData.AsMemory(0, rsaDataLength)));
                 // check for fake packet or encryption
                 if (!rsaDataReader.TryRead(out byte rsaMagic) || rsaMagic != 10)
                 {
@@ -115,7 +120,43 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(rsaData);
+                CryptographicOperations.ZeroMemory(rsaData.AsSpan(0, rsaDataLength));
+                ArrayPool<byte>.Shared.Return(rsaData, clearArray: true);
+            }
+        }
+
+        internal static bool TryParseXteaBlock(ref SequenceReader<byte> reader, uint[] isaacSeed, XteaPayloadParser parser)
+            => TryParseXteaBlock(ref reader, isaacSeed, parser, ArrayPool<byte>.Shared);
+
+        internal static bool TryParseXteaBlock(
+            ref SequenceReader<byte> reader,
+            uint[] isaacSeed,
+            XteaPayloadParser parser,
+            ArrayPool<byte> bufferPool)
+        {
+            ArgumentNullException.ThrowIfNull(isaacSeed);
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentNullException.ThrowIfNull(bufferPool);
+
+            var xteaBlockSize = reader.Remaining;
+            if (xteaBlockSize <= 0 || xteaBlockSize > int.MaxValue || xteaBlockSize % 8 != 0)
+            {
+                return false;
+            }
+
+            var length = (int)xteaBlockSize;
+            var xteaData = bufferPool.Rent(length);
+            try
+            {
+                reader.UnreadSequence.CopyTo(xteaData.AsSpan(0, length));
+                XTEA.Decrypt(xteaData.AsSpan(0, length), xteaData.AsSpan(0, length), isaacSeed);
+
+                return parser(new ReadOnlySequence<byte>(xteaData.AsMemory(0, length)));
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(xteaData.AsSpan(0, length));
+                bufferPool.Return(xteaData, clearArray: true);
             }
         }
 
@@ -176,6 +217,10 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 return false;
             }
 
+            if (reader.Remaining < 3)
+            {
+                return false;
+            }
             reader.Advance(3); // medium int cpu data
 
             if (!reader.TryReadBigEndian(out short cpuData))

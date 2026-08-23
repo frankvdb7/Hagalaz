@@ -21,7 +21,9 @@ namespace Hagalaz.Game.Scripts.Npcs.Critters
         /// </summary>
         private int _speakTick;
 
-        public Sheep(IAudioBuilder soundBuilder, IItemBuilder itemBuilder)
+        public Sheep(INpc owner, IAudioBuilder soundBuilder, IItemBuilder itemBuilder,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _audioBuilder = soundBuilder;
             _itemBuilder = itemBuilder;
