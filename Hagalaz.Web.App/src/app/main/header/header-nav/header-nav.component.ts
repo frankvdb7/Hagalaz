@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy } from "@angular/core";
-import { NavLink } from "@app/main/header/header.model";
+import type { NavLink } from "@app/main/header/header.model";
 import { RouterLink, RouterLinkActive } from "@angular/router";
 import { MatTabLink, MatTabNav, MatTabNavPanel } from "@angular/material/tabs";
 

@@ -22,6 +22,8 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async Task<SummoningDto?> FindDefinitionByNpcId(int npcId) => await _mapper.ProjectTo<SummoningDto>(_summoningDefinitionRepository.FindAll().Where(e => e.NpcId == npcId)).FirstOrDefaultAsync();
 
+        public SummoningDto? FindDefinitionByNpcIdSync(int npcId) => _mapper.ProjectTo<SummoningDto>(_summoningDefinitionRepository.FindAll().Where(e => e.NpcId == npcId)).FirstOrDefault();
+
         public async Task<SummoningDto?> FindDefinitionByPouchId(int pouchId) => await _mapper.ProjectTo<SummoningDto>(_summoningDefinitionRepository.FindAll().Where(e => e.PouchId == pouchId)).FirstOrDefaultAsync();
 
         public async Task<SummoningDto?> FindDefinitionByScrollId(int scrollId) => await _mapper.ProjectTo<SummoningDto>(_summoningDefinitionRepository.FindAll().Where(e => e.ScrollId == scrollId)).FirstOrDefaultAsync();

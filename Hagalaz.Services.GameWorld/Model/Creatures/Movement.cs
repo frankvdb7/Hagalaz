@@ -4,9 +4,9 @@ using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Events;
+using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
-using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 
@@ -162,13 +162,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         /// Creates new creature movement.
         /// </summary>
-        /// <param name="owner"></param>
-        public Movement(Creature owner)
+        public Movement(Creature owner, IPathFinder pathFinder, IGameMediator mediator)
         {
             _owner = owner;
             _movementType = MovementType.Walk;
-            _pathFinder = owner.ServiceProvider.GetRequiredService<ISmartPathFinder>();
-            owner.Mediator.ConnectHandler<ProfileValueChanged<bool>>(context =>
+            _pathFinder = pathFinder;
+            mediator.ConnectHandler<ProfileValueChanged<bool>>(context =>
             {
                 if (context.Message.Key == ProfileConstants.RunSettingsToggled)
                 {

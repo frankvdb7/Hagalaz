@@ -22,7 +22,6 @@ namespace Hagalaz.Data.Entities
             CharactersNotes = new HashSet<CharactersNote>();
             CharactersOffenceMasters = new HashSet<CharactersOffence>();
             CharactersOffenceModerators = new HashSet<CharactersOffence>();
-            CharactersPermissions = new HashSet<CharactersPermission>();
             CharactersReportReporteds = new HashSet<CharactersReport>();
             CharactersReportReporters = new HashSet<CharactersReport>();
             CharactersRewards = new HashSet<CharactersReward>();
@@ -79,7 +78,6 @@ namespace Hagalaz.Data.Entities
         public virtual ICollection<CharactersNote> CharactersNotes { get; set; }
         public virtual ICollection<CharactersOffence> CharactersOffenceMasters { get; set; }
         public virtual ICollection<CharactersOffence> CharactersOffenceModerators { get; set; }
-        public virtual ICollection<CharactersPermission> CharactersPermissions { get; set; }
         public virtual ICollection<CharactersReport> CharactersReportReporteds { get; set; }
         public virtual ICollection<CharactersReport> CharactersReportReporters { get; set; }
         public virtual ICollection<CharactersReward> CharactersRewards { get; set; }

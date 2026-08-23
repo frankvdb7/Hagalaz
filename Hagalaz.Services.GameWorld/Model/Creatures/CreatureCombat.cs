@@ -40,6 +40,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         /// The projectile path finder
         /// </summary>
+        protected readonly IHitSplatBuilder HitSplatBuilder;
         private readonly IProjectilePathFinder _projectilePathFinder;
 
         /// <summary>
@@ -94,13 +95,29 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         /// <param name="owner">Owner of this class.</param>
         protected CreatureCombat(ICreature owner)
+            : this(
+                owner,
+                owner.ServiceProvider.GetRequiredService<IProjectilePathFinder>(),
+                owner.ServiceProvider.GetRequiredService<ISmartPathFinder>(),
+                owner.ServiceProvider.GetRequiredService<IOptions<CombatOptions>>(),
+                owner.ServiceProvider.GetRequiredService<IHitSplatBuilder>())
+        {
+        }
+
+        protected CreatureCombat(
+            ICreature owner,
+            IProjectilePathFinder projectilePathFinder,
+            ISmartPathFinder smartPathFinder,
+            IOptions<CombatOptions> combatOptions,
+            IHitSplatBuilder hitSplatBuilder)
         {
             Owner = owner;
             DelayTick = 17;
 
-            _projectilePathFinder = owner.ServiceProvider.GetRequiredService<IProjectilePathFinder>();
-            _smartPathFinder = owner.ServiceProvider.GetRequiredService<ISmartPathFinder>();
-            _combatOptions = owner.ServiceProvider.GetRequiredService<IOptions<CombatOptions>>();
+            HitSplatBuilder = hitSplatBuilder;
+            _projectilePathFinder = projectilePathFinder;
+            _smartPathFinder = smartPathFinder;
+            _combatOptions = combatOptions;
         }
 
         /// <summary>
@@ -303,13 +320,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             var distance = Owner.Location.GetDistance(attackParams.Target.Location);
             var delay = attackParams.Delay + (int)Math.Round(Math.Max(0, distance - 1) * 2);
 
-            var hitSplatBuilder = Owner.ServiceProvider.GetRequiredService<IHitSplatBuilder>();
             var incomingDamage = attackParams.Target.Combat.IncomingAttack(Owner, attackParams.DamageType, attackParams.Damage, delay);
             return attackParams.Target.QueueTask(new RsTask<AttackResult>(() =>
             {
                 var soak = -1;
                 var damage = attackParams.Target.Combat.Attack(Owner, attackParams.DamageType, incomingDamage, ref soak);
-                var splat = hitSplatBuilder.Create()
+                var splat = HitSplatBuilder.Create()
                     .AddSprite(builder =>
                     {
                         builder

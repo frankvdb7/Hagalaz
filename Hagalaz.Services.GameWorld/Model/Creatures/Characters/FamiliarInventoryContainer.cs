@@ -9,7 +9,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Resources;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -22,6 +21,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Instance of the character who owns this container.
         /// </summary>
         private readonly ICharacter _owner;
+        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         /// Constructs a container for character inventories.
@@ -29,9 +29,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="owner">The owner of the container.</param>
         /// <param name="type">The type of container.</param>
         /// <param name="capacity">The capacity of the container.</param>
-        public FamiliarInventoryContainer(ICharacter owner, StorageType type, int capacity)
+        public FamiliarInventoryContainer(ICharacter owner, StorageType type, int capacity, IItemBuilder itemBuilder)
             : base(type, capacity) =>
-            _owner = owner;
+            (_owner, _itemBuilder) = (owner, itemBuilder);
 
         /// <summary>
         /// Deposit's specific item into familiars inventory.
@@ -109,10 +109,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void Hydrate(IReadOnlyList<HydratedItem> inventory)
         {
             var items = new IItem[Capacity];
-            var itemBuilder = _owner.ServiceProvider.GetRequiredService<IItemBuilder>();
             foreach (var hydrated in inventory)
             {
-                var builder = itemBuilder.Create().WithId(hydrated.ItemId).WithCount(hydrated.Count);
+                var builder = _itemBuilder.Create().WithId(hydrated.ItemId).WithCount(hydrated.Count);
                 if (!string.IsNullOrEmpty(hydrated.ExtraData))
                 {
                     builder.WithExtraData(hydrated.ExtraData);

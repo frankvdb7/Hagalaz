@@ -8,10 +8,11 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
     [NpcScriptMetaData([2026])]
     public class DharokTheWretched : BarrowBrother
     {
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize() => Owner.AddState(new DharokWretchedStrengthState());
+        public DharokTheWretched(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+            Owner.AddState(new DharokWretchedStrengthState());
+        }
 
         /// <summary>
         ///     Get's attack bonus type of this npc.

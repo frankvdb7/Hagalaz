@@ -35,7 +35,8 @@ namespace Hagalaz.Game.Scripts.Npcs.Fiends
             Ranged
         }
 
-        public Waterfiend(IProjectileBuilder projectileBuilder)
+        public Waterfiend(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _projectileBuilder = projectileBuilder;
         }

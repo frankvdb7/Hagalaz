@@ -1,11 +1,11 @@
 ﻿using System;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Services.GameWorld.Model.Creatures.Combat;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
 {
@@ -17,7 +17,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Contains owner of this class.
         /// </summary>
-        private readonly Npc _owner;
+        private readonly INpc _owner;
+        private readonly IEventManager _eventManager;
+        private readonly IHitSplatBuilder _hitSplatBuilder;
 
         /// <summary>
         /// Contains skills data of this npc.
@@ -107,9 +109,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// Construct's new statistics class.
         /// </summary>
         /// <param name="owner">The owner.</param>
-        public NpcStatistics(Npc owner)
+        public NpcStatistics(INpc owner, IEventManager eventManager, IHitSplatBuilder hitSplatBuilder)
         {
             _owner = owner;
+            _eventManager = eventManager;
+            _hitSplatBuilder = hitSplatBuilder;
             CombatLevel = _owner.Definition.CombatLevel;
             LifePoints = _owner.Definition.MaxLifePoints;
             Bonuses = _owner.Definition.Bonuses.Copy();
@@ -212,7 +216,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         {
             if (PrayerBonuses.GetBonus(type) >= max) return false;
             PrayerBonuses.SetBonus(type, PrayerBonuses.GetBonus(type) + 1);
-            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
+            _eventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
             return true;
         }
 
@@ -228,7 +232,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         {
             if (PrayerBonuses.GetBonus(type) <= max) return false;
             PrayerBonuses.SetBonus(type, PrayerBonuses.GetBonus(type) - 1);
-            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
+            _eventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
             return true;
         }
 
@@ -243,7 +247,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             PrayerBonuses.SetBonus(BonusPrayerType.CurseDefence, 0);
             PrayerBonuses.SetBonus(BonusPrayerType.CurseRanged, 0);
             PrayerBonuses.SetBonus(BonusPrayerType.CurseMagic, 0);
-            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
+            _eventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
         }
 
         /// <summary>
@@ -256,7 +260,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             PrayerBonuses.SetBonus(BonusPrayerType.CurseInstantDefence, 0);
             PrayerBonuses.SetBonus(BonusPrayerType.CurseInstantRanged, 0);
             PrayerBonuses.SetBonus(BonusPrayerType.CurseInstantMagic, 0);
-            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
+            _eventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
         }
 
         /// <summary>
@@ -267,7 +271,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         public void SetInstantCursePrayerBonus(BonusPrayerType type, int value)
         {
             PrayerBonuses.SetBonus(type, value);
-            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
+            _eventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
         }
 
         /// <summary>
@@ -346,7 +350,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             PrayerBonuses.SetBonus(BonusPrayerType.TurmoilAttack, percentAttack);
             PrayerBonuses.SetBonus(BonusPrayerType.TurmoilStrength, percentStrength);
             PrayerBonuses.SetBonus(BonusPrayerType.TurmoilDefence, percentDefence);
-            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
+            _eventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
         }
 
         /// <summary>
@@ -357,7 +361,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             PrayerBonuses.SetBonus(BonusPrayerType.TurmoilAttack, 0);
             PrayerBonuses.SetBonus(BonusPrayerType.TurmoilStrength, 0);
             PrayerBonuses.SetBonus(BonusPrayerType.TurmoilDefence, 0);
-            _owner.EventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
+            _eventManager.SendEvent(new CreaturePrayerBonusChangedEvent(_owner));
         }
 
 
@@ -400,8 +404,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
                 if (PoisonAmount >= 10)
                 {
                     var amt = DamageLifePoints(PoisonAmount);
-                    var splat = _owner.ServiceProvider.GetRequiredService<IHitSplatBuilder>()
-                        .Create()
+                    var splat = _hitSplatBuilder.Create()
                         .AddSprite(builder => builder.WithDamage(amt).WithSplatType(HitSplatType.HitPoisonDamage))
                         .Build();
                     _owner.QueueHitSplat(splat);

@@ -9,14 +9,13 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Resources;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
     /// <summary>
     /// 
     /// </summary>
-    public class RewardContainer : BaseItemContainer, IRewardContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
+    public class RewardContainer : TradeItemContainer, IRewardContainer, IHydratable<IReadOnlyList<HydratedItemDto>>,
         IDehydratable<IReadOnlyList<HydratedItemDto>>
     {
         /// <summary>
@@ -30,11 +29,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contstructs a container for character ingame mail.
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
-        public RewardContainer(ICharacter owner)
+        public RewardContainer(ICharacter owner, IItemBuilder itemBuilder)
             : base(StorageType.AlwaysStack, byte.MaxValue)
         {
             _owner = owner;
-            _itemBuilder = owner.ServiceProvider.GetRequiredService<IItemBuilder>();
+            _itemBuilder = itemBuilder;
         }
 
         /// <summary>

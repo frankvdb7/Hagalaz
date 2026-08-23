@@ -1,4 +1,4 @@
-import { Pipe, PipeTransform } from "@angular/core";
+import { Pipe, type PipeTransform } from "@angular/core";
 import { HttpErrorResponse } from "@angular/common/http";
 
 @Pipe({

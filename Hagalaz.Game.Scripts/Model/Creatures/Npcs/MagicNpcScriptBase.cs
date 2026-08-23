@@ -8,6 +8,10 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
     /// </summary>
     public abstract class MagicNpcScriptBase : NpcScriptBase
     {
+        protected MagicNpcScriptBase(INpc owner, INpcService npcService, IPathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+        }
         /// <summary>
         /// Get's attack bonus type of this npc.
         /// By default , this method does return AttackBonus.Crush

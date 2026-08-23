@@ -18,33 +18,16 @@ namespace Hagalaz.Services.Contacts.Services
 
         public async ValueTask<CharacterDto?> FindCharacterByDisplayName(string name)
         {
-            var dto = await _mapper.ProjectTo<CharacterDto>(_unitOfWork.CharacterRepository.FindByDisplayNameAsync(name)).AsNoTracking().FirstOrDefaultAsync();
-            if (dto == null)
-            {
-                return null;
-            }
-            return await EnrichCharacterWithClaims(dto);
+            return await _mapper.ProjectTo<CharacterDto>(_unitOfWork.CharacterRepository.FindByDisplayNameAsync(name))
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
         }
 
         public async ValueTask<CharacterDto?> FindCharacterByIdAsync(uint id)
         {
-            var dto = await _mapper.ProjectTo<CharacterDto>(_unitOfWork.CharacterRepository.FindByIdAsync(id)).AsNoTracking().FirstOrDefaultAsync();
-            if (dto == null)
-            {
-                return null;
-            }
-            return await EnrichCharacterWithClaims(dto);
-        }
-
-        private async ValueTask<CharacterDto> EnrichCharacterWithClaims(CharacterDto dto)
-        {
-            var claims = await _mapper.ProjectTo<CharacterDto.ClaimDto>(_unitOfWork.CharacterPermissionsRepository.FindPermissionsByMasterIdAsync(dto.MasterId))
-                .ToListAsync();
-
-            return dto with
-            {
-                Claims = claims
-            };
+            return await _mapper.ProjectTo<CharacterDto>(_unitOfWork.CharacterRepository.FindByIdAsync(id))
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
         }
     }
 }

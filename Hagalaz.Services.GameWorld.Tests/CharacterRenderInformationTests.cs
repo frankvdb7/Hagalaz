@@ -17,7 +17,6 @@ namespace Hagalaz.Services.GameWorld.Tests
     public class CharacterRenderInformationTests
     {
         private ICharacter _owner = null!;
-        private IServiceProvider _serviceProvider = null!;
         private ICharacterLocationService _locationService = null!;
         private CharacterRenderInformation _renderInfo = null!;
         private ILocation _location = null!;
@@ -26,17 +25,13 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void Setup()
         {
             _owner = Substitute.For<ICharacter>();
-            _serviceProvider = Substitute.For<IServiceProvider>();
             _locationService = Substitute.For<ICharacterLocationService>();
             _location = Substitute.For<ILocation>();
 
-            _owner.ServiceProvider.Returns(_serviceProvider);
             _owner.Location.Returns(_location);
             _location.Clone().Returns(_location);
 
-            _serviceProvider.GetService(typeof(ICharacterLocationService)).Returns(_locationService);
-
-            _renderInfo = new CharacterRenderInformation(_owner);
+            _renderInfo = new CharacterRenderInformation(_owner, _locationService);
         }
 
         [TestMethod]

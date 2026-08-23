@@ -9,7 +9,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Model.Widgets;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -22,6 +21,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contains owner of this class.
         /// </summary>
         private readonly ICharacter _owner;
+        private readonly IWidgetScriptProvider _widgetScriptProvider;
 
         /// <summary>
         /// Contains opened interfaces.
@@ -55,7 +55,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Construct's new interfaces container.
         /// </summary>
         /// <param name="owner">The owner.</param>
-        public WidgetContainer(ICharacter owner) => _owner = owner;
+        public WidgetContainer(ICharacter owner, IWidgetScriptProvider widgetScriptProvider)
+        {
+            _owner = owner;
+            _widgetScriptProvider = widgetScriptProvider;
+        }
 
         /// <summary>
         /// Opens standart interface.
@@ -497,8 +501,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns>Return's if the Id is valid.</returns>
         private bool IsValidInterfaceID(int interfaceID)
         {
-            var manager = _owner.ServiceProvider.GetRequiredService<IWidgetScriptProvider>();
-            return interfaceID >= 0 && interfaceID < manager.GetInterfacesCount();
+            return interfaceID >= 0 && interfaceID < _widgetScriptProvider.GetInterfacesCount();
         }
 
         public bool TryGetOpenWidget(int interfaceId, [NotNullWhen(true)] out IWidget? gameInterface)

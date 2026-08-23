@@ -1,4 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
 {
@@ -7,10 +7,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
     [NpcScriptMetaData([6204])]
     public class TstanonKarlak : BodyGuard
     {
-        /// <summary>
-        ///     Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
+        public TstanonKarlak(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
         }
     }

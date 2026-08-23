@@ -2,7 +2,6 @@
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common;
-using Microsoft.Extensions.DependencyInjection;
 using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -16,7 +15,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Update's character visible regions.
         /// </summary>
         public void UpdateMap(bool forceUpdate, bool renderViewPort = false) =>
-            ServiceProvider.GetRequiredService<IMapUpdateService>().UpdateMap(this, forceUpdate, renderViewPort);
+            _mapUpdateService.UpdateMap(this, forceUpdate, renderViewPort);
 
         /// <summary>
         /// Notifies character that it must add itself to given region.
@@ -37,10 +36,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             this.QueueTask(async () =>
             {
-                var musicService = ServiceProvider.GetRequiredService<IMusicService>();
-                var region = ServiceProvider.GetRequiredService<IMapRegionService>()
+                var region = _mapRegionService
                     .GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
-                var musicIds = await musicService.FindMusicIdsByRegionId(region.Id);
+                var musicIds = await _musicService.FindMusicIdsByRegionId(region.Id);
                 if (musicIds.Any(musicId => Music.UnlockMusic(musicId)))
                 {
                     Music.RefreshMusicList();

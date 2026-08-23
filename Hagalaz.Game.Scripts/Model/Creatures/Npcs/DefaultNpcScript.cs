@@ -5,10 +5,8 @@
     /// </summary>
     public class DefaultNpcScript : NpcScriptBase
     {
-        /// <summary>
-        /// Get's called when owner is found.
-        /// </summary>
-        protected override void Initialize()
+        public DefaultNpcScript(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
         }
     }

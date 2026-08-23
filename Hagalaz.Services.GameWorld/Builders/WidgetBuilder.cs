@@ -1,16 +1,17 @@
 using System;
 using Hagalaz.Game.Abstractions.Builders.Widget;
+using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Services.GameWorld.Model.Widgets;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
     public class WidgetBuilder : IWidgetBuilder, IWidgetId, IWidgetOptional, IWidgetCharacter
     {
         private readonly IWidgetScriptProvider _iWidgetScriptProvider;
+        private readonly IWidgetScriptActivator _widgetScriptActivator;
         private int _id;
         private int _transparency;
         private int? _parentId;
@@ -20,8 +21,13 @@ namespace Hagalaz.Services.GameWorld.Builders
         private ICharacter _character = default!;
         private bool _isFrame;
 
-        public WidgetBuilder(IWidgetScriptProvider iWidgetScriptProvider) => _iWidgetScriptProvider = iWidgetScriptProvider;
-        public IWidgetCharacter Create() => new WidgetBuilder(_iWidgetScriptProvider);
+        public WidgetBuilder(IWidgetScriptProvider iWidgetScriptProvider, IWidgetScriptActivator widgetScriptActivator)
+        {
+            _iWidgetScriptProvider = iWidgetScriptProvider;
+            _widgetScriptActivator = widgetScriptActivator;
+        }
+
+        public IWidgetCharacter Create() => new WidgetBuilder(_iWidgetScriptProvider, _widgetScriptActivator);
 
         public IWidgetOptional WithId(int id)
         {
@@ -34,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Builders
             if (_script == null)
             {
                 var scriptType = _scriptType ?? _iWidgetScriptProvider.FindScriptTypeById(_id);
-                _script = (IWidgetScript)_character.ServiceProvider.GetRequiredService(scriptType);
+                _script = _widgetScriptActivator.Create(_character, scriptType);
             }
 
             IWidget widget;

@@ -1,4 +1,3 @@
-﻿using System;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 
@@ -109,7 +108,6 @@ namespace Hagalaz.Services.GameWorld.Model
         /// Construct's new projectile.
         /// </summary>
         /// <param name="graphicID">Id of the graphic projectile should be displaying.</param>
-        [Obsolete("Use the IProjectileBuilder instead")]
-        public Projectile(int graphicID) => GraphicId = graphicID;
+        internal Projectile(int graphicID) => GraphicId = graphicID;
     }
 }

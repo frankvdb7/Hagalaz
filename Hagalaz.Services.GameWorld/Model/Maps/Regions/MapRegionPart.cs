@@ -176,12 +176,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             QueueUpdate(new RemoveGameObjectUpdate(gameObject));
         }
 
-        public void Remove(IGroundItem item)
+        public bool Remove(IGroundItem item)
         {
             var localHash = item.Location.GetRegionLocalHash();
             if (!_groundItems.TryGetValue(localHash, out var itemsOnLocation))
             {
-                return;
+                return false;
+            }
+
+            var itemIndex = itemsOnLocation.FindIndex(existingItem => ReferenceEquals(existingItem, item));
+            if (itemIndex < 0)
+            {
+                return false;
             }
 
             // only refresh the item when it is 'visible' and not waiting to respawn
@@ -190,7 +196,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 QueueUpdate(new RemoveGroundItemUpdate(item));
             }
 
-            itemsOnLocation.Remove(item);
+            itemsOnLocation.RemoveAt(itemIndex);
 
             if (item.CanRespawn() && !item.IsRespawning)
             {
@@ -221,6 +227,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 _groundItems.Remove(localHash);
             }
+
+            return true;
         }
 
         /// <summary>

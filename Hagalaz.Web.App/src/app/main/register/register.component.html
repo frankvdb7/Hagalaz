@@ -3,12 +3,12 @@
         <ng-container title>Create your account</ng-container>
         <ng-container content>
             <span>Already registered?</span>
-            <a class="text-primary hover:underline" [routerLink]="['/login']">Login</a>
+            <a class="text-primary hover:underline" href="/login" [routerLink]="['/login']">Login</a>
         </ng-container>
     </app-card-title>
     <mat-card>
         <mat-card-content>
-            <app-register-form (registerSubmit)="onRegisterSubmit($event)"></app-register-form>
+            <app-register-form></app-register-form>
         </mat-card-content>
         @if (false) {
             <app-loading></app-loading>

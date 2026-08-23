@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -11,13 +10,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
     /// </summary>
     public interface INpcScript : ICreatureScript
     {
-        /// <summary>
-        /// Gets the NPC IDs that this script is suitable for.
-        /// </summary>
-        /// <returns>An array of NPC IDs.</returns>
-        [Obsolete("Please use NpcScriptMetaData attribute instead")]
-        int[] GetSuitableNpcs();
-
         /// <summary>
         /// Gets the pathfinder the NPC will use.
         /// </summary>
@@ -46,12 +38,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
         /// </summary>
         /// <param name="delay">The delay in client ticks until the attack hits.</param>
         void RenderDefence(int delay);
-
-        /// <summary>
-        /// Initializes the script with its owning NPC.
-        /// </summary>
-        /// <param name="owner">The NPC that this script is attached to.</param>
-        void Initialize(INpc owner);
 
         /// <summary>
         /// A callback executed when an attacker's hit connects with the NPC.

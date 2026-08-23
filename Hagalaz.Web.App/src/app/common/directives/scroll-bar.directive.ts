@@ -1,5 +1,5 @@
-import { AfterViewInit, Directive, ElementRef, inject, input, OnDestroy, Renderer2 } from "@angular/core";
-import { OverlayScrollbars, PartialOptions } from "overlayscrollbars";
+import { type AfterViewInit, Directive, ElementRef, inject, input, type OnDestroy, Renderer2 } from "@angular/core";
+import { OverlayScrollbars, type PartialOptions } from "overlayscrollbars";
 
 @Directive({
     selector: "[appScrollBar]",

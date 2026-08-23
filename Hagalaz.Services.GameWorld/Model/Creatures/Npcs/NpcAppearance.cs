@@ -1,6 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
 {
@@ -12,7 +11,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Contains owner of this class.
         /// </summary>
-        private readonly Npc _owner;
+        private readonly INpc _owner;
+        private readonly INpcService _npcService;
 
         /// <summary>
         /// Contains npc composite Id.
@@ -33,9 +33,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// Construct's new appearance class.
         /// </summary>
         /// <param name="owner"></param>
-        public NpcAppearance(Npc owner)
+        public NpcAppearance(INpc owner, INpcService npcService)
         {
             _owner = owner;
+            _npcService = npcService;
             CompositeID = _owner.Definition.Id;
             Size = _owner.Definition.Size;
             Visible = true;
@@ -50,7 +51,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             if (CompositeID != compositeID)
             {
                 CompositeID = compositeID;
-                Size = _owner.ServiceProvider.GetRequiredService<INpcService>().FindNpcDefinitionById(compositeID).Size;
+                Size = _npcService.FindNpcDefinitionById(compositeID).Size;
                 _owner.RenderInformation.ScheduleFlagUpdate(UpdateFlags.Transform);
             }
         }

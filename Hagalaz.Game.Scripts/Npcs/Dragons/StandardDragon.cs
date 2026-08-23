@@ -18,6 +18,11 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
     ])]
     public class StandardDragon : NpcScriptBase
     {
+        public StandardDragon(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+            Owner.AddState(new NpcTypeDragonState());
+        }
         /// <summary>
         ///     The attack bonus.
         /// </summary>
@@ -27,11 +32,6 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
         ///     The style.
         /// </summary>
         protected AttackStyle Style = AttackStyle.MeleeAggressive;
-
-        /// <summary>
-        ///     Initializes this script.
-        /// </summary>
-        protected override void Initialize() => Owner.AddState(new NpcTypeDragonState());
 
         /// <summary>
         ///     Perform's attack on specific target.

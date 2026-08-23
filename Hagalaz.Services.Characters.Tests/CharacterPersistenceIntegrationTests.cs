@@ -127,7 +127,15 @@ public sealed class CharacterPersistenceIntegrationTests
     public async Task FailedDatabaseCommit_RollsBackAcknowledgementAndReachesErrorAndFaultPaths()
     {
         var masterId = await SeedCharacterAsync();
-        await using var provider = CreateProvider();
+        // Keep the production transport topology while making the commit failure
+        // deterministic; the production backoff is covered separately and made this
+        // routing test timing-sensitive.
+        await using var provider = CreateProvider(
+            immediateRetry: true,
+            decorateUnitOfWork: static unitOfWork => new DelegatingCharacterUnitOfWork(
+                unitOfWork,
+                static () => ValueTask.FromException(
+                    new DbUpdateException("Could not save changes."))));
         var harness = provider.GetTestHarness();
         var faultCapture = provider.GetRequiredService<FaultCapture>();
         var errorQueueCapture = provider.GetRequiredService<ErrorQueueCapture>();
@@ -136,7 +144,7 @@ public sealed class CharacterPersistenceIntegrationTests
 
         try
         {
-            var command = CreateCommand(masterId, 1, noteText: new string('x', 51));
+            var command = CreateCommand(masterId, 1);
             await harness.Bus.Publish(command);
 
             using var faultTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
@@ -164,7 +172,10 @@ public sealed class CharacterPersistenceIntegrationTests
         Assert.AreEqual("old note", note.Text);
     }
 
-    private static ServiceProvider CreateProvider(CommitBarrier? barrier = null)
+    private static ServiceProvider CreateProvider(
+        CommitBarrier? barrier = null,
+        bool immediateRetry = false,
+        Func<ICharacterUnitOfWork, ICharacterUnitOfWork>? decorateUnitOfWork = null)
     {
         var services = new ServiceCollection()
             .AddLogging()
@@ -176,10 +187,17 @@ public sealed class CharacterPersistenceIntegrationTests
             .AddDbContext<HagalazDbContext>(options => options.UseMySQL(_database!.GetConnectionString()))
             .AddScoped<ICharacterUnitOfWork>(serviceProvider =>
             {
-                var unitOfWork = new CharacterUnitOfWork(serviceProvider.GetRequiredService<HagalazDbContext>());
-                return barrier == null
-                    ? unitOfWork
-                    : new BarrierCharacterUnitOfWork(unitOfWork, barrier);
+                ICharacterUnitOfWork unitOfWork = new CharacterUnitOfWork(
+                    serviceProvider.GetRequiredService<HagalazDbContext>());
+                if (barrier != null)
+                {
+                    var barrierUnitOfWork = unitOfWork;
+                    unitOfWork = new DelegatingCharacterUnitOfWork(
+                        barrierUnitOfWork,
+                        () => CommitAfterBarrierAsync(barrierUnitOfWork, barrier));
+                }
+
+                return decorateUnitOfWork?.Invoke(unitOfWork) ?? unitOfWork;
             })
             .AddAutoMapper(_ => { }, typeof(Program));
 
@@ -190,7 +208,14 @@ public sealed class CharacterPersistenceIntegrationTests
                 options.UseMySql();
                 options.UseBusOutbox();
             });
-            x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>();
+            if (immediateRetry)
+            {
+                x.AddConsumer<UpdateCharacterRequestConsumer, ImmediateRetryCharacterPersistenceConsumerDefinition>();
+            }
+            else
+            {
+                x.AddConsumer<UpdateCharacterRequestConsumer, CharacterPersistenceConsumerDefinition>();
+            }
             x.AddConsumer<CharacterPersistenceFaultConsumer>();
             x.AddConsumer<AcknowledgementProbe>();
             x.AddConsumer<FaultProbe, FaultProbeDefinition>();
@@ -391,15 +416,44 @@ public sealed class CharacterPersistenceIntegrationTests
         }
     }
 
-    private sealed class BarrierCharacterUnitOfWork : ICharacterUnitOfWork
+    private static async ValueTask CommitAfterBarrierAsync(
+        ICharacterUnitOfWork unitOfWork,
+        CommitBarrier barrier)
+    {
+        await barrier.WaitAsync();
+        await unitOfWork.CommitAsync();
+    }
+
+    private sealed class ImmediateRetryCharacterPersistenceConsumerDefinition
+        : ConsumerDefinition<UpdateCharacterRequestConsumer>
+    {
+        public ImmediateRetryCharacterPersistenceConsumerDefinition()
+        {
+            EndpointName = "UpdateCharacterRequest";
+        }
+
+        protected override void ConfigureConsumer(
+            IReceiveEndpointConfigurator endpointConfigurator,
+            IConsumerConfigurator<UpdateCharacterRequestConsumer> consumerConfigurator,
+            IRegistrationContext context)
+        {
+            endpointConfigurator.ConfigureDefaultErrorTransport();
+            endpointConfigurator.ConfigureDefaultDeadLetterTransport();
+            endpointConfigurator.PublishFaults = true;
+            endpointConfigurator.UseEntityFrameworkOutbox<HagalazDbContext>(context);
+            endpointConfigurator.UseMessageRetry(retry => retry.Immediate(5));
+        }
+    }
+
+    private sealed class DelegatingCharacterUnitOfWork : ICharacterUnitOfWork
     {
         private readonly ICharacterUnitOfWork _inner;
-        private readonly CommitBarrier _barrier;
+        private readonly Func<ValueTask> _commit;
 
-        public BarrierCharacterUnitOfWork(ICharacterUnitOfWork inner, CommitBarrier barrier)
+        public DelegatingCharacterUnitOfWork(ICharacterUnitOfWork inner, Func<ValueTask> commit)
         {
             _inner = inner;
-            _barrier = barrier;
+            _commit = commit;
         }
 
         public ICharacterRepository CharacterRepository => _inner.CharacterRepository;
@@ -421,11 +475,7 @@ public sealed class CharacterPersistenceIntegrationTests
         public void Reset() => _inner.Reset();
         public ValueTask RollbackAsync() => _inner.RollbackAsync();
 
-        public async ValueTask CommitAsync()
-        {
-            await _barrier.WaitAsync();
-            await _inner.CommitAsync();
-        }
+        public ValueTask CommitAsync() => _commit();
     }
 
 }

@@ -12,9 +12,9 @@ namespace Hagalaz.Services.Contacts.Profiles
                 .ForMember(dto => dto.MasterId, opt => opt.MapFrom(src => src.Id))
                 .ForMember(dto => dto.DisplayName, opt => opt.MapFrom(src => src.DisplayName))
                 .ForMember(dto => dto.PreviousDisplayName, opt => opt.MapFrom(src => src.PreviousDisplayName))
-                .ForMember(dto => dto.Claims, opt => opt.Ignore());
-            CreateProjection<CharactersPermission, CharacterDto.ClaimDto>()
-                .ForMember(dto => dto.Name, opt => opt.MapFrom(src => src.Permission.ToString()));
+                .ForMember(dto => dto.Claims, opt => opt.MapFrom(src => src.Aspnetuserroles.Where(userRole => userRole.Role.Name != null)));
+            CreateProjection<Aspnetuserrole, CharacterDto.ClaimDto>()
+                .ForMember(dto => dto.Name, opt => opt.MapFrom(src => src.Role.Name!));
         }
     }
 }

@@ -37,7 +37,9 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
             _speakData.Add("Attack!", 3282);
         }
 
-        public KrilTsutsaroth(IAudioBuilder soundBuilder, IProjectileBuilder projectileBuilder)
+        public KrilTsutsaroth(INpc owner, IAudioBuilder soundBuilder, IProjectileBuilder projectileBuilder,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _soundBuilder = soundBuilder;
             _projectileBuilder = projectileBuilder;

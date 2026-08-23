@@ -1,6 +1,6 @@
-import { Command } from "./command";
-import { CommandType } from "../shared";
+import type { Command } from "./command";
+import type { CommandType } from "../shared";
 
-export class CloseWindowCommand implements Command<void> {
+export class CloseWindowCommand implements Command<undefined> {
     commandType: CommandType = "close-window";
 }

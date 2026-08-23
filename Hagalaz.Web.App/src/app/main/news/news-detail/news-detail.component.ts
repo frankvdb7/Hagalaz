@@ -1,23 +1,12 @@
-import { Component, OnInit, ChangeDetectionStrategy, input, computed, effect, OnDestroy, signal, SecurityContext, inject } from "@angular/core";
-import {
-    MatCard,
-    MatCardActions,
-    MatCardAvatar,
-    MatCardContent,
-    MatCardFooter,
-    MatCardHeader,
-    MatCardImage,
-    MatCardSubtitle,
-    MatCardTitle,
-} from "@angular/material/card";
+import { Component, ChangeDetectionStrategy, input, computed, effect, type OnDestroy, signal, SecurityContext, inject } from "@angular/core";
+import { MatCard, MatCardContent, MatCardFooter, MatCardHeader } from "@angular/material/card";
 import { MatChip, MatChipSet } from "@angular/material/chips";
-import { NewsItem, newsItems } from "../news.model";
-import { NgOptimizedImage } from "@angular/common";
+import { type NewsItem, newsItems } from "../news.model";
 import { DateAgoPipe } from "@app/common/pipes/date-ago/date-ago.pipe";
 import { MatButton } from "@angular/material/button";
 import { BackgroundImageService } from "@app/services/util/background-image.service";
 import { CardTitleComponent } from "../../../common/components/card-title/card-title.component";
-import { DomSanitizer, SafeUrl } from "@angular/platform-browser";
+import { DomSanitizer } from "@angular/platform-browser";
 import { marked } from "marked";
 import { RouterLinkWithHref } from "@angular/router";
 

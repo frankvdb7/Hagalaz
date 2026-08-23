@@ -9,7 +9,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Services.Model;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -22,13 +21,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         IHydratable<HydratedDetailsDto>,
         IHydratable<HydratedItemCollectionDto>,
         IHydratable<HydratedStatisticsDto>,
-        IHydratable<HydratedFamiliarDto>,
         IHydratable<HydratedMusicDto>,
         IHydratable<HydratedFarmingDto>,
         IHydratable<HydratedSlayerDto>,
         IHydratable<HydratedNotesDto>,
         IHydratable<HydratedProfileDto>,
         IHydratable<HydratedStateDto>,
+        IHydratable<HydratedFamiliarDto>,
         IDehydratable<HydratedAppearanceDto>,
         IDehydratable<HydratedDetailsDto>,
         IDehydratable<HydratedItemCollectionDto>,
@@ -79,10 +78,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 moneyPouch.Hydrate(hydration.MoneyPouch);
             }
 
-            if (FamiliarScript is IHydratable<IReadOnlyList<HydratedItem>> familiarInventory)
+            var familiarInventory = hydration.FamiliarInventory
+                .Select(item => new HydratedItem(item.ItemId, item.Count, item.SlotId, item.ExtraData))
+                .ToList();
+            if (FamiliarScript is IHydratable<IReadOnlyList<HydratedItem>> familiarInventoryHydratable)
             {
-                familiarInventory.Hydrate(hydration.FamiliarInventory.Select(item => new HydratedItem(item.ItemId, item.Count, item.SlotId, item.ExtraData))
-                    .ToList());
+                familiarInventoryHydratable.Hydrate(familiarInventory);
+            }
+            else
+            {
+                GetScripts().OfType<IHydratable<IReadOnlyList<HydratedItem>>>().FirstOrDefault()?.Hydrate(familiarInventory);
             }
         }
 
@@ -92,6 +97,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 hydratable.Hydrate(hydration);
             }
+        }
+
+        public void Hydrate(HydratedFamiliarDto hydration)
+        {
+            GetScripts().OfType<IHydratable<HydratedFamiliarDto>>().FirstOrDefault()?.Hydrate(hydration);
         }
 
         HydratedAppearanceDto IDehydratable<HydratedAppearanceDto>.Dehydrate()
@@ -176,22 +186,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             return new HydratedStatisticsDto();
         }
 
-        public void Hydrate(HydratedFamiliarDto hydration)
-        {
-            var provider = ServiceProvider.GetRequiredService<IFamiliarScriptProvider>();
-            var scriptType = provider.FindFamiliarScriptTypeById(hydration.FamiliarId);
-            FamiliarScript = (IFamiliarScript)ServiceProvider.GetRequiredService(scriptType);
-            if (FamiliarScript is IHydratable<HydratedFamiliar> hydratable)
-            {
-                hydratable.Hydrate(new HydratedFamiliar
-                {
-                    TicksRemaining = hydration.TicksRemaining,
-                    IsUsingSpecialMove = hydration.IsUsingSpecialMove,
-                    SpecialMovePoints = hydration.SpecialMovePoints
-                });
-            }
-        }
-
         HydratedFamiliarDto IDehydratable<HydratedFamiliarDto>.Dehydrate()
         {
             if (FamiliarScript is IDehydratable<HydratedFamiliar> dehydratable)
@@ -199,7 +193,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 var dehydration = dehydratable.Dehydrate();
                 return new HydratedFamiliarDto
                 {
-                    FamiliarId = FamiliarScript.Familiar.Appearance.CompositeID,
+                    FamiliarId = FamiliarScript.Familiar.Definition.Id,
                     TicksRemaining = dehydration.TicksRemaining,
                     IsUsingSpecialMove = dehydration.IsUsingSpecialMove,
                     SpecialMovePoints = dehydration.SpecialMovePoints
@@ -313,10 +307,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         public void Hydrate(HydratedStateDto hydration)
         {
-            var stateService = ServiceProvider.GetRequiredService<IStateService>();
             foreach (var state in hydration.StatesEx)
             {
-                if (!stateService.TryCreateState(state.Id, out var stateObject) || stateObject is not IPersistentState)
+                if (!_stateService.TryCreateState(state.Id, out var stateObject) || stateObject is not IPersistentState)
                 {
                     continue;
                 }
@@ -332,11 +325,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 
         HydratedStateDto IDehydratable<HydratedStateDto>.Dehydrate()
         {
-            var stateService = ServiceProvider.GetRequiredService<IStateService>();
             var states = new List<HydratedStateDto.HydratedStateExDto>();
             foreach (var state in GetStates())
             {
-                if (state is not IPersistentState || !stateService.TryGetStateId(state, out var stateId))
+                if (state is not IPersistentState || !_stateService.TryGetStateId(state, out var stateId))
                 {
                     continue;
                 }

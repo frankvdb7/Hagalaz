@@ -1,4 +1,3 @@
-﻿using System;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -20,13 +19,6 @@ namespace Hagalaz.Game.Scripts.Model.GameObjects
         /// Contains owner object.
         /// </summary>
         protected IGameObject Owner { get; private set; } = default!;
-
-        /// <summary>
-        /// Get's objectIDS which are suitable for this script.
-        /// </summary>
-        /// <returns></returns>
-        [Obsolete("Use the GameObjectScriptMetadata attribute instead")]
-        public virtual int[] GetSuitableObjects() => [];
 
         /// <summary>
         /// Get's called when owner is found.

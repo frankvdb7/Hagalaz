@@ -6,6 +6,7 @@ using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.Clans;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.Shops;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
@@ -84,6 +85,16 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// Gets the script for the character's currently summoned familiar.
         /// </summary>
         IFamiliarScript FamiliarScript { get; }
+        /// <summary>
+        /// Attaches an already-created familiar to this character.
+        /// </summary>
+        /// <param name="familiar">The familiar script to attach.</param>
+        void AttachFamiliar(IFamiliarScript familiar);
+        /// <summary>
+        /// Detaches the specified familiar if it is still the active familiar.
+        /// </summary>
+        /// <param name="familiar">The familiar being removed.</param>
+        void DetachFamiliar(INpc familiar);
         /// <summary>
         /// Gets the special permissions and rights assigned to this character.
         /// </summary>

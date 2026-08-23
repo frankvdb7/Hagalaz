@@ -1,5 +1,5 @@
-import { CharacterStatType, GetAllCharacterStatisticsResult } from "@app/services/character-statistics/character-statistics.models";
-import { CharacterStatisticEntity } from "@app/main/highscores/highscores.models";
+import { CharacterStatType, type GetAllCharacterStatisticsResult } from "@app/services/character-statistics/character-statistics.models";
+import type { CharacterStatisticEntity } from "@app/main/highscores/highscores.models";
 
 export function mapStatisticsResult(result: GetAllCharacterStatisticsResult): [stats: CharacterStatisticEntity[], total: number] {
     return [

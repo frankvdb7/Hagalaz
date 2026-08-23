@@ -1,3 +1,5 @@
+autoInstallPeers: false
+
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - '@tailwindcss/oxide'

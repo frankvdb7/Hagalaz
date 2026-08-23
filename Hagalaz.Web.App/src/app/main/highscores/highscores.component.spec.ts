@@ -1,9 +1,8 @@
-import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { type ComponentFixture, TestBed } from "@angular/core/testing";
 import { it, describe, beforeEach, expect, vi } from "vitest";
 import { HighscoresComponent } from "./highscores.component";
-import { Router, provideRouter } from "@angular/router";
 import { HighscoresStore } from "./highscores.store";
-import { NO_ERRORS_SCHEMA, importProvidersFrom } from "@angular/core";
+import { NO_ERRORS_SCHEMA } from "@angular/core";
 import { RouterTestingModule } from "@angular/router/testing";
 
 describe("HighscoresComponent", () => {
@@ -11,8 +10,8 @@ describe("HighscoresComponent", () => {
     let fixture: ComponentFixture<HighscoresComponent>;
 
     // Mock services
-    const mockRouter = {
-        navigate: vi.fn().mockResolvedValue(true)
+    const _mockRouter = {
+        navigate: vi.fn().mockResolvedValue(true),
     };
 
     const mockHighscoresStore = {
@@ -21,14 +20,9 @@ describe("HighscoresComponent", () => {
 
     beforeEach(async () => {
         await TestBed.configureTestingModule({
-            imports: [
-                HighscoresComponent,
-                RouterTestingModule.withRoutes([])
-            ],
-            providers: [
-                { provide: HighscoresStore, useValue: mockHighscoresStore }
-            ],
-            schemas: [NO_ERRORS_SCHEMA] // Ignore unknown elements and properties
+            imports: [HighscoresComponent, RouterTestingModule.withRoutes([])],
+            providers: [{ provide: HighscoresStore, useValue: mockHighscoresStore }],
+            schemas: [NO_ERRORS_SCHEMA], // Ignore unknown elements and properties
         }).compileComponents();
 
         fixture = TestBed.createComponent(HighscoresComponent);

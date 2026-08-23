@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Features;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Common.Events.Character.Packet;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -28,14 +27,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         {
             try
             {
-                var commands = ServiceProvider.GetRequiredService<IGameCommandPrompt>();
                 var (command, arguments) = ParseCommandAndArguments(commandAndArgs);
-                return await commands.ExecuteAsync(command, this, arguments);
+                return await _gameCommandPrompt.ExecuteAsync(command, this, arguments);
             }
             catch (Exception ex)
             {
-                var logger = ServiceProvider.GetRequiredService<ILogger<ICharacter>>();
-                logger.LogError(ex, "Error while handling character command: {Command}", commandAndArgs);
+                _logger.LogError(ex, "Error while handling character command: {Command}", commandAndArgs);
                 return false;
             }
         }

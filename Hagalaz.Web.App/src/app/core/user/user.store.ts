@@ -1,5 +1,5 @@
 import { computed, effect, inject } from "@angular/core";
-import { UserInfo } from "@app/services/user/user.model";
+import type { UserInfo } from "@app/services/user/user.model";
 import { patchState, signalStore, withComputed, withHooks, withMethods, withState } from "@ngrx/signals";
 import { rxMethod } from "@ngrx/signals/rxjs-interop";
 import { pipe, switchMap, timeout } from "rxjs";
@@ -7,7 +7,7 @@ import { AuthStore } from "../auth/auth.store";
 import { UserService } from "@app/services/user/user.service";
 import { tapResponse } from "@ngrx/operators";
 
-export interface UserState {
+interface UserState {
     loading: boolean;
     error: unknown;
     info: UserInfo | null;

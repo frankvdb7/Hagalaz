@@ -1,0 +1,91 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.5.8/schema.json",
+    "files": {
+        "includes": [
+            "src/**/*",
+            "src-admin/**/*",
+            "*.cjs",
+            "*.css",
+            "*.html",
+            "*.js",
+            "*.json",
+            "*.jsonc",
+            "*.jsx",
+            "*.mjs",
+            "*.scss",
+            "*.ts",
+            "*.tsx",
+            "!dist",
+            "!dist-admin",
+            "!dist-launcher",
+            "!.angular",
+            "!out-tsc",
+            "!node_modules",
+            "!.vscode"
+        ],
+        "ignoreUnknown": true
+    },
+    "formatter": {
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineEnding": "lf",
+        "lineWidth": 160,
+        "trailingNewline": true,
+        "useEditorconfig": true
+    },
+    "javascript": {
+        "parser": {
+            "unsafeParameterDecoratorsEnabled": true
+        },
+        "formatter": {
+            "indentStyle": "space",
+            "indentWidth": 4,
+            "lineWidth": 160,
+            "quoteStyle": "double",
+            "semicolons": "always",
+            "trailingCommas": "es5"
+        }
+    },
+    "json": {
+        "formatter": {
+            "indentStyle": "space",
+            "indentWidth": 4,
+            "lineWidth": 160,
+            "trailingCommas": "none"
+        }
+    },
+    "css": {
+        "parser": {
+            "tailwindDirectives": true
+        },
+        "formatter": {
+            "indentStyle": "space",
+            "indentWidth": 4,
+            "lineWidth": 160
+        }
+    },
+    "html": {
+        "parser": {
+            "interpolation": true
+        },
+        "formatter": {
+            "indentStyle": "space",
+            "indentWidth": 4,
+            "lineWidth": 160
+        }
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "preset": "recommended"
+        }
+    },
+    "vcs": {
+        "enabled": true,
+        "clientKind": "git",
+        "useIgnoreFile": true,
+        "root": "..",
+        "defaultBranch": "main"
+    }
+}

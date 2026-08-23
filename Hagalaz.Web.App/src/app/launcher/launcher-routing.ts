@@ -1,4 +1,4 @@
-import { Routes } from "@angular/router";
+import type { Routes } from "@angular/router";
 import { mainRoutes } from "@app/main/main-routing";
 
 const launcherRoutes: Routes = [

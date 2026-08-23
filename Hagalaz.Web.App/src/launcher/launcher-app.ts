@@ -1,6 +1,6 @@
-import { inject, injectable } from "inversify";
+import { injectable } from "inversify";
 import { BrowserWindow } from "electron";
-import * as path from "path";
+import * as path from "node:path";
 
 @injectable()
 export class LauncherApp {

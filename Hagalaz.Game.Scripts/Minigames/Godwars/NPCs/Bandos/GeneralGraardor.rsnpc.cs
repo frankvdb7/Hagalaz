@@ -37,7 +37,9 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
             _speakData.Add("FOR THE GLORY OF THE BIG HIGH WAR GOD!", 3228);
         }
 
-        public GeneralGraardor(IAudioBuilder soundBuilder, IProjectileBuilder projectileBuilder)
+        public GeneralGraardor(INpc owner, IAudioBuilder soundBuilder, IProjectileBuilder projectileBuilder,
+            INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _soundBuilder = soundBuilder;
             _projectileBuilder = projectileBuilder;

@@ -1,20 +1,18 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { ILauncherApi } from "../typings/launcher-api";
-import { CommandResultType, COMMANDS_CHANNEL } from "./shared";
+import type { ILauncherApi } from "../typings/launcher-api";
+import { type CommandResultType, COMMANDS_CHANNEL } from "./shared";
 import { CloseWindowCommand } from "./commands/close-window";
-import { Command } from "./commands/command";
+import type { Command } from "./commands/command";
 import { MaximizeWindowCommand } from "./commands/maximize-window";
 import { MinimizeWindowCommand } from "./commands/minimize-window";
 import { IsWindowMaximized } from "./commands/is-window-maximized";
 import { LaunchClientCommand } from "./commands/launch-client";
 
-function sendCommand(command: Command<void>) {
+function sendCommand(command: Command<undefined>) {
     ipcRenderer.send(COMMANDS_CHANNEL, command);
 }
 
-async function invokeCommand<TResult extends CommandResultType>(
-    command: Command<TResult>
-) {
+async function invokeCommand<TResult extends CommandResultType>(command: Command<TResult>) {
     const result = await ipcRenderer.invoke(COMMANDS_CHANNEL, command);
     return result as TResult;
 }
