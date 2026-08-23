@@ -16,14 +16,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             .GetOrAdd(item.Location.GetRegionPartHash(), CreateRegionPart)
             .Add(item);
 
-        public void Remove(IGroundItem item)
+        public bool Remove(IGroundItem item)
         {
             var partHash = item.Location.GetRegionPartHash();
             if (!_parts.TryGetValue(partHash, out var part))
             {
-                return;
+                return false;
             }
-            part.Remove(item);
+            return part.Remove(item);
         }
 
         private void TickGroundItems()

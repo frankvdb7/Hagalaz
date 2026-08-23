@@ -160,7 +160,8 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// Removes a ground item from the region.
         /// </summary>
         /// <param name="item">The ground item to remove.</param>
-        void Remove(IGroundItem item);
+        /// <returns><c>true</c> when the exact ground-item instance was removed; otherwise, <c>false</c>.</returns>
+        bool Remove(IGroundItem item);
 
         /// <summary>
         /// Applies a collision flag to a specific tile in the region.
