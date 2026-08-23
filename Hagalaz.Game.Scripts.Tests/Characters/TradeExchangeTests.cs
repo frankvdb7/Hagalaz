@@ -105,7 +105,7 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void TryExchange_WhenPouchCreditIsRestored_NotifiesTheRestoredCount()
+    public void TryExchange_WhenRecipientPreflightFails_DoesNotMutateOrNotify()
     {
         var firstInventory = new TestInventory(3);
         var secondInventory = new TestInventory(3);
@@ -127,9 +127,13 @@ public sealed class TradeExchangeTests
         TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeFalse();
 
         firstMoneyPouch.Count.Should().Be(0);
-        eventManager.Received(2).SendEvent(Arg.Any<IEvent>());
-        first.Received(1).SendChatMessage("10 coins have been added to your money pouch.");
-        first.Received(1).SendChatMessage("10 coins have been removed from your money pouch.");
+        firstInventory.TakenSlots.Should().Be(0);
+        secondInventory.GetCountById(100).Should().Be(1);
+        firstOffer.GetCountById(201).Should().Be(1);
+        firstOffer.GetCountById(100).Should().Be(1);
+        secondOffer.GetCountById(995).Should().Be(10);
+        eventManager.DidNotReceive().SendEvent(Arg.Any<IEvent>());
+        first.DidNotReceive().SendChatMessage(Arg.Any<string>());
     }
 
     [TestMethod]
@@ -226,7 +230,7 @@ public sealed class TradeExchangeTests
     }
 
     [TestMethod]
-    public void TryExchange_WhenSecondRecipientFails_DoesNotLeaveFirstRecipientCredit()
+    public void TryExchange_WhenSecondRecipientPreflightFails_DoesNotMutateFirstRecipientBeforeRefund()
     {
         var firstInventory = new TestInventory(3);
         var secondInventory = new TestInventory(3);
@@ -242,7 +246,13 @@ public sealed class TradeExchangeTests
         var firstInventoryUpdatesBeforeExchange = firstInventory.UpdateCount;
 
         TradeExchange.TryExchange(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeFalse();
-        firstInventory.UpdateCount.Should().Be(firstInventoryUpdatesBeforeExchange + 2);
+        firstInventory.UpdateCount.Should().Be(firstInventoryUpdatesBeforeExchange);
+        firstInventory.TakenSlots.Should().Be(0);
+        secondInventory.GetCountById(100).Should().Be(1);
+        secondInventory.GetCountById(101).Should().Be(0);
+        firstOffer.GetCountById(201).Should().Be(1);
+        firstOffer.GetCountById(100).Should().Be(1);
+        secondOffer.GetCountById(101).Should().Be(1);
 
         secondExisting.ThrowOnStackCheck = false;
         TradeExchange.TryRefund(first, firstOffer, second, secondOffer, CreateItemBuilder()).Should().BeTrue();
