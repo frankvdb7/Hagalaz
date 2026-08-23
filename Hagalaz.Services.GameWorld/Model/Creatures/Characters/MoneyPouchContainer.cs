@@ -367,7 +367,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <returns>
         /// Returns true if contained; false otherwise.
         /// </returns>
-        public override bool Contains(int id, int count) => !base.Contains(id, count) && _owner.Inventory.Contains(id, count);
+        public override bool Contains(int id, int count)
+        {
+            if (id == 995)
+            {
+                var availableCoins = (long)Count + _owner.Inventory.GetCountById(995);
+                return availableCoins >= count;
+            }
+
+            return !base.Contains(id, count) && _owner.Inventory.Contains(id, count);
+        }
 
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
