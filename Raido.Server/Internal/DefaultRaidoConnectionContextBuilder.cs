@@ -17,6 +17,8 @@ namespace Raido.Server.Internal
         private IRaidoProtocol _protocol = null!;
         private TimeSpan? _keepAliveInterval;
         private TimeSpan? _clientTimeoutInterval;
+        private bool? _statefulReconnectEnabled;
+        private TimeSpan? _statefulReconnectGracePeriod;
 
         public DefaultRaidoConnectionContextBuilder(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
 
@@ -52,6 +54,13 @@ namespace Raido.Server.Internal
             return this;
         }
 
+        public IRaidoConnectionContextBuilderOptional WithStatefulReconnect(TimeSpan? gracePeriod = null)
+        {
+            _statefulReconnectEnabled = true;
+            _statefulReconnectGracePeriod = gracePeriod;
+            return this;
+        }
+
         public RaidoConnectionContext Build()
         {
             var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
@@ -59,7 +68,9 @@ namespace Raido.Server.Internal
             var contextOptions = new RaidoConnectionContextOptions()
             {
                 KeepAliveInterval = _keepAliveInterval ?? options.Value.KeepAliveInterval.GetValueOrDefault(),
-                ClientTimeoutInterval = _clientTimeoutInterval ?? options.Value.ClientTimeoutInterval.GetValueOrDefault()
+                ClientTimeoutInterval = _clientTimeoutInterval ?? options.Value.ClientTimeoutInterval.GetValueOrDefault(),
+                StatefulReconnectEnabled = _statefulReconnectEnabled ?? options.Value.StatefulReconnectEnabled,
+                StatefulReconnectGracePeriod = _statefulReconnectGracePeriod ?? options.Value.StatefulReconnectGracePeriod
             };
 
             return new RaidoConnectionContext(_connection, contextOptions, loggerFactory)

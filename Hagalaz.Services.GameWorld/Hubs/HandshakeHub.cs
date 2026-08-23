@@ -7,6 +7,8 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Configuration.Model;
+using Hagalaz.Services.GameWorld.Features;
+using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Hagalaz.Services.GameWorld.Providers;
@@ -37,6 +39,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
         private readonly WorldLifecycleState _lifecycle;
         private readonly WorldRegistrationStore _registrations;
         private readonly WorldInstanceIdentity _identity;
+        private readonly IGameSessionService _gameSessionService;
+        private readonly RaidoConnectionStore _connections;
 
         public HandshakeHub(
             IAuthenticationService authenticationService,
@@ -49,7 +53,9 @@ namespace Hagalaz.Services.GameWorld.Hubs
             IScopedGameMediator mediator,
             WorldLifecycleState lifecycle,
             WorldRegistrationStore registrations,
-            WorldInstanceIdentity identity)
+            WorldInstanceIdentity identity,
+            IGameSessionService gameSessionService,
+            RaidoConnectionStore connections)
         {
             _authenticationService = authenticationService;
             _clientPermissionProvider = clientPermissionProvider;
@@ -62,6 +68,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
             _lifecycle = lifecycle;
             _registrations = registrations;
             _identity = identity;
+            _gameSessionService = gameSessionService;
+            _connections = connections;
         }
 
         [RaidoMessageHandler(typeof(ClientUpdateRequest))]
@@ -228,6 +236,150 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
             _mediator.Publish(new WorldSignInCommand(character));
         }
+
+        [RaidoMessageHandler(typeof(WorldReconnectRequest))]
+        public async Task ReconnectWorld(WorldReconnectRequest message)
+        {
+            var worldOptions = _worldOptions.Value;
+            if (!_lifecycle.CanAcceptWorldSignIns ||
+                _registrations.HasConflict(worldOptions.Id, _identity.InstanceId) ||
+                !_registrations.IsLocalGenerationAvailable(worldOptions.Id, _identity.InstanceId))
+            {
+                await RejectReconnectAsync(ClientSignInResponse.Failed);
+                return;
+            }
+
+            var clientProtocol = _clientProtocolResolver.GetProtocol(message.ClientRevision);
+            if (clientProtocol == null)
+            {
+                await RejectReconnectAsync(ClientSignInResponse.Outdated);
+                return;
+            }
+
+            if (message.ClientRevision != _serverOptions.Value.ClientRevision ||
+                message.ClientRevisionPatch != _serverOptions.Value.ClientRevisionPatch)
+            {
+                await RejectReconnectAsync(ClientSignInResponse.Outdated);
+                return;
+            }
+
+            if (_systemUpdate.SystemUpdateScheduled)
+            {
+                await RejectReconnectAsync(ClientSignInResponse.SystemUpdate);
+                return;
+            }
+
+            SignInResult authenticationResult;
+            try
+            {
+                authenticationResult = await _authenticationService.AuthenticateWorldReconnectAsync(new SignInRequest
+                {
+                    Login = message.Login,
+                    Password = message.Password,
+                    GameClient = new GameClient(message.DisplayMode, message.Language, message.ClientSizeX, message.ClientSizeY)
+                });
+            }
+            catch (Exception ex) when (ex is RequestTimeoutException or TimeoutRejectedException)
+            {
+                await RejectReconnectAsync(ClientSignInResponse.AuthServiceOffline);
+                throw;
+            }
+            catch (Exception)
+            {
+                await RejectReconnectAsync(ClientSignInResponse.Failed);
+                throw;
+            }
+            if (!authenticationResult.Succeeded)
+            {
+                await RejectReconnectAsync(ToClientSignInResponse(authenticationResult));
+                return;
+            }
+
+            var masterId = Context.GetMasterId();
+            if (masterId == null)
+            {
+                await RejectReconnectAsync(ClientSignInResponse.BadSession);
+                return;
+            }
+
+            var session = await _gameSessionService.FindByMasterId(masterId.Value);
+            if (session is not IGameWorldSession worldSession)
+            {
+                await RejectReconnectAsync(ClientSignInResponse.BadSession);
+                return;
+            }
+
+            var logicalConnection = _connections[worldSession.ConnectionId];
+            var existingSession = logicalConnection?.Features.Get<ISessionFeature>()?.Session;
+            var character = logicalConnection?.Features.Get<ICharacterFeature>()?.Character;
+            if (logicalConnection == null ||
+                logicalConnection.LifecycleState != RaidoConnectionLifecycleState.Reconnecting ||
+                !ReferenceEquals(existingSession, worldSession) ||
+                character == null ||
+                !ReferenceEquals(character.Session, worldSession) ||
+                character.MasterId != masterId.Value)
+            {
+                await RejectReconnectAsync(ClientSignInResponse.BadSession);
+                return;
+            }
+
+            var handshakeProtocol = Context.Protocol;
+            clientProtocol.SetEncryptionSeed(message.IsaacSeed);
+            if (!await _connections.TryRebindAsync(worldSession.ConnectionId, Context, clientProtocol))
+            {
+                await RejectReconnectAsync(ClientSignInResponse.BadSession);
+                return;
+            }
+
+            var response = new WorldSignInResponse
+            {
+                DisplayName = character.DisplayName,
+                ClientPermissions = _clientPermissionProvider.GetClientPermission(
+                    Context.User!.FindAllRoles().Select(claim => claim.Value).ToList()),
+                IsQuickChatOnly = false,
+                CharacterWorldIndex = character.Index,
+                IsMembersOnly = true
+            };
+
+            try
+            {
+                await logicalConnection.WriteAsync(response, handshakeProtocol, logicalConnection.ConnectionAbortedToken);
+                character.UpdateMap(forceUpdate: true, renderViewPort: true);
+                character.Appearance.Refresh();
+            }
+            finally
+            {
+                ClearReconnectAuthentication();
+                Context.Abort();
+            }
+        }
+
+        private async Task RejectReconnectAsync(ClientSignInResponse response)
+        {
+            try
+            {
+                await Clients.Caller.SendAsync(response);
+            }
+            finally
+            {
+                ClearReconnectAuthentication();
+                Context.Abort();
+            }
+        }
+
+        private void ClearReconnectAuthentication()
+        {
+            Context.Features.Set<IAuthenticationFeature>(null);
+            Context.Features.Set<Microsoft.AspNetCore.Connections.Features.IConnectionUserFeature>(null);
+        }
+
+        private static ClientSignInResponse ToClientSignInResponse(SignInResult result) =>
+            result.IsFull ? ClientSignInResponse.Full :
+            result.IsDisabled ? ClientSignInResponse.Disabled :
+            result.AreCredentialsInvalid ? ClientSignInResponse.CredentialsInvalid :
+            result.IsAlreadyLoggedOn ? ClientSignInResponse.AlreadyLoggedOn :
+            result.IsLockedOut ? ClientSignInResponse.LockedOut :
+            ClientSignInResponse.BadSession;
 
         private async ValueTask<ClientSignInResponse> SignInAsync(ClientSignInRequest request, bool isWorldSignIn)
         {

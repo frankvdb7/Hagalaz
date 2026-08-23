@@ -31,6 +31,27 @@ public sealed class AuthenticationSignInTests
 {
     [TestMethod]
     [Timeout(5000)]
+    public async Task AuthenticateWorldReconnectAsync_AuthenticatesWithoutCreatingOrHydratingSession()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var characterService = Substitute.For<ICharacterService>();
+        var hydrationService = Substitute.For<ICharacterHydrationService>();
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            characterService: characterService,
+            characterHydrationService: hydrationService);
+
+        var result = await service.AuthenticateWorldReconnectAsync(CreateSignInRequest());
+
+        Assert.IsTrue(result.Succeeded);
+        await gameSessionService.DidNotReceive().TryAddWorldSession(Arg.Any<uint>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await gameSessionService.DidNotReceive().CommitWorldSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
+        await characterService.DidNotReceive().AddAsync(Arg.Any<ICharacter>());
+        await hydrationService.DidNotReceive().HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignInWorldAsync_WhenCharacterHydrationFails_RemovesSession()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();

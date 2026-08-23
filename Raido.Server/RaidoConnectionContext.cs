@@ -24,19 +24,31 @@ namespace Raido.Server
         private static readonly WaitCallback _abortedCallback = AbortConnection;
 
         private readonly TaskCompletionSource _abortCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly ConnectionContext _connection;
+        private ConnectionContext? _connection;
         private readonly CancellationTokenSource _connectionAbortedTokenSource = new();
-        private readonly CancellationTokenRegistration _closedRegistration;
-        private readonly CancellationTokenRegistration? _closedRequestedRegistration;
+        private CancellationTokenRegistration _closedRegistration;
+        private CancellationTokenRegistration? _closedRequestedRegistration;
+        private CancellationTokenSource _physicalAbortedTokenSource = new();
+        private readonly IFeatureCollection _features;
+        private readonly IDictionary<object, object?> _items;
 
         private readonly ILogger _logger;
+        private readonly Lock _lifecycleLock = new();
         private readonly Lock _receiveMessageTimeoutLock = new();
         private readonly TimeProvider _timeProvider;
+        private readonly SemaphoreSlim _dispatchLock = new(1);
         private readonly SemaphoreSlim _writeLock = new(1);
+        private bool _statefulReconnectEnabled;
+        private readonly TimeSpan _statefulReconnectGracePeriod;
+        private ITimer? _graceTimer;
+        private TaskCompletionSource<bool> _rebindTcs = NewRebindTcs();
         private ClaimsPrincipal? _user;
 
         private bool _clientTimeoutActive;
         private volatile bool _connectionAborted;
+        private RaidoConnectionLifecycleState _lifecycleState = RaidoConnectionLifecycleState.Connected;
+        private long _physicalGeneration;
+        private string _physicalConnectionId;
         private long _lastSendTick;
         private TimeSpan _receivedMessageElapsed;
         private bool _receivedMessageTimeoutEnabled;
@@ -66,7 +78,40 @@ namespace Raido.Server
         /// <summary>
         /// Gets the ID for this connection.
         /// </summary>
-        public virtual string ConnectionId => _connection.ConnectionId;
+        public virtual string ConnectionId { get; }
+
+        /// <summary>
+        /// Gets the stable logical connection id retained across physical transport replacement.
+        /// </summary>
+        public virtual string LogicalConnectionId => ConnectionId;
+
+        /// <summary>
+        /// Gets the current physical Kestrel connection id, or the last physical id while detached.
+        /// </summary>
+        public virtual string PhysicalConnectionId
+        {
+            get
+            {
+                lock (_lifecycleLock)
+                {
+                    return _connection?.ConnectionId ?? _physicalConnectionId;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets the current logical lifecycle state.
+        /// </summary>
+        public RaidoConnectionLifecycleState LifecycleState
+        {
+            get
+            {
+                lock (_lifecycleLock)
+                {
+                    return _lifecycleState;
+                }
+            }
+        }
 
         /// <summary>
         /// Gets the user for this connection.
@@ -87,32 +132,32 @@ namespace Raido.Server
         /// <summary>
         /// Gets the collection of features available on this connection.
         /// </summary>
-        public virtual IFeatureCollection Features => _connection.Features;
+        public virtual IFeatureCollection Features => _features;
 
         /// <summary>
         /// Gets a key/value collection that can be used to share data within the scope of this connection.
         /// </summary>
-        public virtual IDictionary<object, object?> Items => _connection.Items;
+        public virtual IDictionary<object, object?> Items => _items;
 
         /// <summary>
         /// Gets the input pipe for the connection.
         /// </summary>
-        public virtual PipeReader Input => _connection.Transport.Input;
+        public virtual PipeReader Input => GetPhysicalConnection().Transport.Input;
 
         /// <summary>
         /// Gets the output pipe for the connection.
         /// </summary>
-        public virtual PipeWriter Output => _connection.Transport.Output;
+        public virtual PipeWriter Output => GetPhysicalConnection().Transport.Output;
 
         /// <summary>
         /// Gets the local endpoint for the connection.
         /// </summary>
-        public virtual IPEndPoint? LocalEndPoint => _localIPEndPoint ??= _connection.LocalEndPoint as IPEndPoint;
+        public virtual IPEndPoint? LocalEndPoint => _localIPEndPoint ??= GetPhysicalConnection().LocalEndPoint as IPEndPoint;
 
         /// <summary>
         /// Gets the remote endpoint for the connection.
         /// </summary>
-        public virtual IPEndPoint? RemoteEndPoint => _remoteIPEndPoint ??= _connection.RemoteEndPoint as IPEndPoint;
+        public virtual IPEndPoint? RemoteEndPoint => _remoteIPEndPoint ??= GetPhysicalConnection().RemoteEndPoint as IPEndPoint;
 
 
         /// <summary>
@@ -128,25 +173,75 @@ namespace Raido.Server
         /// <param name="loggerFactory">The logger factory.</param>
         public RaidoConnectionContext(ConnectionContext connection, RaidoConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
         {
+            ArgumentNullException.ThrowIfNull(connection);
+            ArgumentNullException.ThrowIfNull(contextOptions);
+            ArgumentNullException.ThrowIfNull(loggerFactory);
+
             _connection = connection;
+            _features = connection.Features;
+            _items = connection.Items;
+            ConnectionId = connection.ConnectionId;
+            _physicalConnectionId = connection.ConnectionId;
             _logger = loggerFactory.CreateLogger<RaidoConnectionContext>();
 
             _clientTimeoutInterval = contextOptions.ClientTimeoutInterval;
             _keepAliveInterval = contextOptions.KeepAliveInterval;
-            ConnectionAbortedToken = _connectionAbortedTokenSource.Token;
-            _closedRegistration = connection.ConnectionClosed.Register((state) => ((RaidoConnectionContext)state!).Abort(), this);
-            if (connection.Features.Get<IConnectionLifetimeNotificationFeature>() is IConnectionLifetimeNotificationFeature lifetimeNotification)
+            _statefulReconnectEnabled = contextOptions.StatefulReconnectEnabled;
+            _statefulReconnectGracePeriod = contextOptions.StatefulReconnectGracePeriod;
+            if (_statefulReconnectEnabled && (_statefulReconnectGracePeriod <= TimeSpan.Zero || _statefulReconnectGracePeriod == Timeout.InfiniteTimeSpan))
             {
-                // This feature is used by HttpConnectionManager to close the connection with a non-errored closed message on authentication expiration.
-                _closedRequestedRegistration =
-                    lifetimeNotification.ConnectionClosedRequested.Register(static (state) => ((RaidoConnectionContext)state!).Abort(), this);
+                throw new ArgumentOutOfRangeException(nameof(contextOptions), "The reconnect grace period must be positive and finite.");
+            }
+
+            _timeProvider = contextOptions.TimeProvider ?? TimeProvider.System;
+            ConnectionAbortedToken = _connectionAbortedTokenSource.Token;
+            AttachPhysicalUnsafe(connection);
+            if (_statefulReconnectEnabled)
+            {
+                _features.Set<IRaidoStatefulReconnectFeature>(new StatefulReconnectFeature(this));
             }
 
             RaidoCallerContext = new DefaultRaidoCallerContext(this);
 
-            _timeProvider = TimeProvider.System;
             _lastSendTick = _timeProvider.GetTimestamp();
         }
+
+        internal CancellationToken PhysicalConnectionAbortedToken => _physicalAbortedTokenSource.Token;
+
+        internal long PhysicalGeneration
+        {
+            get
+            {
+                lock (_lifecycleLock)
+                {
+                    return _physicalGeneration;
+                }
+            }
+        }
+
+        internal bool IsCurrentPhysicalGeneration(long generation)
+        {
+            lock (_lifecycleLock)
+            {
+                return _lifecycleState == RaidoConnectionLifecycleState.Connected &&
+                    _connection is not null &&
+                    _physicalGeneration == generation;
+            }
+        }
+
+        internal async ValueTask<bool> EnterDispatchAsync(long generation)
+        {
+            await _dispatchLock.WaitAsync().ConfigureAwait(false);
+            if (IsCurrentPhysicalGeneration(generation))
+            {
+                return true;
+            }
+
+            _dispatchLock.Release();
+            return false;
+        }
+
+        internal void ExitDispatch() => _dispatchLock.Release();
 
         internal Task OnConnectedAsync()
         {
@@ -168,9 +263,31 @@ namespace Raido.Server
         /// <param name="cancellationToken">A <see cref="CancellationToken"/> that can be used to cancel the write operation.</param>
         /// <returns>A <see cref="ValueTask"/> that represents the asynchronous write operation.</returns>
         public virtual ValueTask WriteAsync<TMessage>(TMessage message, CancellationToken cancellationToken = default) where TMessage : RaidoMessage =>
-            WriteAsync<TMessage>(message, ignoreAbort: false, cancellationToken);
+            WriteAsync<TMessage>(message, ignoreAbort: false, protocolOverride: null, cancellationToken: cancellationToken);
 
-        internal ValueTask WriteAsync<TMessage>(TMessage message, bool ignoreAbort, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Writes a message using a specific protocol during a protocol transition.
+        /// </summary>
+        public virtual ValueTask WriteAsync<TMessage>(
+            TMessage message,
+            IRaidoProtocol protocol,
+            CancellationToken cancellationToken = default) where TMessage : RaidoMessage
+        {
+            ArgumentNullException.ThrowIfNull(protocol);
+            return WriteAsync(message, ignoreAbort: false, protocolOverride: protocol, cancellationToken: cancellationToken);
+        }
+
+        internal ValueTask WriteAsync<TMessage>(
+            TMessage message,
+            bool ignoreAbort,
+            CancellationToken cancellationToken = default) where TMessage : RaidoMessage =>
+            WriteAsync(message, ignoreAbort, protocolOverride: null, cancellationToken: cancellationToken);
+
+        private ValueTask WriteAsync<TMessage>(
+            TMessage message,
+            bool ignoreAbort,
+            IRaidoProtocol? protocolOverride,
+            CancellationToken cancellationToken)
             where TMessage : RaidoMessage
         {
             // Try to grab the lock synchronously, if we fail, go to the slower path
@@ -178,7 +295,14 @@ namespace Raido.Server
             if (!_writeLock.Wait(0))
 #pragma warning restore CA2016
             {
-                return new ValueTask(WriteSlowAsync(message, ignoreAbort, cancellationToken));
+                return new ValueTask(WriteSlowAsync(message, ignoreAbort, protocolOverride, cancellationToken));
+            }
+
+            if (IsReconnecting())
+            {
+                Log.WriteWhileReconnecting(_logger, ConnectionId);
+                _writeLock.Release();
+                return ValueTask.FromException(new RaidoConnectionReconnectingException(ConnectionId));
             }
 
             if (_connectionAborted && !ignoreAbort)
@@ -187,8 +311,10 @@ namespace Raido.Server
                 return default;
             }
 
+            var connection = GetPhysicalConnection();
+
             // This method should never throw synchronously
-            var task = WriteCore(message, cancellationToken);
+            var task = WriteCore(message, connection.Transport.Output, protocolOverride ?? Protocol, cancellationToken);
 
             // The write didn't complete synchronously so await completion
             if (!task.IsCompletedSuccessfully)
@@ -208,21 +334,25 @@ namespace Raido.Server
             return default;
         }
 
-        private ValueTask<FlushResult> WriteCore<TMessage>(TMessage message, CancellationToken cancellationToken) where TMessage : RaidoMessage
+        private ValueTask<FlushResult> WriteCore<TMessage>(
+            TMessage message,
+            PipeWriter output,
+            IRaidoProtocol protocol,
+            CancellationToken cancellationToken) where TMessage : RaidoMessage
         {
             try
             {
                 // We know that we are only writing this message to one receiver, so we can
                 // write it without caching.
-                Protocol.WriteMessage(message, _connection.Transport.Output);
+                protocol.WriteMessage(message, output);
 
                 // check if there is actually a message encoded
-                if (!_connection.Transport.Output.CanGetUnflushedBytes || _connection.Transport.Output.UnflushedBytes > 0)
+                if (!output.CanGetUnflushedBytes || output.UnflushedBytes > 0)
                 {
                     Log.SentMessage(_logger, message);
                 }
 
-                return _connection.Transport.Output.FlushAsync(cancellationToken);
+                return output.FlushAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -255,19 +385,33 @@ namespace Raido.Server
             }
         }
 
-        private async Task WriteSlowAsync<TMessage>(TMessage message, bool ignoreAbort, CancellationToken cancellationToken) where TMessage : RaidoMessage
+        private async Task WriteSlowAsync<TMessage>(
+            TMessage message,
+            bool ignoreAbort,
+            IRaidoProtocol? protocolOverride,
+            CancellationToken cancellationToken) where TMessage : RaidoMessage
         {
             // Failed to get the lock immediately when entering WriteAsync so await until it is available
             await _writeLock.WaitAsync(cancellationToken);
 
             try
             {
+                if (IsReconnecting())
+                {
+                    Log.WriteWhileReconnecting(_logger, ConnectionId);
+                    throw new RaidoConnectionReconnectingException(ConnectionId);
+                }
+
                 if (_connectionAborted && !ignoreAbort)
                 {
                     return;
                 }
 
-                await WriteCore(message, cancellationToken);
+                await WriteCore(message, GetPhysicalConnection().Transport.Output, protocolOverride ?? Protocol, cancellationToken);
+            }
+            catch (RaidoConnectionReconnectingException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -286,23 +430,33 @@ namespace Raido.Server
         /// </summary>
         public virtual void Abort()
         {
-            _connectionAborted = true;
+            ConnectionContext? physicalConnection;
+            bool queueAbort;
 
-            // Cancel any current writes or writes that are about to happen and have already gone past the _connectionAborted bool
-            // We have to do this outside of the lock otherwise it could hang if the write is observing backpressure
-            _connection.Transport.Output.CancelPendingFlush();
-
-            // If we already triggered the token then noop, this isn't thread safe but it's good enough
-            // to avoid spawning a new task in the most common cases
-            if (_connectionAbortedTokenSource.IsCancellationRequested)
+            lock (_lifecycleLock)
             {
-                return;
+                if (_lifecycleState == RaidoConnectionLifecycleState.Closed)
+                {
+                    return;
+                }
+
+                _lifecycleState = RaidoConnectionLifecycleState.Closed;
+                _connectionAborted = true;
+                _graceTimer?.Dispose();
+                _graceTimer = null;
+                _rebindTcs.TrySetResult(false);
+                physicalConnection = DetachPhysicalUnsafe();
+                queueAbort = !_connectionAbortedTokenSource.IsCancellationRequested;
+                Log.TerminalClosed(_logger, ConnectionId);
             }
 
-            Input.CancelPendingRead();
+            CancelPhysicalConnection(physicalConnection);
 
-            // We fire and forget since this can trigger user code to run
-            ThreadPool.QueueUserWorkItem(_abortedCallback, this);
+            if (queueAbort)
+            {
+                // We fire and forget since this can trigger user code to run.
+                ThreadPool.QueueUserWorkItem(_abortedCallback, this);
+            }
         }
 
         // Used by the HubConnectionHandler only
@@ -327,6 +481,268 @@ namespace Raido.Server
             await _abortCompletedTcs.Task;
         }
 
+        internal ValueTask<bool> TryRebindAsync(RaidoConnectionContext replacement) =>
+            TryRebindAsync(replacement, replacementProtocol: null);
+
+        internal async ValueTask<bool> TryRebindAsync(RaidoConnectionContext replacement, IRaidoProtocol? replacementProtocol)
+        {
+            ArgumentNullException.ThrowIfNull(replacement);
+            if (ReferenceEquals(this, replacement))
+            {
+                Log.RebindRejected(_logger, ConnectionId);
+                return false;
+            }
+
+            // Use the same order as message dispatch (dispatch gate, then write lock) so a
+            // rebind cannot deadlock with an in-flight handler that is writing a response.
+            await _dispatchLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                await _writeLock.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    lock (_lifecycleLock)
+                    {
+                        if (_lifecycleState != RaidoConnectionLifecycleState.Reconnecting || _connection is not null)
+                        {
+                            Log.RebindRejected(_logger, ConnectionId);
+                            return false;
+                        }
+
+                        var replacementConnection = replacement.DetachPhysicalForRebind();
+                        if (replacementConnection is null)
+                        {
+                            Log.RebindRejected(_logger, ConnectionId);
+                            return false;
+                        }
+
+                        if (replacementConnection.ConnectionClosed.IsCancellationRequested)
+                        {
+                            Log.RebindRejected(_logger, ConnectionId);
+                            return false;
+                        }
+
+                        AttachPhysicalUnsafe(replacementConnection);
+                        if (!ReferenceEquals(_connection, replacementConnection))
+                        {
+                            Log.RebindRejected(_logger, ConnectionId);
+                            return false;
+                        }
+
+                        if (replacementProtocol is not null)
+                        {
+                            Protocol = replacementProtocol;
+                        }
+
+                        _lifecycleState = RaidoConnectionLifecycleState.Connected;
+                        _graceTimer?.Dispose();
+                        _graceTimer = null;
+                        _rebindTcs.TrySetResult(true);
+                        _rebindTcs = NewRebindTcs();
+                        Log.RebindSucceeded(_logger, ConnectionId, _physicalConnectionId);
+                        return true;
+                    }
+                }
+                finally
+                {
+                    _writeLock.Release();
+                }
+            }
+            finally
+            {
+                _dispatchLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Waits until the retained logical connection is rebound or reaches terminal closure.
+        /// </summary>
+        public Task<bool> WaitForRebindOrCloseAsync() => _rebindTcs.Task;
+
+        /// <summary>
+        /// Waits until terminal cleanup has started for this logical connection.
+        /// </summary>
+        public Task WaitForTerminationAsync() => _abortCompletedTcs.Task;
+
+        private void DisableStatefulReconnect()
+        {
+            bool queueAbort = false;
+
+            lock (_lifecycleLock)
+            {
+                _statefulReconnectEnabled = false;
+                if (_lifecycleState != RaidoConnectionLifecycleState.Reconnecting)
+                {
+                    return;
+                }
+
+                _lifecycleState = RaidoConnectionLifecycleState.Closed;
+                _connectionAborted = true;
+                _graceTimer?.Dispose();
+                _graceTimer = null;
+                _rebindTcs.TrySetResult(false);
+                queueAbort = !_connectionAbortedTokenSource.IsCancellationRequested;
+                Log.TerminalClosed(_logger, ConnectionId);
+            }
+
+            if (queueAbort)
+            {
+                ThreadPool.QueueUserWorkItem(_abortedCallback, this);
+            }
+        }
+
+        private static TaskCompletionSource<bool> NewRebindTcs() =>
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private sealed class StatefulReconnectFeature(RaidoConnectionContext connection) : IRaidoStatefulReconnectFeature
+        {
+            public void DisableReconnect() => connection.DisableStatefulReconnect();
+        }
+
+        private ConnectionContext GetPhysicalConnection()
+        {
+            lock (_lifecycleLock)
+            {
+                return _connection ?? throw new RaidoConnectionReconnectingException(ConnectionId);
+            }
+        }
+
+        private bool IsReconnecting()
+        {
+            lock (_lifecycleLock)
+            {
+                return _lifecycleState == RaidoConnectionLifecycleState.Reconnecting;
+            }
+        }
+
+        private void AttachPhysicalUnsafe(ConnectionContext connection)
+        {
+            _closedRegistration.Dispose();
+            _closedRequestedRegistration?.Dispose();
+            _closedRequestedRegistration = null;
+            _connection = connection;
+            _physicalConnectionId = connection.ConnectionId;
+            _physicalGeneration++;
+            var generation = _physicalGeneration;
+            _physicalAbortedTokenSource = new CancellationTokenSource();
+            _closedRegistration = connection.ConnectionClosed.Register(() => OnPhysicalClosed(generation));
+
+            if (connection.Features.Get<IConnectionLifetimeNotificationFeature>() is IConnectionLifetimeNotificationFeature lifetimeNotification)
+            {
+                // This feature requests a terminal close, for example when authentication expires.
+                _closedRequestedRegistration = lifetimeNotification.ConnectionClosedRequested.Register(Abort);
+            }
+        }
+
+        private ConnectionContext? DetachPhysicalUnsafe()
+        {
+            var connection = _connection;
+            _connection = null;
+            if (connection is not null)
+            {
+                _physicalAbortedTokenSource.Cancel();
+                _physicalAbortedTokenSource.Dispose();
+            }
+
+            return connection;
+        }
+
+        private ConnectionContext? DetachPhysicalForRebind()
+        {
+            lock (_lifecycleLock)
+            {
+                if (_lifecycleState != RaidoConnectionLifecycleState.Connected || _connection is null || _connectionAborted)
+                {
+                    return null;
+                }
+
+                var connection = DetachPhysicalUnsafe();
+                _closedRegistration.Dispose();
+                _closedRequestedRegistration?.Dispose();
+                _closedRequestedRegistration = null;
+                return connection;
+            }
+        }
+
+        private static void CancelPhysicalConnection(ConnectionContext? connection)
+        {
+            if (connection is null)
+            {
+                return;
+            }
+
+            connection.Transport.Output.CancelPendingFlush();
+            connection.Transport.Input.CancelPendingRead();
+        }
+
+        private void OnPhysicalClosed(long generation)
+        {
+            ConnectionContext? physicalConnection;
+            bool queueAbort = false;
+
+            lock (_lifecycleLock)
+            {
+                if (_lifecycleState == RaidoConnectionLifecycleState.Closed ||
+                    _physicalGeneration != generation ||
+                    _connection is null)
+                {
+                    return;
+                }
+
+                var physicalConnectionId = _physicalConnectionId;
+                physicalConnection = DetachPhysicalUnsafe();
+                Log.TransportLost(_logger, ConnectionId, physicalConnectionId);
+                if (!_statefulReconnectEnabled)
+                {
+                    _lifecycleState = RaidoConnectionLifecycleState.Closed;
+                    _connectionAborted = true;
+                    _rebindTcs.TrySetResult(false);
+                    queueAbort = !_connectionAbortedTokenSource.IsCancellationRequested;
+                    Log.TerminalClosed(_logger, ConnectionId);
+                }
+                else
+                {
+                    _lifecycleState = RaidoConnectionLifecycleState.Reconnecting;
+                    _rebindTcs = NewRebindTcs();
+                    Log.ReconnectWindowStarted(_logger, ConnectionId, _statefulReconnectGracePeriod);
+                    _graceTimer = _timeProvider.CreateTimer(static state => ((RaidoConnectionContext)state!).GraceExpired(), this,
+                        _statefulReconnectGracePeriod, Timeout.InfiniteTimeSpan);
+                }
+            }
+
+            CancelPhysicalConnection(physicalConnection);
+
+            if (queueAbort)
+            {
+                ThreadPool.QueueUserWorkItem(_abortedCallback, this);
+            }
+        }
+
+        private void GraceExpired()
+        {
+            bool queueAbort = false;
+            lock (_lifecycleLock)
+            {
+                if (_lifecycleState != RaidoConnectionLifecycleState.Reconnecting)
+                {
+                    return;
+                }
+
+                _lifecycleState = RaidoConnectionLifecycleState.Closed;
+                _connectionAborted = true;
+                _graceTimer = null;
+                _rebindTcs.TrySetResult(false);
+                queueAbort = !_connectionAbortedTokenSource.IsCancellationRequested;
+                Log.ReconnectExpired(_logger, ConnectionId);
+                Log.TerminalClosed(_logger, ConnectionId);
+            }
+
+            if (queueAbort)
+            {
+                ThreadPool.QueueUserWorkItem(_abortedCallback, this);
+            }
+        }
+
         internal void StartClientTimeout()
         {
             if (_clientTimeoutActive)
@@ -340,7 +756,7 @@ namespace Raido.Server
 
         private void CheckClientTimeout()
         {
-            if (Debugger.IsAttached || _connectionAborted)
+            if (Debugger.IsAttached || _connectionAborted || LifecycleState != RaidoConnectionLifecycleState.Connected)
             {
                 return;
             }
@@ -395,6 +811,7 @@ namespace Raido.Server
                 {
                     connection._writeLock.Release();
                 }
+
             }
         }
 
@@ -452,13 +869,13 @@ namespace Raido.Server
         {
             try
             {
-                if (_connectionAborted)
+                if (_connectionAborted || IsReconnecting())
                 {
                     return;
                 }
 
                 var pingMessage = Protocol.GetMessageBytes(PingMessage.Instance);
-                await _connection.Transport.Output.WriteAsync(pingMessage);
+                await GetPhysicalConnection().Transport.Output.WriteAsync(pingMessage);
 
                 Log.SentPing(_logger);
             }
@@ -478,6 +895,8 @@ namespace Raido.Server
         {
             _closedRegistration.Dispose();
             _closedRequestedRegistration?.Dispose();
+            _graceTimer?.Dispose();
+            _physicalAbortedTokenSource.Dispose();
         }
 
         private static class Log
@@ -498,6 +917,25 @@ namespace Raido.Server
             private static readonly Action<ILogger, int, Exception?> _clientTimeout = LoggerMessage.Define<int>(LogLevel.Debug,
                 new EventId(5, "ClientTimeout"),
                 "Client timeout ({ClientTimeout}ms) elapsed without receiving a message from the client. Closing connection.");
+            private static readonly Action<ILogger, string, string, Exception?> _transportLost = LoggerMessage.Define<string, string>(
+                LogLevel.Debug, new EventId(6, "TransportLost"),
+                "Physical connection '{PhysicalConnectionId}' was lost for logical connection '{ConnectionId}'.");
+            private static readonly Action<ILogger, string, int, Exception?> _reconnectWindowStarted = LoggerMessage.Define<string, int>(
+                LogLevel.Debug, new EventId(7, "ReconnectWindowStarted"),
+                "Logical connection '{ConnectionId}' entered a {GracePeriodMs}ms reconnect grace window.");
+            private static readonly Action<ILogger, string, string, Exception?> _rebindSucceeded = LoggerMessage.Define<string, string>(
+                LogLevel.Debug, new EventId(8, "RebindSucceeded"),
+                "Logical connection '{ConnectionId}' rebound to physical connection '{PhysicalConnectionId}'.");
+            private static readonly Action<ILogger, string, Exception?> _rebindRejected = LoggerMessage.Define<string>(
+                LogLevel.Debug, new EventId(9, "RebindRejected"),
+                "A replacement transport was rejected for logical connection '{ConnectionId}'.");
+            private static readonly Action<ILogger, string, Exception?> _reconnectExpired = LoggerMessage.Define<string>(
+                LogLevel.Debug, new EventId(10, "ReconnectExpired"), "Reconnect grace expired for logical connection '{ConnectionId}'.");
+            private static readonly Action<ILogger, string, Exception?> _terminalClosed = LoggerMessage.Define<string>(
+                LogLevel.Debug, new EventId(11, "TerminalClosed"), "Logical connection '{ConnectionId}' entered terminal closure.");
+            private static readonly Action<ILogger, string, Exception?> _writeWhileReconnecting = LoggerMessage.Define<string>(
+                LogLevel.Debug, new EventId(12, "WriteWhileReconnecting"),
+                "A write was rejected while logical connection '{ConnectionId}' has no active physical transport.");
 
             public static void SentPing(ILogger logger) => _sentPing(logger, null);
 
@@ -508,6 +946,23 @@ namespace Raido.Server
             public static void AbortFailed(ILogger logger, Exception exception) => _abortFailed(logger, exception);
 
             public static void ClientTimeout(ILogger logger, TimeSpan timeout) => _clientTimeout(logger, (int)timeout.TotalMilliseconds, null);
+
+            public static void TransportLost(ILogger logger, string connectionId, string physicalConnectionId) =>
+                _transportLost(logger, physicalConnectionId, connectionId, null);
+
+            public static void ReconnectWindowStarted(ILogger logger, string connectionId, TimeSpan gracePeriod) =>
+                _reconnectWindowStarted(logger, connectionId, (int)gracePeriod.TotalMilliseconds, null);
+
+            public static void RebindSucceeded(ILogger logger, string connectionId, string physicalConnectionId) =>
+                _rebindSucceeded(logger, connectionId, physicalConnectionId, null);
+
+            public static void RebindRejected(ILogger logger, string connectionId) => _rebindRejected(logger, connectionId, null);
+
+            public static void ReconnectExpired(ILogger logger, string connectionId) => _reconnectExpired(logger, connectionId, null);
+
+            public static void TerminalClosed(ILogger logger, string connectionId) => _terminalClosed(logger, connectionId, null);
+
+            public static void WriteWhileReconnecting(ILogger logger, string connectionId) => _writeWhileReconnecting(logger, connectionId, null);
         }
     }
 }

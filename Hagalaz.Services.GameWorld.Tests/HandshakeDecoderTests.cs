@@ -9,6 +9,7 @@ using Hagalaz.Services.GameWorld.Network.Handshake.Decoders;
 using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using Raido.Common.Protocol;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {
@@ -253,6 +254,62 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsInstanceOfType<WorldSignInRequest>(contiguousMessage);
             Assert.IsInstanceOfType<WorldSignInRequest>(segmentedMessage);
             AssertEquivalentRequests((WorldSignInRequest)contiguousMessage!, (WorldSignInRequest)segmentedMessage!);
+        }
+
+        [TestMethod]
+        public void WorldReconnectHandshakeDecoder_ValidPayload_ProducesReconnectIntentWithTheSameFields()
+        {
+            var rsaBlock = CreateRsaBlock();
+            var cacheApi = Substitute.For<ICacheAPI>();
+            cacheApi.GetFileCount(byte.MaxValue).Returns(2);
+            var loginDecoder = new WorldHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                cacheApi);
+            var reconnectDecoder = new WorldReconnectHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                cacheApi);
+            var encryptedPayload = EncryptPayload(CreateValidPayload(world: true));
+
+            var loginResult = loginDecoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: true, encryptedPayload),
+                out var loginMessage);
+            var reconnectResult = reconnectDecoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: true, encryptedPayload),
+                out var reconnectMessage);
+
+            Assert.IsTrue(loginResult);
+            Assert.IsTrue(reconnectResult);
+            Assert.IsInstanceOfType<WorldSignInRequest>(loginMessage);
+            Assert.IsInstanceOfType<WorldReconnectRequest>(reconnectMessage);
+            AssertEquivalentRequests((ClientSignInRequest)loginMessage!, (ClientSignInRequest)reconnectMessage!);
+        }
+
+        [TestMethod]
+        public void WorldReconnectHandshakeDecoder_NonBlockAlignedEncryptedPayload_ReturnsFalse()
+        {
+            var rsaBlock = CreateRsaBlock();
+            var decoder = new WorldReconnectHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                Substitute.For<ICacheAPI>());
+
+            var result = decoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: true, encryptedPayload: new byte[7]),
+                out var message);
+
+            Assert.IsFalse(result);
+            Assert.IsNull(message);
+        }
+
+        [TestMethod]
+        public void HandshakeHub_RegistersReconnectRequestAsDistinctHandler()
+        {
+            var method = typeof(Hagalaz.Services.GameWorld.Hubs.HandshakeHub).GetMethod(nameof(Hagalaz.Services.GameWorld.Hubs.HandshakeHub.ReconnectWorld));
+
+            Assert.IsNotNull(method);
+            Assert.IsInstanceOfType<RaidoMessageHandlerAttribute>(method!.GetCustomAttributes(typeof(RaidoMessageHandlerAttribute), inherit: true).Single());
+            var handler = (RaidoMessageHandlerAttribute)method.GetCustomAttributes(typeof(RaidoMessageHandlerAttribute), inherit: true).Single();
+            Assert.AreEqual(typeof(WorldReconnectRequest), handler.Message);
+            Assert.AreEqual(typeof(WorldReconnectRequest), method.GetParameters().Single().ParameterType);
         }
 
         [TestMethod]

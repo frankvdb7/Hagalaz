@@ -7,6 +7,7 @@ namespace Hagalaz.Services.GameWorld.Services
     {
         ValueTask<SignInResult> SignInLobbyAsync(SignInRequest request);
         ValueTask<SignInResult> SignInWorldAsync(SignInRequest request);
+        ValueTask<SignInResult> AuthenticateWorldReconnectAsync(SignInRequest request);
         Task SignOutAsync();
     }
 }

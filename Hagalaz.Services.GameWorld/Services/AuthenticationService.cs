@@ -307,6 +307,10 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
             });
 
+        public ValueTask<SignInResult> AuthenticateWorldReconnectAsync(SignInRequest signInRequest) =>
+            ExecuteSignInAsync(cancellationToken =>
+                SignInAsync(signInRequest, Constants.OAuth.WorldClientId, _worldClientScopes, cancellationToken));
+
         private async ValueTask<SignInResult> ExecuteSignInAsync(
             Func<CancellationToken, ValueTask<SignInResult>> signIn)
         {

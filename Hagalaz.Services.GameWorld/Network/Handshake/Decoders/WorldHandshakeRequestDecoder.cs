@@ -217,23 +217,45 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 
                 // stop cache CRC block
 
-                decodedMessage = new WorldSignInRequest
-                {
-                    ClientRevision = clientRevision,
-                    ClientRevisionPatch = clientRevisionPatch,
-                    Login = login,
-                    Password = password,
-                    IsaacSeed = isaacSeed,
-                    CacheCRCs = cacheCrCs,
-                    ClientId = Convert.ToHexString(userId),
-                    DisplayMode = (DisplayMode)displayMode,
-                    ClientSizeX = screenSizeX,
-                    ClientSizeY = screenSizeY
-                };
+                decodedMessage = CreateRequest(
+                    clientRevision,
+                    clientRevisionPatch,
+                    login,
+                    password,
+                    isaacSeed,
+                    cacheCrCs,
+                    Convert.ToHexString(userId),
+                    (DisplayMode)displayMode,
+                    screenSizeX,
+                    screenSizeY);
                 return true;
                 });
             message = decoded ? decodedMessage : default;
             return decoded;
         }
+
+        protected virtual ClientSignInRequest CreateRequest(
+            int clientRevision,
+            int clientRevisionPatch,
+            string login,
+            string password,
+            uint[] isaacSeed,
+            int[] cacheCrcs,
+            string clientId,
+            DisplayMode displayMode,
+            short clientSizeX,
+            short clientSizeY) => new WorldSignInRequest
+            {
+                ClientRevision = clientRevision,
+                ClientRevisionPatch = clientRevisionPatch,
+                Login = login,
+                Password = password,
+                IsaacSeed = isaacSeed,
+                CacheCRCs = cacheCrcs,
+                ClientId = clientId,
+                DisplayMode = displayMode,
+                ClientSizeX = clientSizeX,
+                ClientSizeY = clientSizeY
+            };
     }
 }

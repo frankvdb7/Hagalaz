@@ -493,6 +493,7 @@ namespace Hagalaz.Services.GameWorld
                     // keep client timeout double keep alive
                     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
                     options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+                    options.StatefulReconnectEnabled = true;
                     options.AddGlobalFilter<CharacterFilter>();
                 })
                 .AddHub<HandshakeHub>()
@@ -512,7 +513,7 @@ namespace Hagalaz.Services.GameWorld
                 options.AddDecoder<ClientHandshakeRequestDecoder>(14);
                 options.AddDecoder<ClientUpdateRequestDecoder>(15);
                 options.AddDecoder<WorldHandshakeRequestDecoder>(16);
-                options.AddDecoder<WorldHandshakeRequestDecoder>(18); // reconnect
+                options.AddDecoder<WorldReconnectHandshakeRequestDecoder>(18);
                 options.AddDecoder<LobbyHandshakeRequestDecoder>(19);
 
                 options.AddEncoder<ClientHandshakeResponseEncoder>();

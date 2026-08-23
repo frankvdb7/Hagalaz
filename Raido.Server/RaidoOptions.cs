@@ -17,6 +17,17 @@ namespace Raido.Server
         /// Gets or sets the time window clients have to send a message before the server closes the connection. The default timeout is 30 seconds.
         /// </summary>
         public TimeSpan? ClientTimeoutInterval { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether Raido connections retain their logical lifetime during a physical transport loss.
+        /// The default is <see langword="false"/>.
+        /// </summary>
+        public bool StatefulReconnectEnabled { get; set; }
+
+        /// <summary>
+        /// Gets or sets the bounded period in which a replacement physical transport may rebind.
+        /// </summary>
+        public TimeSpan StatefulReconnectGracePeriod { get; set; } = TimeSpan.FromSeconds(15);
         
         /// <summary>
         /// Gets or sets the maximum message size of a single incoming hub message. The default is 32KB.

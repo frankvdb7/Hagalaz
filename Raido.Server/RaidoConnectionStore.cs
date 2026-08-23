@@ -2,10 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Raido.Common.Protocol;
 
 namespace Raido.Server
 {
-    public class RaidoConnectionStore : IEnumerable<RaidoConnectionContext>
+    public class RaidoConnectionStore : IEnumerable<RaidoConnectionContext>, IDisposable
     {
         private readonly ConcurrentDictionary<string, RaidoConnectionContext> _connections = new(StringComparer.Ordinal);
         
@@ -20,9 +22,73 @@ namespace Raido.Server
         
         public int Count => _connections.Count;
         
-        public void Add(RaidoConnectionContext connection) => _connections.TryAdd(connection.ConnectionId, connection);
+        public void Add(RaidoConnectionContext connection)
+        {
+            _connections.TryAdd(connection.ConnectionId, connection);
+        }
 
-        public void Remove(RaidoConnectionContext connection) => _connections.TryRemove(connection.ConnectionId, out _);
+        public void Remove(RaidoConnectionContext connection)
+        {
+            _connections.TryRemove(connection.ConnectionId, out _);
+        }
+
+        /// <summary>
+        /// Attempts to attach a replacement physical transport to a retained logical connection.
+        /// </summary>
+        public ValueTask<bool> TryRebindAsync(string connectionId, RaidoConnectionContext replacement)
+        {
+            ArgumentNullException.ThrowIfNull(connectionId);
+            ArgumentNullException.ThrowIfNull(replacement);
+
+            return _connections.TryGetValue(connectionId, out var connection)
+                ? connection.TryRebindAsync(replacement, replacementProtocol: null)
+                : ValueTask.FromResult(false);
+        }
+
+        /// <summary>
+        /// Attempts to attach a replacement physical transport and protocol to a retained logical connection.
+        /// </summary>
+        public ValueTask<bool> TryRebindAsync(
+            string connectionId,
+            RaidoConnectionContext replacement,
+            IRaidoProtocol replacementProtocol)
+        {
+            ArgumentNullException.ThrowIfNull(connectionId);
+            ArgumentNullException.ThrowIfNull(replacement);
+            ArgumentNullException.ThrowIfNull(replacementProtocol);
+
+            return _connections.TryGetValue(connectionId, out var connection)
+                ? connection.TryRebindAsync(replacement, replacementProtocol)
+                : ValueTask.FromResult(false);
+        }
+
+        /// <summary>
+        /// Attempts to attach the caller's physical transport and protocol to a retained logical connection.
+        /// </summary>
+        public ValueTask<bool> TryRebindAsync(
+            string connectionId,
+            RaidoCallerContext replacement,
+            IRaidoProtocol replacementProtocol)
+        {
+            ArgumentNullException.ThrowIfNull(replacement);
+
+            return _connections.TryGetValue(replacement.ConnectionId, out var replacementConnection)
+                ? TryRebindAsync(connectionId, replacementConnection, replacementProtocol)
+                : ValueTask.FromResult(false);
+        }
+
+        /// <summary>
+        /// Closes every retained logical connection.
+        /// </summary>
+        public void Dispose()
+        {
+            foreach (var connection in _connections.Values)
+            {
+                connection.Abort();
+            }
+
+            _connections.Clear();
+        }
         
         public Enumerator GetEnumerator() => new(this);
         IEnumerator<RaidoConnectionContext> IEnumerable<RaidoConnectionContext>.GetEnumerator() => GetEnumerator();

@@ -116,39 +116,75 @@ namespace Raido.Server
         /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
         public virtual async Task DispatchMessagesAsync(RaidoConnectionContext connection)
         {
-            await using (var protocolReader = connection.CreateReader())
+            while (true)
             {
-                while (true)
+                var generation = connection.PhysicalGeneration;
+                await using (var protocolReader = connection.CreateReader())
                 {
-                    try
+                    while (true)
                     {
-                        connection.BeginClientTimeout();
-                        var result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
-                        if (result.IsCanceled)
+                        try
                         {
-                            break;
+                            connection.BeginClientTimeout();
+                            var result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize,
+                                connection.PhysicalConnectionAbortedToken);
+                            if (result.IsCanceled)
+                            {
+                                break;
+                            }
+
+                            if (result.Message == default)
+                            {
+                                if (result.IsCompleted)
+                                {
+                                    break;
+                                }
+
+                                continue;
+                            }
+
+                            connection.StopClientTimeout();
+
+                            Log.ReceivedMessage(_logger, result.Message);
+
+                            if (await connection.EnterDispatchAsync(generation))
+                            {
+                                try
+                                {
+                                    await _dispatcher.DispatchMessageAsync(connection, result.Message);
+                                }
+                                finally
+                                {
+                                    connection.ExitDispatch();
+                                }
+                            }
+
+                            if (result.IsCompleted)
+                            {
+                                break;
+                            }
                         }
-
-                        if (result.Message == default)
+                        finally
                         {
-                            continue;
-                        }
-
-                        connection.StopClientTimeout();
-
-                        Log.ReceivedMessage(_logger, result.Message);
-
-                        await _dispatcher.DispatchMessageAsync(connection, result.Message);
-
-                        if (result.IsCompleted)
-                        {
-                            break;
+                            protocolReader.Advance();
                         }
                     }
-                    finally
-                    {
-                        protocolReader.Advance();
-                    }
+                }
+
+                if (connection.LifecycleState == RaidoConnectionLifecycleState.Connected &&
+                    connection.PhysicalGeneration != generation)
+                {
+                    continue;
+                }
+
+                if (connection.LifecycleState != RaidoConnectionLifecycleState.Reconnecting)
+                {
+                    return;
+                }
+
+                if (!await connection.WaitForRebindOrCloseAsync())
+                {
+                    return;
                 }
             }
         }
