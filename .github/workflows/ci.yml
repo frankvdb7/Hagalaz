@@ -41,6 +41,23 @@ jobs:
           name: dotnet-test-results
           path: "**/TestResults/*.trx"
 
+  openspec:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Validate active OpenSpec artifacts
+        run: npx --yes @fission-ai/openspec@1.10.0 validate --all --strict --no-interactive
+
+      - name: Validate archived OpenSpec tasks
+        run: npx --yes @fission-ai/openspec@1.10.0 validate --archived --no-interactive
+
   webapp:
     runs-on: ubuntu-latest
     defaults:
