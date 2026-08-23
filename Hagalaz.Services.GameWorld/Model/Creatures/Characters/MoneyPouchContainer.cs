@@ -180,6 +180,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public bool RemoveForTrade(int count) => ExecuteWithInventoryBoundary(() => RemoveForTradeCore(count));
 
+        /// <summary>
+        /// Removes exactly the requested number of coins using the checked pouch and inventory operation.
+        /// </summary>
+        public bool TryRemoveExact(int count) => RemoveForTrade(count);
+
         private bool RemoveForTradeCore(int count)
         {
             if (count <= 0)

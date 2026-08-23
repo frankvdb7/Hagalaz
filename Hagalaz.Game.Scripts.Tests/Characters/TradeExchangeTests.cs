@@ -763,6 +763,8 @@ public sealed class TradeExchangeTests
             return remaining <= 0 || TradeExchange.RemoveForTrade(_overflowInventory,
                 new TestItem(995, remaining, stackable: true));
         }
+
+        public bool TryRemoveExact(int count) => RemoveForTrade(count);
     }
 
     private sealed class TestItem : IItem
