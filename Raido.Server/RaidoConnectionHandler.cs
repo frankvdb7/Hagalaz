@@ -206,6 +206,18 @@ namespace Raido.Server
                             return;
                         }
 
+                        if (connection.HasPreparedReconnectAttempt)
+                        {
+                            // A reservation was invalidated after the reconnect message was
+                            // dispatched. Do not reinterpret this physical connection as a
+                            // fresh ordinary handshake; the reservation owns its termination.
+                            protocolReader.Advance();
+                            advanced = true;
+                            connection.Abort();
+                            connection.ClearPreparedReconnectReservation();
+                            return;
+                        }
+
                         protocolReader.Advance();
                         advanced = true;
                         if (result.IsCompleted) return;

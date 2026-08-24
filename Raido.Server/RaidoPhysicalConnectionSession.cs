@@ -164,21 +164,21 @@ internal sealed class RaidoPhysicalConnectionSession
                 }
             }
 
+            ReadOnlyMemory<byte> pendingInput;
+            RaidoApplicationConnection oldApplication;
             await source.AcquireTransferWriteLockAsync().ConfigureAwait(false);
             try
             {
                 // Stop this exact pump generation before the source protocol reader snapshots its suffix.
                 await StopPumpsAsync().ConfigureAwait(false);
                 await target.WaitForPreviousPhysicalPumpsAsync().ConfigureAwait(false);
-                var pendingInput = await capturePendingInput().ConfigureAwait(false);
+                pendingInput = await capturePendingInput().ConfigureAwait(false);
 
-                var oldApplication = _application!;
-                await DrainOutputAsync(oldApplication.OutputReader).ConfigureAwait(false);
+                oldApplication = _application!;
 
                 if (!target.CommitRebind(transfer))
                 {
                     target.RollbackRebind();
-                    StartPumps();
                     return false;
                 }
 
@@ -188,19 +188,30 @@ internal sealed class RaidoPhysicalConnectionSession
                     _application = targetApplication;
                     _logicalConnection = target;
                 }
-
-                // Install all bytes already observed by the replacement reader before the new
-                // transport pump is allowed to deliver more input to the logical application.
-                await WritePendingInputAsync(targetApplication.InputWriter, pendingInput).ConfigureAwait(false);
-                StartPumps();
-                await transfer.Reservation!.InvokeCommittedAsync().ConfigureAwait(false);
-                await target.InvokeReconnectedAsync().ConfigureAwait(false);
-                return true;
             }
             finally
             {
                 source.ReleaseTransferWriteLock();
             }
+
+            // The response is the first replacement-transport output. The logical callback is
+            // allowed to write through the explicit rebind barrier, while normal writes wait.
+            await transfer.Reservation!.InvokeCommittedAsync().ConfigureAwait(false);
+            await DrainOutputAsync(targetApplication.OutputReader).ConfigureAwait(false);
+            await transfer.Reservation.InvokePostCommitAsync().ConfigureAwait(false);
+            await DrainOutputAsync(targetApplication.OutputReader).ConfigureAwait(false);
+
+            // Output queued on the retained application before the transport loss follows the
+            // reconnect response and resynchronization, never precedes the success packet.
+            await DrainOutputAsync(oldApplication.OutputReader).ConfigureAwait(false);
+
+            // Install all bytes already observed by the replacement reader before the new
+            // transport pump is allowed to deliver more input to the logical application.
+            await WritePendingInputAsync(targetApplication.InputWriter, pendingInput).ConfigureAwait(false);
+            target.ReleaseRebindOutputBarrier();
+            StartPumps();
+            await target.InvokeReconnectedAsync().ConfigureAwait(false);
+            return true;
         }
 
         catch (Exception ex)

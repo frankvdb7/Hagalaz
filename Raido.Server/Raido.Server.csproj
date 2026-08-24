@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Raido.Server.Tests" />
+    <InternalsVisibleTo Include="Hagalaz.Services.GameWorld.Tests" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

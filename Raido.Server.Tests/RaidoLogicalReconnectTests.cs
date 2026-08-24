@@ -226,6 +226,93 @@ public sealed class RaidoLogicalReconnectTests
     }
 
     [TestMethod]
+    public async Task RebindFlushesCommittedResponseAndPostCommitWorkBeforeNormalTraffic()
+    {
+        using var original = new PhysicalConnection("physical-1");
+        using var replacementPhysical = new PhysicalConnection("physical-2");
+        var context = CreateContext(original, statefulReconnect: true);
+        var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        store.Add(context);
+        original.Closed.Cancel();
+
+        var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
+        Assert.IsNotNull(reservation);
+        reservation!.OnCommitted(() => context.WriteAsync(new TestMessage(), new WritingProtocol(1)).AsTask());
+        reservation.OnPostCommit(() => context.WriteAsync(new TestMessage(), new WritingProtocol(2)).AsTask());
+        context.Features.Get<IRaidoStatefulReconnectFeature>()!.OnReconnected(_ =>
+            context.WriteAsync(new TestMessage(), new WritingProtocol(3)).AsTask());
+
+        await CommitTransferAsync(replacement);
+
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, await ReadOutputAsync(replacementPhysical.Output.Reader, 3));
+        context.Abort();
+    }
+
+    [TestMethod]
+    public async Task InvalidatedReservationAbortsTheTemporaryReconnectConnection()
+    {
+        using var original = new PhysicalConnection("physical-1");
+        using var replacementPhysical = new PhysicalConnection("physical-2");
+        var context = CreateContext(original, statefulReconnect: true);
+        var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        store.Add(context);
+        original.Closed.Cancel();
+
+        var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
+        Assert.IsNotNull(reservation);
+
+        reservation!.Invalidate();
+        await replacement.AbortAsync();
+
+        Assert.AreEqual(RaidoConnectionLifecycleState.Closed, replacement.LifecycleState);
+        Assert.IsTrue(replacement.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.AreEqual(RaidoConnectionLifecycleState.Reconnecting, context.LifecycleState);
+        context.Abort();
+    }
+
+    [TestMethod]
+    public async Task GraceExpiryAfterPrepareAbortsTheTemporaryReconnectConnection()
+    {
+        using var original = new PhysicalConnection("physical-1");
+        using var replacementPhysical = new PhysicalConnection("physical-2");
+        var timeProvider = new ManualTimeProvider();
+        var context = CreateContext(original, statefulReconnect: true, timeProvider: timeProvider);
+        var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        store.Add(context);
+        original.Closed.Cancel();
+
+        Assert.IsNotNull(await store.TryPrepareRebindAsync(context.ConnectionId, replacement));
+        timeProvider.FireTimers();
+
+        await replacement.AbortAsync();
+        Assert.AreEqual(RaidoConnectionLifecycleState.Closed, replacement.LifecycleState);
+        Assert.IsTrue(replacement.ConnectionAbortedToken.IsCancellationRequested);
+        context.Abort();
+    }
+
+    [TestMethod]
+    public async Task LogicalAbortAfterPrepareAbortsTheTemporaryReconnectConnection()
+    {
+        using var original = new PhysicalConnection("physical-1");
+        using var replacementPhysical = new PhysicalConnection("physical-2");
+        var context = CreateContext(original, statefulReconnect: true);
+        var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        store.Add(context);
+        original.Closed.Cancel();
+
+        Assert.IsNotNull(await store.TryPrepareRebindAsync(context.ConnectionId, replacement));
+        context.Abort();
+
+        await replacement.AbortAsync();
+        Assert.AreEqual(RaidoConnectionLifecycleState.Closed, replacement.LifecycleState);
+        Assert.IsTrue(replacement.ConnectionAbortedToken.IsCancellationRequested);
+    }
+
+    [TestMethod]
     public async Task RebindCanInstallReplacementProtocolBeforeTheFirstWrite()
     {
         using var original = new PhysicalConnection("physical-1");
@@ -472,5 +559,19 @@ public sealed class RaidoLogicalReconnectTests
         }
 
         Assert.IsTrue(condition());
+    }
+
+    private static async Task<byte[]> ReadOutputAsync(PipeReader reader, int expectedLength)
+    {
+        var bytes = new List<byte>(expectedLength);
+        while (bytes.Count < expectedLength)
+        {
+            var result = await reader.ReadAsync();
+            bytes.AddRange(result.Buffer.ToArray());
+            reader.AdvanceTo(result.Buffer.End);
+            if (result.IsCompleted) break;
+        }
+
+        return bytes.ToArray();
     }
 }

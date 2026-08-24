@@ -39,7 +39,17 @@ Raido MUST distinguish reserving a replacement from committing it. A reservation
 #### Scenario: Deferred reconnect response
 
 - **WHEN** application code prepares a replacement and registers the reconnect success response
-- **THEN** the response is written only after the target protocol and physical session have committed, and a failed or expired reservation produces no success response
+- **THEN** the response is written only after the target protocol and physical session have committed, it is flushed as the first replacement-transport output, and a failed or expired reservation produces no success response
+
+#### Scenario: Invalidated prepared replacement
+
+- **WHEN** a prepared replacement is invalidated by expiry, abort, or a failed ownership check before commit
+- **THEN** the temporary replacement connection is terminated and its handler does not continue as an ordinary handshake
+
+#### Scenario: Post-commit output barrier
+
+- **WHEN** committed response work and explicit post-commit work write to the logical connection
+- **THEN** response output is flushed first, post-commit output follows it, normal writes wait behind both, and pending replacement input is released only after that ordering is established
 
 ### Requirement: Physical pumps have one owner
 

@@ -27,13 +27,15 @@
 
 2. **Require an active world session and retained logical context.** The session must be an `IGameWorldSession`, its connection must be present in `RaidoConnectionStore` and `Reconnecting`, and its logical features must contain the same character/master ownership. A missing or mismatched condition rejects the replacement.
 
-3. **Reserve during the handshake and commit after reader ownership is released.** The reconnect hub reserves the existing logical connection from inside the temporary handshake dispatch. Raido then stops the replacement physical pumps, waits for the target's previous pumps, captures the temporary reader's unread suffix, installs the fresh protocol, and commits the stable application pipes before writing that suffix. This prevents two readers and prevents replacement bytes from being read with the old ISAAC state.
+3. **Reserve during the handshake and commit after reader ownership is released.** The reconnect hub reserves the existing logical connection from inside the temporary handshake dispatch. Raido then stops the replacement physical pumps, waits for the target's previous pumps, captures the temporary reader's unread suffix, installs the fresh protocol, commits the stable application pipes, flushes the reconnect response first, runs the post-commit map/appearance resynchronization, and only then releases the suffix to the resumed application. This prevents two readers, prevents replacement bytes from being read with the old ISAAC state, and makes a successful reconnect response the first packet on the new physical connection.
 
 4. **Do not copy replacement features into the logical context.** Authentication, session, character, contacts, and caller items remain owned by the original logical context. The replacement context is only a physical transport carrier and is not allowed to become a second GameWorld session.
 
-5. **Resynchronize current authoritative state only.** After the rebind and successful world response, call the existing character map update with a forced viewport rebuild and refresh the existing appearance. Transient packets lost during the break are not replayed.
+5. **Resynchronize current authoritative state only.** Register the existing character map update with a forced viewport rebuild and appearance refresh as explicit post-commit work. Raido runs it after the successful response is queued/flushed and before pending replacement input and normal reconnected traffic are released. Transient packets lost during the break are not replayed.
 
 6. **Keep failure cleanup idempotent.** A rejected replacement is aborted without publishing a new lobby/world sign-out. The winning replacement completes the temporary application only after the transfer commits; only logical expiry/abort reaches the existing disconnect path.
+
+7. **Keep the reservation narrow.** The GameWorld boundary registers one reconnect response and one post-commit resynchronization action; it does not introduce a second session owner, replay queue, or general reconnect coordinator. An invalidated reservation terminates the temporary replacement instead of allowing ordinary handshake fallback.
 
 ## Risks / Trade-offs
 

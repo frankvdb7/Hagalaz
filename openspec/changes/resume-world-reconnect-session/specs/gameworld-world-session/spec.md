@@ -7,7 +7,7 @@ GameWorld MUST accept a valid revision-742 opcode-18 reconnect during the Raido 
 #### Scenario: Successful reconnect
 
 - **WHEN** a valid opcode-18 request authenticates the owner of a retained reconnecting world session
-- **THEN** GameWorld rebinds the replacement transport through Raido, preserves the existing `GameSession` and exact `ICharacter` instance, installs fresh protocol/encryption state, and returns the normal world sign-in success response
+- **THEN** GameWorld rebinds the replacement transport through Raido, preserves the existing `GameSession` and exact `ICharacter` instance, installs fresh protocol/encryption state, and returns the normal world sign-in success response as the first replacement-transport packet
 
 #### Scenario: Invalid ownership
 
@@ -30,7 +30,12 @@ GameWorld MUST send only focused authoritative resynchronization using existing 
 #### Scenario: Current view rebuild
 
 - **WHEN** a reconnect succeeds
-- **THEN** the character receives a forced map/viewport rebuild and appearance refresh, and no bytes encoded with the old protocol/encryption state are replayed
+- **THEN** the success response is flushed first, the character receives a forced map/viewport rebuild and appearance refresh in the post-commit phase, and no bytes encoded with the old protocol/encryption state are replayed
+
+#### Scenario: Invalidated reconnect
+
+- **WHEN** the retained session expires, is aborted, or loses the prepare/commit race after the replacement handshake begins
+- **THEN** the temporary replacement connection terminates and does not continue through ordinary handshake processing
 
 ### Requirement: Terminal cleanup remains the existing boundary
 

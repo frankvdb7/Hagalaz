@@ -345,12 +345,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
 
-            // The response is encoded with the handshake protocol, but is emitted only after
-            // the replacement transport has committed. This prevents a success response from
-            // racing a failed rebind transaction.
+            // Raido flushes this response after the replacement transport commits and before
+            // it releases pending input or normal output. The existing character state is
+            // resynchronized in the explicit post-commit phase below.
             reservation.OnCommitted(() => logicalConnection.WriteAsync(response, handshakeProtocol).AsTask());
-            character.UpdateMap(forceUpdate: true, renderViewPort: true);
-            character.Appearance.Refresh();
+            reservation.OnPostCommit(() =>
+            {
+                character.UpdateMap(forceUpdate: true, renderViewPort: true);
+                character.Appearance.Refresh();
+                return Task.CompletedTask;
+            });
             ClearReconnectAuthentication();
         }
 
