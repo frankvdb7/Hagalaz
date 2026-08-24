@@ -10,10 +10,21 @@ namespace Raido.Server;
 /// </summary>
 internal sealed class RaidoApplicationConnection : IDuplexPipe
 {
-    private readonly Pipe _input = new();
-    private readonly Pipe _output = new();
+    private readonly Pipe _input;
+    private readonly Pipe _output;
     private readonly TaskCompletionSource<RaidoApplicationExitReason> _completion =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    internal RaidoApplicationConnection()
+        : this(null)
+    {
+    }
+
+    internal RaidoApplicationConnection(PipeOptions? outputOptions)
+    {
+        _input = new Pipe();
+        _output = new Pipe(outputOptions ?? new PipeOptions());
+    }
 
     public PipeReader Input => _input.Reader;
 

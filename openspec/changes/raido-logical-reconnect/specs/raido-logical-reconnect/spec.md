@@ -56,6 +56,11 @@ Raido MUST distinguish reserving a replacement from committing it. A reservation
 - **WHEN** a normal write or keep-alive ping races the reconnect commit
 - **THEN** it either completes admission before the reconnect barrier is installed or waits for the barrier, and cannot pass between the barrier check and write-lock acquisition
 
+#### Scenario: Blocked pre-loss output flush
+
+- **WHEN** an ordinary pre-loss write owns the retained logical write lock while its application-pipe flush is blocked and a replacement is committed
+- **THEN** reconnect quiesces that pending flush before waiting for the target write lock, the intentional cancellation does not abort the logical connection, the uncertain bytes are discarded, and the committed response is followed by normal post-reconnect output
+
 ### Requirement: Physical pumps have one owner
 
 Raido MUST stop the previous physical pumps and release their stable application-pipe reader/writer ownership before starting replacement pumps.

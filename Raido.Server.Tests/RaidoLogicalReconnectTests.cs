@@ -21,8 +21,13 @@ public sealed class RaidoLogicalReconnectTests
     private sealed class WritingProtocol : IRaidoProtocol
     {
         private readonly byte _value;
+        private readonly int _length;
 
-        public WritingProtocol(byte value = 42) => _value = value;
+        public WritingProtocol(byte value = 42, int length = 1)
+        {
+            _value = value;
+            _length = length;
+        }
 
         public string Name => "reconnect";
         public int Version => 1;
@@ -36,8 +41,9 @@ public sealed class RaidoLogicalReconnectTests
 
         public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output)
         {
-            output.GetSpan(1)[0] = message is PingMessage ? (byte)9 : _value;
-            output.Advance(1);
+            var value = message is PingMessage ? (byte)9 : _value;
+            output.GetSpan(_length).Slice(0, _length).Fill(value);
+            output.Advance(_length);
         }
 
         public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => new[] { message is PingMessage ? (byte)9 : _value };
@@ -293,6 +299,42 @@ public sealed class RaidoLogicalReconnectTests
         await CommitTransferAsync(replacement);
 
         CollectionAssert.AreEqual(new byte[] { 1 }, await ReadOutputAsync(replacementPhysical.Output.Reader, 1));
+        context.Abort();
+    }
+
+    [TestMethod]
+    [Timeout(10000)]
+    public async Task RebindCancelsBlockedPreLossFlushBeforeTakingTheTargetWriteLock()
+    {
+        using var original = new PhysicalConnection("physical-1");
+        using var replacementPhysical = new PhysicalConnection("physical-2");
+        var context = CreateContext(
+            original,
+            statefulReconnect: true,
+            applicationOutputOptions: new PipeOptions(pauseWriterThreshold: 2, resumeWriterThreshold: 1),
+            startPhysicalSession: false);
+        var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        store.Add(context);
+
+        var staleWrite = context.WriteAsync(new TestMessage(), new WritingProtocol(99, length: 2)).AsTask();
+        Assert.IsFalse(staleWrite.IsCompleted);
+
+        original.Closed.Cancel();
+        Assert.AreEqual(RaidoConnectionLifecycleState.Reconnecting, context.LifecycleState);
+
+        var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
+        Assert.IsNotNull(reservation);
+        reservation!.OnCommitted(() => context.WriteAsync(new TestMessage(), new WritingProtocol(1)).AsTask());
+
+        await CommitTransferAsync(replacement);
+        await staleWrite;
+
+        Assert.AreEqual(RaidoConnectionLifecycleState.Connected, context.LifecycleState);
+        Assert.IsNull(context.CloseException);
+        await context.WriteAsync(new TestMessage(), new WritingProtocol(2));
+
+        CollectionAssert.AreEqual(new byte[] { 1, 2 }, await ReadOutputAsync(replacementPhysical.Output.Reader, 2));
         context.Abort();
     }
 
@@ -604,16 +646,27 @@ public sealed class RaidoLogicalReconnectTests
         PhysicalConnection physical,
         bool statefulReconnect,
         TimeProvider? timeProvider = null,
-        bool enableReconnect = true)
+        bool enableReconnect = true,
+        PipeOptions? applicationOutputOptions = null,
+        bool startPhysicalSession = true)
     {
-        var context = new RaidoConnectionContext(physical.Context, new RaidoConnectionContextOptions
+        var options = new RaidoConnectionContextOptions
         {
             KeepAliveInterval = TimeSpan.FromMinutes(1),
             ClientTimeoutInterval = TimeSpan.FromMinutes(1),
             StatefulReconnectEnabled = statefulReconnect,
             StatefulReconnectGracePeriod = TimeSpan.FromSeconds(1),
             TimeProvider = timeProvider ?? TimeProvider.System
-        }, NullLoggerFactory.Instance)
+        };
+        var context = applicationOutputOptions is null
+            ? new RaidoConnectionContext(physical.Context, options, NullLoggerFactory.Instance)
+            : new RaidoConnectionContext(
+                new RaidoApplicationConnection(applicationOutputOptions),
+                new RaidoPhysicalConnectionSession(physical.Context, NullLoggerFactory.Instance),
+                physical.Context.Features,
+                physical.Context.Items,
+                options,
+                NullLoggerFactory.Instance)
         {
             Protocol = new WritingProtocol()
         };
@@ -623,7 +676,7 @@ public sealed class RaidoLogicalReconnectTests
             context.Features.Get<IRaidoStatefulReconnectFeature>()!.EnableReconnect();
         }
 
-        _ = context.StartPhysicalSession();
+        if (startPhysicalSession) _ = context.StartPhysicalSession();
         return context;
     }
 

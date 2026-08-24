@@ -51,6 +51,7 @@ public class RaidoConnectionContext
     private ClaimsPrincipal? _user;
     private bool _clientTimeoutActive;
     private bool _connectionAborted;
+    private bool _reconnectOutputFlushCancellationRequested;
     private bool _statefulReconnectEnabled;
     private bool _statefulReconnectVetoed;
     private RaidoConnectionLifecycleState _lifecycleState = RaidoConnectionLifecycleState.Connected;
@@ -234,6 +235,10 @@ public class RaidoConnectionContext
             if (!_application.Output.CanGetUnflushedBytes || _application.Output.UnflushedBytes > 0) Log.SentMessage(_logger, message);
             return _application.Output.FlushAsync(cancellationToken);
         }
+        catch (OperationCanceledException) when (ConsumeReconnectOutputFlushCancellation())
+        {
+            return new ValueTask<FlushResult>(new FlushResult(isCanceled: true, isCompleted: false));
+        }
         catch (Exception ex)
         {
             CloseException = ex;
@@ -245,7 +250,12 @@ public class RaidoConnectionContext
 
     private async Task CompleteWriteAsync(ValueTask<FlushResult> task)
     {
-        try { await task.ConfigureAwait(false); }
+        try
+        {
+            var result = await task.ConfigureAwait(false);
+            if (result.IsCanceled) ConsumeReconnectOutputFlushCancellation();
+        }
+        catch (OperationCanceledException) when (ConsumeReconnectOutputFlushCancellation()) { }
         catch (Exception ex) { CloseException = ex; Log.FailedWritingMessage(_logger, ex); AbortAllowReconnect(ex); }
         finally { _writeLock.Release(); }
     }
@@ -264,9 +274,14 @@ public class RaidoConnectionContext
             else
             {
                 if (IsReconnecting()) throw new RaidoConnectionReconnectingException(ConnectionId);
-                if (!_connectionAborted || ignoreAbort) await WriteCore(message, protocolOverride ?? Protocol, cancellationToken).ConfigureAwait(false);
+                if (!_connectionAborted || ignoreAbort)
+                {
+                    var result = await WriteCore(message, protocolOverride ?? Protocol, cancellationToken).ConfigureAwait(false);
+                    if (result.IsCanceled) ConsumeReconnectOutputFlushCancellation();
+                }
             }
         }
+        catch (OperationCanceledException) when (ConsumeReconnectOutputFlushCancellation()) { }
         catch (RaidoConnectionReconnectingException) { throw; }
         catch (Exception ex) { CloseException = ex; Log.FailedWritingMessage(_logger, ex); AbortAllowReconnect(ex); }
         finally { _writeLock.Release(); }
@@ -426,11 +441,13 @@ public class RaidoConnectionContext
         lock (_lifecycleLock) _reconnectedCallbacks.Add(callback);
     }
 
-    internal bool CommitRebind(RaidoApplicationTransfer transfer)
+    internal async Task<bool> CommitRebindAsync(RaidoApplicationTransfer transfer)
     {
-        _writeLock.Wait();
+        CancelPendingOutputFlushForReconnect();
+        await _writeLock.WaitAsync().ConfigureAwait(false);
         try
         {
+            ClearReconnectOutputFlushCancellation();
             lock (_lifecycleLock)
             {
                 var reservation = _rebindReservation;
@@ -452,6 +469,27 @@ public class RaidoConnectionContext
             _writeLock.Release();
         }
         return true;
+    }
+
+    internal void CancelPendingOutputFlushForReconnect()
+    {
+        lock (_lifecycleLock) _reconnectOutputFlushCancellationRequested = true;
+        _application.Output.CancelPendingFlush();
+    }
+
+    private bool ConsumeReconnectOutputFlushCancellation()
+    {
+        lock (_lifecycleLock)
+        {
+            if (!_reconnectOutputFlushCancellationRequested) return false;
+            _reconnectOutputFlushCancellationRequested = false;
+            return true;
+        }
+    }
+
+    private void ClearReconnectOutputFlushCancellation()
+    {
+        lock (_lifecycleLock) _reconnectOutputFlushCancellationRequested = false;
     }
     internal async Task InvokeReconnectedAsync()
     {

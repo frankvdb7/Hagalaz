@@ -173,7 +173,7 @@ internal sealed class RaidoPhysicalConnectionSession
                 await target.WaitForPreviousPhysicalPumpsAsync().ConfigureAwait(false);
                 pendingInput = await capturePendingInput().ConfigureAwait(false);
 
-                if (!target.CommitRebind(transfer))
+                if (!await target.CommitRebindAsync(transfer).ConfigureAwait(false))
                 {
                     target.RollbackRebind();
                     return false;
@@ -269,22 +269,23 @@ internal sealed class RaidoPhysicalConnectionSession
 
     private Task StopPumpsAsync()
     {
-        _connection.Transport.Input.CancelPendingRead();
-        _connection.Transport.Output.CancelPendingFlush();
         RaidoApplicationConnection? application;
         lock (_stateLock)
         {
             application = _application;
         }
-        application?.InputWriter.CancelPendingFlush();
-        application?.OutputReader.CancelPendingRead();
-
         PumpGeneration? generation;
         lock (_stateLock)
         {
             generation = _pumpGeneration;
             _pumpGeneration = null;
         }
+
+        generation?.Cancel();
+        _connection.Transport.Input.CancelPendingRead();
+        _connection.Transport.Output.CancelPendingFlush();
+        application?.InputWriter.CancelPendingFlush();
+        application?.OutputReader.CancelPendingRead();
 
         return generation?.StopAsync() ?? Task.CompletedTask;
     }
@@ -529,6 +530,8 @@ internal sealed class RaidoPhysicalConnectionSession
         public Task InputPump { get; set; } = Task.CompletedTask;
         public Task OutputPump { get; set; } = Task.CompletedTask;
         public TaskCompletionSource Stopped { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Cancel() => _cts.Cancel();
 
         public Task StopAsync()
         {

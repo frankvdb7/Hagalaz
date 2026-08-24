@@ -6,6 +6,7 @@
 - [x] 1.4 Expose explicit enable/veto and post-rebind notification features; close retained connections when the veto is applied during grace.
 - [x] 1.5 Make prepare invalidation terminate the temporary replacement and make the committed response/post-commit output barrier explicit.
 - [x] 1.6 Discard uncertain pre-loss output, consume large post-commit output live, and install the barrier atomically with normal write admission.
+- [x] 1.7 Quiesce a pending retained-application output flush before asynchronously acquiring the target write lock, and keep that intentional cancellation recoverable.
 
 ## 2. Handler and dispatch integration
 
@@ -22,6 +23,7 @@
 - [x] 3.5 Test real application/physical pipes, same-buffer opcode-plus-payload transfer with exact suffix ordering, and original physical handler lifetime after rebind.
 - [x] 3.6 Test deterministic first-packet response ordering, post-commit output ordering, and invalidated replacement termination.
 - [x] 3.7 Test stale-output discard, large post-commit backpressure, normal-write admission, and keep-alive suppression during the barrier.
+- [x] 3.8 Test a blocked pre-loss application flush, replacement commit completion, intentional cancellation safety, stale-byte discard, and normal post-reconnect output.
 
 ## 4. Validation
 
