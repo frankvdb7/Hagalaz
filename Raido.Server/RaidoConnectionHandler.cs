@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raido.Common.Protocol;
@@ -18,6 +19,8 @@ namespace Raido.Server
         private readonly IRaidoDispatcher _dispatcher;
         private readonly RaidoMetrics _metrics;
         private readonly ILogger<RaidoConnectionHandler> _logger;
+        private readonly ILoggerFactory _loggerFactory;
+        private readonly RaidoOptions _raidoOptions;
         private readonly long? _maximumReceiveMessageSize;
         private readonly TimeProvider _timeProvider;
 
@@ -36,9 +39,47 @@ namespace Raido.Server
             _lifetimeManager = lifetimeManager;
             _dispatcher = dispatcher;
             _metrics = metrics;
+            _loggerFactory = loggerFactory;
+            _raidoOptions = raidoOptions.Value;
             _logger = loggerFactory.CreateLogger<RaidoConnectionHandler>();
-            _maximumReceiveMessageSize = raidoOptions.Value.MaximumReceiveMessageSize;
+            _maximumReceiveMessageSize = _raidoOptions.MaximumReceiveMessageSize;
             _timeProvider = TimeProvider.System;
+        }
+
+        /// <summary>
+        /// Creates the logical application and owns only the physical Kestrel lifetime for this
+        /// handler invocation. The logical task remains attached to its stable application context
+        /// when stateful reconnect keeps it alive after this transport ends.
+        /// </summary>
+        public async Task ConnectAsync(ConnectionContext connection, IRaidoProtocol protocol)
+        {
+            ArgumentNullException.ThrowIfNull(connection);
+            ArgumentNullException.ThrowIfNull(protocol);
+
+            var application = new RaidoApplicationConnection();
+            var session = new RaidoPhysicalConnectionSession(connection, _loggerFactory);
+            var context = new RaidoConnectionContext(application, session, connection.Features, connection.Items,
+                new RaidoConnectionContextOptions
+                {
+                    KeepAliveInterval = _raidoOptions.KeepAliveInterval.GetValueOrDefault(),
+                    ClientTimeoutInterval = _raidoOptions.ClientTimeoutInterval.GetValueOrDefault(),
+                    StatefulReconnectEnabled = _raidoOptions.StatefulReconnectEnabled,
+                    StatefulReconnectGracePeriod = _raidoOptions.StatefulReconnectGracePeriod
+                }, _loggerFactory)
+            {
+                Protocol = protocol,
+                OriginalActivity = Activity.Current
+            };
+
+            var applicationTask = ConnectApplicationAsync(context);
+            if (applicationTask.IsCompleted)
+            {
+                await applicationTask.ConfigureAwait(false);
+                return;
+            }
+
+            _ = ObserveApplicationTaskAsync(applicationTask, context.ConnectionId);
+            await context.StartPhysicalSession().ConfigureAwait(false);
         }
 
         /// <summary>
@@ -47,6 +88,17 @@ namespace Raido.Server
         /// <param name="connection">The connection to handle.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous connection handling.</returns>
         public async Task ConnectAsync(RaidoConnectionContext connection)
+        {
+            var applicationTask = ConnectApplicationAsync(connection);
+            if (!applicationTask.IsCompleted)
+            {
+                _ = connection.StartPhysicalSession();
+            }
+
+            await applicationTask.ConfigureAwait(false);
+        }
+
+        private async Task ConnectApplicationAsync(RaidoConnectionContext connection)
         {
             connection.MetricsContext = _metrics.CreateContext();
 
@@ -142,8 +194,7 @@ namespace Raido.Server
                         var transfer = connection.TakePendingTransfer();
                         if (transfer is not null)
                         {
-                            var succeeded = await transfer.CommitAsync(protocolReader.UnconsumedBuffer).ConfigureAwait(false);
-                            protocolReader.AdvanceToEnd();
+                            var succeeded = await transfer.CommitAsync(protocolReader.CaptureUnconsumedBytesAsync).ConfigureAwait(false);
                             advanced = true;
                             if (succeeded)
                             {
@@ -197,6 +248,18 @@ namespace Raido.Server
             {
                 Log.ErrorDispatchingHubEvent(_logger, "OnDisconnectedAsync", ex);
                 throw;
+            }
+        }
+
+        private async Task ObserveApplicationTaskAsync(Task applicationTask, string connectionId)
+        {
+            try
+            {
+                await applicationTask.ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "The logical Raido application for connection {ConnectionId} failed.", connectionId);
             }
         }
 

@@ -269,6 +269,7 @@ public sealed class RaidoHagalazUsageTests
         {
             Protocol = protocol
         };
+        _ = connection.StartPhysicalSession();
         return (connection, output.Reader);
     }
 

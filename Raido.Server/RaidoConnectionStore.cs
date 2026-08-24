@@ -33,22 +33,24 @@ namespace Raido.Server
         }
 
         /// <summary>
-        /// Reserves and commits a replacement physical transport for a retained logical connection.
+        /// Prepares a replacement physical transport for a retained logical connection.
+        /// The returned reservation is committed by the Raido connection handler after it has
+        /// quiesced the replacement input and captured all unread bytes.
         /// </summary>
-        public ValueTask<bool> TryRebindAsync(string connectionId, RaidoConnectionContext replacement)
+        public ValueTask<RaidoRebindReservation?> TryPrepareRebindAsync(string connectionId, RaidoConnectionContext replacement)
         {
             ArgumentNullException.ThrowIfNull(connectionId);
             ArgumentNullException.ThrowIfNull(replacement);
 
             return _connections.TryGetValue(connectionId, out var connection)
-                ? connection.TryRebindAsync(replacement, replacementProtocol: null)
-                : ValueTask.FromResult(false);
+                ? connection.TryPrepareRebindAsync(replacement, replacementProtocol: null)
+                : ValueTask.FromResult<RaidoRebindReservation?>(null);
         }
 
         /// <summary>
-        /// Reserves and commits a replacement physical transport and protocol for a retained logical connection.
+        /// Prepares a replacement physical transport and protocol for a retained logical connection.
         /// </summary>
-        public ValueTask<bool> TryRebindAsync(
+        public ValueTask<RaidoRebindReservation?> TryPrepareRebindAsync(
             string connectionId,
             RaidoConnectionContext replacement,
             IRaidoProtocol replacementProtocol)
@@ -58,14 +60,14 @@ namespace Raido.Server
             ArgumentNullException.ThrowIfNull(replacementProtocol);
 
             return _connections.TryGetValue(connectionId, out var connection)
-                ? connection.TryRebindAsync(replacement, replacementProtocol)
-                : ValueTask.FromResult(false);
+                ? connection.TryPrepareRebindAsync(replacement, replacementProtocol)
+                : ValueTask.FromResult<RaidoRebindReservation?>(null);
         }
 
         /// <summary>
-        /// Reserves and commits the caller's physical transport and protocol for a retained logical connection.
+        /// Prepares the caller's physical transport and protocol for a retained logical connection.
         /// </summary>
-        public ValueTask<bool> TryRebindAsync(
+        public ValueTask<RaidoRebindReservation?> TryPrepareRebindAsync(
             string connectionId,
             RaidoCallerContext replacement,
             IRaidoProtocol replacementProtocol)
@@ -73,8 +75,8 @@ namespace Raido.Server
             ArgumentNullException.ThrowIfNull(replacement);
 
             return _connections.TryGetValue(replacement.ConnectionId, out var replacementConnection)
-                ? TryRebindAsync(connectionId, replacementConnection, replacementProtocol)
-                : ValueTask.FromResult(false);
+                ? TryPrepareRebindAsync(connectionId, replacementConnection, replacementProtocol)
+                : ValueTask.FromResult<RaidoRebindReservation?>(null);
         }
 
         /// <summary>

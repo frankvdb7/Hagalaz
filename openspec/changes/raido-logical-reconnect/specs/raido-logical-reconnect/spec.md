@@ -32,6 +32,15 @@ Raido MUST provide one application-callable operation that can rebind a known re
 - **WHEN** multiple replacement transports attempt to rebind the same logical connection concurrently
 - **THEN** exactly one attempt succeeds and all losing attempts are rejected without replacing the winner
 
+### Requirement: Rebind uses explicit prepare and commit boundaries
+
+Raido MUST distinguish reserving a replacement from committing it. A reservation MUST be invalidated when the grace period expires, the logical connection is explicitly aborted, or transfer fails, and application work registered for commit MUST NOT be sent before the physical transfer commits.
+
+#### Scenario: Deferred reconnect response
+
+- **WHEN** application code prepares a replacement and registers the reconnect success response
+- **THEN** the response is written only after the target protocol and physical session have committed, and a failed or expired reservation produces no success response
+
 ### Requirement: Physical pumps have one owner
 
 Raido MUST stop the previous physical pumps and release their stable application-pipe reader/writer ownership before starting replacement pumps.
@@ -40,6 +49,11 @@ Raido MUST stop the previous physical pumps and release their stable application
 
 - **WHEN** a replacement wins during the reconnect grace window
 - **THEN** the old physical session cannot receive later logical writes, the replacement is the only active pump pair, and the logical handler continues to read the same application pipe
+
+#### Scenario: Generation-specific stop
+
+- **WHEN** a physical session is stopped and later restarted for a transfer
+- **THEN** the transfer awaits the stopped completion belonging to that exact pump generation and cannot be released by a completion from an earlier generation
 
 ### Requirement: The physical session owns its lifetime
 
@@ -58,6 +72,11 @@ Raido MUST leave completion of the stable application reader to its handler owne
 
 - **WHEN** the replacement handshake has an opcode-18 message followed by the first encrypted game packet in one read buffer
 - **THEN** the handshake reader advances through the opcode once, the unread suffix is written once to the target application pipe after the fresh protocol is installed, and the target handler dispatches the game packet once
+
+#### Scenario: Suffix precedes replacement input
+
+- **WHEN** the replacement socket contains the reconnect request and unread game bytes, then receives more bytes after commit
+- **THEN** the source reader is quiesced, all unread bytes are captured, the target protocol is installed, the captured suffix is installed before replacement pumps resume, and the target observes suffix bytes before later socket bytes
 
 ### Requirement: Detached sends are explicit and not replayed
 
@@ -100,3 +119,12 @@ Raido MUST expose a one-way connection feature for application or protocol code 
 
 - **WHEN** application code disables reconnect while an opted-in logical connection is in its reconnect grace window
 - **THEN** the logical connection closes immediately, terminal cleanup is invoked once, and later replacement transports are rejected
+
+### Requirement: Reconnected callbacks compose across the logical lifetime
+
+Raido MUST retain every registered post-reconnect callback for the logical connection and invoke the snapshot in registration order on every successful rebind.
+
+#### Scenario: Repeated reconnect callbacks
+
+- **WHEN** two callbacks are registered and the logical connection successfully rebinds twice
+- **THEN** both callbacks run twice and each invocation preserves registration order

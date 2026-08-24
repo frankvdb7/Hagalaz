@@ -7,8 +7,9 @@ Raido currently treats a Kestrel transport as the whole hub connection. A transi
 - Split the existing Raido connection context into a stable logical application connection and a replaceable physical Kestrel session.
 - Add an explicitly opted-in, bounded reconnect grace window for same-process transport loss.
 - Add one application-callable rebind operation that atomically installs a replacement transport for the retained logical connection.
-- Keep physical pump ownership single-reader/single-writer across replacement and make sends while detached fail explicitly.
+- Keep physical pump ownership single-reader/single-writer across replacement, with generation-scoped stop completion and deterministic unread-suffix ordering, and make sends while detached fail explicitly.
 - Expose connection features for explicit logical opt-in/veto and post-rebind notification.
+- Separate the physical Kestrel handler lifetime from the temporary replacement application handler, and keep physical session plumbing internal to Raido.
 - Preserve immediate terminal disconnect behavior for non-opted-in connections and make terminal cleanup happen once.
 - Add focused Raido tests for lifecycle, rebind races, physical pump ownership, expiry, explicit close, sends, and shutdown.
 
@@ -36,6 +37,7 @@ The change is limited to `Raido.Server` connection context, handler, store, opti
 - Sends while the logical connection is detached fail explicitly and are not replayed.
 - Grace expiry, explicit close, and server shutdown remove the logical connection and invoke terminal cleanup exactly once.
 - Concurrent rebind attempts have one deterministic winner and no write/rebind deadlock.
+- Rebind preparation and commit are distinct: success responses are deferred until commit, and grace expiry/abort invalidates pending reservations.
 - Application/protocol code can veto reconnect before loss or during the grace window, with terminal cleanup occurring once.
 - The original logical handler keeps its stable application pipe for the physical session lifetime; a replacement handshake releases its reader, transfers unread bytes exactly once, and does not run terminal logical disconnect callbacks after a successful rebind.
 - The repository's focused Raido tests, build, and strict OpenSpec validation pass.

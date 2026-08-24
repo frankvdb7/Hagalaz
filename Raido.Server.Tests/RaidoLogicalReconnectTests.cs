@@ -202,9 +202,9 @@ public sealed class RaidoLogicalReconnectTests
         var logicalId = context.ConnectionId;
 
         original.Closed.Cancel();
-        var rebound = await store.TryRebindAsync(logicalId, replacement);
+        var rebound = await store.TryPrepareRebindAsync(logicalId, replacement);
 
-        Assert.IsTrue(rebound);
+        Assert.IsNotNull(rebound);
         await CommitTransferAsync(replacement);
         Assert.AreEqual(RaidoConnectionLifecycleState.Connected, context.LifecycleState);
         Assert.AreEqual(logicalId, context.ConnectionId);
@@ -237,9 +237,9 @@ public sealed class RaidoLogicalReconnectTests
         store.Add(context);
         original.Closed.Cancel();
 
-        var rebound = await store.TryRebindAsync(context.ConnectionId, replacement, replacementProtocol);
+        var rebound = await store.TryPrepareRebindAsync(context.ConnectionId, replacement, replacementProtocol);
 
-        Assert.IsTrue(rebound);
+        Assert.IsNotNull(rebound);
         await CommitTransferAsync(replacement);
         Assert.AreSame(replacementProtocol, context.Protocol);
 
@@ -268,7 +268,7 @@ public sealed class RaidoLogicalReconnectTests
             return Task.CompletedTask;
         });
 
-        Assert.IsTrue(await store.TryRebindAsync(context.ConnectionId, replacement));
+        Assert.IsNotNull(await store.TryPrepareRebindAsync(context.ConnectionId, replacement));
         await CommitTransferAsync(replacement);
         Assert.AreSame(context.Output, callbackOutput);
         context.Abort();
@@ -284,25 +284,30 @@ public sealed class RaidoLogicalReconnectTests
         var replacementContextOne = CreateContext(replacementOne, statefulReconnect: true);
         var replacementContextTwo = CreateContext(replacementTwo, statefulReconnect: true);
         var store = new RaidoConnectionStore();
-        var callbackCount = 0;
+        var callbackOrder = new List<string>();
         store.Add(context);
 
         context.Features.Get<IRaidoStatefulReconnectFeature>()!.OnReconnected(_ =>
         {
-            Interlocked.Increment(ref callbackCount);
+            lock (callbackOrder) callbackOrder.Add("first");
+            return Task.CompletedTask;
+        });
+        context.Features.Get<IRaidoStatefulReconnectFeature>()!.OnReconnected(_ =>
+        {
+            lock (callbackOrder) callbackOrder.Add("second");
             return Task.CompletedTask;
         });
 
         original.Closed.Cancel();
-        Assert.IsTrue(await store.TryRebindAsync(context.ConnectionId, replacementContextOne));
+        Assert.IsNotNull(await store.TryPrepareRebindAsync(context.ConnectionId, replacementContextOne));
         await CommitTransferAsync(replacementContextOne);
 
         replacementOne.Closed.Cancel();
         await WaitUntilAsync(() => context.LifecycleState == RaidoConnectionLifecycleState.Reconnecting);
-        Assert.IsTrue(await store.TryRebindAsync(context.ConnectionId, replacementContextTwo));
+        Assert.IsNotNull(await store.TryPrepareRebindAsync(context.ConnectionId, replacementContextTwo));
         await CommitTransferAsync(replacementContextTwo);
 
-        Assert.AreEqual(2, callbackCount);
+        CollectionAssert.AreEqual(new[] { "first", "second", "first", "second" }, callbackOrder);
         context.Abort();
     }
 
@@ -324,7 +329,7 @@ public sealed class RaidoLogicalReconnectTests
         }
 
         Assert.AreEqual(RaidoConnectionLifecycleState.Reconnecting, context.LifecycleState);
-        Assert.IsTrue(await store.TryRebindAsync(context.ConnectionId, replacement));
+        Assert.IsNotNull(await store.TryPrepareRebindAsync(context.ConnectionId, replacement));
         await CommitTransferAsync(replacement);
         Assert.AreEqual(RaidoConnectionLifecycleState.Connected, context.LifecycleState);
         context.Abort();
@@ -348,11 +353,11 @@ public sealed class RaidoLogicalReconnectTests
         var replacementContextOne = CreateContext(replacementOne, statefulReconnect: true);
         var replacementContextTwo = CreateContext(replacementTwo, statefulReconnect: true);
         var results = await Task.WhenAll(
-            store.TryRebindAsync(context.ConnectionId, replacementContextOne).AsTask(),
-            store.TryRebindAsync(context.ConnectionId, replacementContextTwo).AsTask());
+            store.TryPrepareRebindAsync(context.ConnectionId, replacementContextOne).AsTask(),
+            store.TryPrepareRebindAsync(context.ConnectionId, replacementContextTwo).AsTask());
 
-        Assert.AreEqual(1, results.Count(result => result));
-        await CommitTransferAsync(results[0] ? replacementContextOne : replacementContextTwo);
+        Assert.AreEqual(1, results.Count(result => result is not null));
+        await CommitTransferAsync(results[0] is not null ? replacementContextOne : replacementContextTwo);
         Assert.AreEqual(RaidoConnectionLifecycleState.Connected, context.LifecycleState);
         context.Abort();
     }
@@ -370,9 +375,9 @@ public sealed class RaidoLogicalReconnectTests
         context.Abort();
         await context.AbortAsync();
         store.Remove(context);
-        var rebound = await store.TryRebindAsync(context.ConnectionId, CreateContext(replacementPhysical, statefulReconnect: true));
+        var rebound = await store.TryPrepareRebindAsync(context.ConnectionId, CreateContext(replacementPhysical, statefulReconnect: true));
 
-        Assert.IsFalse(rebound);
+        Assert.IsNull(rebound);
         Assert.AreEqual(RaidoConnectionLifecycleState.Closed, context.LifecycleState);
         Assert.IsNull(store[context.ConnectionId]);
     }
@@ -448,6 +453,7 @@ public sealed class RaidoLogicalReconnectTests
             context.Features.Get<IRaidoStatefulReconnectFeature>()!.EnableReconnect();
         }
 
+        _ = context.StartPhysicalSession();
         return context;
     }
 
@@ -455,7 +461,7 @@ public sealed class RaidoLogicalReconnectTests
     {
         var transfer = replacement.TakePendingTransfer();
         Assert.IsNotNull(transfer);
-        Assert.IsTrue(await transfer!.CommitAsync(ReadOnlySequence<byte>.Empty));
+        Assert.IsTrue(await transfer!.CommitAsync(() => new ValueTask<ReadOnlyMemory<byte>>(ReadOnlyMemory<byte>.Empty)));
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)

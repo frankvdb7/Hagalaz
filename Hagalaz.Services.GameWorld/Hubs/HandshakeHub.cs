@@ -337,13 +337,18 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 IsMembersOnly = true
             };
 
-            if (!await _connections.TryRebindAsync(worldSession.ConnectionId, Context, clientProtocol))
+            var handshakeProtocol = Context.Protocol;
+            var reservation = await _connections.TryPrepareRebindAsync(worldSession.ConnectionId, Context, clientProtocol);
+            if (reservation is null)
             {
                 await RejectReconnectAsync(ClientSignInResponse.BadSession);
                 return;
             }
 
-            await Clients.Caller.SendAsync(response);
+            // The response is encoded with the handshake protocol, but is emitted only after
+            // the replacement transport has committed. This prevents a success response from
+            // racing a failed rebind transaction.
+            reservation.OnCommitted(() => logicalConnection.WriteAsync(response, handshakeProtocol).AsTask());
             character.UpdateMap(forceUpdate: true, renderViewPort: true);
             character.Appearance.Refresh();
             ClearReconnectAuthentication();

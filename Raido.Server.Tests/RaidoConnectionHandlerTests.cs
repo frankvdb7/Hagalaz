@@ -17,6 +17,11 @@ namespace Raido.Server.Tests
     {
     }
 
+    public sealed class ByteMessage(byte value) : RaidoMessage
+    {
+        public byte Value { get; } = value;
+    }
+
     public class TestProtocol : IRaidoProtocol
     {
         public string Name => "test";
@@ -55,6 +60,7 @@ namespace Raido.Server.Tests
     }
 
     [TestClass]
+    [DoNotParallelize]
     public class RaidoConnectionHandlerTests
     {
         private ILoggerFactory _loggerFactory = null!;
@@ -167,6 +173,7 @@ namespace Raido.Server.Tests
                     new ValueTask<ReadResult>(new ReadResult(buffer, false, false)),
                     new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(), true, false))
                 );
+            _ = _connection.StartPhysicalSession();
 
             // Act
             await _connectionHandler.DispatchMessagesAsync(_connection);
@@ -188,6 +195,7 @@ namespace Raido.Server.Tests
                 .Returns(new ValueTask<ReadResult>(new ReadResult(buffer, false, false)));
 
             _dispatcher.DispatchMessageAsync(_connection, message).Returns(Task.FromException(ex));
+            _ = _connection.StartPhysicalSession();
 
             // Act
             await _connectionHandler.RunAsync(_connection);
@@ -203,7 +211,8 @@ namespace Raido.Server.Tests
             var exception = new InvalidOperationException("Dispatch failed");
             _connection.Protocol = new TestProtocol { MessageToReturn = message };
             _pipeReader.ReadAsync(Arg.Any<CancellationToken>()).Returns(
-                new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1 }), false, false)));
+                new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1 }), false, false)),
+                new ValueTask<ReadResult>(new ReadResult(ReadOnlySequence<byte>.Empty, true, false)));
             _dispatcher.DispatchMessageAsync(_connection, message).Returns(Task.FromException(exception));
 
             await _connectionHandler.ConnectAsync(_connection);
@@ -220,6 +229,7 @@ namespace Raido.Server.Tests
 
             _pipeReader.ReadAsync(Arg.Any<CancellationToken>())
                 .Returns(new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(), true, false))); // IsCanceled = true
+            _ = _connection.StartPhysicalSession();
 
             // Act
             await _connectionHandler.DispatchMessagesAsync(_connection);
@@ -238,7 +248,7 @@ namespace Raido.Server.Tests
 
         [TestMethod]
         [Timeout(5000)]
-        public async Task DispatchMessagesAsync_RebindsRealPipesAndPreservesSameBufferSuffix()
+        public async Task DispatchMessagesAsync_RebindsRealPipesAfterPhysicalHandlerEndsAndPreservesQueuedSuffix()
         {
             using var original = new IntegrationPhysicalConnection("original");
             using var replacementPhysical = new IntegrationPhysicalConnection("replacement");
@@ -247,9 +257,17 @@ namespace Raido.Server.Tests
                 StatefulReconnectEnabled = true,
                 StatefulReconnectGracePeriod = TimeSpan.FromSeconds(1)
             };
-            var target = new RaidoConnectionContext(original.Context, options, _loggerFactory)
+            var targetApplication = new RaidoApplicationConnection();
+            var targetSession = new RaidoPhysicalConnectionSession(original.Context, _loggerFactory);
+            var target = new RaidoConnectionContext(
+                targetApplication,
+                targetSession,
+                original.Context.Features,
+                original.Context.Items,
+                options,
+                _loggerFactory)
             {
-                Protocol = new TestProtocol { MessageToReturn = new TestMessage() }
+                Protocol = new ByteProtocol()
             };
             target.Features.Get<IRaidoStatefulReconnectFeature>()!.EnableReconnect();
             var store = new RaidoConnectionStore();
@@ -267,23 +285,29 @@ namespace Raido.Server.Tests
             {
                 Protocol = new SingleByteProtocol()
             };
-            var gameProtocol = new TestProtocol();
-            var dispatchedGameMessages = 0;
+            var gameProtocol = new ByteProtocol();
+            var dispatchedGameMessages = new List<byte>();
             _dispatcher.DispatchMessageAsync(Arg.Any<RaidoConnectionContext>(), Arg.Any<RaidoMessage>())
                 .Returns(callInfo =>
                 {
                     var connection = callInfo.Arg<RaidoConnectionContext>();
                     if (ReferenceEquals(connection, replacement))
                     {
-                        return store.TryRebindAsync(target.ConnectionId, replacement, gameProtocol).AsTask();
+                        return store.TryPrepareRebindAsync(target.ConnectionId, replacement, gameProtocol).AsTask();
                     }
 
-                    Interlocked.Increment(ref dispatchedGameMessages);
+                    lock (dispatchedGameMessages)
+                    {
+                        dispatchedGameMessages.Add(((ByteMessage)callInfo.Arg<RaidoMessage>()).Value);
+                    }
                     return Task.CompletedTask;
                 });
 
+            targetSession.Attach(target, targetApplication);
+            var physicalATask = targetSession.RunAsync(target, targetApplication);
             var targetTask = _connectionHandler.DispatchMessagesAsync(target);
             original.Closed.Cancel();
+            await physicalATask;
             await WaitUntilAsync(() => target.LifecycleState == RaidoConnectionLifecycleState.Reconnecting);
 
             var physicalTask = replacementSession.RunAsync(replacement, replacementApplication);
@@ -292,14 +316,18 @@ namespace Raido.Server.Tests
             await replacementPhysical.Input.Writer.FlushAsync();
 
             await replacementTask;
-            await WaitUntilAsync(() => Volatile.Read(ref dispatchedGameMessages) == 1);
-            Assert.AreEqual(1, dispatchedGameMessages);
+            await WaitUntilAsync(() => dispatchedGameMessages.Count == 1);
+            replacementPhysical.Input.Writer.Write(new byte[] { 3, 4 });
+            await replacementPhysical.Input.Writer.FlushAsync();
+            await WaitUntilAsync(() => dispatchedGameMessages.Count == 3);
+            CollectionAssert.AreEqual(new byte[] { 2, 3, 4 }, dispatchedGameMessages.ToArray());
             Assert.AreEqual(RaidoConnectionLifecycleState.Connected, target.LifecycleState);
-            Assert.IsFalse(physicalTask.IsCompleted, "The physical handler must remain alive after logical application transfer.");
+            Assert.IsFalse(targetTask.IsCompleted, "The logical application handler must remain alive after physical A ends.");
 
+            replacementPhysical.Closed.Cancel();
+            await physicalTask;
             target.Abort();
             await targetTask;
-            await physicalTask;
             store.Dispose();
         }
 
@@ -362,13 +390,47 @@ namespace Raido.Server.Tests
                     _first = false;
                     consumed = input.GetPosition(1);
                     examined = input.End;
-                    message = new TestMessage();
+                    message = new ByteMessage(input.FirstSpan[0]);
                     return true;
                 }
 
-                consumed = input.End;
+                if (input.IsEmpty)
+                {
+                    consumed = input.Start;
+                    examined = input.End;
+                    message = null!;
+                    return false;
+                }
+
+                consumed = input.GetPosition(1);
                 examined = input.End;
-                message = new TestMessage();
+                message = new ByteMessage(input.FirstSpan[0]);
+                return true;
+            }
+
+            public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output) { }
+            public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => ReadOnlyMemory<byte>.Empty;
+            public bool IsVersionSupported(int version) => version == 1;
+        }
+
+        private sealed class ByteProtocol : IRaidoProtocol
+        {
+            public string Name => "byte";
+            public int Version => 1;
+
+            public bool TryParseMessage(in ReadOnlySequence<byte> input, ref SequencePosition consumed, ref SequencePosition examined, out RaidoMessage message)
+            {
+                if (input.IsEmpty)
+                {
+                    consumed = input.Start;
+                    examined = input.End;
+                    message = null!;
+                    return false;
+                }
+
+                consumed = input.GetPosition(1);
+                examined = input.End;
+                message = new ByteMessage(input.FirstSpan[0]);
                 return true;
             }
 

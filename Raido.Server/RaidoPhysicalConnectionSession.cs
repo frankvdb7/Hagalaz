@@ -14,21 +14,18 @@ namespace Raido.Server;
 /// <summary>
 /// Owns one Kestrel connection for its complete physical lifetime.
 /// </summary>
-public sealed class RaidoPhysicalConnectionSession
+internal sealed class RaidoPhysicalConnectionSession
 {
     private readonly ConnectionContext _connection;
     private readonly ILogger _logger;
     private readonly SemaphoreSlim _switchLock = new(1, 1);
     private readonly TaskCompletionSource _failure = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private readonly TaskCompletionSource _terminated = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private readonly TaskCompletionSource _pumpsStopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly CancellationTokenSource _sessionCts = new();
     private readonly object _stateLock = new();
     private RaidoApplicationConnection? _application;
     private RaidoConnectionContext? _logicalConnection;
-    private CancellationTokenSource? _pumpCts;
-    private Task? _inputPump;
-    private Task? _outputPump;
+    private PumpGeneration? _pumpGeneration;
+    private Task _lastPumpsStopped = Task.CompletedTask;
     private bool _started;
     private bool _terminal;
     private RaidoApplicationTransfer? _reservedTransfer;
@@ -42,16 +39,21 @@ public sealed class RaidoPhysicalConnectionSession
     }
 
     public string ConnectionId => _connection.ConnectionId;
-
     public CancellationToken ConnectionClosed => _connection.ConnectionClosed;
-
     public IFeatureCollection Features => _connection.Features;
-
     public System.Net.IPEndPoint? LocalEndPoint => _connection.LocalEndPoint as System.Net.IPEndPoint;
-
     public System.Net.IPEndPoint? RemoteEndPoint => _connection.RemoteEndPoint as System.Net.IPEndPoint;
 
-    internal Task PumpsStopped => _pumpsStopped.Task;
+    internal Task PumpsStopped
+    {
+        get
+        {
+            lock (_stateLock)
+            {
+                return _pumpGeneration?.Stopped.Task ?? _lastPumpsStopped;
+            }
+        }
+    }
 
     internal IDuplexPipe Transport => _connection.Transport;
 
@@ -65,8 +67,8 @@ public sealed class RaidoPhysicalConnectionSession
                 _application = application;
             }
         }
-        StartPumps();
 
+        StartPumps();
         try
         {
             var closedTask = Task.Delay(Timeout.InfiniteTimeSpan, _connection.ConnectionClosed);
@@ -119,14 +121,38 @@ public sealed class RaidoPhysicalConnectionSession
         }
     }
 
+    internal RaidoApplicationTransfer? TakeReservedTransfer()
+    {
+        lock (_stateLock)
+        {
+            var transfer = _reservedTransfer;
+            _reservedTransfer = null;
+            return transfer;
+        }
+    }
+
+    internal void ClearReservedTransfer(RaidoApplicationTransfer transfer)
+    {
+        lock (_stateLock)
+        {
+            if (ReferenceEquals(_reservedTransfer, transfer))
+            {
+                _reservedTransfer = null;
+            }
+        }
+    }
+
     internal async Task<bool> CommitTransferAsync(
+        RaidoApplicationTransfer transfer,
         RaidoConnectionContext source,
         RaidoConnectionContext target,
         RaidoApplicationConnection targetApplication,
-        ReadOnlySequence<byte> pendingInput,
+        Func<ValueTask<ReadOnlyMemory<byte>>> capturePendingInput,
         IRaidoProtocol? protocol)
     {
+        ArgumentNullException.ThrowIfNull(capturePendingInput);
         await _switchLock.WaitAsync().ConfigureAwait(false);
+        var committed = false;
         try
         {
             lock (_stateLock)
@@ -141,37 +167,34 @@ public sealed class RaidoPhysicalConnectionSession
             await source.AcquireTransferWriteLockAsync().ConfigureAwait(false);
             try
             {
+                // Stop this exact pump generation before the source protocol reader snapshots its suffix.
                 await StopPumpsAsync().ConfigureAwait(false);
                 await target.WaitForPreviousPhysicalPumpsAsync().ConfigureAwait(false);
+                var pendingInput = await capturePendingInput().ConfigureAwait(false);
 
                 var oldApplication = _application!;
                 await DrainOutputAsync(oldApplication.OutputReader).ConfigureAwait(false);
 
-                if (!await target.CommitRebindAsync(this, protocol).ConfigureAwait(false))
+                if (!target.CommitRebind(transfer))
                 {
-                    RaidoApplicationTransfer? failedTransfer;
-                    lock (_stateLock)
-                    {
-                        failedTransfer = _reservedTransfer;
-                        _reservedTransfer = null;
-                    }
-                    if (failedTransfer is not null)
-                    {
-                        target.RollbackRebind(failedTransfer);
-                    }
+                    target.RollbackRebind();
                     StartPumps();
                     return false;
                 }
 
+                committed = true;
                 lock (_stateLock)
                 {
                     _application = targetApplication;
                     _logicalConnection = target;
                 }
 
-                StartPumps();
-                await target.InvokeReconnectedAsync().ConfigureAwait(false);
+                // Install all bytes already observed by the replacement reader before the new
+                // transport pump is allowed to deliver more input to the logical application.
                 await WritePendingInputAsync(targetApplication.InputWriter, pendingInput).ConfigureAwait(false);
+                StartPumps();
+                await transfer.Reservation!.InvokeCommittedAsync().ConfigureAwait(false);
+                await target.InvokeReconnectedAsync().ConfigureAwait(false);
                 return true;
             }
             finally
@@ -179,14 +202,20 @@ public sealed class RaidoPhysicalConnectionSession
                 source.ReleaseTransferWriteLock();
             }
         }
+
         catch (Exception ex)
         {
-            lock (_stateLock)
+            ClearReservedTransfer();
+            target.RollbackRebind();
+            if (committed)
             {
-                _reservedTransfer = null;
+                target.AbortAllowReconnect(ex);
             }
-            _failure.TrySetResult();
-            source.AbortAllowReconnect(ex);
+            else
+            {
+                source.AbortAllowReconnect(ex);
+            }
+
             return false;
         }
         finally
@@ -206,57 +235,44 @@ public sealed class RaidoPhysicalConnectionSession
     {
         lock (_stateLock)
         {
-            if (_terminal || _pumpCts is not null || _application is null)
+            if (_terminal || _pumpGeneration is not null || _application is null)
             {
                 return;
             }
 
             _started = true;
-            _pumpCts = CancellationTokenSource.CreateLinkedTokenSource(_sessionCts.Token);
-            _inputPump = PumpInputAsync(_application, _pumpCts.Token);
-            _outputPump = PumpOutputAsync(_application, _pumpCts.Token);
+            var generation = new PumpGeneration(CancellationTokenSource.CreateLinkedTokenSource(_sessionCts.Token));
+            generation.InputPump = PumpInputAsync(_application, generation.CancellationToken);
+            generation.OutputPump = PumpOutputAsync(_application, generation.CancellationToken);
+            _pumpGeneration = generation;
+            _lastPumpsStopped = generation.Stopped.Task;
         }
     }
 
-    private async Task StopPumpsAsync()
+    private Task StopPumpsAsync()
     {
-        Task? input;
-        Task? output;
-        CancellationTokenSource? cts;
+        _connection.Transport.Input.CancelPendingRead();
+        _connection.Transport.Output.CancelPendingFlush();
+        RaidoApplicationConnection? application;
         lock (_stateLock)
         {
-            cts = _pumpCts;
-            input = _inputPump;
-            output = _outputPump;
-            _pumpCts = null;
-            _inputPump = null;
-            _outputPump = null;
+            application = _application;
+        }
+        application?.InputWriter.CancelPendingFlush();
+        application?.OutputReader.CancelPendingRead();
+
+        PumpGeneration? generation;
+        lock (_stateLock)
+        {
+            generation = _pumpGeneration;
+            _pumpGeneration = null;
         }
 
-        if (cts is null)
-        {
-            _pumpsStopped.TrySetResult();
-            return;
-        }
-
-        cts.Cancel();
-        try
-        {
-            await Task.WhenAll(input!, output!).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        finally
-        {
-            cts.Dispose();
-            _pumpsStopped.TrySetResult();
-        }
+        return generation?.StopAsync() ?? Task.CompletedTask;
     }
 
     private async Task PumpInputAsync(RaidoApplicationConnection application, CancellationToken cancellationToken)
     {
-        await application.AcquireInputOwnerAsync(cancellationToken).ConfigureAwait(false);
         ReadOnlySequence<byte> buffer = default;
         var readPending = false;
         try
@@ -280,11 +296,6 @@ public sealed class RaidoPhysicalConnectionSession
                     _failure.TrySetResult();
                     return;
                 }
-
-                if (buffer.IsEmpty)
-                {
-                    await Task.Yield();
-                }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -302,13 +313,11 @@ public sealed class RaidoPhysicalConnectionSession
             {
                 try { _connection.Transport.Input.AdvanceTo(buffer.End); } catch (InvalidOperationException) { }
             }
-            application.ReleaseInputOwner();
         }
     }
 
     private async Task PumpOutputAsync(RaidoApplicationConnection application, CancellationToken cancellationToken)
     {
-        await application.AcquireOutputOwnerAsync(cancellationToken).ConfigureAwait(false);
         ReadOnlySequence<byte> buffer = default;
         var readPending = false;
         try
@@ -348,7 +357,6 @@ public sealed class RaidoPhysicalConnectionSession
             {
                 try { application.OutputReader.AdvanceTo(buffer.End); } catch (InvalidOperationException) { }
             }
-            application.ReleaseOutputOwner();
         }
     }
 
@@ -357,6 +365,14 @@ public sealed class RaidoPhysicalConnectionSession
         lock (_stateLock)
         {
             return _logicalConnection;
+        }
+    }
+
+    private void ClearReservedTransfer()
+    {
+        lock (_stateLock)
+        {
+            _reservedTransfer = null;
         }
     }
 
@@ -379,14 +395,15 @@ public sealed class RaidoPhysicalConnectionSession
         }
     }
 
-    private static async Task WritePendingInputAsync(PipeWriter writer, ReadOnlySequence<byte> pendingInput)
+    private static async Task WritePendingInputAsync(PipeWriter writer, ReadOnlyMemory<byte> pendingInput)
     {
         if (pendingInput.IsEmpty)
         {
             return;
         }
 
-        Copy(pendingInput, writer);
+        pendingInput.Span.CopyTo(writer.GetSpan(pendingInput.Length));
+        writer.Advance(pendingInput.Length);
         await writer.FlushAsync().ConfigureAwait(false);
     }
 
@@ -394,8 +411,7 @@ public sealed class RaidoPhysicalConnectionSession
     {
         foreach (var segment in source)
         {
-            var span = destination.GetSpan(segment.Length);
-            segment.Span.CopyTo(span);
+            segment.Span.CopyTo(destination.GetSpan(segment.Length));
             destination.Advance(segment.Length);
         }
     }
@@ -421,8 +437,8 @@ public sealed class RaidoPhysicalConnectionSession
 
         try
         {
-            await _connection.Transport.Input.CompleteAsync().ConfigureAwait(false);
-            await _connection.Transport.Output.CompleteAsync().ConfigureAwait(false);
+            _connection.Transport.Input.Complete();
+            _connection.Transport.Output.Complete();
         }
         catch (Exception ex)
         {
@@ -434,6 +450,43 @@ public sealed class RaidoPhysicalConnectionSession
             logical!.OnPhysicalSessionEnded(this);
         }
 
-        _terminated.TrySetResult();
+    }
+
+    private sealed class PumpGeneration
+    {
+        private readonly object _lock = new();
+        private readonly CancellationTokenSource _cts;
+        private Task? _stopTask;
+
+        public PumpGeneration(CancellationTokenSource cts) => _cts = cts;
+        public CancellationToken CancellationToken => _cts.Token;
+        public Task InputPump { get; set; } = Task.CompletedTask;
+        public Task OutputPump { get; set; } = Task.CompletedTask;
+        public TaskCompletionSource Stopped { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task StopAsync()
+        {
+            lock (_lock)
+            {
+                return _stopTask ??= StopCoreAsync();
+            }
+        }
+
+        private async Task StopCoreAsync()
+        {
+            _cts.Cancel();
+            try
+            {
+                await Task.WhenAll(InputPump, OutputPump).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                _cts.Dispose();
+                Stopped.TrySetResult();
+            }
+        }
     }
 }

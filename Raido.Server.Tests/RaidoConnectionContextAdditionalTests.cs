@@ -11,6 +11,7 @@ using Raido.Common.Protocol;
 namespace Raido.Server.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class RaidoConnectionContextAdditionalTests
 {
     private sealed class ControlledPipeWriter : PipeWriter
@@ -66,7 +67,7 @@ public sealed class RaidoConnectionContextAdditionalTests
     {
         var output = new Pipe();
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
+        transport.Input.Returns(new Pipe().Reader);
         transport.Output.Returns(output.Writer);
         var features = new FeatureCollection();
         var connection = Substitute.For<ConnectionContext>();
@@ -95,11 +96,13 @@ public sealed class RaidoConnectionContextAdditionalTests
         Assert.AreEqual("additional", context.ConnectionId);
         Assert.AreSame(features, context.Features);
         Assert.IsNotNull(context.Items);
+        _ = context.StartPhysicalSession();
         await context.OnConnectedAsync();
         await context.WriteAsync(new TestMessage());
         var result = await output.Reader.ReadAsync();
         CollectionAssert.AreEqual(new byte[] { 42 }, result.Buffer.ToArray());
         output.Reader.AdvanceTo(result.Buffer.End);
+        await context.AbortAsync();
         context.Cleanup();
     }
 
@@ -191,16 +194,18 @@ public sealed class RaidoConnectionContextAdditionalTests
     private static RaidoConnectionContext CreateContext(PipeWriter output)
     {
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
+        transport.Input.Returns(new Pipe().Reader);
         transport.Output.Returns(output);
         var connection = Substitute.For<ConnectionContext>();
         connection.ConnectionId.Returns("controlled");
         connection.Transport.Returns(transport);
         connection.Features.Returns(new FeatureCollection());
         connection.ConnectionClosed.Returns(CancellationToken.None);
-        return new RaidoConnectionContext(connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
+        var context = new RaidoConnectionContext(connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
         {
             Protocol = new WritingProtocol()
         };
+        _ = context.StartPhysicalSession();
+        return context;
     }
 }

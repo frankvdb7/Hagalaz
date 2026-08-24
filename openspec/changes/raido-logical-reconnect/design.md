@@ -11,7 +11,7 @@
 - Use an explicit lifecycle with `Connected`, `Reconnecting`, and `Closed` states.
 - Keep server reconnect support separate from per-logical-connection activation.
 - Use the existing store and lifetime manager as the logical owner; do not add a second session store.
-- Coordinate transport replacement with the existing write lock and explicit pump ownership.
+- Coordinate transport replacement with the existing write lock and generation-scoped pump ownership.
 - Use an injectable `TimeProvider` timer for deterministic grace expiry tests.
 - Expose a connection feature that lets application/protocol code permanently disable reconnect for the logical connection.
 
@@ -30,17 +30,21 @@
 
 3. **Use a small lifecycle, not a framework.** Transport loss transitions `Connected -> Reconnecting`; successful rebind transitions `Reconnecting -> Connected`; expiry, explicit abort, protocol failure, and shutdown transition to `Closed`. All transitions are serialized by the context's lifecycle lock and terminal cleanup is idempotent.
 
-4. **Rebind through the existing connection store.** `RaidoConnectionStore.TryRebindAsync(logicalConnectionId, replacement)` is the application-callable operation. It looks up the retained logical owner and delegates to one context operation. The first successful attempt wins; attempts after `Connected` or `Closed` fail without replacing the active transport.
+4. **Rebind through a prepare/commit reservation.** `RaidoConnectionStore.TryPrepareRebindAsync(logicalConnectionId, replacement)` is the application-callable prepare operation. It validates the reconnecting logical owner and reserves the replacement physical session, returning a reservation rather than reporting success before the transfer can commit. The physical handler commits the reservation only after it has quiesced the replacement input and captured its unread bytes. The first valid reservation wins; expiry, abort, or a failed commit invalidates it.
 
-5. **Make transfer ownership explicit.** A replacement first reserves the reconnecting logical context and its physical session. The session then stops its old pumps, waits for the previous physical pumps to release the stable application readers, drains already-produced output, commits the target session, starts the new pumps, and only then writes the unread input suffix. The target protocol is installed before that suffix is written. A failed commit clears the reservation and restarts the source session's pumps.
+5. **Make transfer ownership and ordering explicit.** Each physical pump pair has its own cancellation source, input/output tasks, and stopped completion. A replacement first reserves the reconnecting logical context and its physical session. The session then stops the source generation, waits for the target's previous generation, captures the replacement protocol reader's complete unread suffix, drains already-produced output, commits the target session, writes that suffix to the stable target input before starting target pumps, and invokes deferred committed work before normal reconnected callbacks. This establishes `source quiesced -> suffix captured -> target committed -> suffix installed -> target pumps resumed`; later bytes from the replacement socket cannot overtake the suffix. A failed commit invalidates the reservation and aborts or restores the source according to the commit boundary.
 
 6. **Keep sends failure-only while detached.** A lifetime-manager send that reaches a logical context in `Reconnecting` throws a dedicated reconnecting/unavailable exception. No replay buffer or hidden best-effort success is added.
 
-7. **Keep protocol-reader completion with its owner.** `RaidoConnectionHandler` owns the one stable application `RaidoProtocolReader`. `RaidoProtocolReader.DisposeAsync` only releases the wrapper; the handler explicitly completes the underlying reader in its final `finally`. During a successful replacement, the handler passes its unread suffix to the transfer, advances to the end exactly once, and completes the transferred application only after the physical session has accepted the target.
+7. **Keep protocol-reader completion with its owner.** `RaidoConnectionHandler` owns the one stable application `RaidoProtocolReader`. `RaidoProtocolReader.DisposeAsync` only releases the wrapper; the handler explicitly completes the underlying reader in its final `finally`. During a successful replacement, the temporary handshake handler passes an independent copy of its unread suffix to the transfer, advances to the end exactly once, and completes only that temporary application after the physical session has accepted the target. The original logical handler continues on its stable reader and application pipes.
 
 8. **Use a timer callback for expiry.** The context owns one grace timer. Rebind cancels it under the lifecycle lock; a racing callback can only close the context if it still owns the `Reconnecting` state. Tests use a fake `TimeProvider`/timer rather than delay races.
 
 9. **Expose reconnect control through features.** SignalR exposes reconnect capability through connection features and notifies application code after a new transport is ready. Raido exposes `EnableReconnect()`, `DisableReconnect()`, and persistent `OnReconnected(Func<PipeWriter, Task>)` registration for logical lifecycle consumers. Disabling is a permanent veto for that logical connection; disabling during the grace window closes it immediately. The feature does not add negotiation, authentication, buffering, or replay.
+
+10. **Keep physical plumbing inside Raido.** `RaidoApplicationConnection` and `RaidoPhysicalConnectionSession` are internal implementation owners. The public builder does not expose a physical-session injection method or feature; Raido creates the application/session pair at the transport boundary. The common split is still used when reconnect is disabled because it preserves one transport ownership and terminal cleanup path, while the logical retention branch remains opt-in.
+
+11. **Compose post-reconnect callbacks.** `OnReconnected` registrations are retained for the logical lifetime, snapshotted at each successful commit, and awaited in registration order. A callback failure aborts the logical connection but does not prevent later registered callbacks from being attempted.
 
 ## Risks / Trade-offs
 

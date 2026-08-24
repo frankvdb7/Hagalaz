@@ -217,7 +217,7 @@ public sealed class RaidoServerBehaviorTests
         raw.Features.Returns(features);
         raw.ConnectionClosed.Returns(CancellationToken.None);
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
+        transport.Input.Returns(new Pipe().Reader);
         transport.Output.Returns(Substitute.For<PipeWriter>());
         raw.Transport.Returns(transport);
 
@@ -300,7 +300,7 @@ public sealed class RaidoServerBehaviorTests
     {
         var output = new Pipe();
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
+        transport.Input.Returns(new Pipe().Reader);
         transport.Output.Returns(output.Writer);
         var raw = Substitute.For<ConnectionContext>();
         raw.ConnectionId.Returns("ping");
@@ -311,6 +311,7 @@ public sealed class RaidoServerBehaviorTests
         {
             Protocol = new PingProtocol()
         };
+        _ = connection.StartPhysicalSession();
 
         var ping = typeof(RaidoConnectionContext).GetMethod("TryWritePingSlowAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
         await (Task)ping.Invoke(connection, null)!;
@@ -329,7 +330,7 @@ public sealed class RaidoServerBehaviorTests
     {
         var output = new Pipe();
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
+        transport.Input.Returns(new Pipe().Reader);
         transport.Output.Returns(output.Writer);
         var raw = Substitute.For<ConnectionContext>();
         raw.ConnectionId.Returns("serialized");
@@ -340,6 +341,7 @@ public sealed class RaidoServerBehaviorTests
         {
             Protocol = new PingProtocol()
         };
+        _ = connection.StartPhysicalSession();
 
         var writeLock = (SemaphoreSlim)typeof(RaidoConnectionContext)
             .GetField("_writeLock", BindingFlags.Instance | BindingFlags.NonPublic)!

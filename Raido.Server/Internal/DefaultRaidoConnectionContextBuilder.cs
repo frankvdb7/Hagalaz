@@ -14,8 +14,6 @@ namespace Raido.Server.Internal
     {
         private readonly IServiceProvider _serviceProvider;
         private ConnectionContext _connection = null!;
-        private RaidoPhysicalConnectionSession? _physicalSession;
-        private RaidoApplicationConnection? _application;
         private IRaidoProtocol _protocol = null!;
         private TimeSpan? _keepAliveInterval;
         private TimeSpan? _clientTimeoutInterval;
@@ -56,13 +54,6 @@ namespace Raido.Server.Internal
             return this;
         }
 
-        public IRaidoConnectionContextBuilderProtocol WithPhysicalSession(RaidoPhysicalConnectionSession session, RaidoApplicationConnection application)
-        {
-            _physicalSession = session;
-            _application = application;
-            return this;
-        }
-
         public IRaidoConnectionContextBuilderOptional WithStatefulReconnect(TimeSpan? gracePeriod = null)
         {
             _statefulReconnectEnabled = true;
@@ -82,9 +73,7 @@ namespace Raido.Server.Internal
                 StatefulReconnectGracePeriod = _statefulReconnectGracePeriod ?? options.Value.StatefulReconnectGracePeriod
             };
 
-            var context = _physicalSession is null || _application is null
-                ? new RaidoConnectionContext(_connection, contextOptions, loggerFactory)
-                : new RaidoConnectionContext(_application, _physicalSession, _connection.Features, _connection.Items, contextOptions, loggerFactory);
+            var context = new RaidoConnectionContext(_connection, contextOptions, loggerFactory);
             context.Protocol = _protocol;
             context.OriginalActivity = Activity.Current;
 

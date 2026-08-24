@@ -307,6 +307,53 @@ namespace Raido.Server
 
         internal ReadOnlySequence<byte> UnconsumedBuffer => _hasMessage ? _buffer.Slice(_consumed) : _buffer;
 
+        /// <summary>
+        /// Captures the current message suffix and every byte already present in the pipe after the
+        /// physical input pump has been quiesced. The returned memory is independent of the pipe.
+        /// </summary>
+        internal ValueTask<ReadOnlyMemory<byte>> CaptureUnconsumedBytesAsync()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(RaidoProtocolReader));
+            }
+
+            var pending = _hasMessage ? _buffer.Slice(_consumed) : _buffer;
+            var bytes = new ArrayBufferWriter<byte>(checked((int)pending.Length));
+            Copy(pending, bytes);
+
+            if (!_buffer.IsEmpty || _hasMessage)
+            {
+                _reader.AdvanceTo(_buffer.End);
+                _buffer = default;
+                _consumed = default;
+                _examined = default;
+                _hasMessage = false;
+                _isCanceled = false;
+            }
+
+            while (_reader.TryRead(out var result))
+            {
+                Copy(result.Buffer, bytes);
+                _reader.AdvanceTo(result.Buffer.End);
+                if (result.IsCompleted)
+                {
+                    break;
+                }
+            }
+
+            return new ValueTask<ReadOnlyMemory<byte>>(bytes.WrittenMemory.ToArray());
+        }
+
+        private static void Copy(in ReadOnlySequence<byte> source, IBufferWriter<byte> destination)
+        {
+            foreach (var segment in source)
+            {
+                segment.Span.CopyTo(destination.GetSpan(segment.Length));
+                destination.Advance(segment.Length);
+            }
+        }
+
         internal void AdvanceToEnd()
         {
             if (_disposed)
