@@ -240,17 +240,24 @@ public sealed class RaidoLogicalReconnectTests
         using var replacementPhysical = new PhysicalConnection("physical-2");
         var context = CreateContext(original, statefulReconnect: true);
         var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        replacement.Protocol = new WritingProtocol(1);
         var store = new RaidoConnectionStore();
         store.Add(context);
         original.Closed.Cancel();
 
-        var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
+        var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement, new WritingProtocol(2));
         Assert.IsNotNull(reservation);
-        reservation!.OnCommitted(() => context.WriteAsync(new TestMessage(), new WritingProtocol(1)).AsTask());
         Task? normalWrite = null;
         var normalWriteAttempted = new TaskCompletionSource<Task>(TaskCreationOptions.RunContinuationsAsynchronously);
-        reservation.OnPostCommit(async () =>
+        reservation!.SetReconnectActions(
+            successProxy =>
+            {
+                Assert.AreEqual(RaidoConnectionLifecycleState.Reconnecting, context.LifecycleState);
+                return successProxy.SendAsync(new TestMessage());
+            },
+            async resyncProxy =>
         {
+            Assert.AreEqual(RaidoConnectionLifecycleState.Reconnecting, context.LifecycleState);
             using (ExecutionContext.SuppressFlow())
             {
                 normalWrite = Task.Run(async () =>
@@ -267,7 +274,7 @@ public sealed class RaidoLogicalReconnectTests
                 .GetMethod("TryWritePingAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                 .Invoke(context, null)!;
             await ping;
-            await context.WriteAsync(new TestMessage(), new WritingProtocol(2));
+            await resyncProxy.SendAsync(new TestMessage());
         });
         context.Features.Get<IRaidoStatefulReconnectFeature>()!.OnReconnected(_ =>
             Task.CompletedTask);
@@ -280,12 +287,42 @@ public sealed class RaidoLogicalReconnectTests
     }
 
     [TestMethod]
+    public async Task ReconnectProxyRejectsSendsAfterTheHandoff()
+    {
+        using var original = new PhysicalConnection("physical-1");
+        using var replacementPhysical = new PhysicalConnection("physical-2");
+        var context = CreateContext(original, statefulReconnect: true);
+        var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        store.Add(context);
+        original.Closed.Cancel();
+
+        IRaidoClientProxy? reconnectProxy = null;
+        var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
+        Assert.IsNotNull(reservation);
+        reservation!.SetReconnectActions(
+            successProxy =>
+            {
+                reconnectProxy = successProxy;
+                return Task.CompletedTask;
+            },
+            _ => Task.CompletedTask);
+
+        await CommitTransferAsync(replacement);
+
+        Assert.IsNotNull(reconnectProxy);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => reconnectProxy!.SendAsync(new TestMessage()));
+        context.Abort();
+    }
+
+    [TestMethod]
     public async Task RebindDiscardsUncertainRetainedOutputBeforeReconnectResponse()
     {
         using var original = new PhysicalConnection("physical-1");
         using var replacementPhysical = new PhysicalConnection("physical-2");
         var context = CreateContext(original, statefulReconnect: true);
         var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        replacement.Protocol = new WritingProtocol(1);
         var store = new RaidoConnectionStore();
         store.Add(context);
 
@@ -294,7 +331,9 @@ public sealed class RaidoLogicalReconnectTests
 
         var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
         Assert.IsNotNull(reservation);
-        reservation!.OnCommitted(() => context.WriteAsync(new TestMessage(), new WritingProtocol(1)).AsTask());
+        reservation!.SetReconnectActions(
+            successProxy => successProxy.SendAsync(new TestMessage()),
+            _ => Task.CompletedTask);
 
         await CommitTransferAsync(replacement);
 
@@ -314,6 +353,7 @@ public sealed class RaidoLogicalReconnectTests
             applicationOutputOptions: new PipeOptions(pauseWriterThreshold: 2, resumeWriterThreshold: 1),
             startPhysicalSession: false);
         var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        replacement.Protocol = new WritingProtocol(1);
         var store = new RaidoConnectionStore();
         store.Add(context);
 
@@ -325,7 +365,9 @@ public sealed class RaidoLogicalReconnectTests
 
         var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
         Assert.IsNotNull(reservation);
-        reservation!.OnCommitted(() => context.WriteAsync(new TestMessage(), new WritingProtocol(1)).AsTask());
+        reservation!.SetReconnectActions(
+            successProxy => successProxy.SendAsync(new TestMessage()),
+            _ => Task.CompletedTask);
 
         await CommitTransferAsync(replacement);
         await staleWrite;
@@ -348,20 +390,21 @@ public sealed class RaidoLogicalReconnectTests
             outputOptions: new PipeOptions(pauseWriterThreshold: 1_000_000, resumeWriterThreshold: 500_000));
         var context = CreateContext(original, statefulReconnect: true);
         var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        replacement.Protocol = new WritingProtocol(1);
         var store = new RaidoConnectionStore();
         store.Add(context);
         original.Closed.Cancel();
 
         const int resyncMessageCount = 70_000;
-        var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
+        var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement, new WritingProtocol(2));
         Assert.IsNotNull(reservation);
-        reservation!.OnCommitted(() => context.WriteAsync(new TestMessage(), new WritingProtocol(1)).AsTask());
-        reservation.OnPostCommit(async () =>
+        reservation!.SetReconnectActions(
+            successProxy => successProxy.SendAsync(new TestMessage()),
+            async resyncProxy =>
         {
-            var protocol = new WritingProtocol(2);
             for (var i = 0; i < resyncMessageCount; i++)
             {
-                await context.WriteAsync(new TestMessage(), protocol);
+                await resyncProxy.SendAsync(new TestMessage());
             }
         });
 

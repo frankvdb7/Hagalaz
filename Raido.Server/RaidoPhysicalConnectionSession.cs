@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.IO;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
@@ -152,7 +153,10 @@ internal sealed class RaidoPhysicalConnectionSession
     {
         ArgumentNullException.ThrowIfNull(capturePendingInput);
         await _switchLock.WaitAsync().ConfigureAwait(false);
-        var committed = false;
+        var attached = false;
+        var targetWriteLockHeld = false;
+        RaidoReconnectClientProxy? successProxy = null;
+        RaidoReconnectClientProxy? resyncProxy = null;
         try
         {
             lock (_stateLock)
@@ -173,13 +177,18 @@ internal sealed class RaidoPhysicalConnectionSession
                 await target.WaitForPreviousPhysicalPumpsAsync().ConfigureAwait(false);
                 pendingInput = await capturePendingInput().ConfigureAwait(false);
 
-                if (!await target.CommitRebindAsync(transfer).ConfigureAwait(false))
+                target.CancelPendingOutputFlushForReconnect();
+                await target.AcquireReconnectWriteLockAsync().ConfigureAwait(false);
+                targetWriteLockHeld = true;
+                target.ClearPendingOutputFlushCancellation();
+
+                if (!target.BeginRebind(transfer))
                 {
                     target.RollbackRebind();
                     return false;
                 }
 
-                committed = true;
+                attached = true;
                 lock (_stateLock)
                 {
                     _application = targetApplication;
@@ -196,38 +205,36 @@ internal sealed class RaidoPhysicalConnectionSession
             // rather than replaying stale game traffic on the replacement transport.
             await DiscardOutputAsync(targetApplication.OutputReader).ConfigureAwait(false);
 
-            // The response is now the first replacement-transport output. The logical callback
-            // is allowed to write through the reconnect callback boundary, while normal writes
-            // wait behind the barrier.
-            await transfer.Reservation!.InvokeCommittedAsync().ConfigureAwait(false);
-            await DrainOutputAsync(targetApplication.OutputReader).ConfigureAwait(false);
-
-            // Keep a physical consumer active while resynchronization writes. This prevents a
-            // large map/appearance update from blocking its application-pipe writer at the
-            // pause threshold.
-            var resyncCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var resyncDrain = DrainOutputUntilAsync(targetApplication.OutputReader, resyncCompleted.Task);
-            await transfer.Reservation.InvokePostCommitAsync().ConfigureAwait(false);
-            resyncCompleted.TrySetResult();
-            targetApplication.OutputReader.CancelPendingRead();
-            await resyncDrain.ConfigureAwait(false);
+            successProxy = new RaidoReconnectClientProxy(this, transfer.HandshakeProtocol);
+            resyncProxy = new RaidoReconnectClientProxy(this, target.Protocol);
+            try
+            {
+                // Both reconnect phases write directly to this replacement transport while the
+                // logical write lock is held. Normal application output cannot overtake them.
+                await transfer.Reservation!.ExecuteReconnectActionsAsync(successProxy, resyncProxy).ConfigureAwait(false);
+            }
+            finally
+            {
+                successProxy.Invalidate();
+                resyncProxy.Invalidate();
+            }
 
             // Install all bytes already observed by the replacement reader before the new
             // transport pump is allowed to deliver more input to the logical application.
             await WritePendingInputAsync(targetApplication.InputWriter, pendingInput).ConfigureAwait(false);
             StartPumps();
-            target.ReleaseRebindOutputBarrier();
-            await target.InvokeReconnectedAsync().ConfigureAwait(false);
-            return true;
+            target.CompleteRebind();
         }
 
         catch (Exception ex)
         {
+            successProxy?.Invalidate();
+            resyncProxy?.Invalidate();
             ClearReservedTransfer();
             target.RollbackRebind();
-            if (committed)
+            if (attached)
             {
-                target.AbortAllowReconnect(ex);
+                target.Abort();
             }
             else
             {
@@ -238,8 +245,15 @@ internal sealed class RaidoPhysicalConnectionSession
         }
         finally
         {
+            if (targetWriteLockHeld)
+            {
+                target.ReleaseReconnectWriteLock();
+            }
             _switchLock.Release();
         }
+
+        await target.InvokeReconnectedAsync().ConfigureAwait(false);
+        return true;
     }
 
     internal void Abort()
@@ -247,6 +261,30 @@ internal sealed class RaidoPhysicalConnectionSession
         _failure.TrySetResult();
         _connection.Transport.Input.CancelPendingRead();
         _connection.Transport.Output.CancelPendingFlush();
+    }
+
+    internal async Task SendReconnectAsync<TMessage>(
+        TMessage message,
+        IRaidoProtocol protocol,
+        CancellationToken cancellationToken)
+        where TMessage : RaidoMessage
+    {
+        protocol.WriteMessage(message, _connection.Transport.Output);
+        var result = await _connection.Transport.Output.FlushAsync(cancellationToken).ConfigureAwait(false);
+        if (result.IsCanceled)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+
+            result = await _connection.Transport.Output.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        if (result.IsCanceled && !cancellationToken.IsCancellationRequested)
+        {
+            throw new IOException("The replacement transport canceled reconnect output.");
+        }
     }
 
     private void StartPumps()
@@ -392,59 +430,6 @@ internal sealed class RaidoPhysicalConnectionSession
         lock (_stateLock)
         {
             _reservedTransfer = null;
-        }
-    }
-
-    private async Task DrainOutputAsync(PipeReader reader)
-    {
-        while (reader.TryRead(out var result))
-        {
-            var buffer = result.Buffer;
-            if (!buffer.IsEmpty)
-            {
-                Copy(buffer, _connection.Transport.Output);
-                await _connection.Transport.Output.FlushAsync().ConfigureAwait(false);
-            }
-
-            reader.AdvanceTo(buffer.End);
-            if (result.IsCompleted)
-            {
-                break;
-            }
-        }
-    }
-
-    private async Task DrainOutputUntilAsync(PipeReader reader, Task stop)
-    {
-        ReadOnlySequence<byte> buffer = default;
-        var readPending = false;
-        try
-        {
-            while (true)
-            {
-                var result = await reader.ReadAsync().ConfigureAwait(false);
-                buffer = result.Buffer;
-                readPending = true;
-                if (!buffer.IsEmpty)
-                {
-                    Copy(buffer, _connection.Transport.Output);
-                    await _connection.Transport.Output.FlushAsync().ConfigureAwait(false);
-                }
-
-                reader.AdvanceTo(buffer.End);
-                readPending = false;
-                if (stop.IsCompleted || result.IsCompleted)
-                {
-                    return;
-                }
-            }
-        }
-        finally
-        {
-            if (readPending)
-            {
-                try { reader.AdvanceTo(buffer.End); } catch (InvalidOperationException) { }
-            }
         }
     }
 

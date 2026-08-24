@@ -30,7 +30,7 @@ GameWorld MUST send only focused authoritative resynchronization using existing 
 #### Scenario: Current view rebuild
 
 - **WHEN** a reconnect succeeds
-- **THEN** uncertain pre-loss output is discarded, the success response is flushed first, an active output consumer drains the forced map/viewport rebuild and appearance refresh in the post-commit phase, and no bytes encoded with the old protocol/encryption state are replayed
+- **THEN** uncertain pre-loss output is discarded, the success response is flushed first through the replacement transport, the forced map/viewport rebuild and appearance refresh use the fresh reconnect sender, and no bytes encoded with the old protocol/encryption state are replayed
 
 #### Scenario: Invalidated reconnect
 

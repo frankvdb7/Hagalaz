@@ -311,6 +311,12 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
 
+            if (worldSession is not Hagalaz.Services.GameWorld.Network.Model.GameSession gameSession)
+            {
+                await RejectReconnectAsync(ClientSignInResponse.BadSession);
+                return;
+            }
+
             var logicalConnection = _connections[worldSession.ConnectionId];
             var existingSession = logicalConnection?.Features.Get<ISessionFeature>()?.Session;
             var character = logicalConnection?.Features.Get<ICharacterFeature>()?.Character;
@@ -337,7 +343,6 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 IsMembersOnly = true
             };
 
-            var handshakeProtocol = Context.Protocol;
             var reservation = await _connections.TryPrepareRebindAsync(worldSession.ConnectionId, Context, clientProtocol);
             if (reservation is null)
             {
@@ -345,16 +350,17 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
 
-            // Raido flushes this response after the replacement transport commits and before
-            // it releases pending input or normal output. The existing character state is
-            // resynchronized in the explicit post-commit phase below.
-            reservation.OnCommitted(() => logicalConnection.WriteAsync(response, handshakeProtocol).AsTask());
-            reservation.OnPostCommit(() =>
-            {
-                character.UpdateMap(forceUpdate: true, renderViewPort: true);
-                character.Appearance.Refresh();
-                return Task.CompletedTask;
-            });
+            reservation.SetReconnectActions(
+                successProxy => successProxy.SendAsync(response),
+                resyncProxy =>
+                {
+                    gameSession.ExecuteWithClientProxy(resyncProxy, () =>
+                    {
+                        character.UpdateMap(forceUpdate: true, renderViewPort: true);
+                        character.Appearance.Refresh();
+                    });
+                    return Task.CompletedTask;
+                });
             ClearReconnectAuthentication();
         }
 

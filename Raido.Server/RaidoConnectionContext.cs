@@ -32,7 +32,6 @@ public class RaidoConnectionContext
     private readonly Lock _receiveMessageTimeoutLock = new();
     private readonly TimeProvider _timeProvider;
     private readonly SemaphoreSlim _writeLock = new(1);
-    private readonly AsyncLocal<bool> _rebindAction = new();
     private readonly bool _statefulReconnectSupported;
     private readonly TimeSpan _statefulReconnectGracePeriod;
     private readonly TimeSpan _keepAliveInterval;
@@ -42,7 +41,6 @@ public class RaidoConnectionContext
     private RaidoPhysicalConnectionSession? _physicalSession;
     private Task? _physicalTask;
     private TaskCompletionSource<bool> _rebindTcs = NewRebindTcs();
-    private TaskCompletionSource? _rebindOutputBarrier;
     private Task _previousPhysicalPumpsStopped = Task.CompletedTask;
     private readonly List<Func<PipeWriter, Task>> _reconnectedCallbacks = new();
     private RaidoRebindReservation? _rebindReservation;
@@ -197,11 +195,6 @@ public class RaidoConnectionContext
         if (!_writeLock.Wait(0))
 #pragma warning restore CA2016
             return new ValueTask(WriteSlowAsync(message, ignoreAbort, protocolOverride, cancellationToken));
-        if (!_rebindAction.Value && TryGetRebindOutputBarrier(out var rebindOutputBarrier))
-        {
-            _writeLock.Release();
-            return new ValueTask(WriteAfterRebindBarrierAsync(message, ignoreAbort, protocolOverride, cancellationToken, rebindOutputBarrier));
-        }
         if (IsReconnecting() || (_connectionAborted && !ignoreAbort))
         {
             _writeLock.Release();
@@ -212,18 +205,6 @@ public class RaidoConnectionContext
         task.GetAwaiter().GetResult();
         _writeLock.Release();
         return default;
-    }
-
-    private async Task WriteAfterRebindBarrierAsync<TMessage>(
-        TMessage message,
-        bool ignoreAbort,
-        IRaidoProtocol? protocolOverride,
-        CancellationToken cancellationToken,
-        Task rebindOutputBarrier)
-        where TMessage : RaidoMessage
-    {
-        await rebindOutputBarrier.WaitAsync(cancellationToken).ConfigureAwait(false);
-        await WriteAsync(message, ignoreAbort, protocolOverride, cancellationToken).ConfigureAwait(false);
     }
 
     private ValueTask<FlushResult> WriteCore<TMessage>(TMessage message, IRaidoProtocol protocol, CancellationToken cancellationToken)
@@ -264,21 +245,13 @@ public class RaidoConnectionContext
         where TMessage : RaidoMessage
     {
         await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        Task? rebindOutputBarrier = null;
         try
         {
-            if (!_rebindAction.Value && TryGetRebindOutputBarrier(out var barrier))
+            if (IsReconnecting()) throw new RaidoConnectionReconnectingException(ConnectionId);
+            if (!_connectionAborted || ignoreAbort)
             {
-                rebindOutputBarrier = barrier;
-            }
-            else
-            {
-                if (IsReconnecting()) throw new RaidoConnectionReconnectingException(ConnectionId);
-                if (!_connectionAborted || ignoreAbort)
-                {
-                    var result = await WriteCore(message, protocolOverride ?? Protocol, cancellationToken).ConfigureAwait(false);
-                    if (result.IsCanceled) ConsumeReconnectOutputFlushCancellation();
-                }
+                var result = await WriteCore(message, protocolOverride ?? Protocol, cancellationToken).ConfigureAwait(false);
+                if (result.IsCanceled) ConsumeReconnectOutputFlushCancellation();
             }
         }
         catch (OperationCanceledException) when (ConsumeReconnectOutputFlushCancellation()) { }
@@ -286,11 +259,6 @@ public class RaidoConnectionContext
         catch (Exception ex) { CloseException = ex; Log.FailedWritingMessage(_logger, ex); AbortAllowReconnect(ex); }
         finally { _writeLock.Release(); }
 
-        if (rebindOutputBarrier is not null)
-        {
-            await rebindOutputBarrier.WaitAsync(cancellationToken).ConfigureAwait(false);
-            await WriteAsync(message, ignoreAbort, protocolOverride, cancellationToken).ConfigureAwait(false);
-        }
     }
 
     public virtual void Abort()
@@ -314,7 +282,6 @@ public class RaidoConnectionContext
             queueAbort = !_connectionAbortedTokenSource.IsCancellationRequested;
         }
         reservation?.Invalidate();
-        CompleteRebindOutputBarrier();
         physical?.Abort();
         _application.Complete(RaidoApplicationExitReason.Terminal);
         if (queueAbort) ThreadPool.QueueUserWorkItem(_abortedCallback, this);
@@ -343,7 +310,6 @@ public class RaidoConnectionContext
             else StartReconnectUnsafe();
         }
         reservation?.Invalidate();
-        CompleteRebindOutputBarrier();
         physical?.Abort();
         if (queueAbort)
         {
@@ -441,36 +407,6 @@ public class RaidoConnectionContext
         lock (_lifecycleLock) _reconnectedCallbacks.Add(callback);
     }
 
-    internal async Task<bool> CommitRebindAsync(RaidoApplicationTransfer transfer)
-    {
-        CancelPendingOutputFlushForReconnect();
-        await _writeLock.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            ClearReconnectOutputFlushCancellation();
-            lock (_lifecycleLock)
-            {
-                var reservation = _rebindReservation;
-                if (_lifecycleState != RaidoConnectionLifecycleState.Reconnecting || !ReferenceEquals(reservation?.Transfer, transfer) ||
-                    !reservation.TryMarkCommitted()) return false;
-                Protocol = transfer.Protocol ?? Protocol;
-                AttachPhysicalUnsafe(transfer.Session);
-                _rebindReservation = null;
-                _graceTimer?.Dispose();
-                _graceTimer = null;
-                _lifecycleState = RaidoConnectionLifecycleState.Connected;
-                _rebindOutputBarrier = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                _rebindTcs.TrySetResult(true);
-                _rebindTcs = NewRebindTcs();
-            }
-        }
-        finally
-        {
-            _writeLock.Release();
-        }
-        return true;
-    }
-
     internal void CancelPendingOutputFlushForReconnect()
     {
         lock (_lifecycleLock) _reconnectOutputFlushCancellationRequested = true;
@@ -487,9 +423,40 @@ public class RaidoConnectionContext
         }
     }
 
-    private void ClearReconnectOutputFlushCancellation()
+    internal void ClearPendingOutputFlushCancellation()
     {
         lock (_lifecycleLock) _reconnectOutputFlushCancellationRequested = false;
+    }
+
+    internal Task AcquireReconnectWriteLockAsync() => _writeLock.WaitAsync();
+    internal void ReleaseReconnectWriteLock() => _writeLock.Release();
+
+    internal bool BeginRebind(RaidoApplicationTransfer transfer)
+    {
+        lock (_lifecycleLock)
+        {
+            var reservation = _rebindReservation;
+            if (_lifecycleState != RaidoConnectionLifecycleState.Reconnecting || !ReferenceEquals(reservation?.Transfer, transfer) ||
+                !reservation.TryMarkCommitted()) return false;
+
+            Protocol = transfer.Protocol ?? Protocol;
+            AttachPhysicalUnsafe(transfer.Session);
+            _rebindReservation = null;
+            _graceTimer?.Dispose();
+            _graceTimer = null;
+            return true;
+        }
+    }
+
+    internal void CompleteRebind()
+    {
+        lock (_lifecycleLock)
+        {
+            if (_lifecycleState != RaidoConnectionLifecycleState.Reconnecting) return;
+            _lifecycleState = RaidoConnectionLifecycleState.Connected;
+            _rebindTcs.TrySetResult(true);
+            _rebindTcs = NewRebindTcs();
+        }
     }
     internal async Task InvokeReconnectedAsync()
     {
@@ -533,41 +500,6 @@ public class RaidoConnectionContext
         lock (_lifecycleLock) _preparedReconnectReservation = reservation;
     }
 
-    internal async Task ExecuteRebindActionAsync(Func<Task> action)
-    {
-        var previous = _rebindAction.Value;
-        _rebindAction.Value = true;
-        try { await action().ConfigureAwait(false); }
-        finally { _rebindAction.Value = previous; }
-    }
-
-    internal void ReleaseRebindOutputBarrier() => CompleteRebindOutputBarrier();
-
-    private bool TryGetRebindOutputBarrier(out Task barrier)
-    {
-        lock (_lifecycleLock)
-        {
-            if (_rebindOutputBarrier is null)
-            {
-                barrier = Task.CompletedTask;
-                return false;
-            }
-
-            barrier = _rebindOutputBarrier.Task;
-            return true;
-        }
-    }
-
-    private void CompleteRebindOutputBarrier()
-    {
-        TaskCompletionSource? barrier;
-        lock (_lifecycleLock)
-        {
-            barrier = _rebindOutputBarrier;
-            _rebindOutputBarrier = null;
-        }
-        barrier?.TrySetResult();
-    }
     internal RaidoApplicationTransfer? TakePendingTransfer()
     {
         lock (_lifecycleLock)
@@ -614,7 +546,6 @@ public class RaidoConnectionContext
             _application.Complete(RaidoApplicationExitReason.Terminal);
             ThreadPool.QueueUserWorkItem(_abortedCallback, this);
         }
-        CompleteRebindOutputBarrier();
     }
     private void AttachPhysicalUnsafe(RaidoPhysicalConnectionSession session)
     {
@@ -692,12 +623,6 @@ public class RaidoConnectionContext
             return default;
         }
 
-        if (TryGetRebindOutputBarrier(out _))
-        {
-            _writeLock.Release();
-            return default;
-        }
-
         return new ValueTask(TryWritePingSlowAsync());
     }
     private async Task TryWritePingSlowAsync()
@@ -752,45 +677,30 @@ public sealed class RaidoRebindReservation
 
     private readonly object _lock = new();
     private readonly RaidoApplicationTransfer _transfer;
-    private readonly List<Func<Task>> _committedCallbacks = new();
-    private readonly List<Func<Task>> _postCommitCallbacks = new();
+    private Func<IRaidoClientProxy, Task>? _success;
+    private Func<IRaidoClientProxy, Task>? _resync;
     private ReservationState _state;
-    private bool _committedInvoked;
-    private bool _postCommitInvoked;
 
     internal RaidoRebindReservation(RaidoApplicationTransfer transfer) => _transfer = transfer;
 
     /// <summary>
-    /// Registers work that is sent only after the replacement has committed.
+    /// Supplies the reconnect response and authoritative resynchronization operations.
     /// </summary>
-    public void OnCommitted(Func<Task> callback)
+    public void SetReconnectActions(
+        Func<IRaidoClientProxy, Task> success,
+        Func<IRaidoClientProxy, Task> resync)
     {
-        ArgumentNullException.ThrowIfNull(callback);
+        ArgumentNullException.ThrowIfNull(success);
+        ArgumentNullException.ThrowIfNull(resync);
         lock (_lock)
         {
-            if (_state != ReservationState.Pending || _committedInvoked)
+            if (_state != ReservationState.Pending || _success is not null)
             {
                 throw new InvalidOperationException("The reconnect reservation is no longer valid.");
             }
 
-            _committedCallbacks.Add(callback);
-        }
-    }
-
-    /// <summary>
-    /// Registers work that runs after the committed reconnect response has been flushed.
-    /// </summary>
-    public void OnPostCommit(Func<Task> callback)
-    {
-        ArgumentNullException.ThrowIfNull(callback);
-        lock (_lock)
-        {
-            if (_state != ReservationState.Pending || _postCommitInvoked)
-            {
-                throw new InvalidOperationException("The reconnect reservation is no longer valid.");
-            }
-
-            _postCommitCallbacks.Add(callback);
+            _success = success;
+            _resync = resync;
         }
     }
 
@@ -826,44 +736,23 @@ public sealed class RaidoRebindReservation
         }
     }
 
-    internal async Task InvokeCommittedAsync()
+    internal async Task ExecuteReconnectActionsAsync(IRaidoClientProxy successProxy, IRaidoClientProxy resyncProxy)
     {
-        Func<Task>[] callbacks;
+        Func<IRaidoClientProxy, Task>? success;
+        Func<IRaidoClientProxy, Task>? resync;
         lock (_lock)
         {
-            if (_state != ReservationState.Committed || _committedInvoked)
+            if (_state != ReservationState.Committed)
             {
                 return;
             }
 
-            callbacks = _committedCallbacks.ToArray();
-            _committedInvoked = true;
+            success = _success;
+            resync = _resync;
         }
 
-        foreach (var callback in callbacks)
-        {
-            await Target.ExecuteRebindActionAsync(callback).ConfigureAwait(false);
-        }
-    }
-
-    internal async Task InvokePostCommitAsync()
-    {
-        Func<Task>[] callbacks;
-        lock (_lock)
-        {
-            if (_state != ReservationState.Committed || _postCommitInvoked)
-            {
-                return;
-            }
-
-            callbacks = _postCommitCallbacks.ToArray();
-            _postCommitInvoked = true;
-        }
-
-        foreach (var callback in callbacks)
-        {
-            await Target.ExecuteRebindActionAsync(callback).ConfigureAwait(false);
-        }
+        if (success is not null) await success(successProxy).ConfigureAwait(false);
+        if (resync is not null) await resync(resyncProxy).ConfigureAwait(false);
     }
 }
 
@@ -875,11 +764,13 @@ internal sealed class RaidoApplicationTransfer
         Target = target;
         Session = session;
         Protocol = protocol;
+        HandshakeProtocol = source.Protocol;
     }
     public RaidoConnectionContext Source { get; }
     public RaidoConnectionContext Target { get; }
     public RaidoPhysicalConnectionSession Session { get; }
     public IRaidoProtocol? Protocol { get; }
+    public IRaidoProtocol HandshakeProtocol { get; }
     internal RaidoRebindReservation? Reservation { get; set; }
     public Task<bool> CommitAsync(Func<ValueTask<ReadOnlyMemory<byte>>> capturePendingInput) =>
         Session.CommitTransferAsync(this, Source, Target, Target.Application, capturePendingInput, Protocol);

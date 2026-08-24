@@ -46,15 +46,15 @@ Raido MUST distinguish reserving a replacement from committing it. A reservation
 - **WHEN** a prepared replacement is invalidated by expiry, abort, or a failed ownership check before commit
 - **THEN** the temporary replacement connection is terminated and its handler does not continue as an ordinary handshake
 
-#### Scenario: Post-commit output barrier
+#### Scenario: Reconnect output ordering
 
-- **WHEN** committed response work and explicit post-commit work write to the logical connection
-- **THEN** response output is flushed first, an active physical consumer drains post-commit output while it is produced, post-commit output follows the response, normal writes and pings wait behind both, and pending replacement input is released only after that ordering is established
+- **WHEN** committed reconnect success and explicit resynchronization work write through the reconnect operation
+- **THEN** success is flushed first through the handshake protocol, resynchronization follows through the fresh replacement protocol on the replacement transport, normal writes and pings remain blocked by the existing logical write lock, and pending replacement input is released only after that ordering is established
 
 #### Scenario: Atomic write admission
 
-- **WHEN** a normal write or keep-alive ping races the reconnect commit
-- **THEN** it either completes admission before the reconnect barrier is installed or waits for the barrier, and cannot pass between the barrier check and write-lock acquisition
+- **WHEN** a normal write or keep-alive ping races the reconnect handoff
+- **THEN** it either completes before the handoff acquires the existing logical write lock or waits for that lock, and cannot write until the success, resynchronization, suffix installation, pump restart, and Connected transition are complete
 
 #### Scenario: Blocked pre-loss output flush
 

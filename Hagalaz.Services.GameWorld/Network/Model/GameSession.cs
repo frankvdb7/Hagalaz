@@ -7,7 +7,8 @@ namespace Hagalaz.Services.GameWorld.Network.Model
 {
     public class GameSession : IGameSession
     {
-        private readonly IRaidoClientProxy _clientProxy;
+        private readonly System.Threading.Lock _clientProxyLock = new();
+        private IRaidoClientProxy _clientProxy;
 
         public uint MasterId { get; init; }
         public string ConnectionId { get; init; }
@@ -19,7 +20,26 @@ namespace Hagalaz.Services.GameWorld.Network.Model
             _clientProxy = clientProxy;
         }
 
-        public void SendMessage(RaidoMessage message) => _clientProxy.SendAsync(message).ConfigureAwait(false).GetAwaiter().GetResult();
+        public void SendMessage(RaidoMessage message)
+        {
+            lock (_clientProxyLock)
+            {
+                _clientProxy.SendAsync(message).ConfigureAwait(false).GetAwaiter().GetResult();
+            }
+        }
+
+        internal void ExecuteWithClientProxy(IRaidoClientProxy reconnectProxy, System.Action action)
+        {
+            System.ArgumentNullException.ThrowIfNull(reconnectProxy);
+            System.ArgumentNullException.ThrowIfNull(action);
+            lock (_clientProxyLock)
+            {
+                var previousProxy = _clientProxy;
+                _clientProxy = reconnectProxy;
+                try { action(); }
+                finally { _clientProxy = previousProxy; }
+            }
+        }
     }
 
     public sealed class WorldGameSession : GameSession, IGameWorldSession
