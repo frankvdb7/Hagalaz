@@ -16,7 +16,7 @@ Raido MUST retain an opted-in logical connection in a reconnecting state for one
 #### Scenario: Loss enters grace
 
 - **WHEN** an opted-in active physical transport closes
-- **THEN** the physical generation is detached, input dispatch and writes from that generation stop, the logical connection remains registered, and terminal hub disconnect is not invoked yet
+- **THEN** the physical session is detached, its pumps stop, the logical connection remains registered, and terminal hub disconnect is not invoked yet
 
 ### Requirement: A replacement transport rebinds atomically
 
@@ -25,26 +25,39 @@ Raido MUST provide one application-callable operation that can rebind a known re
 #### Scenario: Successful rebind
 
 - **WHEN** a valid replacement transport is presented for a known logical connection during its grace window
-- **THEN** one new physical generation becomes active, the logical connection id/caller context/features/items/protocol association/client destination survive, and the grace timer is cancelled
+- **THEN** one replacement physical session becomes active, the logical connection id/caller context/features/items/protocol association/client destination survive, and the grace timer is cancelled
 
 #### Scenario: Concurrent rebinds
 
 - **WHEN** multiple replacement transports attempt to rebind the same logical connection concurrently
 - **THEN** exactly one attempt succeeds and all losing attempts are rejected without replacing the winner
 
-### Requirement: Stale generations are fenced
+### Requirement: Physical pumps have one owner
 
-Raido MUST prevent a detached or losing physical generation from dispatching new input or receiving writes after a successful rebind.
+Raido MUST stop the previous physical pumps and release their stable application-pipe reader/writer ownership before starting replacement pumps.
 
-#### Scenario: Stale input
+#### Scenario: Replacement pump ownership
 
-- **WHEN** work read from an old generation reaches the dispatch boundary after a replacement has won
-- **THEN** the work is rejected and no hub handler is invoked for that stale generation
+- **WHEN** a replacement wins during the reconnect grace window
+- **THEN** the old physical session cannot receive later logical writes, the replacement is the only active pump pair, and the logical handler continues to read the same application pipe
 
-#### Scenario: Stale write
+### Requirement: The physical session owns its lifetime
 
-- **WHEN** a write targets an old generation after a replacement has won
-- **THEN** the write fails or is rejected and no bytes are delivered to the old transport
+Raido MUST keep the physical-session handler alive independently of the temporary replacement application handler until the physical connection itself terminates.
+
+#### Scenario: Successful logical transfer
+
+- **WHEN** a replacement handshake commits to an existing logical connection
+- **THEN** the replacement application handler may finish, while the physical session task remains active and the original logical handler continues on its stable application pipe
+
+### Requirement: Reader ownership is explicit
+
+Raido MUST leave completion of the stable application reader to its handler owner and MUST transfer unread input exactly once at a successful replacement boundary.
+
+#### Scenario: Same-buffer replacement
+
+- **WHEN** the replacement handshake has an opcode-18 message followed by the first encrypted game packet in one read buffer
+- **THEN** the handshake reader advances through the opcode once, the unread suffix is written once to the target application pipe after the fresh protocol is installed, and the target handler dispatches the game packet once
 
 ### Requirement: Detached sends are explicit and not replayed
 

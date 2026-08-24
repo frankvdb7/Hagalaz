@@ -205,22 +205,22 @@ public sealed class RaidoLogicalReconnectTests
         var rebound = await store.TryRebindAsync(logicalId, replacement);
 
         Assert.IsTrue(rebound);
+        await CommitTransferAsync(replacement);
         Assert.AreEqual(RaidoConnectionLifecycleState.Connected, context.LifecycleState);
         Assert.AreEqual(logicalId, context.ConnectionId);
         Assert.AreEqual("physical-2", context.PhysicalConnectionId);
         Assert.AreSame(features, context.Features);
         Assert.AreSame(context, store[logicalId]);
-        Assert.IsFalse(context.IsCurrentPhysicalGeneration(1));
 
         await context.WriteAsync(new TestMessage());
         var result = await replacementPhysical.Output.Reader.ReadAsync();
         Assert.AreEqual(42, result.Buffer.FirstSpan[0]);
         replacementPhysical.Output.Reader.AdvanceTo(result.Buffer.End);
 
-        Assert.IsFalse(original.Output.Reader.TryRead(out var oldResult));
-        if (oldResult.Buffer.Length > 0)
+        if (original.Output.Reader.TryRead(out var oldResult) && oldResult.Buffer.Length > 0)
         {
             original.Output.Reader.AdvanceTo(oldResult.Buffer.End);
+            Assert.Fail("The detached physical transport received a message.");
         }
         context.Abort();
     }
@@ -240,6 +240,7 @@ public sealed class RaidoLogicalReconnectTests
         var rebound = await store.TryRebindAsync(context.ConnectionId, replacement, replacementProtocol);
 
         Assert.IsTrue(rebound);
+        await CommitTransferAsync(replacement);
         Assert.AreSame(replacementProtocol, context.Protocol);
 
         await context.WriteAsync(new TestMessage());
@@ -268,7 +269,40 @@ public sealed class RaidoLogicalReconnectTests
         });
 
         Assert.IsTrue(await store.TryRebindAsync(context.ConnectionId, replacement));
-        Assert.AreSame(replacementPhysical.Output.Writer, callbackOutput);
+        await CommitTransferAsync(replacement);
+        Assert.AreSame(context.Output, callbackOutput);
+        context.Abort();
+    }
+
+    [TestMethod]
+    public async Task ReconnectedCallbackRemainsRegisteredAcrossRepeatedRebinds()
+    {
+        using var original = new PhysicalConnection("physical-1");
+        using var replacementOne = new PhysicalConnection("physical-2");
+        using var replacementTwo = new PhysicalConnection("physical-3");
+        var context = CreateContext(original, statefulReconnect: true);
+        var replacementContextOne = CreateContext(replacementOne, statefulReconnect: true);
+        var replacementContextTwo = CreateContext(replacementTwo, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        var callbackCount = 0;
+        store.Add(context);
+
+        context.Features.Get<IRaidoStatefulReconnectFeature>()!.OnReconnected(_ =>
+        {
+            Interlocked.Increment(ref callbackCount);
+            return Task.CompletedTask;
+        });
+
+        original.Closed.Cancel();
+        Assert.IsTrue(await store.TryRebindAsync(context.ConnectionId, replacementContextOne));
+        await CommitTransferAsync(replacementContextOne);
+
+        replacementOne.Closed.Cancel();
+        await WaitUntilAsync(() => context.LifecycleState == RaidoConnectionLifecycleState.Reconnecting);
+        Assert.IsTrue(await store.TryRebindAsync(context.ConnectionId, replacementContextTwo));
+        await CommitTransferAsync(replacementContextTwo);
+
+        Assert.AreEqual(2, callbackCount);
         context.Abort();
     }
 
@@ -284,8 +318,14 @@ public sealed class RaidoLogicalReconnectTests
 
         await context.WriteAsync(new TestMessage());
 
+        for (var i = 0; i < 100 && context.LifecycleState == RaidoConnectionLifecycleState.Connected; i++)
+        {
+            await Task.Delay(1);
+        }
+
         Assert.AreEqual(RaidoConnectionLifecycleState.Reconnecting, context.LifecycleState);
         Assert.IsTrue(await store.TryRebindAsync(context.ConnectionId, replacement));
+        await CommitTransferAsync(replacement);
         Assert.AreEqual(RaidoConnectionLifecycleState.Connected, context.LifecycleState);
         context.Abort();
     }
@@ -305,11 +345,14 @@ public sealed class RaidoLogicalReconnectTests
         await Assert.ThrowsExactlyAsync<RaidoConnectionReconnectingException>(
             () => context.WriteAsync(new TestMessage()).AsTask());
 
+        var replacementContextOne = CreateContext(replacementOne, statefulReconnect: true);
+        var replacementContextTwo = CreateContext(replacementTwo, statefulReconnect: true);
         var results = await Task.WhenAll(
-            store.TryRebindAsync(context.ConnectionId, CreateContext(replacementOne, statefulReconnect: true)).AsTask(),
-            store.TryRebindAsync(context.ConnectionId, CreateContext(replacementTwo, statefulReconnect: true)).AsTask());
+            store.TryRebindAsync(context.ConnectionId, replacementContextOne).AsTask(),
+            store.TryRebindAsync(context.ConnectionId, replacementContextTwo).AsTask());
 
         Assert.AreEqual(1, results.Count(result => result));
+        await CommitTransferAsync(results[0] ? replacementContextOne : replacementContextTwo);
         Assert.AreEqual(RaidoConnectionLifecycleState.Connected, context.LifecycleState);
         context.Abort();
     }
@@ -406,5 +449,22 @@ public sealed class RaidoLogicalReconnectTests
         }
 
         return context;
+    }
+
+    private static async Task CommitTransferAsync(RaidoConnectionContext replacement)
+    {
+        var transfer = replacement.TakePendingTransfer();
+        Assert.IsNotNull(transfer);
+        Assert.IsTrue(await transfer!.CommitAsync(ReadOnlySequence<byte>.Empty));
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        for (var i = 0; i < 100 && !condition(); i++)
+        {
+            await Task.Delay(1);
+        }
+
+        Assert.IsTrue(condition());
     }
 }

@@ -325,14 +325,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
 
-            var handshakeProtocol = Context.Protocol;
             clientProtocol.SetEncryptionSeed(message.IsaacSeed);
-            var reconnectFeature = Context.Features.Get<IRaidoTransportHandoffFeature>();
-            if (reconnectFeature == null)
-            {
-                await RejectReconnectAsync(ClientSignInResponse.BadSession);
-                return;
-            }
 
             var response = new WorldSignInResponse
             {
@@ -344,26 +337,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 IsMembersOnly = true
             };
 
-            reconnectFeature.OnTransportReady(async _ =>
+            if (!await _connections.TryRebindAsync(worldSession.ConnectionId, Context, clientProtocol))
             {
-                if (!await _connections.TryRebindAsync(worldSession.ConnectionId, Context, clientProtocol))
-                {
-                    await RejectReconnectAsync(ClientSignInResponse.BadSession);
-                    return;
-                }
+                await RejectReconnectAsync(ClientSignInResponse.BadSession);
+                return;
+            }
 
-                try
-                {
-                    await logicalConnection.WriteAsync(response, handshakeProtocol, logicalConnection.ConnectionAbortedToken);
-                    character.UpdateMap(forceUpdate: true, renderViewPort: true);
-                    character.Appearance.Refresh();
-                }
-                finally
-                {
-                    ClearReconnectAuthentication();
-                    Context.Abort();
-                }
-            });
+            await Clients.Caller.SendAsync(response);
+            character.UpdateMap(forceUpdate: true, renderViewPort: true);
+            character.Appearance.Refresh();
+            ClearReconnectAuthentication();
         }
 
         private async Task RejectReconnectAsync(ClientSignInResponse response)

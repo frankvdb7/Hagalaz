@@ -305,6 +305,34 @@ namespace Raido.Server
             _hasMessage = false;
         }
 
+        internal ReadOnlySequence<byte> UnconsumedBuffer => _hasMessage ? _buffer.Slice(_consumed) : _buffer;
+
+        internal void AdvanceToEnd()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(RaidoProtocolReader));
+            }
+
+            _reader.AdvanceTo(_buffer.End);
+            _buffer = default;
+            _consumed = default;
+            _examined = default;
+            _hasMessage = false;
+            _isCanceled = false;
+        }
+
+        internal ValueTask CompleteAsync()
+        {
+            if (_disposed)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            _disposed = true;
+            return _reader.CompleteAsync();
+        }
+
         /// <summary>
         /// Disposes the reader.
         /// </summary>
@@ -312,7 +340,7 @@ namespace Raido.Server
         public ValueTask DisposeAsync()
         {
             _disposed = true;
-            return _reader.CompleteAsync();
+            return ValueTask.CompletedTask;
         }
     }
 }

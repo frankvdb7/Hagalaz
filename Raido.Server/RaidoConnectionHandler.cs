@@ -106,12 +106,10 @@ namespace Raido.Server
                 return;
             }
 
-            if (connection.TransportWasHandedOff)
+            if (!connection.ApplicationWasTransferred)
             {
-                return;
+                await OnDisconnectedAsync(connection, connection.CloseException);
             }
-
-            await OnDisconnectedAsync(connection, connection.CloseException);
         }
 
         /// <summary>
@@ -121,86 +119,59 @@ namespace Raido.Server
         /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
         public virtual async Task DispatchMessagesAsync(RaidoConnectionContext connection)
         {
-            while (true)
+            var protocolReader = connection.CreateReader();
+            try
             {
-                var generation = connection.PhysicalGeneration;
-                await using (var protocolReader = connection.CreateReader())
+                while (true)
                 {
-                    while (true)
+                    var advanced = false;
+                    try
                     {
-                        try
+                        connection.BeginClientTimeout();
+                        var result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
+                        if (result.IsCanceled || result.Message == default)
                         {
-                            connection.BeginClientTimeout();
-                            var result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize,
-                                connection.PhysicalConnectionAbortedToken);
-                            if (result.IsCanceled)
-                            {
-                                break;
-                            }
-
-                            if (result.Message == default)
-                            {
-                                if (result.IsCompleted)
-                                {
-                                    break;
-                                }
-
-                                continue;
-                            }
-
-                            connection.StopClientTimeout();
-
-                            Log.ReceivedMessage(_logger, result.Message);
-
-                            if (await connection.EnterDispatchAsync(generation))
-                            {
-                                try
-                                {
-                                    await _dispatcher.DispatchMessageAsync(connection, result.Message);
-                                }
-                                finally
-                                {
-                                    connection.ExitDispatch();
-                                }
-                            }
-
-                            if (result.IsCompleted)
-                            {
-                                break;
-                            }
+                            if (result.IsCompleted) return;
+                            continue;
                         }
-                        finally
+
+                        connection.StopClientTimeout();
+                        Log.ReceivedMessage(_logger, result.Message);
+                        await _dispatcher.DispatchMessageAsync(connection, result.Message);
+
+                        var transfer = connection.TakePendingTransfer();
+                        if (transfer is not null)
                         {
-                            protocolReader.Advance();
+                            var succeeded = await transfer.CommitAsync(protocolReader.UnconsumedBuffer).ConfigureAwait(false);
+                            protocolReader.AdvanceToEnd();
+                            advanced = true;
+                            if (succeeded)
+                            {
+                                connection.CompleteTransferred();
+                                return;
+                            }
+
+                            connection.Abort();
+                            return;
                         }
+
+                        protocolReader.Advance();
+                        advanced = true;
+                        if (result.IsCompleted) return;
+                    }
+                    finally
+                    {
+                        if (!advanced) protocolReader.Advance();
                     }
                 }
-
-                if (connection.TryTakeTransportHandoff(out var transportHandoff))
-                {
-                    var output = connection.Output;
-                    await transportHandoff!(output);
-                    if (connection.TransportWasHandedOff)
-                    {
-                        return;
-                    }
-                }
-
-                if (connection.LifecycleState == RaidoConnectionLifecycleState.Connected &&
-                    connection.PhysicalGeneration != generation)
-                {
-                    continue;
-                }
-
-                if (connection.LifecycleState != RaidoConnectionLifecycleState.Reconnecting)
-                {
-                    return;
-                }
-
-                if (!await connection.WaitForRebindOrCloseAsync())
-                {
-                    return;
-                }
+            }
+            catch (OperationCanceledException) when (connection.ConnectionAbortedToken.IsCancellationRequested)
+            {
+                // Logical abort is the normal terminal signal for the stable application pipe.
+            }
+            finally
+            {
+                await protocolReader.CompleteAsync();
             }
         }
 

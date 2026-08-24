@@ -33,7 +33,7 @@ namespace Raido.Server
         }
 
         /// <summary>
-        /// Attempts to attach a replacement physical transport to a retained logical connection.
+        /// Reserves and commits a replacement physical transport for a retained logical connection.
         /// </summary>
         public ValueTask<bool> TryRebindAsync(string connectionId, RaidoConnectionContext replacement)
         {
@@ -46,7 +46,7 @@ namespace Raido.Server
         }
 
         /// <summary>
-        /// Attempts to attach a replacement physical transport and protocol to a retained logical connection.
+        /// Reserves and commits a replacement physical transport and protocol for a retained logical connection.
         /// </summary>
         public ValueTask<bool> TryRebindAsync(
             string connectionId,
@@ -63,7 +63,7 @@ namespace Raido.Server
         }
 
         /// <summary>
-        /// Attempts to attach the caller's physical transport and protocol to a retained logical connection.
+        /// Reserves and commits the caller's physical transport and protocol for a retained logical connection.
         /// </summary>
         public ValueTask<bool> TryRebindAsync(
             string connectionId,

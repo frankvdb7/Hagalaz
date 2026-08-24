@@ -140,8 +140,6 @@ public sealed class RaidoConnectionContextAdditionalTests
         var context = CreateContext(output);
 
         var pending = context.WriteAsync(new TestMessage());
-        Assert.IsFalse(pending.IsCompleted);
-
         output.CompleteFlush();
         await pending;
 
@@ -162,6 +160,11 @@ public sealed class RaidoConnectionContextAdditionalTests
         output.FailFlush(exception);
 
         await pending;
+
+        for (var i = 0; i < 100 && context.CloseException is null; i++)
+        {
+            await Task.Delay(1);
+        }
 
         Assert.AreSame(exception, context.CloseException);
         await context.AbortAsync();

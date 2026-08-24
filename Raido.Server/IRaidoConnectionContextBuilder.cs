@@ -52,6 +52,11 @@ namespace Raido.Server
     public interface IRaidoConnectionContextBuilderProtocol
     {
         /// <summary>
+        /// Uses an application pipe and a physical session supplied by the connection handler.
+        /// </summary>
+        IRaidoConnectionContextBuilderProtocol WithPhysicalSession(RaidoPhysicalConnectionSession session, RaidoApplicationConnection application);
+
+        /// <summary>
         /// Sets the protocol for the context.
         /// </summary>
         /// <param name="protocol">The protocol to use.</param>

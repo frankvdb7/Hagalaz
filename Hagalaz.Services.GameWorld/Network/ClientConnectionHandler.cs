@@ -12,24 +12,35 @@ public class ClientConnectionHandler : ConnectionHandler
     private readonly RaidoConnectionHandler _connectionHandler;
     private readonly IRaidoConnectionContextBuilder _contextBuilder;
     private readonly ILogger<ClientConnectionHandler> _logger;
+    private readonly ILoggerFactory _loggerFactory;
 
     public ClientConnectionHandler(
         RaidoConnectionHandler connectionHandler,
         IRaidoConnectionContextBuilder contextBuilder,
-        ILogger<ClientConnectionHandler> logger)
+        ILogger<ClientConnectionHandler> logger,
+        ILoggerFactory loggerFactory)
     {
         _connectionHandler = connectionHandler;
         _contextBuilder = contextBuilder;
         _logger = logger;
+        _loggerFactory = loggerFactory;
     }
 
     public override async Task OnConnectedAsync(ConnectionContext connection)
     {
-        var connectionContext = _contextBuilder.Create().WithConnection(connection).WithProtocol<HandshakeProtocol>().Build();
+        var application = new RaidoApplicationConnection();
+        var session = new RaidoPhysicalConnectionSession(connection, _loggerFactory);
+        var connectionContext = _contextBuilder.Create()
+            .WithConnection(connection)
+            .WithPhysicalSession(session, application)
+            .WithProtocol<HandshakeProtocol>()
+            .Build();
 
         Log.HandshakeStart(_logger, connectionContext.Protocol.Name);
 
-        await _connectionHandler.ConnectAsync(connectionContext);
+        var physicalTask = session.RunAsync(connectionContext, application);
+        var logicalTask = _connectionHandler.ConnectAsync(connectionContext);
+        await Task.WhenAll(physicalTask, logicalTask);
     }
 
     private static class Log

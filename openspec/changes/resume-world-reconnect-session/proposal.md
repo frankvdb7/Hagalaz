@@ -19,7 +19,7 @@ Issue #476 preserves revision-742 world opcode 18 as explicit reconnect intent a
 
 ## Impact
 
-The change is limited to the GameWorld handshake/authentication/session integration and the Raido rebind protocol handoff. It reuses the existing session store, character store, authentication service, protocol resolver, map update API, and terminal disconnect pipeline. No generic replay queue, ACK protocol, distributed ownership, snapshot framework, or lobby behavior is introduced.
+The change is limited to the GameWorld handshake/authentication/session integration and the Raido rebind protocol transfer. It reuses the existing session store, character store, authentication service, protocol resolver, map update API, and terminal disconnect pipeline. No generic replay queue, ACK protocol, distributed ownership, snapshot framework, or lobby behavior is introduced.
 
 ## Acceptance Criteria
 

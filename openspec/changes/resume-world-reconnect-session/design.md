@@ -27,13 +27,13 @@
 
 2. **Require an active world session and retained logical context.** The session must be an `IGameWorldSession`, its connection must be present in `RaidoConnectionStore` and `Reconnecting`, and its logical features must contain the same character/master ownership. A missing or mismatched condition rejects the replacement.
 
-3. **Defer physical handoff until the reader is finished.** The reconnect hub registers a transport-ready callback rather than rebinding from inside the active handshake dispatch. Raido completes the temporary handshake reader first, then atomically transfers the lower physical transport and installs the optional replacement protocol while the logical context is fenced. This prevents two readers and prevents replacement bytes from being read with the old ISAAC state.
+3. **Reserve during the handshake and commit after reader ownership is released.** The reconnect hub reserves the existing logical connection from inside the temporary handshake dispatch. Raido then stops the replacement physical pumps, waits for the target's previous pumps, captures the temporary reader's unread suffix, installs the fresh protocol, and commits the stable application pipes before writing that suffix. This prevents two readers and prevents replacement bytes from being read with the old ISAAC state.
 
 4. **Do not copy replacement features into the logical context.** Authentication, session, character, contacts, and caller items remain owned by the original logical context. The replacement context is only a physical transport carrier and is not allowed to become a second GameWorld session.
 
 5. **Resynchronize current authoritative state only.** After the rebind and successful world response, call the existing character map update with a forced viewport rebuild and refresh the existing appearance. Transient packets lost during the break are not replayed.
 
-6. **Keep failure cleanup idempotent.** A rejected replacement is aborted without publishing a new lobby/world sign-out. The winning replacement suppresses cleanup for the old physical loss; only logical expiry/abort reaches the existing disconnect path.
+6. **Keep failure cleanup idempotent.** A rejected replacement is aborted without publishing a new lobby/world sign-out. The winning replacement completes the temporary application only after the transfer commits; only logical expiry/abort reaches the existing disconnect path.
 
 ## Risks / Trade-offs
 
