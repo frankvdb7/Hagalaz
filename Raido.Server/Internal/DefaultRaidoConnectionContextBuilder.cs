@@ -73,11 +73,18 @@ namespace Raido.Server.Internal
                 StatefulReconnectGracePeriod = _statefulReconnectGracePeriod ?? options.Value.StatefulReconnectGracePeriod
             };
 
-            return new RaidoConnectionContext(_connection, contextOptions, loggerFactory)
+            var context = new RaidoConnectionContext(_connection, contextOptions, loggerFactory)
             {
                 Protocol = _protocol,
                 OriginalActivity = Activity.Current
             };
+
+            if (_statefulReconnectEnabled == true)
+            {
+                context.Features.Get<IRaidoStatefulReconnectFeature>()?.EnableReconnect();
+            }
+
+            return context;
         }
     }
 }

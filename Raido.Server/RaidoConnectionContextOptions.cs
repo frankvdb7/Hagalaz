@@ -15,7 +15,7 @@ namespace Raido.Server
         public TimeSpan ClientTimeoutInterval { get; init; }
 
         /// <summary>
-        /// Gets whether this logical connection retains its lifetime during a physical transport loss.
+        /// Gets whether the endpoint supports stateful reconnect for eligible logical connections.
         /// </summary>
         public bool StatefulReconnectEnabled { get; init; }
 

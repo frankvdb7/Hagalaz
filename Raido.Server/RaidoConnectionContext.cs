@@ -24,7 +24,7 @@ namespace Raido.Server
         private static readonly WaitCallback _abortedCallback = AbortConnection;
 
         private readonly TaskCompletionSource _abortCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private ConnectionContext? _connection;
+        private RaidoPhysicalTransport? _physicalTransport;
         private readonly CancellationTokenSource _connectionAbortedTokenSource = new();
         private CancellationTokenRegistration _closedRegistration;
         private CancellationTokenRegistration? _closedRequestedRegistration;
@@ -38,6 +38,7 @@ namespace Raido.Server
         private readonly TimeProvider _timeProvider;
         private readonly SemaphoreSlim _dispatchLock = new(1);
         private readonly SemaphoreSlim _writeLock = new(1);
+        private readonly bool _statefulReconnectSupported;
         private bool _statefulReconnectEnabled;
         private readonly TimeSpan _statefulReconnectGracePeriod;
         private ITimer? _graceTimer;
@@ -53,8 +54,9 @@ namespace Raido.Server
         private TimeSpan _receivedMessageElapsed;
         private bool _receivedMessageTimeoutEnabled;
         private long _receivedMessageTick;
-        private IPEndPoint? _localIPEndPoint;
-        private IPEndPoint? _remoteIPEndPoint;
+        private Func<PipeWriter, Task>? _reconnectedCallback;
+        private Func<PipeWriter, Task>? _transportHandoffCallback;
+        private bool _transportWasHandedOff;
 
         private readonly TimeSpan _keepAliveInterval;
         private readonly TimeSpan _clientTimeoutInterval;
@@ -94,7 +96,7 @@ namespace Raido.Server
             {
                 lock (_lifecycleLock)
                 {
-                    return _connection?.ConnectionId ?? _physicalConnectionId;
+                    return _physicalTransport?.ConnectionId ?? _physicalConnectionId;
                 }
             }
         }
@@ -152,12 +154,30 @@ namespace Raido.Server
         /// <summary>
         /// Gets the local endpoint for the connection.
         /// </summary>
-        public virtual IPEndPoint? LocalEndPoint => _localIPEndPoint ??= GetPhysicalConnection().LocalEndPoint as IPEndPoint;
+        public virtual IPEndPoint? LocalEndPoint
+        {
+            get
+            {
+                lock (_lifecycleLock)
+                {
+                    return _physicalTransport?.LocalEndPoint;
+                }
+            }
+        }
 
         /// <summary>
         /// Gets the remote endpoint for the connection.
         /// </summary>
-        public virtual IPEndPoint? RemoteEndPoint => _remoteIPEndPoint ??= GetPhysicalConnection().RemoteEndPoint as IPEndPoint;
+        public virtual IPEndPoint? RemoteEndPoint
+        {
+            get
+            {
+                lock (_lifecycleLock)
+                {
+                    return _physicalTransport?.RemoteEndPoint;
+                }
+            }
+        }
 
 
         /// <summary>
@@ -177,7 +197,6 @@ namespace Raido.Server
             ArgumentNullException.ThrowIfNull(contextOptions);
             ArgumentNullException.ThrowIfNull(loggerFactory);
 
-            _connection = connection;
             _features = connection.Features;
             _items = connection.Items;
             ConnectionId = connection.ConnectionId;
@@ -186,17 +205,19 @@ namespace Raido.Server
 
             _clientTimeoutInterval = contextOptions.ClientTimeoutInterval;
             _keepAliveInterval = contextOptions.KeepAliveInterval;
-            _statefulReconnectEnabled = contextOptions.StatefulReconnectEnabled;
+            _statefulReconnectSupported = contextOptions.StatefulReconnectEnabled;
+            _statefulReconnectEnabled = false;
             _statefulReconnectGracePeriod = contextOptions.StatefulReconnectGracePeriod;
-            if (_statefulReconnectEnabled && (_statefulReconnectGracePeriod <= TimeSpan.Zero || _statefulReconnectGracePeriod == Timeout.InfiniteTimeSpan))
+            if (_statefulReconnectSupported && (_statefulReconnectGracePeriod <= TimeSpan.Zero || _statefulReconnectGracePeriod == Timeout.InfiniteTimeSpan))
             {
                 throw new ArgumentOutOfRangeException(nameof(contextOptions), "The reconnect grace period must be positive and finite.");
             }
 
             _timeProvider = contextOptions.TimeProvider ?? TimeProvider.System;
             ConnectionAbortedToken = _connectionAbortedTokenSource.Token;
-            AttachPhysicalUnsafe(connection);
-            if (_statefulReconnectEnabled)
+            AttachPhysicalUnsafe(new RaidoPhysicalTransport(connection));
+            _features.Set<IRaidoTransportHandoffFeature>(new TransportHandoffFeature(this));
+            if (_statefulReconnectSupported)
             {
                 _features.Set<IRaidoStatefulReconnectFeature>(new StatefulReconnectFeature(this));
             }
@@ -224,7 +245,7 @@ namespace Raido.Server
             lock (_lifecycleLock)
             {
                 return _lifecycleState == RaidoConnectionLifecycleState.Connected &&
-                    _connection is not null &&
+                    _physicalTransport is not null &&
                     _physicalGeneration == generation;
             }
         }
@@ -311,7 +332,7 @@ namespace Raido.Server
                 return default;
             }
 
-            var connection = GetPhysicalConnection();
+            var connection = GetPhysicalTransport();
 
             // This method should never throw synchronously
             var task = WriteCore(message, connection.Transport.Output, protocolOverride ?? Protocol, cancellationToken);
@@ -359,7 +380,7 @@ namespace Raido.Server
                 CloseException = ex;
                 Log.FailedWritingMessage(_logger, ex);
 
-                Abort();
+                AbortAllowReconnect();
 
                 return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
             }
@@ -376,7 +397,7 @@ namespace Raido.Server
                 CloseException = ex;
                 Log.FailedWritingMessage(_logger, ex);
 
-                Abort();
+                AbortAllowReconnect();
             }
             finally
             {
@@ -407,7 +428,7 @@ namespace Raido.Server
                     return;
                 }
 
-                await WriteCore(message, GetPhysicalConnection().Transport.Output, protocolOverride ?? Protocol, cancellationToken);
+                await WriteCore(message, GetPhysicalTransport().Transport.Output, protocolOverride ?? Protocol, cancellationToken);
             }
             catch (RaidoConnectionReconnectingException)
             {
@@ -417,7 +438,7 @@ namespace Raido.Server
             {
                 CloseException = ex;
                 Log.FailedWritingMessage(_logger, ex);
-                Abort();
+                AbortAllowReconnect();
             }
             finally
             {
@@ -430,7 +451,7 @@ namespace Raido.Server
         /// </summary>
         public virtual void Abort()
         {
-            ConnectionContext? physicalConnection;
+            RaidoPhysicalTransport? physicalTransport;
             bool queueAbort;
 
             lock (_lifecycleLock)
@@ -440,21 +461,63 @@ namespace Raido.Server
                     return;
                 }
 
+                _statefulReconnectEnabled = false;
                 _lifecycleState = RaidoConnectionLifecycleState.Closed;
                 _connectionAborted = true;
                 _graceTimer?.Dispose();
                 _graceTimer = null;
                 _rebindTcs.TrySetResult(false);
-                physicalConnection = DetachPhysicalUnsafe();
+                _transportHandoffCallback = null;
+                physicalTransport = DetachPhysicalUnsafe();
                 queueAbort = !_connectionAbortedTokenSource.IsCancellationRequested;
                 Log.TerminalClosed(_logger, ConnectionId);
             }
 
-            CancelPhysicalConnection(physicalConnection);
+            CancelPhysicalConnection(physicalTransport);
 
             if (queueAbort)
             {
                 // We fire and forget since this can trigger user code to run.
+                ThreadPool.QueueUserWorkItem(_abortedCallback, this);
+            }
+        }
+
+        /// <summary>
+        /// Aborts the current physical transport while retaining the logical connection
+        /// when this connection has explicitly enabled stateful reconnect.
+        /// </summary>
+        internal void AbortAllowReconnect()
+        {
+            RaidoPhysicalTransport? physicalTransport;
+            bool queueAbort = false;
+
+            lock (_lifecycleLock)
+            {
+                if (_lifecycleState == RaidoConnectionLifecycleState.Closed ||
+                    _lifecycleState == RaidoConnectionLifecycleState.Reconnecting)
+                {
+                    return;
+                }
+
+                physicalTransport = DetachPhysicalUnsafe();
+                if (!_statefulReconnectEnabled)
+                {
+                    _lifecycleState = RaidoConnectionLifecycleState.Closed;
+                    _connectionAborted = true;
+                    _rebindTcs.TrySetResult(false);
+                    queueAbort = !_connectionAbortedTokenSource.IsCancellationRequested;
+                    Log.TerminalClosed(_logger, ConnectionId);
+                }
+                else
+                {
+                    StartReconnectUnsafe();
+                }
+            }
+
+            CancelPhysicalConnection(physicalTransport);
+
+            if (queueAbort)
+            {
                 ThreadPool.QueueUserWorkItem(_abortedCallback, this);
             }
         }
@@ -496,6 +559,7 @@ namespace Raido.Server
             // Use the same order as message dispatch (dispatch gate, then write lock) so a
             // rebind cannot deadlock with an in-flight handler that is writing a response.
             await _dispatchLock.WaitAsync().ConfigureAwait(false);
+            var rebound = false;
             try
             {
                 await _writeLock.WaitAsync().ConfigureAwait(false);
@@ -503,27 +567,27 @@ namespace Raido.Server
                 {
                     lock (_lifecycleLock)
                     {
-                        if (_lifecycleState != RaidoConnectionLifecycleState.Reconnecting || _connection is not null)
+                        if (_lifecycleState != RaidoConnectionLifecycleState.Reconnecting || _physicalTransport is not null)
                         {
                             Log.RebindRejected(_logger, ConnectionId);
                             return false;
                         }
 
-                        var replacementConnection = replacement.DetachPhysicalForRebind();
-                        if (replacementConnection is null)
+                        var replacementTransport = replacement.DetachPhysicalForRebind();
+                        if (replacementTransport is null)
                         {
                             Log.RebindRejected(_logger, ConnectionId);
                             return false;
                         }
 
-                        if (replacementConnection.ConnectionClosed.IsCancellationRequested)
+                        if (replacementTransport.ConnectionClosed.IsCancellationRequested)
                         {
                             Log.RebindRejected(_logger, ConnectionId);
                             return false;
                         }
 
-                        AttachPhysicalUnsafe(replacementConnection);
-                        if (!ReferenceEquals(_connection, replacementConnection))
+                        AttachPhysicalUnsafe(replacementTransport);
+                        if (!ReferenceEquals(_physicalTransport, replacementTransport))
                         {
                             Log.RebindRejected(_logger, ConnectionId);
                             return false;
@@ -540,7 +604,7 @@ namespace Raido.Server
                         _rebindTcs.TrySetResult(true);
                         _rebindTcs = NewRebindTcs();
                         Log.RebindSucceeded(_logger, ConnectionId, _physicalConnectionId);
-                        return true;
+                        rebound = true;
                     }
                 }
                 finally
@@ -552,6 +616,28 @@ namespace Raido.Server
             {
                 _dispatchLock.Release();
             }
+
+            if (!rebound)
+            {
+                return false;
+            }
+
+            var reconnectedCallback = TakeReconnectedCallback();
+            if (reconnectedCallback is not null)
+            {
+                try
+                {
+                    await reconnectedCallback(Output).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    CloseException = ex;
+                    AbortAllowReconnect();
+                    throw;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -564,9 +650,21 @@ namespace Raido.Server
         /// </summary>
         public Task WaitForTerminationAsync() => _abortCompletedTcs.Task;
 
+        private void EnableStatefulReconnect()
+        {
+            lock (_lifecycleLock)
+            {
+                if (_statefulReconnectSupported && _lifecycleState != RaidoConnectionLifecycleState.Closed)
+                {
+                    _statefulReconnectEnabled = true;
+                }
+            }
+        }
+
         private void DisableStatefulReconnect()
         {
-            bool queueAbort = false;
+            bool queueAbort;
+            RaidoPhysicalTransport? physicalTransport;
 
             lock (_lifecycleLock)
             {
@@ -581,9 +679,12 @@ namespace Raido.Server
                 _graceTimer?.Dispose();
                 _graceTimer = null;
                 _rebindTcs.TrySetResult(false);
+                physicalTransport = DetachPhysicalUnsafe();
                 queueAbort = !_connectionAbortedTokenSource.IsCancellationRequested;
                 Log.TerminalClosed(_logger, ConnectionId);
             }
+
+            CancelPhysicalConnection(physicalTransport);
 
             if (queueAbort)
             {
@@ -591,19 +692,98 @@ namespace Raido.Server
             }
         }
 
+        private void StartReconnectUnsafe()
+        {
+            _lifecycleState = RaidoConnectionLifecycleState.Reconnecting;
+            _rebindTcs = NewRebindTcs();
+            Log.ReconnectWindowStarted(_logger, ConnectionId, _statefulReconnectGracePeriod);
+            _graceTimer = _timeProvider.CreateTimer(static state => ((RaidoConnectionContext)state!).GraceExpired(), this,
+                _statefulReconnectGracePeriod, Timeout.InfiniteTimeSpan);
+        }
+
         private static TaskCompletionSource<bool> NewRebindTcs() =>
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         private sealed class StatefulReconnectFeature(RaidoConnectionContext connection) : IRaidoStatefulReconnectFeature
         {
+            public void EnableReconnect() => connection.EnableStatefulReconnect();
+
             public void DisableReconnect() => connection.DisableStatefulReconnect();
+
+            public void OnReconnected(Func<PipeWriter, Task> callback) => connection.SetReconnectedCallback(callback);
         }
 
-        private ConnectionContext GetPhysicalConnection()
+        private sealed class TransportHandoffFeature(RaidoConnectionContext connection) : IRaidoTransportHandoffFeature
+        {
+            public void OnTransportReady(Func<PipeWriter, Task> callback) => connection.SetTransportHandoffCallback(callback);
+        }
+
+        private void SetReconnectedCallback(Func<PipeWriter, Task> callback)
+        {
+            ArgumentNullException.ThrowIfNull(callback);
+            lock (_lifecycleLock)
+            {
+                if (_reconnectedCallback is not null)
+                {
+                    throw new InvalidOperationException("Only one reconnect callback may be registered.");
+                }
+
+                _reconnectedCallback = callback;
+            }
+        }
+
+        private void SetTransportHandoffCallback(Func<PipeWriter, Task> callback)
+        {
+            ArgumentNullException.ThrowIfNull(callback);
+            lock (_lifecycleLock)
+            {
+                if (_transportHandoffCallback is not null || _transportWasHandedOff || _lifecycleState != RaidoConnectionLifecycleState.Connected)
+                {
+                    throw new InvalidOperationException("A transport handoff can only be registered once while connected.");
+                }
+
+                _transportHandoffCallback = callback;
+            }
+        }
+
+        internal bool TryTakeTransportHandoff(out Func<PipeWriter, Task>? callback)
         {
             lock (_lifecycleLock)
             {
-                return _connection ?? throw new RaidoConnectionReconnectingException(ConnectionId);
+                callback = _transportHandoffCallback;
+                _transportHandoffCallback = null;
+                return callback is not null;
+            }
+        }
+
+        private Func<PipeWriter, Task>? TakeReconnectedCallback()
+        {
+            lock (_lifecycleLock)
+            {
+                var callback = _reconnectedCallback;
+                _reconnectedCallback = null;
+                return callback;
+            }
+        }
+
+        internal bool TransportWasHandedOff
+        {
+            get
+            {
+                lock (_lifecycleLock)
+                {
+                    return _transportWasHandedOff;
+                }
+            }
+        }
+
+        private ConnectionContext GetPhysicalConnection() => GetPhysicalTransport().Connection;
+
+        private RaidoPhysicalTransport GetPhysicalTransport()
+        {
+            lock (_lifecycleLock)
+            {
+                return _physicalTransport ?? throw new RaidoConnectionReconnectingException(ConnectionId);
             }
         }
 
@@ -615,82 +795,83 @@ namespace Raido.Server
             }
         }
 
-        private void AttachPhysicalUnsafe(ConnectionContext connection)
+        private void AttachPhysicalUnsafe(RaidoPhysicalTransport transport)
         {
             _closedRegistration.Dispose();
             _closedRequestedRegistration?.Dispose();
             _closedRequestedRegistration = null;
-            _connection = connection;
-            _physicalConnectionId = connection.ConnectionId;
+            _physicalTransport = transport;
+            _physicalConnectionId = transport.ConnectionId;
             _physicalGeneration++;
             var generation = _physicalGeneration;
             _physicalAbortedTokenSource = new CancellationTokenSource();
-            _closedRegistration = connection.ConnectionClosed.Register(() => OnPhysicalClosed(generation));
+            _closedRegistration = transport.ConnectionClosed.Register(() => OnPhysicalClosed(generation));
 
-            if (connection.Features.Get<IConnectionLifetimeNotificationFeature>() is IConnectionLifetimeNotificationFeature lifetimeNotification)
+            if (transport.Features.Get<IConnectionLifetimeNotificationFeature>() is IConnectionLifetimeNotificationFeature lifetimeNotification)
             {
                 // This feature requests a terminal close, for example when authentication expires.
                 _closedRequestedRegistration = lifetimeNotification.ConnectionClosedRequested.Register(Abort);
             }
         }
 
-        private ConnectionContext? DetachPhysicalUnsafe()
+        private RaidoPhysicalTransport? DetachPhysicalUnsafe()
         {
-            var connection = _connection;
-            _connection = null;
-            if (connection is not null)
+            var transport = _physicalTransport;
+            _physicalTransport = null;
+            if (transport is not null)
             {
                 _physicalAbortedTokenSource.Cancel();
                 _physicalAbortedTokenSource.Dispose();
             }
 
-            return connection;
+            return transport;
         }
 
-        private ConnectionContext? DetachPhysicalForRebind()
+        private RaidoPhysicalTransport? DetachPhysicalForRebind()
         {
             lock (_lifecycleLock)
             {
-                if (_lifecycleState != RaidoConnectionLifecycleState.Connected || _connection is null || _connectionAborted)
+                if (_lifecycleState != RaidoConnectionLifecycleState.Connected || _physicalTransport is null || _connectionAborted)
                 {
                     return null;
                 }
 
-                var connection = DetachPhysicalUnsafe();
+                var transport = DetachPhysicalUnsafe();
                 _closedRegistration.Dispose();
                 _closedRequestedRegistration?.Dispose();
                 _closedRequestedRegistration = null;
-                return connection;
+                _transportWasHandedOff = true;
+                return transport;
             }
         }
 
-        private static void CancelPhysicalConnection(ConnectionContext? connection)
+        private static void CancelPhysicalConnection(RaidoPhysicalTransport? transport)
         {
-            if (connection is null)
+            if (transport is null)
             {
                 return;
             }
 
-            connection.Transport.Output.CancelPendingFlush();
-            connection.Transport.Input.CancelPendingRead();
+            transport.Transport.Output.CancelPendingFlush();
+            transport.Transport.Input.CancelPendingRead();
         }
 
         private void OnPhysicalClosed(long generation)
         {
-            ConnectionContext? physicalConnection;
+            RaidoPhysicalTransport? physicalTransport;
             bool queueAbort = false;
 
             lock (_lifecycleLock)
             {
                 if (_lifecycleState == RaidoConnectionLifecycleState.Closed ||
                     _physicalGeneration != generation ||
-                    _connection is null)
+                    _physicalTransport is null)
                 {
                     return;
                 }
 
                 var physicalConnectionId = _physicalConnectionId;
-                physicalConnection = DetachPhysicalUnsafe();
+                physicalTransport = DetachPhysicalUnsafe();
                 Log.TransportLost(_logger, ConnectionId, physicalConnectionId);
                 if (!_statefulReconnectEnabled)
                 {
@@ -702,15 +883,11 @@ namespace Raido.Server
                 }
                 else
                 {
-                    _lifecycleState = RaidoConnectionLifecycleState.Reconnecting;
-                    _rebindTcs = NewRebindTcs();
-                    Log.ReconnectWindowStarted(_logger, ConnectionId, _statefulReconnectGracePeriod);
-                    _graceTimer = _timeProvider.CreateTimer(static state => ((RaidoConnectionContext)state!).GraceExpired(), this,
-                        _statefulReconnectGracePeriod, Timeout.InfiniteTimeSpan);
+                    StartReconnectUnsafe();
                 }
             }
 
-            CancelPhysicalConnection(physicalConnection);
+            CancelPhysicalConnection(physicalTransport);
 
             if (queueAbort)
             {
@@ -774,7 +951,7 @@ namespace Raido.Server
                                 $"Client hasn't sent a message/ping within the configured {nameof(RaidoConnectionContextOptions.ClientTimeoutInterval)}.");
                         Log.ClientTimeout(_logger, _clientTimeoutInterval);
                         RaidoEventSource.Log.ConnectionTimedOut(ConnectionId);
-                        Abort();
+                        AbortAllowReconnect();
                     }
                 }
             }
@@ -883,7 +1060,7 @@ namespace Raido.Server
             {
                 CloseException = ex;
                 Log.FailedWritingMessage(_logger, ex);
-                Abort();
+                AbortAllowReconnect();
             }
             finally
             {

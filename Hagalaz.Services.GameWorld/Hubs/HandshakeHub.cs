@@ -215,6 +215,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 return;
             }
 
+            Context.Features.Get<IRaidoStatefulReconnectFeature>()?.EnableReconnect();
+
             var user = Context.User!;
             var roles = user.FindAllRoles().Select(claim => claim.Value).ToList();
             var clientPermission = _clientPermissionProvider.GetClientPermission(roles);
@@ -325,7 +327,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
             var handshakeProtocol = Context.Protocol;
             clientProtocol.SetEncryptionSeed(message.IsaacSeed);
-            if (!await _connections.TryRebindAsync(worldSession.ConnectionId, Context, clientProtocol))
+            var reconnectFeature = Context.Features.Get<IRaidoTransportHandoffFeature>();
+            if (reconnectFeature == null)
             {
                 await RejectReconnectAsync(ClientSignInResponse.BadSession);
                 return;
@@ -341,17 +344,26 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 IsMembersOnly = true
             };
 
-            try
+            reconnectFeature.OnTransportReady(async _ =>
             {
-                await logicalConnection.WriteAsync(response, handshakeProtocol, logicalConnection.ConnectionAbortedToken);
-                character.UpdateMap(forceUpdate: true, renderViewPort: true);
-                character.Appearance.Refresh();
-            }
-            finally
-            {
-                ClearReconnectAuthentication();
-                Context.Abort();
-            }
+                if (!await _connections.TryRebindAsync(worldSession.ConnectionId, Context, clientProtocol))
+                {
+                    await RejectReconnectAsync(ClientSignInResponse.BadSession);
+                    return;
+                }
+
+                try
+                {
+                    await logicalConnection.WriteAsync(response, handshakeProtocol, logicalConnection.ConnectionAbortedToken);
+                    character.UpdateMap(forceUpdate: true, renderViewPort: true);
+                    character.Appearance.Refresh();
+                }
+                finally
+                {
+                    ClearReconnectAuthentication();
+                    Context.Abort();
+                }
+            });
         }
 
         private async Task RejectReconnectAsync(ClientSignInResponse response)

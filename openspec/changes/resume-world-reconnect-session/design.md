@@ -27,7 +27,7 @@
 
 2. **Require an active world session and retained logical context.** The session must be an `IGameWorldSession`, its connection must be present in `RaidoConnectionStore` and `Reconnecting`, and its logical features must contain the same character/master ownership. A missing or mismatched condition rejects the replacement.
 
-3. **Make protocol handoff part of Raido rebind.** The rebind operation accepts an optional replacement protocol and installs it while the logical context is still fenced. This prevents the original handler from reading replacement bytes with the old ISAAC state.
+3. **Defer physical handoff until the reader is finished.** The reconnect hub registers a transport-ready callback rather than rebinding from inside the active handshake dispatch. Raido completes the temporary handshake reader first, then atomically transfers the lower physical transport and installs the optional replacement protocol while the logical context is fenced. This prevents two readers and prevents replacement bytes from being read with the old ISAAC state.
 
 4. **Do not copy replacement features into the logical context.** Authentication, session, character, contacts, and caller items remain owned by the original logical context. The replacement context is only a physical transport carrier and is not allowed to become a second GameWorld session.
 
@@ -43,4 +43,4 @@
 
 ## Migration Plan
 
-Enable stateful reconnect for the GameWorld Raido endpoint with the existing bounded default grace period. No persistent migration is required.
+Enable stateful reconnect support for the GameWorld Raido endpoint with the existing bounded default grace period. The logical connection opts in only after successful world sign-in; lobby and pre-auth connections retain terminal transport-loss behavior. No persistent migration is required.

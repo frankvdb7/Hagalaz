@@ -19,7 +19,7 @@ namespace Raido.Server
         public TimeSpan? ClientTimeoutInterval { get; set; }
 
         /// <summary>
-        /// Gets or sets whether Raido connections retain their logical lifetime during a physical transport loss.
+        /// Gets or sets whether the endpoint supports stateful reconnect for eligible logical connections.
         /// The default is <see langword="false"/>.
         /// </summary>
         public bool StatefulReconnectEnabled { get; set; }

@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -65,6 +66,7 @@ namespace Raido.Server.Tests
         private RaidoConnectionContext _connection = null!;
         private DefaultConnectionContext _connectionContext = null!;
         private PipeReader _pipeReader = null!;
+        private PipeWriter _pipeWriter = null!;
 
         [TestInitialize]
         public void Setup()
@@ -88,7 +90,9 @@ namespace Raido.Server.Tests
             _connectionContext = new DefaultConnectionContext();
             var transport = Substitute.For<IDuplexPipe>();
             _pipeReader = Substitute.For<PipeReader>();
+            _pipeWriter = Substitute.For<PipeWriter>();
             transport.Input.Returns(_pipeReader);
+            transport.Output.Returns(_pipeWriter);
             _connectionContext.Transport = transport;
             _connection = new RaidoConnectionContext(_connectionContext, new RaidoConnectionContextOptions(), _loggerFactory);
         }
@@ -221,6 +225,54 @@ namespace Raido.Server.Tests
 
             // Assert
             await _dispatcher.DidNotReceiveWithAnyArgs().DispatchMessageAsync(Arg.Any<RaidoConnectionContext>(), Arg.Any<RaidoMessage>());
+        }
+
+        [TestMethod]
+        public async Task DispatchMessagesAsync_CompletesReplacementReaderBeforeTransportHandoff()
+        {
+            var retainedRaw = Substitute.For<ConnectionContext>();
+            var retainedTransport = Substitute.For<IDuplexPipe>();
+            var retainedInput = new Pipe();
+            var retainedOutput = new Pipe();
+            var retainedClosed = new CancellationTokenSource();
+            retainedRaw.ConnectionId.Returns("retained");
+            retainedRaw.Transport.Returns(retainedTransport);
+            retainedTransport.Input.Returns(retainedInput.Reader);
+            retainedTransport.Output.Returns(retainedOutput.Writer);
+            retainedRaw.ConnectionClosed.Returns(retainedClosed.Token);
+            retainedRaw.Features.Returns(new FeatureCollection());
+            retainedRaw.Items.Returns(new Dictionary<object, object?>());
+
+            var retained = new RaidoConnectionContext(retainedRaw, new RaidoConnectionContextOptions
+            {
+                StatefulReconnectEnabled = true,
+                StatefulReconnectGracePeriod = TimeSpan.FromSeconds(1)
+            }, _loggerFactory);
+            retained.Features.Get<IRaidoStatefulReconnectFeature>()!.EnableReconnect();
+            var store = new RaidoConnectionStore();
+            store.Add(retained);
+            retainedClosed.Cancel();
+
+            var message = new TestMessage();
+            _connection.Protocol = new TestProtocol { MessageToReturn = message };
+            _pipeReader.ReadAsync(Arg.Any<CancellationToken>()).Returns(
+                new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1 }), false, false)),
+                new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(), false, true)));
+            _dispatcher.DispatchMessageAsync(_connection, message).Returns(callInfo =>
+            {
+                var handoff = _connection.Features.Get<IRaidoTransportHandoffFeature>();
+                handoff!.OnTransportReady(_ => store.TryRebindAsync(retained.ConnectionId, _connection).AsTask());
+                return Task.CompletedTask;
+            });
+
+            await _connectionHandler.DispatchMessagesAsync(_connection);
+
+            Assert.AreEqual(RaidoConnectionLifecycleState.Connected, retained.LifecycleState);
+            Assert.IsTrue(_connection.TransportWasHandedOff);
+            await _pipeReader.Received(1).CompleteAsync();
+            retained.Abort();
+            store.Dispose();
+            retainedClosed.Dispose();
         }
     }
 }

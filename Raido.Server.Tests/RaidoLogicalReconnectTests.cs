@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO.Pipelines;
+using System.Threading;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -50,11 +51,11 @@ public sealed class RaidoLogicalReconnectTests
         public readonly Pipe Output = new();
         public readonly ConnectionContext Context;
 
-        public PhysicalConnection(string id, IFeatureCollection? features = null)
+        public PhysicalConnection(string id, IFeatureCollection? features = null, PipeWriter? outputWriter = null)
         {
             var transport = Substitute.For<IDuplexPipe>();
             transport.Input.Returns(Input.Reader);
-            transport.Output.Returns(Output.Writer);
+            transport.Output.Returns(outputWriter ?? Output.Writer);
             var context = Substitute.For<ConnectionContext>();
             context.ConnectionId.Returns(id);
             context.Transport.Returns(transport);
@@ -70,6 +71,24 @@ public sealed class RaidoLogicalReconnectTests
             Input.Reader.Complete();
             Output.Reader.Complete();
         }
+    }
+
+    private sealed class FailingPipeWriter : PipeWriter
+    {
+        public override void Advance(int bytesWritten) { }
+
+        public override Memory<byte> GetMemory(int sizeHint = 0) => new byte[Math.Max(sizeHint, 1)];
+
+        public override Span<byte> GetSpan(int sizeHint = 0) => new byte[Math.Max(sizeHint, 1)];
+
+        public override void CancelPendingFlush() { }
+
+        public override void Complete(Exception? exception = null) { }
+
+        public override ValueTask CompleteAsync(Exception? exception = null) => ValueTask.CompletedTask;
+
+        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default) =>
+            ValueTask.FromException<FlushResult>(new IOException("The physical transport failed."));
     }
 
     private sealed class ManualTimeProvider : TimeProvider
@@ -133,7 +152,7 @@ public sealed class RaidoLogicalReconnectTests
     public async Task NonOptedInTransportLossClosesImmediately()
     {
         using var physical = new PhysicalConnection("physical-1");
-        var context = CreateContext(physical, statefulReconnect: false);
+        var context = CreateContext(physical, statefulReconnect: true, enableReconnect: false);
         var store = new RaidoConnectionStore();
         store.Add(context);
 
@@ -227,6 +246,47 @@ public sealed class RaidoLogicalReconnectTests
         var result = await replacementPhysical.Output.Reader.ReadAsync();
         Assert.AreEqual(43, result.Buffer.FirstSpan[0]);
         replacementPhysical.Output.Reader.AdvanceTo(result.Buffer.End);
+        context.Abort();
+    }
+
+    [TestMethod]
+    public async Task RebindInvokesTheLogicalReconnectCallbackAfterTransportAttachment()
+    {
+        using var original = new PhysicalConnection("physical-1");
+        using var replacementPhysical = new PhysicalConnection("physical-2");
+        var context = CreateContext(original, statefulReconnect: true);
+        var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        store.Add(context);
+        original.Closed.Cancel();
+
+        var callbackOutput = default(PipeWriter);
+        context.Features.Get<IRaidoStatefulReconnectFeature>()!.OnReconnected(output =>
+        {
+            callbackOutput = output;
+            return Task.CompletedTask;
+        });
+
+        Assert.IsTrue(await store.TryRebindAsync(context.ConnectionId, replacement));
+        Assert.AreSame(replacementPhysical.Output.Writer, callbackOutput);
+        context.Abort();
+    }
+
+    [TestMethod]
+    public async Task WriteFailureAllowsTheEnabledLogicalConnectionToRebind()
+    {
+        using var original = new PhysicalConnection("physical-1", outputWriter: new FailingPipeWriter());
+        using var replacementPhysical = new PhysicalConnection("physical-2");
+        var context = CreateContext(original, statefulReconnect: true);
+        var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        store.Add(context);
+
+        await context.WriteAsync(new TestMessage());
+
+        Assert.AreEqual(RaidoConnectionLifecycleState.Reconnecting, context.LifecycleState);
+        Assert.IsTrue(await store.TryRebindAsync(context.ConnectionId, replacement));
+        Assert.AreEqual(RaidoConnectionLifecycleState.Connected, context.LifecycleState);
         context.Abort();
     }
 
@@ -325,9 +385,10 @@ public sealed class RaidoLogicalReconnectTests
     private static RaidoConnectionContext CreateContext(
         PhysicalConnection physical,
         bool statefulReconnect,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        bool enableReconnect = true)
     {
-        return new RaidoConnectionContext(physical.Context, new RaidoConnectionContextOptions
+        var context = new RaidoConnectionContext(physical.Context, new RaidoConnectionContextOptions
         {
             KeepAliveInterval = TimeSpan.FromMinutes(1),
             ClientTimeoutInterval = TimeSpan.FromMinutes(1),
@@ -338,5 +399,12 @@ public sealed class RaidoLogicalReconnectTests
         {
             Protocol = new WritingProtocol()
         };
+
+        if (statefulReconnect && enableReconnect)
+        {
+            context.Features.Get<IRaidoStatefulReconnectFeature>()!.EnableReconnect();
+        }
+
+        return context;
     }
 }

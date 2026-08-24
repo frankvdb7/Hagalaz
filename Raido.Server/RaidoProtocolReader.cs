@@ -312,7 +312,7 @@ namespace Raido.Server
         public ValueTask DisposeAsync()
         {
             _disposed = true;
-            return default;
+            return _reader.CompleteAsync();
         }
     }
 }

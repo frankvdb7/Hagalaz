@@ -106,6 +106,11 @@ namespace Raido.Server
                 return;
             }
 
+            if (connection.TransportWasHandedOff)
+            {
+                return;
+            }
+
             await OnDisconnectedAsync(connection, connection.CloseException);
         }
 
@@ -168,6 +173,16 @@ namespace Raido.Server
                         {
                             protocolReader.Advance();
                         }
+                    }
+                }
+
+                if (connection.TryTakeTransportHandoff(out var transportHandoff))
+                {
+                    var output = connection.Output;
+                    await transportHandoff!(output);
+                    if (connection.TransportWasHandedOff)
+                    {
+                        return;
                     }
                 }
 
