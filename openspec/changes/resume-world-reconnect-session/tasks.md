@@ -15,6 +15,7 @@
 
 - [x] 3.1 Add focused authoritative map/appearance resynchronization without `OnRegistered` or duplicate registration.
 - [x] 3.2 Add tests for authentication-only resume and the atomic fresh-protocol transfer; Raido integration tests cover real pipes, response-first output ordering, same-buffer suffixes, expiry, invalidation, and races.
+- [x] 3.3 Exercise large authoritative resynchronization with a live output consumer, discard uncertain pre-loss output, and assert response/map/appearance/normal-traffic ordering.
 
 ## 4. Validation
 

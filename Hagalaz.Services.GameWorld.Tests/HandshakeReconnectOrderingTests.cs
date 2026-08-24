@@ -33,11 +33,13 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class HandshakeReconnectOrderingTests
 {
     [TestMethod]
-    [Timeout(5000)]
+    [Timeout(10000)]
     public async Task ReconnectWorldCommitsBeforeResyncAndFlushesResponseFirst()
     {
         using var original = new TestPhysicalConnection("original");
-        using var replacementPhysical = new TestPhysicalConnection("replacement");
+        using var replacementPhysical = new TestPhysicalConnection(
+            "replacement",
+            new PipeOptions(pauseWriterThreshold: 1_000_000, resumeWriterThreshold: 500_000));
         var handshakeProtocol = new RecordingProtocol(message => message is WorldSignInResponse ? (byte)1 : (byte)9);
         var clientProtocol = new RecordingClientProtocol(message =>
             message switch
@@ -51,6 +53,7 @@ public sealed class HandshakeReconnectOrderingTests
         var store = new RaidoConnectionStore();
         store.Add(target);
         store.Add(replacement);
+        const int mapResyncMessageCount = 70_000;
 
         var proxy = new ContextClientProxy(target);
         var worldSession = new WorldGameSession(17, target.ConnectionId, proxy, "session-1");
@@ -61,7 +64,13 @@ public sealed class HandshakeReconnectOrderingTests
         character.Index.Returns(42);
         character.Session.Returns(worldSession);
         character.Appearance.Returns(appearance);
-        character.WhenForAnyArgs(value => value.UpdateMap(default, default)).Do(_ => worldSession.SendMessage(new DrawDynamicMapMessage()));
+        character.WhenForAnyArgs(value => value.UpdateMap(default, default)).Do(_ =>
+        {
+            for (var i = 0; i < mapResyncMessageCount; i++)
+            {
+                worldSession.SendMessage(new DrawDynamicMapMessage());
+            }
+        });
         appearance.When(value => value.Refresh()).Do(_ => worldSession.SendMessage(new AppearanceRefreshMessage()));
         target.Features.Set<Hagalaz.Services.GameWorld.Features.ISessionFeature>(new SessionFeature { Session = worldSession });
         target.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
@@ -144,8 +153,15 @@ public sealed class HandshakeReconnectOrderingTests
         Assert.IsTrue(await transfer!.CommitAsync(() => new ValueTask<ReadOnlyMemory<byte>>(ReadOnlyMemory<byte>.Empty)));
         replacement.CompleteTransferred();
 
-        var result = await ReadOutputAsync(replacementPhysical.Output.Reader, 4);
-        Assert.AreEqual("1,2,3,4", string.Join(',', result));
+        var result = await ReadOutputAsync(replacementPhysical.Output.Reader, mapResyncMessageCount + 3);
+        Assert.AreEqual(1, result[0]);
+        for (var i = 1; i <= mapResyncMessageCount; i++)
+        {
+            Assert.AreEqual(2, result[i]);
+        }
+
+        Assert.AreEqual(3, result[mapResyncMessageCount + 1]);
+        Assert.AreEqual(4, result[mapResyncMessageCount + 2]);
         Assert.AreSame(clientProtocol, target.Protocol);
         character.Received(1).UpdateMap(true, true);
         appearance.Received(1).Refresh();
@@ -248,11 +264,12 @@ public sealed class HandshakeReconnectOrderingTests
     {
         public readonly CancellationTokenSource Closed = new();
         public readonly Pipe Input = new();
-        public readonly Pipe Output = new();
+        public readonly Pipe Output;
         public readonly ConnectionContext Context;
 
-        public TestPhysicalConnection(string id)
+        public TestPhysicalConnection(string id, PipeOptions? outputOptions = null)
         {
+            Output = new Pipe(outputOptions ?? new PipeOptions());
             var transport = Substitute.For<IDuplexPipe>();
             transport.Input.Returns(Input.Reader);
             transport.Output.Returns(Output.Writer);

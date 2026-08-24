@@ -5,6 +5,7 @@
 - [x] 1.3 Add explicit prepare/commit reservation and invalidation with one winning replacement, stable application pipes, physical pump replacement, deferred committed work, and explicit detached-send failure.
 - [x] 1.4 Expose explicit enable/veto and post-rebind notification features; close retained connections when the veto is applied during grace.
 - [x] 1.5 Make prepare invalidation terminate the temporary replacement and make the committed response/post-commit output barrier explicit.
+- [x] 1.6 Discard uncertain pre-loss output, consume large post-commit output live, and install the barrier atomically with normal write admission.
 
 ## 2. Handler and dispatch integration
 
@@ -20,6 +21,7 @@
 - [x] 3.4 Test explicit endpoint support without activation, composed persistent post-rebind callback delivery, reservation invalidation, and reader completion ownership.
 - [x] 3.5 Test real application/physical pipes, same-buffer opcode-plus-payload transfer with exact suffix ordering, and original physical handler lifetime after rebind.
 - [x] 3.6 Test deterministic first-packet response ordering, post-commit output ordering, and invalidated replacement termination.
+- [x] 3.7 Test stale-output discard, large post-commit backpressure, normal-write admission, and keep-alive suppression during the barrier.
 
 ## 4. Validation
 

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using Raido.Common.Messages;
 using Raido.Common.Protocol;
 
 namespace Raido.Server.Tests;
@@ -35,11 +36,11 @@ public sealed class RaidoLogicalReconnectTests
 
         public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output)
         {
-            output.GetSpan(1)[0] = _value;
+            output.GetSpan(1)[0] = message is PingMessage ? (byte)9 : _value;
             output.Advance(1);
         }
 
-        public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => new[] { _value };
+        public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => new[] { message is PingMessage ? (byte)9 : _value };
 
         public bool IsVersionSupported(int version) => version == 1;
     }
@@ -48,11 +49,12 @@ public sealed class RaidoLogicalReconnectTests
     {
         public readonly CancellationTokenSource Closed = new();
         public readonly Pipe Input = new();
-        public readonly Pipe Output = new();
+        public readonly Pipe Output;
         public readonly ConnectionContext Context;
 
-        public PhysicalConnection(string id, IFeatureCollection? features = null, PipeWriter? outputWriter = null)
+        public PhysicalConnection(string id, IFeatureCollection? features = null, PipeWriter? outputWriter = null, PipeOptions? outputOptions = null)
         {
+            Output = new Pipe(outputOptions ?? new PipeOptions());
             var transport = Substitute.For<IDuplexPipe>();
             transport.Input.Returns(Input.Reader);
             transport.Output.Returns(outputWriter ?? Output.Writer);
@@ -239,13 +241,94 @@ public sealed class RaidoLogicalReconnectTests
         var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
         Assert.IsNotNull(reservation);
         reservation!.OnCommitted(() => context.WriteAsync(new TestMessage(), new WritingProtocol(1)).AsTask());
-        reservation.OnPostCommit(() => context.WriteAsync(new TestMessage(), new WritingProtocol(2)).AsTask());
+        Task? normalWrite = null;
+        var normalWriteAttempted = new TaskCompletionSource<Task>(TaskCreationOptions.RunContinuationsAsynchronously);
+        reservation.OnPostCommit(async () =>
+        {
+            using (ExecutionContext.SuppressFlow())
+            {
+                normalWrite = Task.Run(async () =>
+                {
+                    var pending = context.WriteAsync(new TestMessage(), new WritingProtocol(3)).AsTask();
+                    normalWriteAttempted.TrySetResult(pending);
+                    await pending;
+                });
+            }
+
+            var pendingNormalWrite = await normalWriteAttempted.Task;
+            Assert.IsFalse(pendingNormalWrite.IsCompleted);
+            var ping = (ValueTask)typeof(RaidoConnectionContext)
+                .GetMethod("TryWritePingAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(context, null)!;
+            await ping;
+            await context.WriteAsync(new TestMessage(), new WritingProtocol(2));
+        });
         context.Features.Get<IRaidoStatefulReconnectFeature>()!.OnReconnected(_ =>
-            context.WriteAsync(new TestMessage(), new WritingProtocol(3)).AsTask());
+            Task.CompletedTask);
+
+        await CommitTransferAsync(replacement);
+        await normalWrite!;
+
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, await ReadOutputAsync(replacementPhysical.Output.Reader, 3));
+        context.Abort();
+    }
+
+    [TestMethod]
+    public async Task RebindDiscardsUncertainRetainedOutputBeforeReconnectResponse()
+    {
+        using var original = new PhysicalConnection("physical-1");
+        using var replacementPhysical = new PhysicalConnection("physical-2");
+        var context = CreateContext(original, statefulReconnect: true);
+        var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        store.Add(context);
+
+        original.Closed.Cancel();
+        await context.Output.WriteAsync(new byte[] { 99 });
+
+        var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
+        Assert.IsNotNull(reservation);
+        reservation!.OnCommitted(() => context.WriteAsync(new TestMessage(), new WritingProtocol(1)).AsTask());
 
         await CommitTransferAsync(replacement);
 
-        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, await ReadOutputAsync(replacementPhysical.Output.Reader, 3));
+        CollectionAssert.AreEqual(new byte[] { 1 }, await ReadOutputAsync(replacementPhysical.Output.Reader, 1));
+        context.Abort();
+    }
+
+    [TestMethod]
+    [Timeout(10000)]
+    public async Task RebindConsumesLargePostCommitOutputWithoutBackpressureDeadlock()
+    {
+        using var original = new PhysicalConnection("physical-1");
+        using var replacementPhysical = new PhysicalConnection(
+            "physical-2",
+            outputOptions: new PipeOptions(pauseWriterThreshold: 1_000_000, resumeWriterThreshold: 500_000));
+        var context = CreateContext(original, statefulReconnect: true);
+        var replacement = CreateContext(replacementPhysical, statefulReconnect: true);
+        var store = new RaidoConnectionStore();
+        store.Add(context);
+        original.Closed.Cancel();
+
+        const int resyncMessageCount = 70_000;
+        var reservation = await store.TryPrepareRebindAsync(context.ConnectionId, replacement);
+        Assert.IsNotNull(reservation);
+        reservation!.OnCommitted(() => context.WriteAsync(new TestMessage(), new WritingProtocol(1)).AsTask());
+        reservation.OnPostCommit(async () =>
+        {
+            var protocol = new WritingProtocol(2);
+            for (var i = 0; i < resyncMessageCount; i++)
+            {
+                await context.WriteAsync(new TestMessage(), protocol);
+            }
+        });
+
+        await CommitTransferAsync(replacement);
+
+        var output = await ReadOutputAsync(replacementPhysical.Output.Reader, resyncMessageCount + 1);
+        Assert.AreEqual(resyncMessageCount + 1, output.Length);
+        Assert.AreEqual(1, output[0]);
+        CollectionAssert.AreEqual(new byte[] { 2 }, output.Skip(1).Distinct().ToArray());
         context.Abort();
     }
 

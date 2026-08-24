@@ -39,7 +39,7 @@ Raido MUST distinguish reserving a replacement from committing it. A reservation
 #### Scenario: Deferred reconnect response
 
 - **WHEN** application code prepares a replacement and registers the reconnect success response
-- **THEN** the response is written only after the target protocol and physical session have committed, it is flushed as the first replacement-transport output, and a failed or expired reservation produces no success response
+- **THEN** uncertain output retained from before physical loss is discarded, the response is written only after the target protocol and physical session have committed, it is flushed as the first replacement-transport output, and a failed or expired reservation produces no success response
 
 #### Scenario: Invalidated prepared replacement
 
@@ -49,7 +49,12 @@ Raido MUST distinguish reserving a replacement from committing it. A reservation
 #### Scenario: Post-commit output barrier
 
 - **WHEN** committed response work and explicit post-commit work write to the logical connection
-- **THEN** response output is flushed first, post-commit output follows it, normal writes wait behind both, and pending replacement input is released only after that ordering is established
+- **THEN** response output is flushed first, an active physical consumer drains post-commit output while it is produced, post-commit output follows the response, normal writes and pings wait behind both, and pending replacement input is released only after that ordering is established
+
+#### Scenario: Atomic write admission
+
+- **WHEN** a normal write or keep-alive ping races the reconnect commit
+- **THEN** it either completes admission before the reconnect barrier is installed or waits for the barrier, and cannot pass between the barrier check and write-lock acquisition
 
 ### Requirement: Physical pumps have one owner
 

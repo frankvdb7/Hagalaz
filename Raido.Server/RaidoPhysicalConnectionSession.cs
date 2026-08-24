@@ -165,7 +165,6 @@ internal sealed class RaidoPhysicalConnectionSession
             }
 
             ReadOnlyMemory<byte> pendingInput;
-            RaidoApplicationConnection oldApplication;
             await source.AcquireTransferWriteLockAsync().ConfigureAwait(false);
             try
             {
@@ -173,8 +172,6 @@ internal sealed class RaidoPhysicalConnectionSession
                 await StopPumpsAsync().ConfigureAwait(false);
                 await target.WaitForPreviousPhysicalPumpsAsync().ConfigureAwait(false);
                 pendingInput = await capturePendingInput().ConfigureAwait(false);
-
-                oldApplication = _application!;
 
                 if (!target.CommitRebind(transfer))
                 {
@@ -194,22 +191,32 @@ internal sealed class RaidoPhysicalConnectionSession
                 source.ReleaseTransferWriteLock();
             }
 
-            // The response is the first replacement-transport output. The logical callback is
-            // allowed to write through the explicit rebind barrier, while normal writes wait.
+            // The retained logical application may contain output written before the physical
+            // loss. It is uncertain whether the old client received those bytes, so discard it
+            // rather than replaying stale game traffic on the replacement transport.
+            await DiscardOutputAsync(targetApplication.OutputReader).ConfigureAwait(false);
+
+            // The response is now the first replacement-transport output. The logical callback
+            // is allowed to write through the reconnect callback boundary, while normal writes
+            // wait behind the barrier.
             await transfer.Reservation!.InvokeCommittedAsync().ConfigureAwait(false);
             await DrainOutputAsync(targetApplication.OutputReader).ConfigureAwait(false);
-            await transfer.Reservation.InvokePostCommitAsync().ConfigureAwait(false);
-            await DrainOutputAsync(targetApplication.OutputReader).ConfigureAwait(false);
 
-            // Output queued on the retained application before the transport loss follows the
-            // reconnect response and resynchronization, never precedes the success packet.
-            await DrainOutputAsync(oldApplication.OutputReader).ConfigureAwait(false);
+            // Keep a physical consumer active while resynchronization writes. This prevents a
+            // large map/appearance update from blocking its application-pipe writer at the
+            // pause threshold.
+            var resyncCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var resyncDrain = DrainOutputUntilAsync(targetApplication.OutputReader, resyncCompleted.Task);
+            await transfer.Reservation.InvokePostCommitAsync().ConfigureAwait(false);
+            resyncCompleted.TrySetResult();
+            targetApplication.OutputReader.CancelPendingRead();
+            await resyncDrain.ConfigureAwait(false);
 
             // Install all bytes already observed by the replacement reader before the new
             // transport pump is allowed to deliver more input to the logical application.
             await WritePendingInputAsync(targetApplication.InputWriter, pendingInput).ConfigureAwait(false);
-            target.ReleaseRebindOutputBarrier();
             StartPumps();
+            target.ReleaseRebindOutputBarrier();
             await target.InvokeReconnectedAsync().ConfigureAwait(false);
             return true;
         }
@@ -404,6 +411,54 @@ internal sealed class RaidoPhysicalConnectionSession
                 break;
             }
         }
+    }
+
+    private async Task DrainOutputUntilAsync(PipeReader reader, Task stop)
+    {
+        ReadOnlySequence<byte> buffer = default;
+        var readPending = false;
+        try
+        {
+            while (true)
+            {
+                var result = await reader.ReadAsync().ConfigureAwait(false);
+                buffer = result.Buffer;
+                readPending = true;
+                if (!buffer.IsEmpty)
+                {
+                    Copy(buffer, _connection.Transport.Output);
+                    await _connection.Transport.Output.FlushAsync().ConfigureAwait(false);
+                }
+
+                reader.AdvanceTo(buffer.End);
+                readPending = false;
+                if (stop.IsCompleted || result.IsCompleted)
+                {
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            if (readPending)
+            {
+                try { reader.AdvanceTo(buffer.End); } catch (InvalidOperationException) { }
+            }
+        }
+    }
+
+    private static Task DiscardOutputAsync(PipeReader reader)
+    {
+        while (reader.TryRead(out var result))
+        {
+            reader.AdvanceTo(result.Buffer.End);
+            if (result.IsCompleted)
+            {
+                break;
+            }
+        }
+
+        return Task.CompletedTask;
     }
 
     private static async Task WritePendingInputAsync(PipeWriter writer, ReadOnlyMemory<byte> pendingInput)
