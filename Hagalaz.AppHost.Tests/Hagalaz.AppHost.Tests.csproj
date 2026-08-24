@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.AppHost" Version="13.4.6" />
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="13.5.2" />
     <PackageReference Include="MSTest" Version="4.3.3" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
   </ItemGroup>
