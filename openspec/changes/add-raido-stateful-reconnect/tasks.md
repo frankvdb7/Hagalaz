@@ -1,0 +1,22 @@
+## 1. Regression tests first
+
+- [x] 1.1 Add real-pipe context tests for disabled immediate termination, physical detach waking reads without cancelling the terminal token, detached writes, state preservation, endpoint rebinding, and fresh replacement readers; verify the focused Raido test project initially exposes the intended failures.
+- [x] 1.2 Add reconnect race tests for concurrent candidates, captured waiter identity, already-closed candidates, timeout versus callback registration, losing-candidate registration cleanup and caller ownership, stale close/heartbeat/read/write failures, and physical detach cancellation ordering; verify each test has a deterministic completion or bounded timeout.
+- [x] 1.3 Add handler/lifetime tests for callback movement, W1 timeout terminality, W2 creation only after a successful rebind and later disconnect, late W1 candidate rejection, stable store/lifetime-manager membership, and exactly one terminal disconnect; verify existing non-reconnect handler behavior remains covered.
+
+## 2. Physical transport ownership
+
+- [x] 2.1 Replace permanent transport access in `RaidoConnectionContext` with one published current physical connection while keeping `_connection` authoritative for stable state; verify context identity, ID, features, items, caller state, protocol, and endpoints across rebind tests.
+- [x] 2.2 Implement one-lock reconnect-window waiter lifecycle, physical detach, timeout closure, and terminal abort; verify per-disconnect waiter tests and terminal-token assertions.
+- [x] 2.3 Implement captured-physical registration, operation, and failure handling, including close-request features, heartbeat callbacks, stale-failure filtering, pending-read/flush wake-up, and registration disposal outside the lock; verify race tests and callback-movement tests.
+- [x] 2.4 Implement pre-registration candidate publication in `TryReconnect`, captured waiter validation, atomic current-transport publication, candidate close checks, success ownership, and false-return caller ownership; verify concurrent-winner and timeout-race tests.
+
+## 3. Handler and configuration integration
+
+- [x] 3.1 Update the handler to obtain a published transport before creating a reader, dispatch with a fresh reader per transport, await the reconnect window outside the lock, and disconnect the stable lifetime once; verify handler reconnect-cycle tests.
+- [x] 3.2 Add `WithStatefulReconnect`, bounded `StatefulReconnectTimeout` options/defaults, and GameWorld-only opt-in; verify builder/options tests and that GameUpdate remains unchanged.
+
+## 4. Validation
+
+- [x] 4.1 Run the focused Raido tests and GameWorld tests serially, then build the affected projects and solution as appropriate; verify all required suites pass or distinguish environment failures.
+- [x] 4.2 Validate `add-raido-stateful-reconnect` with strict OpenSpec validation and review the cumulative diff for fake pipes, parallel state, stale callbacks, lock-held awaits/disposals, unintended GameUpdate/store/lifetime changes, and uncompleted task mappings.

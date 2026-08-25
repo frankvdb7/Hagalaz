@@ -26,23 +26,26 @@ namespace Raido.Server
         private readonly TaskCompletionSource _abortCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly ConnectionContext _connection;
         private readonly CancellationTokenSource _connectionAbortedTokenSource = new();
-        private readonly CancellationTokenRegistration _closedRegistration;
-        private readonly CancellationTokenRegistration? _closedRequestedRegistration;
 
         private readonly ILogger _logger;
+        private readonly Lock _reconnectLock = new();
         private readonly Lock _receiveMessageTimeoutLock = new();
         private readonly TimeProvider _timeProvider;
         private readonly SemaphoreSlim _writeLock = new(1);
+        private readonly TimeSpan _statefulReconnectTimeout;
+        private CancellationTokenRegistration _closedRegistration;
+        private CancellationTokenRegistration? _closedRequestedRegistration;
+        private ConnectionContext? _currentConnection;
+        private TaskCompletionSource<bool>? _reconnectWaiter;
         private ClaimsPrincipal? _user;
 
-        private bool _clientTimeoutActive;
+        private volatile bool _clientTimeoutActive;
         private volatile bool _connectionAborted;
+        private bool _reconnectEnabled;
         private long _lastSendTick;
         private TimeSpan _receivedMessageElapsed;
         private bool _receivedMessageTimeoutEnabled;
         private long _receivedMessageTick;
-        private IPEndPoint? _localIPEndPoint;
-        private IPEndPoint? _remoteIPEndPoint;
 
         private readonly TimeSpan _keepAliveInterval;
         private readonly TimeSpan _clientTimeoutInterval;
@@ -97,22 +100,22 @@ namespace Raido.Server
         /// <summary>
         /// Gets the input pipe for the connection.
         /// </summary>
-        public virtual PipeReader Input => _connection.Transport.Input;
+        public virtual PipeReader Input => GetRequiredCurrentConnection().Transport.Input;
 
         /// <summary>
         /// Gets the output pipe for the connection.
         /// </summary>
-        public virtual PipeWriter Output => _connection.Transport.Output;
+        public virtual PipeWriter Output => GetRequiredCurrentConnection().Transport.Output;
 
         /// <summary>
         /// Gets the local endpoint for the connection.
         /// </summary>
-        public virtual IPEndPoint? LocalEndPoint => _localIPEndPoint ??= _connection.LocalEndPoint as IPEndPoint;
+        public virtual IPEndPoint? LocalEndPoint => GetCurrentConnection()?.LocalEndPoint as IPEndPoint;
 
         /// <summary>
         /// Gets the remote endpoint for the connection.
         /// </summary>
-        public virtual IPEndPoint? RemoteEndPoint => _remoteIPEndPoint ??= _connection.RemoteEndPoint as IPEndPoint;
+        public virtual IPEndPoint? RemoteEndPoint => GetCurrentConnection()?.RemoteEndPoint as IPEndPoint;
 
 
         /// <summary>
@@ -133,31 +136,87 @@ namespace Raido.Server
 
             _clientTimeoutInterval = contextOptions.ClientTimeoutInterval;
             _keepAliveInterval = contextOptions.KeepAliveInterval;
+            _statefulReconnectTimeout = contextOptions.StatefulReconnectTimeout;
+            _reconnectEnabled = contextOptions.StatefulReconnectEnabled;
+            _currentConnection = connection;
             ConnectionAbortedToken = _connectionAbortedTokenSource.Token;
-            _closedRegistration = connection.ConnectionClosed.Register((state) => ((RaidoConnectionContext)state!).Abort(), this);
-            if (connection.Features.Get<IConnectionLifetimeNotificationFeature>() is IConnectionLifetimeNotificationFeature lifetimeNotification)
-            {
-                // This feature is used by HttpConnectionManager to close the connection with a non-errored closed message on authentication expiration.
-                _closedRequestedRegistration =
-                    lifetimeNotification.ConnectionClosedRequested.Register(static (state) => ((RaidoConnectionContext)state!).Abort(), this);
-            }
 
             RaidoCallerContext = new DefaultRaidoCallerContext(this);
 
             _timeProvider = TimeProvider.System;
             _lastSendTick = _timeProvider.GetTimestamp();
+
+            RegisterPhysicalCallbacks(connection, registerHeartbeat: false, out _closedRegistration, out _closedRequestedRegistration);
         }
 
         internal Task OnConnectedAsync()
         {
-            if (Features.Get<IConnectionInherentKeepAliveFeature>()?.HasInherentKeepAlive != true)
+            if (GetCurrentConnection() is ConnectionContext connection)
             {
-                Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(state => ((RaidoConnectionContext)state).KeepAliveTick(), this);
+                RegisterHeartbeatCallbacks(connection);
             }
 
             StartTimestamp = _timeProvider.GetTimestamp();
 
             return Task.CompletedTask;
+        }
+
+        private void RegisterPhysicalCallbacks(
+            ConnectionContext connection,
+            bool registerHeartbeat,
+            out CancellationTokenRegistration closedRegistration,
+            out CancellationTokenRegistration? closedRequestedRegistration)
+        {
+            closedRegistration = connection.ConnectionClosed.Register(() => OnPhysicalConnectionClosed(connection));
+            closedRequestedRegistration = null;
+            try
+            {
+                if (connection.Features.Get<IConnectionLifetimeNotificationFeature>() is IConnectionLifetimeNotificationFeature lifetimeNotification)
+                {
+                    // This feature is used by HttpConnectionManager to close a connection with a non-errored closed message.
+                    closedRequestedRegistration = lifetimeNotification.ConnectionClosedRequested
+                        .Register(() => OnPhysicalConnectionClosed(connection));
+                }
+                else
+                {
+                    closedRequestedRegistration = null;
+                }
+
+                if (registerHeartbeat)
+                {
+                    RegisterHeartbeatCallbacks(connection);
+                }
+            }
+            catch
+            {
+                closedRegistration.Dispose();
+                closedRequestedRegistration?.Dispose();
+                throw;
+            }
+        }
+
+        private void RegisterHeartbeatCallbacks(ConnectionContext connection)
+        {
+            if (connection.Features.Get<IConnectionInherentKeepAliveFeature>()?.HasInherentKeepAlive != true)
+            {
+                connection.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(_ => KeepAliveTick(connection), this);
+            }
+
+            if (_clientTimeoutActive)
+            {
+                RegisterClientTimeoutHeartbeat(connection);
+            }
+        }
+
+        private void RegisterClientTimeoutHeartbeat(ConnectionContext connection) =>
+            connection.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(_ => CheckClientTimeoutForConnection(connection), this);
+
+        private bool IsCurrentConnection(ConnectionContext connection)
+        {
+            lock (_reconnectLock)
+            {
+                return ReferenceEquals(connection, _currentConnection);
+            }
         }
 
         /// <summary>
@@ -181,19 +240,20 @@ namespace Raido.Server
                 return new ValueTask(WriteSlowAsync(message, ignoreAbort, cancellationToken));
             }
 
-            if (_connectionAborted && !ignoreAbort)
+            var currentConnection = GetCurrentConnection();
+            if (currentConnection is null || (_connectionAborted && !ignoreAbort))
             {
                 _writeLock.Release();
                 return default;
             }
 
             // This method should never throw synchronously
-            var task = WriteCore(message, cancellationToken);
+            var task = WriteCore(currentConnection, message, cancellationToken);
 
             // The write didn't complete synchronously so await completion
             if (!task.IsCompletedSuccessfully)
             {
-                return new ValueTask(CompleteWriteAsync(task));
+                return new ValueTask(CompleteWriteAsync(currentConnection, task));
             }
             else
             {
@@ -208,34 +268,34 @@ namespace Raido.Server
             return default;
         }
 
-        private ValueTask<FlushResult> WriteCore<TMessage>(TMessage message, CancellationToken cancellationToken) where TMessage : RaidoMessage
+        private ValueTask<FlushResult> WriteCore<TMessage>(ConnectionContext connection, TMessage message, CancellationToken cancellationToken)
+            where TMessage : RaidoMessage
         {
             try
             {
                 // We know that we are only writing this message to one receiver, so we can
                 // write it without caching.
-                Protocol.WriteMessage(message, _connection.Transport.Output);
+                var output = connection.Transport.Output;
+                Protocol.WriteMessage(message, output);
 
                 // check if there is actually a message encoded
-                if (!_connection.Transport.Output.CanGetUnflushedBytes || _connection.Transport.Output.UnflushedBytes > 0)
+                if (!output.CanGetUnflushedBytes || output.UnflushedBytes > 0)
                 {
                     Log.SentMessage(_logger, message);
                 }
 
-                return _connection.Transport.Output.FlushAsync(cancellationToken);
+                return output.FlushAsync(cancellationToken);
             }
             catch (Exception ex)
             {
-                CloseException = ex;
                 Log.FailedWritingMessage(_logger, ex);
-
-                Abort();
+                HandleTransportFailure(connection, ex);
 
                 return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
             }
         }
 
-        private async Task CompleteWriteAsync(ValueTask<FlushResult> task)
+        private async Task CompleteWriteAsync(ConnectionContext connection, ValueTask<FlushResult> task)
         {
             try
             {
@@ -243,10 +303,8 @@ namespace Raido.Server
             }
             catch (Exception ex)
             {
-                CloseException = ex;
                 Log.FailedWritingMessage(_logger, ex);
-
-                Abort();
+                HandleTransportFailure(connection, ex);
             }
             finally
             {
@@ -259,6 +317,7 @@ namespace Raido.Server
         {
             // Failed to get the lock immediately when entering WriteAsync so await until it is available
             await _writeLock.WaitAsync(cancellationToken);
+            ConnectionContext? currentConnection = null;
 
             try
             {
@@ -267,13 +326,21 @@ namespace Raido.Server
                     return;
                 }
 
-                await WriteCore(message, cancellationToken);
+                currentConnection = GetCurrentConnection();
+                if (currentConnection is null)
+                {
+                    return;
+                }
+
+                await WriteCore(currentConnection, message, cancellationToken);
             }
             catch (Exception ex)
             {
-                CloseException = ex;
                 Log.FailedWritingMessage(_logger, ex);
-                Abort();
+                if (currentConnection is not null)
+                {
+                    HandleTransportFailure(currentConnection, ex);
+                }
             }
             finally
             {
@@ -286,11 +353,41 @@ namespace Raido.Server
         /// </summary>
         public virtual void Abort()
         {
-            _connectionAborted = true;
+            ConnectionContext? currentConnection = null;
+            CancellationTokenRegistration closedRegistration = default;
+            CancellationTokenRegistration? closedRequestedRegistration = null;
 
-            // Cancel any current writes or writes that are about to happen and have already gone past the _connectionAborted bool
-            // We have to do this outside of the lock otherwise it could hang if the write is observing backpressure
-            _connection.Transport.Output.CancelPendingFlush();
+            lock (_reconnectLock)
+            {
+                _reconnectEnabled = false;
+
+                if (_reconnectWaiter is TaskCompletionSource<bool> waiter)
+                {
+                    _reconnectWaiter = null;
+                    waiter.TrySetResult(false);
+                }
+
+                if (!_connectionAborted)
+                {
+                    _connectionAborted = true;
+                    currentConnection = _currentConnection;
+                    _currentConnection = null;
+                    closedRegistration = _closedRegistration;
+                    _closedRegistration = default;
+                    closedRequestedRegistration = _closedRequestedRegistration;
+                    _closedRequestedRegistration = null;
+                }
+            }
+
+            closedRegistration.Dispose();
+            closedRequestedRegistration?.Dispose();
+
+            if (currentConnection is not null)
+            {
+                // Physical cancellation wakes transport operations but does not cancel the stable connection token.
+                currentConnection.Transport.Output.CancelPendingFlush();
+                currentConnection.Transport.Input.CancelPendingRead();
+            }
 
             // If we already triggered the token then noop, this isn't thread safe but it's good enough
             // to avoid spawning a new task in the most common cases
@@ -299,11 +396,240 @@ namespace Raido.Server
                 return;
             }
 
-            Input.CancelPendingRead();
-
             // We fire and forget since this can trigger user code to run
             ThreadPool.QueueUserWorkItem(_abortedCallback, this);
         }
+
+        /// <summary>
+        /// Attempts to publish a replacement physical transport for this connection.
+        /// </summary>
+        /// <param name="replacement">The replacement physical transport.</param>
+        /// <returns><see langword="true"/> when the replacement was published; otherwise, <see langword="false"/>.</returns>
+        public bool TryReconnect(ConnectionContext replacement)
+        {
+            ArgumentNullException.ThrowIfNull(replacement);
+
+            TaskCompletionSource<bool>? reconnectWaiter;
+            lock (_reconnectLock)
+            {
+                if (_connectionAborted || !_reconnectEnabled || _currentConnection is not null ||
+                    _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted)
+                {
+                    return false;
+                }
+
+                reconnectWaiter = waiter;
+            }
+
+            CancellationTokenRegistration closedRegistration = default;
+            CancellationTokenRegistration? closedRequestedRegistration = null;
+            try
+            {
+                RegisterPhysicalCallbacks(replacement, registerHeartbeat: true, out closedRegistration, out closedRequestedRegistration);
+            }
+            catch
+            {
+                closedRegistration.Dispose();
+                closedRequestedRegistration?.Dispose();
+                return false;
+            }
+
+            var closedRequestedToken = replacement.Features.Get<IConnectionLifetimeNotificationFeature>()?.ConnectionClosedRequested;
+            var published = false;
+
+            lock (_reconnectLock)
+            {
+                if (!_connectionAborted && _reconnectEnabled && _currentConnection is null &&
+                    ReferenceEquals(reconnectWaiter, _reconnectWaiter) && !reconnectWaiter.Task.IsCompleted &&
+                    !replacement.ConnectionClosed.IsCancellationRequested &&
+                    !closedRequestedToken.GetValueOrDefault().IsCancellationRequested)
+                {
+                    _currentConnection = replacement;
+                    _closedRegistration = closedRegistration;
+                    _closedRequestedRegistration = closedRequestedRegistration;
+                    _reconnectWaiter = null;
+                    reconnectWaiter.TrySetResult(true);
+                    published = true;
+                }
+            }
+
+            if (!published)
+            {
+                closedRegistration.Dispose();
+                closedRequestedRegistration?.Dispose();
+            }
+
+            return published;
+        }
+
+        internal bool IsTerminal => _connectionAborted;
+
+        internal bool IsReconnectEnabled
+        {
+            get
+            {
+                lock (_reconnectLock)
+                {
+                    return _reconnectEnabled && !_connectionAborted;
+                }
+            }
+        }
+
+        internal bool TryGetCurrentConnection(out ConnectionContext connection)
+        {
+            lock (_reconnectLock)
+            {
+                if (_currentConnection is null)
+                {
+                    connection = null!;
+                    return false;
+                }
+
+                connection = _currentConnection;
+                return true;
+            }
+        }
+
+        internal Task<bool> WaitForReconnectAsync() => WaitForReconnectAsync(_statefulReconnectTimeout);
+
+        internal async Task<bool> WaitForReconnectAsync(TimeSpan timeout)
+        {
+            TaskCompletionSource<bool>? reconnectWaiter;
+            lock (_reconnectLock)
+            {
+                if (_connectionAborted || !_reconnectEnabled)
+                {
+                    return false;
+                }
+
+                if (_currentConnection is not null)
+                {
+                    return true;
+                }
+
+                reconnectWaiter = _reconnectWaiter;
+                if (reconnectWaiter is null)
+                {
+                    return false;
+                }
+            }
+
+            if (timeout == Timeout.InfiniteTimeSpan)
+            {
+                return await reconnectWaiter.Task.ConfigureAwait(false);
+            }
+
+            if (timeout <= TimeSpan.Zero)
+            {
+                return TimeoutReconnect(reconnectWaiter);
+            }
+
+            try
+            {
+                return await reconnectWaiter.Task.WaitAsync(timeout).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                return TimeoutReconnect(reconnectWaiter);
+            }
+        }
+
+        internal void OnPhysicalConnectionClosed(ConnectionContext connection) => TryDetachPhysicalConnection(connection, exception: null, out _);
+
+        internal bool HandleTransportFailure(ConnectionContext connection, Exception exception)
+        {
+            var isCurrent = TryDetachPhysicalConnection(connection, exception, out var reconnecting);
+            return !isCurrent || reconnecting;
+        }
+
+        private bool TryDetachPhysicalConnection(ConnectionContext connection, Exception? exception, out bool reconnecting)
+        {
+            CancellationTokenRegistration closedRegistration = default;
+            CancellationTokenRegistration? closedRequestedRegistration = null;
+            var abort = false;
+
+            lock (_reconnectLock)
+            {
+                if (!ReferenceEquals(connection, _currentConnection))
+                {
+                    reconnecting = false;
+                    return false;
+                }
+
+                if (exception is not null)
+                {
+                    CloseException = exception;
+                }
+
+                _currentConnection = null;
+                closedRegistration = _closedRegistration;
+                _closedRegistration = default;
+                closedRequestedRegistration = _closedRequestedRegistration;
+                _closedRequestedRegistration = null;
+
+                reconnecting = !_connectionAborted && _reconnectEnabled;
+                if (reconnecting)
+                {
+                    _reconnectWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                }
+                else
+                {
+                    _reconnectEnabled = false;
+                    _connectionAborted = true;
+                    _reconnectWaiter = null;
+                    abort = true;
+                }
+            }
+
+            closedRegistration.Dispose();
+            closedRequestedRegistration?.Dispose();
+
+            // Set the current connection to null before waking the old transport so resulting completions are stale.
+            connection.Transport.Input.CancelPendingRead();
+            connection.Transport.Output.CancelPendingFlush();
+
+            if (abort)
+            {
+                Abort();
+            }
+
+            return true;
+        }
+
+        private bool TimeoutReconnect(TaskCompletionSource<bool> reconnectWaiter)
+        {
+            var timedOut = false;
+            lock (_reconnectLock)
+            {
+                if (ReferenceEquals(reconnectWaiter, _reconnectWaiter) && !reconnectWaiter.Task.IsCompleted && !_connectionAborted)
+                {
+                    _reconnectEnabled = false;
+                    _connectionAborted = true;
+                    _reconnectWaiter = null;
+                    reconnectWaiter.TrySetResult(false);
+                    timedOut = true;
+                }
+            }
+
+            if (timedOut)
+            {
+                Abort();
+                return false;
+            }
+
+            return reconnectWaiter.Task.IsCompletedSuccessfully && reconnectWaiter.Task.Result;
+        }
+
+        private ConnectionContext? GetCurrentConnection()
+        {
+            lock (_reconnectLock)
+            {
+                return _currentConnection;
+            }
+        }
+
+        private ConnectionContext GetRequiredCurrentConnection() =>
+            GetCurrentConnection() ?? throw new InvalidOperationException("No physical transport is currently attached.");
 
         // Used by the HubConnectionHandler only
         internal Task AbortAsync()
@@ -335,12 +661,23 @@ namespace Raido.Server
             }
 
             _clientTimeoutActive = true;
-            Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(state => ((RaidoConnectionContext)state).CheckClientTimeout(), this);
+            if (GetCurrentConnection() is ConnectionContext connection)
+            {
+                RegisterClientTimeoutHeartbeat(connection);
+            }
         }
 
         private void CheckClientTimeout()
         {
-            if (Debugger.IsAttached || _connectionAborted)
+            if (GetCurrentConnection() is ConnectionContext connection)
+            {
+                CheckClientTimeoutForConnection(connection);
+            }
+        }
+
+        private void CheckClientTimeoutForConnection(ConnectionContext connection)
+        {
+            if (Debugger.IsAttached || _connectionAborted || !IsCurrentConnection(connection))
             {
                 return;
             }
@@ -419,8 +756,13 @@ namespace Raido.Server
             }
         }
 
-        private void KeepAliveTick()
+        private void KeepAliveTick(ConnectionContext connection)
         {
+            if (!IsCurrentConnection(connection))
+            {
+                return;
+            }
+
             var currentTime = _timeProvider.GetTimestamp();
             var elapsed = _timeProvider.GetElapsedTime(Volatile.Read(ref _lastSendTick), currentTime);
 
@@ -436,7 +778,7 @@ namespace Raido.Server
                 // If the transport channel is full, this will fail, but that's OK because
                 // adding a Ping message when the transport is full is unnecessary since the
                 // transport is still in the process of sending frames.
-                _ = TryWritePingAsync().Preserve();
+                _ = TryWritePingAsync(connection).Preserve();
 
                 // We only update the timestamp here, because updating on each sent message is bad for performance
                 // There can be a lot of sent messages per 15 seconds
@@ -446,27 +788,33 @@ namespace Raido.Server
 
         // Don't wait for the lock, if it returns false that means someone wrote to the connection
         // and we don't need to send a ping anymore
-        private ValueTask TryWritePingAsync() => !_writeLock.Wait(0) ? default : new ValueTask(TryWritePingSlowAsync());
+        private ValueTask TryWritePingAsync(ConnectionContext connection) =>
+            !_writeLock.Wait(0) ? default : new ValueTask(TryWritePingSlowAsyncForConnection(connection));
 
-        private async Task TryWritePingSlowAsync()
+        private Task TryWritePingSlowAsync()
+        {
+            var connection = GetCurrentConnection();
+            return connection is null ? Task.CompletedTask : TryWritePingSlowAsyncForConnection(connection);
+        }
+
+        private async Task TryWritePingSlowAsyncForConnection(ConnectionContext connection)
         {
             try
             {
-                if (_connectionAborted)
+                if (_connectionAborted || !IsCurrentConnection(connection))
                 {
                     return;
                 }
 
                 var pingMessage = Protocol.GetMessageBytes(PingMessage.Instance);
-                await _connection.Transport.Output.WriteAsync(pingMessage);
+                await connection.Transport.Output.WriteAsync(pingMessage);
 
                 Log.SentPing(_logger);
             }
             catch (Exception ex)
             {
-                CloseException = ex;
                 Log.FailedWritingMessage(_logger, ex);
-                Abort();
+                HandleTransportFailure(connection, ex);
             }
             finally
             {
@@ -476,8 +824,20 @@ namespace Raido.Server
 
         internal void Cleanup()
         {
-            _closedRegistration.Dispose();
-            _closedRequestedRegistration?.Dispose();
+            CancellationTokenRegistration closedRegistration;
+            CancellationTokenRegistration? closedRequestedRegistration;
+            lock (_reconnectLock)
+            {
+                closedRegistration = _closedRegistration;
+                _closedRegistration = default;
+                closedRequestedRegistration = _closedRequestedRegistration;
+                _closedRequestedRegistration = null;
+                _currentConnection = null;
+                _reconnectEnabled = false;
+            }
+
+            closedRegistration.Dispose();
+            closedRequestedRegistration?.Dispose();
         }
 
         private static class Log

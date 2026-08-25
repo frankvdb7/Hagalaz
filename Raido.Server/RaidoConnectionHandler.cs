@@ -116,39 +116,96 @@ namespace Raido.Server
         /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
         public virtual async Task DispatchMessagesAsync(RaidoConnectionContext connection)
         {
-            await using (var protocolReader = connection.CreateReader())
+            while (!connection.IsTerminal)
             {
-                while (true)
+                if (!connection.TryGetCurrentConnection(out var physicalConnection))
                 {
-                    try
+                    break;
+                }
+
+                await using (var protocolReader = new RaidoProtocolReader(physicalConnection.Transport.Input))
+                {
+                    while (true)
                     {
-                        connection.BeginClientTimeout();
-                        var result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
-                        if (result.IsCanceled)
+                        RaidoProtocolReadResult<RaidoMessage> result;
+                        try
                         {
+                            connection.BeginClientTimeout();
+                            result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
+                        }
+                        catch (OperationCanceledException ex)
+                        {
+                            if (connection.IsTerminal)
+                            {
+                                break;
+                            }
+
+                            if (!connection.HandleTransportFailure(physicalConnection, ex))
+                            {
+                                throw;
+                            }
+
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            if (!connection.HandleTransportFailure(physicalConnection, ex))
+                            {
+                                throw;
+                            }
+
                             break;
                         }
 
-                        if (result.Message == default)
+                        try
                         {
-                            continue;
+                            if (result.IsCanceled)
+                            {
+                                break;
+                            }
+
+                            if (result.Message == default)
+                            {
+                                if (result.IsCompleted)
+                                {
+                                    break;
+                                }
+
+                                continue;
+                            }
+
+                            connection.StopClientTimeout();
+
+                            Log.ReceivedMessage(_logger, result.Message);
+
+                            await _dispatcher.DispatchMessageAsync(connection, result.Message);
+
+                            if (result.IsCompleted)
+                            {
+                                break;
+                            }
                         }
-
-                        connection.StopClientTimeout();
-
-                        Log.ReceivedMessage(_logger, result.Message);
-
-                        await _dispatcher.DispatchMessageAsync(connection, result.Message);
-
-                        if (result.IsCompleted)
+                        finally
                         {
-                            break;
+                            protocolReader.Advance();
                         }
                     }
-                    finally
-                    {
-                        protocolReader.Advance();
-                    }
+                }
+
+                connection.OnPhysicalConnectionClosed(physicalConnection);
+                if (connection.IsTerminal || !connection.IsReconnectEnabled)
+                {
+                    break;
+                }
+
+                if (connection.TryGetCurrentConnection(out _))
+                {
+                    continue;
+                }
+
+                if (!await connection.WaitForReconnectAsync())
+                {
+                    break;
                 }
             }
         }
