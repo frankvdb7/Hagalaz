@@ -120,7 +120,12 @@ namespace Raido.Server
             {
                 if (!connection.TryGetCurrentConnection(out var physicalConnection))
                 {
-                    break;
+                    if (!connection.IsReconnectEnabled || !await connection.WaitForReconnectAsync())
+                    {
+                        break;
+                    }
+
+                    continue;
                 }
 
                 await using (var protocolReader = new RaidoProtocolReader(physicalConnection.Transport.Input))

@@ -9,7 +9,7 @@ Raido currently treats its physical transport as permanent, so a transport loss 
 - Detach physical transports on loss, wake only their pending operations, and ignore stale callbacks and operation failures after replacement.
 - Make the handler create a fresh protocol reader for each physical transport and wait in one reconnect window between detach and successful publication.
 - Remove discard/no-op pipe behavior from the reconnect path; detached writes return without touching a pipe.
-- Enable the feature only for GameWorld and add focused regression coverage for transport races, ownership, callbacks, timeout, and lifetime stability.
+- Keep the feature opt-in and available for later logical/session integration; do not enable it in a production caller yet. Add focused regression coverage for transport races, ownership, callbacks, timeout, and lifetime stability.
 
 ## Capabilities
 
@@ -23,6 +23,6 @@ Raido currently treats its physical transport as permanent, so a transport loss 
 
 ## Impact
 
-- Affected production code is limited to `Raido.Server` connection context, handler, builder/options integration, and the GameWorld connection builder opt-in.
+- Affected production code is limited to `Raido.Server` connection context, handler, and builder/options integration. GameWorld remains unchanged at runtime and does not opt in until the required logical/session work is complete.
 - Existing connection store, lifetime manager, GameWorld session/protocol state, and GameUpdate behavior remain unchanged.
 - Tests use real `Pipe` instances and existing test doubles; no production fake pipes or reconnect framework are introduced.

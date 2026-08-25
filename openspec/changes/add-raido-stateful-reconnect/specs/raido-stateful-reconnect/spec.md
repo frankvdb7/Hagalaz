@@ -16,7 +16,12 @@ Raido SHALL preserve one stable connection context while allowing only an opted-
 #### Scenario: Reconnect enabled
 
 - **WHEN** the current physical transport closes for an opted-in connection
-- **THEN** the stable connection remains alive while it waits for a replacement until the configured timeout expires
+- **THEN** the stable connection remains alive while it waits for a replacement until the single deadline that began at physical detach expires
+
+#### Scenario: Current close request
+
+- **WHEN** `ConnectionClosedRequested` is signalled by the current physical transport
+- **THEN** the stable Raido connection terminates immediately and no replacement can be published
 
 ### Requirement: Stable connection state
 
@@ -25,7 +30,7 @@ Replacing a physical transport SHALL preserve the connection ID, features, items
 #### Scenario: Successful replacement
 
 - **WHEN** a replacement transport is published within the reconnect window
-- **THEN** all existing connection-scoped state and the stable lifetime continue to be observed through the same Raido connection
+- **THEN** all existing connection-scoped state and the stable lifetime continue to be observed through the same Raido connection and transient physical failure state is cleared
 
 #### Scenario: Physical endpoints
 
@@ -83,6 +88,11 @@ Raido SHALL create a new protocol reader for each published physical transport a
 
 - **WHEN** the current physical transport detaches while dispatch is waiting for input
 - **THEN** the physical read is woken, the reconnect waiter can be awaited, and the terminal connection-aborted token remains uncancelled
+
+#### Scenario: Handler observes a detached window
+
+- **WHEN** dispatch begins while the physical transport is detached and an active reconnect window exists
+- **THEN** the handler waits for that window and does not request transport input until a replacement is published
 
 ### Requirement: Physical callback rebinding
 

@@ -45,29 +45,80 @@ public sealed class RaidoStatefulReconnectTests
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
-        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.Zero);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
         var message = new TestMessage();
         context.Protocol = new TestProtocol { MessageToReturn = message };
         var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dispatcher.DispatchMessageAsync(context, message).Returns(_ =>
+        {
+            dispatched.TrySetResult();
+            return Task.CompletedTask;
+        });
         var meterFactory = Substitute.For<IMeterFactory>();
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(new Meter("Raido.Server.Tests.Reconnect"));
+        using var meter = new Meter("Raido.Server.Tests.Reconnect");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
         var handler = new RaidoConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
             Substitute.For<IRaidoLifetimeManager>(),
             dispatcher,
-            new RaidoMetrics(meterFactory));
+            metrics);
 
         var run = handler.RunAsync(context);
         initial.Closed.Cancel();
         Assert.IsTrue(context.TryReconnect(replacement.Connection));
 
         await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
-        replacement.Input.Writer.Complete();
+        await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        context.Abort();
         await run.WaitAsync(TimeSpan.FromSeconds(2));
 
         await dispatcher.Received(1).DispatchMessageAsync(context, message);
         await dispatcher.Received(1).OnDisconnectedAsync(context, Arg.Any<Exception?>());
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task HandlerWaitsWhenItStartsWithDetachedReconnectWindow()
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
+        var message = new TestMessage();
+        context.Protocol = new TestProtocol { MessageToReturn = message };
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dispatcher.DispatchMessageAsync(context, message).Returns(_ =>
+        {
+            dispatched.TrySetResult();
+            return Task.CompletedTask;
+        });
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.DetachedHandler");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        context.OnPhysicalConnectionClosed(initial.Connection);
+
+        var run = handler.DispatchMessagesAsync(context);
+
+        Assert.IsFalse(run.IsCompleted);
+        Assert.IsTrue(context.TryReconnect(replacement.Connection));
+        await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
+        await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        context.Abort();
+        await run.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await dispatcher.Received(1).DispatchMessageAsync(context, message);
         context.Cleanup();
     }
 
@@ -265,6 +316,7 @@ public sealed class RaidoStatefulReconnectTests
         var reconnectWindow = context.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
         Assert.IsTrue(context.TryReconnect(replacement.Connection));
         Assert.IsTrue(await reconnectWindow);
+        Assert.IsNull(context.CloseException);
         Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
         context.Cleanup();
     }
@@ -307,13 +359,15 @@ public sealed class RaidoStatefulReconnectTests
             return Task.CompletedTask;
         });
         var meterFactory = Substitute.For<IMeterFactory>();
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(new Meter("Raido.Server.Tests.ReadFailure"));
+        using var meter = new Meter("Raido.Server.Tests.ReadFailure");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
         var handler = new RaidoConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
             Substitute.For<IRaidoLifetimeManager>(),
             dispatcher,
-            new RaidoMetrics(meterFactory));
+            metrics);
 
         var run = handler.DispatchMessagesAsync(context);
 
@@ -326,7 +380,7 @@ public sealed class RaidoStatefulReconnectTests
 
         await run.WaitAsync(TimeSpan.FromSeconds(2));
 
-        Assert.AreSame(readFailure, context.CloseException);
+        Assert.IsNull(context.CloseException);
         await dispatcher.Received(1).DispatchMessageAsync(context, message);
         context.Cleanup();
     }
@@ -367,7 +421,7 @@ public sealed class RaidoStatefulReconnectTests
         var replacementHeartbeat = new RecordingHeartbeatFeature();
         initial.Connection.Features.Set<IConnectionHeartbeatFeature>(initialHeartbeat);
         replacement.Connection.Features.Set<IConnectionHeartbeatFeature>(replacementHeartbeat);
-        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, clientTimeout: TimeSpan.Zero);
 
         context.OnConnectedAsync().GetAwaiter().GetResult();
         context.StartClientTimeout();
@@ -403,13 +457,15 @@ public sealed class RaidoStatefulReconnectTests
             return Task.CompletedTask;
         });
         var meterFactory = Substitute.For<IMeterFactory>();
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(new Meter("Raido.Server.Tests.ReconnectLifetime"));
+        using var meter = new Meter("Raido.Server.Tests.ReconnectLifetime");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
         var handler = new RaidoConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
             lifetimeManager,
             dispatcher,
-            new RaidoMetrics(meterFactory));
+            metrics);
 
         var run = handler.ConnectAsync(context);
         initial.Closed.Cancel();
@@ -558,6 +614,21 @@ public sealed class RaidoStatefulReconnectTests
     }
 
     [TestMethod]
+    public void ReconnectDeadlineStartsAtPhysicalDetach()
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.Zero);
+
+        context.OnPhysicalConnectionClosed(initial.Connection);
+
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
+        Assert.IsTrue(context.ConnectionAbortedToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(1)));
+        Assert.IsFalse(replacement.Closed.IsCancellationRequested);
+        context.Cleanup();
+    }
+
+    [TestMethod]
     public void StaleCloseCallbackCannotDetachReplacement()
     {
         var initial = CreatePhysicalConnection("initial");
@@ -600,19 +671,21 @@ public sealed class RaidoStatefulReconnectTests
         closeRequested.Source.Cancel();
 
         Assert.IsFalse(context.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAbortedToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(1)));
+        Assert.IsFalse(context.TryReconnect(CreatePhysicalConnection("after-close-request").Connection));
         context.Cleanup();
     }
 
     private static RaidoConnectionContext CreateContext(
         ConnectionContext connection,
         bool reconnectEnabled,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        TimeSpan? clientTimeout = null)
     {
         return new RaidoConnectionContext(connection, new RaidoConnectionContextOptions
         {
             KeepAliveInterval = TimeSpan.FromMinutes(1),
-            ClientTimeoutInterval = TimeSpan.FromMinutes(1),
+            ClientTimeoutInterval = clientTimeout ?? TimeSpan.FromMinutes(1),
             StatefulReconnectEnabled = reconnectEnabled,
             StatefulReconnectTimeout = timeout ?? TimeSpan.FromSeconds(5)
         }, NullLoggerFactory.Instance)
@@ -643,9 +716,9 @@ public sealed class RaidoStatefulReconnectTests
         connection.LocalEndPoint.Returns(new IPEndPoint(IPAddress.Loopback, localPort));
         connection.RemoteEndPoint.Returns(new IPEndPoint(IPAddress.Loopback, remotePort));
 
-        var closed = new CancellationTokenSource();
-        connection.ConnectionClosed.Returns(closed.Token);
-        return new PhysicalConnection(connection, input, output, closed);
+        var physical = new PhysicalConnection(connection, input, output);
+        connection.ConnectionClosed.Returns(physical.Closed.Token);
+        return physical;
     }
 
     private sealed class DeferredFailingPipeWriter : PipeWriter
@@ -692,11 +765,18 @@ public sealed class RaidoStatefulReconnectTests
         }
     }
 
-    private sealed record PhysicalConnection(
-        ConnectionContext Connection,
-        Pipe Input,
-        Pipe Output,
-        CancellationTokenSource Closed);
+    private sealed class PhysicalConnection(ConnectionContext connection, Pipe input, Pipe output) : IDisposable
+    {
+        public ConnectionContext Connection { get; } = connection;
+
+        public Pipe Input { get; } = input;
+
+        public Pipe Output { get; } = output;
+
+        public CancellationTokenSource Closed { get; } = new();
+
+        public void Dispose() => Closed.Dispose();
+    }
 
     private sealed class RecordingHeartbeatFeature : IConnectionHeartbeatFeature
     {

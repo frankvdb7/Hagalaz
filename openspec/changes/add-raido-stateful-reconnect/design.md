@@ -35,19 +35,23 @@ Every read, write, heartbeat, close, and close-request path captures the physica
 
 ### Fresh readers in the handler
 
-The handler obtains a currently published physical transport before creating a reader. It dispatches only that transport, then waits outside the lock on the current reconnect-window waiter with the configured timeout. After successful waiter completion it loops and creates a new reader for the replacement. Lifetime connect/disconnect notifications remain one-per-stable-connection.
+The handler obtains a currently published physical transport before creating a reader. If it observes a detached connection with an active reconnect window, it waits outside the lock instead of exiting or requesting `Input`. It dispatches only the captured transport, then waits outside the lock on the current reconnect-window waiter with the remaining detach-anchored deadline. After successful waiter completion it loops and creates a new reader for the replacement. Lifetime connect/disconnect notifications remain one-per-stable-connection.
 
 ### Opt-in configuration
 
-Add the smallest builder and options surface needed to enable reconnect. `RaidoOptionsSetup` supplies a finite bounded default timeout, while GameWorld explicitly opts in and GameUpdate remains unchanged. No SignalR reconnect feature interface is exposed.
+Add the smallest builder and options surface needed to enable reconnect. `RaidoOptionsSetup` supplies a finite bounded default timeout. The capability remains opt-in but has no production caller enabled yet; GameWorld opt-in is deferred to the logical/session work and GameUpdate remains unchanged. No SignalR reconnect feature interface is exposed.
+
+### Terminal and deadline invariants
+
+`Abort()` and the current physical connection's `ConnectionClosedRequested` callback are terminal. A physical detach creates the single reconnect waiter and deadline immediately; failed candidates reuse that window. Successful publication clears transient physical failure state, and timeout permanently closes the logical lifetime. All terminal transitions share the same synchronized state transition and perform registration disposal and physical cancellation after releasing the lock.
 
 ## Risks / Trade-offs
 
 - [Risk] A candidate can close while its callbacks are being registered. → Its callbacks capture the candidate, publication checks the candidate's close tokens, and unsuccessful registration ownership remains with the caller.
 - [Risk] A stale write or heartbeat failure can race a successful replacement. → Reference identity is checked under the reconnect lock before any failure can detach or abort the stable connection.
-- [Risk] A timeout can race candidate callback registration. → The waiter identity and completion state are checked under the same lock; the first terminal/publication decision wins.
+- [Risk] A timeout can race candidate callback registration. → The detach-anchored deadline, waiter identity, and completion state are checked under the same lock; the first terminal/publication decision wins.
 - [Risk] Physical cancellation may leave pending pipe operations in unusual transport implementations. → Detach nulls the current transport first, then uses the transport's existing pending-read and pending-flush cancellation methods without cancelling the stable terminal token.
 
 ## Migration Plan
 
-The change is source-compatible for existing builders because reconnect is opt-in. Deploy the Raido server and GameWorld together; connections without the new builder call retain the current terminal-disconnect behavior. Rollback is a code rollback, with no persisted data or schema migration.
+The change is source-compatible for existing builders because reconnect is opt-in. No production caller enables the capability yet, so GameWorld and GameUpdate retain terminal-disconnect behavior. Rollback is a code rollback, with no persisted data or schema migration.

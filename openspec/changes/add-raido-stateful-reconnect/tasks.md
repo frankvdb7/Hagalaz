@@ -14,9 +14,15 @@
 ## 3. Handler and configuration integration
 
 - [x] 3.1 Update the handler to obtain a published transport before creating a reader, dispatch with a fresh reader per transport, await the reconnect window outside the lock, and disconnect the stable lifetime once; verify handler reconnect-cycle tests.
-- [x] 3.2 Add `WithStatefulReconnect`, bounded `StatefulReconnectTimeout` options/defaults, and GameWorld-only opt-in; verify builder/options tests and that GameUpdate remains unchanged.
+- [x] 3.2 Add `WithStatefulReconnect` and bounded `StatefulReconnectTimeout` options/defaults; keep the capability opt-in with no production caller enabled yet and verify GameUpdate remains unchanged.
 
 ## 4. Validation
 
 - [x] 4.1 Run the focused Raido tests and GameWorld tests serially, then build the affected projects and solution as appropriate; verify all required suites pass or distinguish environment failures.
 - [x] 4.2 Validate `add-raido-stateful-reconnect` with strict OpenSpec validation and review the cumulative diff for fake pipes, parallel state, stale callbacks, lock-held awaits/disposals, unintended GameUpdate/store/lifetime changes, and uncompleted task mappings.
+
+## 5. Invariant remediation
+
+- [x] 5.1 Centralize terminal transitions, make current `ConnectionClosedRequested` terminal, anchor the single reconnect deadline at physical detach, and clear transient failure state after successful publication.
+- [x] 5.2 Make the handler wait when it observes a detached active reconnect window, remove the premature GameWorld opt-in, and update the behavior artifacts.
+- [x] 5.3 Add regressions for detached-start dispatch, terminal close requests, detach-anchored timeout, stale heartbeat activity, and introduced CodeQL findings; run focused tests and validation.
