@@ -169,11 +169,8 @@ namespace Raido.Server
                     !_reconnectWaiter.Task.IsCompleted)
                 {
                     Debug.Assert(_closedRequestedRegistration is null, "The constructor must not already own a close-request registration while publishing detached ownership.");
-                    if (_closedRequestedRegistration is null)
-                    {
-                        _closedRequestedRegistration = closedRequestedRegistration;
-                        closedRequestedRegistration = null;
-                    }
+                    _closedRequestedRegistration = closedRequestedRegistration;
+                    closedRequestedRegistration = null;
                 }
             }
 
