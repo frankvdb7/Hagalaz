@@ -62,7 +62,7 @@ public sealed class RaidoConnectionContextAdditionalTests
         public ClaimsPrincipal? User { get; set; }
     }
 
-    private static (RaidoConnectionContext Context, Pipe Output, FeatureCollection Features) CreateContext(TimeSpan? keepAlive = null, TimeSpan? timeout = null)
+    private static (RaidoConnectionContext Context, Pipe Output, FeatureCollection Features, ConnectionContext Connection) CreateContext(TimeSpan? keepAlive = null, TimeSpan? timeout = null)
     {
         var output = new Pipe();
         var transport = Substitute.For<IDuplexPipe>();
@@ -82,13 +82,13 @@ public sealed class RaidoConnectionContextAdditionalTests
         {
             Protocol = new WritingProtocol()
         };
-        return (context, output, features);
+        return (context, output, features, connection);
     }
 
     [TestMethod]
     public async Task Context_ExposesUnderlyingPropertiesAndWritesMessages()
     {
-        var (context, output, features) = CreateContext();
+        var (context, output, features, _) = CreateContext();
         var user = new ClaimsPrincipal(new ClaimsIdentity("test"));
         features.Set<IConnectionUserFeature>(new UserFeature { User = user });
         Assert.AreSame(user, context.User);
@@ -106,7 +106,7 @@ public sealed class RaidoConnectionContextAdditionalTests
     [TestMethod]
     public async Task Context_AbortIsIdempotentAndCompletesAbortAsync()
     {
-        var (context, _, _) = CreateContext();
+        var (context, _, _, _) = CreateContext();
         var abortCallbackCount = 0;
         using var registration = context.ConnectionAbortedToken.Register(() => Interlocked.Increment(ref abortCallbackCount));
 
@@ -121,7 +121,7 @@ public sealed class RaidoConnectionContextAdditionalTests
     [TestMethod]
     public async Task Context_HandlesWriteFailureAndIgnoresWritesAfterAbort()
     {
-        var (context, _, _) = CreateContext();
+        var (context, _, _, _) = CreateContext();
         var protocol = Substitute.For<IRaidoProtocol>();
         protocol.When(x => x.WriteMessage(Arg.Any<RaidoMessage>(), Arg.Any<IBufferWriter<byte>>()))
             .Do(_ => throw new InvalidOperationException("write"));
@@ -171,15 +171,15 @@ public sealed class RaidoConnectionContextAdditionalTests
     [TestMethod]
     public async Task Context_RegistersHeartbeatsAndTimeoutState()
     {
-        var (context, _, features) = CreateContext(keepAlive: TimeSpan.Zero, timeout: TimeSpan.Zero);
+        var (context, _, features, connection) = CreateContext(keepAlive: TimeSpan.Zero, timeout: TimeSpan.Zero);
         var heartbeat = Substitute.For<IConnectionHeartbeatFeature>();
         features.Set(heartbeat);
         context.OnConnectedAsync().GetAwaiter().GetResult();
         context.StartClientTimeout();
         context.StartClientTimeout();
         context.BeginClientTimeout();
-        var check = typeof(RaidoConnectionContext).GetMethod("CheckClientTimeout", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        check.Invoke(context, null);
+        var check = typeof(RaidoConnectionContext).GetMethod("CheckClientTimeoutForConnection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        check.Invoke(context, new object[] { connection });
         await context.AbortAsync();
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
         context.StopClientTimeout();

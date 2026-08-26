@@ -546,41 +546,46 @@ namespace Raido.Server
             var terminal = false;
             var queueAbortCallback = false;
 
-            lock (_reconnectLock)
+            lock (_receiveMessageTimeoutLock)
             {
-                if (!ReferenceEquals(connection, _currentConnection))
+                lock (_reconnectLock)
                 {
-                    reconnecting = false;
-                    return false;
-                }
-
-                reconnecting = !_connectionAborted && _reconnectEnabled;
-                if (reconnecting)
-                {
-                    if (exception is not null)
+                    if (!ReferenceEquals(connection, _currentConnection))
                     {
-                        CloseException = exception;
+                        reconnecting = false;
+                        return false;
                     }
 
-                    _currentConnection = null;
-                    closedRegistration = _closedRegistration;
-                    _closedRegistration = default;
-                    closedRequestedRegistration = _closedRequestedRegistration;
-                    _closedRequestedRegistration = null;
-                    _reconnectWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    _reconnectWindowStartTimestamp = _timeProvider.GetTimestamp();
+                    reconnecting = !_connectionAborted && _reconnectEnabled;
+                    if (reconnecting)
+                    {
+                        if (exception is not null)
+                        {
+                            CloseException = exception;
+                        }
+
+                        _currentConnection = null;
+                        closedRegistration = _closedRegistration;
+                        _closedRegistration = default;
+                        closedRequestedRegistration = _closedRequestedRegistration;
+                        _closedRequestedRegistration = null;
+                        _reconnectWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                        _reconnectWindowStartTimestamp = _timeProvider.GetTimestamp();
+                    }
+                    else
+                    {
+                        terminal = TryTransitionToTerminalLocked(
+                            expectedConnection: connection,
+                            expectedWaiter: null,
+                            exception,
+                            out terminalConnection,
+                            out terminalClosedRegistration,
+                            out terminalClosedRequestedRegistration,
+                            out queueAbortCallback);
+                    }
                 }
-                else
-                {
-                    terminal = TryTransitionToTerminalLocked(
-                        expectedConnection: connection,
-                        expectedWaiter: null,
-                        exception,
-                        out terminalConnection,
-                        out terminalClosedRegistration,
-                        out terminalClosedRequestedRegistration,
-                        out queueAbortCallback);
-                }
+
+                ResetReceivedMessageTimeoutLocked();
             }
 
             if (reconnecting)
@@ -795,14 +800,6 @@ namespace Raido.Server
             }
         }
 
-        private void CheckClientTimeout()
-        {
-            if (GetCurrentConnection() is ConnectionContext connection)
-            {
-                CheckClientTimeoutForConnection(connection);
-            }
-        }
-
         private void CheckClientTimeoutForConnection(ConnectionContext connection)
         {
             if (Debugger.IsAttached || _connectionAborted || !IsCurrentConnection(connection))
@@ -905,12 +902,17 @@ namespace Raido.Server
         {
             lock (_receiveMessageTimeoutLock)
             {
-                // we received a message so stop the timer and reset it
-                // it will resume after the message has been processed
-                _receivedMessageElapsed = TimeSpan.Zero;
-                _receivedMessageTick = 0;
-                _receivedMessageTimeoutEnabled = false;
+                ResetReceivedMessageTimeoutLocked();
             }
+        }
+
+        private void ResetReceivedMessageTimeoutLocked()
+        {
+            // We received a message or the physical transport detached, so stop and reset the read timer.
+            // The replacement transport will start a new timer when its next read begins.
+            _receivedMessageElapsed = TimeSpan.Zero;
+            _receivedMessageTick = 0;
+            _receivedMessageTimeoutEnabled = false;
         }
 
         private void KeepAliveTick(ConnectionContext connection)
@@ -943,12 +945,6 @@ namespace Raido.Server
         // and we don't need to send a ping anymore
         private ValueTask TryWritePingAsync(ConnectionContext connection) =>
             !_writeLock.Wait(0) ? default : new ValueTask(TryWritePingSlowAsyncForConnection(connection));
-
-        private Task TryWritePingSlowAsync()
-        {
-            var connection = GetCurrentConnection();
-            return connection is null ? Task.CompletedTask : TryWritePingSlowAsyncForConnection(connection);
-        }
 
         private async Task TryWritePingSlowAsyncForConnection(ConnectionContext connection)
         {

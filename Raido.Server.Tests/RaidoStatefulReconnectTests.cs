@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
+using System.IO;
 using System.IO.Pipelines;
 using System.Net;
 using Microsoft.AspNetCore.Connections;
@@ -202,7 +203,7 @@ public sealed class RaidoStatefulReconnectTests
         context.OnPhysicalConnectionClosed(initial.Connection);
         Assert.IsTrue(context.TryReconnect(replacement.Connection));
 
-        var exception = new InvalidOperationException("stale flush");
+        var exception = new IOException("stale flush");
         pendingWriter.Fail(exception);
         await pendingWrite;
 
@@ -306,7 +307,7 @@ public sealed class RaidoStatefulReconnectTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         var pendingWrite = context.WriteAsync(new TestMessage());
-        var exception = new InvalidOperationException("current flush");
+        var exception = new IOException("current flush");
         pendingWriter.Fail(exception);
         await pendingWrite;
 
@@ -331,7 +332,7 @@ public sealed class RaidoStatefulReconnectTests
         context.OnPhysicalConnectionClosed(initial.Connection);
         Assert.IsTrue(context.TryReconnect(replacement.Connection));
 
-        var exception = new InvalidOperationException("stale read");
+        var exception = new IOException("stale read");
         Assert.IsTrue(context.HandleTransportFailure(initial.Connection, exception));
 
         Assert.IsTrue(context.TryGetCurrentConnection(out var current));
@@ -344,7 +345,7 @@ public sealed class RaidoStatefulReconnectTests
     [TestMethod]
     public async Task CurrentReadFailureDetachesAndHandlerContinuesWithTheReplacement()
     {
-        var readFailure = new InvalidOperationException("current read");
+        var readFailure = new IOException("current read");
         var failingReader = new ThrowingPipeReader(readFailure);
         var initial = CreatePhysicalConnection("initial", inputReader: failingReader);
         var replacement = CreatePhysicalConnection("replacement");
@@ -382,6 +383,38 @@ public sealed class RaidoStatefulReconnectTests
 
         Assert.IsNull(context.CloseException);
         await dispatcher.Received(1).DispatchMessageAsync(context, message);
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task CurrentReadCancellationDetachesAndAllowsAReplacement()
+    {
+        var readCancellation = new OperationCanceledException("current read");
+        var failingReader = new ThrowingPipeReader(readCancellation);
+        var initial = CreatePhysicalConnection("initial", inputReader: failingReader);
+        var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.ReadCancellation");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoDispatcher>(),
+            metrics);
+
+        var run = handler.DispatchMessagesAsync(context);
+        await failingReader.ReadInvoked.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.IsFalse(context.TryGetCurrentConnection(out _));
+        Assert.IsTrue(context.TryReconnect(replacement.Connection));
+        context.Abort();
+        await context.AbortAsync();
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
         context.Cleanup();
     }
 
@@ -432,11 +465,193 @@ public sealed class RaidoStatefulReconnectTests
         Assert.AreEqual(2, initialHeartbeat.Callbacks.Count);
         Assert.AreEqual(2, replacementHeartbeat.Callbacks.Count);
 
+        replacementHeartbeat.Run();
         initialHeartbeat.Run();
 
         Assert.IsTrue(context.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
         Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task ProtocolParserFailureIsTerminalAndCannotOpenReconnectWindow()
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var parserFailure = new InvalidOperationException("parser failure");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        context.Protocol = new TestProtocol { ParseException = parserFailure };
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.ParserFailure");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        var run = handler.RunAsync(context);
+        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+
+        await dispatcher.Received(1).OnDisconnectedAsync(context, parserFailure);
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task ParserIOExceptionIsTerminalWhenItDoesNotComeFromThePhysicalRead()
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var parserFailure = new IOException("parser failure");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        context.Protocol = new TestProtocol { ParseException = parserFailure };
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.ParserIOException");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        var run = handler.RunAsync(context);
+        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+
+        await dispatcher.Received(1).OnDisconnectedAsync(context, parserFailure);
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task ParserCancellationIsTerminalWhenItDoesNotComeFromThePhysicalRead()
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var parserFailure = new OperationCanceledException("parser failure");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        context.Protocol = new TestProtocol { ParseException = parserFailure };
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.ParserCancellation");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        var run = handler.RunAsync(context);
+        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+
+        await dispatcher.Received(1).OnDisconnectedAsync(context, parserFailure);
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task IncompleteProtocolDataIsTerminalAndCannotOpenReconnectWindow()
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        context.Protocol = new TestProtocol { ParseMessageReturns = false };
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.IncompleteProtocolData");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        var run = handler.RunAsync(context);
+        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
+        initial.Input.Writer.Complete();
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+
+        await dispatcher.Received(1).OnDisconnectedAsync(context, Arg.Is<Exception?>(exception => exception is InvalidDataException));
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task OversizedProtocolDataIsTerminalAndCannotOpenReconnectWindow()
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        context.Protocol = new TestProtocol { ParseMessageReturns = false };
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.OversizedProtocolData");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions { MaximumReceiveMessageSize = 0 }),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        var run = handler.RunAsync(context);
+        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+
+        await dispatcher.Received(1).OnDisconnectedAsync(context, Arg.Is<Exception?>(exception => exception is InvalidDataException));
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task ApplicationDispatchFailureIsTerminalAndCannotOpenReconnectWindow()
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var message = new TestMessage();
+        var dispatchFailure = new InvalidOperationException("dispatch failure");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        context.Protocol = new TestProtocol { MessageToReturn = message };
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        dispatcher.DispatchMessageAsync(context, message).Returns(Task.FromException(dispatchFailure));
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.ApplicationFailure");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        var run = handler.RunAsync(context);
+        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+
+        await dispatcher.Received(1).OnDisconnectedAsync(context, dispatchFailure);
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
         context.Cleanup();
     }
 
@@ -746,6 +961,8 @@ public sealed class RaidoStatefulReconnectTests
     {
         private readonly Exception _exception;
 
+        public TaskCompletionSource ReadInvoked { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public ThrowingPipeReader(Exception exception) => _exception = exception;
 
         public override void AdvanceTo(SequencePosition consumed) { }
@@ -756,7 +973,11 @@ public sealed class RaidoStatefulReconnectTests
 
         public override void Complete(Exception? exception = null) { }
 
-        public override ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default) => throw _exception;
+        public override ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            ReadInvoked.TrySetResult();
+            throw _exception;
+        }
 
         public override bool TryRead(out ReadResult result)
         {

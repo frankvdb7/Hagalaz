@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -94,10 +95,9 @@ namespace Raido.Server
             {
                 await DispatchMessagesAsync(connection);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (connection.IsTerminal)
             {
-                // Don't treat OperationCanceledException as an error, it's basically a "control flow"
-                // exception to stop things from running
+                // Terminal cancellation is control flow used to stop transport operations.
             }
             catch (Exception ex)
             {
@@ -145,16 +145,18 @@ namespace Raido.Server
                                 break;
                             }
 
-                            if (!connection.HandleTransportFailure(physicalConnection, ex))
+                            if (!protocolReader.IsPhysicalTransportFailure(ex) ||
+                                !connection.HandleTransportFailure(physicalConnection, ex))
                             {
                                 throw;
                             }
 
                             break;
                         }
-                        catch (Exception ex)
+                        catch (IOException ex)
                         {
-                            if (!connection.HandleTransportFailure(physicalConnection, ex))
+                            if (!protocolReader.IsPhysicalTransportFailure(ex) ||
+                                !connection.HandleTransportFailure(physicalConnection, ex))
                             {
                                 throw;
                             }
@@ -198,20 +200,6 @@ namespace Raido.Server
                 }
 
                 connection.OnPhysicalConnectionClosed(physicalConnection);
-                if (connection.IsTerminal || !connection.IsReconnectEnabled)
-                {
-                    break;
-                }
-
-                if (connection.TryGetCurrentConnection(out _))
-                {
-                    continue;
-                }
-
-                if (!await connection.WaitForReconnectAsync())
-                {
-                    break;
-                }
             }
         }
 

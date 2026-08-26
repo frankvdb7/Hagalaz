@@ -23,6 +23,11 @@ Raido SHALL preserve one stable connection context while allowing only an opted-
 - **WHEN** `ConnectionClosedRequested` is signalled by the current physical transport
 - **THEN** the stable Raido connection terminates immediately and no replacement can be published
 
+#### Scenario: Protocol or application failure
+
+- **WHEN** protocol parsing, malformed or incomplete data, a message-size violation, or application dispatch throws an exception that is not identified as coming from the captured physical `PipeReader.ReadAsync` operation
+- **THEN** the existing terminal error/disconnect path runs and no reconnect window is opened
+
 ### Requirement: Stable connection state
 
 Replacing a physical transport SHALL preserve the connection ID, features, items, caller state, protocol, lifetime-manager membership, and store membership of the stable Raido connection.
@@ -67,8 +72,13 @@ Transport operations and callbacks SHALL be associated with the physical transpo
 
 #### Scenario: Current transport failure
 
-- **WHEN** an operation on the current physical transport fails while reconnect is enabled
+- **WHEN** a deliberately recognized physical cancellation or I/O failure captured from the current physical transport's read operation occurs while reconnect is enabled
 - **THEN** that transport is detached and the existing reconnect window is used
+
+#### Scenario: Unrecognized operation failure
+
+- **WHEN** a parser, protocol, application, or otherwise unrecognized operation exception occurs, including an exception whose type happens to be `IOException` or `OperationCanceledException` but which was thrown by the parser rather than the physical read
+- **THEN** the exception follows the terminal error/disconnect path instead of being treated as a reconnectable transport failure
 
 #### Scenario: Detached write
 
@@ -87,7 +97,7 @@ Raido SHALL create a new protocol reader for each published physical transport a
 #### Scenario: Physical detach wakes dispatch
 
 - **WHEN** the current physical transport detaches while dispatch is waiting for input
-- **THEN** the physical read is woken, the reconnect waiter can be awaited, and the terminal connection-aborted token remains uncancelled
+- **THEN** the physical read is woken, the per-read client-timeout state is cleared, the reconnect waiter can be awaited, and the terminal connection-aborted token remains uncancelled
 
 #### Scenario: Handler observes a detached window
 

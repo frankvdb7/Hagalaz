@@ -25,4 +25,11 @@
 
 - [x] 5.1 Centralize terminal transitions, make current `ConnectionClosedRequested` terminal, anchor the single reconnect deadline at physical detach, and clear transient failure state after successful publication.
 - [x] 5.2 Make the handler wait when it observes a detached active reconnect window, remove the premature GameWorld opt-in, and update the behavior artifacts.
-- [x] 5.3 Add regressions for detached-start dispatch, terminal close requests, detach-anchored timeout, stale heartbeat activity, and introduced CodeQL findings; run focused tests and validation.
+- [x] 5.3 Add regressions for detached-start dispatch, terminal close requests, and detach-anchored timeout; fix CodeQL findings introduced by this PR, but do not let them drive reconnect architecture changes; run focused tests and validation.
+
+## 6. Correctness remediation
+
+- [x] 6.1 Restrict handler read reconnectability to deliberately recognized physical cancellation/I/O failures; let protocol, parser, application, and other unrecognized exceptions follow the terminal path.
+- [x] 6.2 Reset per-read client-timeout state during identity-safe physical detach without introducing reconnect-lock-to-timeout-lock nesting; retain replacement heartbeat registration.
+- [x] 6.3 Simplify the handler to one detached-window lifecycle path and add deterministic parser, transport-exception, timeout-reset, and replacement-heartbeat regressions.
+- [x] 6.4 Update OpenSpec artifacts and PR metadata, run focused/full tests, builds, strict validation, and the cumulative diff review.
