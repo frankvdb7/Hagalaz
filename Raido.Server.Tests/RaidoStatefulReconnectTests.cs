@@ -41,6 +41,54 @@ public sealed class RaidoStatefulReconnectTests
     }
 
     [TestMethod]
+    public void BuilderOptInUsesTheDefaultFiniteReconnectTimeout()
+    {
+        var options = new RaidoOptions();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IOptions<RaidoOptions>>(Options.Create(options));
+        using var provider = services.BuildServiceProvider();
+        var physical = CreatePhysicalConnection("initial");
+
+        var context = new DefaultRaidoConnectionContextBuilder(provider)
+            .Create()
+            .WithConnection(physical.Connection)
+            .WithProtocol(new ReconnectWritingProtocol())
+            .WithStatefulReconnect()
+            .Build();
+
+        Assert.IsTrue(context.IsReconnectEnabled);
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public void InfiniteReconnectTimeoutIsRejectedWhenReconnectIsEnabled() =>
+        AssertStatefulReconnectTimeoutRejected(Timeout.InfiniteTimeSpan);
+
+    [TestMethod]
+    public void ZeroReconnectTimeoutIsRejectedWhenReconnectIsEnabled() =>
+        AssertStatefulReconnectTimeoutRejected(TimeSpan.Zero);
+
+    [TestMethod]
+    public void NegativeReconnectTimeoutIsRejectedWhenReconnectIsEnabled() =>
+        AssertStatefulReconnectTimeoutRejected(TimeSpan.FromTicks(-1));
+
+    [TestMethod]
+    public void ReconnectTimeoutAboveTimerMaximumIsRejectedWhenReconnectIsEnabled() =>
+        AssertStatefulReconnectTimeoutRejected(TimeSpan.FromMilliseconds(uint.MaxValue));
+
+    [TestMethod]
+    public void InvalidReconnectTimeoutIsIgnoredWhenReconnectIsDisabled()
+    {
+        using var physical = CreatePhysicalConnection("initial");
+
+        var context = CreateContext(physical.Connection, reconnectEnabled: false, timeout: Timeout.InfiniteTimeSpan);
+
+        Assert.IsFalse(context.IsReconnectEnabled);
+        context.Cleanup();
+    }
+
+    [TestMethod]
     public void PreSignalledConnectionClosedStartsDetachedReconnectWindow()
     {
         using var initial = CreatePhysicalConnection("initial");
@@ -993,11 +1041,11 @@ public sealed class RaidoStatefulReconnectTests
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
-        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.Zero);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromMilliseconds(1));
 
         context.OnPhysicalConnectionClosed(initial.Connection);
 
-        Assert.IsFalse(await context.WaitForReconnectAsync(TimeSpan.Zero));
+        Assert.IsFalse(await context.WaitForReconnectAsync());
         await context.AbortAsync();
         Assert.IsFalse(context.TryReconnect(replacement.Connection));
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
@@ -1010,10 +1058,11 @@ public sealed class RaidoStatefulReconnectTests
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
-        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.Zero);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromMilliseconds(1));
 
         context.OnPhysicalConnectionClosed(initial.Connection);
 
+        Assert.IsFalse(await context.WaitForReconnectAsync());
         Assert.IsFalse(context.TryReconnect(replacement.Connection));
         await context.AbortAsync();
         Assert.IsFalse(replacement.Closed.IsCancellationRequested);
@@ -1296,6 +1345,22 @@ public sealed class RaidoStatefulReconnectTests
         {
             Protocol = new ReconnectWritingProtocol()
         };
+    }
+
+    private static void AssertStatefulReconnectTimeoutRejected(TimeSpan timeout)
+    {
+        using var physical = CreatePhysicalConnection("initial");
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new RaidoConnectionContext(
+            physical.Connection,
+            new RaidoConnectionContextOptions
+            {
+                KeepAliveInterval = TimeSpan.FromMinutes(1),
+                ClientTimeoutInterval = TimeSpan.FromMinutes(1),
+                StatefulReconnectEnabled = true,
+                StatefulReconnectTimeout = timeout
+            },
+            NullLoggerFactory.Instance));
     }
 
     private static Task InvokePingAsync(RaidoConnectionContext context, ConnectionContext physicalConnection) =>

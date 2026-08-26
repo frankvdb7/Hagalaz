@@ -23,6 +23,8 @@ namespace Raido.Server
     public class RaidoConnectionContext
     {
         private static readonly WaitCallback _abortedCallback = AbortConnection;
+        private static readonly TimeSpan MaxSupportedReconnectTimeout =
+            TimeSpan.FromMilliseconds(uint.MaxValue - 1L);
 
         private readonly TaskCompletionSource _abortCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly ConnectionContext _connection;
@@ -135,6 +137,16 @@ namespace Raido.Server
         /// <param name="loggerFactory">The logger factory.</param>
         public RaidoConnectionContext(ConnectionContext connection, RaidoConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
         {
+            if (contextOptions.StatefulReconnectEnabled &&
+                (contextOptions.StatefulReconnectTimeout <= TimeSpan.Zero ||
+                 contextOptions.StatefulReconnectTimeout > MaxSupportedReconnectTimeout))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(contextOptions.StatefulReconnectTimeout),
+                    contextOptions.StatefulReconnectTimeout,
+                    "Stateful reconnect timeout must be greater than zero and within the supported .NET timer range.");
+            }
+
             _connection = connection;
             _logger = loggerFactory.CreateLogger<RaidoConnectionContext>();
 
@@ -614,11 +626,6 @@ namespace Raido.Server
                 remainingTimeout = GetReconnectWaitTimeoutLocked(timeout);
             }
 
-            if (remainingTimeout == Timeout.InfiniteTimeSpan)
-            {
-                return await reconnectWaiter.Task.ConfigureAwait(false);
-            }
-
             if (remainingTimeout <= TimeSpan.Zero)
             {
                 return TimeoutReconnect(reconnectWaiter);
@@ -825,13 +832,12 @@ namespace Raido.Server
         private TimeSpan GetReconnectWaitTimeoutLocked(TimeSpan requestedTimeout)
         {
             var remainingTimeout = _statefulReconnectTimeout;
-            if (_reconnectWindowStartTimestamp is long startTimestamp && remainingTimeout != Timeout.InfiniteTimeSpan)
+            if (_reconnectWindowStartTimestamp is long startTimestamp)
             {
                 remainingTimeout -= _timeProvider.GetElapsedTime(startTimestamp);
             }
 
-            if (requestedTimeout != Timeout.InfiniteTimeSpan &&
-                (remainingTimeout == Timeout.InfiniteTimeSpan || requestedTimeout < remainingTimeout))
+            if (requestedTimeout != Timeout.InfiniteTimeSpan && requestedTimeout < remainingTimeout)
             {
                 remainingTimeout = requestedTimeout;
             }
@@ -841,7 +847,6 @@ namespace Raido.Server
 
         private bool IsReconnectWindowExpiredLocked() =>
             _reconnectWindowStartTimestamp is long startTimestamp &&
-            _statefulReconnectTimeout != Timeout.InfiniteTimeSpan &&
             _timeProvider.GetElapsedTime(startTimestamp) >= _statefulReconnectTimeout;
 
         private void OnConnectionClosedRequested(ConnectionContext connection)

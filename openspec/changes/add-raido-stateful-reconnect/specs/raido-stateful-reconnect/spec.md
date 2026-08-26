@@ -18,6 +18,16 @@ Raido SHALL preserve one stable connection context while allowing only an opted-
 - **WHEN** the current physical transport closes for an opted-in connection
 - **THEN** the stable connection remains alive while it waits for a replacement until the single deadline that began at physical detach expires
 
+#### Scenario: Invalid reconnect timeout
+
+- **WHEN** an opted-in connection is constructed with a reconnect timeout that is zero, negative including `Timeout.InfiniteTimeSpan`, or greater than the maximum supported by the underlying .NET timer and `Task.WaitAsync` implementation
+- **THEN** construction is rejected before reconnect lifecycle state or physical callbacks are initialized
+
+#### Scenario: Disabled reconnect timeout
+
+- **WHEN** a connection does not enable stateful reconnect and its configured reconnect timeout is invalid
+- **THEN** the timeout is not validated or used and the existing non-reconnect connection behavior is preserved
+
 #### Scenario: Current close request
 
 - **WHEN** `ConnectionClosedRequested` is signalled by the current physical transport

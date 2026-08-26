@@ -45,7 +45,7 @@ The handler obtains a currently published physical transport before creating a r
 
 ### Opt-in configuration
 
-Add the smallest builder and options surface needed to enable reconnect. `RaidoOptionsSetup` supplies a finite bounded default timeout. The capability remains opt-in but has no production caller enabled yet; GameWorld opt-in is deferred to the logical/session work and GameUpdate remains unchanged. No SignalR reconnect feature interface is exposed.
+Add the smallest builder and options surface needed to enable reconnect. `RaidoOptionsSetup` supplies a finite bounded default timeout. Before an enabled `RaidoConnectionContext` initializes reconnect state, its timeout must be positive and no greater than the maximum supported by the underlying .NET timer and `Task.WaitAsync` implementation; this is a runtime compatibility bound, not a Raido policy limit. Zero, negative values including `Timeout.InfiniteTimeSpan`, and larger values are rejected. Disabled contexts do not validate or use the reconnect timeout. The capability remains opt-in but has no production caller enabled yet; GameWorld opt-in is deferred to the logical/session work and GameUpdate remains unchanged. No SignalR reconnect feature interface is exposed.
 
 ### Terminal and deadline invariants
 

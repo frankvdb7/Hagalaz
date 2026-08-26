@@ -14,7 +14,7 @@
 ## 3. Handler and configuration integration
 
 - [x] 3.1 Update the handler to obtain a published transport before creating a reader, dispatch with a fresh reader per transport, await the reconnect window outside the lock, and disconnect the stable lifetime once; verify handler reconnect-cycle tests.
-- [x] 3.2 Add `WithStatefulReconnect` and bounded `StatefulReconnectTimeout` options/defaults; keep the capability opt-in with no production caller enabled yet and verify GameUpdate remains unchanged.
+- [x] 3.2 Add `WithStatefulReconnect` and a finite, positive, .NET timer-supported `StatefulReconnectTimeout` with defaults and constructor-bound validation; keep the capability opt-in with no production caller enabled yet and verify GameUpdate remains unchanged.
 
 ## 4. Validation
 
