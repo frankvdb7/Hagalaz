@@ -37,6 +37,7 @@ namespace Raido.Server
         private CancellationTokenRegistration _closedRegistration;
         private CancellationTokenRegistration? _closedRequestedRegistration;
         private ConnectionContext? _currentConnection;
+        private ConnectionContext? _detachedConnection;
         private TaskCompletionSource<bool>? _reconnectWaiter;
         private long? _reconnectWindowStartTimestamp;
         private ClaimsPrincipal? _user;
@@ -460,15 +461,20 @@ namespace Raido.Server
             ArgumentNullException.ThrowIfNull(replacement);
 
             TaskCompletionSource<bool>? reconnectWaiter;
+            ConnectionContext detachedConnection;
+            CancellationToken? detachedCloseRequestedToken;
             lock (_reconnectLock)
             {
                 if (_connectionAborted || !_reconnectEnabled || _currentConnection is not null ||
-                    _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted)
+                    _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted ||
+                    _detachedConnection is not ConnectionContext currentDetachedConnection)
                 {
                     return false;
                 }
 
                 reconnectWaiter = waiter;
+                detachedConnection = currentDetachedConnection;
+                detachedCloseRequestedToken = detachedConnection.Features.Get<IConnectionLifetimeNotificationFeature>()?.ConnectionClosedRequested;
             }
 
             CancellationTokenRegistration closedRegistration = default;
@@ -481,17 +487,33 @@ namespace Raido.Server
             ConnectionContext? terminalConnection = null;
             CancellationTokenRegistration terminalClosedRegistration = default;
             CancellationTokenRegistration? terminalClosedRequestedRegistration = null;
+            CancellationTokenRegistration? obsoleteClosedRequestedRegistration = null;
             var queueAbortCallback = false;
 
             lock (_reconnectLock)
             {
-                if (!_connectionAborted && _reconnectEnabled && _currentConnection is null &&
-                    ReferenceEquals(reconnectWaiter, _reconnectWaiter) && !reconnectWaiter.Task.IsCompleted &&
-                    !IsReconnectWindowExpiredLocked() &&
+                var reconnectWindowIsCurrent = !_connectionAborted && _reconnectEnabled && _currentConnection is null &&
+                    ReferenceEquals(detachedConnection, _detachedConnection) &&
+                    ReferenceEquals(reconnectWaiter, _reconnectWaiter) && !reconnectWaiter.Task.IsCompleted;
+
+                if (reconnectWindowIsCurrent && detachedCloseRequestedToken.GetValueOrDefault().IsCancellationRequested)
+                {
+                    terminal = TryTransitionToTerminalLocked(
+                        expectedConnection: null,
+                        expectedWaiter: reconnectWaiter,
+                        exception: null,
+                        out terminalConnection,
+                        out terminalClosedRegistration,
+                        out terminalClosedRequestedRegistration,
+                        out queueAbortCallback);
+                }
+                else if (reconnectWindowIsCurrent && !IsReconnectWindowExpiredLocked() &&
                     !replacement.ConnectionClosed.IsCancellationRequested &&
                     !closedRequestedToken.GetValueOrDefault().IsCancellationRequested)
                 {
+                    obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
                     _currentConnection = replacement;
+                    _detachedConnection = null;
                     _closedRegistration = closedRegistration;
                     _closedRequestedRegistration = closedRequestedRegistration;
                     _reconnectWaiter = null;
@@ -500,9 +522,7 @@ namespace Raido.Server
                     reconnectWaiter.TrySetResult(true);
                     published = true;
                 }
-                else if (!_connectionAborted && _reconnectEnabled && _currentConnection is null &&
-                    ReferenceEquals(reconnectWaiter, _reconnectWaiter) && !reconnectWaiter.Task.IsCompleted &&
-                    IsReconnectWindowExpiredLocked())
+                else if (reconnectWindowIsCurrent && IsReconnectWindowExpiredLocked())
                 {
                     terminal = TryTransitionToTerminalLocked(
                         expectedConnection: null,
@@ -520,6 +540,8 @@ namespace Raido.Server
                 closedRegistration.Dispose();
                 closedRequestedRegistration?.Dispose();
             }
+
+            obsoleteClosedRequestedRegistration?.Dispose();
 
             if (terminal)
             {
@@ -641,10 +663,9 @@ namespace Raido.Server
                         }
 
                         _currentConnection = null;
+                        _detachedConnection = connection;
                         closedRegistration = _closedRegistration;
                         _closedRegistration = default;
-                        closedRequestedRegistration = _closedRequestedRegistration;
-                        _closedRequestedRegistration = null;
                         _reconnectWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                         _reconnectWindowStartTimestamp = _timeProvider.GetTimestamp();
                     }
@@ -739,6 +760,7 @@ namespace Raido.Server
 
             currentConnection = _currentConnection;
             _currentConnection = null;
+            _detachedConnection = null;
             closedRegistration = _closedRegistration;
             _closedRegistration = default;
             closedRequestedRegistration = _closedRequestedRegistration;
@@ -824,8 +846,16 @@ namespace Raido.Server
 
             lock (_reconnectLock)
             {
+                var isCurrentConnection = ReferenceEquals(connection, _currentConnection);
+                var isDetachedConnection = ReferenceEquals(connection, _detachedConnection) &&
+                    _reconnectEnabled && _reconnectWaiter is not null && !_reconnectWaiter.Task.IsCompleted;
+                if (!isCurrentConnection && !isDetachedConnection)
+                {
+                    return;
+                }
+
                 terminal = TryTransitionToTerminalLocked(
-                    expectedConnection: connection,
+                    expectedConnection: isCurrentConnection ? connection : null,
                     expectedWaiter: null,
                     exception: null,
                     out currentConnection,
@@ -1103,6 +1133,7 @@ namespace Raido.Server
                 closedRequestedRegistration = _closedRequestedRegistration;
                 _closedRequestedRegistration = null;
                 _currentConnection = null;
+                _detachedConnection = null;
                 _reconnectEnabled = false;
                 _reconnectWindowStartTimestamp = null;
                 reconnectWaiter = _reconnectWaiter;

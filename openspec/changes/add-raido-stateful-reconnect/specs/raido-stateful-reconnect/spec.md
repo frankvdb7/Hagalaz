@@ -23,6 +23,11 @@ Raido SHALL preserve one stable connection context while allowing only an opted-
 - **WHEN** `ConnectionClosedRequested` is signalled by the current physical transport
 - **THEN** the stable Raido connection terminates immediately and no replacement can be published
 
+#### Scenario: Detached transport close request
+
+- **WHEN** `ConnectionClosedRequested` is signalled by the physical transport that owns the active detached reconnect window before replacement publication is claimed
+- **THEN** the stable Raido connection terminates and the pending replacement cannot be published
+
 #### Scenario: Protocol or application failure
 
 - **WHEN** protocol parsing, malformed or incomplete data, a message-size violation, or application dispatch throws an exception that is not identified as coming from the captured physical `PipeReader.ReadAsync` operation
@@ -44,7 +49,7 @@ Replacing a physical transport SHALL preserve the connection ID, features, items
 
 ### Requirement: Reconnect publication and ownership
 
-A replacement SHALL become the current usable transport only after its physical registrations have been installed and it has won the active reconnect window under synchronized publication. Exactly one candidate may win a reconnect window. A rejected candidate SHALL remain the caller's responsibility to close.
+A replacement SHALL become the current usable transport only after its physical registrations have been installed and it has won the active reconnect window under synchronized publication. The final successful validation and claim under `_reconnectLock` is the replacement publication linearization point; state is published and the reconnect waiter is completed before that lock is released. Exactly one candidate may win a reconnect window. A rejected candidate SHALL remain the caller's responsibility to close.
 
 #### Scenario: Concurrent candidates
 
@@ -61,6 +66,11 @@ A replacement SHALL become the current usable transport only after its physical 
 - **WHEN** the reconnect timeout closes the window before a candidate finishes publication
 - **THEN** the connection becomes terminal, the candidate cannot publish later, and the waiter is completed exactly once
 
+#### Scenario: Close request wins publication race
+
+- **WHEN** the detached transport's `ConnectionClosedRequested` token is already signalled before a candidate reaches the final publication claim
+- **THEN** the connection becomes terminal and the candidate cannot publish
+
 ### Requirement: Physical operation isolation
 
 Transport operations and callbacks SHALL be associated with the physical transport they captured. Failures and callbacks from a stale transport SHALL not terminate or alter a newer published transport. Detaching a physical transport SHALL wake operations belonging to that transport without cancelling the terminal connection-aborted token.
@@ -69,6 +79,11 @@ Transport operations and callbacks SHALL be associated with the physical transpo
 
 - **WHEN** a read, write, heartbeat, close, or close-request operation from an old transport completes after a replacement is published
 - **THEN** the stale completion is ignored and the replacement remains active
+
+#### Scenario: Stale detached close request
+
+- **WHEN** a close-request callback from the replaced transport executes after a replacement has published
+- **THEN** the callback is ignored and the replacement remains active
 
 #### Scenario: Current transport failure
 

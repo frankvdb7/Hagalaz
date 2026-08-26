@@ -62,7 +62,7 @@ public sealed class RaidoStatefulReconnectTests
     {
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
-        var closeRequested = new CloseRequestedFeature();
+        using var closeRequested = new CloseRequestedFeature();
         initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
         closeRequested.RequestClose();
 
@@ -354,7 +354,7 @@ public sealed class RaidoStatefulReconnectTests
     {
         var initial = CreatePhysicalConnection("initial");
         var candidate = CreatePhysicalConnection("candidate");
-        var closeRequested = new CloseRequestedFeature();
+        using var closeRequested = new CloseRequestedFeature();
         candidate.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
         closeRequested.RequestClose();
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
@@ -940,6 +940,7 @@ public sealed class RaidoStatefulReconnectTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
     public async Task TimedOutReconnectWindowIsTerminalAndCannotBeReopened()
     {
         var initial = CreatePhysicalConnection("initial");
@@ -949,14 +950,15 @@ public sealed class RaidoStatefulReconnectTests
         context.OnPhysicalConnectionClosed(initial.Connection);
 
         Assert.IsFalse(await context.WaitForReconnectAsync(TimeSpan.Zero));
-        Assert.IsTrue(context.ConnectionAbortedToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(1)));
+        await context.AbortAsync();
         Assert.IsFalse(context.TryReconnect(replacement.Connection));
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
         context.Cleanup();
     }
 
     [TestMethod]
-    public void ReconnectDeadlineStartsAtPhysicalDetach()
+    [Timeout(5000)]
+    public async Task ReconnectDeadlineStartsAtPhysicalDetach()
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
@@ -965,7 +967,7 @@ public sealed class RaidoStatefulReconnectTests
         context.OnPhysicalConnectionClosed(initial.Connection);
 
         Assert.IsFalse(context.TryReconnect(replacement.Connection));
-        Assert.IsTrue(context.ConnectionAbortedToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(1)));
+        await context.AbortAsync();
         Assert.IsFalse(replacement.Closed.IsCancellationRequested);
         context.Cleanup();
     }
@@ -975,12 +977,15 @@ public sealed class RaidoStatefulReconnectTests
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
+        using var closeRequested = new CloseRequestedFeature();
+        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.OnPhysicalConnectionClosed(initial.Connection);
         Assert.IsTrue(context.TryReconnect(replacement.Connection));
 
-        initial.Closed.Cancel();
+        InvokeCloseRequested(context, initial.Connection);
+        closeRequested.RequestClose();
 
         Assert.AreEqual(1000, context.LocalEndPoint!.Port);
         Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
@@ -988,15 +993,96 @@ public sealed class RaidoStatefulReconnectTests
     }
 
     [TestMethod]
-    public void PhysicalCallbacksAreRegisteredOnTheReplacementAndStaleHeartbeatIsIgnored()
+    [Timeout(5000)]
+    public async Task DetachedCloseRequestCallbackTerminalizesTheSameReconnectWindow()
     {
-        var initial = CreatePhysicalConnection("initial");
-        var replacement = CreatePhysicalConnection("replacement");
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        using var closeRequested = new CloseRequestedFeature();
+        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var callbackReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resumeCallback = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var callback = Task.Run(async () =>
+        {
+            callbackReady.TrySetResult();
+            await resumeCallback.Task;
+            InvokeCloseRequested(context, initial.Connection);
+        });
+
+        await callbackReady.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        context.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsFalse(context.TryGetCurrentConnection(out _));
+        Assert.IsTrue(context.IsReconnectEnabled);
+
+        resumeCallback.TrySetResult();
+        await callback.WaitAsync(TimeSpan.FromSeconds(1));
+        await context.AbortAsync();
+
+        Assert.IsTrue(context.IsTerminal);
+        Assert.IsFalse(context.IsReconnectEnabled);
+        Assert.IsFalse(context.TryGetCurrentConnection(out _));
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task DetachedCloseRequestRegistrationRemainsTerminal()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        using var closeRequested = new CloseRequestedFeature();
+        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+
+        context.OnPhysicalConnectionClosed(initial.Connection);
+        closeRequested.RequestClose();
+        await context.AbortAsync();
+
+        Assert.IsTrue(context.IsTerminal);
+        Assert.IsFalse(context.IsReconnectEnabled);
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task CloseRequestBeforeReconnectPublicationTerminatesInsteadOfPublishingCandidate()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var candidate = CreatePhysicalConnection("candidate");
+        using var closeRequested = new CloseRequestedFeature();
+        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
+        var candidateHeartbeat = new BlockingHeartbeatFeature();
+        candidate.Connection.Features.Set<IConnectionHeartbeatFeature>(candidateHeartbeat);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+
+        context.OnPhysicalConnectionClosed(initial.Connection);
+        var reconnect = Task.Run(() => context.TryReconnect(candidate.Connection));
+        await candidateHeartbeat.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        closeRequested.RequestClose();
+        candidateHeartbeat.Release.TrySetResult();
+
+        Assert.IsFalse(await reconnect.WaitAsync(TimeSpan.FromSeconds(1)));
+        await context.AbortAsync();
+        Assert.IsTrue(context.IsTerminal);
+        Assert.IsFalse(context.TryGetCurrentConnection(out _));
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task PhysicalCallbacksAreRegisteredOnTheReplacementAndStaleHeartbeatIsIgnored()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
         var initialHeartbeat = new RecordingHeartbeatFeature();
         var replacementHeartbeat = new RecordingHeartbeatFeature();
         initial.Connection.Features.Set<IConnectionHeartbeatFeature>(initialHeartbeat);
         replacement.Connection.Features.Set<IConnectionHeartbeatFeature>(replacementHeartbeat);
-        var closeRequested = new CloseRequestedFeature();
+        using var closeRequested = new CloseRequestedFeature();
         replacement.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
@@ -1013,7 +1099,7 @@ public sealed class RaidoStatefulReconnectTests
         closeRequested.Source.Cancel();
 
         Assert.IsFalse(context.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.ConnectionAbortedToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(1)));
+        await context.AbortAsync();
         Assert.IsFalse(context.TryReconnect(CreatePhysicalConnection("after-close-request").Connection));
         context.Cleanup();
     }
@@ -1169,6 +1255,11 @@ public sealed class RaidoStatefulReconnectTests
             .GetMethod("TryWritePingSlowAsyncForConnection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(context, new object[] { physicalConnection })!;
 
+    private static void InvokeCloseRequested(RaidoConnectionContext context, ConnectionContext physicalConnection) =>
+        typeof(RaidoConnectionContext)
+            .GetMethod("OnConnectionClosedRequested", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(context, new object[] { physicalConnection });
+
     private static void InvokeClientTimeoutCheck(RaidoConnectionContext context, ConnectionContext physicalConnection) =>
         typeof(RaidoConnectionContext)
             .GetMethod("CheckClientTimeoutForConnection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
@@ -1306,7 +1397,7 @@ public sealed class RaidoStatefulReconnectTests
         }
     }
 
-    private sealed class CloseRequestedFeature : IConnectionLifetimeNotificationFeature
+    private sealed class CloseRequestedFeature : IConnectionLifetimeNotificationFeature, IDisposable
     {
         public CancellationTokenSource Source { get; } = new();
 
@@ -1318,5 +1409,7 @@ public sealed class RaidoStatefulReconnectTests
         {
             Source.Cancel();
         }
+
+        public void Dispose() => Source.Dispose();
     }
 }
