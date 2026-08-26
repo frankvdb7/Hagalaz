@@ -9,7 +9,7 @@
 - [x] 2.1 Replace permanent transport access in `RaidoConnectionContext` with one published current physical connection while keeping `_connection` authoritative for stable state; verify context identity, ID, features, items, caller state, protocol, and endpoints across rebind tests.
 - [x] 2.2 Implement one-lock reconnect-window waiter lifecycle, physical detach, timeout closure, and terminal abort; verify per-disconnect waiter tests and terminal-token assertions.
 - [x] 2.3 Implement captured-physical registration, operation, and failure handling, including close-request features, heartbeat callbacks, stale-failure filtering, pending-read/flush wake-up, and registration disposal outside the lock; verify race tests and callback-movement tests.
-- [x] 2.4 Implement pre-registration candidate publication in `TryReconnect`, captured waiter validation, atomic current-transport publication, candidate close checks, success ownership, and false-return caller ownership; verify concurrent-winner and timeout-race tests.
+- [x] 2.4 Implement pre-publication candidate registration in `TryReconnect`, captured waiter validation, atomic current-transport publication, candidate close checks, success ownership, and false-return caller ownership; verify concurrent-winner and timeout-race tests.
 
 ## 3. Handler and configuration integration
 
@@ -33,3 +33,12 @@
 - [x] 6.2 Reset per-read client-timeout state during identity-safe physical detach without introducing reconnect-lock-to-timeout-lock nesting; retain replacement heartbeat registration.
 - [x] 6.3 Simplify the handler to one detached-window lifecycle path and add deterministic parser, transport-exception, timeout-reset, and replacement-heartbeat regressions.
 - [x] 6.4 Update OpenSpec artifacts and PR metadata, run focused/full tests, builds, strict validation, and the cumulative diff review.
+
+## 7. Output and timeout remediation
+
+- [x] 7.1 Separate protocol serialization, output metadata, and captured physical flush handling in `WriteCore`, `CompleteWriteAsync`, and `WriteSlowAsync`; preserve caller-cancellation semantics, retain stale identity checks, and add terminal protocol plus physical output regressions.
+- [x] 7.2 Separate keep-alive generation from captured physical ping writing in `TryWritePingSlowAsyncForConnection`; verify generation failures are terminal and current/stale physical failures have the approved behavior.
+- [x] 7.3 Release `_receiveMessageTimeoutLock` before `TryAbortForConnection` in `CheckClientTimeoutForConnection`; add deterministic timeout/`ConnectionClosed` contention coverage and retain timeout-state reset behavior.
+- [x] 7.4 Register initial callbacks into locals and publish only after identity/non-terminal validation; cover pre-signalled `ConnectionClosed` and `ConnectionClosedRequested` constructor behavior and preserve explicit registration ownership.
+- [x] 7.5 Verify real `RaidoConnectionStore` membership through detach, replacement, and terminal disconnect without changing store or lifetime ownership.
+- [x] 7.6 Update the design/spec wording, keep CodeQL cleanup scoped to introduced registration/resource findings, and run the complete serial validation and cumulative diff review.

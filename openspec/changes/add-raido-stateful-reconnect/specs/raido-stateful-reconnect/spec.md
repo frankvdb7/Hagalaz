@@ -85,6 +85,26 @@ Transport operations and callbacks SHALL be associated with the physical transpo
 - **WHEN** a write is requested while no physical transport is published
 - **THEN** the write completes without touching a pipe and without reporting a transport write to a discarded pipe
 
+#### Scenario: Protocol serialization failure
+
+- **WHEN** `Protocol.WriteMessage` or output metadata access throws while writing, including an `IOException` or `OperationCanceledException`
+- **THEN** the failure follows the terminal error/disconnect path and does not open a reconnect window
+
+#### Scenario: Physical output failure
+
+- **WHEN** the captured physical output's `FlushAsync` fails with a recognized physical I/O or cancellation exception, or with an `ObjectDisposedException` thrown directly by that operation
+- **THEN** the current captured transport follows the existing detach/reconnect path, while a stale captured transport is ignored
+
+#### Scenario: Caller-cancelled write
+
+- **WHEN** the caller cancellation token cancels a write or its captured physical flush
+- **THEN** the write preserves normal caller-cancellation semantics without changing Raido connection state
+
+#### Scenario: Keep-alive failure provenance
+
+- **WHEN** ping message generation fails, or a captured physical ping write fails
+- **THEN** generation follows the terminal path, while only the captured physical write can detach/reconnect and stale physical failures are ignored
+
 ### Requirement: Fresh protocol readers
 
 Raido SHALL create a new protocol reader for each published physical transport and SHALL never request transport input while no physical transport is published.
@@ -104,6 +124,11 @@ Raido SHALL create a new protocol reader for each published physical transport a
 - **WHEN** dispatch begins while the physical transport is detached and an active reconnect window exists
 - **THEN** the handler waits for that window and does not request transport input until a replacement is published
 
+#### Scenario: Timeout terminalization releases the timeout lock
+
+- **WHEN** client-timeout detection observes an expired read timeout while a physical close callback is running concurrently
+- **THEN** timeout state is inspected under the timeout lock, that lock is released before terminalization, and registration disposal and physical cancellation complete without a timeout-lock/reconnect-lock deadlock
+
 ### Requirement: Physical callback rebinding
 
 Keep-alive and lifetime-notification callbacks SHALL be registered against each captured physical transport's features, including close-request notification when available. A successful replacement SHALL receive the same applicable physical registrations.
@@ -112,6 +137,11 @@ Keep-alive and lifetime-notification callbacks SHALL be registered against each 
 
 - **WHEN** a replacement transport wins publication
 - **THEN** its close, close-request, keep-alive, and active client-timeout callbacks use the replacement's physical features
+
+#### Scenario: Initial callback registration preserves synchronous transitions
+
+- **WHEN** the initial physical connection has a pre-signalled `ConnectionClosed` or `ConnectionClosedRequested` token while callbacks are being registered
+- **THEN** a pre-signalled close leaves an opted-in connection detached with its reconnect window active, while a pre-signalled close request terminalizes it; local registrations are published only if the same connection remains current and non-terminal
 
 #### Scenario: Reconnect cycles
 

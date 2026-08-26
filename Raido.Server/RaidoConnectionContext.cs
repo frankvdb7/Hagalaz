@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.IO.Pipelines;
 using System.Net;
 using System.Security.Claims;
@@ -148,7 +149,24 @@ namespace Raido.Server
             _timeProvider = TimeProvider.System;
             _lastSendTick = _timeProvider.GetTimestamp();
 
-            RegisterPhysicalCallbacks(connection, registerHeartbeat: false, out _closedRegistration, out _closedRequestedRegistration);
+            RegisterPhysicalCallbacks(connection, registerHeartbeat: false, out var closedRegistration, out var closedRequestedRegistration);
+
+            var publishRegistrations = false;
+            lock (_reconnectLock)
+            {
+                if (!_connectionAborted && ReferenceEquals(connection, _currentConnection))
+                {
+                    _closedRegistration = closedRegistration;
+                    _closedRequestedRegistration = closedRequestedRegistration;
+                    publishRegistrations = true;
+                }
+            }
+
+            if (!publishRegistrations)
+            {
+                closedRegistration.Dispose();
+                closedRequestedRegistration?.Dispose();
+            }
         }
 
         internal Task OnConnectedAsync()
@@ -169,13 +187,15 @@ namespace Raido.Server
             out CancellationTokenRegistration closedRegistration,
             out CancellationTokenRegistration? closedRequestedRegistration)
         {
-            closedRegistration = connection.ConnectionClosed.Register(() => OnPhysicalConnectionClosed(connection));
+            closedRegistration = default;
             closedRequestedRegistration = null;
-            var callbacksRegistered = false;
+
+            var localClosedRegistration = connection.ConnectionClosed.Register(() => OnPhysicalConnectionClosed(connection));
+            CancellationTokenRegistration? localClosedRequestedRegistration = null;
             try
             {
                 // This feature is used by HttpConnectionManager to close a connection with a non-errored closed message.
-                closedRequestedRegistration = connection.Features.Get<IConnectionLifetimeNotificationFeature>() is IConnectionLifetimeNotificationFeature lifetimeNotification
+                localClosedRequestedRegistration = connection.Features.Get<IConnectionLifetimeNotificationFeature>() is IConnectionLifetimeNotificationFeature lifetimeNotification
                     ? lifetimeNotification.ConnectionClosedRequested.Register(() => OnConnectionClosedRequested(connection))
                     : null;
 
@@ -184,15 +204,14 @@ namespace Raido.Server
                     RegisterHeartbeatCallbacks(connection);
                 }
 
-                callbacksRegistered = true;
+                closedRegistration = localClosedRegistration;
+                closedRequestedRegistration = localClosedRequestedRegistration;
             }
-            finally
+            catch
             {
-                if (!callbacksRegistered)
-                {
-                    closedRegistration.Dispose();
-                    closedRequestedRegistration?.Dispose();
-                }
+                localClosedRegistration.Dispose();
+                localClosedRequestedRegistration?.Dispose();
+                throw;
             }
         }
 
@@ -254,7 +273,7 @@ namespace Raido.Server
             // The write didn't complete synchronously so await completion
             if (!task.IsCompletedSuccessfully)
             {
-                return new ValueTask(CompleteWriteAsync(currentConnection, task));
+                return new ValueTask(CompleteWriteAndReleaseAsync(currentConnection, task, cancellationToken));
             }
             else
             {
@@ -272,45 +291,110 @@ namespace Raido.Server
         private ValueTask<FlushResult> WriteCore<TMessage>(ConnectionContext connection, TMessage message, CancellationToken cancellationToken)
             where TMessage : RaidoMessage
         {
+            PipeWriter output;
             try
             {
                 // We know that we are only writing this message to one receiver, so we can
                 // write it without caching.
-                var output = connection.Transport.Output;
+                output = connection.Transport.Output;
                 Protocol.WriteMessage(message, output);
+            }
+            catch (Exception ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                TryAbortForConnection(connection, ex);
+                return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
+            }
 
+            try
+            {
                 // check if there is actually a message encoded
                 if (!output.CanGetUnflushedBytes || output.UnflushedBytes > 0)
                 {
                     Log.SentMessage(_logger, message);
                 }
-
-                return output.FlushAsync(cancellationToken);
             }
             catch (Exception ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                HandleTransportFailure(connection, ex);
-
+                TryAbortForConnection(connection, ex);
                 return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
             }
+
+            try
+            {
+                return output.FlushAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new ValueTask<FlushResult>(Task.FromCanceled<FlushResult>(cancellationToken));
+            }
+            catch (OperationCanceledException ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                HandleTransportFailure(connection, ex);
+            }
+            catch (IOException ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                HandleTransportFailure(connection, ex);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                HandleTransportFailure(connection, ex);
+            }
+            catch (Exception ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                TryAbortForConnection(connection, ex);
+            }
+
+            return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
         }
 
-        private async Task CompleteWriteAsync(ConnectionContext connection, ValueTask<FlushResult> task)
+        private async Task CompleteWriteAndReleaseAsync(ConnectionContext connection, ValueTask<FlushResult> task, CancellationToken cancellationToken)
         {
             try
             {
-                await task;
-            }
-            catch (Exception ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                HandleTransportFailure(connection, ex);
+                await CompleteWriteAsync(connection, task, cancellationToken);
             }
             finally
             {
                 // Release the lock acquired when entering WriteAsync
                 _writeLock.Release();
+            }
+        }
+
+        private async Task CompleteWriteAsync(ConnectionContext connection, ValueTask<FlushResult> task, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await task;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (OperationCanceledException ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                HandleTransportFailure(connection, ex);
+            }
+            catch (IOException ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                HandleTransportFailure(connection, ex);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                HandleTransportFailure(connection, ex);
+            }
+            catch (Exception ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                TryAbortForConnection(connection, ex);
             }
         }
 
@@ -333,15 +417,7 @@ namespace Raido.Server
                     return;
                 }
 
-                await WriteCore(currentConnection, message, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                if (currentConnection is not null)
-                {
-                    HandleTransportFailure(currentConnection, ex);
-                }
+                await CompleteWriteAsync(currentConnection, WriteCore(currentConnection, message, cancellationToken), cancellationToken);
             }
             finally
             {
@@ -807,6 +883,7 @@ namespace Raido.Server
                 return;
             }
 
+            Exception? timeoutException = null;
             lock (_receiveMessageTimeoutLock)
             {
                 if (_receivedMessageTimeoutEnabled)
@@ -815,15 +892,16 @@ namespace Raido.Server
 
                     if (_receivedMessageElapsed >= _clientTimeoutInterval)
                     {
-                        var exception = new OperationCanceledException(
+                        timeoutException = new OperationCanceledException(
                             $"Client hasn't sent a message/ping within the configured {nameof(RaidoConnectionContextOptions.ClientTimeoutInterval)}.");
-                        if (TryAbortForConnection(connection, exception))
-                        {
-                            Log.ClientTimeout(_logger, _clientTimeoutInterval);
-                            RaidoEventSource.Log.ConnectionTimedOut(ConnectionId);
-                        }
                     }
                 }
+            }
+
+            if (timeoutException is not null && TryAbortForConnection(connection, timeoutException))
+            {
+                Log.ClientTimeout(_logger, _clientTimeoutInterval);
+                RaidoEventSource.Log.ConnectionTimedOut(ConnectionId);
             }
         }
 
@@ -948,6 +1026,7 @@ namespace Raido.Server
 
         private async Task TryWritePingSlowAsyncForConnection(ConnectionContext connection)
         {
+            ReadOnlyMemory<byte> pingMessage;
             try
             {
                 if (_connectionAborted || !IsCurrentConnection(connection))
@@ -955,9 +1034,30 @@ namespace Raido.Server
                     return;
                 }
 
-                var pingMessage = Protocol.GetMessageBytes(PingMessage.Instance);
-                await connection.Transport.Output.WriteAsync(pingMessage);
+                pingMessage = Protocol.GetMessageBytes(PingMessage.Instance);
+            }
+            catch (Exception ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                TryAbortForConnection(connection, ex);
+                return;
+            }
 
+            PipeWriter output;
+            try
+            {
+                output = connection.Transport.Output;
+            }
+            catch (Exception ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                TryAbortForConnection(connection, ex);
+                return;
+            }
+
+            try
+            {
+                await output.WriteAsync(pingMessage);
                 Log.SentPing(_logger);
                 if (IsCurrentConnection(connection))
                 {
@@ -965,10 +1065,25 @@ namespace Raido.Server
                     Volatile.Write(ref _lastSendTick, _timeProvider.GetTimestamp());
                 }
             }
-            catch (Exception ex)
+            catch (OperationCanceledException ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
                 HandleTransportFailure(connection, ex);
+            }
+            catch (IOException ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                HandleTransportFailure(connection, ex);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                HandleTransportFailure(connection, ex);
+            }
+            catch (Exception ex)
+            {
+                Log.FailedWritingMessage(_logger, ex);
+                TryAbortForConnection(connection, ex);
             }
             finally
             {

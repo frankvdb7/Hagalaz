@@ -13,3 +13,12 @@
 11. Move pending logout tracking before token revocation and test the revocation-failure ordering.
 12. Add durable persistence acknowledgement, retain producer pending state until matching revision acknowledgement, and test redrive after retry exhaustion.
 13. Make the shutdown deadline regression deterministic with an invocation gate and validate the affected GameWorld suite.
+
+## PR #486 reconnect remediation plan
+
+1. Narrow `WriteCore`/`CompleteWriteAsync`/`WriteSlowAsync` to separate protocol encoding from captured physical flush completion; preserve caller cancellation and route only proven physical failures through the existing `HandleTransportFailure`.
+2. Apply the same split to `TryWritePingSlowAsyncForConnection` and retain captured-connection identity checks.
+3. Release `_receiveMessageTimeoutLock` before `TryAbortForConnection`; add a deterministic callback/disposal contention regression without changing lock ownership.
+4. Change constructor callback registration to local ownership followed by identity-safe publication, and cover pre-signalled close versus close-request semantics.
+5. Confirm store membership stays stable through reconnect and is removed once during terminal disconnect.
+6. Update OpenSpec wording/artifacts and make test-owned disposables explicit; run focused tests, full suites, builds, strict validation, and a cumulative diff review.

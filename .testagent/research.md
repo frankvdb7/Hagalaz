@@ -21,3 +21,9 @@ Acceptance checklist:
 - Pending logout tracking must occur before token revocation so revocation failures cannot bypass deferred cleanup.
 - Producer fingerprints must remain pending until a matching durable character-service acknowledgement; consumer retry exhaustion must be recoverable by later flush redrive.
 - Shutdown deadline regression must synchronize on persistence entry before asserting cancellation so CI scheduling cannot cancel the flush before the callback is invoked.
+
+## PR #486 reconnect remediation research
+
+Scope is limited to the existing Raido reconnect implementation at the current PR head. The relevant production owners are `RaidoConnectionContext.WriteCore`, `CompleteWriteAsync`, `WriteSlowAsync`, `TryWritePingSlowAsyncForConnection`, `CheckClientTimeoutForConnection`, `RegisterPhysicalCallbacks`, and the existing terminal/detach methods. The handler already uses captured physical readers and identity-marked read failures.
+
+Required evidence covers protocol versus physical output failure provenance, caller cancellation with no connection-state transition, timeout terminalization after releasing the timeout lock, local-then-publish initial callback registrations, and store membership across a real reconnect window. Existing MSTest tests use real `Pipe` instances, `TaskCompletionSource` barriers, NSubstitute collaborators, and bounded `WaitAsync` calls. No test-only reconnect abstraction or fake production pipe is required.
