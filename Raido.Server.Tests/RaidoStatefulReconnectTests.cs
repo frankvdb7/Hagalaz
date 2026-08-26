@@ -58,6 +58,35 @@ public sealed class RaidoStatefulReconnectTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
+    public async Task PreSignalledConnectionClosedRetainsDetachedCloseRequestRegistration()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        using var closeRequested = new CloseRequestedFeature();
+        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
+        initial.Closed.Cancel();
+
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+
+        Assert.IsFalse(context.TryGetCurrentConnection(out _));
+        Assert.IsTrue(context.IsReconnectEnabled);
+        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+
+        closeRequested.RequestClose();
+
+        Assert.IsFalse(context.IsReconnectEnabled);
+        Assert.IsFalse(context.TryGetCurrentConnection(out _));
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
+        Assert.IsTrue(context.IsTerminal);
+
+        await context.AbortAsync();
+
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        context.Cleanup();
+    }
+
+    [TestMethod]
     public void PreSignalledConnectionClosedRequestedIsTerminal()
     {
         using var initial = CreatePhysicalConnection("initial");
@@ -73,6 +102,25 @@ public sealed class RaidoStatefulReconnectTests
         Assert.IsFalse(context.TryGetCurrentConnection(out _));
         Assert.IsFalse(context.TryReconnect(replacement.Connection));
 
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public void PreSignalledConnectionClosedAndCloseRequestedAreTerminal()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        using var closeRequested = new CloseRequestedFeature();
+        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
+        initial.Closed.Cancel();
+        closeRequested.RequestClose();
+
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+
+        Assert.IsTrue(context.IsTerminal);
+        Assert.IsFalse(context.IsReconnectEnabled);
+        Assert.IsFalse(context.TryGetCurrentConnection(out _));
+        Assert.IsFalse(context.TryReconnect(replacement.Connection));
         context.Cleanup();
     }
 

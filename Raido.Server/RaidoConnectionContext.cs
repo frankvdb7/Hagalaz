@@ -152,22 +152,33 @@ namespace Raido.Server
 
             RegisterPhysicalCallbacks(connection, registerHeartbeat: false, out var closedRegistration, out var closedRequestedRegistration);
 
-            var publishRegistrations = false;
             lock (_reconnectLock)
             {
                 if (!_connectionAborted && ReferenceEquals(connection, _currentConnection))
                 {
                     _closedRegistration = closedRegistration;
+                    closedRegistration = default;
                     _closedRequestedRegistration = closedRequestedRegistration;
-                    publishRegistrations = true;
+                    closedRequestedRegistration = null;
+                }
+                else if (!_connectionAborted &&
+                    _currentConnection is null &&
+                    ReferenceEquals(connection, _detachedConnection) &&
+                    _reconnectEnabled &&
+                    _reconnectWaiter is not null &&
+                    !_reconnectWaiter.Task.IsCompleted)
+                {
+                    Debug.Assert(_closedRequestedRegistration is null, "The constructor must not already own a close-request registration while publishing detached ownership.");
+                    if (_closedRequestedRegistration is null)
+                    {
+                        _closedRequestedRegistration = closedRequestedRegistration;
+                        closedRequestedRegistration = null;
+                    }
                 }
             }
 
-            if (!publishRegistrations)
-            {
-                closedRegistration.Dispose();
-                closedRequestedRegistration?.Dispose();
-            }
+            closedRegistration.Dispose();
+            closedRequestedRegistration?.Dispose();
         }
 
         internal Task OnConnectedAsync()

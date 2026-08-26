@@ -156,7 +156,7 @@ Keep-alive and lifetime-notification callbacks SHALL be registered against each 
 #### Scenario: Initial callback registration preserves synchronous transitions
 
 - **WHEN** the initial physical connection has a pre-signalled `ConnectionClosed` or `ConnectionClosedRequested` token while callbacks are being registered
-- **THEN** a pre-signalled close leaves an opted-in connection detached with its reconnect window active, while a pre-signalled close request terminalizes it; local registrations are published only if the same connection remains current and non-terminal
+- **THEN** a pre-signalled close leaves an opted-in connection detached with its reconnect window active and retains the initial `ConnectionClosedRequested` registration when available, while a pre-signalled close request terminalizes it; current registrations are published only if the same connection remains current and non-terminal, and all other local registrations are disposed without undoing the established transition
 
 #### Scenario: Reconnect cycles
 

@@ -48,3 +48,8 @@
 - [x] 8.1 Preserve the detached physical connection identity and close-request registration for the active reconnect window; make the final waiter/window/token validation and replacement publication atomic under the existing reconnect lock.
 - [x] 8.2 Add deterministic coverage for detached close-request dominance, stale post-publication requests, pre-claim token races, and replace flaky terminal wait-handle assertions with the existing terminal completion path.
 - [x] 8.3 Update OpenSpec and remove tracked `.testagent` artifacts while adding the ignored-folder rule; run the complete serial validation and cumulative diff review.
+
+## 9. Initial detached registration ownership remediation
+
+- [x] 9.1 Preserve the initial physical connection's `ConnectionClosedRequested` registration when synchronous `ConnectionClosed` handling creates an active detached W1 window; reset transferred local registration markers and keep all disposal outside `_reconnectLock`.
+- [x] 9.2 Add regressions for the pre-signalled physical-close/close-request sequence and both pre-signalled tokens, update the behavior documentation, and validate the cumulative change without adding reconnect architecture.

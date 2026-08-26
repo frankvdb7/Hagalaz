@@ -55,6 +55,8 @@ Physical detach also stops and clears the per-read client-timeout state before a
 
 Client-timeout detection only updates elapsed state and decides whether a timeout occurred while holding the timeout lock. It releases that lock before invoking the identity-safe terminal transition, whose registration disposal and physical pipe cancellation remain outside both locks. Initial physical callback registration follows the same local-then-publish ownership rule as replacement registration: synchronous callbacks can detach or terminalize the connection, and unpublished locals are disposed afterward without undoing that transition.
 
+When the initial `ConnectionClosed` callback runs synchronously before constructor registration returns, the constructor may observe the full active detached-window invariant. In that case it disposes the already-fired `ConnectionClosed` registration but transfers the local `ConnectionClosedRequested` registration to the detached window. If the connection is still current, both registrations transfer; if it is terminal or no longer matches either state, neither transfers. Local registration markers are reset immediately on transfer and all untransferred registrations are disposed after releasing `_reconnectLock`.
+
 ## Risks / Trade-offs
 
 - [Risk] A candidate can close while its callbacks are being registered. → Its callbacks capture the candidate, publication checks the candidate's close tokens, and unsuccessful registration ownership remains with the caller.
