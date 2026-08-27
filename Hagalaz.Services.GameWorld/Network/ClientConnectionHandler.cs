@@ -25,7 +25,10 @@ public class ClientConnectionHandler : ConnectionHandler
 
     public override async Task OnConnectedAsync(ConnectionContext connection)
     {
-        var connectionContext = _contextBuilder.Create().WithConnection(connection).WithProtocol<HandshakeProtocol>().Build();
+        var connectionContext = _contextBuilder.Create()
+            .WithConnection(connection)
+            .WithProtocol<HandshakeProtocol>()
+            .Build();
 
         Log.HandshakeStart(_logger, connectionContext.Protocol.Name);
 

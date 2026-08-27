@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -94,10 +95,9 @@ namespace Raido.Server
             {
                 await DispatchMessagesAsync(connection);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (connection.IsTerminal)
             {
-                // Don't treat OperationCanceledException as an error, it's basically a "control flow"
-                // exception to stop things from running
+                // Terminal cancellation is control flow used to stop transport operations.
             }
             catch (Exception ex)
             {
@@ -116,40 +116,90 @@ namespace Raido.Server
         /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
         public virtual async Task DispatchMessagesAsync(RaidoConnectionContext connection)
         {
-            await using (var protocolReader = connection.CreateReader())
+            while (!connection.IsTerminal)
             {
-                while (true)
+                if (!connection.TryGetCurrentConnection(out var physicalConnection))
                 {
-                    try
+                    if (!connection.IsReconnectEnabled || !await connection.WaitForReconnectAsync())
                     {
-                        connection.BeginClientTimeout();
-                        var result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
-                        if (result.IsCanceled)
-                        {
-                            break;
-                        }
-
-                        if (result.Message == default)
-                        {
-                            continue;
-                        }
-
-                        connection.StopClientTimeout();
-
-                        Log.ReceivedMessage(_logger, result.Message);
-
-                        await _dispatcher.DispatchMessageAsync(connection, result.Message);
-
-                        if (result.IsCompleted)
-                        {
-                            break;
-                        }
+                        break;
                     }
-                    finally
+
+                    continue;
+                }
+
+                await using (var protocolReader = new RaidoProtocolReader(physicalConnection.Transport.Input))
+                {
+                    while (true)
                     {
-                        protocolReader.Advance();
+                        RaidoProtocolReadResult<RaidoMessage> result;
+                        try
+                        {
+                            connection.BeginClientTimeout();
+                            result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
+                        }
+                        catch (OperationCanceledException ex)
+                        {
+                            if (connection.IsTerminal)
+                            {
+                                break;
+                            }
+
+                            if (!protocolReader.IsPhysicalTransportFailure(ex) ||
+                                !connection.HandleTransportFailure(physicalConnection, ex))
+                            {
+                                throw;
+                            }
+
+                            break;
+                        }
+                        catch (IOException ex)
+                        {
+                            if (!protocolReader.IsPhysicalTransportFailure(ex) ||
+                                !connection.HandleTransportFailure(physicalConnection, ex))
+                            {
+                                throw;
+                            }
+
+                            break;
+                        }
+
+                        try
+                        {
+                            if (result.IsCanceled)
+                            {
+                                break;
+                            }
+
+                            if (result.Message == default)
+                            {
+                                if (result.IsCompleted)
+                                {
+                                    break;
+                                }
+
+                                continue;
+                            }
+
+                            connection.StopClientTimeout();
+
+                            Log.ReceivedMessage(_logger, result.Message);
+
+                            await _dispatcher.DispatchMessageAsync(connection, result.Message);
+
+                            if (result.IsCompleted)
+                            {
+                                break;
+                            }
+                        }
+                        finally
+                        {
+                            protocolReader.Advance();
+                        }
                     }
                 }
+
+                connection.OnPhysicalConnectionClosed(physicalConnection);
             }
         }
 

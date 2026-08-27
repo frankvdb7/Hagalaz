@@ -13,5 +13,15 @@ namespace Raido.Server
         /// Gets or sets the time window clients have to send a message before the server closes the connection.
         /// </summary>
         public TimeSpan ClientTimeoutInterval { get; init; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the connection can rebind to a replacement physical transport.
+        /// </summary>
+        public bool StatefulReconnectEnabled { get; init; }
+
+        /// <summary>
+        /// Gets or sets the maximum time to wait for a replacement physical transport.
+        /// </summary>
+        public TimeSpan StatefulReconnectTimeout { get; init; }
     }
 }

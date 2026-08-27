@@ -58,17 +58,20 @@ public sealed class RaidoRemainingCoverageTests
         setup.Configure(defaults);
         Assert.AreEqual(TimeSpan.FromSeconds(15), defaults.KeepAliveInterval);
         Assert.AreEqual(TimeSpan.FromSeconds(30), defaults.ClientTimeoutInterval);
+        Assert.AreEqual(TimeSpan.FromSeconds(30), defaults.StatefulReconnectTimeout);
         Assert.AreEqual(32 * 1024, defaults.MaximumReceiveMessageSize);
 
         var configured = new RaidoOptions
         {
             KeepAliveInterval = TimeSpan.FromSeconds(1),
             ClientTimeoutInterval = TimeSpan.FromSeconds(2),
+            StatefulReconnectTimeout = TimeSpan.FromSeconds(7),
             MaximumReceiveMessageSize = 3
         };
         setup.Configure(configured);
         Assert.AreEqual(TimeSpan.FromSeconds(1), configured.KeepAliveInterval);
         Assert.AreEqual(TimeSpan.FromSeconds(2), configured.ClientTimeoutInterval);
+        Assert.AreEqual(TimeSpan.FromSeconds(7), configured.StatefulReconnectTimeout);
         Assert.AreEqual(3, configured.MaximumReceiveMessageSize);
 
         var filter = Substitute.For<IRaidoHubFilter>();

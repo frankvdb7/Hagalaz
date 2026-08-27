@@ -20,10 +20,16 @@ namespace Raido.Server.Tests
         public string Name => "test";
         public int Version => 1;
         public bool ParseMessageReturns { get; set; } = true;
+        public Exception? ParseException { get; set; }
         public RaidoMessage? MessageToReturn { get; set; }
 
         public bool TryParseMessage(in ReadOnlySequence<byte> input, ref SequencePosition consumed, ref SequencePosition examined, [MaybeNullWhen(false)] out RaidoMessage message)
         {
+            if (ParseException is Exception exception)
+            {
+                throw exception;
+            }
+
             if (!ParseMessageReturns)
             {
                 message = null;

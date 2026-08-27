@@ -86,6 +86,12 @@ namespace Raido.Server
         /// <param name="interval">The client timeout interval.</param>
         /// <returns>The builder instance.</returns>
         IRaidoConnectionContextBuilderOptional WithClientTimeoutInterval(TimeSpan interval);
+
+        /// <summary>
+        /// Enables stateful reconnect for the context.
+        /// </summary>
+        /// <returns>The builder instance.</returns>
+        IRaidoConnectionContextBuilderOptional WithStatefulReconnect();
     }
 
     /// <summary>
