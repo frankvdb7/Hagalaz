@@ -1236,6 +1236,7 @@ public sealed class RaidoStatefulReconnectTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
     public async Task KeepAliveGenerationFailureIsTerminalWhenReconnectEnabled()
     {
         using var initial = CreatePhysicalConnection("initial");
@@ -1297,6 +1298,7 @@ public sealed class RaidoStatefulReconnectTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
     public async Task StaleKeepAlivePingDoesNotBlockReplacementWritesOrAbort()
     {
         using var initial = CreatePhysicalConnection("initial");
