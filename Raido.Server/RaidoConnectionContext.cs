@@ -136,6 +136,15 @@ namespace Raido.Server
         /// <param name="contextOptions">The options for the connection context.</param>
         /// <param name="loggerFactory">The logger factory.</param>
         public RaidoConnectionContext(ConnectionContext connection, RaidoConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
+            : this(connection, contextOptions, loggerFactory, TimeProvider.System)
+        {
+        }
+
+        internal RaidoConnectionContext(
+            ConnectionContext connection,
+            RaidoConnectionContextOptions contextOptions,
+            ILoggerFactory loggerFactory,
+            TimeProvider timeProvider)
         {
             if (contextOptions.StatefulReconnectEnabled &&
                 (contextOptions.StatefulReconnectTimeout <= TimeSpan.Zero ||
@@ -159,7 +168,7 @@ namespace Raido.Server
 
             RaidoCallerContext = new DefaultRaidoCallerContext(this);
 
-            _timeProvider = TimeProvider.System;
+            _timeProvider = timeProvider;
             _lastSendTick = _timeProvider.GetTimestamp();
 
             RegisterPhysicalCallbacks(connection, registerHeartbeat: false, out var closedRegistration, out var closedRequestedRegistration);

@@ -1086,13 +1086,18 @@ public sealed class RaidoStatefulReconnectTests
     [Timeout(5000)]
     public async Task ReconnectDeadlineStartsAtPhysicalDetach()
     {
-        var initial = CreatePhysicalConnection("initial");
-        var replacement = CreatePhysicalConnection("replacement");
-        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromMilliseconds(1));
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        var timeProvider = new ManualTimeProvider();
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(1), timeProvider: timeProvider);
 
         context.OnPhysicalConnectionClosed(initial.Connection);
+        timeProvider.Advance(TimeSpan.FromSeconds(2));
 
-        Assert.IsFalse(await context.WaitForReconnectAsync());
+        var reconnectWindow = context.WaitForReconnectAsync();
+
+        Assert.IsTrue(reconnectWindow.IsCompletedSuccessfully);
+        Assert.IsFalse(await reconnectWindow);
         Assert.IsTrue(context.IsTerminal);
         Assert.IsFalse(context.IsReconnectEnabled);
         Assert.IsFalse(context.TryGetCurrentConnection(out _));
@@ -1101,6 +1106,107 @@ public sealed class RaidoStatefulReconnectTests
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
         Assert.IsFalse(replacement.Closed.IsCancellationRequested);
         context.Cleanup();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task ReconnectTimeoutDisconnectsThroughHandlerExactlyOnce()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        var timeProvider = new ManualTimeProvider();
+        var context = CreateContext(
+            initial.Connection,
+            reconnectEnabled: true,
+            timeout: TimeSpan.FromSeconds(1),
+            timeProvider: timeProvider);
+        var lifetimeManager = Substitute.For<IRaidoLifetimeManager>();
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var lifetimeConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var dispatcherConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lifetimeManager.OnConnectedAsync(context).Returns(_ =>
+        {
+            lifetimeConnected.TrySetResult();
+            return Task.CompletedTask;
+        });
+        dispatcher.OnConnectedAsync(context).Returns(_ =>
+        {
+            dispatcherConnected.TrySetResult();
+            return Task.CompletedTask;
+        });
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.HandlerTimeout");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            lifetimeManager,
+            dispatcher,
+            metrics);
+
+        var run = handler.ConnectAsync(context);
+        await lifetimeConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await dispatcherConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        initial.Closed.Cancel();
+        Assert.IsFalse(context.TryGetCurrentConnection(out _));
+        timeProvider.Advance(TimeSpan.FromSeconds(2));
+
+        await run.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.IsTrue(context.IsTerminal);
+        await lifetimeManager.Received(1).OnConnectedAsync(context);
+        await lifetimeManager.Received(1).OnDisconnectedAsync(context);
+        await dispatcher.Received(1).OnConnectedAsync(context);
+        await dispatcher.Received(1).OnDisconnectedAsync(context, Arg.Any<Exception?>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task ExplicitAbortDuringReconnectDisconnectsThroughHandlerExactlyOnce()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
+        var lifetimeManager = Substitute.For<IRaidoLifetimeManager>();
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var lifetimeConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var dispatcherConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lifetimeManager.OnConnectedAsync(context).Returns(_ =>
+        {
+            lifetimeConnected.TrySetResult();
+            return Task.CompletedTask;
+        });
+        dispatcher.OnConnectedAsync(context).Returns(_ =>
+        {
+            dispatcherConnected.TrySetResult();
+            return Task.CompletedTask;
+        });
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.HandlerAbort");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            lifetimeManager,
+            dispatcher,
+            metrics);
+
+        var run = handler.ConnectAsync(context);
+        await lifetimeConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await dispatcherConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        initial.Closed.Cancel();
+        Assert.IsFalse(context.TryGetCurrentConnection(out _));
+        context.Abort();
+
+        await run.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.IsTrue(context.IsTerminal);
+        await lifetimeManager.Received(1).OnConnectedAsync(context);
+        await lifetimeManager.Received(1).OnDisconnectedAsync(context);
+        await dispatcher.Received(1).OnConnectedAsync(context);
+        await dispatcher.Received(1).OnDisconnectedAsync(context, Arg.Any<Exception?>());
     }
 
     [TestMethod]
@@ -1408,18 +1514,22 @@ public sealed class RaidoStatefulReconnectTests
         ConnectionContext connection,
         bool reconnectEnabled,
         TimeSpan? timeout = null,
-        TimeSpan? clientTimeout = null)
+        TimeSpan? clientTimeout = null,
+        TimeProvider? timeProvider = null)
     {
-        return new RaidoConnectionContext(connection, new RaidoConnectionContextOptions
+        var options = new RaidoConnectionContextOptions
         {
             KeepAliveInterval = TimeSpan.FromMinutes(1),
             ClientTimeoutInterval = clientTimeout ?? TimeSpan.FromMinutes(1),
             StatefulReconnectEnabled = reconnectEnabled,
             StatefulReconnectTimeout = timeout ?? TimeSpan.FromSeconds(5)
-        }, NullLoggerFactory.Instance)
-        {
-            Protocol = new ReconnectWritingProtocol()
         };
+        var context = timeProvider is null
+            ? new RaidoConnectionContext(connection, options, NullLoggerFactory.Instance)
+            : new RaidoConnectionContext(connection, options, NullLoggerFactory.Instance, timeProvider);
+
+        context.Protocol = new ReconnectWritingProtocol();
+        return context;
     }
 
     private static void AssertStatefulReconnectTimeoutRejected(TimeSpan timeout)
@@ -1556,6 +1666,17 @@ public sealed class RaidoStatefulReconnectTests
         public CancellationTokenSource Closed { get; } = new();
 
         public void Dispose() => Closed.Dispose();
+    }
+
+    private sealed class ManualTimeProvider : TimeProvider
+    {
+        private long _timestamp;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => Interlocked.Read(ref _timestamp);
+
+        public void Advance(TimeSpan duration) => Interlocked.Add(ref _timestamp, duration.Ticks);
     }
 
     private sealed class RecordingHeartbeatFeature : IConnectionHeartbeatFeature
