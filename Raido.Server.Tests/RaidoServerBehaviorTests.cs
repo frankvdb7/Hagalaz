@@ -312,14 +312,14 @@ public sealed class RaidoServerBehaviorTests
             Protocol = new PingProtocol()
         };
 
-        var ping = typeof(RaidoConnectionContext).GetMethod("TryWritePingSlowAsyncForConnection", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        await (Task)ping.Invoke(connection, new object[] { raw })!;
+        var ping = typeof(RaidoConnectionContext).GetMethod("TryWritePingAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        await (ValueTask)ping.Invoke(connection, new object[] { raw })!;
         var read = await output.Reader.ReadAsync();
         CollectionAssert.AreEqual(new byte[] { 9, 8, 7 }, read.Buffer.ToArray());
         output.Reader.AdvanceTo(read.Buffer.End);
 
         connection.Abort();
-        await (Task)ping.Invoke(connection, new object[] { raw })!;
+        await (ValueTask)ping.Invoke(connection, new object[] { raw })!;
         await connection.AbortAsync();
         Assert.IsTrue(connection.ConnectionAbortedToken.IsCancellationRequested);
     }

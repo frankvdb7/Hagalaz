@@ -1069,64 +1069,67 @@ namespace Raido.Server
 
         private async Task TryWritePingSlowAsyncForConnection(ConnectionContext connection)
         {
-            ReadOnlyMemory<byte> pingMessage;
             try
             {
-                if (_connectionAborted || !IsCurrentConnection(connection))
+                ReadOnlyMemory<byte> pingMessage;
+                try
                 {
+                    if (_connectionAborted || !IsCurrentConnection(connection))
+                    {
+                        return;
+                    }
+
+                    pingMessage = Protocol.GetMessageBytes(PingMessage.Instance);
+                }
+                catch (Exception ex)
+                {
+                    Log.FailedWritingMessage(_logger, ex);
+                    TryAbortForConnection(connection, ex);
                     return;
                 }
 
-                pingMessage = Protocol.GetMessageBytes(PingMessage.Instance);
-            }
-            catch (Exception ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                TryAbortForConnection(connection, ex);
-                return;
-            }
-
-            PipeWriter output;
-            try
-            {
-                output = connection.Transport.Output;
-            }
-            catch (Exception ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                TryAbortForConnection(connection, ex);
-                return;
-            }
-
-            try
-            {
-                await output.WriteAsync(pingMessage);
-                Log.SentPing(_logger);
-                if (IsCurrentConnection(connection))
+                PipeWriter output;
+                try
                 {
-                    // We only update the timestamp after the captured transport successfully sent the ping.
-                    Volatile.Write(ref _lastSendTick, _timeProvider.GetTimestamp());
+                    output = connection.Transport.Output;
                 }
-            }
-            catch (OperationCanceledException ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                HandleTransportFailure(connection, ex);
-            }
-            catch (IOException ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                HandleTransportFailure(connection, ex);
-            }
-            catch (ObjectDisposedException ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                HandleTransportFailure(connection, ex);
-            }
-            catch (Exception ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                TryAbortForConnection(connection, ex);
+                catch (Exception ex)
+                {
+                    Log.FailedWritingMessage(_logger, ex);
+                    TryAbortForConnection(connection, ex);
+                    return;
+                }
+
+                try
+                {
+                    await output.WriteAsync(pingMessage);
+                    Log.SentPing(_logger);
+                    if (IsCurrentConnection(connection))
+                    {
+                        // We only update the timestamp after the captured transport successfully sent the ping.
+                        Volatile.Write(ref _lastSendTick, _timeProvider.GetTimestamp());
+                    }
+                }
+                catch (OperationCanceledException ex)
+                {
+                    Log.FailedWritingMessage(_logger, ex);
+                    HandleTransportFailure(connection, ex);
+                }
+                catch (IOException ex)
+                {
+                    Log.FailedWritingMessage(_logger, ex);
+                    HandleTransportFailure(connection, ex);
+                }
+                catch (ObjectDisposedException ex)
+                {
+                    Log.FailedWritingMessage(_logger, ex);
+                    HandleTransportFailure(connection, ex);
+                }
+                catch (Exception ex)
+                {
+                    Log.FailedWritingMessage(_logger, ex);
+                    TryAbortForConnection(connection, ex);
+                }
             }
             finally
             {

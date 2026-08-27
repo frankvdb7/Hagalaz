@@ -1297,6 +1297,36 @@ public sealed class RaidoStatefulReconnectTests
     }
 
     [TestMethod]
+    public async Task StaleKeepAlivePingDoesNotBlockReplacementWritesOrAbort()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+
+        context.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TryReconnect(replacement.Connection));
+        Assert.IsTrue(context.TryGetCurrentConnection(out var current));
+        Assert.AreSame(replacement.Connection, current);
+
+        await InvokePingAsync(context, initial.Connection);
+
+        Assert.IsTrue(context.TryGetCurrentConnection(out current));
+        Assert.AreSame(replacement.Connection, current);
+
+        await context.WriteAsync(new TestMessage());
+        var read = await replacement.Output.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
+        CollectionAssert.AreEqual(new byte[] { 42 }, read.Buffer.ToArray());
+        replacement.Output.Reader.AdvanceTo(read.Buffer.End);
+
+        Assert.IsTrue(context.TryGetCurrentConnection(out current));
+        Assert.AreSame(replacement.Connection, current);
+
+        await context.AbortAsync();
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        context.Cleanup();
+    }
+
+    [TestMethod]
     [Timeout(5000)]
     public async Task ClientTimeoutTerminalizationDoesNotDeadlockWithConnectionClosedCallback()
     {
@@ -1406,9 +1436,9 @@ public sealed class RaidoStatefulReconnectTests
             NullLoggerFactory.Instance));
     }
 
-    private static Task InvokePingAsync(RaidoConnectionContext context, ConnectionContext physicalConnection) =>
-        (Task)typeof(RaidoConnectionContext)
-            .GetMethod("TryWritePingSlowAsyncForConnection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+    private static ValueTask InvokePingAsync(RaidoConnectionContext context, ConnectionContext physicalConnection) =>
+        (ValueTask)typeof(RaidoConnectionContext)
+            .GetMethod("TryWritePingAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(context, new object[] { physicalConnection })!;
 
     private static void InvokeCloseRequested(RaidoConnectionContext context, ConnectionContext physicalConnection) =>
