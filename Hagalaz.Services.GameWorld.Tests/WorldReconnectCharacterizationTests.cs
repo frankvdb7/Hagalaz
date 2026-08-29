@@ -21,6 +21,8 @@ public sealed class WorldReconnectCharacterizationTests
         Assert.AreEqual(0, Value(fixture, "authentication.header.fresh.reconnectFlag"));
         Assert.AreEqual(16, Value(fixture, "authentication.header.reconnect.opcode"));
         Assert.AreEqual(1, Value(fixture, "authentication.header.reconnect.reconnectFlag"));
+        Assert.AreEqual("false", fixture["authentication.header.opcode18.observed"]);
+        Assert.AreEqual("false", fixture["game.channel.opcode18.observedInReconnectTrace"]);
 
         // Controlled-peer stimuli.
         Assert.AreEqual(2, Value(fixture, "controlled.peer.fresh.response"));
@@ -54,14 +56,10 @@ public sealed class WorldReconnectCharacterizationTests
     {
         var fixture = LoadFixture();
 
-        // Observed client request and trace fact.
-        Assert.AreEqual("false", fixture["authentication.header.opcode18.observed"]);
-
         // Facts discovered from client code.
         Assert.AreEqual("false", fixture["authentication.header.opcode18.presentInRegistry"]);
         Assert.AreEqual("true", fixture["game.channel.opcode18.exists"]);
         Assert.AreEqual("isaac", fixture["game.channel.opcode18.framing"]);
-        Assert.AreEqual("false", fixture["game.channel.opcode18.observedInReconnectTrace"]);
 
         // Unknown production-server behavior.
         Assert.AreEqual("false", fixture["production.server.response15.acceptance.known"]);
