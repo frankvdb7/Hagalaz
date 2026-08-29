@@ -1,6 +1,6 @@
 ## Context
 
-Completed GameClient #142 work establishes the revision-742 request contract: world authentication uses opcode 16, with flag 0 for fresh login and flag 1 for reconnect. The authentication registry contains no opcode 18 entry. Issue #478 remains blocked on the server-side response, cipher, session, transport, lifecycle, and resynchronization contract.
+Completed GameClient #142 work provides distinct revision-742 request-trace and client-source evidence. The client trace shows handshake opcode 14, world authentication opcode 16 with flag 0 for fresh login and flag 1 for reconnect, and no authentication-header opcode 18. Client source inspection shows no authentication opcode 18 entry in the revision-742 authentication registry and a separate ISAAC-framed game-channel opcode 18. Issue #478 remains blocked on the server-side response, cipher, session, transport, lifecycle, and resynchronization contract.
 
 ## Goals / Non-Goals
 
@@ -9,7 +9,7 @@ Completed GameClient #142 work establishes the revision-742 request contract: wo
 - Remove the stale authentication opcode-18 registration.
 - Preserve the opcode-16 reconnect flag as explicit request intent.
 - Prevent reconnect intent from entering `HandshakeHub.SignInWorld`.
-- Preserve the secret-safe controlled-peer/client characterization.
+- Preserve the secret-safe characterization with request-trace facts, controlled-peer stimuli, client-side observations, client-code facts, and unknown production behavior kept separate.
 - Leave #477 and all Raido production ownership/lifetime behavior unchanged.
 
 **Non-Goals:**
@@ -34,13 +34,21 @@ Raido's dispatcher indexes handlers by `message.GetType()`. A `WorldReconnectReq
 
 ### Preserve evidence boundaries
 
-The fixture keeps controlled-peer inputs, controlled-peer/client observations, client-code facts, and unknown production behavior separate. Response 15 and the 4,608-byte read remain observations, not production requirements. RSA/XTEA ciphertext and ISAAC keys remain excluded.
+The fixture keeps these categories separate:
+
+- Observed client requests and trace facts: handshake opcode 14, authentication opcode 16 with flags 0 and 1, and the absence of authentication-header opcode 18 in the characterized reconnect trace.
+- Controlled-peer stimuli: fresh-login response 2 and reconnect response 15.
+- Client-side observations: world-entry read sizes, authentication reset, protocol preservation, temporary-key clearing, fresh client/server ISAAC instances, RSA/XTEA boundaries, server-key `+50`, and client-observed event ordering.
+- Client-code facts: the absent authentication-registry opcode 18 and the separate ISAAC-framed game-channel opcode 18, which is not claimed as observed in the reconnect trace.
+- Unknown production-server behavior: production response acceptance, response/payload ordering, cipher transition, authentication/session ownership, transport handoff/adoption, resumed reads/writes, lifecycle behavior beyond #477, and resynchronization payload/order.
+
+Response 15 is a controlled-peer stimulus, not a client-side observation. The 4,608-byte read is a client-side observation, not a production payload requirement. RSA/XTEA ciphertext and ISAAC keys remain excluded.
 
 ## Risks / Trade-offs
 
 - [Reconnect input is temporarily ignored] → This is intentional until #478 establishes response and failure behavior; it prevents accidental fresh-login authentication.
 - [A client-code opcode 18 is mistaken for an authentication opcode] → Keep authentication registry/trace facts separate from the ISAAC-framed game channel.
-- [A controlled-peer observation is treated as a server contract] → Qualify every fixture key and OpenSpec scenario.
+- [A controlled-peer stimulus or client observation is treated as a server contract] → Qualify every fixture key and OpenSpec scenario.
 
 ## Migration Plan
 

@@ -44,22 +44,24 @@ The request-side correction MUST prevent `WorldReconnectRequest` from being disp
 
 ### Requirement: Characterization evidence remains qualified
 
-The characterization artifacts MUST preserve the verified request facts and controlled-peer/client observations without promoting them to production-server requirements.
+The characterization artifacts MUST distinguish observed client requests and trace facts, controlled-peer stimuli, client-side observations, client-code facts, and unknown production-server behavior. None of the first four categories MAY be promoted to a production-server requirement without new evidence.
 
 The fixture MUST keep these evidence categories distinct:
 
-1. Controlled-peer inputs: the handshake and authentication-header opcode/flag values supplied during the controlled run.
-2. Client-side observations: response 15, world-entry bytes, authentication reset, protocol/ISAAC/key observations, RSA/XTEA boundaries, and client-observed event ordering from that run.
-3. Facts discovered from client code: authentication-header opcode 18 was not observed in the characterized trace, and a separate ISAAC-framed game-channel opcode 18 exists without being claimed as observed in that trace.
-4. Unknown production-server behavior: production acceptance, ordering, cipher, authentication, session, transport, lifecycle, resumed I/O, and resynchronization behavior.
+1. Observed client requests and trace facts: handshake opcode 14, authentication opcode 16 with flags 0 and 1, and no authentication-header opcode 18 in the characterized reconnect trace.
+2. Controlled-peer stimuli: fresh-login response 2 and reconnect response 15 supplied by the controlled peer.
+3. Client-side observations: world-entry read sizes, authentication reset, protocol preservation, temporary-key clearing, fresh client/server ISAAC instances, RSA/XTEA boundaries, server-key `+50`, and client-observed event ordering.
+4. Client-code facts: authentication opcode 18 is absent from the revision-742 authentication protocol registry, and a separate ISAAC-framed game-channel opcode 18 exists without being claimed as observed in the reconnect trace.
+5. Unknown production-server behavior: production acceptance, response/payload ordering, cipher, authentication/session ownership, transport handoff/adoption, lifecycle, resumed I/O, and resynchronization behavior.
 
 #### Scenario: Request and observation evidence stays separated
 
 - **WHEN** the fixture records revision-742 reconnect evidence
-- **THEN** it records opcode 16 with flags 0 and 1 as request facts
-- **AND** it records `authentication.header.opcode18.presentInRegistry=false`
-- **AND** it records `authentication.header.opcode18.observed=false`
-- **AND** it qualifies response 15 and the 4,608-byte world-entry read as controlled-peer/client observations
+- **THEN** it records opcode 16 with flags 0 and 1 as observed client request facts
+- **AND** it records `authentication.header.opcode18.observed=false` as a trace observation
+- **AND** it records `controlled.peer.fresh.response=2` and `controlled.peer.reconnect.response=15` as controlled-peer stimuli
+- **AND** it qualifies the 4,656-byte and 4,608-byte world-entry reads as client-side observations
+- **AND** it records `authentication.header.opcode18.presentInRegistry=false` as a client-code fact
 - **AND** it records the separate ISAAC-framed game-channel opcode 18 without claiming it appeared in the authentication trace
 
 ### Requirement: Unverified production reconnect behavior remains deferred

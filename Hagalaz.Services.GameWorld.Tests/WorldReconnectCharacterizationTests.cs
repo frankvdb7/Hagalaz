@@ -7,19 +7,26 @@ public sealed class WorldReconnectCharacterizationTests
         "Hagalaz.Services.GameWorld.Tests.Fixtures.world-reconnect-characterization.properties";
 
     [TestMethod]
-    public void Revision742Fixture_RecordsControlledPeerInputsAndClientObservationsWithoutSecrets()
+    public void Revision742Fixture_RecordsObservedRequestsStimuliAndClientObservationsWithoutSecrets()
     {
         var fixture = LoadFixture();
 
         Assert.AreEqual("true", fixture["evidence.controlledPeer"]);
         Assert.AreEqual("false", fixture["evidence.productionServerCompatibility"]);
+
+        // Observed client requests and trace facts.
         Assert.AreEqual(14, Value(fixture, "controlled.peer.handshake.opcode"));
         Assert.AreEqual(3, Value(fixture, "controlled.peer.wire.header.bytes"));
         Assert.AreEqual(16, Value(fixture, "authentication.header.fresh.opcode"));
         Assert.AreEqual(0, Value(fixture, "authentication.header.fresh.reconnectFlag"));
         Assert.AreEqual(16, Value(fixture, "authentication.header.reconnect.opcode"));
         Assert.AreEqual(1, Value(fixture, "authentication.header.reconnect.reconnectFlag"));
+
+        // Controlled-peer stimuli.
+        Assert.AreEqual(2, Value(fixture, "controlled.peer.fresh.response"));
         Assert.AreEqual(15, Value(fixture, "controlled.peer.reconnect.response"));
+
+        // Client-side observations.
         Assert.AreEqual(4608, Value(fixture, "client.reconnect.worldEntry.readBytes"));
         Assert.AreEqual(4656, Value(fixture, "client.fresh.worldEntry.readBytes"));
         Assert.AreEqual(742, Value(fixture, "client.authentication.revision"));
@@ -43,15 +50,20 @@ public sealed class WorldReconnectCharacterizationTests
     }
 
     [TestMethod]
-    public void Revision742Fixture_SeparatesClientCodeFactsFromUnknownProductionBehavior()
+    public void Revision742Fixture_SeparatesTraceFactsClientCodeFactsAndUnknownProductionBehavior()
     {
         var fixture = LoadFixture();
 
-        Assert.AreEqual("false", fixture["authentication.header.opcode18.presentInRegistry"]);
+        // Observed client request and trace fact.
         Assert.AreEqual("false", fixture["authentication.header.opcode18.observed"]);
+
+        // Facts discovered from client code.
+        Assert.AreEqual("false", fixture["authentication.header.opcode18.presentInRegistry"]);
         Assert.AreEqual("true", fixture["game.channel.opcode18.exists"]);
         Assert.AreEqual("isaac", fixture["game.channel.opcode18.framing"]);
         Assert.AreEqual("false", fixture["game.channel.opcode18.observedInReconnectTrace"]);
+
+        // Unknown production-server behavior.
         Assert.AreEqual("false", fixture["production.server.response15.acceptance.known"]);
         Assert.AreEqual("false", fixture["production.server.reconnect.worldEntryPayload.known"]);
         Assert.AreEqual("false", fixture["production.server.handoff.order.known"]);
