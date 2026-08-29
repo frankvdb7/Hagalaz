@@ -256,6 +256,33 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void WorldHandshakeDecoder_ReconnectFlagProducesReconnectRequestWithoutFreshLoginType()
+        {
+            var rsaBlock = CreateRsaBlock();
+            var cacheApi = Substitute.For<ICacheAPI>();
+            cacheApi.GetFileCount(byte.MaxValue).Returns(2);
+            var decoder = new WorldHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                cacheApi);
+            var encryptedPayload = EncryptPayload(CreateValidPayload(world: true));
+
+            var contiguousResult = decoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: true, encryptedPayload: encryptedPayload, isReconnect: true),
+                out var contiguousMessage);
+            var segmentedResult = decoder.TryDecodeMessage(
+                CreateSegmentedHandshakeInput(rsaBlock, includeWorldLoginFlag: true, encryptedPayload: encryptedPayload, isReconnect: true),
+                out var segmentedMessage);
+
+            Assert.IsTrue(contiguousResult);
+            Assert.IsTrue(segmentedResult);
+            Assert.IsInstanceOfType<WorldReconnectRequest>(contiguousMessage);
+            Assert.IsInstanceOfType<WorldReconnectRequest>(segmentedMessage);
+            Assert.IsFalse(contiguousMessage is WorldSignInRequest);
+            Assert.IsFalse(segmentedMessage is WorldSignInRequest);
+            AssertEquivalentRequests((ClientSignInRequest)contiguousMessage!, (ClientSignInRequest)segmentedMessage!);
+        }
+
+        [TestMethod]
         public void LobbyHandshakeDecoder_ValidPayload_ContiguousAndMultiSegmentInputProduceEquivalentRequests()
         {
             var rsaBlock = CreateRsaBlock();
@@ -548,14 +575,18 @@ namespace Hagalaz.Services.GameWorld.Tests
             return encrypted;
         }
 
-        private static ReadOnlySequence<byte> CreateHandshakeInput(byte[] rsaBlock, bool includeWorldLoginFlag, byte[] encryptedPayload)
+        private static ReadOnlySequence<byte> CreateHandshakeInput(
+            byte[] rsaBlock,
+            bool includeWorldLoginFlag,
+            byte[] encryptedPayload,
+            bool isReconnect = false)
         {
             var input = new List<byte> { 0, 0 };
             AppendInt32(input, 742);
             AppendInt32(input, 0);
             if (includeWorldLoginFlag)
             {
-                input.Add(0);
+                input.Add(isReconnect ? (byte)1 : (byte)0);
             }
             AppendInt16(input, rsaBlock.Length);
             input.AddRange(rsaBlock);
@@ -566,9 +597,13 @@ namespace Hagalaz.Services.GameWorld.Tests
             return new ReadOnlySequence<byte>(input.ToArray());
         }
 
-        private static ReadOnlySequence<byte> CreateSegmentedHandshakeInput(byte[] rsaBlock, bool includeWorldLoginFlag, byte[] encryptedPayload)
+        private static ReadOnlySequence<byte> CreateSegmentedHandshakeInput(
+            byte[] rsaBlock,
+            bool includeWorldLoginFlag,
+            byte[] encryptedPayload,
+            bool isReconnect = false)
         {
-            var contiguousInput = CreateHandshakeInput(rsaBlock, includeWorldLoginFlag, encryptedPayload).ToArray();
+            var contiguousInput = CreateHandshakeInput(rsaBlock, includeWorldLoginFlag, encryptedPayload, isReconnect).ToArray();
             var splitIndex = contiguousInput.Length - encryptedPayload.Length + 3;
             return CreateSequence(contiguousInput[..splitIndex], contiguousInput[splitIndex..]);
         }

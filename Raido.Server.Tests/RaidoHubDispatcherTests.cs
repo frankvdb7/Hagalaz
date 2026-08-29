@@ -34,6 +34,13 @@ public sealed class RaidoHubDispatcherTests
     private sealed class InheritedAuthorizationMessage : RaidoMessage { }
     private sealed class MultiplePolicyMessage : RaidoMessage { }
     private sealed class AllowAnonymousMessage : RaidoMessage { }
+    private class BaseMessage : RaidoMessage { }
+    private sealed class DerivedMessage : BaseMessage { }
+
+    private sealed class ExactTypeDispatchTracker
+    {
+        public int Invoked;
+    }
 
     private sealed class DispatchHub : RaidoHub
     {
@@ -90,6 +97,12 @@ public sealed class RaidoHubDispatcherTests
             ValueTaskInvoked++;
             return ValueTask.FromResult(new DispatchMessage());
         }
+    }
+
+    private sealed class ExactTypeDispatchHub : RaidoHub
+    {
+        [RaidoMessageHandler(typeof(BaseMessage))]
+        public void Handle(BaseMessage message, ExactTypeDispatchTracker tracker) => tracker.Invoked++;
     }
 
     private sealed class DispatchFilter : IRaidoHubFilter
@@ -196,6 +209,7 @@ public sealed class RaidoHubDispatcherTests
         services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Trace));
         services.AddAuthorization(configureAuthorization ?? (_ => { }));
         services.AddSingleton(new RaidoServerActivitySource());
+        services.AddSingleton<ExactTypeDispatchTracker>();
         services.AddScoped<IRaidoCallerContextAccessor, DefaultRaidoCallerContextAccessor>();
         services.AddScoped<IRaidoHubActivator<THub>, DefaultRaidoHubActivator<THub>>();
         services.AddOptions<RaidoHubOptions<THub>>();
@@ -269,6 +283,18 @@ public sealed class RaidoHubDispatcherTests
         Assert.AreEqual(1, DispatchHub.Connected);
         Assert.AreEqual(1, DispatchHub.Invoked);
         Assert.AreEqual(1, DispatchHub.Disconnected);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_DoesNotDispatchDerivedMessageToBaseMessageHandler()
+    {
+        using var provider = CreateProvider<ExactTypeDispatchHub>().Provider;
+        var dispatcher = CreateDispatcher<ExactTypeDispatchHub>(provider);
+        var tracker = provider.GetRequiredService<ExactTypeDispatchTracker>();
+
+        await dispatcher.DispatchMessageAsync(CreateConnection(), new DerivedMessage());
+
+        Assert.AreEqual(0, tracker.Invoked);
     }
 
     [TestMethod]

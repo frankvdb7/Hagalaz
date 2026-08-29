@@ -512,7 +512,6 @@ namespace Hagalaz.Services.GameWorld
                 options.AddDecoder<ClientHandshakeRequestDecoder>(14);
                 options.AddDecoder<ClientUpdateRequestDecoder>(15);
                 options.AddDecoder<WorldHandshakeRequestDecoder>(16);
-                options.AddDecoder<WorldHandshakeRequestDecoder>(18); // reconnect
                 options.AddDecoder<LobbyHandshakeRequestDecoder>(19);
 
                 options.AddEncoder<ClientHandshakeResponseEncoder>();
