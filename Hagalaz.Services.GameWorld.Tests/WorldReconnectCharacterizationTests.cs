@@ -7,40 +7,61 @@ public sealed class WorldReconnectCharacterizationTests
         "Hagalaz.Services.GameWorld.Tests.Fixtures.world-reconnect-characterization.properties";
 
     [TestMethod]
-    public void Revision742Fixture_RecordsObservedOpcode16ReconnectFlagContractWithoutSecrets()
+    public void Revision742Fixture_RecordsControlledPeerInputsAndClientObservationsWithoutSecrets()
     {
         var fixture = LoadFixture();
 
-        Assert.AreEqual(14, Value(fixture, "handshake.opcode"));
-        Assert.AreEqual(16, Value(fixture, "fresh.request.opcode"));
-        Assert.AreEqual(0, Value(fixture, "fresh.request.reconnectFlag"));
-        Assert.AreEqual(16, Value(fixture, "reconnect.request.opcode"));
-        Assert.AreEqual(1, Value(fixture, "reconnect.request.reconnectFlag"));
-        Assert.AreEqual(18, Value(fixture, "unsupported.wire.opcode"));
-        Assert.AreEqual(742, Value(fixture, "authentication.revision"));
-        Assert.AreEqual(1, Value(fixture, "authentication.subrevision"));
-        Assert.AreEqual(11, Value(fixture, "authentication.rsa.offset"));
-        Assert.AreEqual(96, Value(fixture, "authentication.state.after.reset"));
-        Assert.AreEqual(4656, Value(fixture, "fresh.world.entry.bytes"));
-        Assert.AreEqual(15, Value(fixture, "reconnect.response"));
-        Assert.AreEqual(4608, Value(fixture, "reconnect.world.entry.bytes"));
-        Assert.AreEqual("50", fixture["authentication.server.key.transform"]);
-        Assert.AreEqual("true", fixture["authentication.protocol.preserved"]);
-        Assert.AreEqual("true", fixture["authentication.temporary.keys.cleared"]);
-        Assert.AreEqual("true", fixture["authentication.client.isaac.fresh"]);
-        Assert.AreEqual("true", fixture["authentication.server.isaac.fresh"]);
+        Assert.AreEqual("true", fixture["evidence.controlledPeer"]);
+        Assert.AreEqual("false", fixture["evidence.productionServerCompatibility"]);
+        Assert.AreEqual(14, Value(fixture, "controlled.peer.handshake.opcode"));
+        Assert.AreEqual(3, Value(fixture, "controlled.peer.wire.header.bytes"));
+        Assert.AreEqual(16, Value(fixture, "authentication.header.fresh.opcode"));
+        Assert.AreEqual(0, Value(fixture, "authentication.header.fresh.reconnectFlag"));
+        Assert.AreEqual(16, Value(fixture, "authentication.header.reconnect.opcode"));
+        Assert.AreEqual(1, Value(fixture, "authentication.header.reconnect.reconnectFlag"));
+        Assert.AreEqual(15, Value(fixture, "controlled.peer.reconnect.response"));
+        Assert.AreEqual(4608, Value(fixture, "client.reconnect.worldEntry.readBytes"));
+        Assert.AreEqual(4656, Value(fixture, "client.fresh.worldEntry.readBytes"));
+        Assert.AreEqual(742, Value(fixture, "client.authentication.revision"));
+        Assert.AreEqual(1, Value(fixture, "client.authentication.subrevision"));
+        Assert.AreEqual(11, Value(fixture, "client.authentication.rsa.offset"));
+        Assert.AreEqual("true", fixture["client.authentication.rsa.xtea.boundaries.observed"]);
+        Assert.AreEqual("true", fixture["client.authentication.reset.observed"]);
+        Assert.AreEqual(96, Value(fixture, "client.authentication.state.after.reset"));
+        Assert.AreEqual("50", fixture["client.authentication.server.key.transform"]);
+        Assert.AreEqual("true", fixture["client.authentication.protocol.preserved"]);
+        Assert.AreEqual("true", fixture["client.authentication.temporary.keys.cleared"]);
+        Assert.AreEqual("true", fixture["client.authentication.client.isaac.fresh"]);
+        Assert.AreEqual("true", fixture["client.authentication.server.isaac.fresh"]);
         Assert.AreEqual(
             "handshake14,fresh-request16-flag0,response2,fresh-world-entry,map-loaded,transport-disconnect,handshake14,reconnect-request16-flag1,response15,reconnect-world-entry",
-            fixture["client.order"]);
+            fixture["client.authentication.event.order"]);
+        Assert.IsNull(fixture["client.authentication.rsa.ciphertext"]);
+        Assert.IsNull(fixture["client.authentication.xtea.key"]);
+        Assert.IsNull(fixture["client.authentication.client.isaac.key"]);
+        Assert.IsNull(fixture["client.authentication.server.isaac.key"]);
     }
 
     [TestMethod]
-    public void Revision742Fixture_DoesNotClaimUnobservedServerHandoffOrResynchronizationOrdering()
+    public void Revision742Fixture_SeparatesClientCodeFactsFromUnknownProductionBehavior()
     {
         var fixture = LoadFixture();
 
-        Assert.AreEqual("false", fixture["server.transport.adoption.order.characterized"]);
-        Assert.AreEqual("false", fixture["server.resynchronization.algorithm.characterized"]);
+        Assert.AreEqual("false", fixture["authentication.header.opcode18.presentInRegistry"]);
+        Assert.AreEqual("false", fixture["authentication.header.opcode18.observed"]);
+        Assert.AreEqual("true", fixture["game.channel.opcode18.exists"]);
+        Assert.AreEqual("isaac", fixture["game.channel.opcode18.framing"]);
+        Assert.AreEqual("false", fixture["game.channel.opcode18.observedInReconnectTrace"]);
+        Assert.AreEqual("false", fixture["production.server.response15.acceptance.known"]);
+        Assert.AreEqual("false", fixture["production.server.reconnect.worldEntryPayload.known"]);
+        Assert.AreEqual("false", fixture["production.server.handoff.order.known"]);
+        Assert.AreEqual("false", fixture["production.server.resynchronization.order.known"]);
+        Assert.AreEqual("false", fixture["production.server.cipher.transition.known"]);
+        Assert.AreEqual("false", fixture["production.server.authentication.behavior.known"]);
+        Assert.AreEqual("false", fixture["production.server.session.behavior.known"]);
+        Assert.AreEqual("false", fixture["production.server.resumed.reads.writes.known"]);
+        Assert.IsNull(fixture["reconnect.response"]);
+        Assert.IsNull(fixture["reconnect.world.entry.bytes"]);
     }
 
     private static System.Collections.Specialized.NameValueCollection LoadFixture()

@@ -15,8 +15,6 @@ namespace Hagalaz.Services.GameWorld.Network.Model
         public string ConnectionId => _context.ConnectionId;
         public IFeatureCollection Features => _context.Features;
 
-        public bool TryReconnect(RaidoCallerContext replacement) => _context.TryReconnect(replacement);
-
         public async Task SendMessage(RaidoMessage message, CancellationToken cancellationToken = default) => await _context.WriteAsync(message, cancellationToken);
     }
 }

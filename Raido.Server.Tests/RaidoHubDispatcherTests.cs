@@ -34,6 +34,8 @@ public sealed class RaidoHubDispatcherTests
     private sealed class InheritedAuthorizationMessage : RaidoMessage { }
     private sealed class MultiplePolicyMessage : RaidoMessage { }
     private sealed class AllowAnonymousMessage : RaidoMessage { }
+    private class BaseMessage : RaidoMessage { }
+    private sealed class DerivedMessage : BaseMessage { }
 
     private sealed class DispatchHub : RaidoHub
     {
@@ -90,6 +92,14 @@ public sealed class RaidoHubDispatcherTests
             ValueTaskInvoked++;
             return ValueTask.FromResult(new DispatchMessage());
         }
+    }
+
+    private sealed class ExactTypeDispatchHub : RaidoHub
+    {
+        public static int Invoked;
+
+        [RaidoMessageHandler(typeof(BaseMessage))]
+        public void Handle(BaseMessage message) => Invoked++;
     }
 
     private sealed class DispatchFilter : IRaidoHubFilter
@@ -255,6 +265,7 @@ public sealed class RaidoHubDispatcherTests
         BaseAuthorizedHub.Invoked = 0;
         MultiplePolicyHub.Invoked = 0;
         AllowAnonymousOverrideHub.Invoked = 0;
+        ExactTypeDispatchHub.Invoked = 0;
     }
 
     [TestMethod]
@@ -269,6 +280,17 @@ public sealed class RaidoHubDispatcherTests
         Assert.AreEqual(1, DispatchHub.Connected);
         Assert.AreEqual(1, DispatchHub.Invoked);
         Assert.AreEqual(1, DispatchHub.Disconnected);
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_DoesNotDispatchDerivedMessageToBaseMessageHandler()
+    {
+        using var provider = CreateProvider<ExactTypeDispatchHub>().Provider;
+        var dispatcher = CreateDispatcher<ExactTypeDispatchHub>(provider);
+
+        await dispatcher.DispatchMessageAsync(CreateConnection(), new DerivedMessage());
+
+        Assert.AreEqual(0, ExactTypeDispatchHub.Invoked);
     }
 
     [TestMethod]

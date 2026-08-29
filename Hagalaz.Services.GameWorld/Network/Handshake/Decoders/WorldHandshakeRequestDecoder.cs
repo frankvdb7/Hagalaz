@@ -217,9 +217,21 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 
                 // stop cache CRC block
 
-                if (isReconnect)
-                {
-                    decodedMessage = new WorldReconnectRequest
+                decodedMessage = isReconnect
+                    ? new WorldReconnectRequest
+                    {
+                        ClientRevision = clientRevision,
+                        ClientRevisionPatch = clientRevisionPatch,
+                        Login = login,
+                        Password = password,
+                        IsaacSeed = isaacSeed,
+                        CacheCRCs = cacheCrCs,
+                        ClientId = Convert.ToHexString(userId),
+                        DisplayMode = (DisplayMode)displayMode,
+                        ClientSizeX = screenSizeX,
+                        ClientSizeY = screenSizeY
+                    }
+                    : new WorldSignInRequest
                     {
                         ClientRevision = clientRevision,
                         ClientRevisionPatch = clientRevisionPatch,
@@ -232,23 +244,6 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                         ClientSizeX = screenSizeX,
                         ClientSizeY = screenSizeY
                     };
-                }
-                else
-                {
-                    decodedMessage = new WorldSignInRequest
-                    {
-                        ClientRevision = clientRevision,
-                        ClientRevisionPatch = clientRevisionPatch,
-                        Login = login,
-                        Password = password,
-                        IsaacSeed = isaacSeed,
-                        CacheCRCs = cacheCrCs,
-                        ClientId = Convert.ToHexString(userId),
-                        DisplayMode = (DisplayMode)displayMode,
-                        ClientSizeX = (int)screenSizeX,
-                        ClientSizeY = (int)screenSizeY
-                    };
-                }
                 return true;
                 });
             message = decoded ? decodedMessage : default;
