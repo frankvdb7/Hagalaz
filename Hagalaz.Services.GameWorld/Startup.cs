@@ -512,13 +512,13 @@ namespace Hagalaz.Services.GameWorld
                 options.AddDecoder<ClientHandshakeRequestDecoder>(14);
                 options.AddDecoder<ClientUpdateRequestDecoder>(15);
                 options.AddDecoder<WorldHandshakeRequestDecoder>(16);
-                options.AddDecoder<WorldHandshakeRequestDecoder>(18); // reconnect
                 options.AddDecoder<LobbyHandshakeRequestDecoder>(19);
 
                 options.AddEncoder<ClientHandshakeResponseEncoder>();
                 options.AddEncoder<ClientSignInResponseEncoder>();
                 options.AddEncoder<LobbySignInResponseEncoder>();
                 options.AddEncoder<WorldSignInResponseEncoder>();
+                options.AddEncoder<WorldReconnectResponseEncoder>();
             });
 
             services.AddRaidoProtocol<ClientProtocol742>(options =>

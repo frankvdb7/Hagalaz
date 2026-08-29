@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-28
+goal: Implement revision-742 world reconnect end-to-end with evidence-gated wire
+  behavior and transport-only Raido handoff

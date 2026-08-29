@@ -40,6 +40,7 @@ namespace Raido.Server
         private CancellationTokenRegistration? _closedRequestedRegistration;
         private ConnectionContext? _currentConnection;
         private ConnectionContext? _detachedConnection;
+        private RaidoConnectionContext? _reconnectReservation;
         private TaskCompletionSource<bool>? _reconnectWaiter;
         private long? _reconnectWindowStartTimestamp;
         private ClaimsPrincipal? _user;
@@ -52,6 +53,9 @@ namespace Raido.Server
         private TimeSpan _receivedMessageElapsed;
         private bool _receivedMessageTimeoutEnabled;
         private long _receivedMessageTick;
+        private RaidoConnectionContext? _physicalTransportOwner;
+        private volatile bool _physicalTransportTransferPending;
+        private volatile bool _physicalTransportTransferred;
 
         private readonly TimeSpan _keepAliveInterval;
         private readonly TimeSpan _clientTimeoutInterval;
@@ -489,6 +493,15 @@ namespace Raido.Server
         {
             ArgumentNullException.ThrowIfNull(replacement);
 
+            return TryReconnect(replacement, reservedReplacement: null, deferCompletion: false);
+        }
+
+        private bool TryReconnect(
+            ConnectionContext replacement,
+            RaidoConnectionContext? reservedReplacement,
+            bool deferCompletion)
+        {
+
             TaskCompletionSource<bool>? reconnectWaiter;
             ConnectionContext detachedConnection;
             CancellationToken? detachedCloseRequestedToken;
@@ -496,7 +509,8 @@ namespace Raido.Server
             {
                 if (_connectionAborted || !_reconnectEnabled || _currentConnection is not null ||
                     _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted ||
-                    _detachedConnection is not ConnectionContext currentDetachedConnection)
+                    _detachedConnection is not ConnectionContext currentDetachedConnection ||
+                    (_reconnectReservation is not null && !ReferenceEquals(_reconnectReservation, reservedReplacement)))
                 {
                     return false;
                 }
@@ -541,14 +555,28 @@ namespace Raido.Server
                     !closedRequestedToken.GetValueOrDefault().IsCancellationRequested)
                 {
                     obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
+                    if (reservedReplacement is not null)
+                    {
+                        reservedReplacement.PreparePhysicalTransportTransfer(this);
+                    }
+
                     _currentConnection = replacement;
                     _detachedConnection = null;
                     _closedRegistration = closedRegistration;
                     _closedRequestedRegistration = closedRequestedRegistration;
-                    _reconnectWaiter = null;
+                    if (!deferCompletion)
+                    {
+                        _reconnectReservation = null;
+                        _reconnectWaiter = null;
+                    }
+                    // A temporary reader must advance its consumed boundary before the old
+                    // logical reader is released to consume the replacement transport.
                     _reconnectWindowStartTimestamp = null;
                     CloseException = null;
-                    reconnectWaiter.TrySetResult(true);
+                    if (!deferCompletion)
+                    {
+                        reconnectWaiter.TrySetResult(true);
+                    }
                     published = true;
                 }
                 else if (reconnectWindowIsCurrent && IsReconnectWindowExpiredLocked())
@@ -568,6 +596,17 @@ namespace Raido.Server
             {
                 closedRegistration.Dispose();
                 closedRequestedRegistration?.Dispose();
+
+                if (reservedReplacement is not null)
+                {
+                    lock (_reconnectLock)
+                    {
+                        if (ReferenceEquals(_reconnectReservation, reservedReplacement))
+                        {
+                            _reconnectReservation = null;
+                        }
+                    }
+                }
             }
 
             obsoleteClosedRequestedRegistration?.Dispose();
@@ -578,6 +617,77 @@ namespace Raido.Server
             }
 
             return published;
+        }
+
+        /// <summary>
+        /// Attempts to adopt the replacement physical transport owned by a temporary caller context.
+        /// </summary>
+        /// <param name="replacement">The temporary caller context that owns the replacement transport.</param>
+        /// <returns><see langword="true"/> when the replacement was published; otherwise, <see langword="false"/>.</returns>
+        public bool TryReconnect(RaidoCallerContext replacement)
+        {
+            ArgumentNullException.ThrowIfNull(replacement);
+
+            if (replacement is not IRaidoCallerContextTransport transport ||
+                !transport.Connection.TryGetCurrentConnection(out var physicalConnection))
+            {
+                return false;
+            }
+
+            lock (_reconnectLock)
+            {
+                if (_reconnectReservation is not null)
+                {
+                    return false;
+                }
+
+                _reconnectReservation = transport.Connection;
+            }
+
+            return TryReconnect(physicalConnection, transport.Connection, deferCompletion: true);
+        }
+
+        internal bool IsPhysicalTransportTransferred => _physicalTransportTransferred;
+
+        internal bool IsPhysicalTransportTransferPending => _physicalTransportTransferPending;
+
+        private void PreparePhysicalTransportTransfer(RaidoConnectionContext owner)
+        {
+            _physicalTransportOwner = owner;
+            _physicalTransportTransferPending = true;
+        }
+
+        internal void CompletePhysicalTransportTransfer()
+        {
+            if (!_physicalTransportTransferPending || _physicalTransportOwner is not RaidoConnectionContext owner)
+            {
+                return;
+            }
+
+            _physicalTransportTransferPending = false;
+            _physicalTransportOwner = null;
+            if (owner.CompleteReconnectReservation(this))
+            {
+                _physicalTransportTransferred = true;
+            }
+        }
+
+        private bool CompleteReconnectReservation(RaidoConnectionContext replacement)
+        {
+            lock (_reconnectLock)
+            {
+                if (!ReferenceEquals(_reconnectReservation, replacement) ||
+                    _reconnectWaiter is not TaskCompletionSource<bool> reconnectWaiter ||
+                    reconnectWaiter.Task.IsCompleted)
+                {
+                    return false;
+                }
+
+                _reconnectReservation = null;
+                _reconnectWaiter = null;
+                reconnectWaiter.TrySetResult(true);
+                return true;
+            }
         }
 
         internal bool IsTerminal => _connectionAborted;
@@ -792,6 +902,7 @@ namespace Raido.Server
 
             var reconnectWaiter = _reconnectWaiter;
             _reconnectWaiter = null;
+            _reconnectReservation = null;
             _reconnectWindowStartTimestamp = null;
             reconnectWaiter?.TrySetResult(false);
 
@@ -1159,6 +1270,7 @@ namespace Raido.Server
                 _closedRequestedRegistration = null;
                 _currentConnection = null;
                 _detachedConnection = null;
+                _reconnectReservation = null;
                 _reconnectEnabled = false;
                 _reconnectWindowStartTimestamp = null;
                 reconnectWaiter = _reconnectWaiter;

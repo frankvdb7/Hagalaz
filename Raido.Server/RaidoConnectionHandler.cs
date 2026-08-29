@@ -102,11 +102,17 @@ namespace Raido.Server
             catch (Exception ex)
             {
                 Log.ErrorProcessingRequest(_logger, ex);
-                await OnDisconnectedAsync(connection, ex);
+                if (!connection.IsPhysicalTransportTransferred)
+                {
+                    await OnDisconnectedAsync(connection, ex);
+                }
                 return;
             }
 
-            await OnDisconnectedAsync(connection, connection.CloseException);
+            if (!connection.IsPhysicalTransportTransferred)
+            {
+                await OnDisconnectedAsync(connection, connection.CloseException);
+            }
         }
 
         /// <summary>
@@ -187,6 +193,12 @@ namespace Raido.Server
 
                             await _dispatcher.DispatchMessageAsync(connection, result.Message);
 
+                            if (connection.IsPhysicalTransportTransferPending ||
+                                connection.IsPhysicalTransportTransferred)
+                            {
+                                break;
+                            }
+
                             if (result.IsCompleted)
                             {
                                 break;
@@ -194,9 +206,22 @@ namespace Raido.Server
                         }
                         finally
                         {
-                            protocolReader.Advance();
+                            if (connection.IsPhysicalTransportTransferPending)
+                            {
+                                protocolReader.Advance(true);
+                                connection.CompletePhysicalTransportTransfer();
+                            }
+                            else
+                            {
+                                protocolReader.Advance(connection.IsPhysicalTransportTransferred);
+                            }
                         }
                     }
+                }
+
+                if (connection.IsPhysicalTransportTransferred)
+                {
+                    return;
                 }
 
                 connection.OnPhysicalConnectionClosed(physicalConnection);

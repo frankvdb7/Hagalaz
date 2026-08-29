@@ -7,11 +7,13 @@ using Raido.Common.Protocol;
 
 namespace Raido.Server.Internal
 {
-    internal sealed class DefaultRaidoCallerContext : RaidoCallerContext
+    internal sealed class DefaultRaidoCallerContext : RaidoCallerContext, IRaidoCallerContextTransport
     {
         private readonly RaidoConnectionContext _connection;
 
         public DefaultRaidoCallerContext(RaidoConnectionContext connection) => _connection = connection;
+
+        RaidoConnectionContext IRaidoCallerContextTransport.Connection => _connection;
 
         public override string ConnectionId => _connection.ConnectionId;
         public override ClaimsPrincipal? User => _connection.User;

@@ -18,6 +18,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Fixtures\world-reconnect-characterization.properties"
+                      LogicalName="Hagalaz.Services.GameWorld.Tests.Fixtures.world-reconnect-characterization.properties" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Services.GameWorld\Hagalaz.Services.GameWorld.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
   </ItemGroup>

@@ -321,6 +321,60 @@ public sealed class RaidoStatefulReconnectTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task TemporaryCallerContextTransfersOnlyTransportAndPreservesUnreadInput()
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var logical = CreateContext(initial.Connection, reconnectEnabled: true);
+        var temporary = CreateContext(replacement.Connection, reconnectEnabled: true);
+        var logicalProtocol = logical.Protocol;
+        var protocol = new BoundaryProtocol();
+        temporary.Protocol = protocol;
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        dispatcher.DispatchMessageAsync(temporary, Arg.Any<RaidoMessage>()).Returns(_ =>
+        {
+            Assert.IsTrue(logical.TryReconnect(temporary.RaidoCallerContext));
+            return Task.CompletedTask;
+        });
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.TransportOnlyHandoff");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var store = new RaidoConnectionStore();
+        var lifetimeManager = new DefaultRaidoLifetimeManager(store);
+        await lifetimeManager.OnConnectedAsync(logical);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            lifetimeManager,
+            dispatcher,
+            metrics);
+
+        logical.OnPhysicalConnectionClosed(initial.Connection);
+        await replacement.Input.Writer.WriteAsync(new byte[] { 1, 2 });
+
+        var run = handler.ConnectAsync(temporary);
+        await run.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.AreSame(protocol, temporary.Protocol);
+        Assert.AreSame(logicalProtocol, logical.Protocol);
+        Assert.IsTrue(logical.TryGetCurrentConnection(out var current));
+        Assert.AreSame(replacement.Connection, current);
+        Assert.AreSame(logical, store[logical.ConnectionId]);
+        Assert.IsNull(store[temporary.ConnectionId]);
+        Assert.IsFalse(temporary.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(replacement.Closed.IsCancellationRequested);
+        await dispatcher.DidNotReceive().OnDisconnectedAsync(temporary, Arg.Any<Exception?>());
+
+        var unread = await replacement.Input.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
+        CollectionAssert.AreEqual(new byte[] { 2 }, unread.Buffer.ToArray());
+        replacement.Input.Reader.AdvanceTo(unread.Buffer.End);
+
+        logical.Cleanup();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task TimeoutWinsWhileCandidateCallbacksAreStillRegistering()
     {
         var initial = CreatePhysicalConnection("initial");
@@ -973,6 +1027,38 @@ public sealed class RaidoStatefulReconnectTests
         }
 
         public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => new byte[] { 42 };
+
+        public bool IsVersionSupported(int version) => version == 1;
+    }
+
+    private sealed class BoundaryProtocol : IRaidoProtocol
+    {
+        public string Name => "boundary";
+        public int Version => 1;
+
+        public bool TryParseMessage(
+            in ReadOnlySequence<byte> input,
+            ref SequencePosition consumed,
+            ref SequencePosition examined,
+            out RaidoMessage message)
+        {
+            if (input.IsEmpty)
+            {
+                consumed = input.Start;
+                examined = input.End;
+                message = null!;
+                return false;
+            }
+
+            consumed = input.GetPosition(1);
+            examined = input.End;
+            message = new TestMessage();
+            return true;
+        }
+
+        public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output) { }
+
+        public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => ReadOnlyMemory<byte>.Empty;
 
         public bool IsVersionSupported(int version) => version == 1;
     }

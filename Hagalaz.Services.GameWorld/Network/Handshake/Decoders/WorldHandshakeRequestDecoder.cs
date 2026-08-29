@@ -32,7 +32,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 return false;
             }
 
-            if (!reader.TryRead(out bool someLoginTypeBool))
+            if (!reader.TryRead(out bool isReconnect))
             {
                 message = default;
                 return false;
@@ -217,19 +217,38 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 
                 // stop cache CRC block
 
-                decodedMessage = new WorldSignInRequest
+                if (isReconnect)
                 {
-                    ClientRevision = clientRevision,
-                    ClientRevisionPatch = clientRevisionPatch,
-                    Login = login,
-                    Password = password,
-                    IsaacSeed = isaacSeed,
-                    CacheCRCs = cacheCrCs,
-                    ClientId = Convert.ToHexString(userId),
-                    DisplayMode = (DisplayMode)displayMode,
-                    ClientSizeX = screenSizeX,
-                    ClientSizeY = screenSizeY
-                };
+                    decodedMessage = new WorldReconnectRequest
+                    {
+                        ClientRevision = clientRevision,
+                        ClientRevisionPatch = clientRevisionPatch,
+                        Login = login,
+                        Password = password,
+                        IsaacSeed = isaacSeed,
+                        CacheCRCs = cacheCrCs,
+                        ClientId = Convert.ToHexString(userId),
+                        DisplayMode = (DisplayMode)displayMode,
+                        ClientSizeX = screenSizeX,
+                        ClientSizeY = screenSizeY
+                    };
+                }
+                else
+                {
+                    decodedMessage = new WorldSignInRequest
+                    {
+                        ClientRevision = clientRevision,
+                        ClientRevisionPatch = clientRevisionPatch,
+                        Login = login,
+                        Password = password,
+                        IsaacSeed = isaacSeed,
+                        CacheCRCs = cacheCrCs,
+                        ClientId = Convert.ToHexString(userId),
+                        DisplayMode = (DisplayMode)displayMode,
+                        ClientSizeX = (int)screenSizeX,
+                        ClientSizeY = (int)screenSizeY
+                    };
+                }
                 return true;
                 });
             message = decoded ? decodedMessage : default;
