@@ -1,82 +1,63 @@
 # Design
 
-## Ownership boundaries
+## Existing ownership
 
-`PasswordGrantCommandConsumer` remains the sole credential-validation owner.
-The tokenless authorization consumer calls it with empty scopes, returns the
-subject and existing validation outcomes, and never issues or looks up tokens.
-`AuthenticationService` runs that request through the existing sign-in
-resilience/rate-limit pipeline and resolves the subject to the master ID without
-installing temporary authentication features.
+`PasswordGrantCommandConsumer` remains the credential-validation owner.
+The tokenless authorization consumer calls it with empty scopes and returns
+the existing subject and validation outcomes. `AuthenticationService` uses the
+existing resilience and rate-limit pipeline and resolves that subject to the
+master ID without installing temporary authentication state.
 
-`HandshakeHub` owns only reconnect request preflight, authentication, existing
-session lookup, and identity ownership verification. It must not reproduce
-Raido's reconnect eligibility or lifetime checks. The existing session's
-authentication subject, session master ID, and character master ID must all
-match the authenticated master ID.
+`HandshakeHub` owns reconnect request validation, authentication, existing
+connection lookup, session/character ownership verification, response
+construction, and response sending. It does not reproduce Raido reconnect
+eligibility or lifetime rules.
 
-`RaidoConnectionContext` remains the sole reconnect authority. It retains the
-existing reconnect window, lock, waiter, timeout, terminal behavior, and
-physical publication transition. The only added reconnect-related state is a
-single private claim identifying the owning replacement physical
-`ConnectionContext` by reference, with the replacement protocol associated with
-that in-progress transition. There is no public reservation or separate claim
-object, registry, lease, state machine, or waiter.
+## Minimal Raido bridge
 
-## Handoff ordering
+The ordinary temporary `RaidoConnectionContext` handles the reconnect
+request. The existing dispatcher contract remains unchanged. The GameConnection
+boundary accepts the temporary caller context and replacement protocol, while
+Raido internally resolves the caller's current physical connection.
 
-The handler resolves and verifies ownership before attempting the Raido seam.
-Under `_reconnectLock`, the existing window is validated and the candidate is
-atomically claimed. The lock is released while the winner writes and flushes
-response 15 through the temporary context using the smallest existing/internal
-physical write path that exposes an unambiguous physical success/failure
-result. Exceptions, cancellation, closure/completion that makes continuation
-unsafe, and ambiguous results fail closed.
+After the hub sends `WorldReconnectResponse` through
+`Clients.Caller.SendAsync`, the boundary stores one private one-shot action on
+the temporary context. The handler consumes that action only after
+`RaidoProtocolReader.Advance(true)`, and the action invokes the existing
+`TryReconnect` publication operation with the captured physical connection and
+replacement protocol. No response message, response callback, or raw transport
+is passed through the GameWorld boundary.
 
-After a successful flush, the existing transition verifies that the same
-physical candidate still owns the claim and that #477 has not become terminal.
-The replacement protocol is then installed on the stable logical context,
-the replacement physical callbacks/transport are published, the private claim
-is cleared, and the existing reconnect waiter is completed. Normal logical
-processing can resume only after all three handoff effects are complete.
+The existing `TryReconnect(ConnectionContext)` operation remains the
+publication and reconnect-lifecycle authority. Its small protocol-aware
+extension installs the replacement protocol before publishing the replacement
+physical connection and before completing the existing waiter. Its existing
+window, timeout, terminal, callback-registration, and concurrent-publication
+checks remain authoritative.
 
-The temporary reader advances its consumed boundary before publication when the
-handoff occurs during dispatch. It then relinquishes the adopted transport and
-skips normal disconnect cleanup for that physical connection. Failed and
-rejected temporary contexts retain normal cleanup.
+The generic write path remains unchanged. GameWorld decides which message to
+send; Raido only serializes and flushes it using the current protocol and
+physical connection. Existing write/transport failure handling determines
+whether the temporary context can still schedule the reconnect.
 
-## Failure and stale continuation rules
+## Physical lifetime
 
-Every candidate-specific completion, failure, cancellation, timeout, and
-cleanup path compares the stored claim with the same physical candidate under
-the existing reconnect lock. A stale continuation is a no-op: it cannot clear
-a newer claim, install a protocol, publish a transport, complete the waiter,
-or change session/character state.
+The temporary handler reports a local successful-transfer outcome from its
+deferred action. On success it clears the temporary context through normal
+cleanup before running the normal disconnect callback, so that callback cannot
+abort the transferred physical connection. Temporary metrics, store removal,
+lifetime callbacks, and hub disconnect callbacks still complete.
 
-If the flush fails, the candidate-owned claim is cleared or invalidated through
-the existing reconnect transition. Another candidate can proceed only while
-the original #477 window remains valid. If timeout or abort wins, #477 terminal
-behavior remains authoritative; no separate claim timeout or timeout extension
-is added. A terminal transition invalidates the claim and completes the one
-existing waiter with its existing result.
+`RaidoConnectionHandler.ConnectAsync` retains the accepted physical
+`ConnectionContext` locally and, only after temporary cleanup completes,
+awaits its existing `ConnectionClosed` signal. The stable logical context
+owns the active transport through #477 during this wait. On failed publication
+the normal temporary abort and cleanup path remains unchanged.
 
-## Protocol and response
+## Scope boundary
 
-`WorldReconnectResponse` uses fixed opcode 15 and variable-short framing. Its
-payload is exactly the revision-742 4,608-byte player-entry payload. The
-player-entry bit serialization is shared with the existing standard-map encoder
-without changing standard-map output. The new client protocol is configured
-with the request ISAAC seed and installed on the resumed logical context,
-never on the temporary handshake context.
-
-## Rejected alternatives
-
-- Sending response 15 before claiming is rejected because concurrent candidates
-  could both receive success.
-- Holding the reconnect lock over asynchronous network I/O is rejected because
-  it blocks timeout/abort and violates the existing lock's synchronous state
-  transition role.
-- Publishing before response flush or protocol installation is rejected because
-  resumed reads/writes could use the wrong protocol or overtake the handshake.
-- A second reservation, lease, registry, waiter, state machine, or generic
-  transport writer is rejected as duplicate ownership or unnecessary scope.
+No new state machine, candidate subsystem, ownership framework, writer
+abstraction, dispatch result, or lifecycle mode is introduced. The only
+special handler behavior is the one-shot action required by the existing
+reader advance boundary and the local successful-transfer outcome required to
+avoid aborting the transferred transport.

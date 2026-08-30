@@ -911,158 +911,74 @@ public sealed class RaidoStatefulReconnectTests
     }
 
     [TestMethod]
-    [Timeout(5000)]
-    public async Task AsyncReconnect_AllowsOnlyOneCandidateToOwnTheInProgressClaim()
+    public async Task TryReconnectWithReplacementProtocolPublishesProtocolBeforeCompletingWaiter()
     {
-        var initial = CreatePhysicalConnection("initial");
-        var first = CreatePhysicalConnection("first");
-        var second = CreatePhysicalConnection("second");
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
-        var firstContext = CreateContext(first.Connection, reconnectEnabled: false);
-        var secondContext = CreateContext(second.Connection, reconnectEnabled: false);
-        var firstHandshakeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var completeFirstHandshake = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var firstProtocol = new ReconnectWritingProtocol();
-        var secondProtocol = new ReconnectWritingProtocol();
-
-        context.OnPhysicalConnectionClosed(initial.Connection);
-        var firstAttempt = context.TryReconnectAsync(
-            firstContext.RaidoCallerContext,
-            firstProtocol,
-            async () =>
-            {
-                firstHandshakeStarted.TrySetResult();
-                return await completeFirstHandshake.Task;
-            }).AsTask();
-
-        await firstHandshakeStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        var secondHandshakeCalls = 0;
-        var secondAttempt = await context.TryReconnectAsync(
-            secondContext.RaidoCallerContext,
-            secondProtocol,
-            () =>
-            {
-                Interlocked.Increment(ref secondHandshakeCalls);
-                return ValueTask.FromResult(true);
-            });
-
-        Assert.IsFalse(secondAttempt);
-        Assert.AreEqual(0, secondHandshakeCalls);
-
-        completeFirstHandshake.TrySetResult(true);
-        Assert.IsTrue(await firstAttempt.WaitAsync(TimeSpan.FromSeconds(1)));
-        context.Cleanup();
-        firstContext.Cleanup();
-        secondContext.Cleanup();
-    }
-
-    [TestMethod]
-    [Timeout(5000)]
-    public async Task AsyncReconnect_DoesNotResumeTheLogicalConnectionUntilHandshakeAndPublicationComplete()
-    {
-        var initial = CreatePhysicalConnection("initial");
-        var replacement = CreatePhysicalConnection("replacement");
-        var context = CreateContext(initial.Connection, reconnectEnabled: true);
-        var replacementContext = CreateContext(replacement.Connection, reconnectEnabled: false);
-        var oldProtocol = context.Protocol;
         var replacementProtocol = new ReconnectWritingProtocol();
 
         context.OnPhysicalConnectionClosed(initial.Connection);
         var reconnectWaiter = context.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
-        var reconnect = context.TryReconnectAsync(
-            replacementContext.RaidoCallerContext,
-            replacementProtocol,
-            () => ValueTask.FromResult(true));
 
-        Assert.IsTrue(await reconnect);
-        Assert.IsFalse(reconnectWaiter.IsCompleted);
-        Assert.IsFalse(context.TryGetCurrentConnection(out _));
-        Assert.AreSame(oldProtocol, context.Protocol);
-
-        // The physical handshake has completed, but only the handoff path may publish it.
-        Assert.IsTrue(context.TryPublishReconnect(replacementContext, replacement.Connection));
-
+        Assert.IsTrue(context.TryReconnect(replacement.Connection, replacementProtocol));
         Assert.AreSame(replacementProtocol, context.Protocol);
         Assert.IsTrue(context.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
-        Assert.IsTrue(await reconnectWaiter.WaitAsync(TimeSpan.FromSeconds(1)));
-        context.Cleanup();
-        replacementContext.Cleanup();
-    }
-
-    [TestMethod]
-    public async Task AsyncReconnect_FailedHandshakeClearsOnlyItsOwnClaimAndAllowsTheNextCandidate()
-    {
-        var initial = CreatePhysicalConnection("initial");
-        var failed = CreatePhysicalConnection("failed");
-        var successful = CreatePhysicalConnection("successful");
-        var context = CreateContext(initial.Connection, reconnectEnabled: true);
-        var failedContext = CreateContext(failed.Connection, reconnectEnabled: false);
-        var successfulContext = CreateContext(successful.Connection, reconnectEnabled: false);
-
-        context.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsFalse(await context.TryReconnectAsync(
-            failedContext.RaidoCallerContext,
-            new ReconnectWritingProtocol(),
-            () => ValueTask.FromResult(false)));
-
-        Assert.IsTrue(await context.TryReconnectAsync(
-            successfulContext.RaidoCallerContext,
-            new ReconnectWritingProtocol(),
-            () => ValueTask.FromResult(true)));
-        Assert.IsTrue(context.TryPublishReconnect(successfulContext, successful.Connection));
+        Assert.IsTrue(await reconnectWaiter);
 
         context.Cleanup();
-        failedContext.Cleanup();
-        successfulContext.Cleanup();
     }
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task AsyncReconnect_TimeoutInvalidatesTheClaimAndCannotPublishLater()
+    public async Task ScheduledReconnectPublishesAfterDispatchAndKeepsTransferredConnectionAlive()
     {
-        var timeProvider = new ManualTimeProvider();
-        var initial = CreatePhysicalConnection("initial");
-        var replacement = CreatePhysicalConnection("replacement");
-        var replacementContext = CreateContext(replacement.Connection, reconnectEnabled: false);
-        var context = CreateContext(
-            initial.Connection,
-            reconnectEnabled: true,
-            timeout: TimeSpan.FromSeconds(1),
-            timeProvider: timeProvider);
-        var completeHandshake = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var stableInitial = CreatePhysicalConnection("stable-initial");
+        using var candidate = CreatePhysicalConnection("candidate");
+        var stable = CreateContext(stableInitial.Connection, reconnectEnabled: true);
+        var temporary = CreateContext(candidate.Connection, reconnectEnabled: false);
+        var message = new TestMessage();
+        temporary.Protocol = new TestProtocol { MessageToReturn = message };
+        var replacementProtocol = new ReconnectWritingProtocol();
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.DeferredReconnect");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
 
-        context.OnPhysicalConnectionClosed(initial.Connection);
-        var reconnect = context.TryReconnectAsync(
-            replacementContext.RaidoCallerContext,
-            new ReconnectWritingProtocol(),
-            () => new ValueTask<bool>(completeHandshake.Task));
-
-        timeProvider.Advance(TimeSpan.FromSeconds(2));
-        Assert.IsFalse(await context.WaitForReconnectAsync(TimeSpan.Zero));
-
-        completeHandshake.TrySetResult(true);
-        Assert.IsFalse(await reconnect.AsTask().WaitAsync(TimeSpan.FromSeconds(1)));
-        Assert.IsFalse(context.TryPublishReconnect(replacementContext, replacement.Connection));
-        Assert.IsFalse(context.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.IsTerminal);
-        replacementContext.Cleanup();
-        context.Cleanup();
-    }
-
-    [TestMethod]
-    public async Task WriteHandshakeAsync_FailsClosedForCanceledOrCompletedPhysicalFlushes()
-    {
-        foreach (var result in new[] { new FlushResult(true, false), new FlushResult(false, true) })
+        dispatcher.DispatchMessageAsync(temporary, message).Returns(Task.CompletedTask);
+        dispatcher.OnDisconnectedAsync(temporary, Arg.Any<Exception?>()).Returns(_ =>
         {
-            var writer = new ResultPipeWriter(result);
-            var physical = CreatePhysicalConnection($"flush-{result.IsCanceled}-{result.IsCompleted}", outputWriter: writer);
-            var context = CreateContext(physical.Connection, reconnectEnabled: false);
+            disconnected.TrySetResult();
+            return Task.CompletedTask;
+        });
+        stable.OnPhysicalConnectionClosed(stableInitial.Connection);
+        Assert.IsTrue(stable.TryScheduleReconnect(temporary.RaidoCallerContext, replacementProtocol));
 
-            Assert.IsFalse(await context.WriteHandshakeAsync(new TestMessage()));
+        var run = handler.ConnectAsync(temporary);
+        await candidate.Input.Writer.WriteAsync(new byte[] { 1 });
 
-            context.Cleanup();
-        }
+        await WaitForConditionAsync(() =>
+            stable.TryGetCurrentConnection(out var current) && ReferenceEquals(current, candidate.Connection));
+        await WaitForConditionAsync(() => !temporary.TryGetCurrentConnection(out _));
+
+        Assert.IsFalse(run.IsCompleted);
+        await disconnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await dispatcher.Received(1).OnDisconnectedAsync(temporary, Arg.Any<Exception?>());
+        Assert.AreSame(replacementProtocol, stable.Protocol);
+
+        candidate.Closed.Cancel();
+        await run.WaitAsync(TimeSpan.FromSeconds(2));
+
+        stable.Cleanup();
     }
 
     private sealed class FailingOutputProtocol(Exception? writeException = null, Exception? messageBytesException = null) : IRaidoProtocol
@@ -1130,24 +1046,6 @@ public sealed class RaidoStatefulReconnectTests
         public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => new byte[] { 42 };
 
         public bool IsVersionSupported(int version) => version == 1;
-    }
-
-    private sealed class ResultPipeWriter(FlushResult result) : PipeWriter
-    {
-        private readonly ArrayBufferWriter<byte> _buffer = new();
-
-        public override void Advance(int bytes) => _buffer.Advance(bytes);
-
-        public override Memory<byte> GetMemory(int sizeHint = 0) => _buffer.GetMemory(sizeHint);
-
-        public override Span<byte> GetSpan(int sizeHint = 0) => _buffer.GetSpan(sizeHint);
-
-        public override void CancelPendingFlush() { }
-
-        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult(result);
-
-        public override void Complete(Exception? exception = null) { }
     }
 
     [TestMethod]

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using Microsoft.AspNetCore.Connections;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -54,11 +56,15 @@ namespace Raido.Server
             Log.ConnectedStarting(_logger, connection);
             RaidoEventSource.Log.ConnectionStart(connection.ConnectionId);
             _metrics.ConnectionStart(connection.MetricsContext);
+            var acceptedPhysicalConnection = connection.TryGetCurrentConnection(out var currentConnection)
+                ? currentConnection
+                : null;
+            var transferred = false;
             try
             {
                 await connection.OnConnectedAsync();
                 await _lifetimeManager.OnConnectedAsync(connection);
-                await RunAsync(connection);
+                transferred = await RunCoreAsync(connection);
             }
             finally
             {
@@ -71,6 +77,18 @@ namespace Raido.Server
                 _metrics.ConnectionStop(connection.MetricsContext, connection.StartTimestamp, currentTimestamp);
                 await _lifetimeManager.OnDisconnectedAsync(connection);
             }
+
+            if (transferred && acceptedPhysicalConnection is not null)
+            {
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, acceptedPhysicalConnection.ConnectionClosed);
+                }
+                catch (OperationCanceledException) when (acceptedPhysicalConnection.ConnectionClosed.IsCancellationRequested)
+                {
+                    // The transferred physical connection has closed.
+                }
+            }
         }
 
         /// <summary>
@@ -78,7 +96,9 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection to run.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous connection loop.</returns>
-        public virtual async Task RunAsync(RaidoConnectionContext connection)
+        public virtual async Task RunAsync(RaidoConnectionContext connection) => await RunCoreAsync(connection);
+
+        private async Task<bool> RunCoreAsync(RaidoConnectionContext connection)
         {
             try
             {
@@ -88,12 +108,13 @@ namespace Raido.Server
             {
                 Log.ErrorDispatchingHubEvent(_logger, "OnConnectedAsync", ex);
                 await OnDisconnectedAsync(connection, ex);
-                return;
+                return false;
             }
 
+            var transferred = false;
             try
             {
-                await DispatchMessagesAsync(connection);
+                transferred = await DispatchMessagesCoreAsync(connection);
             }
             catch (OperationCanceledException) when (connection.IsTerminal)
             {
@@ -102,17 +123,23 @@ namespace Raido.Server
             catch (Exception ex)
             {
                 Log.ErrorProcessingRequest(_logger, ex);
-                if (!connection.IsPhysicalTransportAdopted)
-                {
-                    await OnDisconnectedAsync(connection, ex);
-                }
-                return;
+                await OnDisconnectedAsync(connection, ex);
+                return false;
             }
 
-            if (!connection.IsPhysicalTransportAdopted)
+            if (!transferred)
             {
                 await OnDisconnectedAsync(connection, connection.CloseException);
             }
+            else
+            {
+                // The transferred transport is no longer owned by this context before its
+                // normal disconnect callback performs the usual abort synchronization.
+                connection.Cleanup();
+                await OnDisconnectedAsync(connection, connection.CloseException);
+            }
+
+            return transferred;
         }
 
         /// <summary>
@@ -120,7 +147,9 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection to dispatch messages from.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
-        public virtual async Task DispatchMessagesAsync(RaidoConnectionContext connection)
+        public virtual async Task DispatchMessagesAsync(RaidoConnectionContext connection) => await DispatchMessagesCoreAsync(connection);
+
+        private async Task<bool> DispatchMessagesCoreAsync(RaidoConnectionContext connection)
         {
             while (!connection.IsTerminal)
             {
@@ -134,7 +163,6 @@ namespace Raido.Server
                     continue;
                 }
 
-                var reconnectHandoffAttempted = false;
                 await using (var protocolReader = new RaidoProtocolReader(physicalConnection.Transport.Input))
                 {
                     while (true)
@@ -171,6 +199,9 @@ namespace Raido.Server
                             break;
                         }
 
+                        var dispatchCompleted = false;
+                        var transferred = false;
+                        Func<bool>? postDispatchAction = null;
                         try
                         {
                             if (result.IsCanceled)
@@ -193,12 +224,7 @@ namespace Raido.Server
                             Log.ReceivedMessage(_logger, result.Message);
 
                             await _dispatcher.DispatchMessageAsync(connection, result.Message);
-
-                            if (connection.GetReconnectHandoffTarget() is not null)
-                            {
-                                reconnectHandoffAttempted = true;
-                                break;
-                            }
+                            dispatchCompleted = true;
 
                             if (result.IsCompleted)
                             {
@@ -207,35 +233,34 @@ namespace Raido.Server
                         }
                         finally
                         {
-                            if (connection.GetReconnectHandoffTarget() is RaidoConnectionContext handoffTarget)
+                            if (dispatchCompleted && (postDispatchAction = connection.TakePostDispatchAction()) is not null)
                             {
                                 protocolReader.Advance(true);
-                                if (!handoffTarget.TryPublishReconnect(connection, physicalConnection))
-                                {
-                                    connection.TryClearReconnectHandoffTarget(handoffTarget);
-                                }
+                                transferred = postDispatchAction();
                             }
                             else
                             {
                                 protocolReader.Advance();
                             }
                         }
+
+                        if (postDispatchAction is not null)
+                        {
+                            if (transferred)
+                            {
+                                return true;
+                            }
+
+                            connection.Abort();
+                            return false;
+                        }
                     }
-                }
-
-                if (connection.IsPhysicalTransportAdopted)
-                {
-                    return;
-                }
-
-                if (reconnectHandoffAttempted)
-                {
-                    connection.Abort();
-                    return;
                 }
 
                 connection.OnPhysicalConnectionClosed(physicalConnection);
             }
+
+            return false;
         }
 
         /// <summary>

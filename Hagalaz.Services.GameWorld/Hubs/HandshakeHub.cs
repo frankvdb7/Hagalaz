@@ -295,11 +295,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 CharacterLocation = character.Location
             };
 
-            var reconnected = await existingConnection.TryReconnectAsync(
-                Context,
-                clientProtocol,
-                () => Context.WriteHandshakeAsync(response, Context.ConnectionAbortedToken));
-            if (!reconnected)
+            await Clients.Caller.SendAsync(response, Context.ConnectionAbortedToken);
+            if (!existingConnection.TryScheduleReconnect(Context, clientProtocol))
             {
                 Context.Abort();
             }

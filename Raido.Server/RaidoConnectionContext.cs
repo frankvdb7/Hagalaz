@@ -40,11 +40,10 @@ namespace Raido.Server
         private CancellationTokenRegistration? _closedRequestedRegistration;
         private ConnectionContext? _currentConnection;
         private ConnectionContext? _detachedConnection;
-        private ConnectionContext? _reconnectCandidate;
-        private IRaidoProtocol? _reconnectCandidateProtocol;
         private TaskCompletionSource<bool>? _reconnectWaiter;
         private long? _reconnectWindowStartTimestamp;
         private ClaimsPrincipal? _user;
+        private Func<bool>? _postDispatchAction;
 
         private volatile bool _clientTimeoutActive;
         private volatile bool _connectionAborted;
@@ -54,8 +53,6 @@ namespace Raido.Server
         private TimeSpan _receivedMessageElapsed;
         private bool _receivedMessageTimeoutEnabled;
         private long _receivedMessageTick;
-        private RaidoConnectionContext? _reconnectHandoffTarget;
-        private volatile bool _physicalTransportAdopted;
 
         private readonly TimeSpan _keepAliveInterval;
         private readonly TimeSpan _clientTimeoutInterval;
@@ -322,88 +319,6 @@ namespace Raido.Server
             return default;
         }
 
-        /// <summary>
-        /// Writes a handshake message directly to this context's current physical transport.
-        /// Unlike the normal write path, this reports physical write/flush failure to the
-        /// reconnect handoff instead of absorbing it.
-        /// </summary>
-        internal async ValueTask<bool> WriteHandshakeAsync(RaidoMessage message, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                return false;
-            }
-
-            ConnectionContext? connection = null;
-            try
-            {
-                connection = GetCurrentConnection();
-                if (connection is null || _connectionAborted || _physicalTransportAdopted)
-                {
-                    return false;
-                }
-
-                var bytes = Protocol.GetMessageBytes(message);
-                if (bytes.IsEmpty)
-                {
-                    return false;
-                }
-
-                var result = await connection.Transport.Output.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-                if (result.IsCanceled || result.IsCompleted || cancellationToken.IsCancellationRequested)
-                {
-                    return false;
-                }
-
-                Log.SentMessage(_logger, message);
-                return true;
-            }
-            catch (OperationCanceledException ex)
-            {
-                if (connection is not null)
-                {
-                    HandleTransportFailure(connection, ex);
-                }
-
-                return false;
-            }
-            catch (IOException ex)
-            {
-                if (connection is not null)
-                {
-                    HandleTransportFailure(connection, ex);
-                }
-
-                return false;
-            }
-            catch (ObjectDisposedException ex)
-            {
-                if (connection is not null)
-                {
-                    HandleTransportFailure(connection, ex);
-                }
-
-                return false;
-            }
-            catch (Exception ex)
-            {
-                if (connection is not null)
-                {
-                    TryAbortForConnection(connection, ex);
-                }
-
-                return false;
-            }
-            finally
-            {
-                _writeLock.Release();
-            }
-        }
-
         private ValueTask<FlushResult> WriteCore<TMessage>(ConnectionContext connection, TMessage message, CancellationToken cancellationToken)
             where TMessage : RaidoMessage
         {
@@ -571,7 +486,16 @@ namespace Raido.Server
         /// </summary>
         /// <param name="replacement">The replacement physical transport.</param>
         /// <returns><see langword="true"/> when the replacement was published; otherwise, <see langword="false"/>.</returns>
-        public bool TryReconnect(ConnectionContext replacement)
+        public bool TryReconnect(ConnectionContext replacement) =>
+            TryReconnectCore(replacement, replacementProtocol: null);
+
+        internal bool TryReconnect(ConnectionContext replacement, IRaidoProtocol replacementProtocol)
+        {
+            ArgumentNullException.ThrowIfNull(replacementProtocol);
+            return TryReconnectCore(replacement, replacementProtocol);
+        }
+
+        private bool TryReconnectCore(ConnectionContext replacement, IRaidoProtocol? replacementProtocol)
         {
             ArgumentNullException.ThrowIfNull(replacement);
 
@@ -582,8 +506,7 @@ namespace Raido.Server
             {
                 if (_connectionAborted || !_reconnectEnabled || _currentConnection is not null ||
                     _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted ||
-                    _detachedConnection is not ConnectionContext currentDetachedConnection ||
-                    _reconnectCandidate is not null)
+                    _detachedConnection is not ConnectionContext currentDetachedConnection)
                 {
                     return false;
                 }
@@ -610,8 +533,7 @@ namespace Raido.Server
             {
                 var reconnectWindowIsCurrent = !_connectionAborted && _reconnectEnabled && _currentConnection is null &&
                     ReferenceEquals(detachedConnection, _detachedConnection) &&
-                    ReferenceEquals(reconnectWaiter, _reconnectWaiter) && !reconnectWaiter.Task.IsCompleted &&
-                    _reconnectCandidate is null;
+                    ReferenceEquals(reconnectWaiter, _reconnectWaiter) && !reconnectWaiter.Task.IsCompleted;
 
                 if (reconnectWindowIsCurrent && detachedCloseRequestedToken.GetValueOrDefault().IsCancellationRequested)
                 {
@@ -629,6 +551,11 @@ namespace Raido.Server
                     !closedRequestedToken.GetValueOrDefault().IsCancellationRequested)
                 {
                     obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
+                    if (replacementProtocol is not null)
+                    {
+                        Protocol = replacementProtocol;
+                    }
+
                     _currentConnection = replacement;
                     _detachedConnection = null;
                     _closedRegistration = closedRegistration;
@@ -668,250 +595,29 @@ namespace Raido.Server
             return published;
         }
 
-        /// <summary>
-        /// Claims a replacement physical transport and completes the handshake on that transport.
-        /// Publication remains part of the existing reconnect transition and occurs after the
-        /// candidate reader has relinquished its consumed input boundary.
-        /// </summary>
-        public async ValueTask<bool> TryReconnectAsync(
-            RaidoCallerContext replacement,
-            IRaidoProtocol replacementProtocol,
-            Func<ValueTask<bool>> completeHandshake)
+        public bool TryScheduleReconnect(RaidoCallerContext replacement, IRaidoProtocol replacementProtocol)
         {
             ArgumentNullException.ThrowIfNull(replacement);
             ArgumentNullException.ThrowIfNull(replacementProtocol);
-            ArgumentNullException.ThrowIfNull(completeHandshake);
 
-            if (replacement is not IRaidoCallerContextTransport transport ||
-                !transport.Connection.TryGetCurrentConnection(out var replacementPhysicalConnection))
+            if (replacement is not DefaultRaidoCallerContext replacementContext ||
+                replacementContext.Connection.IsTerminal ||
+                !replacementContext.Connection.TryGetCurrentConnection(out var physicalConnection))
             {
                 return false;
             }
 
-            TaskCompletionSource<bool>? reconnectWaiter = null;
-            ConnectionContext? detachedConnection = null;
-            var shouldTimeout = false;
-            var claimCreated = false;
-            lock (_reconnectLock)
-            {
-                if (_connectionAborted || !_reconnectEnabled || _currentConnection is not null ||
-                    _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted ||
-                    _detachedConnection is not ConnectionContext currentDetachedConnection ||
-                    _reconnectCandidate is not null || transport.Connection.IsTerminal ||
-                    replacementPhysicalConnection.ConnectionClosed.IsCancellationRequested)
-                {
-                    return false;
-                }
-
-                reconnectWaiter = waiter;
-                detachedConnection = currentDetachedConnection;
-                if (IsReconnectWindowExpiredLocked())
-                {
-                    shouldTimeout = true;
-                }
-                else
-                {
-                    _reconnectCandidate = replacementPhysicalConnection;
-                    _reconnectCandidateProtocol = replacementProtocol;
-                    claimCreated = transport.Connection.TrySetReconnectHandoffTarget(this);
-                    if (!claimCreated)
-                    {
-                        _reconnectCandidate = null;
-                        _reconnectCandidateProtocol = null;
-                    }
-                }
-            }
-
-            if (shouldTimeout || !claimCreated)
-            {
-                if (shouldTimeout)
-                {
-                    TimeoutReconnect(reconnectWaiter);
-                }
-
-                return false;
-            }
-
-            bool handshakeSucceeded;
-            try
-            {
-                handshakeSucceeded = await completeHandshake().ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Log.FailedWritingMessage(_logger, ex);
-                handshakeSucceeded = false;
-            }
-
-            if (!handshakeSucceeded)
-            {
-                transport.Connection.TryClearReconnectHandoffTarget(this);
-                ClearReconnectCandidateIfOwner(replacementPhysicalConnection);
-                return false;
-            }
-
-            shouldTimeout = false;
-            lock (_reconnectLock)
-            {
-                var claimIsCurrent = ReferenceEquals(_reconnectCandidate, replacementPhysicalConnection);
-                var windowIsCurrent = claimIsCurrent && !_connectionAborted && _reconnectEnabled &&
-                    _currentConnection is null && ReferenceEquals(detachedConnection, _detachedConnection) &&
-                    ReferenceEquals(reconnectWaiter, _reconnectWaiter) && !reconnectWaiter.Task.IsCompleted &&
-                    !transport.Connection.IsTerminal;
-                if (!windowIsCurrent)
-                {
-                    if (claimIsCurrent)
-                    {
-                        _reconnectCandidate = null;
-                        _reconnectCandidateProtocol = null;
-                    }
-
-                    shouldTimeout = claimIsCurrent && IsReconnectWindowExpiredLocked();
-                }
-                else if (IsReconnectWindowExpiredLocked() || replacementPhysicalConnection.ConnectionClosed.IsCancellationRequested)
-                {
-                    _reconnectCandidate = null;
-                    _reconnectCandidateProtocol = null;
-                    shouldTimeout = IsReconnectWindowExpiredLocked();
-                }
-                else if (!ReferenceEquals(transport.Connection.GetReconnectHandoffTarget(), this))
-                {
-                    _reconnectCandidate = null;
-                    _reconnectCandidateProtocol = null;
-                }
-                else
-                {
-                    return true;
-                }
-            }
-
-            transport.Connection.TryClearReconnectHandoffTarget(this);
-            if (shouldTimeout)
-            {
-                TimeoutReconnect(reconnectWaiter);
-            }
-
-            return false;
+            return replacementContext.Connection.TrySetPostDispatchAction(() =>
+                replacementContext.Connection.TryGetCurrentConnection(out var currentConnection) &&
+                ReferenceEquals(currentConnection, physicalConnection) &&
+                TryReconnect(physicalConnection, replacementProtocol));
         }
 
-        internal RaidoConnectionContext? GetReconnectHandoffTarget() => Volatile.Read(ref _reconnectHandoffTarget);
+        internal bool TrySetPostDispatchAction(Func<bool> action) =>
+            Interlocked.CompareExchange(ref _postDispatchAction, action, null) is null;
 
-        internal bool TrySetReconnectHandoffTarget(RaidoConnectionContext target) =>
-            !_physicalTransportAdopted &&
-            ReferenceEquals(Interlocked.CompareExchange(ref _reconnectHandoffTarget, target, null), null);
-
-        internal bool TryClearReconnectHandoffTarget(RaidoConnectionContext target) =>
-            ReferenceEquals(Interlocked.CompareExchange(ref _reconnectHandoffTarget, null, target), target);
-
-        internal bool TryMarkPhysicalTransportAdopted(RaidoConnectionContext target)
-        {
-            if (_physicalTransportAdopted || !ReferenceEquals(Volatile.Read(ref _reconnectHandoffTarget), target))
-            {
-                return false;
-            }
-
-            _physicalTransportAdopted = true;
-            Interlocked.CompareExchange(ref _reconnectHandoffTarget, null, target);
-            return true;
-        }
-
-        internal bool IsPhysicalTransportAdopted => _physicalTransportAdopted;
-
-        internal bool TryPublishReconnect(RaidoConnectionContext replacement, ConnectionContext physicalConnection)
-        {
-            if (!ReferenceEquals(replacement.GetReconnectHandoffTarget(), this))
-            {
-                return false;
-            }
-
-            CancellationTokenRegistration closedRegistration;
-            CancellationTokenRegistration? closedRequestedRegistration;
-            try
-            {
-                RegisterPhysicalCallbacks(physicalConnection, registerHeartbeat: true, out closedRegistration, out closedRequestedRegistration);
-            }
-            catch
-            {
-                replacement.TryClearReconnectHandoffTarget(this);
-                ClearReconnectCandidateIfOwner(physicalConnection);
-                return false;
-            }
-
-            var published = false;
-            var shouldTimeout = false;
-            CancellationTokenRegistration? obsoleteClosedRequestedRegistration = null;
-            TaskCompletionSource<bool>? reconnectWaiter = null;
-            lock (_reconnectLock)
-            {
-                var claimIsCurrent = ReferenceEquals(_reconnectCandidate, physicalConnection);
-                var windowIsCurrent = claimIsCurrent && !_connectionAborted && _reconnectEnabled &&
-                    _currentConnection is null && _detachedConnection is not null &&
-                    _reconnectWaiter is TaskCompletionSource<bool> waiter && !waiter.Task.IsCompleted;
-                if (windowIsCurrent && IsReconnectWindowExpiredLocked())
-                {
-                    shouldTimeout = true;
-                    reconnectWaiter = _reconnectWaiter;
-                }
-                else if (windowIsCurrent &&
-                    !replacement.IsTerminal &&
-                    !physicalConnection.ConnectionClosed.IsCancellationRequested &&
-                    replacement.TryMarkPhysicalTransportAdopted(this))
-                {
-                    reconnectWaiter = _reconnectWaiter;
-                    obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
-                    Protocol = _reconnectCandidateProtocol!;
-                    _currentConnection = physicalConnection;
-                    _detachedConnection = null;
-                    _closedRegistration = closedRegistration;
-                    _closedRequestedRegistration = closedRequestedRegistration;
-                    _reconnectCandidate = null;
-                    _reconnectCandidateProtocol = null;
-                    _reconnectWaiter = null;
-                    _reconnectWindowStartTimestamp = null;
-                    CloseException = null;
-                    reconnectWaiter!.TrySetResult(true);
-                    published = true;
-                }
-                else if (claimIsCurrent)
-                {
-                    _reconnectCandidate = null;
-                    _reconnectCandidateProtocol = null;
-                }
-            }
-
-            if (!published)
-            {
-                closedRegistration.Dispose();
-                closedRequestedRegistration?.Dispose();
-                replacement.TryClearReconnectHandoffTarget(this);
-            }
-
-            obsoleteClosedRequestedRegistration?.Dispose();
-
-            if (shouldTimeout && reconnectWaiter is not null)
-            {
-                TimeoutReconnect(reconnectWaiter);
-            }
-
-            return published;
-        }
-
-        internal void FailReconnectCandidate(ConnectionContext candidate) => ClearReconnectCandidateIfOwner(candidate);
-
-        private bool ClearReconnectCandidateIfOwner(ConnectionContext candidate)
-        {
-            lock (_reconnectLock)
-            {
-                if (!ReferenceEquals(_reconnectCandidate, candidate))
-                {
-                    return false;
-                }
-
-                _reconnectCandidate = null;
-                _reconnectCandidateProtocol = null;
-                return true;
-            }
-        }
+        internal Func<bool>? TakePostDispatchAction() =>
+            Interlocked.Exchange(ref _postDispatchAction, null);
 
         internal bool IsTerminal => _connectionAborted;
 
@@ -1125,8 +831,6 @@ namespace Raido.Server
 
             var reconnectWaiter = _reconnectWaiter;
             _reconnectWaiter = null;
-            _reconnectCandidate = null;
-            _reconnectCandidateProtocol = null;
             _reconnectWindowStartTimestamp = null;
             reconnectWaiter?.TrySetResult(false);
 
@@ -1483,12 +1187,7 @@ namespace Raido.Server
 
         internal void Cleanup()
         {
-            var handoffTarget = Interlocked.Exchange(ref _reconnectHandoffTarget, null);
-            if (handoffTarget is not null && !_physicalTransportAdopted)
-            {
-                handoffTarget.FailReconnectCandidate(_connection);
-            }
-
+            Interlocked.Exchange(ref _postDispatchAction, null);
             CancellationTokenRegistration closedRegistration;
             CancellationTokenRegistration? closedRequestedRegistration;
             TaskCompletionSource<bool>? reconnectWaiter;
@@ -1500,8 +1199,6 @@ namespace Raido.Server
                 _closedRequestedRegistration = null;
                 _currentConnection = null;
                 _detachedConnection = null;
-                _reconnectCandidate = null;
-                _reconnectCandidateProtocol = null;
                 _reconnectEnabled = false;
                 _reconnectWindowStartTimestamp = null;
                 reconnectWaiter = _reconnectWaiter;

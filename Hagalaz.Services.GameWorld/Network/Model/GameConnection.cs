@@ -1,4 +1,3 @@
-﻿using System;
 using System.Threading.Tasks;
 using System.Threading;
 using Microsoft.AspNetCore.Http.Features;
@@ -16,11 +15,10 @@ namespace Hagalaz.Services.GameWorld.Network.Model
         public string ConnectionId => _context.ConnectionId;
         public IFeatureCollection Features => _context.Features;
 
-        public async Task<bool> TryReconnectAsync(
+        public bool TryScheduleReconnect(
             RaidoCallerContext replacement,
-            IRaidoProtocol replacementProtocol,
-            Func<ValueTask<bool>> completeHandshake) =>
-            await _context.TryReconnectAsync(replacement, replacementProtocol, completeHandshake);
+            IRaidoProtocol replacementProtocol) =>
+            _context.TryScheduleReconnect(replacement, replacementProtocol);
 
         public async Task SendMessage(RaidoMessage message, CancellationToken cancellationToken = default) => await _context.WriteAsync(message, cancellationToken);
     }
