@@ -938,6 +938,7 @@ public sealed class RaidoStatefulReconnectTests
         using var candidate = CreatePhysicalConnection("candidate");
         var stable = CreateContext(stableInitial.Connection, reconnectEnabled: true);
         var temporary = CreateContext(candidate.Connection, reconnectEnabled: false);
+        candidate.Connection.When(connection => connection.Abort()).Do(_ => candidate.Closed.Cancel());
         var message = new TestMessage();
         temporary.Protocol = new TestProtocol { MessageToReturn = message };
         var replacementProtocol = new ReconnectWritingProtocol();
@@ -975,8 +976,9 @@ public sealed class RaidoStatefulReconnectTests
         await dispatcher.Received(1).OnDisconnectedAsync(temporary, Arg.Any<Exception?>());
         Assert.AreSame(replacementProtocol, stable.Protocol);
 
-        candidate.Closed.Cancel();
+        stable.Abort();
         await run.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.IsTrue(candidate.Closed.IsCancellationRequested);
 
         stable.Cleanup();
     }

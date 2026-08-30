@@ -857,6 +857,7 @@ namespace Raido.Server
                 // Physical cancellation wakes transport operations but does not cancel the stable connection token.
                 currentConnection.Transport.Output.CancelPendingFlush();
                 currentConnection.Transport.Input.CancelPendingRead();
+                currentConnection.Abort();
             }
 
             if (queueAbortCallback)
