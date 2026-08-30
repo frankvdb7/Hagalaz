@@ -518,6 +518,7 @@ namespace Hagalaz.Services.GameWorld
                 options.AddEncoder<ClientSignInResponseEncoder>();
                 options.AddEncoder<LobbySignInResponseEncoder>();
                 options.AddEncoder<WorldSignInResponseEncoder>();
+                options.AddEncoder<WorldReconnectResponseEncoder>();
             });
 
             services.AddRaidoProtocol<ClientProtocol742>(options =>

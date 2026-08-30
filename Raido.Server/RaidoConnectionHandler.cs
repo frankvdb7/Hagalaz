@@ -102,11 +102,17 @@ namespace Raido.Server
             catch (Exception ex)
             {
                 Log.ErrorProcessingRequest(_logger, ex);
-                await OnDisconnectedAsync(connection, ex);
+                if (!connection.IsPhysicalTransportAdopted)
+                {
+                    await OnDisconnectedAsync(connection, ex);
+                }
                 return;
             }
 
-            await OnDisconnectedAsync(connection, connection.CloseException);
+            if (!connection.IsPhysicalTransportAdopted)
+            {
+                await OnDisconnectedAsync(connection, connection.CloseException);
+            }
         }
 
         /// <summary>
@@ -128,6 +134,7 @@ namespace Raido.Server
                     continue;
                 }
 
+                var reconnectHandoffAttempted = false;
                 await using (var protocolReader = new RaidoProtocolReader(physicalConnection.Transport.Input))
                 {
                     while (true)
@@ -187,6 +194,12 @@ namespace Raido.Server
 
                             await _dispatcher.DispatchMessageAsync(connection, result.Message);
 
+                            if (connection.GetReconnectHandoffTarget() is not null)
+                            {
+                                reconnectHandoffAttempted = true;
+                                break;
+                            }
+
                             if (result.IsCompleted)
                             {
                                 break;
@@ -194,9 +207,31 @@ namespace Raido.Server
                         }
                         finally
                         {
-                            protocolReader.Advance();
+                            if (connection.GetReconnectHandoffTarget() is RaidoConnectionContext handoffTarget)
+                            {
+                                protocolReader.Advance(true);
+                                if (!handoffTarget.TryPublishReconnect(connection, physicalConnection))
+                                {
+                                    connection.TryClearReconnectHandoffTarget(handoffTarget);
+                                }
+                            }
+                            else
+                            {
+                                protocolReader.Advance();
+                            }
                         }
                     }
+                }
+
+                if (connection.IsPhysicalTransportAdopted)
+                {
+                    return;
+                }
+
+                if (reconnectHandoffAttempted)
+                {
+                    connection.Abort();
+                    return;
                 }
 
                 connection.OnPhysicalConnectionClosed(physicalConnection);

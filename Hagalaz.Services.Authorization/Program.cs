@@ -153,6 +153,7 @@ namespace Hagalaz.Services.Authorization
                 });
                 x.AddConsumer<GetUserInfoRequestConsumer>();
                 x.AddConsumer<SignInUserRequestConsumer>();
+                x.AddConsumer<ValidateUserCredentialsRequestConsumer>();
                 x.AddConsumer<RevokeTokenRequestConsumer>();
                 x.AddConsumer<GetTokensRequestConsumer>();
             });

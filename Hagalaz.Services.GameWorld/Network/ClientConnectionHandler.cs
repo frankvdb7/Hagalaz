@@ -28,6 +28,7 @@ public class ClientConnectionHandler : ConnectionHandler
         var connectionContext = _contextBuilder.Create()
             .WithConnection(connection)
             .WithProtocol<HandshakeProtocol>()
+            .WithStatefulReconnect()
             .Build();
 
         Log.HandshakeStart(_logger, connectionContext.Protocol.Name);

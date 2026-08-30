@@ -271,6 +271,7 @@ public sealed class AuthenticationLogoutTests
             characterLogoutService ?? Substitute.For<ICharacterLogoutService>(),
             gameSessionService,
             Substitute.For<IRequestClient<SignInUserRequestMessage>>(),
+            Substitute.For<IRequestClient<ValidateUserCredentialsRequestMessage>>(),
             Substitute.For<IRequestClient<GetUserInfoRequestMessage>>(),
             revokeTokenRequestClient ?? Substitute.For<IRequestClient<RevokeTokenRequestMessage>>(),
             Substitute.For<IRequestClient<HydrateCharacter>>(),

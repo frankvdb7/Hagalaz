@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Security.Claims;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Features;
 using Raido.Common.Protocol;
 
@@ -51,6 +52,11 @@ namespace Raido.Server
         /// Gets or sets the protocol used by the connection.
         /// </summary>
         public abstract IRaidoProtocol Protocol { get; set; }
+
+        /// <summary>
+        /// Writes a handshake message and reports whether the physical transport accepted the flush.
+        /// </summary>
+        public abstract ValueTask<bool> WriteHandshakeAsync(RaidoMessage message, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Aborts the connection.

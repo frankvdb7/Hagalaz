@@ -2,16 +2,19 @@ using System.Collections.Generic;
 using System.Net;
 using System.Security.Claims;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Features;
 using Raido.Common.Protocol;
 
 namespace Raido.Server.Internal
 {
-    internal sealed class DefaultRaidoCallerContext : RaidoCallerContext
+    internal sealed class DefaultRaidoCallerContext : RaidoCallerContext, IRaidoCallerContextTransport
     {
         private readonly RaidoConnectionContext _connection;
 
         public DefaultRaidoCallerContext(RaidoConnectionContext connection) => _connection = connection;
+
+        RaidoConnectionContext IRaidoCallerContextTransport.Connection => _connection;
 
         public override string ConnectionId => _connection.ConnectionId;
         public override ClaimsPrincipal? User => _connection.User;
@@ -28,5 +31,8 @@ namespace Raido.Server.Internal
         }
 
         public override void Abort() => _connection.Abort();
+
+        public override ValueTask<bool> WriteHandshakeAsync(RaidoMessage message, CancellationToken cancellationToken) =>
+            _connection.WriteHandshakeAsync(message, cancellationToken);
     }
 }
