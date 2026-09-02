@@ -277,8 +277,6 @@ namespace Raido.Server
         {
             // Failed to get the lock immediately when entering WriteAsync so await until it is available
             await _writeLock.WaitAsync(cancellationToken);
-            ConnectionContext? currentConnection = null;
-
             try
             {
                 if (ConnectionAbortedToken.IsCancellationRequested && !ignoreAbort)
@@ -286,7 +284,7 @@ namespace Raido.Server
                     return;
                 }
 
-                currentConnection = GetCurrentConnection();
+                var currentConnection = GetCurrentConnection();
                 if (currentConnection is null)
                 {
                     return;
