@@ -13,6 +13,27 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoBuilderAndContextExtensionTests
 {
+    private readonly List<RaidoHubConnectionContext> _connections = new();
+    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+
+    [TestCleanup]
+    public void CleanupConnections()
+    {
+        foreach (var connection in _connections)
+        {
+            connection.Abort();
+            connection.Cleanup();
+        }
+
+        foreach (var (input, output) in _transports)
+        {
+            input.Reader.Complete();
+            input.Writer.Complete();
+            output.Reader.Complete();
+            output.Writer.Complete();
+        }
+    }
+
     private sealed class SimpleProtocol : IRaidoProtocol
     {
         public string Name => "simple";
@@ -31,15 +52,18 @@ public sealed class RaidoBuilderAndContextExtensionTests
 
     private sealed class DummyHub : RaidoHub { }
 
-    private static ConnectionContext RawConnection()
+    private ConnectionContext RawConnection()
     {
         var connection = Substitute.For<ConnectionContext>();
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
-        transport.Output.Returns(Substitute.For<PipeWriter>());
+        var input = new Pipe();
+        var output = new Pipe();
+        transport.Input.Returns(input.Reader);
+        transport.Output.Returns(output.Writer);
         connection.Transport.Returns(transport);
         connection.ConnectionId.Returns("extensions");
         connection.ConnectionClosed.Returns(CancellationToken.None);
+        _transports.Add((input, output));
         return connection;
     }
 
@@ -49,7 +73,10 @@ public sealed class RaidoBuilderAndContextExtensionTests
         var services = new ServiceCollection();
         var builder = services.AddRaidoProtocol<IRaidoProtocol, SimpleProtocol>(_ => { });
         Assert.AreSame(services, builder);
-        Assert.IsNotNull(services.BuildServiceProvider().GetService<IRaidoProtocol>());
+        using (var provider = services.BuildServiceProvider())
+        {
+            Assert.IsNotNull(provider.GetService<IRaidoProtocol>());
+        }
         Assert.ThrowsExactly<ArgumentNullException>(() => RaidoBuilderExtensions.AddRaidoProtocol<IRaidoProtocol, SimpleProtocol>(null!, null));
 
         var serverBuilder = services.AddRaidoServerCore();
@@ -83,6 +110,7 @@ public sealed class RaidoBuilderAndContextExtensionTests
         {
             Protocol = new SimpleProtocol()
         };
+        _connections.Add(connection);
         var caller = new DefaultRaidoCallerContext(connection);
         Assert.AreEqual(connection.ConnectionId, caller.ConnectionId);
         Assert.AreSame(connection.Items, caller.Items);

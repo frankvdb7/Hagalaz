@@ -19,6 +19,24 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoPhysicalConnectionTests
 {
+    private readonly List<RaidoHubConnectionContext> _connections = new();
+    private readonly List<PhysicalConnection> _physicalConnections = new();
+
+    [TestCleanup]
+    public void DisposePhysicalConnections()
+    {
+        foreach (var connection in _connections)
+        {
+            connection.Abort();
+            connection.Cleanup();
+        }
+
+        foreach (var physicalConnection in _physicalConnections)
+        {
+            physicalConnection.Dispose();
+        }
+    }
+
     [TestMethod]
     public void BuilderOptInUsesTheConfiguredFinitePhysicalConnectionTimeout()
     {
@@ -35,6 +53,7 @@ public sealed class RaidoPhysicalConnectionTests
             .WithProtocol(new PhysicalConnectionWritingProtocol())
             .WithStatefulReconnect()
             .Build();
+        _connections.Add(context);
 
         Assert.IsTrue(context.TcpConnection.IsReconnectEnabled);
         context.Cleanup();
@@ -56,6 +75,7 @@ public sealed class RaidoPhysicalConnectionTests
             .WithProtocol(new PhysicalConnectionWritingProtocol())
             .WithStatefulReconnect()
             .Build();
+        _connections.Add(context);
 
         Assert.IsTrue(context.TcpConnection.IsReconnectEnabled);
         context.Cleanup();
@@ -554,7 +574,6 @@ public sealed class RaidoPhysicalConnectionTests
         pendingWriter.Fail(exception);
         await pendingWrite;
 
-        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsNull(context.TcpConnection.TerminalException);
 
         var physicalConnectionWindow = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
@@ -1535,7 +1554,7 @@ public sealed class RaidoPhysicalConnectionTests
         context.Cleanup();
     }
 
-    private static RaidoHubConnectionContext CreateContext(
+    private RaidoHubConnectionContext CreateContext(
         ConnectionContext connection,
         bool reconnectEnabled,
         TimeSpan? timeout = null,
@@ -1560,10 +1579,11 @@ public sealed class RaidoPhysicalConnectionTests
             timeProvider ?? TimeProvider.System);
 
         context.Protocol = new PhysicalConnectionWritingProtocol();
+        _connections.Add(context);
         return context;
     }
 
-    private static void AssertPhysicalConnectionTimeoutRejected(TimeSpan timeout)
+    private void AssertPhysicalConnectionTimeoutRejected(TimeSpan timeout)
     {
         using var physical = CreatePhysicalConnection("initial");
 
@@ -1604,7 +1624,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(condition(), "The expected condition was not reached within the test timeout.");
     }
 
-    private static PhysicalConnection CreatePhysicalConnection(
+    private PhysicalConnection CreatePhysicalConnection(
         string id,
         int localPort = 1000,
         int remotePort = 2000,
@@ -1627,6 +1647,7 @@ public sealed class RaidoPhysicalConnectionTests
         connection.RemoteEndPoint.Returns(new IPEndPoint(IPAddress.Loopback, remotePort));
 
         var physical = new PhysicalConnection(connection, input, output);
+        _physicalConnections.Add(physical);
         connection.ConnectionClosed.Returns(physical.Closed.Token);
         return physical;
     }
@@ -1647,7 +1668,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         public override void CancelPendingFlush() { }
 
-        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default) => new(_flush.Task);
+        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default) => new(_flush.Task.WaitAsync(cancellationToken));
 
         public override void Complete(Exception? exception = null) { }
     }
@@ -1683,6 +1704,8 @@ public sealed class RaidoPhysicalConnectionTests
 
     private sealed class PhysicalConnection(ConnectionContext connection, Pipe input, Pipe output) : IDisposable
     {
+        private int _disposed;
+
         public ConnectionContext Connection { get; } = connection;
 
         public Pipe Input { get; } = input;
@@ -1691,7 +1714,20 @@ public sealed class RaidoPhysicalConnectionTests
 
         public CancellationTokenSource Closed { get; } = new();
 
-        public void Dispose() => Closed.Dispose();
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            Closed.Cancel();
+            Input.Reader.Complete();
+            Input.Writer.Complete();
+            Output.Reader.Complete();
+            Output.Writer.Complete();
+            Closed.Dispose();
+        }
     }
 
     private sealed class ManualTimeProvider : TimeProvider

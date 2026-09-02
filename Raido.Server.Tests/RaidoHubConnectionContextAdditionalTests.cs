@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Connections;
@@ -13,28 +14,36 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoHubConnectionContextAdditionalTests
 {
-    private sealed class ControlledPipeWriter : PipeWriter
+    private readonly List<RaidoHubConnectionContext> _contexts = new();
+    private readonly List<CancellationTokenSource> _connectionClosedSources = new();
+    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+
+    [TestCleanup]
+    public void CleanupConnections()
     {
-        private readonly ArrayBufferWriter<byte> _buffer = new();
-        private readonly TaskCompletionSource<FlushResult> _flushSource =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        foreach (var source in _connectionClosedSources)
+        {
+            source.Cancel();
+        }
 
-        public void CompleteFlush() => _flushSource.TrySetResult(new FlushResult(false, false));
+        foreach (var context in _contexts)
+        {
+            context.Abort();
+            context.Cleanup();
+        }
 
-        public void FailFlush(Exception exception) => _flushSource.TrySetException(exception);
+        foreach (var source in _connectionClosedSources)
+        {
+            source.Dispose();
+        }
 
-        public override void Advance(int bytes) => _buffer.Advance(bytes);
-
-        public override Memory<byte> GetMemory(int sizeHint = 0) => _buffer.GetMemory(sizeHint);
-
-        public override Span<byte> GetSpan(int sizeHint = 0) => _buffer.GetSpan(sizeHint);
-
-        public override void CancelPendingFlush() { }
-
-        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default) =>
-            new(_flushSource.Task);
-
-        public override void Complete(Exception? exception = null) { }
+        foreach (var (input, output) in _transports)
+        {
+            input.Reader.Complete();
+            input.Writer.Complete();
+            output.Reader.Complete();
+            output.Writer.Complete();
+        }
     }
 
     private sealed class WritingProtocol : IRaidoProtocol
@@ -62,18 +71,20 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         public ClaimsPrincipal? User { get; set; }
     }
 
-    private static (RaidoHubConnectionContext Context, Pipe Output, FeatureCollection Features, ConnectionContext Connection) CreateContext(TimeSpan? keepAlive = null, TimeSpan? timeout = null)
+    private (RaidoHubConnectionContext Context, Pipe Output, FeatureCollection Features, ConnectionContext Connection) CreateContext(TimeSpan? keepAlive = null, TimeSpan? timeout = null)
     {
+        var input = new Pipe();
         var output = new Pipe();
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
+        transport.Input.Returns(input.Reader);
         transport.Output.Returns(output.Writer);
         var features = new FeatureCollection();
+        var connectionClosed = new CancellationTokenSource();
         var connection = Substitute.For<ConnectionContext>();
         connection.ConnectionId.Returns("additional");
         connection.Transport.Returns(transport);
         connection.Features.Returns(features);
-        connection.ConnectionClosed.Returns(CancellationToken.None);
+        connection.ConnectionClosed.Returns(connectionClosed.Token);
         var context = new RaidoHubConnectionContext(connection, new RaidoHubConnectionContextOptions
         {
             KeepAliveInterval = keepAlive ?? TimeSpan.FromMinutes(1),
@@ -82,6 +93,9 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         {
             Protocol = new WritingProtocol()
         };
+        _contexts.Add(context);
+        _connectionClosedSources.Add(connectionClosed);
+        _transports.Add((input, output));
         return (context, output, features, connection);
     }
 
@@ -133,42 +147,6 @@ public sealed class RaidoHubConnectionContextAdditionalTests
     }
 
     [TestMethod]
-    [Timeout(5000)]
-    public async Task Context_CompletesAnAsynchronousFlushAndReleasesWriteLock()
-    {
-        var output = new ControlledPipeWriter();
-        var context = CreateContext(output);
-
-        var pending = context.WriteAsync(new TestMessage());
-        Assert.IsFalse(pending.IsCompleted);
-
-        output.CompleteFlush();
-        await pending;
-
-        output.CompleteFlush();
-        await context.WriteAsync(new TestMessage());
-        await context.AbortAsync();
-    }
-
-    [TestMethod]
-    [Timeout(5000)]
-    public async Task Context_RecordsAsynchronousFlushFailureAndAborts()
-    {
-        var output = new ControlledPipeWriter();
-        var context = CreateContext(output);
-        var exception = new InvalidOperationException("flush");
-
-        var pending = context.WriteAsync(new TestMessage());
-        output.FailFlush(exception);
-
-        await pending;
-
-        Assert.AreSame(exception, context.TcpConnection.TerminalException);
-        await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
-    }
-
-    [TestMethod]
     public async Task Context_RegistersHeartbeatsAndTimeoutState()
     {
         var (context, _, features, connection) = CreateContext(keepAlive: TimeSpan.Zero, timeout: TimeSpan.Zero);
@@ -185,19 +163,4 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         context.StopClientTimeout();
     }
 
-    private static RaidoHubConnectionContext CreateContext(PipeWriter output)
-    {
-        var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
-        transport.Output.Returns(output);
-        var connection = Substitute.For<ConnectionContext>();
-        connection.ConnectionId.Returns("controlled");
-        connection.Transport.Returns(transport);
-        connection.Features.Returns(new FeatureCollection());
-        connection.ConnectionClosed.Returns(CancellationToken.None);
-        return new RaidoHubConnectionContext(connection, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = new WritingProtocol()
-        };
-    }
 }

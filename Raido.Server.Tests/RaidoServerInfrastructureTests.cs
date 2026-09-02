@@ -18,6 +18,27 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoServerInfrastructureTests
 {
+    private readonly List<RaidoHubConnectionContext> _connections = new();
+    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+
+    [TestCleanup]
+    public void CleanupConnections()
+    {
+        foreach (var connection in _connections)
+        {
+            connection.Abort();
+            connection.Cleanup();
+        }
+
+        foreach (var (input, output) in _transports)
+        {
+            input.Reader.Complete();
+            input.Writer.Complete();
+            output.Reader.Complete();
+            output.Writer.Complete();
+        }
+    }
+
     private sealed class Encoder : IRaidoMessageEncoder<TestMessage>
     {
         public void EncodeMessage(TestMessage message, IRaidoMessageBinaryWriter output) => output.SetOpcode(7);
@@ -64,16 +85,21 @@ public sealed class RaidoServerInfrastructureTests
 
     private sealed class TestHub : RaidoHub { }
 
-    private static RaidoHubConnectionContext CreateConnection(string id)
+    private RaidoHubConnectionContext CreateConnection(string id)
     {
         var connection = Substitute.For<ConnectionContext>();
         connection.ConnectionId.Returns(id);
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
-        transport.Output.Returns(Substitute.For<PipeWriter>());
+        var input = new Pipe();
+        var output = new Pipe();
+        transport.Input.Returns(input.Reader);
+        transport.Output.Returns(output.Writer);
         connection.Transport.Returns(transport);
         connection.ConnectionClosed.Returns(CancellationToken.None);
-        return new RaidoHubConnectionContext(connection, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance);
+        _transports.Add((input, output));
+        var context = new RaidoHubConnectionContext(connection, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance);
+        _connections.Add(context);
+        return context;
     }
 
     [TestMethod]
@@ -195,7 +221,8 @@ public sealed class RaidoServerInfrastructureTests
     {
         var manager = Substitute.For<IRaidoLifetimeManager>();
         var message = new TestMessage();
-        var token = new CancellationTokenSource().Token;
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
         await new AllClientProxy(manager).SendAsync(message, token);
         await new AllClientsExceptProxy(manager, new[] { "a" }).SendAsync(message, token);
         await new MultipleClientsProxy(manager, new[] { "a", "b" }).SendAsync(message, token);

@@ -19,6 +19,9 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoHagalazUsageTests
 {
+    private readonly List<RaidoHubConnectionContext> _connections = new();
+    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+
     private sealed class UsageRequest : RaidoMessage
     {
         public byte Value { get; init; }
@@ -155,6 +158,24 @@ public sealed class RaidoHagalazUsageTests
         }
     }
 
+    [TestCleanup]
+    public void CleanupConnections()
+    {
+        foreach (var connection in _connections)
+        {
+            connection.Abort();
+            connection.Cleanup();
+        }
+
+        foreach (var (input, output) in _transports)
+        {
+            input.Reader.Complete();
+            input.Writer.Complete();
+            output.Reader.Complete();
+            output.Writer.Complete();
+        }
+    }
+
     [TestMethod]
     public void ServiceRegistration_ResolvesProtocolCodecAndBuilderLikeAServiceHandler()
     {
@@ -172,12 +193,13 @@ public sealed class RaidoHagalazUsageTests
         var resolver = provider.GetRequiredService<IRaidoProtocolResolver>();
         Assert.IsInstanceOfType<UsageProtocol>(resolver.GetProtocol(protocol.Name.ToLowerInvariant(), new[] { protocol.Name.ToUpperInvariant() }));
 
-        var rawConnection = CreateRawConnection("builder");
+        var rawConnection = CreateRawConnection("builder").Connection;
         var built = provider.GetRequiredService<IRaidoHubConnectionContextBuilder>()
             .Create()
             .WithConnection(rawConnection)
             .WithProtocol<UsageProtocol>()
             .Build();
+        _connections.Add(built);
 
         Assert.AreEqual(protocol.Name, built.Protocol.Name);
         Assert.AreEqual("builder", built.ConnectionId);
@@ -245,31 +267,32 @@ public sealed class RaidoHagalazUsageTests
         return services.BuildServiceProvider();
     }
 
-    private static ConnectionContext CreateRawConnection(string connectionId)
+    private (ConnectionContext Connection, Pipe Input, Pipe Output) CreateRawConnection(string connectionId)
     {
         var context = Substitute.For<ConnectionContext>();
         context.ConnectionId.Returns(connectionId);
         context.ConnectionClosed.Returns(CancellationToken.None);
         context.Items.Returns(new Dictionary<object, object?>());
         context.Features.Returns(new Microsoft.AspNetCore.Http.Features.FeatureCollection());
-        return context;
-    }
-
-    private static (RaidoHubConnectionContext Connection, PipeReader Output) CreateConnection(string connectionId, IRaidoProtocol protocol)
-    {
         var input = new Pipe();
         var output = new Pipe();
         var transport = Substitute.For<IDuplexPipe>();
         transport.Input.Returns(input.Reader);
         transport.Output.Returns(output.Writer);
-
-        var context = CreateRawConnection(connectionId);
         context.Transport.Returns(transport);
-        var connection = new RaidoHubConnectionContext(context, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
+        _transports.Add((input, output));
+        return (context, input, output);
+    }
+
+    private (RaidoHubConnectionContext Connection, PipeReader Output) CreateConnection(string connectionId, IRaidoProtocol protocol)
+    {
+        var raw = CreateRawConnection(connectionId);
+        var connection = new RaidoHubConnectionContext(raw.Connection, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
         {
             Protocol = protocol
         };
-        return (connection, output.Reader);
+        _connections.Add(connection);
+        return (connection, raw.Output.Reader);
     }
 
     private static async Task<byte[]> ReadPacketAsync(PipeReader reader)

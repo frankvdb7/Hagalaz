@@ -67,10 +67,12 @@ namespace Raido.Server.Tests
         private IRaidoDispatcher _dispatcher = null!;
         private RaidoMetrics _metrics = null!;
         private IMeterFactory _meterFactory = null!;
+        private Meter _meter = null!;
         private RaidoConnectionHandler _connectionHandler = null!;
         private RaidoHubConnectionContext _connection = null!;
         private DefaultConnectionContext _connectionContext = null!;
-        private PipeReader _pipeReader = null!;
+        private Pipe _input = null!;
+        private Pipe _output = null!;
 
         [TestInitialize]
         public void Setup()
@@ -80,8 +82,8 @@ namespace Raido.Server.Tests
             _lifetimeManager = Substitute.For<IRaidoLifetimeManager>();
             _dispatcher = Substitute.For<IRaidoDispatcher>();
             _meterFactory = Substitute.For<IMeterFactory>();
-            var meter = new Meter("Raido.Server.Tests");
-            _meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+            _meter = new Meter("Raido.Server.Tests");
+            _meterFactory.Create(Arg.Any<MeterOptions>()).Returns(_meter);
             _metrics = new RaidoMetrics(_meterFactory);
 
             _connectionHandler = new RaidoConnectionHandler(
@@ -92,18 +94,29 @@ namespace Raido.Server.Tests
                 _metrics);
 
             _connectionContext = new DefaultConnectionContext();
-            var transport = Substitute.For<IDuplexPipe>();
-            _pipeReader = Substitute.For<PipeReader>();
-            transport.Input.Returns(_pipeReader);
-            _connectionContext.Transport = transport;
+            _input = new Pipe();
+            _output = new Pipe();
+            _connectionContext.Transport = new TestDuplexPipe(_input.Reader, _output.Writer);
             _connection = new RaidoHubConnectionContext(_connectionContext, new RaidoHubConnectionContextOptions(), _loggerFactory);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            _connection.Abort();
+            _connection.Cleanup();
+            _input.Reader.Complete();
+            _input.Writer.Complete();
+            _output.Reader.Complete();
+            _output.Writer.Complete();
+            _meter.Dispose();
         }
 
         [TestMethod]
         public async Task ConnectAsync_ShouldCallOnConnectedAsyncOnLifetimeManagerAndDispatcher()
         {
             // Arrange
-            _pipeReader.ReadAsync(Arg.Any<CancellationToken>()).Returns(new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(), true, true)));
+            _input.Writer.Complete();
 
             // Act
             await _connectionHandler.ConnectAsync(_connection);
@@ -144,7 +157,7 @@ namespace Raido.Server.Tests
             // Arrange
             var ex = new InvalidOperationException("Dispatcher failed");
             _dispatcher.OnConnectedAsync(_connection).Returns(Task.FromException(ex));
-            _pipeReader.ReadAsync(Arg.Any<CancellationToken>()).Returns(new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(), true, true)));
+            _input.Writer.Complete();
 
             // Act
             await _connectionHandler.ConnectAsync(_connection);
@@ -163,14 +176,19 @@ namespace Raido.Server.Tests
             _connection.Protocol = new TestProtocol { MessageToReturn = message };
             var buffer = new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 });
 
-            _pipeReader.ReadAsync(Arg.Any<CancellationToken>())
-                .Returns(
-                    new ValueTask<ReadResult>(new ReadResult(buffer, false, false)),
-                    new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(), true, false))
-                );
+            var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _dispatcher.DispatchMessageAsync(_connection, message).Returns(_ =>
+            {
+                dispatched.TrySetResult();
+                return Task.CompletedTask;
+            });
 
             // Act
-            await _connectionHandler.DispatchMessagesAsync(_connection);
+            var run = _connectionHandler.DispatchMessagesAsync(_connection);
+            await _input.Writer.WriteAsync(buffer.ToArray());
+            await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            _input.Writer.Complete();
+            await run;
 
             // Assert
             await _dispatcher.Received(1).DispatchMessageAsync(_connection, message);
@@ -184,14 +202,20 @@ namespace Raido.Server.Tests
             var ex = new InvalidOperationException("Dispatch failed");
             _connection.Protocol = new TestProtocol { MessageToReturn = message };
             var buffer = new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 });
-
-            _pipeReader.ReadAsync(Arg.Any<CancellationToken>())
-                .Returns(new ValueTask<ReadResult>(new ReadResult(buffer, false, false)));
+            var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _dispatcher.OnConnectedAsync(_connection).Returns(_ =>
+            {
+                connected.TrySetResult();
+                return Task.CompletedTask;
+            });
 
             _dispatcher.DispatchMessageAsync(_connection, message).Returns(Task.FromException(ex));
 
             // Act
-            await _connectionHandler.RunAsync(_connection);
+            var run = _connectionHandler.RunAsync(_connection);
+            await connected.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await _input.Writer.WriteAsync(buffer.ToArray());
+            await run;
 
             // Assert
             await _dispatcher.Received(1).OnDisconnectedAsync(_connection, ex);
@@ -203,11 +227,18 @@ namespace Raido.Server.Tests
             var message = new TestMessage();
             var exception = new InvalidOperationException("Dispatch failed");
             _connection.Protocol = new TestProtocol { MessageToReturn = message };
-            _pipeReader.ReadAsync(Arg.Any<CancellationToken>()).Returns(
-                new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1 }), false, false)));
+            var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _dispatcher.OnConnectedAsync(_connection).Returns(_ =>
+            {
+                connected.TrySetResult();
+                return Task.CompletedTask;
+            });
             _dispatcher.DispatchMessageAsync(_connection, message).Returns(Task.FromException(exception));
 
-            await _connectionHandler.ConnectAsync(_connection);
+            var run = _connectionHandler.ConnectAsync(_connection);
+            await connected.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await _input.Writer.WriteAsync(new byte[] { 1 });
+            await run;
 
             await _dispatcher.Received(1).OnDisconnectedAsync(_connection, exception);
             await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
@@ -219,14 +250,22 @@ namespace Raido.Server.Tests
             // Arrange
             _connection.Protocol = new TestProtocol();
 
-            _pipeReader.ReadAsync(Arg.Any<CancellationToken>())
-                .Returns(new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(), true, false))); // IsCanceled = true
+            var run = _connectionHandler.DispatchMessagesAsync(_connection);
+            await Task.Delay(10);
+            _input.Reader.CancelPendingRead();
 
             // Act
-            await _connectionHandler.DispatchMessagesAsync(_connection);
+            await run;
 
             // Assert
             await _dispatcher.DidNotReceiveWithAnyArgs().DispatchMessageAsync(Arg.Any<RaidoHubConnectionContext>(), Arg.Any<RaidoMessage>());
+        }
+
+        private sealed class TestDuplexPipe(PipeReader input, PipeWriter output) : IDuplexPipe
+        {
+            public PipeReader Input { get; } = input;
+
+            public PipeWriter Output { get; } = output;
         }
     }
 }

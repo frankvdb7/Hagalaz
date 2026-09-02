@@ -162,10 +162,7 @@ namespace Raido.Server
                 {
                     if (!_connectionAborted && _connectionId is null)
                     {
-                        if (replacement.Features.Get<IConnectionUserFeature>() is IConnectionUserFeature userFeature)
-                        {
-                            _features.Set(userFeature);
-                        }
+                        CopyStableFeatures(replacement.Features);
 
                         _connectionId = replacement.ConnectionId;
                         _currentPhysicalConnection = replacement;
@@ -379,8 +376,6 @@ namespace Raido.Server
             return !isCurrent || reconnecting || !handled;
         }
 
-
-
         private bool TryDetachPhysicalConnection(ConnectionContext connection, Exception? exception, out bool reconnecting)
         {
             ConnectionContext? terminalConnection = null;
@@ -504,6 +499,21 @@ namespace Raido.Server
 
         private ConnectionContext GetRequiredCurrentPhysicalConnection() =>
     GetCurrentPhysicalConnection() ?? throw new InvalidOperationException("No physical transport is currently attached.");
+
+        private void CopyStableFeatures(IFeatureCollection physicalFeatures)
+        {
+            foreach (var (featureType, feature) in physicalFeatures)
+            {
+                if (featureType == typeof(IConnectionHeartbeatFeature) ||
+                    featureType == typeof(IConnectionLifetimeNotificationFeature) ||
+                    featureType == typeof(IConnectionInherentKeepAliveFeature))
+                {
+                    continue;
+                }
+
+                _features[featureType] = feature;
+            }
+        }
 
         private TimeSpan GetReconnectWaitTimeoutLocked(TimeSpan requestedTimeout)
         {
@@ -674,5 +684,6 @@ namespace Raido.Server
 
             public static void AbortFailed(ILogger logger, Exception exception) => _abortFailed(logger, exception);
         }
+
     }
 }

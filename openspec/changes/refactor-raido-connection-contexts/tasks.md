@@ -15,4 +15,4 @@
 - [x] 3.1 Adapt existing #477 tests to assert stable identity, protocol ownership, timeout behavior, waiter behavior, physical input completion, stale transport behavior, concurrent replacement, and one logical lifecycle
 - [ ] 3.2 Run strict OpenSpec validation, focused Raido tests, the solution build, full solution tests, and cumulative diff review against the #486 baseline
 
-Validation note: strict OpenSpec validation, focused tests, the solution build, and the cumulative diff review passed. The serial full-solution test run reached the changed projects but Docker-dependent integration tests could not start because Docker was unavailable on the host.
+Validation note: strict OpenSpec validation, focused Raido tests, the Raido and GameWorld test projects, and the solution build passed. The full solution test run reached the changed projects; only Docker-dependent integration fixtures could not start because Docker was unavailable on the host.

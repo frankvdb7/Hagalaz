@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.IO.Pipelines;
 using System.Security.Claims;
 using Hagalaz.Authorization.Constants;
 using Hagalaz.Game.Abstractions.Data;
@@ -21,6 +23,26 @@ namespace Hagalaz.Services.GameWorld.Tests;
 [TestClass]
 public sealed class AdminHubAuthorizationTests
 {
+    private readonly List<RaidoHubConnectionContext> _connections = new();
+    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+
+    [TestCleanup]
+    public void CleanupConnections()
+    {
+        foreach (var connection in _connections)
+        {
+            connection.Abort();
+        }
+
+        foreach (var (input, output) in _transports)
+        {
+            input.Reader.Complete();
+            input.Writer.Complete();
+            output.Reader.Complete();
+            output.Writer.Complete();
+        }
+    }
+
     [TestMethod]
     public async Task AdminHub_OnCommand_RejectsAuthenticatedNonAdmin()
     {
@@ -61,7 +83,7 @@ public sealed class AdminHubAuthorizationTests
         return services.BuildServiceProvider();
     }
 
-    private static RaidoHubConnectionContext CreateConnection(IEventManager eventManager, string role)
+    private RaidoHubConnectionContext CreateConnection(IEventManager eventManager, string role)
     {
         var features = new FeatureCollection();
         features.Set<IConnectionUserFeature>(new ConnectionUserFeature
@@ -77,9 +99,18 @@ public sealed class AdminHubAuthorizationTests
         var rawConnection = Substitute.For<ConnectionContext>();
         rawConnection.ConnectionId.Returns("admin-hub-test");
         rawConnection.Features.Returns(features);
+        var input = new Pipe();
+        var output = new Pipe();
+        var transport = Substitute.For<IDuplexPipe>();
+        transport.Input.Returns(input.Reader);
+        transport.Output.Returns(output.Writer);
+        rawConnection.Transport.Returns(transport);
         rawConnection.ConnectionClosed.Returns(CancellationToken.None);
+        _transports.Add((input, output));
 
-        return new RaidoHubConnectionContext(rawConnection, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance);
+        var connection = new RaidoHubConnectionContext(rawConnection, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance);
+        _connections.Add(connection);
+        return connection;
     }
 
     private static ICharacter CreateCharacter(IEventManager eventManager)
@@ -93,4 +124,5 @@ public sealed class AdminHubAuthorizationTests
     {
         public ClaimsPrincipal? User { get; set; }
     }
+
 }
