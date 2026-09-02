@@ -15,22 +15,22 @@ namespace Raido.Server
     /// <summary>
     /// Represents the stable lower Raido connection and its physical transport.
     /// </summary>
-    internal sealed class RaidoTcpConnectionContext : ConnectionContext
+    internal sealed class RaidoTcpConnectionContext : ConnectionContext, IConnectionHeartbeatFeature
     {
         private static readonly WaitCallback _abortedCallback = AbortConnection;
         private static readonly TimeSpan MaxSupportedReconnectTimeout =
             TimeSpan.FromMilliseconds(uint.MaxValue - 1L);
 
         private readonly TaskCompletionSource _abortCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private IFeatureCollection _features = null!;
-        private IDictionary<object, object?> _items = null!;
+        private readonly IFeatureCollection _features = new FeatureCollection();
+        private readonly IDictionary<object, object?> _items = new Dictionary<object, object?>();
         private readonly CancellationTokenSource _connectionAbortedTokenSource = new();
         private readonly ILogger _logger;
+        private readonly Lock _heartbeatLock = new();
         private readonly Lock _reconnectLock = new();
         private readonly TimeProvider _timeProvider;
         private readonly TimeSpan _statefulReconnectTimeout;
 
-        private CancellationTokenRegistration _closedRegistration;
         private CancellationTokenRegistration? _closedRequestedRegistration;
         private ConnectionContext? _currentPhysicalConnection;
         private ConnectionContext? _detachedPhysicalConnection;
@@ -41,9 +41,7 @@ namespace Raido.Server
         private volatile bool _connectionAborted;
         private bool _abortCallbackQueued;
         private bool _reconnectEnabled;
-        private bool _clientTimeoutHeartbeatEnabled;
-        private Action<ConnectionContext>? _keepAliveCallback;
-        private Action<ConnectionContext>? _clientTimeoutCallback;
+        private List<(Action<object> Callback, object State)>? _heartbeatHandlers;
 
         internal RaidoTcpConnectionContext(RaidoHubConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
             : this(contextOptions, loggerFactory, TimeProvider.System)
@@ -69,85 +67,33 @@ namespace Raido.Server
             _statefulReconnectTimeout = contextOptions.StatefulReconnectTimeout;
             _reconnectEnabled = contextOptions.StatefulReconnectEnabled;
             _timeProvider = timeProvider;
+            _features.Set<IConnectionHeartbeatFeature>(this);
         }
 
-        internal void InitializeHeartbeatCallbacks(
-            Action<ConnectionContext> keepAliveCallback,
-            Action<ConnectionContext> clientTimeoutCallback)
+        public void OnHeartbeat(Action<object> action, object state)
         {
-            _keepAliveCallback = keepAliveCallback;
-            _clientTimeoutCallback = clientTimeoutCallback;
-
-            if (GetCurrentPhysicalConnection() is ConnectionContext connection)
+            lock (_heartbeatLock)
             {
-                RegisterHeartbeatCallbacks(connection);
+                _heartbeatHandlers ??= new List<(Action<object> Callback, object State)>();
+                _heartbeatHandlers.Add((action, state));
             }
         }
 
-        internal void EnableClientTimeoutHeartbeat()
+        private void RunHeartbeat()
         {
-            if (_clientTimeoutHeartbeatEnabled)
+            lock (_heartbeatLock)
             {
-                return;
-            }
-
-            _clientTimeoutHeartbeatEnabled = true;
-            if (GetCurrentPhysicalConnection() is ConnectionContext connection)
-            {
-                RegisterClientTimeoutHeartbeat(connection);
-            }
-        }
-
-        private void RegisterPhysicalCallbacks(
-            ConnectionContext connection,
-            bool registerHeartbeat,
-            out CancellationTokenRegistration closedRegistration,
-            out CancellationTokenRegistration? closedRequestedRegistration)
-        {
-            closedRegistration = default;
-            closedRequestedRegistration = null;
-
-            var localClosedRegistration = connection.ConnectionClosed.Register(() => OnPhysicalConnectionClosed(connection));
-            CancellationTokenRegistration? localClosedRequestedRegistration = null;
-            try
-            {
-                // This feature is used by HttpConnectionManager to close a connection with a non-errored closed message.
-                localClosedRequestedRegistration = connection.Features.Get<IConnectionLifetimeNotificationFeature>() is IConnectionLifetimeNotificationFeature lifetimeNotification
-                    ? lifetimeNotification.ConnectionClosedRequested.Register(() => OnConnectionClosedRequested(connection))
-                    : null;
-
-                if (registerHeartbeat)
+                if (_heartbeatHandlers is null)
                 {
-                    RegisterHeartbeatCallbacks(connection);
+                    return;
                 }
 
-                closedRegistration = localClosedRegistration;
-                closedRequestedRegistration = localClosedRequestedRegistration;
-            }
-            catch
-            {
-                localClosedRegistration.Dispose();
-                localClosedRequestedRegistration?.Dispose();
-                throw;
+                foreach (var (callback, state) in _heartbeatHandlers)
+                {
+                    callback(state);
+                }
             }
         }
-
-        private void RegisterHeartbeatCallbacks(ConnectionContext connection)
-        {
-            if (connection.Features.Get<IConnectionInherentKeepAliveFeature>()?.HasInherentKeepAlive != true)
-            {
-                connection.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(_ => _keepAliveCallback?.Invoke(connection), this);
-            }
-
-            if (_clientTimeoutHeartbeatEnabled)
-            {
-                RegisterClientTimeoutHeartbeat(connection);
-            }
-        }
-
-        private void RegisterClientTimeoutHeartbeat(ConnectionContext connection) =>
-            connection.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(
-                _ => _clientTimeoutCallback?.Invoke(connection), this);
 
         internal bool IsCurrentPhysicalConnection(ConnectionContext connection)
         {
@@ -189,9 +135,23 @@ namespace Raido.Server
                 }
             }
 
-            CancellationTokenRegistration closedRegistration = default;
             CancellationTokenRegistration? closedRequestedRegistration = null;
-            RegisterPhysicalCallbacks(replacement, registerHeartbeat: !initialActivation, out closedRegistration, out closedRequestedRegistration);
+            try
+            {
+                if (replacement.Features.Get<IConnectionLifetimeNotificationFeature>() is IConnectionLifetimeNotificationFeature lifetimeNotification)
+                {
+                    closedRequestedRegistration = lifetimeNotification.ConnectionClosedRequested.Register(
+                        () => OnConnectionClosedRequested(replacement));
+                }
+
+                replacement.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(
+                    static state => ((RaidoTcpConnectionContext)state!).RunHeartbeat(), this);
+            }
+            catch
+            {
+                closedRequestedRegistration?.Dispose();
+                throw;
+            }
 
             var closedRequestedToken = replacement.Features.Get<IConnectionLifetimeNotificationFeature>()?.ConnectionClosedRequested;
 
@@ -202,11 +162,13 @@ namespace Raido.Server
                 {
                     if (!_connectionAborted && _connectionId is null)
                     {
-                        _features = replacement.Features;
-                        _items = replacement.Items;
+                        if (replacement.Features.Get<IConnectionUserFeature>() is IConnectionUserFeature userFeature)
+                        {
+                            _features.Set(userFeature);
+                        }
+
                         _connectionId = replacement.ConnectionId;
                         _currentPhysicalConnection = replacement;
-                        _closedRegistration = closedRegistration;
                         _closedRequestedRegistration = closedRequestedRegistration;
                         initialPublished = true;
                     }
@@ -214,13 +176,12 @@ namespace Raido.Server
 
                 if (!initialPublished)
                 {
-                    closedRegistration.Dispose();
                     closedRequestedRegistration?.Dispose();
                     return false;
                 }
 
-                // Callback registration can invoke a callback synchronously for an already-closed connection.
-                // Publish ownership first, then apply that state through the normal physical callbacks.
+                // A physical connection may already be closed when it is activated. Publish ownership first,
+                // then apply that state through the normal physical-disconnect path.
                 if (replacement.ConnectionClosed.IsCancellationRequested)
                 {
                     OnPhysicalConnectionClosed(replacement);
@@ -239,7 +200,6 @@ namespace Raido.Server
             var published = false;
             var terminal = false;
             ConnectionContext? terminalConnection = null;
-            CancellationTokenRegistration terminalClosedRegistration = default;
             CancellationTokenRegistration? terminalClosedRequestedRegistration = null;
             CancellationTokenRegistration? obsoleteClosedRequestedRegistration = null;
             var queueAbortCallback = false;
@@ -257,7 +217,6 @@ namespace Raido.Server
                         expectedWaiter: activationWaiter,
                         exception: null,
                         out terminalConnection,
-                        out terminalClosedRegistration,
                         out terminalClosedRequestedRegistration,
                         out queueAbortCallback);
                 }
@@ -268,7 +227,6 @@ namespace Raido.Server
                     obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
                     _currentPhysicalConnection = replacement;
                     _detachedPhysicalConnection = null;
-                    _closedRegistration = closedRegistration;
                     _closedRequestedRegistration = closedRequestedRegistration;
                     _reconnectWaiter = null;
                     _reconnectWindowStartTimestamp = null;
@@ -282,7 +240,6 @@ namespace Raido.Server
                         expectedWaiter: activationWaiter,
                         exception: null,
                         out terminalConnection,
-                        out terminalClosedRegistration,
                         out terminalClosedRequestedRegistration,
                         out queueAbortCallback);
                 }
@@ -290,7 +247,6 @@ namespace Raido.Server
 
             if (!published)
             {
-                closedRegistration.Dispose();
                 closedRequestedRegistration?.Dispose();
             }
 
@@ -298,7 +254,7 @@ namespace Raido.Server
 
             if (terminal)
             {
-                CompleteTerminalTransition(terminalConnection, terminalClosedRegistration, terminalClosedRequestedRegistration, queueAbortCallback);
+                CompleteTerminalTransition(terminalConnection, terminalClosedRequestedRegistration, queueAbortCallback);
             }
 
             return published;
@@ -390,7 +346,6 @@ namespace Raido.Server
         private bool TimeoutReconnect(TaskCompletionSource<bool> reconnectWaiter)
         {
             ConnectionContext? currentConnection = null;
-            CancellationTokenRegistration closedRegistration = default;
             CancellationTokenRegistration? closedRequestedRegistration = null;
             var queueAbortCallback = false;
             var timedOut = false;
@@ -402,14 +357,13 @@ namespace Raido.Server
                     expectedWaiter: reconnectWaiter,
                     exception: null,
                     out currentConnection,
-                    out closedRegistration,
                     out closedRequestedRegistration,
                     out queueAbortCallback);
             }
 
             if (timedOut)
             {
-                CompleteTerminalTransition(currentConnection, closedRegistration, closedRequestedRegistration, queueAbortCallback);
+                CompleteTerminalTransition(currentConnection, closedRequestedRegistration, queueAbortCallback);
                 return false;
             }
 
@@ -429,10 +383,7 @@ namespace Raido.Server
 
         private bool TryDetachPhysicalConnection(ConnectionContext connection, Exception? exception, out bool reconnecting)
         {
-            CancellationTokenRegistration closedRegistration = default;
-            CancellationTokenRegistration? closedRequestedRegistration = null;
             ConnectionContext? terminalConnection = null;
-            CancellationTokenRegistration terminalClosedRegistration = default;
             CancellationTokenRegistration? terminalClosedRequestedRegistration = null;
             var terminal = false;
             var queueAbortCallback = false;
@@ -450,8 +401,6 @@ namespace Raido.Server
                 {
                     _currentPhysicalConnection = null;
                     _detachedPhysicalConnection = connection;
-                    closedRegistration = _closedRegistration;
-                    _closedRegistration = default;
                     _reconnectWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     _reconnectWindowStartTimestamp = _timeProvider.GetTimestamp();
                 }
@@ -462,7 +411,6 @@ namespace Raido.Server
                         expectedWaiter: null,
                         exception,
                         out terminalConnection,
-                        out terminalClosedRegistration,
                         out terminalClosedRequestedRegistration,
                         out queueAbortCallback);
                 }
@@ -470,32 +418,27 @@ namespace Raido.Server
 
             if (reconnecting)
             {
-                closedRegistration.Dispose();
-                closedRequestedRegistration?.Dispose();
-
                 // Set the current connection to null before waking the old transport so resulting completions are stale.
                 connection.Transport.Input.CancelPendingRead();
                 connection.Transport.Output.CancelPendingFlush();
             }
             else if (terminal)
             {
-                CompleteTerminalTransition(terminalConnection, terminalClosedRegistration, terminalClosedRequestedRegistration, queueAbortCallback);
+                CompleteTerminalTransition(terminalConnection, terminalClosedRequestedRegistration, queueAbortCallback);
             }
 
             return true;
         }
 
         private bool TryTransitionToTerminalLocked(
-    ConnectionContext? expectedConnection,
-    TaskCompletionSource<bool>? expectedWaiter,
-    Exception? exception,
-    out ConnectionContext? currentConnection,
-    out CancellationTokenRegistration closedRegistration,
-    out CancellationTokenRegistration? closedRequestedRegistration,
-    out bool queueAbortCallback)
+            ConnectionContext? expectedConnection,
+            TaskCompletionSource<bool>? expectedWaiter,
+            Exception? exception,
+            out ConnectionContext? currentConnection,
+            out CancellationTokenRegistration? closedRequestedRegistration,
+            out bool queueAbortCallback)
         {
             currentConnection = null;
-            closedRegistration = default;
             closedRequestedRegistration = null;
             queueAbortCallback = false;
 
@@ -512,8 +455,6 @@ namespace Raido.Server
             currentConnection = _currentPhysicalConnection;
             _currentPhysicalConnection = null;
             _detachedPhysicalConnection = null;
-            closedRegistration = _closedRegistration;
-            _closedRegistration = default;
             closedRequestedRegistration = _closedRequestedRegistration;
             _closedRequestedRegistration = null;
 
@@ -532,12 +473,10 @@ namespace Raido.Server
         }
 
         private void CompleteTerminalTransition(
-    ConnectionContext? currentConnection,
-    CancellationTokenRegistration closedRegistration,
-    CancellationTokenRegistration? closedRequestedRegistration,
-    bool queueAbortCallback)
+            ConnectionContext? currentConnection,
+            CancellationTokenRegistration? closedRequestedRegistration,
+            bool queueAbortCallback)
         {
-            closedRegistration.Dispose();
             closedRequestedRegistration?.Dispose();
 
             if (currentConnection is not null)
@@ -545,6 +484,7 @@ namespace Raido.Server
                 // Physical cancellation wakes transport operations but does not cancel the stable connection token.
                 currentConnection.Transport.Output.CancelPendingFlush();
                 currentConnection.Transport.Input.CancelPendingRead();
+                currentConnection.Abort();
             }
 
             if (queueAbortCallback)
@@ -588,7 +528,6 @@ namespace Raido.Server
         private void OnConnectionClosedRequested(ConnectionContext connection)
         {
             ConnectionContext? currentConnection;
-            CancellationTokenRegistration closedRegistration;
             CancellationTokenRegistration? closedRequestedRegistration;
             bool queueAbortCallback;
             bool terminal;
@@ -608,21 +547,19 @@ namespace Raido.Server
                     expectedWaiter: null,
                     exception: null,
                     out currentConnection,
-                    out closedRegistration,
                     out closedRequestedRegistration,
                     out queueAbortCallback);
             }
 
             if (terminal)
             {
-                CompleteTerminalTransition(currentConnection, closedRegistration, closedRequestedRegistration, queueAbortCallback);
+                CompleteTerminalTransition(currentConnection, closedRequestedRegistration, queueAbortCallback);
             }
         }
 
         internal bool TryAbortForConnection(ConnectionContext connection, Exception exception)
         {
             ConnectionContext? currentConnection;
-            CancellationTokenRegistration closedRegistration;
             CancellationTokenRegistration? closedRequestedRegistration;
             bool queueAbortCallback;
             bool terminal;
@@ -634,13 +571,12 @@ namespace Raido.Server
                     expectedWaiter: null,
                     exception,
                     out currentConnection,
-                    out closedRegistration,
                     out closedRequestedRegistration,
                     out queueAbortCallback);
             }
             if (terminal)
             {
-                CompleteTerminalTransition(currentConnection, closedRegistration, closedRequestedRegistration, queueAbortCallback);
+                CompleteTerminalTransition(currentConnection, closedRequestedRegistration, queueAbortCallback);
             }
             return terminal;
         }
@@ -653,13 +589,10 @@ namespace Raido.Server
 
         internal void Cleanup()
         {
-            CancellationTokenRegistration closedRegistration;
             CancellationTokenRegistration? closedRequestedRegistration;
             TaskCompletionSource<bool>? reconnectWaiter;
             lock (_reconnectLock)
             {
-                closedRegistration = _closedRegistration;
-                _closedRegistration = default;
                 closedRequestedRegistration = _closedRequestedRegistration;
                 _closedRequestedRegistration = null;
                 _currentPhysicalConnection = null;
@@ -670,7 +603,6 @@ namespace Raido.Server
                 _reconnectWaiter = null;
             }
 
-            closedRegistration.Dispose();
             closedRequestedRegistration?.Dispose();
             reconnectWaiter?.TrySetResult(false);
         }
@@ -700,7 +632,6 @@ namespace Raido.Server
         public override void Abort()
         {
             ConnectionContext? currentConnection = null;
-            CancellationTokenRegistration closedRegistration = default;
             CancellationTokenRegistration? closedRequestedRegistration = null;
             var queueAbortCallback = false;
 
@@ -711,12 +642,11 @@ namespace Raido.Server
                     expectedWaiter: null,
                     exception: null,
                     out currentConnection,
-                    out closedRegistration,
                     out closedRequestedRegistration,
                     out queueAbortCallback);
             }
 
-            CompleteTerminalTransition(currentConnection, closedRegistration, closedRequestedRegistration, queueAbortCallback);
+            CompleteTerminalTransition(currentConnection, closedRequestedRegistration, queueAbortCallback);
         }
 
         private static void AbortConnection(object? state)

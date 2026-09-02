@@ -264,7 +264,8 @@ public sealed class RaidoPhysicalConnectionTests
             metrics);
 
         var run = handler.RunAsync(context);
-        initial.Closed.Cancel();
+        initial.Input.Writer.Complete();
+        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
 
         await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
@@ -274,6 +275,37 @@ public sealed class RaidoPhysicalConnectionTests
 
         await dispatcher.Received(1).DispatchMessageAsync(context, message);
         await dispatcher.Received(1).OnDisconnectedAsync(context, Arg.Any<Exception?>());
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task PhysicalInputCompletionDetachesWithoutPhysicalClosedCallback()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.PhysicalInputCompletion");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        var run = handler.DispatchMessagesAsync(context);
+        initial.Input.Writer.Complete();
+
+        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
+
+        Assert.IsFalse(initial.Closed.IsCancellationRequested);
+        Assert.IsTrue(context.TcpConnection.IsReconnectEnabled);
+
+        context.Abort();
+        await run.WaitAsync(TimeSpan.FromSeconds(2));
         context.Cleanup();
     }
 
@@ -321,7 +353,7 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task TimeoutWinsWhilePhysicalCallbacksAreStillRegistering()
+    public async Task TimeoutWinsWhilePhysicalHeartbeatIsRegistering()
     {
         var initial = CreatePhysicalConnection("initial");
         var candidate = CreatePhysicalConnection("candidate");
@@ -422,7 +454,7 @@ public sealed class RaidoPhysicalConnectionTests
         using var replacement = CreatePhysicalConnection("replacement");
         var context = CreateContext(initial.Connection, reconnectEnabled: false);
 
-        initial.Closed.Cancel();
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
@@ -674,8 +706,8 @@ public sealed class RaidoPhysicalConnectionTests
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
 
-        Assert.AreEqual(2, initialHeartbeat.Callbacks.Count);
-        Assert.AreEqual(2, replacementHeartbeat.Callbacks.Count);
+        Assert.AreEqual(1, initialHeartbeat.Callbacks.Count);
+        Assert.AreEqual(1, replacementHeartbeat.Callbacks.Count);
 
         replacementHeartbeat.Run();
         initialHeartbeat.Run();
@@ -895,7 +927,8 @@ public sealed class RaidoPhysicalConnectionTests
             metrics);
 
         var run = handler.ConnectAsync(context);
-        initial.Closed.Cancel();
+        initial.Input.Writer.Complete();
+        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
         await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
         replacement.Input.Writer.Complete();
@@ -1172,7 +1205,8 @@ public sealed class RaidoPhysicalConnectionTests
         await lifetimeConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
         await dispatcherConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        initial.Closed.Cancel();
+        initial.Input.Writer.Complete();
+        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         timeProvider.Advance(TimeSpan.FromSeconds(2));
 
@@ -1220,7 +1254,8 @@ public sealed class RaidoPhysicalConnectionTests
         await lifetimeConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
         await dispatcherConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        initial.Closed.Cancel();
+        initial.Input.Writer.Complete();
+        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         context.Abort();
 
@@ -1335,7 +1370,7 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task PhysicalCallbacksAreRegisteredOnTheReplacementAndStaleHeartbeatIsIgnored()
+    public async Task StableHeartbeatHandlersContinueAcrossPhysicalReplacement()
     {
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
@@ -1459,40 +1494,6 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    [Timeout(5000)]
-    public async Task ClientTimeoutTerminalizationDoesNotDeadlockWithConnectionClosedCallback()
-    {
-        using var initial = CreatePhysicalConnection("initial");
-        var context = CreateContext(initial.Connection, reconnectEnabled: false, clientTimeout: TimeSpan.Zero);
-        context.StartClientTimeout();
-        context.BeginClientTimeout();
-
-        var timeoutLock = (Lock)typeof(RaidoHubConnectionContext)
-            .GetField("_receiveMessageTimeoutLock", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-            .GetValue(context)!;
-        var cancellationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var marker = initial.Closed.Token.Register(cancellationStarted.SetResult);
-        Task close;
-        Task check;
-
-        lock (timeoutLock)
-        {
-            close = Task.Run(() => initial.Closed.Cancel());
-            Assert.IsTrue(cancellationStarted.Task.Wait(TimeSpan.FromSeconds(1)));
-            check = Task.Run(() => InvokeClientTimeoutCheck(context, initial.Connection));
-        }
-
-        await Task.WhenAll(close, check).WaitAsync(TimeSpan.FromSeconds(1));
-        Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-
-        await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
-        context.Cleanup();
-    }
-
-    [TestMethod]
     public async Task StoreMembershipSurvivesPhysicalReplacementUntilTerminalDisconnect()
     {
         using var initial = CreatePhysicalConnection("initial");
@@ -1516,7 +1517,7 @@ public sealed class RaidoPhysicalConnectionTests
         await WaitForConditionAsync(() => store[context.ConnectionId] is not null);
         Assert.AreSame(context, store[context.ConnectionId]);
 
-        initial.Closed.Cancel();
+        initial.Input.Writer.Complete();
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.AreSame(context, store[context.ConnectionId]);
 
@@ -1587,11 +1588,6 @@ public sealed class RaidoPhysicalConnectionTests
         typeof(RaidoTcpConnectionContext)
             .GetMethod("OnConnectionClosedRequested", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(context.TcpConnection, new object[] { physicalConnection });
-
-    private static void InvokeClientTimeoutCheck(RaidoHubConnectionContext context, ConnectionContext physicalConnection) =>
-        typeof(RaidoHubConnectionContext)
-            .GetMethod("CheckClientTimeoutForConnection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-            .Invoke(context, new object[] { physicalConnection });
 
     private static async Task WaitForConditionAsync(Func<bool> condition)
     {

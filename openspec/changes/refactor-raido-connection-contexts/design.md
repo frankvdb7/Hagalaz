@@ -1,6 +1,6 @@
 ## Context
 
-The current `RaidoConnectionContext` combines the stable connection identity, physical transport callbacks, #477 reconnect state, Hub protocol, message writing, timeout policy, caller state, and logical lifecycle bookkeeping. `RaidoConnectionHandler` already creates readers per current physical transport and waits on the existing reconnect window, so the refactor can preserve that control flow while changing the ownership boundaries.
+The current `RaidoConnectionContext` combines the stable connection identity, physical transport state, #477 reconnect state, Hub protocol, message writing, timeout policy, caller state, and logical lifecycle bookkeeping. `RaidoConnectionHandler` already creates readers per current physical transport and waits on the existing reconnect window, so the refactor can preserve that control flow while changing the ownership boundaries.
 
 ## Goals / Non-Goals
 
@@ -22,7 +22,7 @@ The current `RaidoConnectionContext` combines the stable connection identity, ph
 
 ### Two contexts, one logical lifecycle
 
-Split the current class into an internal `RaidoTcpConnectionContext` and public `RaidoHubConnectionContext`. The TCP context owns the stable connection ID, stable feature/item collections, current and detached physical connections, physical callbacks, reconnect synchronization, waiter, deadlines, terminal state, and lower abort behavior. The Hub context wraps the TCP context through `ConnectionContext` and owns protocol, caller state, write locking, Hub timeout policy, logical timestamps, activity, and metrics with Hub-level meaning.
+Split the current class into an internal `RaidoTcpConnectionContext` and public `RaidoHubConnectionContext`. The TCP context owns the stable connection ID, stable feature/item collections, current and detached physical connections, reconnect synchronization, waiter, deadlines, terminal state, and lower abort behavior. The handler's physical reader completion remains the ordinary physical-disconnect signal; the TCP context retains only the existing physical close-request notification and forwards the physical heartbeat source to its stable heartbeat feature. The Hub context wraps the TCP context through `ConnectionContext` and owns protocol, caller state, write locking, Hub timeout policy, logical timestamps, activity, and metrics with Hub-level meaning.
 
 The simpler alternative, leaving all fields in one class, preserves behavior but leaves the ownership problem unresolved. A second bootstrap or transfer architecture is not needed for this refactor.
 
@@ -36,7 +36,7 @@ Keep `RaidoConnectionHandler` as the owner of the logical Hub loop. It obtains t
 
 ### Stable versus physical features
 
-The TCP context keeps the stable feature and item collections used for logical connection state. Physical heartbeat and lifetime-notification features are read from the currently attached physical `ConnectionContext` when registering callbacks. The Hub context delegates ordinary connection information through the wrapped stable context and does not expose raw pipes publicly.
+The TCP context owns the stable feature and item collections used for logical connection state and exposes its stable heartbeat handler through `IConnectionHeartbeatFeature`. During each activation it registers one forwarding callback with the currently attached physical heartbeat feature; the physical reader remains responsible for detecting normal input completion, while the existing close-request notification is registered on the active physical connection. The Hub context delegates ordinary connection information through the wrapped stable context and does not expose raw pipes publicly.
 
 ### Cancellation ownership
 

@@ -22,7 +22,7 @@ The system SHALL represent one logical Raido Hub connection with one stable lowe
 
 ### Requirement: Stateful reconnect remains the existing authority
 
-The system SHALL preserve the existing stateful reconnect behavior for reconnect windows, timeout, terminal transitions, waiter completion, callback registration, stale physical callbacks, and single-winner replacement publication.
+The system SHALL preserve the existing stateful reconnect behavior for reconnect windows, timeout, terminal transitions, waiter completion, physical transport failure handling, stale physical transport protection, and single-winner replacement publication.
 
 #### Scenario: Replacement publication is serialized
 

@@ -103,7 +103,9 @@ namespace Raido.Server
 
         internal Task OnConnectedAsync()
         {
-            TcpConnection.InitializeHeartbeatCallbacks(KeepAliveTick, CheckClientTimeoutForConnection);
+            Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(
+                static state => ((RaidoHubConnectionContext)state!).KeepAliveTick(),
+                this);
             StartTimestamp = _timeProvider.GetTimestamp();
             return Task.CompletedTask;
         }
@@ -360,15 +362,14 @@ namespace Raido.Server
             }
 
             _clientTimeoutActive = true;
-            if (GetCurrentConnection() is ConnectionContext connection)
-            {
-                TcpConnection.EnableClientTimeoutHeartbeat();
-            }
+            Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(
+                static state => ((RaidoHubConnectionContext)state!).CheckClientTimeout(),
+                this);
         }
 
-        private void CheckClientTimeoutForConnection(ConnectionContext connection)
+        private void CheckClientTimeout()
         {
-            if (Debugger.IsAttached || TcpConnection.IsTerminal || !TcpConnection.IsCurrentPhysicalConnection(connection))
+            if (Debugger.IsAttached || TcpConnection.IsTerminal || !TcpConnection.TryGetCurrentConnection(out var connection))
             {
                 return;
             }
@@ -395,9 +396,10 @@ namespace Raido.Server
             }
         }
 
-        private void KeepAliveTick(ConnectionContext connection)
+        private void KeepAliveTick()
         {
-            if (!TcpConnection.IsCurrentPhysicalConnection(connection))
+            if (!TcpConnection.TryGetCurrentConnection(out var connection) ||
+                connection.Features.Get<IConnectionInherentKeepAliveFeature>()?.HasInherentKeepAlive == true)
             {
                 return;
             }

@@ -90,10 +90,10 @@ public sealed class RaidoHubConnectionContextAdditionalTests
     {
         var (context, output, features, _) = CreateContext();
         var user = new ClaimsPrincipal(new ClaimsIdentity("test"));
-        features.Set<IConnectionUserFeature>(new UserFeature { User = user });
+        context.Features.Set<IConnectionUserFeature>(new UserFeature { User = user });
         Assert.AreSame(user, context.User);
         Assert.AreEqual("additional", context.ConnectionId);
-        Assert.AreSame(features, context.Features);
+        Assert.AreNotSame(features, context.Features);
         Assert.IsNotNull(context.Items);
         await context.OnConnectedAsync();
         await context.WriteAsync(new TestMessage());
@@ -178,8 +178,8 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         context.StartClientTimeout();
         context.StartClientTimeout();
         context.BeginClientTimeout();
-        var check = typeof(RaidoHubConnectionContext).GetMethod("CheckClientTimeoutForConnection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        check.Invoke(context, new object[] { connection });
+        var check = typeof(RaidoHubConnectionContext).GetMethod("CheckClientTimeout", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        check.Invoke(context, Array.Empty<object>());
         await context.AbortAsync();
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
         context.StopClientTimeout();

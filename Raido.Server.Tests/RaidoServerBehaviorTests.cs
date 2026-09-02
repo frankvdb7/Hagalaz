@@ -234,7 +234,7 @@ public sealed class RaidoServerBehaviorTests
         Assert.AreSame(user, caller.User);
         Assert.AreSame(local, caller.LocalIPEndPoint);
         Assert.AreSame(remote, caller.RemoteIPEndPoint);
-        Assert.AreSame(items, caller.Items);
+        Assert.AreNotSame(items, caller.Items);
 
         var method = typeof(MetadataHub).GetMethod(nameof(MetadataHub.Handle))!;
         var executor = ObjectMethodExecutor.Create(method, typeof(MetadataHub).GetTypeInfo());
