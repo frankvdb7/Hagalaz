@@ -11,7 +11,7 @@ namespace Hagalaz.Services.GameWorld.Network.Model
         string ConnectionId { get; }
         IFeatureCollection Features { get; }
 
-        bool TryScheduleReconnect(
+        bool TryReconnect(
             RaidoCallerContext replacement,
             IRaidoProtocol replacementProtocol);
 

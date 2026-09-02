@@ -52,8 +52,8 @@ the existing reconnect publication.
 
 - GIVEN valid credentials and matching existing ownership
 - WHEN the reconnect request is handled
-- THEN response 15 is sent
-- AND the existing reconnect operation is scheduled
+  - THEN response 15 is sent
+  - AND the existing reconnect operation is scheduled
 - AND no fresh sign-in flow is started
 
 ### Requirement: Fresh sign-in remains unchanged

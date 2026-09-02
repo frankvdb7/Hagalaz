@@ -930,59 +930,6 @@ public sealed class RaidoStatefulReconnectTests
         context.Cleanup();
     }
 
-    [TestMethod]
-    [Timeout(5000)]
-    public async Task ScheduledReconnectPublishesAfterDispatchAndKeepsTransferredConnectionAlive()
-    {
-        using var stableInitial = CreatePhysicalConnection("stable-initial");
-        using var candidate = CreatePhysicalConnection("candidate");
-        var stable = CreateContext(stableInitial.Connection, reconnectEnabled: true);
-        var temporary = CreateContext(candidate.Connection, reconnectEnabled: false);
-        candidate.Connection.When(connection => connection.Abort()).Do(_ => candidate.Closed.Cancel());
-        var message = new TestMessage();
-        temporary.Protocol = new TestProtocol { MessageToReturn = message };
-        var replacementProtocol = new ReconnectWritingProtocol();
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.DeferredReconnect");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
-            dispatcher,
-            metrics);
-
-        dispatcher.DispatchMessageAsync(temporary, message).Returns(Task.CompletedTask);
-        dispatcher.OnDisconnectedAsync(temporary, Arg.Any<Exception?>()).Returns(_ =>
-        {
-            disconnected.TrySetResult();
-            return Task.CompletedTask;
-        });
-        stable.OnPhysicalConnectionClosed(stableInitial.Connection);
-        Assert.IsTrue(stable.TryScheduleReconnect(temporary.RaidoCallerContext, replacementProtocol));
-
-        var run = handler.ConnectAsync(temporary);
-        await candidate.Input.Writer.WriteAsync(new byte[] { 1 });
-
-        await WaitForConditionAsync(() =>
-            stable.TryGetCurrentConnection(out var current) && ReferenceEquals(current, candidate.Connection));
-        await WaitForConditionAsync(() => !temporary.TryGetCurrentConnection(out _));
-
-        Assert.IsFalse(run.IsCompleted);
-        await disconnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        await dispatcher.Received(1).OnDisconnectedAsync(temporary, Arg.Any<Exception?>());
-        Assert.AreSame(replacementProtocol, stable.Protocol);
-
-        stable.Abort();
-        await run.WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.IsTrue(candidate.Closed.IsCancellationRequested);
-
-        stable.Cleanup();
-    }
-
     private sealed class FailingOutputProtocol(Exception? writeException = null, Exception? messageBytesException = null) : IRaidoProtocol
     {
         public string Name => "failing-output";

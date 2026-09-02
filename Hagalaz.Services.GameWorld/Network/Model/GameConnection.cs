@@ -15,10 +15,10 @@ namespace Hagalaz.Services.GameWorld.Network.Model
         public string ConnectionId => _context.ConnectionId;
         public IFeatureCollection Features => _context.Features;
 
-        public bool TryScheduleReconnect(
+        public bool TryReconnect(
             RaidoCallerContext replacement,
             IRaidoProtocol replacementProtocol) =>
-            _context.TryScheduleReconnect(replacement, replacementProtocol);
+            _context.TryReconnect(replacement, replacementProtocol);
 
         public async Task SendMessage(RaidoMessage message, CancellationToken cancellationToken = default) => await _context.WriteAsync(message, cancellationToken);
     }

@@ -2,18 +2,17 @@
 
 ## ADDED Requirements
 
-### Requirement: Existing publication occurs after message consumption
+### Requirement: Existing publication reuses the temporary physical connection
 
-The reconnect integration MUST leave the existing dispatcher contract unchanged
-and MUST invoke the existing reconnect publication operation only after the
-temporary reader has advanced the consumed request with `Advance(true)`.
+The reconnect integration MUST leave the existing dispatcher and handler
+contracts unchanged and MUST invoke the existing reconnect publication
+operation with the temporary connection's current physical transport.
 
-#### Scenario: Deferred publication
+#### Scenario: Existing publication
 
-- GIVEN a temporary context has dispatched a valid reconnect request
-- WHEN the dispatch completes
-- THEN the reader advances the consumed request
-- AND the existing reconnect publication operation is invoked afterward
+- GIVEN a temporary context has handled a valid reconnect request
+- WHEN the existing reconnect publication operation is invoked
+- THEN it receives the temporary connection's current physical transport
 
 ### Requirement: Replacement protocol is published atomically
 
@@ -31,29 +30,16 @@ completing the existing reconnect waiter.
 
 ### Requirement: Failed publication uses existing cleanup
 
-A failed or rejected deferred publication MUST NOT publish a replacement
+A failed or rejected publication MUST NOT publish a replacement
 transport or protocol, and MUST leave the temporary physical connection on the
 normal failure and cleanup path.
 
 #### Scenario: Publication loses the existing race
 
 - GIVEN another candidate has already published the reconnect window
-- WHEN the deferred publication for this candidate runs
+- WHEN publication for this candidate runs
 - THEN it fails through the existing reconnect checks
 - AND the candidate is cleaned up as a normal temporary connection
-
-### Requirement: Successful transfer preserves the accepted physical lifetime
-
-After successful publication, temporary logical cleanup MUST complete without
-aborting the transferred physical connection. The accepted physical connection
-MUST remain awaited until its existing `ConnectionClosed` signal completes.
-
-#### Scenario: Temporary lifetime ends after transfer
-
-- GIVEN the existing publication operation has attached the candidate transport
-- WHEN the temporary handler finishes its logical cleanup
-- THEN it does not abort the attached transport
-- AND the accepted physical lifetime remains active until closure
 
 ### Requirement: #477 remains the sole reconnect authority
 

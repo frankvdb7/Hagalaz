@@ -29,7 +29,7 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class HandshakeHubReconnectTests
 {
     [TestMethod]
-    public async Task ReconnectWorld_AuthenticatesSendsResponseAndSchedulesReconnect()
+    public async Task ReconnectWorld_AuthenticatesSendsResponseAndReconnects()
     {
         var authentication = Substitute.For<IAuthenticationService>();
         authentication.AuthenticateWorldReconnectAsync("login", "password")
@@ -52,10 +52,10 @@ public sealed class HandshakeHubReconnectTests
                 order.Add("response");
                 return Task.CompletedTask;
             });
-        existing.TryScheduleReconnect(context, clientProtocol)
+        existing.TryReconnect(context, clientProtocol)
             .Returns(_ =>
             {
-                order.Add("schedule");
+                order.Add("reconnect");
                 return true;
             });
 
@@ -70,8 +70,8 @@ public sealed class HandshakeHubReconnectTests
                 response.CharacterLocation.X == 3200 &&
                 response.CharacterLocation.Y == 3200),
             Arg.Any<CancellationToken>());
-        existing.Received(1).TryScheduleReconnect(context, clientProtocol);
-        CollectionAssert.AreEqual(new[] { "response", "schedule" }, order);
+        existing.Received(1).TryReconnect(context, clientProtocol);
+        CollectionAssert.AreEqual(new[] { "response", "reconnect" }, order);
         context.DidNotReceive().Abort();
     }
 
@@ -110,13 +110,13 @@ public sealed class HandshakeHubReconnectTests
 
         await hub.ReconnectWorld(CreateRequest());
 
-        existing.DidNotReceive().TryScheduleReconnect(Arg.Any<RaidoCallerContext>(), Arg.Any<IRaidoProtocol>());
+        existing.DidNotReceive().TryReconnect(Arg.Any<RaidoCallerContext>(), Arg.Any<IRaidoProtocol>());
         await caller.Received(1).SendAsync(ClientSignInResponse.BadSession, Arg.Any<CancellationToken>());
         context.Received(1).Abort();
     }
 
     [TestMethod]
-    public async Task ReconnectWorld_DoesNotScheduleReconnectWhenResponseWriteFails()
+    public async Task ReconnectWorld_PropagatesResponseWriteFailure()
     {
         var authentication = Substitute.For<IAuthenticationService>();
         authentication.AuthenticateWorldReconnectAsync("login", "password")
@@ -124,9 +124,7 @@ public sealed class HandshakeHubReconnectTests
         var existing = CreateExistingConnection(masterId: 42, characterMasterId: 42);
         var connections = Substitute.For<IGameConnectionService>();
         connections.FindByMasterId(42).Returns(Task.FromResult<IGameConnection?>(existing));
-        var clientProtocol = Substitute.For<IClientProtocol>();
         var resolver = Substitute.For<IClientProtocolResolver>();
-        resolver.GetProtocol(742).Returns(clientProtocol);
         var context = CreateContext(Substitute.For<IRaidoProtocol>());
         var hub = CreateHub(authentication, connections, resolver);
         var caller = SetClients(hub);
@@ -136,7 +134,7 @@ public sealed class HandshakeHubReconnectTests
 
         await Assert.ThrowsExactlyAsync<IOException>(() => hub.ReconnectWorld(CreateRequest()));
 
-        existing.DidNotReceive().TryScheduleReconnect(Arg.Any<RaidoCallerContext>(), Arg.Any<IRaidoProtocol>());
+        existing.DidNotReceive().TryReconnect(Arg.Any<RaidoCallerContext>(), Arg.Any<IRaidoProtocol>());
     }
 
     private static IGameConnection CreateExistingConnection(uint masterId, uint characterMasterId)

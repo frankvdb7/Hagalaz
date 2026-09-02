@@ -30,6 +30,5 @@ namespace Raido.Server.Internal
         }
 
         public override void Abort() => _connection.Abort();
-
     }
 }

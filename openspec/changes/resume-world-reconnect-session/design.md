@@ -15,18 +15,13 @@ eligibility or lifetime rules.
 
 ## Minimal Raido bridge
 
-The ordinary temporary `RaidoConnectionContext` handles the reconnect
-request. The existing dispatcher contract remains unchanged. The GameConnection
-boundary accepts the temporary caller context and replacement protocol, while
-Raido internally resolves the caller's current physical connection.
-
+The ordinary temporary `RaidoConnectionContext` handles the reconnect request.
 After the hub sends `WorldReconnectResponse` through
-`Clients.Caller.SendAsync`, the boundary stores one private one-shot action on
-the temporary context. The handler consumes that action only after
-`RaidoProtocolReader.Advance(true)`, and the action invokes the existing
-`TryReconnect` publication operation with the captured physical connection and
-replacement protocol. No response message, response callback, or raw transport
-is passed through the GameWorld boundary.
+`Clients.Caller.SendAsync`, the existing `TryReconnect` publication operation
+is invoked through the GameConnection boundary. Raido resolves the caller's
+current physical connection internally and passes it to the existing
+publication logic with the replacement protocol. No response message,
+response callback, or raw transport is passed through the GameWorld boundary.
 
 The existing `TryReconnect(ConnectionContext)` operation remains the
 publication and reconnect-lifecycle authority. Its small protocol-aware
@@ -37,27 +32,21 @@ checks remain authoritative.
 
 The generic write path remains unchanged. GameWorld decides which message to
 send; Raido only serializes and flushes it using the current protocol and
-physical connection. Existing write/transport failure handling determines
-whether the temporary context can still schedule the reconnect.
+physical connection. Existing write/transport failure handling remains
+authoritative.
 
 ## Physical lifetime
 
-The temporary handler reports a local successful-transfer outcome from its
-deferred action. On success it clears the temporary context through normal
-cleanup before running the normal disconnect callback, so that callback cannot
-abort the transferred physical connection. Temporary metrics, store removal,
-lifetime callbacks, and hub disconnect callbacks still complete.
-
-`RaidoConnectionHandler.ConnectAsync` retains the accepted physical
-`ConnectionContext` locally and, only after temporary cleanup completes,
-awaits its existing `ConnectionClosed` signal. The stable logical context
-owns the active transport through #477 during this wait. On failed publication
-the normal temporary abort and cleanup path remains unchanged.
+The temporary handler follows the normal Raido lifecycle after the reconnect
+request. The existing #477 stateful reconnect operation remains responsible
+for replacement transport publication, logical lifetime, timeout, terminal
+handling, and waiter completion. No additional transfer or accepted-transport
+lifetime mechanism is added.
 
 ## Scope boundary
 
 No new state machine, candidate subsystem, ownership framework, writer
-abstraction, dispatch result, or lifecycle mode is introduced. The only
-special handler behavior is the one-shot action required by the existing
-reader advance boundary and the local successful-transfer outcome required to
-avoid aborting the transferred transport.
+abstraction, dispatch result, or lifecycle mode is introduced. The dispatcher
+and handler remain unchanged; the integration only feeds the temporary
+physical connection and replacement protocol into the existing reconnect
+publication operation.

@@ -43,7 +43,6 @@ namespace Raido.Server
         private TaskCompletionSource<bool>? _reconnectWaiter;
         private long? _reconnectWindowStartTimestamp;
         private ClaimsPrincipal? _user;
-        private Func<bool>? _postDispatchAction;
 
         private volatile bool _clientTimeoutActive;
         private volatile bool _connectionAborted;
@@ -172,7 +171,7 @@ namespace Raido.Server
             _timeProvider = timeProvider;
             _lastSendTick = _timeProvider.GetTimestamp();
 
-            RegisterPhysicalCallbacks(connection, registerHeartbeat: false, out var closedRegistration, out var closedRequestedRegistration);
+            RegisterConnectionCallbacks(connection, registerHeartbeat: false, out var closedRegistration, out var closedRequestedRegistration);
 
             lock (_reconnectLock)
             {
@@ -212,7 +211,7 @@ namespace Raido.Server
             return Task.CompletedTask;
         }
 
-        private void RegisterPhysicalCallbacks(
+        private void RegisterConnectionCallbacks(
             ConnectionContext connection,
             bool registerHeartbeat,
             out CancellationTokenRegistration closedRegistration,
@@ -486,13 +485,23 @@ namespace Raido.Server
         /// </summary>
         /// <param name="replacement">The replacement physical transport.</param>
         /// <returns><see langword="true"/> when the replacement was published; otherwise, <see langword="false"/>.</returns>
-        public bool TryReconnect(ConnectionContext replacement) =>
+        internal bool TryReconnect(ConnectionContext replacement) =>
             TryReconnectCore(replacement, replacementProtocol: null);
 
         internal bool TryReconnect(ConnectionContext replacement, IRaidoProtocol replacementProtocol)
         {
             ArgumentNullException.ThrowIfNull(replacementProtocol);
             return TryReconnectCore(replacement, replacementProtocol);
+        }
+
+        public bool TryReconnect(RaidoCallerContext replacement, IRaidoProtocol replacementProtocol)
+        {
+            ArgumentNullException.ThrowIfNull(replacement);
+            ArgumentNullException.ThrowIfNull(replacementProtocol);
+
+            return replacement is DefaultRaidoCallerContext replacementContext &&
+                   replacementContext.Connection.TryGetCurrentConnection(out var physicalConnection) &&
+                   TryReconnect(physicalConnection, replacementProtocol);
         }
 
         private bool TryReconnectCore(ConnectionContext replacement, IRaidoProtocol? replacementProtocol)
@@ -518,7 +527,7 @@ namespace Raido.Server
 
             CancellationTokenRegistration closedRegistration = default;
             CancellationTokenRegistration? closedRequestedRegistration = null;
-            RegisterPhysicalCallbacks(replacement, registerHeartbeat: true, out closedRegistration, out closedRequestedRegistration);
+            RegisterConnectionCallbacks(replacement, registerHeartbeat: true, out closedRegistration, out closedRequestedRegistration);
 
             var closedRequestedToken = replacement.Features.Get<IConnectionLifetimeNotificationFeature>()?.ConnectionClosedRequested;
             var published = false;
@@ -594,30 +603,6 @@ namespace Raido.Server
 
             return published;
         }
-
-        public bool TryScheduleReconnect(RaidoCallerContext replacement, IRaidoProtocol replacementProtocol)
-        {
-            ArgumentNullException.ThrowIfNull(replacement);
-            ArgumentNullException.ThrowIfNull(replacementProtocol);
-
-            if (replacement is not DefaultRaidoCallerContext replacementContext ||
-                replacementContext.Connection.IsTerminal ||
-                !replacementContext.Connection.TryGetCurrentConnection(out var physicalConnection))
-            {
-                return false;
-            }
-
-            return replacementContext.Connection.TrySetPostDispatchAction(() =>
-                replacementContext.Connection.TryGetCurrentConnection(out var currentConnection) &&
-                ReferenceEquals(currentConnection, physicalConnection) &&
-                TryReconnect(physicalConnection, replacementProtocol));
-        }
-
-        internal bool TrySetPostDispatchAction(Func<bool> action) =>
-            Interlocked.CompareExchange(ref _postDispatchAction, action, null) is null;
-
-        internal Func<bool>? TakePostDispatchAction() =>
-            Interlocked.Exchange(ref _postDispatchAction, null);
 
         internal bool IsTerminal => _connectionAborted;
 
@@ -857,7 +842,6 @@ namespace Raido.Server
                 // Physical cancellation wakes transport operations but does not cancel the stable connection token.
                 currentConnection.Transport.Output.CancelPendingFlush();
                 currentConnection.Transport.Input.CancelPendingRead();
-                currentConnection.Abort();
             }
 
             if (queueAbortCallback)
@@ -1188,7 +1172,6 @@ namespace Raido.Server
 
         internal void Cleanup()
         {
-            Interlocked.Exchange(ref _postDispatchAction, null);
             CancellationTokenRegistration closedRegistration;
             CancellationTokenRegistration? closedRequestedRegistration;
             TaskCompletionSource<bool>? reconnectWaiter;

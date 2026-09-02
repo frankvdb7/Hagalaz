@@ -11,20 +11,18 @@
 ## Raido bridge
 
 - [x] 2.1 Enable stateful reconnect for GameWorld only.
-- [x] 2.2 Keep the dispatcher contract unchanged and add one private one-shot
-      post-dispatch action that runs after `Advance(true)`.
-- [x] 2.3 Extend the existing `TryReconnect` publication path to install the
-      replacement protocol before transport publication and waiter completion.
-- [x] 2.4 Keep temporary cleanup separate from the accepted physical lifetime
-      by awaiting the transferred connection's existing closure signal only
-      after successful publication.
+- [x] 2.2 Reuse the existing dispatcher and handler lifecycle without adding a
+      post-dispatch action or transport-lifetime bridge.
+- [x] 2.3 Extend the existing `TryReconnect` publication path to obtain the
+      temporary physical connection internally and install the replacement
+      protocol before transport publication and waiter completion.
 
 ## Protocol and tests
 
 - [x] 3.1 Add the response and required player-entry encoder while preserving
       standard-map serialization.
-- [x] 3.2 Adapt focused authorization, GameWorld, response, and Raido tests to
-      the final generic-send and deferred-publication behavior.
+- [x] 3.2 Adapt focused authorization, GameWorld, response, and reconnect tests
+      to the existing stateful reconnect behavior.
 
 ## Validation
 

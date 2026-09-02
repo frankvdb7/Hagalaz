@@ -296,7 +296,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             };
 
             await Clients.Caller.SendAsync(response, Context.ConnectionAbortedToken);
-            if (!existingConnection.TryScheduleReconnect(Context, clientProtocol))
+            if (!existingConnection.TryReconnect(Context, clientProtocol))
             {
                 Context.Abort();
             }
