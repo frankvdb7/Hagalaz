@@ -220,7 +220,7 @@ public sealed class RaidoHubDispatcherTests
         return (services.BuildServiceProvider(), context);
     }
 
-    private static RaidoConnectionContext CreateConnection(string id = "connection")
+    private static RaidoHubConnectionContext CreateConnection(string id = "connection")
     {
         var context = Substitute.For<ConnectionContext>();
         context.ConnectionId.Returns(id);
@@ -232,7 +232,7 @@ public sealed class RaidoHubDispatcherTests
         context.Transport.Returns(transport);
         context.Features.Returns(new FeatureCollection());
         context.ConnectionClosed.Returns(CancellationToken.None);
-        return new RaidoConnectionContext(context, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
+        return new RaidoHubConnectionContext(context, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
         {
             Protocol = new TestProtocol()
         };

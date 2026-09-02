@@ -68,7 +68,7 @@ namespace Raido.Server.Tests
         private RaidoMetrics _metrics = null!;
         private IMeterFactory _meterFactory = null!;
         private RaidoConnectionHandler _connectionHandler = null!;
-        private RaidoConnectionContext _connection = null!;
+        private RaidoHubConnectionContext _connection = null!;
         private DefaultConnectionContext _connectionContext = null!;
         private PipeReader _pipeReader = null!;
 
@@ -96,7 +96,7 @@ namespace Raido.Server.Tests
             _pipeReader = Substitute.For<PipeReader>();
             transport.Input.Returns(_pipeReader);
             _connectionContext.Transport = transport;
-            _connection = new RaidoConnectionContext(_connectionContext, new RaidoConnectionContextOptions(), _loggerFactory);
+            _connection = new RaidoHubConnectionContext(_connectionContext, new RaidoHubConnectionContextOptions(), _loggerFactory);
         }
 
         [TestMethod]
@@ -226,7 +226,7 @@ namespace Raido.Server.Tests
             await _connectionHandler.DispatchMessagesAsync(_connection);
 
             // Assert
-            await _dispatcher.DidNotReceiveWithAnyArgs().DispatchMessageAsync(Arg.Any<RaidoConnectionContext>(), Arg.Any<RaidoMessage>());
+            await _dispatcher.DidNotReceiveWithAnyArgs().DispatchMessageAsync(Arg.Any<RaidoHubConnectionContext>(), Arg.Any<RaidoMessage>());
         }
     }
 }

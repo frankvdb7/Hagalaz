@@ -5,11 +5,11 @@ using System.Collections.Generic;
 
 namespace Raido.Server
 {
-    public class RaidoConnectionStore : IEnumerable<RaidoConnectionContext>
+    public class RaidoConnectionStore : IEnumerable<RaidoHubConnectionContext>
     {
-        private readonly ConcurrentDictionary<string, RaidoConnectionContext> _connections = new(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, RaidoHubConnectionContext> _connections = new(StringComparer.Ordinal);
         
-        public RaidoConnectionContext? this[string connectionId]
+        public RaidoHubConnectionContext? this[string connectionId]
         {
             get
             {
@@ -20,21 +20,21 @@ namespace Raido.Server
         
         public int Count => _connections.Count;
         
-        public void Add(RaidoConnectionContext connection) => _connections.TryAdd(connection.ConnectionId, connection);
+        public void Add(RaidoHubConnectionContext connection) => _connections.TryAdd(connection.ConnectionId, connection);
 
-        public void Remove(RaidoConnectionContext connection) => _connections.TryRemove(connection.ConnectionId, out _);
+        public void Remove(RaidoHubConnectionContext connection) => _connections.TryRemove(connection.ConnectionId, out _);
         
         public Enumerator GetEnumerator() => new(this);
-        IEnumerator<RaidoConnectionContext> IEnumerable<RaidoConnectionContext>.GetEnumerator() => GetEnumerator();
+        IEnumerator<RaidoHubConnectionContext> IEnumerable<RaidoHubConnectionContext>.GetEnumerator() => GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        public readonly struct Enumerator : IEnumerator<RaidoConnectionContext>
+        public readonly struct Enumerator : IEnumerator<RaidoHubConnectionContext>
         {
-            private readonly IEnumerator<KeyValuePair<string, RaidoConnectionContext>> _enumerator;
+            private readonly IEnumerator<KeyValuePair<string, RaidoHubConnectionContext>> _enumerator;
 
             public Enumerator(RaidoConnectionStore hubConnectionList) => _enumerator = hubConnectionList._connections.GetEnumerator();
 
-            public RaidoConnectionContext Current => _enumerator.Current.Value;
+            public RaidoHubConnectionContext Current => _enumerator.Current.Value;
 
             object IEnumerator.Current => Current;
 

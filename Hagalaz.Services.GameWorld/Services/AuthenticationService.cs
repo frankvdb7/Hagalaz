@@ -50,7 +50,6 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ICharacterLogoutService _characterLogoutService;
         private readonly IGameSessionService _gameSessionService;
         private readonly IRequestClient<SignInUserRequestMessage> _signInUserRequestClient;
-        private readonly IRequestClient<ValidateUserCredentialsRequestMessage> _validateUserCredentialsRequestClient;
         private readonly IRequestClient<GetUserInfoRequestMessage> _getUserInfoRequestClient;
         private readonly IRequestClient<RevokeTokenRequestMessage> _revokeTokenRequestClient;
         private readonly IRequestClient<HydrateCharacter> _getCharacterRequestClient;
@@ -70,7 +69,6 @@ namespace Hagalaz.Services.GameWorld.Services
             ICharacterLogoutService characterLogoutService,
             IGameSessionService gameSessionService,
             IRequestClient<SignInUserRequestMessage> signInUserRequestClient,
-            IRequestClient<ValidateUserCredentialsRequestMessage> validateUserCredentialsRequestClient,
             IRequestClient<GetUserInfoRequestMessage> getUserInfoRequestClient,
             IRequestClient<RevokeTokenRequestMessage> revokeTokenRequestClient,
             IRequestClient<HydrateCharacter> getCharacterRequestClient,
@@ -91,7 +89,6 @@ namespace Hagalaz.Services.GameWorld.Services
             _characterLogoutService = characterLogoutService;
             _gameSessionService = gameSessionService;
             _signInUserRequestClient = signInUserRequestClient;
-            _validateUserCredentialsRequestClient = validateUserCredentialsRequestClient;
             _getUserInfoRequestClient = getUserInfoRequestClient;
             _revokeTokenRequestClient = revokeTokenRequestClient;
             _getCharacterRequestClient = getCharacterRequestClient;
@@ -103,7 +100,7 @@ namespace Hagalaz.Services.GameWorld.Services
         }
 
         public async ValueTask<SignInResult> SignInLobbyAsync(SignInRequest signInRequest) =>
-            await ExecuteAuthAsync(async cancellationToken =>
+            await ExecuteSignInAsync(async cancellationToken =>
             {
                 var result = await SignInAsync(signInRequest, Constants.OAuth.LobbyClientId, _lobbyClientScopes, cancellationToken);
                 if (!result.Succeeded)
@@ -136,7 +133,7 @@ namespace Hagalaz.Services.GameWorld.Services
             });
 
         public async ValueTask<SignInResult> SignInWorldAsync(SignInRequest signInRequest) =>
-            await ExecuteAuthAsync(async cancellationToken =>
+            await ExecuteSignInAsync(async cancellationToken =>
             {
                 var characterCount = await _characterService.CountAsync();
                 // TODO - character count / give donators extra queue
@@ -310,34 +307,15 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
             });
 
-        public async ValueTask<WorldReconnectAuthenticationResult> AuthenticateWorldReconnectAsync(string login, string password) =>
-            await ExecuteAuthAsync(async cancellationToken =>
-            {
-                var response = await _validateUserCredentialsRequestClient.GetResponse<ValidateUserCredentialsResponseMessage>(
-                    new ValidateUserCredentialsRequestMessage(login, password),
-                    cancellationToken);
-                var result = response.Message;
-                if (result.Succeeded && uint.TryParse(result.Subject, out var masterId))
-                {
-                    return WorldReconnectAuthenticationResult.Success(masterId);
-                }
-
-                return WorldReconnectAuthenticationResult.FromValidation(
-                    result.IsLockedOut,
-                    result.IsDisabled,
-                    result.AreCredentialsInvalid,
-                    result.IsNotAllowed);
-            });
-
-        private async ValueTask<TResult> ExecuteAuthAsync<TResult>(
-            Func<CancellationToken, ValueTask<TResult>> authenticate)
+        private async ValueTask<SignInResult> ExecuteSignInAsync(
+            Func<CancellationToken, ValueTask<SignInResult>> signIn)
         {
             var resilienceContext = ResilienceContextPool.Shared.Get();
             resilienceContext.Properties.Set(AuthenticationRateLimiting.PartitionKey, GetSignInPartitionKey());
             try
             {
                 return await _authLoginPipeline.ExecuteAsync(
-                    context => authenticate(context.CancellationToken), resilienceContext);
+                    context => signIn(context.CancellationToken), resilienceContext);
             }
             finally
             {

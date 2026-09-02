@@ -11,7 +11,7 @@ using Raido.Common.Protocol;
 namespace Raido.Server.Tests;
 
 [TestClass]
-public sealed class RaidoConnectionContextAdditionalTests
+public sealed class RaidoHubConnectionContextAdditionalTests
 {
     private sealed class ControlledPipeWriter : PipeWriter
     {
@@ -62,7 +62,7 @@ public sealed class RaidoConnectionContextAdditionalTests
         public ClaimsPrincipal? User { get; set; }
     }
 
-    private static (RaidoConnectionContext Context, Pipe Output, FeatureCollection Features, ConnectionContext Connection) CreateContext(TimeSpan? keepAlive = null, TimeSpan? timeout = null)
+    private static (RaidoHubConnectionContext Context, Pipe Output, FeatureCollection Features, ConnectionContext Connection) CreateContext(TimeSpan? keepAlive = null, TimeSpan? timeout = null)
     {
         var output = new Pipe();
         var transport = Substitute.For<IDuplexPipe>();
@@ -74,7 +74,7 @@ public sealed class RaidoConnectionContextAdditionalTests
         connection.Transport.Returns(transport);
         connection.Features.Returns(features);
         connection.ConnectionClosed.Returns(CancellationToken.None);
-        var context = new RaidoConnectionContext(connection, new RaidoConnectionContextOptions
+        var context = new RaidoHubConnectionContext(connection, new RaidoHubConnectionContextOptions
         {
             KeepAliveInterval = keepAlive ?? TimeSpan.FromMinutes(1),
             ClientTimeoutInterval = timeout ?? TimeSpan.FromMinutes(1)
@@ -178,14 +178,14 @@ public sealed class RaidoConnectionContextAdditionalTests
         context.StartClientTimeout();
         context.StartClientTimeout();
         context.BeginClientTimeout();
-        var check = typeof(RaidoConnectionContext).GetMethod("CheckClientTimeoutForConnection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var check = typeof(RaidoHubConnectionContext).GetMethod("CheckClientTimeoutForConnection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         check.Invoke(context, new object[] { connection });
         await context.AbortAsync();
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
         context.StopClientTimeout();
     }
 
-    private static RaidoConnectionContext CreateContext(PipeWriter output)
+    private static RaidoHubConnectionContext CreateContext(PipeWriter output)
     {
         var transport = Substitute.For<IDuplexPipe>();
         transport.Input.Returns(Substitute.For<PipeReader>());
@@ -195,7 +195,7 @@ public sealed class RaidoConnectionContextAdditionalTests
         connection.Transport.Returns(transport);
         connection.Features.Returns(new FeatureCollection());
         connection.ConnectionClosed.Returns(CancellationToken.None);
-        return new RaidoConnectionContext(connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
+        return new RaidoHubConnectionContext(connection, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
         {
             Protocol = new WritingProtocol()
         };

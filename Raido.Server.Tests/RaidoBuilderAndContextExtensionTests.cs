@@ -71,16 +71,6 @@ public sealed class RaidoBuilderAndContextExtensionTests
         Assert.IsInstanceOfType<RaidoProtocolReader>(reader);
         Assert.IsInstanceOfType<RaidoMessagePipeReader>(pipeReader);
 
-        var raido = new RaidoConnectionContext(connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = new SimpleProtocol()
-        };
-        await using var raidoWriter = raido.CreateWriter();
-        await using var raidoReader = raido.CreateReader();
-        var raidoPipeReader = raido.CreatePipeReader(Substitute.For<IRaidoMessageReader<ReadOnlySequence<byte>>>());
-        Assert.IsNotNull(raidoWriter);
-        Assert.IsNotNull(raidoReader);
-        Assert.IsNotNull(raidoPipeReader);
     }
 
     [TestMethod]
@@ -89,7 +79,7 @@ public sealed class RaidoBuilderAndContextExtensionTests
         var lifetime = Substitute.For<IRaidoLifetimeManager>();
         var context = new DefaultRaidoContext(lifetime);
         Assert.IsNotNull(context.Clients);
-        var connection = new RaidoConnectionContext(RawConnection(), new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
+        var connection = new RaidoHubConnectionContext(RawConnection(), new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
         {
             Protocol = new SimpleProtocol()
         };

@@ -8,17 +8,12 @@ namespace Hagalaz.Services.GameWorld.Network.Model
 {
     public class GameConnection : IGameConnection
     {
-        private readonly RaidoConnectionContext _context;
+        private readonly RaidoHubConnectionContext _context;
 
-        public GameConnection(RaidoConnectionContext context) => _context = context;
+        public GameConnection(RaidoHubConnectionContext context) => _context = context;
 
         public string ConnectionId => _context.ConnectionId;
         public IFeatureCollection Features => _context.Features;
-
-        public bool TryReconnect(
-            RaidoCallerContext replacement,
-            IRaidoProtocol replacementProtocol) =>
-            _context.TryReconnect(replacement, replacementProtocol);
 
         public async Task SendMessage(RaidoMessage message, CancellationToken cancellationToken = default) => await _context.WriteAsync(message, cancellationToken);
     }

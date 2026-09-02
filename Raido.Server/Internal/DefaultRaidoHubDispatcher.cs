@@ -74,7 +74,7 @@ namespace Raido.Server.Internal
             }
         }
 
-        public async Task OnConnectedAsync(RaidoConnectionContext connection)
+        public async Task OnConnectedAsync(RaidoHubConnectionContext connection)
         {
             await using var scope = _serviceScopeFactory.CreateAsyncScope();
             connection.RaidoCallerClients = new DefaultRaidoCallerClients(_raidoContext.Clients, connection.ConnectionId);
@@ -119,7 +119,7 @@ namespace Raido.Server.Internal
             }
         }
 
-        public async Task OnDisconnectedAsync(RaidoConnectionContext connection, Exception? exception)
+        public async Task OnDisconnectedAsync(RaidoHubConnectionContext connection, Exception? exception)
         {
             await using var scope = _serviceScopeFactory.CreateAsyncScope();
 
@@ -163,7 +163,7 @@ namespace Raido.Server.Internal
             }
         }
 
-        public async Task DispatchMessageAsync(RaidoConnectionContext connection, RaidoMessage message)
+        public async Task DispatchMessageAsync(RaidoHubConnectionContext connection, RaidoMessage message)
         {
             var messageType = message.GetType();
             if (!_messageHandlers.TryGetValue(messageType, out var descriptor))
@@ -252,7 +252,7 @@ namespace Raido.Server.Internal
             ObjectMethodExecutor methodExecutor,
             THub hub,
             object?[] arguments,
-            RaidoConnectionContext connection,
+            RaidoHubConnectionContext connection,
             IServiceProvider serviceProvider)
         {
             if (_invokeMiddleware != null)
@@ -287,7 +287,7 @@ namespace Raido.Server.Internal
 
         private static Task<bool> IsHubMethodAuthorized(
             IServiceProvider provider,
-            RaidoConnectionContext hubConnectionContext,
+            RaidoHubConnectionContext hubConnectionContext,
             RaidoHubMethodDescriptor descriptor,
             object?[] hubMethodArguments,
             RaidoHub hub)
@@ -328,7 +328,7 @@ namespace Raido.Server.Internal
             return authorizationResult.Succeeded;
         }
 
-        private void InitializeHub(RaidoHub controller, RaidoConnectionContext connection)
+        private void InitializeHub(RaidoHub controller, RaidoHubConnectionContext connection)
         {
             controller.Clients = connection.RaidoCallerClients;
             controller.Context = connection.RaidoCallerContext;

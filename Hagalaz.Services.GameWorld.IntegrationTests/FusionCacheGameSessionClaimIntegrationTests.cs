@@ -259,7 +259,6 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
             services.AddSingleton(harness.ContextAccessor);
             services.AddSingleton(harness.Mediator);
             services.AddSingleton(harness.SignInUserRequestClient);
-            services.AddSingleton(harness.ValidateUserCredentialsRequestClient);
             services.AddSingleton(harness.GetUserInfoRequestClient);
             services.AddSingleton(harness.RevokeTokenRequestClient);
             services.AddSingleton(harness.GetCharacterRequestClient);
@@ -419,7 +418,6 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         public IRaidoCallerContextAccessor ContextAccessor { get; } = Substitute.For<IRaidoCallerContextAccessor>();
         public IGameMediator Mediator { get; } = Substitute.For<IGameMediator>();
         public IRequestClient<SignInUserRequestMessage> SignInUserRequestClient { get; } = Substitute.For<IRequestClient<SignInUserRequestMessage>>();
-        public IRequestClient<ValidateUserCredentialsRequestMessage> ValidateUserCredentialsRequestClient { get; } = Substitute.For<IRequestClient<ValidateUserCredentialsRequestMessage>>();
         public IRequestClient<GetUserInfoRequestMessage> GetUserInfoRequestClient { get; } = Substitute.For<IRequestClient<GetUserInfoRequestMessage>>();
         public IRequestClient<RevokeTokenRequestMessage> RevokeTokenRequestClient { get; } = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
         public IRequestClient<HydrateCharacter> GetCharacterRequestClient { get; } = Substitute.For<IRequestClient<HydrateCharacter>>();

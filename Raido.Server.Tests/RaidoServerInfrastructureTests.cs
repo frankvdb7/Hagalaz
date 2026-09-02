@@ -64,7 +64,7 @@ public sealed class RaidoServerInfrastructureTests
 
     private sealed class TestHub : RaidoHub { }
 
-    private static RaidoConnectionContext CreateConnection(string id)
+    private static RaidoHubConnectionContext CreateConnection(string id)
     {
         var connection = Substitute.For<ConnectionContext>();
         connection.ConnectionId.Returns(id);
@@ -73,7 +73,7 @@ public sealed class RaidoServerInfrastructureTests
         transport.Output.Returns(Substitute.For<PipeWriter>());
         connection.Transport.Returns(transport);
         connection.ConnectionClosed.Returns(CancellationToken.None);
-        return new RaidoConnectionContext(connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        return new RaidoHubConnectionContext(connection, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance);
     }
 
     [TestMethod]
@@ -249,7 +249,7 @@ public sealed class RaidoServerInfrastructureTests
         Assert.IsNotNull(provider.GetRequiredService<IRaidoContext>());
         Assert.IsNotNull(provider.GetRequiredService<IRaidoDispatcher>());
         Assert.IsNotNull(provider.GetRequiredService<IRaidoLifetimeManager>());
-        Assert.IsNotNull(provider.GetRequiredService<IRaidoConnectionContextBuilder>());
+        Assert.IsNotNull(provider.GetRequiredService<IRaidoHubConnectionContextBuilder>());
         Assert.ThrowsExactly<ArgumentNullException>(() => ServiceCollectionExtensions.AddRaidoServerCore(null!));
     }
 }

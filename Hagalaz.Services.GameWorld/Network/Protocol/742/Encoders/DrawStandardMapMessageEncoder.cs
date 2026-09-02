@@ -24,7 +24,20 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
             // enter world packet bits
             if (message.RenderViewport)
             {
-                WritePlayerEntryBits(output, message.CharacterIndex, message.CharacterLocation, _characterLocationMap);
+                var clocation = message.CharacterLocation;
+                var bitWriter = output.BeginBitAccess();
+                bitWriter.WriteBits(30, (clocation.Y & 0x3fff) | ((clocation.X & 0x3fff) << 14) | ((clocation.Z & 0x3) << 28));
+                for (var index = 1; index < 2048; index++)
+                {
+                    if (index == message.CharacterIndex)
+                    {
+                        continue;
+                    }
+
+                    var location = _characterLocationMap.FindLocationByIndex(index);
+                    bitWriter.WriteBits(18, ((location.Z & 0x3) << 16) | ((location.X & 0xff) << 8) | (location.Y & 0xff));
+                }
+                bitWriter.EndBitAccess();
             }
 
             output
@@ -40,32 +53,6 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
                     output.WriteInt32BigEndian(xtea);
                 }
             }
-        }
-
-        internal static void WritePlayerEntryBits(
-            IRaidoMessageBinaryWriter output,
-            int characterIndex,
-            Hagalaz.Game.Abstractions.Model.ILocation characterLocation,
-            ICharacterLocationService characterLocationMap)
-        {
-            var bitWriter = output.BeginBitAccess();
-            bitWriter.WriteBits(30, (characterLocation.Y & 0x3fff) |
-                ((characterLocation.X & 0x3fff) << 14) |
-                ((characterLocation.Z & 0x3) << 28));
-            for (var index = 1; index < 2048; index++)
-            {
-                if (index == characterIndex)
-                {
-                    continue;
-                }
-
-                var location = characterLocationMap.FindLocationByIndex(index);
-                bitWriter.WriteBits(18, ((location.Z & 0x3) << 16) |
-                    ((location.X & 0xff) << 8) |
-                    (location.Y & 0xff));
-            }
-
-            bitWriter.EndBitAccess();
         }
     }
 }

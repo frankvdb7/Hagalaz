@@ -94,7 +94,7 @@ public sealed class RaidoRemainingCoverageTests
         }));
         services.AddSingleton<TestProtocol>();
         using var provider = services.BuildServiceProvider();
-        var builder = new DefaultRaidoConnectionContextBuilder(provider);
+        var builder = new DefaultRaidoHubConnectionContextBuilder(provider);
         var connection = CreateRawConnection();
         var built = builder.Create()
             .WithConnection(connection)
@@ -102,7 +102,7 @@ public sealed class RaidoRemainingCoverageTests
             .WithKeepAliveInterval(TimeSpan.FromSeconds(1))
             .WithClientTimeoutInterval(TimeSpan.FromSeconds(2))
             .Build();
-        Assert.AreSame(connection.Transport.Input, built.Input);
+        Assert.AreSame(connection.Transport.Input, built.TcpConnection.Transport.Input);
         Assert.IsInstanceOfType<TestProtocol>(built.Protocol);
         Assert.AreEqual("builder", built.ConnectionId);
     }
@@ -113,7 +113,7 @@ public sealed class RaidoRemainingCoverageTests
         var first = Substitute.For<IRaidoHubDispatcher>();
         var second = Substitute.For<IRaidoHubDispatcher>();
         var dispatcher = new DefaultRaidoDispatcher(new[] { first, second });
-        var connection = Substitute.For<RaidoConnectionContext>(CreateRawConnection(), new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        var connection = Substitute.For<RaidoHubConnectionContext>(CreateRawConnection(), new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance);
         var message = new TestMessage();
         await dispatcher.OnConnectedAsync(connection);
         await dispatcher.OnDisconnectedAsync(connection, null);

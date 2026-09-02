@@ -8,9 +8,9 @@ using Raido.Common.Protocol;
 
 namespace Raido.Server.Internal
 {
-    internal class DefaultRaidoConnectionContextBuilder : IRaidoConnectionContextBuilder,
-        IRaidoConnectionContextBuilderConnection,
-        IRaidoConnectionContextBuilderProtocol, IRaidoConnectionContextBuilderOptional, IRaidoConnectionContextBuilderBuild
+    internal class DefaultRaidoHubConnectionContextBuilder : IRaidoHubConnectionContextBuilder,
+        IRaidoHubConnectionContextBuilderConnection,
+        IRaidoHubConnectionContextBuilderProtocol, IRaidoHubConnectionContextBuilderOptional, IRaidoHubConnectionContextBuilderBuild
     {
         private readonly IServiceProvider _serviceProvider;
         private ConnectionContext _connection = null!;
@@ -19,51 +19,51 @@ namespace Raido.Server.Internal
         private TimeSpan? _clientTimeoutInterval;
         private bool _statefulReconnect;
 
-        public DefaultRaidoConnectionContextBuilder(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
+        public DefaultRaidoHubConnectionContextBuilder(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
 
-        public IRaidoConnectionContextBuilderConnection Create() => new DefaultRaidoConnectionContextBuilder(_serviceProvider);
+        public IRaidoHubConnectionContextBuilderConnection Create() => new DefaultRaidoHubConnectionContextBuilder(_serviceProvider);
 
-        public IRaidoConnectionContextBuilderProtocol WithConnection(ConnectionContext connection)
+        public IRaidoHubConnectionContextBuilderProtocol WithConnection(ConnectionContext connection)
         {
             _connection = connection;
             return this;
         }
 
-        public IRaidoConnectionContextBuilderOptional WithProtocol(IRaidoProtocol protocol)
+        public IRaidoHubConnectionContextBuilderOptional WithProtocol(IRaidoProtocol protocol)
         {
             _protocol = protocol;
             return this;
         }
 
-        public IRaidoConnectionContextBuilderOptional WithProtocol<TProtocol>() where TProtocol : IRaidoProtocol
+        public IRaidoHubConnectionContextBuilderOptional WithProtocol<TProtocol>() where TProtocol : IRaidoProtocol
         {
             _protocol = _serviceProvider.GetRequiredService<TProtocol>();
             return this;
         }
 
-        public IRaidoConnectionContextBuilderOptional WithKeepAliveInterval(TimeSpan interval)
+        public IRaidoHubConnectionContextBuilderOptional WithKeepAliveInterval(TimeSpan interval)
         {
             _keepAliveInterval = interval;
             return this;
         }
 
-        public IRaidoConnectionContextBuilderOptional WithClientTimeoutInterval(TimeSpan interval)
+        public IRaidoHubConnectionContextBuilderOptional WithClientTimeoutInterval(TimeSpan interval)
         {
             _clientTimeoutInterval = interval;
             return this;
         }
 
-        public IRaidoConnectionContextBuilderOptional WithStatefulReconnect()
+        public IRaidoHubConnectionContextBuilderOptional WithStatefulReconnect()
         {
             _statefulReconnect = true;
             return this;
         }
 
-        public RaidoConnectionContext Build()
+        public RaidoHubConnectionContext Build()
         {
             var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
             var options = _serviceProvider.GetRequiredService<IOptions<RaidoOptions>>();
-            var contextOptions = new RaidoConnectionContextOptions()
+            var contextOptions = new RaidoHubConnectionContextOptions()
             {
                 KeepAliveInterval = _keepAliveInterval ?? options.Value.KeepAliveInterval.GetValueOrDefault(),
                 ClientTimeoutInterval = _clientTimeoutInterval ?? options.Value.ClientTimeoutInterval.GetValueOrDefault(),
@@ -71,7 +71,7 @@ namespace Raido.Server.Internal
                 StatefulReconnectTimeout = options.Value.StatefulReconnectTimeout.GetValueOrDefault(RaidoOptionsSetup.DefaultStatefulReconnectTimeout)
             };
 
-            return new RaidoConnectionContext(_connection, contextOptions, loggerFactory)
+            return new RaidoHubConnectionContext(_connection, contextOptions, loggerFactory)
             {
                 Protocol = _protocol,
                 OriginalActivity = Activity.Current

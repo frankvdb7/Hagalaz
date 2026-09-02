@@ -61,7 +61,7 @@ public sealed class AdminHubAuthorizationTests
         return services.BuildServiceProvider();
     }
 
-    private static RaidoConnectionContext CreateConnection(IEventManager eventManager, string role)
+    private static RaidoHubConnectionContext CreateConnection(IEventManager eventManager, string role)
     {
         var features = new FeatureCollection();
         features.Set<IConnectionUserFeature>(new ConnectionUserFeature
@@ -79,7 +79,7 @@ public sealed class AdminHubAuthorizationTests
         rawConnection.Features.Returns(features);
         rawConnection.ConnectionClosed.Returns(CancellationToken.None);
 
-        return new RaidoConnectionContext(rawConnection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        return new RaidoHubConnectionContext(rawConnection, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance);
     }
 
     private static ICharacter CreateCharacter(IEventManager eventManager)

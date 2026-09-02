@@ -15,14 +15,14 @@ namespace Hagalaz.Services.GameUpdate.Network
     public class UpdateConnectionHandler : ConnectionHandler
     {
         private readonly RaidoConnectionHandler _connectionHandler;
-        private readonly IRaidoConnectionContextBuilder _contextBuilder;
+        private readonly IRaidoHubConnectionContextBuilder _contextBuilder;
         private readonly ILogger<UpdateConnectionHandler> _logger;
         private readonly IOptions<RaidoOptions> _raidoOptions;
         private readonly IOptions<ServerConfig> _serverOptions;
 
         public UpdateConnectionHandler(
             RaidoConnectionHandler connectionHandler,
-            IRaidoConnectionContextBuilder contextBuilder,
+            IRaidoHubConnectionContextBuilder contextBuilder,
             IOptions<RaidoOptions> raidoOptions,
             IOptions<ServerConfig> serverOptions,
             ILogger<UpdateConnectionHandler> logger)

@@ -14,7 +14,7 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection that was established.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous connect operation.</returns>
-        Task OnConnectedAsync(RaidoConnectionContext connection);
+        Task OnConnectedAsync(RaidoHubConnectionContext connection);
 
         /// <summary>
         /// Called when a connection is terminated.
@@ -22,7 +22,7 @@ namespace Raido.Server
         /// <param name="connection">The connection that was terminated.</param>
         /// <param name="exception">An <see cref="Exception"/> representing the error that occurred, or <c>null</c> if the connection was closed gracefully.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous disconnect operation.</returns>
-        Task OnDisconnectedAsync(RaidoConnectionContext connection, Exception? exception);
+        Task OnDisconnectedAsync(RaidoHubConnectionContext connection, Exception? exception);
 
         /// <summary>
         /// Dispatches a message to the appropriate handler.
@@ -30,6 +30,6 @@ namespace Raido.Server
         /// <param name="connection">The connection that received the message.</param>
         /// <param name="message">The message to dispatch.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous dispatch operation.</returns>
-        Task DispatchMessageAsync(RaidoConnectionContext connection, RaidoMessage message);
+        Task DispatchMessageAsync(RaidoHubConnectionContext connection, RaidoMessage message);
     }
 }

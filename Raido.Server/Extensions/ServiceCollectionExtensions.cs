@@ -33,7 +33,7 @@ namespace Raido.Server.Extensions
             services.TryAddSingleton<IRaidoLifetimeManager, DefaultRaidoLifetimeManager>();
             services.TryAddSingleton<IRaidoContext, DefaultRaidoContext>();
             services.TryAddSingleton<IRaidoDispatcher, DefaultRaidoDispatcher>();
-            services.TryAddTransient<IRaidoConnectionContextBuilder, DefaultRaidoConnectionContextBuilder>();
+            services.TryAddTransient<IRaidoHubConnectionContextBuilder, DefaultRaidoHubConnectionContextBuilder>();
             services.TryAddScoped<IRaidoCallerContextAccessor, DefaultRaidoCallerContextAccessor>();
             services.TryAddScoped(typeof(IRaidoHubActivator<>), typeof(DefaultRaidoHubActivator<>));
 

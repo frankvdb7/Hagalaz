@@ -173,7 +173,7 @@ public sealed class RaidoHagalazUsageTests
         Assert.IsInstanceOfType<UsageProtocol>(resolver.GetProtocol(protocol.Name.ToLowerInvariant(), new[] { protocol.Name.ToUpperInvariant() }));
 
         var rawConnection = CreateRawConnection("builder");
-        var built = provider.GetRequiredService<IRaidoConnectionContextBuilder>()
+        var built = provider.GetRequiredService<IRaidoHubConnectionContextBuilder>()
             .Create()
             .WithConnection(rawConnection)
             .WithProtocol<UsageProtocol>()
@@ -255,7 +255,7 @@ public sealed class RaidoHagalazUsageTests
         return context;
     }
 
-    private static (RaidoConnectionContext Connection, PipeReader Output) CreateConnection(string connectionId, IRaidoProtocol protocol)
+    private static (RaidoHubConnectionContext Connection, PipeReader Output) CreateConnection(string connectionId, IRaidoProtocol protocol)
     {
         var input = new Pipe();
         var output = new Pipe();
@@ -265,7 +265,7 @@ public sealed class RaidoHagalazUsageTests
 
         var context = CreateRawConnection(connectionId);
         context.Transport.Returns(transport);
-        var connection = new RaidoConnectionContext(context, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
+        var connection = new RaidoHubConnectionContext(context, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
         {
             Protocol = protocol
         };

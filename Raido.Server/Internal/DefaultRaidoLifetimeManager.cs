@@ -17,13 +17,13 @@ namespace Raido.Server.Internal
 
         public DefaultRaidoLifetimeManager(RaidoConnectionStore connections) => _connections = connections;
 
-        public Task OnConnectedAsync(RaidoConnectionContext connection)
+        public Task OnConnectedAsync(RaidoHubConnectionContext connection)
         {
             _connections.Add(connection);
             return Task.CompletedTask;
         }
 
-        public Task OnDisconnectedAsync(RaidoConnectionContext connection)
+        public Task OnDisconnectedAsync(RaidoHubConnectionContext connection)
         {
             _connections.Remove(connection);
             return Task.CompletedTask;
@@ -57,7 +57,7 @@ namespace Raido.Server.Internal
                 (connection, state) => ((IReadOnlyList<string>)state!).Contains(connection.ConnectionId), connectionIds, cancellationToken);
 
         private Task SendToAllConnectionsAsync(
-            RaidoMessage message, Func<RaidoConnectionContext, object?, bool>? include, object? state = null, CancellationToken cancellationToken = default)
+            RaidoMessage message, Func<RaidoHubConnectionContext, object?, bool>? include, object? state = null, CancellationToken cancellationToken = default)
         {
             List<Task>? tasks = null;
             foreach (var connection in _connections.Where(connection => include == null || include(connection, state)))

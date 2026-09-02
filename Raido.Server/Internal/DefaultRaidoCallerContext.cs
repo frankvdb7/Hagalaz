@@ -9,11 +9,9 @@ namespace Raido.Server.Internal
 {
     internal sealed class DefaultRaidoCallerContext : RaidoCallerContext
     {
-        private readonly RaidoConnectionContext _connection;
+        private readonly RaidoHubConnectionContext _connection;
 
-        public DefaultRaidoCallerContext(RaidoConnectionContext connection) => _connection = connection;
-
-        internal RaidoConnectionContext Connection => _connection;
+        public DefaultRaidoCallerContext(RaidoHubConnectionContext connection) => _connection = connection;
 
         public override string ConnectionId => _connection.ConnectionId;
         public override ClaimsPrincipal? User => _connection.User;

@@ -29,7 +29,7 @@ public sealed class RaidoStatefulReconnectTests
         using var provider = services.BuildServiceProvider();
         var physical = CreatePhysicalConnection("initial");
 
-        var context = new DefaultRaidoConnectionContextBuilder(provider)
+        var context = new DefaultRaidoHubConnectionContextBuilder(provider)
             .Create()
             .WithConnection(physical.Connection)
             .WithProtocol(new ReconnectWritingProtocol())
@@ -50,7 +50,7 @@ public sealed class RaidoStatefulReconnectTests
         using var provider = services.BuildServiceProvider();
         var physical = CreatePhysicalConnection("initial");
 
-        var context = new DefaultRaidoConnectionContextBuilder(provider)
+        var context = new DefaultRaidoHubConnectionContextBuilder(provider)
             .Create()
             .WithConnection(physical.Connection)
             .WithProtocol(new ReconnectWritingProtocol())
@@ -333,7 +333,7 @@ public sealed class RaidoStatefulReconnectTests
         var reconnect = Task.Run(() => context.TryReconnect(candidate.Connection));
         await heartbeat.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.IsFalse(await context.WaitForReconnectAsync(TimeSpan.Zero));
+        Assert.IsFalse(await context.TcpConnection.WaitForReconnectAsync(TimeSpan.Zero));
         heartbeat.Release.TrySetResult();
         Assert.IsFalse(await reconnect.WaitAsync(TimeSpan.FromSeconds(1)));
         Assert.IsFalse(candidate.Closed.IsCancellationRequested);
@@ -444,8 +444,8 @@ public sealed class RaidoStatefulReconnectTests
 
         Assert.IsNull(context.LocalEndPoint);
         Assert.IsNull(context.RemoteEndPoint);
-        Assert.ThrowsExactly<InvalidOperationException>(() => _ = context.Input);
-        Assert.ThrowsExactly<InvalidOperationException>(() => _ = context.Output);
+        Assert.ThrowsExactly<InvalidOperationException>(() => _ = context.TcpConnection.Transport.Input);
+        Assert.ThrowsExactly<InvalidOperationException>(() => _ = context.TcpConnection.Transport.Output);
         context.Cleanup();
     }
 
@@ -457,7 +457,7 @@ public sealed class RaidoStatefulReconnectTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.OnPhysicalConnectionClosed(initial.Connection);
-        var reconnectWindow = context.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
+        var reconnectWindow = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
 
         context.Abort();
 
@@ -525,7 +525,7 @@ public sealed class RaidoStatefulReconnectTests
         Assert.IsFalse(context.TryGetCurrentConnection(out _));
         Assert.AreSame(exception, context.CloseException);
 
-        var reconnectWindow = context.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
+        var reconnectWindow = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
         Assert.IsTrue(context.TryReconnect(replacement.Connection));
         Assert.IsTrue(await reconnectWindow);
         Assert.IsNull(context.CloseException);
@@ -650,7 +650,7 @@ public sealed class RaidoStatefulReconnectTests
         Assert.IsFalse(await candidateReconnect.WaitAsync(TimeSpan.FromSeconds(1)));
         Assert.IsFalse(context.TryGetCurrentConnection(out _));
 
-        var reconnectWindow = context.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
+        var reconnectWindow = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
         Assert.IsTrue(context.TryReconnect(winner.Connection));
         Assert.IsTrue(await reconnectWindow);
         context.Cleanup();
@@ -911,18 +911,18 @@ public sealed class RaidoStatefulReconnectTests
     }
 
     [TestMethod]
-    public async Task TryReconnectWithReplacementProtocolPublishesProtocolBeforeCompletingWaiter()
+    public async Task TcpReplacementDoesNotChangeHubProtocol()
     {
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
-        var replacementProtocol = new ReconnectWritingProtocol();
+        var originalProtocol = context.Protocol;
 
         context.OnPhysicalConnectionClosed(initial.Connection);
-        var reconnectWaiter = context.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
+        var reconnectWaiter = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
 
-        Assert.IsTrue(context.TryReconnect(replacement.Connection, replacementProtocol));
-        Assert.AreSame(replacementProtocol, context.Protocol);
+        Assert.IsTrue(context.TryReconnect(replacement.Connection));
+        Assert.AreSame(originalProtocol, context.Protocol);
         Assert.IsTrue(context.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
         Assert.IsTrue(await reconnectWaiter);
@@ -1042,6 +1042,9 @@ public sealed class RaidoStatefulReconnectTests
 
         Assert.IsTrue(context.TryReconnect(replacement.Connection));
         Assert.AreEqual("initial", context.ConnectionId);
+        Assert.IsInstanceOfType<ConnectionContext>(context.TcpConnection);
+        Assert.AreSame(context.Features, context.TcpConnection.Features);
+        Assert.AreSame(context.Items, context.TcpConnection.Items);
         Assert.AreSame(stableFeature, context.Features.Get<object>());
         Assert.AreSame(stableFeature, context.Items["state"]);
         Assert.AreSame(protocol, context.Protocol);
@@ -1066,7 +1069,7 @@ public sealed class RaidoStatefulReconnectTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.OnPhysicalConnectionClosed(initial.Connection);
-        var firstWindow = context.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
+        var firstWindow = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
 
         failedCandidate.Closed.Cancel();
         Assert.IsFalse(context.TryReconnect(failedCandidate.Connection));
@@ -1074,7 +1077,7 @@ public sealed class RaidoStatefulReconnectTests
         Assert.IsTrue(await firstWindow);
 
         context.OnPhysicalConnectionClosed(successfulCandidate.Connection);
-        var secondWindow = context.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
+        var secondWindow = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
 
         Assert.IsFalse(ReferenceEquals(firstWindow, secondWindow));
         Assert.IsTrue(context.TryReconnect(laterCandidate.Connection));
@@ -1092,7 +1095,7 @@ public sealed class RaidoStatefulReconnectTests
 
         context.OnPhysicalConnectionClosed(initial.Connection);
 
-        Assert.IsFalse(await context.WaitForReconnectAsync(TimeSpan.Zero));
+        Assert.IsFalse(await context.TcpConnection.WaitForReconnectAsync(TimeSpan.Zero));
         Assert.IsTrue(context.IsTerminal);
         Assert.IsFalse(context.IsReconnectEnabled);
         Assert.IsFalse(context.TryGetCurrentConnection(out _));
@@ -1114,7 +1117,7 @@ public sealed class RaidoStatefulReconnectTests
         context.OnPhysicalConnectionClosed(initial.Connection);
         timeProvider.Advance(TimeSpan.FromSeconds(2));
 
-        var reconnectWindow = context.WaitForReconnectAsync();
+        var reconnectWindow = context.TcpConnection.WaitForReconnectAsync();
 
         Assert.IsTrue(reconnectWindow.IsCompletedSuccessfully);
         Assert.IsFalse(await reconnectWindow);
@@ -1463,7 +1466,7 @@ public sealed class RaidoStatefulReconnectTests
         context.StartClientTimeout();
         context.BeginClientTimeout();
 
-        var timeoutLock = (Lock)typeof(RaidoConnectionContext)
+        var timeoutLock = (Lock)typeof(RaidoHubConnectionContext)
             .GetField("_receiveMessageTimeoutLock", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .GetValue(context)!;
         var cancellationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1530,14 +1533,14 @@ public sealed class RaidoStatefulReconnectTests
         context.Cleanup();
     }
 
-    private static RaidoConnectionContext CreateContext(
+    private static RaidoHubConnectionContext CreateContext(
         ConnectionContext connection,
         bool reconnectEnabled,
         TimeSpan? timeout = null,
         TimeSpan? clientTimeout = null,
         TimeProvider? timeProvider = null)
     {
-        var options = new RaidoConnectionContextOptions
+        var options = new RaidoHubConnectionContextOptions
         {
             KeepAliveInterval = TimeSpan.FromMinutes(1),
             ClientTimeoutInterval = clientTimeout ?? TimeSpan.FromMinutes(1),
@@ -1545,8 +1548,12 @@ public sealed class RaidoStatefulReconnectTests
             StatefulReconnectTimeout = timeout ?? TimeSpan.FromSeconds(5)
         };
         var context = timeProvider is null
-            ? new RaidoConnectionContext(connection, options, NullLoggerFactory.Instance)
-            : new RaidoConnectionContext(connection, options, NullLoggerFactory.Instance, timeProvider);
+            ? new RaidoHubConnectionContext(connection, options, NullLoggerFactory.Instance)
+            : new RaidoHubConnectionContext(
+                new RaidoTcpConnectionContext(connection, options, NullLoggerFactory.Instance, timeProvider),
+                options,
+                NullLoggerFactory.Instance,
+                timeProvider);
 
         context.Protocol = new ReconnectWritingProtocol();
         return context;
@@ -1556,9 +1563,9 @@ public sealed class RaidoStatefulReconnectTests
     {
         using var physical = CreatePhysicalConnection("initial");
 
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new RaidoConnectionContext(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new RaidoHubConnectionContext(
             physical.Connection,
-            new RaidoConnectionContextOptions
+            new RaidoHubConnectionContextOptions
             {
                 KeepAliveInterval = TimeSpan.FromMinutes(1),
                 ClientTimeoutInterval = TimeSpan.FromMinutes(1),
@@ -1568,18 +1575,18 @@ public sealed class RaidoStatefulReconnectTests
             NullLoggerFactory.Instance));
     }
 
-    private static ValueTask InvokePingAsync(RaidoConnectionContext context, ConnectionContext physicalConnection) =>
-        (ValueTask)typeof(RaidoConnectionContext)
+    private static ValueTask InvokePingAsync(RaidoHubConnectionContext context, ConnectionContext physicalConnection) =>
+        (ValueTask)typeof(RaidoHubConnectionContext)
             .GetMethod("TryWritePingAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(context, new object[] { physicalConnection })!;
 
-    private static void InvokeCloseRequested(RaidoConnectionContext context, ConnectionContext physicalConnection) =>
-        typeof(RaidoConnectionContext)
+    private static void InvokeCloseRequested(RaidoHubConnectionContext context, ConnectionContext physicalConnection) =>
+        typeof(RaidoTcpConnectionContext)
             .GetMethod("OnConnectionClosedRequested", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-            .Invoke(context, new object[] { physicalConnection });
+            .Invoke(context.TcpConnection, new object[] { physicalConnection });
 
-    private static void InvokeClientTimeoutCheck(RaidoConnectionContext context, ConnectionContext physicalConnection) =>
-        typeof(RaidoConnectionContext)
+    private static void InvokeClientTimeoutCheck(RaidoHubConnectionContext context, ConnectionContext physicalConnection) =>
+        typeof(RaidoHubConnectionContext)
             .GetMethod("CheckClientTimeoutForConnection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(context, new object[] { physicalConnection });
 

@@ -512,65 +512,11 @@ public sealed class AuthenticationSignInTests
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
     }
 
-    [TestMethod]
-    public async Task AuthenticateWorldReconnectAsync_UsesTokenlessCredentialValidationAndReturnsMasterId()
-    {
-        var validationClient = Substitute.For<IRequestClient<ValidateUserCredentialsRequestMessage>>();
-        var validationResponse = CreateResponse(new ValidateUserCredentialsResponseMessage
-        {
-            Succeeded = true,
-            Subject = "42"
-        });
-        validationClient
-            .GetResponse<ValidateUserCredentialsResponseMessage>(
-                Arg.Any<ValidateUserCredentialsRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
-            .ReturnsForAnyArgs(Task.FromResult(validationResponse));
-
-        var service = CreateAuthenticationService(
-            Substitute.For<IGameSessionService>(),
-            validateUserCredentialsRequestClient: validationClient);
-
-        var result = await service.AuthenticateWorldReconnectAsync("login", "password");
-
-        Assert.IsTrue(result.Succeeded);
-        Assert.AreEqual(42u, result.MasterId);
-        await validationClient.Received(1).GetResponse<ValidateUserCredentialsResponseMessage>(
-            Arg.Is<ValidateUserCredentialsRequestMessage>(message =>
-                message.Login == "login" && message.Password == "password"),
-            Arg.Any<CancellationToken>(),
-            Arg.Any<RequestTimeout>());
-    }
-
-    [TestMethod]
-    public async Task AuthenticateWorldReconnectAsync_PreservesCredentialValidationFlags()
-    {
-        var validationClient = Substitute.For<IRequestClient<ValidateUserCredentialsRequestMessage>>();
-        var validationResponse = CreateResponse(new ValidateUserCredentialsResponseMessage
-        {
-            IsLockedOut = true
-        });
-        validationClient
-            .GetResponse<ValidateUserCredentialsResponseMessage>(
-                Arg.Any<ValidateUserCredentialsRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
-            .ReturnsForAnyArgs(Task.FromResult(validationResponse));
-
-        var service = CreateAuthenticationService(
-            Substitute.For<IGameSessionService>(),
-            validateUserCredentialsRequestClient: validationClient);
-
-        var result = await service.AuthenticateWorldReconnectAsync("login", "password");
-
-        Assert.IsFalse(result.Succeeded);
-        Assert.IsTrue(result.IsLockedOut);
-        Assert.IsNull(result.MasterId);
-    }
-
     private static AuthenticationService CreateAuthenticationService(
         IGameSessionService gameSessionService,
         ICharacterService? characterService = null,
         ICharacterHydrationService? characterHydrationService = null,
         IRequestClient<HydrateCharacter>? getCharacterRequestClient = null,
-        IRequestClient<ValidateUserCredentialsRequestMessage>? validateUserCredentialsRequestClient = null,
         string connectionId = "connection",
         long snapshotRevision = 0,
         ICharacterPersistenceService? characterPersistenceService = null)
@@ -638,7 +584,6 @@ public sealed class AuthenticationSignInTests
             Substitute.For<ICharacterLogoutService>(),
             gameSessionService,
             signInUserRequestClient,
-            validateUserCredentialsRequestClient ?? Substitute.For<IRequestClient<ValidateUserCredentialsRequestMessage>>(),
             getUserInfoRequestClient,
             Substitute.For<IRequestClient<RevokeTokenRequestMessage>>(),
             getCharacterRequestClient ?? hydrateRequestClient,

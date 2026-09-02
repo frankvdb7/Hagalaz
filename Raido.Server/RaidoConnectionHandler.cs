@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -47,7 +47,7 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection to handle.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous connection handling.</returns>
-        public async Task ConnectAsync(RaidoConnectionContext connection)
+        public async Task ConnectAsync(RaidoHubConnectionContext connection)
         {
             connection.MetricsContext = _metrics.CreateContext();
 
@@ -78,7 +78,7 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection to run.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous connection loop.</returns>
-        public virtual async Task RunAsync(RaidoConnectionContext connection)
+        public virtual async Task RunAsync(RaidoHubConnectionContext connection)
         {
             try
             {
@@ -114,7 +114,7 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection to dispatch messages from.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
-        public virtual async Task DispatchMessagesAsync(RaidoConnectionContext connection)
+        public virtual async Task DispatchMessagesAsync(RaidoHubConnectionContext connection)
         {
             while (!connection.IsTerminal)
             {
@@ -209,7 +209,7 @@ namespace Raido.Server
         /// <param name="connection">The connection that disconnected.</param>
         /// <param name="exception">The exception that caused the disconnect, if any.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous disconnect handling.</returns>
-        public virtual async Task OnDisconnectedAsync(RaidoConnectionContext connection, Exception? exception)
+        public virtual async Task OnDisconnectedAsync(RaidoHubConnectionContext connection, Exception? exception)
         {
             // We wait on abort to complete, this is so that we can guarantee that all callbacks have fired
             // before OnDisconnectedAsync
@@ -253,10 +253,10 @@ namespace Raido.Server
 
             public static void ErrorProcessingRequest(ILogger logger, Exception exception) => _errorProcessingRequest(logger, exception);
 
-            public static void ConnectedStarting(ILogger logger, RaidoConnectionContext connectionContext) =>
+            public static void ConnectedStarting(ILogger logger, RaidoHubConnectionContext connectionContext) =>
                 _connectedStarting(logger, connectionContext.ConnectionId, null);
 
-            public static void ConnectedStopping(ILogger logger, RaidoConnectionContext connectionContext) =>
+            public static void ConnectedStopping(ILogger logger, RaidoHubConnectionContext connectionContext) =>
                 _connectedStopping(logger, connectionContext.ConnectionId, null);
 
             public static void ReceivedMessage(ILogger logger, RaidoMessage message) => _receivedMessage(logger, message.GetType().Name, null);
