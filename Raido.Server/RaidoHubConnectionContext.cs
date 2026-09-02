@@ -68,8 +68,22 @@ namespace Raido.Server
         public virtual IRaidoProtocol Protocol { get; internal set; } = default!;
 
         public RaidoHubConnectionContext(ConnectionContext connection, RaidoHubConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
-            : this(new RaidoTcpConnectionContext(connection, contextOptions, loggerFactory), contextOptions, loggerFactory, TimeProvider.System)
+            : this(CreateTcpConnection(connection, contextOptions, loggerFactory), contextOptions, loggerFactory, TimeProvider.System)
         {
+        }
+
+        private static RaidoTcpConnectionContext CreateTcpConnection(
+            ConnectionContext connection,
+            RaidoHubConnectionContextOptions contextOptions,
+            ILoggerFactory loggerFactory)
+        {
+            var tcpConnection = new RaidoTcpConnectionContext(contextOptions, loggerFactory);
+            if (!tcpConnection.TryActivatePersistentConnection(connection))
+            {
+                throw new InvalidOperationException("The initial physical connection could not be activated.");
+            }
+
+            return tcpConnection;
         }
 
         internal RaidoHubConnectionContext(

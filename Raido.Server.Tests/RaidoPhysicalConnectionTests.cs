@@ -1548,13 +1548,15 @@ public sealed class RaidoPhysicalConnectionTests
             StatefulReconnectEnabled = reconnectEnabled,
             StatefulReconnectTimeout = timeout ?? TimeSpan.FromSeconds(5)
         };
-        var context = timeProvider is null
-            ? new RaidoHubConnectionContext(connection, options, NullLoggerFactory.Instance)
-            : new RaidoHubConnectionContext(
-                new RaidoTcpConnectionContext(connection, options, NullLoggerFactory.Instance, timeProvider),
-                options,
-                NullLoggerFactory.Instance,
-                timeProvider);
+        var tcpConnection = timeProvider is null
+            ? new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance)
+            : new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance, timeProvider);
+        Assert.IsTrue(tcpConnection.TryActivatePersistentConnection(connection));
+        var context = new RaidoHubConnectionContext(
+            tcpConnection,
+            options,
+            NullLoggerFactory.Instance,
+            timeProvider ?? TimeProvider.System);
 
         context.Protocol = new PhysicalConnectionWritingProtocol();
         return context;

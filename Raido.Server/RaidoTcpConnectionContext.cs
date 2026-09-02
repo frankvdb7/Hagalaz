@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net;
 using System.Security.Claims;
@@ -23,8 +22,8 @@ namespace Raido.Server
             TimeSpan.FromMilliseconds(uint.MaxValue - 1L);
 
         private readonly TaskCompletionSource _abortCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly IFeatureCollection _features;
-        private readonly IDictionary<object, object?> _items;
+        private IFeatureCollection _features = null!;
+        private IDictionary<object, object?> _items = null!;
         private readonly CancellationTokenSource _connectionAbortedTokenSource = new();
         private readonly ILogger _logger;
         private readonly Lock _reconnectLock = new();
@@ -46,13 +45,12 @@ namespace Raido.Server
         private Action<ConnectionContext>? _keepAliveCallback;
         private Action<ConnectionContext>? _clientTimeoutCallback;
 
-        internal RaidoTcpConnectionContext(ConnectionContext connection, RaidoHubConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
-            : this(connection, contextOptions, loggerFactory, TimeProvider.System)
+        internal RaidoTcpConnectionContext(RaidoHubConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
+            : this(contextOptions, loggerFactory, TimeProvider.System)
         {
         }
 
         internal RaidoTcpConnectionContext(
-            ConnectionContext connection,
             RaidoHubConnectionContextOptions contextOptions,
             ILoggerFactory loggerFactory,
             TimeProvider timeProvider)
@@ -67,41 +65,10 @@ namespace Raido.Server
                     "Stateful reconnect timeout must be greater than zero and within the supported .NET timer range.");
             }
 
-            _features = connection.Features;
-            _items = connection.Items;
             _logger = loggerFactory.CreateLogger<RaidoTcpConnectionContext>();
             _statefulReconnectTimeout = contextOptions.StatefulReconnectTimeout;
             _reconnectEnabled = contextOptions.StatefulReconnectEnabled;
-            _currentPhysicalConnection = connection;
-            _connectionId = connection.ConnectionId;
             _timeProvider = timeProvider;
-
-            RegisterPhysicalCallbacks(connection, registerHeartbeat: false, out var closedRegistration, out var closedRequestedRegistration);
-
-            lock (_reconnectLock)
-            {
-                if (!_connectionAborted && ReferenceEquals(connection, _currentPhysicalConnection))
-                {
-                    _closedRegistration = closedRegistration;
-                    closedRegistration = default;
-                    _closedRequestedRegistration = closedRequestedRegistration;
-                    closedRequestedRegistration = null;
-                }
-                else if (!_connectionAborted &&
-                    _currentPhysicalConnection is null &&
-                    ReferenceEquals(connection, _detachedPhysicalConnection) &&
-                    _reconnectEnabled &&
-                    _reconnectWaiter is not null &&
-                    !_reconnectWaiter.Task.IsCompleted)
-                {
-                    Debug.Assert(_closedRequestedRegistration is null, "The constructor must not already own a close-request registration while publishing detached ownership.");
-                    _closedRequestedRegistration = closedRequestedRegistration;
-                    closedRequestedRegistration = null;
-                }
-            }
-
-            closedRegistration.Dispose();
-            closedRequestedRegistration?.Dispose();
         }
 
         internal void InitializeHeartbeatCallbacks(
@@ -132,10 +99,10 @@ namespace Raido.Server
         }
 
         private void RegisterPhysicalCallbacks(
-    ConnectionContext connection,
-    bool registerHeartbeat,
-    out CancellationTokenRegistration closedRegistration,
-    out CancellationTokenRegistration? closedRequestedRegistration)
+            ConnectionContext connection,
+            bool registerHeartbeat,
+            out CancellationTokenRegistration closedRegistration,
+            out CancellationTokenRegistration? closedRequestedRegistration)
         {
             closedRegistration = default;
             closedRequestedRegistration = null;
@@ -194,28 +161,81 @@ namespace Raido.Server
         {
             ArgumentNullException.ThrowIfNull(replacement);
 
-            TaskCompletionSource<bool>? reconnectWaiter;
-            ConnectionContext detachedConnection;
-            CancellationToken? detachedCloseRequestedToken;
+            TaskCompletionSource<bool>? reconnectWaiter = null;
+            ConnectionContext? detachedConnection = null;
+            CancellationToken? detachedCloseRequestedToken = null;
+            bool initialActivation;
             lock (_reconnectLock)
             {
-                if (_connectionAborted || !_reconnectEnabled || _currentPhysicalConnection is not null ||
-                    _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted ||
-                    _detachedPhysicalConnection is not ConnectionContext currentDetachedConnection)
+                initialActivation = _connectionId is null;
+                if (initialActivation)
+                {
+                    if (_connectionAborted)
+                    {
+                        return false;
+                    }
+                }
+                else if (_connectionAborted || !_reconnectEnabled || _currentPhysicalConnection is not null ||
+                         _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted ||
+                         _detachedPhysicalConnection is not ConnectionContext currentDetachedConnection)
                 {
                     return false;
                 }
-
-                reconnectWaiter = waiter;
-                detachedConnection = currentDetachedConnection;
-                detachedCloseRequestedToken = detachedConnection.Features.Get<IConnectionLifetimeNotificationFeature>()?.ConnectionClosedRequested;
+                else
+                {
+                    reconnectWaiter = waiter;
+                    detachedConnection = currentDetachedConnection;
+                    detachedCloseRequestedToken = detachedConnection.Features.Get<IConnectionLifetimeNotificationFeature>()?.ConnectionClosedRequested;
+                }
             }
 
             CancellationTokenRegistration closedRegistration = default;
             CancellationTokenRegistration? closedRequestedRegistration = null;
-            RegisterPhysicalCallbacks(replacement, registerHeartbeat: true, out closedRegistration, out closedRequestedRegistration);
+            RegisterPhysicalCallbacks(replacement, registerHeartbeat: !initialActivation, out closedRegistration, out closedRequestedRegistration);
 
             var closedRequestedToken = replacement.Features.Get<IConnectionLifetimeNotificationFeature>()?.ConnectionClosedRequested;
+
+            if (initialActivation)
+            {
+                var initialPublished = false;
+                lock (_reconnectLock)
+                {
+                    if (!_connectionAborted && _connectionId is null)
+                    {
+                        _features = replacement.Features;
+                        _items = replacement.Items;
+                        _connectionId = replacement.ConnectionId;
+                        _currentPhysicalConnection = replacement;
+                        _closedRegistration = closedRegistration;
+                        _closedRequestedRegistration = closedRequestedRegistration;
+                        initialPublished = true;
+                    }
+                }
+
+                if (!initialPublished)
+                {
+                    closedRegistration.Dispose();
+                    closedRequestedRegistration?.Dispose();
+                    return false;
+                }
+
+                // Callback registration can invoke a callback synchronously for an already-closed connection.
+                // Publish ownership first, then apply that state through the normal physical callbacks.
+                if (replacement.ConnectionClosed.IsCancellationRequested)
+                {
+                    OnPhysicalConnectionClosed(replacement);
+                }
+
+                if (closedRequestedToken.GetValueOrDefault().IsCancellationRequested)
+                {
+                    OnConnectionClosedRequested(replacement);
+                }
+
+                return true;
+            }
+
+            var activationWaiter = reconnectWaiter!;
+            var detachedPhysicalConnection = detachedConnection!;
             var published = false;
             var terminal = false;
             ConnectionContext? terminalConnection = null;
@@ -227,14 +247,14 @@ namespace Raido.Server
             lock (_reconnectLock)
             {
                 var reconnectWindowIsCurrent = !_connectionAborted && _reconnectEnabled && _currentPhysicalConnection is null &&
-                    ReferenceEquals(detachedConnection, _detachedPhysicalConnection) &&
-                    ReferenceEquals(reconnectWaiter, _reconnectWaiter) && !reconnectWaiter.Task.IsCompleted;
+                    ReferenceEquals(detachedPhysicalConnection, _detachedPhysicalConnection) &&
+                    ReferenceEquals(activationWaiter, _reconnectWaiter) && !activationWaiter.Task.IsCompleted;
 
                 if (reconnectWindowIsCurrent && detachedCloseRequestedToken.GetValueOrDefault().IsCancellationRequested)
                 {
                     terminal = TryTransitionToTerminalLocked(
                         expectedConnection: null,
-                        expectedWaiter: reconnectWaiter,
+                        expectedWaiter: activationWaiter,
                         exception: null,
                         out terminalConnection,
                         out terminalClosedRegistration,
@@ -252,14 +272,14 @@ namespace Raido.Server
                     _closedRequestedRegistration = closedRequestedRegistration;
                     _reconnectWaiter = null;
                     _reconnectWindowStartTimestamp = null;
-                    reconnectWaiter.TrySetResult(true);
+                    activationWaiter.TrySetResult(true);
                     published = true;
                 }
                 else if (reconnectWindowIsCurrent && IsReconnectWindowExpiredLocked())
                 {
                     terminal = TryTransitionToTerminalLocked(
                         expectedConnection: null,
-                        expectedWaiter: reconnectWaiter,
+                        expectedWaiter: activationWaiter,
                         exception: null,
                         out terminalConnection,
                         out terminalClosedRegistration,
