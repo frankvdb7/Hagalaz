@@ -32,7 +32,7 @@ Rename `RaidoConnectionContextOptions` to `RaidoHubConnectionContextOptions` and
 
 ### Existing handler and reconnect path
 
-Keep `RaidoConnectionHandler` as the owner of the logical Hub loop. It obtains the current physical transport through internal TCP infrastructure, creates a fresh reader after replacement, and dispatches against the same Hub context. Move the existing `TryReconnect(ConnectionContext)` and its synchronized state to the TCP context without adding a second transition or a cross-context transfer operation.
+Keep `RaidoConnectionHandler` as the owner of the logical Hub loop. It obtains the current physical transport through internal TCP infrastructure, creates a fresh reader after replacement, and dispatches against the same Hub context. Move the existing persistent-connection activation operation (`TryActivatePersistentConnection(ConnectionContext)`) and its synchronized state to the TCP context without adding a second transition or a cross-context transfer operation.
 
 ### Stable versus physical features
 

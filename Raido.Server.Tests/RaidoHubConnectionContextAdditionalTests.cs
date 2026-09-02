@@ -127,7 +127,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
             .Do(_ => throw new InvalidOperationException("write"));
         context.Protocol = protocol;
         await context.WriteAsync(new TestMessage());
-        Assert.IsInstanceOfType<InvalidOperationException>(context.CloseException);
+        Assert.IsInstanceOfType<InvalidOperationException>(context.TcpConnection.TerminalException);
         context.Abort();
         await context.WriteAsync(new TestMessage());
     }
@@ -163,7 +163,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
 
         await pending;
 
-        Assert.AreSame(exception, context.CloseException);
+        Assert.AreSame(exception, context.TcpConnection.TerminalException);
         await context.AbortAsync();
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
     }

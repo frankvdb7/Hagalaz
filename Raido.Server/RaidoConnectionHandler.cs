@@ -80,6 +80,7 @@ namespace Raido.Server
         /// <returns>A <see cref="Task"/> that represents the asynchronous connection loop.</returns>
         public virtual async Task RunAsync(RaidoHubConnectionContext connection)
         {
+            var tcpConnection = connection.TcpConnection;
             try
             {
                 await _dispatcher.OnConnectedAsync(connection);
@@ -95,7 +96,7 @@ namespace Raido.Server
             {
                 await DispatchMessagesAsync(connection);
             }
-            catch (OperationCanceledException) when (connection.IsTerminal)
+            catch (OperationCanceledException) when (tcpConnection.IsTerminal)
             {
                 // Terminal cancellation is control flow used to stop transport operations.
             }
@@ -106,7 +107,7 @@ namespace Raido.Server
                 return;
             }
 
-            await OnDisconnectedAsync(connection, connection.CloseException);
+            await OnDisconnectedAsync(connection, tcpConnection.TerminalException);
         }
 
         /// <summary>
@@ -116,11 +117,12 @@ namespace Raido.Server
         /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
         public virtual async Task DispatchMessagesAsync(RaidoHubConnectionContext connection)
         {
-            while (!connection.IsTerminal)
+            var tcpConnection = connection.TcpConnection;
+            while (!tcpConnection.IsTerminal)
             {
-                if (!connection.TryGetCurrentConnection(out var physicalConnection))
+                if (!tcpConnection.TryGetCurrentConnection(out var physicalConnection))
                 {
-                    if (!connection.IsReconnectEnabled || !await connection.WaitForReconnectAsync())
+                    if (!tcpConnection.IsReconnectEnabled || !await tcpConnection.WaitForReconnectAsync())
                     {
                         break;
                     }
@@ -140,13 +142,13 @@ namespace Raido.Server
                         }
                         catch (OperationCanceledException ex)
                         {
-                            if (connection.IsTerminal)
+                            if (tcpConnection.IsTerminal)
                             {
                                 break;
                             }
 
                             if (!protocolReader.IsPhysicalTransportFailure(ex) ||
-                                !connection.HandleTransportFailure(physicalConnection, ex))
+                                !tcpConnection.HandleTransportFailure(physicalConnection, ex))
                             {
                                 throw;
                             }
@@ -156,7 +158,7 @@ namespace Raido.Server
                         catch (IOException ex)
                         {
                             if (!protocolReader.IsPhysicalTransportFailure(ex) ||
-                                !connection.HandleTransportFailure(physicalConnection, ex))
+                                !tcpConnection.HandleTransportFailure(physicalConnection, ex))
                             {
                                 throw;
                             }
@@ -199,7 +201,8 @@ namespace Raido.Server
                     }
                 }
 
-                connection.OnPhysicalConnectionClosed(physicalConnection);
+                connection.StopClientTimeout();
+                tcpConnection.OnPhysicalConnectionClosed(physicalConnection);
             }
         }
 

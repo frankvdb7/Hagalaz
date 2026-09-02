@@ -40,7 +40,6 @@ namespace Raido.Server
         internal long StartTimestamp { get; set; }
         internal RaidoCallerContext RaidoCallerContext { get; }
         internal IRaidoCallerClients RaidoCallerClients { get; set; } = null!;
-        internal Exception? CloseException { get; private set; }
         internal Activity? OriginalActivity { get; set; }
         internal MetricsContext MetricsContext { get; set; }
 
@@ -95,34 +94,11 @@ namespace Raido.Server
             return Task.CompletedTask;
         }
 
-        internal bool IsTerminal => TcpConnection.IsTerminal;
-        internal bool IsReconnectEnabled => TcpConnection.IsReconnectEnabled;
-        internal bool TryGetCurrentConnection(out ConnectionContext connection) => TcpConnection.TryGetCurrentConnection(out connection);
-        internal Task<bool> WaitForReconnectAsync() => TcpConnection.WaitForReconnectAsync();
-
-        internal bool TryReconnect(ConnectionContext replacement)
-        {
-            var published = TcpConnection.TryReconnect(replacement);
-            if (published)
-            {
-                CloseException = null;
-            }
-
-            return published;
-        }
-
-        internal void OnPhysicalConnectionClosed(ConnectionContext connection)
-        {
-            ResetReceivedMessageTimeout();
-            TcpConnection.OnPhysicalConnectionClosed(connection);
-        }
-
-        internal bool HandleTransportFailure(ConnectionContext connection, Exception exception)
+        private bool HandleTransportFailure(ConnectionContext connection, Exception exception)
         {
             var isCurrent = TcpConnection.IsCurrentPhysicalConnection(connection);
             if (isCurrent)
             {
-                CloseException = exception;
                 ResetReceivedMessageTimeout();
             }
 
@@ -359,7 +335,6 @@ namespace Raido.Server
                 return false;
             }
 
-            CloseException = exception;
             return TcpConnection.TryAbortForConnection(connection, exception);
         }
 
@@ -512,7 +487,7 @@ namespace Raido.Server
         internal void Cleanup() => TcpConnection.Cleanup();
 
         private ConnectionContext? GetCurrentConnection() =>
-            TryGetCurrentConnection(out var connection) ? connection : null;
+            TcpConnection.TryGetCurrentConnection(out var connection) ? connection : null;
 
         private ConnectionContext GetRequiredCurrentConnection() =>
             GetCurrentConnection() ?? throw new InvalidOperationException("No physical transport is currently attached.");

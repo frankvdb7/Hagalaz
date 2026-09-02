@@ -37,6 +37,7 @@ namespace Raido.Server
         private ConnectionContext? _detachedPhysicalConnection;
         private TaskCompletionSource<bool>? _reconnectWaiter;
         private long? _reconnectWindowStartTimestamp;
+        private Exception? _terminalException;
 
         private volatile bool _connectionAborted;
         private bool _abortCallbackQueued;
@@ -189,7 +190,7 @@ namespace Raido.Server
             }
         }
 
-        internal bool TryReconnect(ConnectionContext replacement)
+        internal bool TryActivatePersistentConnection(ConnectionContext replacement)
         {
             ArgumentNullException.ThrowIfNull(replacement);
 
@@ -284,6 +285,17 @@ namespace Raido.Server
         }
 
         internal bool IsTerminal => _connectionAborted;
+
+        internal Exception? TerminalException
+        {
+            get
+            {
+                lock (_reconnectLock)
+                {
+                    return _terminalException;
+                }
+            }
+        }
 
         internal bool IsReconnectEnabled
         {
@@ -476,6 +488,7 @@ namespace Raido.Server
 
             _connectionAborted = true;
             _reconnectEnabled = false;
+            _terminalException = exception;
             currentConnection = _currentPhysicalConnection;
             _currentPhysicalConnection = null;
             _detachedPhysicalConnection = null;
