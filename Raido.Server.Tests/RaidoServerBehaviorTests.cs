@@ -341,13 +341,13 @@ public sealed class RaidoServerBehaviorTests
         _connections.Add(connection);
 
         var ping = typeof(RaidoHubConnectionContext).GetMethod("TryWritePingAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        await (ValueTask)ping.Invoke(connection, new object[] { raw })!;
+        await (ValueTask)ping.Invoke(connection, Array.Empty<object>())!;
         var read = await output.Reader.ReadAsync();
         CollectionAssert.AreEqual(new byte[] { 9, 8, 7 }, read.Buffer.ToArray());
         output.Reader.AdvanceTo(read.Buffer.End);
 
         connection.Abort();
-        await (ValueTask)ping.Invoke(connection, new object[] { raw })!;
+        await (ValueTask)ping.Invoke(connection, Array.Empty<object>())!;
         await connection.AbortAsync();
         Assert.IsTrue(connection.ConnectionAbortedToken.IsCancellationRequested);
     }

@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -118,91 +117,64 @@ namespace Raido.Server
         public virtual async Task DispatchMessagesAsync(RaidoHubConnectionContext connection)
         {
             var tcpConnection = connection.TcpConnection;
+            await using var protocolReader = new RaidoProtocolReader(tcpConnection.Transport.Input);
             while (!tcpConnection.IsTerminal)
             {
-                if (!tcpConnection.TryGetCurrentConnection(out var physicalConnection))
+                RaidoProtocolReadResult<RaidoMessage> result;
+                try
                 {
-                    if (!tcpConnection.IsReconnectEnabled || !await tcpConnection.WaitForReconnectAsync())
+                    connection.BeginClientTimeout();
+                    result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
+                }
+                catch (OperationCanceledException) when (tcpConnection.IsTerminal)
+                {
+                    break;
+                }
+
+                var advanceCursor = result.IsCanceled;
+                try
+                {
+                    if (result.IsCanceled)
+                    {
+                        connection.StopClientTimeout();
+                        if (tcpConnection.IsTerminal)
+                        {
+                            break;
+                        }
+
+                        if (!await tcpConnection.WaitForReconnectAsync().ConfigureAwait(false))
+                        {
+                            break;
+                        }
+
+                        continue;
+                    }
+
+                    if (result.Message == default)
+                    {
+                        if (result.IsCompleted)
+                        {
+                            break;
+                        }
+
+                        continue;
+                    }
+
+                    connection.StopClientTimeout();
+
+                    Log.ReceivedMessage(_logger, result.Message);
+
+                    await _dispatcher.DispatchMessageAsync(connection, result.Message);
+
+                    if (result.IsCompleted)
                     {
                         break;
                     }
-
-                    continue;
                 }
-
-                await using (var protocolReader = new RaidoProtocolReader(physicalConnection.Transport.Input))
+                finally
                 {
-                    while (true)
-                    {
-                        RaidoProtocolReadResult<RaidoMessage> result;
-                        try
-                        {
-                            connection.BeginClientTimeout();
-                            result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
-                        }
-                        catch (OperationCanceledException ex)
-                        {
-                            if (tcpConnection.IsTerminal)
-                            {
-                                break;
-                            }
-
-                            if (!protocolReader.IsPhysicalTransportFailure(ex) ||
-                                !tcpConnection.HandleTransportFailure(physicalConnection, ex))
-                            {
-                                throw;
-                            }
-
-                            break;
-                        }
-                        catch (IOException ex)
-                        {
-                            if (!protocolReader.IsPhysicalTransportFailure(ex) ||
-                                !tcpConnection.HandleTransportFailure(physicalConnection, ex))
-                            {
-                                throw;
-                            }
-
-                            break;
-                        }
-
-                        try
-                        {
-                            if (result.IsCanceled)
-                            {
-                                break;
-                            }
-
-                            if (result.Message == default)
-                            {
-                                if (result.IsCompleted)
-                                {
-                                    break;
-                                }
-
-                                continue;
-                            }
-
-                            connection.StopClientTimeout();
-
-                            Log.ReceivedMessage(_logger, result.Message);
-
-                            await _dispatcher.DispatchMessageAsync(connection, result.Message);
-
-                            if (result.IsCompleted)
-                            {
-                                break;
-                            }
-                        }
-                        finally
-                        {
-                            protocolReader.Advance();
-                        }
-                    }
+                    protocolReader.Advance(advanceCursor);
                 }
-
-                connection.StopClientTimeout();
-                tcpConnection.OnPhysicalConnectionClosed(physicalConnection);
             }
         }
 

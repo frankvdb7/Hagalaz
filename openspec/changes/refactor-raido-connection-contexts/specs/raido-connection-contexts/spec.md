@@ -36,6 +36,23 @@ The system SHALL preserve the existing stateful reconnect behavior for reconnect
 - **THEN** the stable connection follows the existing terminal behavior
 - **AND** later replacements are rejected
 
+### Requirement: The lower transport boundary is stable
+
+The system SHALL expose one stable `Transport` pipe pair from the TCP context for the entire logical lifetime. Physical transport execution SHALL relay bytes through the TCP context's internal `Application` pipe pair, and replacing the physical transport SHALL NOT replace the stable `Transport` instance.
+
+#### Scenario: Data flow continues across physical replacement
+
+- **WHEN** the initial physical transport supplies input and the Hub writes output
+- **THEN** input reaches the stable transport reader and output reaches the initial physical transport
+- **WHEN** the initial physical transport is replaced
+- **THEN** input reaches the same stable transport reader and output reaches the replacement physical transport
+
+#### Scenario: Detached output is not replayed
+
+- **WHEN** the stable logical connection has no attached physical transport and application output is produced
+- **THEN** the lower transport execution consumes that output without retaining it for a later physical replacement
+- **AND** no replay or acknowledgement mechanism is introduced
+
 ### Requirement: Hub state remains above the TCP transport
 
 The system SHALL keep the Hub protocol, message-writing coordination, Hub timeout policy, caller state, and logical lifecycle state on the Hub context. Physical transport replacement SHALL NOT implicitly change the Hub protocol or expose raw pipes through the public Hub-facing API.

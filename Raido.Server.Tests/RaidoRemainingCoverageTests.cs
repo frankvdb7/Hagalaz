@@ -127,7 +127,7 @@ public sealed class RaidoRemainingCoverageTests
             .WithClientTimeoutInterval(TimeSpan.FromSeconds(2))
             .Build();
         _connections.Add(built);
-        Assert.AreSame(connection.Transport.Input, built.TcpConnection.Transport.Input);
+        Assert.AreNotSame(connection.Transport.Input, built.TcpConnection.Transport.Input);
         Assert.IsInstanceOfType<TestProtocol>(built.Protocol);
         Assert.AreEqual("builder", built.ConnectionId);
     }

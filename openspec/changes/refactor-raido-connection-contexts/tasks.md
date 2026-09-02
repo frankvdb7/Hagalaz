@@ -9,10 +9,13 @@
 - [x] 2.1 Update handler, dispatcher, lifetime manager, store, caller context, extensions, and consumers to use the Hub context while keeping the dispatcher contract and lifecycle ordering unchanged
 - [x] 2.2 Keep stable heartbeat/features/items on the TCP context, use the handler reader for normal physical input completion, and retain only the required close-request notification on the current physical context; verify replacement and stale-transport tests pass
 - [x] 2.3 Remove #488-specific Raido caller/reconnect bridges and unused raw-pipe context APIs, verifying repository searches find no obsolete production callers
+- [x] 2.4 Add stable TCP `Transport` and internal `Application` duplex-pipe ends, and relay physical input/output through them without changing #477 reconnect state or introducing replay buffering
+- [x] 2.5 Update the Hub write/keep-alive paths and connection handler to use the stable transport boundary, and ensure terminal cleanup cancels and observes relay tasks
 
 ## 3. Regression coverage and validation
 
 - [x] 3.1 Adapt existing #477 tests to assert stable identity, protocol ownership, timeout behavior, waiter behavior, physical input completion, stale transport behavior, concurrent replacement, and one logical lifecycle
-- [ ] 3.2 Run strict OpenSpec validation, focused Raido tests, the solution build, full solution tests, and cumulative diff review against the #486 baseline
+- [x] 3.2 Add stable-pipe continuity, detached-output, terminal-pipe-completion, and no-stale-physical-leakage coverage without duplicating the existing #477 lifecycle suite
+- [x] 3.3 Run strict OpenSpec validation, focused Raido tests, the solution build, full solution tests, and cumulative diff review against the #486 baseline
 
-Validation note: strict OpenSpec validation, focused Raido tests, the Raido and GameWorld test projects, and the solution build passed. The full solution test run reached the changed projects; only Docker-dependent integration fixtures could not start because Docker was unavailable on the host.
+Validation note: strict OpenSpec validation, focused Raido tests, the Raido and GameWorld test projects, and the solution build passed. The full solution test command ran; non-Docker projects passed, while Docker-dependent integration fixtures could not start because Docker was unavailable on the host.

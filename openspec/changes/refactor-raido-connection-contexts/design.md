@@ -1,12 +1,13 @@
 ## Context
 
-The current `RaidoConnectionContext` combines the stable connection identity, physical transport state, #477 reconnect state, Hub protocol, message writing, timeout policy, caller state, and logical lifecycle bookkeeping. `RaidoConnectionHandler` already creates readers per current physical transport and waits on the existing reconnect window, so the refactor can preserve that control flow while changing the ownership boundaries.
+The current `RaidoConnectionContext` combines the stable connection identity, physical transport state, #477 reconnect state, Hub protocol, message writing, timeout policy, caller state, and logical lifecycle bookkeeping. The refactor separates the stable lower TCP boundary from Hub state while preserving the existing logical lifecycle and reconnect authority.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
 - Make `RaidoTcpConnectionContext : ConnectionContext` the stable lower owner of physical transport and #477 reconnect state.
+- Give `RaidoTcpConnectionContext` stable `Transport` and internal `Application` duplex-pipe ends for its entire logical lifetime.
 - Make `RaidoHubConnectionContext` the public logical owner of protocol, Hub state, writing, and lifecycle-facing state.
 - Preserve the existing handler, dispatcher, lifetime manager, store, and reconnect behavior.
 - Keep stable features and items separate from per-physical transport features.
@@ -15,7 +16,7 @@ The current `RaidoConnectionContext` combines the stable connection identity, ph
 
 - Implement #478 or any GameWorld reconnect authentication.
 - Add cross-context transport transfer, reservations, leases, registries, or handoff APIs.
-- Add SignalR message buffering, acknowledgements, or new reconnect semantics.
+- Add SignalR message buffering, acknowledgements, replay, or disconnected-output buffering; detached output is consumed and dropped.
 - Redesign Hub activation, authorization, dispatch, or GameWorld behavior.
 
 ## Decisions
@@ -32,7 +33,13 @@ Rename `RaidoConnectionContextOptions` to `RaidoHubConnectionContextOptions` and
 
 ### Existing handler and reconnect path
 
-Keep `RaidoConnectionHandler` as the owner of the logical Hub loop. It obtains the current physical transport through internal TCP infrastructure, creates a fresh reader after replacement, and dispatches against the same Hub context. Move the existing persistent-connection activation operation (`TryActivatePersistentConnection(ConnectionContext)`) and its synchronized state to the TCP context without adding a second transition or a cross-context transfer operation.
+Keep `RaidoConnectionHandler` as the owner of the logical Hub loop. It reads the stable TCP `Transport.Input` through one logical reader and dispatches against the same Hub context. Physical input is relayed into the stable pipe by the TCP context, so replacement does not create a second reader or require the handler to identify the physical socket. Move the existing persistent-connection activation operation (`TryActivatePersistentConnection(ConnectionContext)`) and its synchronized state to the TCP context without adding a second transition or a cross-context transfer operation.
+
+### Stable transport/application pipes
+
+Create one duplex-pipe pair when the TCP context is constructed. Expose one end as the stable `Transport` and keep the opposite `Application` end internal to Raido. Each physical activation starts the lower input relay from the physical transport into `Application.Output`. A single lower outbound relay consumes `Application.Input`, writes to the currently attached physical output, and consumes/discards bytes while detached so the stable output cannot become a replay queue. Stable pipe completion occurs only during terminal TCP cleanup.
+
+The relays are owned by the TCP context and are cancelled and observed during terminal cleanup. Physical relay completion reports through the existing current/detached reconnect state using physical reference identity; it does not complete the stable pipes during a recoverable disconnect.
 
 ### Stable versus physical features
 

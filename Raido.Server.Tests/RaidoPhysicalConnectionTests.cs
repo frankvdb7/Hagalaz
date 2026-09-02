@@ -487,17 +487,19 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public void DetachedConnectionHasNoEndpointsAndDoesNotExposePipes()
+    public void DetachedConnectionRetainsStableTransportPipes()
     {
         var initial = CreatePhysicalConnection("initial");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var stableTransport = context.TcpConnection.Transport;
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
         Assert.IsNull(context.LocalEndPoint);
         Assert.IsNull(context.RemoteEndPoint);
-        Assert.ThrowsExactly<InvalidOperationException>(() => _ = context.TcpConnection.Transport.Input);
-        Assert.ThrowsExactly<InvalidOperationException>(() => _ = context.TcpConnection.Transport.Output);
+        Assert.AreSame(stableTransport, context.TcpConnection.Transport);
+        Assert.IsNotNull(context.TcpConnection.Transport.Input);
+        Assert.IsNotNull(context.TcpConnection.Transport.Output);
         context.Cleanup();
     }
 
@@ -573,6 +575,7 @@ public sealed class RaidoPhysicalConnectionTests
         var exception = new IOException("current flush");
         pendingWriter.Fail(exception);
         await pendingWrite;
+        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
 
         Assert.IsNull(context.TcpConnection.TerminalException);
 
@@ -634,11 +637,13 @@ public sealed class RaidoPhysicalConnectionTests
 
         var run = handler.DispatchMessagesAsync(context);
 
+        await failingReader.ReadInvoked.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
         await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
-        replacement.Input.Writer.Complete();
         await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        replacement.Input.Writer.Complete();
         context.Abort();
 
         await run.WaitAsync(TimeSpan.FromSeconds(2));
@@ -847,8 +852,8 @@ public sealed class RaidoPhysicalConnectionTests
             metrics);
 
         var run = handler.RunAsync(context);
-        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
-        initial.Input.Writer.Complete();
+        await context.TcpConnection.Application.Output.WriteAsync(new byte[] { 1 });
+        context.TcpConnection.Application.Output.Complete();
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
         await dispatcher.Received(1).OnDisconnectedAsync(context, Arg.Is<Exception?>(exception => exception is InvalidDataException));
@@ -950,8 +955,8 @@ public sealed class RaidoPhysicalConnectionTests
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
         await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
-        replacement.Input.Writer.Complete();
         await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        replacement.Input.Writer.Complete();
         context.Abort();
 
         await run.WaitAsync(TimeSpan.FromSeconds(2));
@@ -1056,14 +1061,14 @@ public sealed class RaidoPhysicalConnectionTests
         var initial = CreatePhysicalConnection("initial");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
-        var pendingRead = initial.Input.Reader.ReadAsync().AsTask();
+        var pendingRead = context.TcpConnection.Transport.Input.ReadAsync().AsTask();
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
         var result = await pendingRead.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.IsTrue(result.IsCanceled);
         Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
-        initial.Input.Reader.AdvanceTo(result.Buffer.End);
+        context.TcpConnection.Transport.Input.AdvanceTo(result.Buffer.End);
         context.Cleanup();
     }
 
@@ -1109,6 +1114,50 @@ public sealed class RaidoPhysicalConnectionTests
         var result = await replacement.Output.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
         Assert.AreEqual(42, result.Buffer.FirstSpan[0]);
         replacement.Output.Reader.AdvanceTo(result.Buffer.End);
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task StableTransportRelaysInputAndOutputAcrossPhysicalReplacement()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var stableTransport = context.TcpConnection.Transport;
+
+        await initial.Input.Writer.WriteAsync(new byte[] { 1, 2, 3 });
+        var initialRead = await stableTransport.Input.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, initialRead.Buffer.ToArray());
+        stableTransport.Input.AdvanceTo(initialRead.Buffer.End);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+
+        await replacement.Input.Writer.WriteAsync(new byte[] { 4, 5, 6 });
+        var replacementRead = await ReadNonCanceledAsync(stableTransport.Input);
+        CollectionAssert.AreEqual(new byte[] { 4, 5, 6 }, replacementRead.Buffer.ToArray());
+        stableTransport.Input.AdvanceTo(replacementRead.Buffer.End);
+
+        await context.WriteAsync(new TestMessage());
+        var outputRead = await replacement.Output.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.AreEqual(42, outputRead.Buffer.FirstSpan[0]);
+        replacement.Output.Reader.AdvanceTo(outputRead.Buffer.End);
+
+        Assert.AreSame(stableTransport, context.TcpConnection.Transport);
+    }
+
+    [TestMethod]
+    public async Task TerminalConnectionCompletesStableTransportPipes()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+
+        context.Abort();
+
+        var read = await context.TcpConnection.Transport.Input.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.IsTrue(read.IsCompleted);
+        context.TcpConnection.Transport.Input.AdvanceTo(read.Buffer.End);
+
         context.Cleanup();
     }
 
@@ -1429,7 +1478,7 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         context.Protocol = new FailingOutputProtocol(messageBytesException: failure);
 
-        await InvokePingAsync(context, initial.Connection);
+        await InvokePingAsync(context);
 
         Assert.AreSame(failure, context.TcpConnection.TerminalException);
         Assert.IsTrue(context.TcpConnection.IsTerminal);
@@ -1450,9 +1499,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var replacement = CreatePhysicalConnection("replacement");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
-        var ping = InvokePingAsync(context, initial.Connection);
+        var ping = InvokePingAsync(context);
         failingWriter.Fail(new IOException("ping write failure"));
         await ping;
+        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
 
         Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
@@ -1468,12 +1518,13 @@ public sealed class RaidoPhysicalConnectionTests
         using var replacement = CreatePhysicalConnection("replacement");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
-        var ping = InvokePingAsync(context, initial.Connection);
+        var ping = InvokePingAsync(context);
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
 
         failingWriter.Fail(new IOException("stale ping write failure"));
         await ping;
+        await Task.Yield();
 
         Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
@@ -1494,7 +1545,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
 
-        await InvokePingAsync(context, initial.Connection);
+        await InvokePingAsync(context);
 
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out current));
         Assert.AreSame(replacement.Connection, current);
@@ -1599,10 +1650,10 @@ public sealed class RaidoPhysicalConnectionTests
             NullLoggerFactory.Instance));
     }
 
-    private static ValueTask InvokePingAsync(RaidoHubConnectionContext context, ConnectionContext physicalConnection) =>
+    private static ValueTask InvokePingAsync(RaidoHubConnectionContext context) =>
         (ValueTask)typeof(RaidoHubConnectionContext)
             .GetMethod("TryWritePingAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-            .Invoke(context, new object[] { physicalConnection })!;
+            .Invoke(context, Array.Empty<object>())!;
 
     private static void InvokeCloseRequested(RaidoHubConnectionContext context, ConnectionContext physicalConnection) =>
         typeof(RaidoTcpConnectionContext)
@@ -1622,6 +1673,20 @@ public sealed class RaidoPhysicalConnectionTests
         }
 
         Assert.IsTrue(condition(), "The expected condition was not reached within the test timeout.");
+    }
+
+    private static async Task<ReadResult> ReadNonCanceledAsync(PipeReader reader)
+    {
+        while (true)
+        {
+            var result = await reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
+            if (!result.IsCanceled || !result.Buffer.IsEmpty)
+            {
+                return result;
+            }
+
+            reader.AdvanceTo(result.Buffer.Start, result.Buffer.End);
+        }
     }
 
     private PhysicalConnection CreatePhysicalConnection(

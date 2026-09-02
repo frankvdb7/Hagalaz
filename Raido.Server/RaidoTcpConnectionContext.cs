@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Pipelines;
 using System.Net;
 using System.Security.Claims;
@@ -22,6 +23,9 @@ namespace Raido.Server
             TimeSpan.FromMilliseconds(uint.MaxValue - 1L);
 
         private readonly TaskCompletionSource _abortCompletedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly IDuplexPipe _transport;
+        private readonly IDuplexPipe _application;
+        private readonly CancellationTokenSource _transportExecutionCancellation = new();
         private readonly IFeatureCollection _features = new FeatureCollection();
         private readonly IDictionary<object, object?> _items = new Dictionary<object, object?>();
         private readonly CancellationTokenSource _connectionAbortedTokenSource = new();
@@ -34,6 +38,8 @@ namespace Raido.Server
         private CancellationTokenRegistration? _closedRequestedRegistration;
         private ConnectionContext? _currentPhysicalConnection;
         private ConnectionContext? _detachedPhysicalConnection;
+        private Task? _physicalInputTask;
+        private Task? _applicationOutputTask;
         private TaskCompletionSource<bool>? _reconnectWaiter;
         private long? _reconnectWindowStartTimestamp;
         private Exception? _terminalException;
@@ -67,6 +73,10 @@ namespace Raido.Server
             _statefulReconnectTimeout = contextOptions.StatefulReconnectTimeout;
             _reconnectEnabled = contextOptions.StatefulReconnectEnabled;
             _timeProvider = timeProvider;
+            var input = new Pipe();
+            var output = new Pipe();
+            _transport = new LocalDuplexPipe(input.Reader, output.Writer);
+            _application = new LocalDuplexPipe(output.Reader, input.Writer);
             _features.Set<IConnectionHeartbeatFeature>(this);
         }
 
@@ -177,6 +187,9 @@ namespace Raido.Server
                     return false;
                 }
 
+                StartApplicationOutputPump();
+                StartPhysicalInputPump();
+
                 // A physical connection may already be closed when it is activated. Publish ownership first,
                 // then apply that state through the normal physical-disconnect path.
                 if (replacement.ConnectionClosed.IsCancellationRequested)
@@ -253,8 +266,193 @@ namespace Raido.Server
             {
                 CompleteTerminalTransition(terminalConnection, terminalClosedRequestedRegistration, queueAbortCallback);
             }
+            else if (published)
+            {
+                StartPhysicalInputPump();
+            }
 
             return published;
+        }
+
+        private void StartApplicationOutputPump()
+        {
+            lock (_reconnectLock)
+            {
+                if (_applicationOutputTask is null)
+                {
+                    _applicationOutputTask = Task.Run(RunApplicationOutputAsync);
+                }
+            }
+        }
+
+        private void StartPhysicalInputPump()
+        {
+            lock (_reconnectLock)
+            {
+                if (_physicalInputTask is null)
+                {
+                    _physicalInputTask = Task.Run(RunPhysicalInputAsync);
+                }
+            }
+        }
+
+        private async Task RunPhysicalInputAsync()
+        {
+            try
+            {
+                while (!_transportExecutionCancellation.IsCancellationRequested)
+                {
+                    if (!TryGetCurrentConnection(out var physicalConnection))
+                    {
+                        if (!await WaitForReconnectAsync().ConfigureAwait(false))
+                        {
+                            break;
+                        }
+
+                        continue;
+                    }
+
+                    using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                        _transportExecutionCancellation.Token,
+                        physicalConnection.ConnectionClosed);
+                    var input = physicalConnection.Transport.Input;
+                    try
+                    {
+                        while (true)
+                        {
+                            ReadResult result;
+                            try
+                            {
+                                result = await input.ReadAsync(linkedCancellation.Token).ConfigureAwait(false);
+                            }
+                            catch (OperationCanceledException) when (linkedCancellation.IsCancellationRequested)
+                            {
+                                break;
+                            }
+
+                            try
+                            {
+                                if (!result.Buffer.IsEmpty)
+                                {
+                                    foreach (var segment in result.Buffer)
+                                    {
+                                        var destination = _application.Output.GetSpan(segment.Length);
+                                        segment.Span.CopyTo(destination);
+                                        _application.Output.Advance(segment.Length);
+                                    }
+
+                                    var flushResult = await _application.Output.FlushAsync(linkedCancellation.Token).ConfigureAwait(false);
+                                    if (flushResult.IsCanceled || flushResult.IsCompleted)
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                            finally
+                            {
+                                input.AdvanceTo(result.Buffer.End);
+                            }
+
+                            if (result.IsCanceled || result.IsCompleted)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException) when (linkedCancellation.IsCancellationRequested)
+                    {
+                    }
+                    catch (Exception ex) when (!_transportExecutionCancellation.IsCancellationRequested)
+                    {
+                        HandleTransportFailure(physicalConnection, ex);
+                    }
+
+                    if (_transportExecutionCancellation.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
+                    if (IsCurrentPhysicalConnection(physicalConnection))
+                    {
+                        OnPhysicalConnectionClosed(physicalConnection);
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (_transportExecutionCancellation.IsCancellationRequested)
+            {
+                // Terminal cleanup canceled the relay.
+            }
+        }
+
+        private async Task RunApplicationOutputAsync()
+        {
+            var output = _application.Input;
+            try
+            {
+                while (true)
+                {
+                    ReadResult result;
+                    try
+                    {
+                        result = await output.ReadAsync(_transportExecutionCancellation.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (_transportExecutionCancellation.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
+                    ConnectionContext? physicalConnection = null;
+                    try
+                    {
+                        if (!result.Buffer.IsEmpty && (physicalConnection = GetCurrentPhysicalConnection()) is not null)
+                        {
+                            var physicalOutput = physicalConnection.Transport.Output;
+                            foreach (var segment in result.Buffer)
+                            {
+                                var destination = physicalOutput.GetSpan(segment.Length);
+                                segment.Span.CopyTo(destination);
+                                physicalOutput.Advance(segment.Length);
+                            }
+
+                            var flushResult = await physicalOutput.FlushAsync(_transportExecutionCancellation.Token).ConfigureAwait(false);
+                            if ((flushResult.IsCanceled || flushResult.IsCompleted) &&
+                                !_transportExecutionCancellation.IsCancellationRequested)
+                            {
+                                HandleTransportFailure(
+                                    physicalConnection,
+                                    new IOException("The physical transport output was closed."));
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException) when (_transportExecutionCancellation.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    catch (Exception ex) when (!_transportExecutionCancellation.IsCancellationRequested)
+                    {
+                        if (physicalConnection is not null)
+                        {
+                            HandleTransportFailure(physicalConnection, ex);
+                        }
+                    }
+                    finally
+                    {
+                        output.AdvanceTo(result.Buffer.End);
+                    }
+
+                    if (result.IsCompleted)
+                    {
+                        break;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (_transportExecutionCancellation.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                output.Complete();
+            }
         }
 
         internal bool IsTerminal => _connectionAborted;
@@ -416,6 +614,7 @@ namespace Raido.Server
                 // Set the current connection to null before waking the old transport so resulting completions are stale.
                 connection.Transport.Input.CancelPendingRead();
                 connection.Transport.Output.CancelPendingFlush();
+                _transport.Input.CancelPendingRead();
             }
             else if (terminal)
             {
@@ -476,17 +675,33 @@ namespace Raido.Server
 
             if (currentConnection is not null)
             {
-                // Physical cancellation wakes transport operations but does not cancel the stable connection token.
+                // Physical cancellation wakes transport operations without changing the stable connection identity.
                 currentConnection.Transport.Output.CancelPendingFlush();
                 currentConnection.Transport.Input.CancelPendingRead();
                 currentConnection.Abort();
             }
+
+            CompleteStablePipes();
 
             if (queueAbortCallback)
             {
                 // We fire and forget since this can trigger user code to run.
                 ThreadPool.QueueUserWorkItem(_abortedCallback, this);
             }
+        }
+
+        private void CompleteStablePipes()
+        {
+            _transport.Input.CancelPendingRead();
+            _transport.Output.CancelPendingFlush();
+            _application.Input.CancelPendingRead();
+            _application.Output.CancelPendingFlush();
+
+            // The handler owns the stable transport reader and completes it when its reader is disposed.
+            // Complete only the producer ends here so an in-flight reader can observe terminal completion
+            // and still advance its current read before disposing the reader.
+            _transport.Output.Complete();
+            _application.Output.Complete();
         }
 
         private ConnectionContext? GetCurrentPhysicalConnection()
@@ -496,9 +711,6 @@ namespace Raido.Server
                 return _currentPhysicalConnection;
             }
         }
-
-        private ConnectionContext GetRequiredCurrentPhysicalConnection() =>
-    GetCurrentPhysicalConnection() ?? throw new InvalidOperationException("No physical transport is currently attached.");
 
         private void CopyStableFeatures(IFeatureCollection physicalFeatures)
         {
@@ -591,10 +803,61 @@ namespace Raido.Server
             return terminal;
         }
 
+        internal bool TryAbortForCurrentConnection(Exception exception)
+        {
+            ConnectionContext? currentConnection;
+            CancellationTokenRegistration? closedRequestedRegistration;
+            bool queueAbortCallback;
+            bool terminal;
+
+            lock (_reconnectLock)
+            {
+                if (_currentPhysicalConnection is null)
+                {
+                    return false;
+                }
+
+                terminal = TryTransitionToTerminalLocked(
+                    expectedConnection: _currentPhysicalConnection,
+                    expectedWaiter: null,
+                    exception,
+                    out currentConnection,
+                    out closedRequestedRegistration,
+                    out queueAbortCallback);
+            }
+
+            if (terminal)
+            {
+                CompleteTerminalTransition(currentConnection, closedRequestedRegistration, queueAbortCallback);
+            }
+
+            return terminal;
+        }
+
         internal Task AbortAsync()
         {
             Abort();
             return _abortCompletedTcs.Task;
+        }
+
+        internal void AbortWithException(Exception exception)
+        {
+            ConnectionContext? currentConnection;
+            CancellationTokenRegistration? closedRequestedRegistration;
+            var queueAbortCallback = false;
+
+            lock (_reconnectLock)
+            {
+                TryTransitionToTerminalLocked(
+                    expectedConnection: null,
+                    expectedWaiter: null,
+                    exception,
+                    out currentConnection,
+                    out closedRequestedRegistration,
+                    out queueAbortCallback);
+            }
+
+            CompleteTerminalTransition(currentConnection, closedRequestedRegistration, queueAbortCallback);
         }
 
         internal void Cleanup()
@@ -614,6 +877,8 @@ namespace Raido.Server
             }
 
             closedRequestedRegistration?.Dispose();
+            _transportExecutionCancellation.Cancel();
+            CompleteStablePipes();
             reconnectWaiter?.TrySetResult(false);
         }
 
@@ -632,9 +897,11 @@ namespace Raido.Server
         }
         public override IDuplexPipe Transport
         {
-            get => GetRequiredCurrentPhysicalConnection().Transport;
+            get => _transport;
             set => throw new NotSupportedException("The stable connection owns its physical transport.");
         }
+
+        internal IDuplexPipe Application => _application;
         public override CancellationToken ConnectionClosed => _connectionAbortedTokenSource.Token;
         public override IPEndPoint? LocalEndPoint => GetCurrentPhysicalConnection()?.LocalEndPoint as IPEndPoint;
         public override IPEndPoint? RemoteEndPoint => GetCurrentPhysicalConnection()?.RemoteEndPoint as IPEndPoint;
@@ -683,6 +950,12 @@ namespace Raido.Server
                 LoggerMessage.Define(LogLevel.Trace, new EventId(4, "AbortFailed"), "Abort callback failed.");
 
             public static void AbortFailed(ILogger logger, Exception exception) => _abortFailed(logger, exception);
+        }
+
+        private sealed class LocalDuplexPipe(PipeReader input, PipeWriter output) : IDuplexPipe
+        {
+            public PipeReader Input { get; } = input;
+            public PipeWriter Output { get; } = output;
         }
 
     }

@@ -6,6 +6,7 @@ Raido currently combines stable reconnect state, physical transport state, and l
 
 - **BREAKING** Rename the public logical context to `RaidoHubConnectionContext`.
 - Add an internal `RaidoTcpConnectionContext : ConnectionContext` for stable TCP and physical transport state.
+- Give the TCP context stable `Transport` and internal `Application` pipes that survive physical replacement, with a minimal lower-level physical transport relay.
 - Move existing reconnect, transport, heartbeat-registration, and terminal-lifecycle behavior to the TCP context without redesigning it.
 - Keep protocol, message writing, Hub timeout policy, caller state, and logical lifecycle state on the Hub context.
 - Update builders, dispatchers, lifetime management, stores, callers, handlers, consumers, and tests to use the split.
