@@ -2,7 +2,7 @@
 
 - [x] 1.1 Preserve or add characterization coverage for one logical lifecycle across physical disconnect and replacement, then verify the focused Raido tests pass
 - [x] 1.2 Split `RaidoConnectionContext` into `RaidoTcpConnectionContext` and `RaidoHubConnectionContext`, moving fields and methods by responsibility while preserving behavior and verifying the context tests pass
-- [x] 1.3 Rename `RaidoConnectionContextOptions` and update the builder to construct TCP then Hub contexts, verifying builder and options tests pass
+- [x] 1.3 Rename `RaidoConnectionContextOptions` and update the connection-context factory to construct TCP then Hub contexts, verifying factory and options tests pass
 
 ## 2. Infrastructure migration
 

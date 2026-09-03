@@ -7,7 +7,6 @@ using System.Net;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -55,21 +54,15 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task BuilderOptInUsesTheConfiguredFiniteStatefulReconnectTimeout()
+    public async Task FactoryOptInUsesTheConfiguredFiniteStatefulReconnectTimeout()
     {
         var options = new RaidoOptions { StatefulReconnectTimeout = TimeSpan.FromSeconds(7) };
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddSingleton<IOptions<RaidoOptions>>(Options.Create(options));
-        using var provider = services.BuildServiceProvider();
         var physical = CreatePhysicalConnection("initial");
 
-        var context = new DefaultRaidoHubConnectionContextBuilder(provider)
-            .Create()
-            .WithConnection(physical.Connection)
-            .WithProtocol(new PhysicalConnectionWritingProtocol())
-            .WithStatefulReconnect()
-            .Build();
+        var factory = new DefaultRaidoHubConnectionContextFactory(
+            NullLoggerFactory.Instance,
+            Options.Create(options));
+        var context = factory.Create(physical.Connection, new PhysicalConnectionWritingProtocol(), statefulReconnect: true);
         _connections.Add(context);
 
         Assert.IsTrue(context.TcpConnection.IsReconnectEnabled);
@@ -77,21 +70,15 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task BuilderOptInUsesTheDefaultFiniteStatefulReconnectTimeout()
+    public async Task FactoryOptInUsesTheDefaultFiniteStatefulReconnectTimeout()
     {
         var options = new RaidoOptions();
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddSingleton<IOptions<RaidoOptions>>(Options.Create(options));
-        using var provider = services.BuildServiceProvider();
         var physical = CreatePhysicalConnection("initial");
 
-        var context = new DefaultRaidoHubConnectionContextBuilder(provider)
-            .Create()
-            .WithConnection(physical.Connection)
-            .WithProtocol(new PhysicalConnectionWritingProtocol())
-            .WithStatefulReconnect()
-            .Build();
+        var factory = new DefaultRaidoHubConnectionContextFactory(
+            NullLoggerFactory.Instance,
+            Options.Create(options));
+        var context = factory.Create(physical.Connection, new PhysicalConnectionWritingProtocol(), statefulReconnect: true);
         _connections.Add(context);
 
         Assert.IsTrue(context.TcpConnection.IsReconnectEnabled);

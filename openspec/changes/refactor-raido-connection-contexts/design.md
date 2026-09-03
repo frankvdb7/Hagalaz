@@ -25,7 +25,7 @@ Kestrel and `Microsoft.AspNetCore.Connections` provide the physical `ConnectionC
 
 The Raido Hubs layer operates on the stable logical connection through `RaidoHubConnectionContext`, `RaidoHubConnectionHandler`, `RaidoHubConnectionStore`, and `IRaidoHubLifetimeManager`; it owns protocol, Hub dispatch, caller state, and Hub timeout policy. It must not depend on which physical Kestrel transport currently backs the stable connection. GameWorld and GameUpdate consume these Hub/logical-connection semantics and do not own Raido's pipes, physical callbacks, transport-boundary synchronization, or lower reconnect implementation.
 
-The composition boundary creates and initially attaches `RaidoTcpConnectionContext` before constructing `RaidoHubConnectionContext`. The Hub context consumes that stable lower connection and does not create or attach physical Kestrel connections itself.
+`IRaidoHubConnectionContextFactory` is the composition boundary: it creates and initially attaches `RaidoTcpConnectionContext` before constructing `RaidoHubConnectionContext`. Its dependencies are constructor-injected, and connection construction does not resolve services through `IServiceProvider`. The Hub context consumes that stable lower connection and does not create or attach physical Kestrel connections itself.
 
 ## Decisions
 
@@ -37,7 +37,7 @@ The simpler alternative, leaving all fields in one class, preserves behavior but
 
 ### One options object
 
-Use the neutral `RaidoConnectionContextOptions` name for the existing four settings. The builder passes the same values to the two internal constructors; each context consumes only its own settings. This avoids a new configuration framework or a mechanically pure but unnecessary options split while keeping the lower TCP dependency neutral.
+Use the neutral `RaidoConnectionContextOptions` name for the existing four settings. The factory passes the same values to the two internal constructors; each context consumes only its own settings. This avoids a new configuration framework or a mechanically pure but unnecessary options split while keeping the lower TCP dependency neutral.
 
 ### Existing handler and reconnect path
 

@@ -193,16 +193,14 @@ public sealed class RaidoHagalazUsageTests
         var resolver = provider.GetRequiredService<IRaidoProtocolResolver>();
         Assert.IsInstanceOfType<UsageProtocol>(resolver.GetProtocol(protocol.Name.ToLowerInvariant(), new[] { protocol.Name.ToUpperInvariant() }));
 
-        var rawConnection = CreateRawConnection("builder").Connection;
-        var built = provider.GetRequiredService<IRaidoHubConnectionContextBuilder>()
-            .Create()
-            .WithConnection(rawConnection)
-            .WithProtocol<UsageProtocol>()
-            .Build();
+        var rawConnection = CreateRawConnection("factory").Connection;
+        var built = provider.GetRequiredService<IRaidoHubConnectionContextFactory>().Create(
+            rawConnection,
+            protocol);
         _connections.Add(built);
 
         Assert.AreEqual(protocol.Name, built.Protocol.Name);
-        Assert.AreEqual("builder", built.ConnectionId);
+        Assert.AreEqual("factory", built.ConnectionId);
     }
 
     [TestMethod]

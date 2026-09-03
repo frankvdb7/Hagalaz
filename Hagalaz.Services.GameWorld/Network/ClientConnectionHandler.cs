@@ -10,25 +10,25 @@ namespace Hagalaz.Services.GameWorld.Network;
 public class ClientConnectionHandler : ConnectionHandler
 {
     private readonly RaidoHubConnectionHandler _connectionHandler;
-    private readonly IRaidoHubConnectionContextBuilder _contextBuilder;
+    private readonly IRaidoHubConnectionContextFactory _connectionFactory;
+    private readonly HandshakeProtocol _handshakeProtocol;
     private readonly ILogger<ClientConnectionHandler> _logger;
 
     public ClientConnectionHandler(
         RaidoHubConnectionHandler connectionHandler,
-        IRaidoHubConnectionContextBuilder contextBuilder,
+        IRaidoHubConnectionContextFactory connectionFactory,
+        HandshakeProtocol handshakeProtocol,
         ILogger<ClientConnectionHandler> logger)
     {
         _connectionHandler = connectionHandler;
-        _contextBuilder = contextBuilder;
+        _connectionFactory = connectionFactory;
+        _handshakeProtocol = handshakeProtocol;
         _logger = logger;
     }
 
     public override async Task OnConnectedAsync(ConnectionContext connection)
     {
-        var connectionContext = _contextBuilder.Create()
-            .WithConnection(connection)
-            .WithProtocol<HandshakeProtocol>()
-            .Build();
+        var connectionContext = _connectionFactory.Create(connection, _handshakeProtocol);
 
         Log.HandshakeStart(_logger, connectionContext.Protocol.Name);
 

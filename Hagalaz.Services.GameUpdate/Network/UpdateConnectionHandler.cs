@@ -15,20 +15,23 @@ namespace Hagalaz.Services.GameUpdate.Network
     public class UpdateConnectionHandler : ConnectionHandler
     {
         private readonly RaidoHubConnectionHandler _connectionHandler;
-        private readonly IRaidoHubConnectionContextBuilder _contextBuilder;
+        private readonly IRaidoHubConnectionContextFactory _connectionFactory;
+        private readonly FileProtocol _fileProtocol;
         private readonly ILogger<UpdateConnectionHandler> _logger;
         private readonly IOptions<RaidoOptions> _raidoOptions;
         private readonly IOptions<ServerConfig> _serverOptions;
 
         public UpdateConnectionHandler(
             RaidoHubConnectionHandler connectionHandler,
-            IRaidoHubConnectionContextBuilder contextBuilder,
+            IRaidoHubConnectionContextFactory connectionFactory,
+            FileProtocol fileProtocol,
             IOptions<RaidoOptions> raidoOptions,
             IOptions<ServerConfig> serverOptions,
             ILogger<UpdateConnectionHandler> logger)
         {
             _connectionHandler = connectionHandler;
-            _contextBuilder = contextBuilder;
+            _connectionFactory = connectionFactory;
+            _fileProtocol = fileProtocol;
             _logger = logger;
             _raidoOptions = raidoOptions;
             _serverOptions = serverOptions;
@@ -102,7 +105,7 @@ namespace Hagalaz.Services.GameUpdate.Network
                 }
             }
 
-            var connectionContext = _contextBuilder.Create().WithConnection(connection).WithProtocol<FileProtocol>().Build();
+            var connectionContext = _connectionFactory.Create(connection, _fileProtocol);
 
             Log.HandshakeComplete(_logger, connectionContext.Protocol.Name);
 

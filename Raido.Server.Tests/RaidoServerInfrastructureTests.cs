@@ -269,6 +269,7 @@ public sealed class RaidoServerInfrastructureTests
     public void ServiceRegistration_BuildsCoreRaidoServices()
     {
         var services = new ServiceCollection();
+        services.AddLogging();
         var builder = services.AddRaidoServerCore();
         Assert.AreSame(services, builder.Services);
         using var provider = services.BuildServiceProvider();
@@ -276,7 +277,7 @@ public sealed class RaidoServerInfrastructureTests
         Assert.IsNotNull(provider.GetRequiredService<IRaidoContext>());
         Assert.IsNotNull(provider.GetRequiredService<IRaidoDispatcher>());
         Assert.IsNotNull(provider.GetRequiredService<IRaidoHubLifetimeManager>());
-        Assert.IsNotNull(provider.GetRequiredService<IRaidoHubConnectionContextBuilder>());
+        Assert.IsNotNull(provider.GetRequiredService<IRaidoHubConnectionContextFactory>());
         Assert.ThrowsExactly<ArgumentNullException>(() => ServiceCollectionExtensions.AddRaidoServerCore(null!));
     }
 }

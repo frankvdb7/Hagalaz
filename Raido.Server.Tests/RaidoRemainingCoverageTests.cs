@@ -59,7 +59,7 @@ public sealed class RaidoRemainingCoverageTests
         }
     }
 
-    private ConnectionContext CreateRawConnection(string id = "builder")
+    private ConnectionContext CreateRawConnection(string id = "factory")
     {
         var connection = Substitute.For<ConnectionContext>();
         connection.ConnectionId.Returns(id);
@@ -107,7 +107,7 @@ public sealed class RaidoRemainingCoverageTests
     }
 
     [TestMethod]
-    public void ConnectionBuilder_BuildsWithExplicitAndResolvedProtocolOptions()
+    public void ConnectionFactory_BuildsWithExplicitProtocolAndOptions()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -118,18 +118,19 @@ public sealed class RaidoRemainingCoverageTests
         }));
         services.AddSingleton<TestProtocol>();
         using var provider = services.BuildServiceProvider();
-        var builder = new DefaultRaidoHubConnectionContextBuilder(provider);
+        var factory = new DefaultRaidoHubConnectionContextFactory(
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>(),
+            provider.GetRequiredService<IOptions<RaidoOptions>>());
         var connection = CreateRawConnection();
-        var built = builder.Create()
-            .WithConnection(connection)
-            .WithProtocol<TestProtocol>()
-            .WithKeepAliveInterval(TimeSpan.FromSeconds(1))
-            .WithClientTimeoutInterval(TimeSpan.FromSeconds(2))
-            .Build();
+        var built = factory.Create(
+            connection,
+            provider.GetRequiredService<TestProtocol>(),
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(2));
         _connections.Add(built);
         Assert.AreNotSame(connection.Transport.Input, built.TcpConnection.Transport.Input);
         Assert.IsInstanceOfType<TestProtocol>(built.Protocol);
-        Assert.AreEqual("builder", built.ConnectionId);
+        Assert.AreEqual("factory", built.ConnectionId);
     }
 
     [TestMethod]

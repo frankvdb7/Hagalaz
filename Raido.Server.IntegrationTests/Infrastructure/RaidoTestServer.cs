@@ -137,14 +137,13 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
         {
             if (_logical is null)
             {
-                var builder = _app!.Services.GetRequiredService<IRaidoHubConnectionContextBuilder>();
-                logicalToStart = builder.Create()
-                    .WithConnection(physical)
-                    .WithProtocol(_protocol)
-                    .WithKeepAliveInterval(TimeSpan.FromHours(1))
-                    .WithClientTimeoutInterval(TimeSpan.FromHours(1))
-                    .WithStatefulReconnect()
-                    .Build();
+                var factory = _app!.Services.GetRequiredService<IRaidoHubConnectionContextFactory>();
+                logicalToStart = factory.Create(
+                    physical,
+                    _protocol,
+                    TimeSpan.FromHours(1),
+                    TimeSpan.FromHours(1),
+                    statefulReconnect: true);
                 _logical = logicalToStart;
                 _initialConnection.TrySetResult(accepted);
                 _logicalConnection.TrySetResult(logicalToStart);
