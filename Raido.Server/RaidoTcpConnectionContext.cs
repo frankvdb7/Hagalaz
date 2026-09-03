@@ -23,7 +23,8 @@ namespace Raido.Server
         IConnectionIdFeature,
         IConnectionItemsFeature,
         IConnectionTransportFeature,
-        IConnectionLifetimeFeature
+        IConnectionLifetimeFeature,
+        IConnectionInherentKeepAliveFeature
     {
         private static readonly WaitCallback _abortedCallback = AbortConnection;
         private static readonly TimeSpan MaxSupportedReconnectTimeout =
@@ -60,6 +61,7 @@ namespace Raido.Server
         private Exception? _terminalException;
 
         private bool _hasActivated;
+        private bool _hasInherentKeepAlive;
         private bool _disposed;
         private bool _abortCallbackQueued;
         private bool _reconnectEnabled;
@@ -98,6 +100,7 @@ namespace Raido.Server
             _features.Set<IConnectionTransportFeature>(this);
             _features.Set<IConnectionLifetimeFeature>(this);
             _features.Set<IConnectionHeartbeatFeature>(this);
+            _features.Set<IConnectionInherentKeepAliveFeature>(this);
         }
 
         public void OnHeartbeat(Action<object> action, object state)
@@ -208,6 +211,7 @@ namespace Raido.Server
 
                             _connectionId = replacement.ConnectionId;
                             _currentPhysicalConnection = replacement;
+                            Volatile.Write(ref _hasInherentKeepAlive, HasInherentKeepAlive(replacement));
                             _hasActivated = true;
                             _connectionClosedRegistration = connectionClosedRegistration;
                             connectionClosedRegistration = null;
@@ -275,6 +279,7 @@ namespace Raido.Server
                         obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
                         obsoleteConnectionClosedRegistration = _connectionClosedRegistration;
                         _currentPhysicalConnection = replacement;
+                        Volatile.Write(ref _hasInherentKeepAlive, HasInherentKeepAlive(replacement));
                         _detachedPhysicalConnection = null;
                         _detachedTransportException = null;
                         _connectionClosedRegistration = connectionClosedRegistration;
@@ -970,17 +975,7 @@ namespace Raido.Server
         {
             foreach (var (featureType, feature) in physicalFeatures)
             {
-                if (featureType == typeof(IConnectionIdFeature) ||
-                    featureType == typeof(IConnectionItemsFeature) ||
-                    featureType == typeof(IConnectionTransportFeature) ||
-                    featureType == typeof(IConnectionLifetimeFeature) ||
-                    featureType == typeof(IConnectionHeartbeatFeature) ||
-                    featureType == typeof(IConnectionLifetimeNotificationFeature) ||
-                    featureType == typeof(IConnectionInherentKeepAliveFeature) ||
-                    featureType == typeof(IMemoryPoolFeature) ||
-                    featureType == typeof(IConnectionEndPointFeature) ||
-                    featureType == typeof(IConnectionSocketFeature) ||
-                    featureType == typeof(IConnectionMetricsTagsFeature))
+                if (IsPhysicalTransportFeature(featureType))
                 {
                     continue;
                 }
@@ -988,6 +983,23 @@ namespace Raido.Server
                 _features[featureType] = feature;
             }
         }
+
+        private static bool IsPhysicalTransportFeature(Type featureType) =>
+            featureType == typeof(IConnectionIdFeature) ||
+            featureType == typeof(IConnectionItemsFeature) ||
+            featureType == typeof(IConnectionTransportFeature) ||
+            featureType == typeof(IConnectionLifetimeFeature) ||
+            featureType == typeof(IConnectionHeartbeatFeature) ||
+            featureType == typeof(IConnectionLifetimeNotificationFeature) ||
+            featureType == typeof(IConnectionInherentKeepAliveFeature) ||
+            featureType == typeof(IConnectionCompleteFeature) ||
+            featureType == typeof(IMemoryPoolFeature) ||
+            featureType == typeof(IConnectionEndPointFeature) ||
+            featureType == typeof(IConnectionSocketFeature) ||
+            featureType == typeof(IConnectionMetricsTagsFeature);
+
+        private static bool HasInherentKeepAlive(ConnectionContext physicalConnection) =>
+            physicalConnection.Features.Get<IConnectionInherentKeepAliveFeature>()?.HasInherentKeepAlive == true;
 
         private TimeSpan GetReconnectWaitTimeoutLocked(TimeSpan requestedTimeout)
         {
@@ -1284,6 +1296,7 @@ namespace Raido.Server
         public override CancellationToken ConnectionClosed => _connectionAbortedTokenSource.Token;
         public override IPEndPoint? LocalEndPoint => GetCurrentPhysicalConnection()?.LocalEndPoint as IPEndPoint;
         public override IPEndPoint? RemoteEndPoint => GetCurrentPhysicalConnection()?.RemoteEndPoint as IPEndPoint;
+        bool IConnectionInherentKeepAliveFeature.HasInherentKeepAlive => Volatile.Read(ref _hasInherentKeepAlive);
 
         public override void Abort()
         {

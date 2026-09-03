@@ -164,7 +164,23 @@ The system SHALL provide connection-owned infrastructure features from the stabl
 - **AND** the stable items feature exposes the same collection as the stable `Items` property
 - **AND** initial custom/application features remain available
 - **AND** replacement physical infrastructure features do not become authoritative
-- **AND** per-transport memory-pool, endpoint, socket, and metrics-tag features are not copied into the stable feature collection
+- **AND** per-transport memory-pool, endpoint, socket, metrics-tag, and connection-complete features are not copied into the stable feature collection
+
+### Requirement: Keepalive follows the current physical capability
+
+The stable Hub heartbeat callback SHALL remain registered for the logical connection lifetime, while Raido application-level keepalive behavior SHALL consult the stable TCP context's current `IConnectionInherentKeepAliveFeature` value. A physical replacement MAY change that value without recreating the Hub context.
+
+#### Scenario: Inherent keepalive suppresses Raido ping
+
+- **WHEN** the current physical transport reports `HasInherentKeepAlive` as true
+- **AND** a stable heartbeat tick occurs after the keepalive interval
+- **THEN** the Hub does not emit a Raido keepalive ping
+
+#### Scenario: Replacement changes keepalive behavior
+
+- **WHEN** physical connection A is replaced by B
+- **AND** their inherent keepalive values differ
+- **THEN** subsequent stable heartbeat ticks follow B's value
 
 ### Requirement: Hub state remains above the TCP transport
 

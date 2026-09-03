@@ -379,6 +379,11 @@ namespace Raido.Server
                 return;
             }
 
+            if (Features.Get<IConnectionInherentKeepAliveFeature>()?.HasInherentKeepAlive == true)
+            {
+                return;
+            }
+
             var currentTime = _timeProvider.GetTimestamp();
             var elapsed = _timeProvider.GetElapsedTime(Volatile.Read(ref _lastSendTick), currentTime);
 

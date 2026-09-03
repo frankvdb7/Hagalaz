@@ -1269,6 +1269,151 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
+    public async Task InherentKeepAliveSuppressesRaidoPing()
+    {
+        var clock = new ManualTimeProvider();
+        var heartbeat = new RecordingHeartbeatFeature();
+        var writer = new RecordingPipeWriter();
+        using var initial = CreatePhysicalConnection("initial", outputWriter: writer);
+        initial.Connection.Features.Set<IConnectionHeartbeatFeature>(heartbeat);
+        initial.Connection.Features.Set<IConnectionInherentKeepAliveFeature>(new InherentKeepAliveFeature(true));
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeProvider: clock);
+
+        context.OnConnectedAsync().GetAwaiter().GetResult();
+        clock.Advance(TimeSpan.FromMinutes(2));
+        heartbeat.Run();
+
+        Assert.IsTrue(context.Features.Get<IConnectionInherentKeepAliveFeature>()!.HasInherentKeepAlive);
+        Assert.IsFalse(writer.FirstFlush.Task.IsCompleted);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task MissingInherentKeepAliveSendsRaidoPing()
+    {
+        var clock = new ManualTimeProvider();
+        var heartbeat = new RecordingHeartbeatFeature();
+        var writer = new RecordingPipeWriter();
+        using var initial = CreatePhysicalConnection("initial", outputWriter: writer);
+        initial.Connection.Features.Set<IConnectionHeartbeatFeature>(heartbeat);
+        initial.Connection.Features.Set<IConnectionInherentKeepAliveFeature>(new InherentKeepAliveFeature(false));
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeProvider: clock);
+
+        context.OnConnectedAsync().GetAwaiter().GetResult();
+        clock.Advance(TimeSpan.FromMinutes(2));
+        heartbeat.Run();
+
+        var ping = await writer.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        CollectionAssert.AreEqual(new byte[] { 42 }, ping);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task ReplacementInherentKeepAliveSuppressesPingAfterInitialPhysicalConnectionDidNotHaveIt()
+    {
+        var clock = new ManualTimeProvider();
+        var initialHeartbeat = new RecordingHeartbeatFeature();
+        var replacementHeartbeat = new RecordingHeartbeatFeature();
+        var replacementWriter = new RecordingPipeWriter();
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement", outputWriter: replacementWriter);
+        initial.Connection.Features.Set<IConnectionHeartbeatFeature>(initialHeartbeat);
+        initial.Connection.Features.Set<IConnectionInherentKeepAliveFeature>(new InherentKeepAliveFeature(false));
+        replacement.Connection.Features.Set<IConnectionHeartbeatFeature>(replacementHeartbeat);
+        replacement.Connection.Features.Set<IConnectionInherentKeepAliveFeature>(new InherentKeepAliveFeature(true));
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromMinutes(5), timeProvider: clock);
+
+        context.OnConnectedAsync().GetAwaiter().GetResult();
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        context.TcpConnection.AcknowledgeInputBoundary();
+        clock.Advance(TimeSpan.FromMinutes(2));
+        replacementHeartbeat.Run();
+
+        Assert.IsTrue(context.Features.Get<IConnectionInherentKeepAliveFeature>()!.HasInherentKeepAlive);
+        Assert.IsFalse(replacementWriter.FirstFlush.Task.IsCompleted);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task ReplacementWithoutInherentKeepAliveResumesPingAfterInitialPhysicalConnectionHadIt()
+    {
+        var clock = new ManualTimeProvider();
+        var initialHeartbeat = new RecordingHeartbeatFeature();
+        var replacementHeartbeat = new RecordingHeartbeatFeature();
+        var replacementWriter = new RecordingPipeWriter();
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement", outputWriter: replacementWriter);
+        initial.Connection.Features.Set<IConnectionHeartbeatFeature>(initialHeartbeat);
+        initial.Connection.Features.Set<IConnectionInherentKeepAliveFeature>(new InherentKeepAliveFeature(true));
+        replacement.Connection.Features.Set<IConnectionHeartbeatFeature>(replacementHeartbeat);
+        replacement.Connection.Features.Set<IConnectionInherentKeepAliveFeature>(new InherentKeepAliveFeature(false));
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromMinutes(5), timeProvider: clock);
+
+        context.OnConnectedAsync().GetAwaiter().GetResult();
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        context.TcpConnection.AcknowledgeInputBoundary();
+        clock.Advance(TimeSpan.FromMinutes(2));
+        replacementHeartbeat.Run();
+
+        Assert.IsFalse(context.Features.Get<IConnectionInherentKeepAliveFeature>()!.HasInherentKeepAlive);
+        var ping = await replacementWriter.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        CollectionAssert.AreEqual(new byte[] { 42 }, ping);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task DetachedKeepAliveHeartbeatDoesNotSendRaidoPing()
+    {
+        var clock = new ManualTimeProvider();
+        var heartbeat = new RecordingHeartbeatFeature();
+        var writer = new RecordingPipeWriter();
+        using var initial = CreatePhysicalConnection("initial", outputWriter: writer);
+        initial.Connection.Features.Set<IConnectionHeartbeatFeature>(heartbeat);
+        initial.Connection.Features.Set<IConnectionInherentKeepAliveFeature>(new InherentKeepAliveFeature(false));
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeProvider: clock);
+
+        context.OnConnectedAsync().GetAwaiter().GetResult();
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        clock.Advance(TimeSpan.FromMinutes(2));
+        heartbeat.Run();
+
+        Assert.IsFalse(writer.FirstFlush.Task.IsCompleted);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task StalePhysicalKeepAliveHeartbeatDoesNotSendPingAfterReplacement()
+    {
+        var clock = new ManualTimeProvider();
+        var initialHeartbeat = new RecordingHeartbeatFeature();
+        var replacementHeartbeat = new RecordingHeartbeatFeature();
+        var replacementWriter = new RecordingPipeWriter();
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement", outputWriter: replacementWriter);
+        initial.Connection.Features.Set<IConnectionHeartbeatFeature>(initialHeartbeat);
+        initial.Connection.Features.Set<IConnectionInherentKeepAliveFeature>(new InherentKeepAliveFeature(false));
+        replacement.Connection.Features.Set<IConnectionHeartbeatFeature>(replacementHeartbeat);
+        replacement.Connection.Features.Set<IConnectionInherentKeepAliveFeature>(new InherentKeepAliveFeature(false));
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromMinutes(5), timeProvider: clock);
+
+        context.OnConnectedAsync().GetAwaiter().GetResult();
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        context.TcpConnection.AcknowledgeInputBoundary();
+        clock.Advance(TimeSpan.FromMinutes(2));
+
+        initialHeartbeat.Run();
+        Assert.IsFalse(replacementWriter.FirstFlush.Task.IsCompleted);
+        replacementHeartbeat.Run();
+
+        var ping = await replacementWriter.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        CollectionAssert.AreEqual(new byte[] { 42 }, ping);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
     [Timeout(5000)]
     public async Task RapidPhysicalReplacementDoesNotOrphanTheInputBoundaryWaiter()
     {
@@ -1399,12 +1544,14 @@ public sealed class RaidoPhysicalConnectionTests
         var physicalEndPoint = Substitute.For<IConnectionEndPointFeature>();
         var physicalSocket = Substitute.For<IConnectionSocketFeature>();
         var physicalMetricsTags = Substitute.For<IConnectionMetricsTagsFeature>();
+        var physicalComplete = Substitute.For<IConnectionCompleteFeature>();
         var physicalUser = Substitute.For<IConnectionUserFeature>();
         var replacementTransport = Substitute.For<IConnectionTransportFeature>();
         var replacementMemoryPool = Substitute.For<IMemoryPoolFeature>();
         var replacementEndPoint = Substitute.For<IConnectionEndPointFeature>();
         var replacementSocket = Substitute.For<IConnectionSocketFeature>();
         var replacementMetricsTags = Substitute.For<IConnectionMetricsTagsFeature>();
+        var replacementComplete = Substitute.For<IConnectionCompleteFeature>();
         var customFeature = new object();
         initial.Connection.Features.Set(physicalItems);
         initial.Connection.Features.Set(physicalId);
@@ -1414,6 +1561,7 @@ public sealed class RaidoPhysicalConnectionTests
         initial.Connection.Features.Set(physicalEndPoint);
         initial.Connection.Features.Set(physicalSocket);
         initial.Connection.Features.Set(physicalMetricsTags);
+        initial.Connection.Features.Set(physicalComplete);
         initial.Connection.Features.Set(physicalUser);
         initial.Connection.Features.Set(customFeature);
         replacement.Connection.Features.Set(replacementTransport);
@@ -1421,6 +1569,7 @@ public sealed class RaidoPhysicalConnectionTests
         replacement.Connection.Features.Set(replacementEndPoint);
         replacement.Connection.Features.Set(replacementSocket);
         replacement.Connection.Features.Set(replacementMetricsTags);
+        replacement.Connection.Features.Set(replacementComplete);
 
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         var stableItems = context.Features.Get<IConnectionItemsFeature>();
@@ -1444,6 +1593,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsNull(context.Features.Get<IConnectionEndPointFeature>());
         Assert.IsNull(context.Features.Get<IConnectionSocketFeature>());
         Assert.IsNull(context.Features.Get<IConnectionMetricsTagsFeature>());
+        Assert.IsNull(context.Features.Get<IConnectionCompleteFeature>());
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
@@ -1457,6 +1607,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsNull(context.Features.Get<IConnectionEndPointFeature>());
         Assert.IsNull(context.Features.Get<IConnectionSocketFeature>());
         Assert.IsNull(context.Features.Get<IConnectionMetricsTagsFeature>());
+        Assert.IsNull(context.Features.Get<IConnectionCompleteFeature>());
         await context.CleanupAsync();
     }
 
@@ -3256,6 +3407,11 @@ public sealed class RaidoPhysicalConnectionTests
                 callback(state);
             }
         }
+    }
+
+    private sealed class InherentKeepAliveFeature(bool hasInherentKeepAlive) : IConnectionInherentKeepAliveFeature
+    {
+        public bool HasInherentKeepAlive { get; } = hasInherentKeepAlive;
     }
 
     private sealed class BlockingHeartbeatFeature : IConnectionHeartbeatFeature
