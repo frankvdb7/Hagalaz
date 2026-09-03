@@ -108,7 +108,7 @@ public sealed class AdminHubAuthorizationTests
         rawConnection.ConnectionClosed.Returns(CancellationToken.None);
         _transports.Add((input, output));
 
-        var connection = new RaidoHubConnectionContext(rawConnection, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance);
+        var connection = new RaidoHubConnectionContext(rawConnection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
         _connections.Add(connection);
         return connection;
     }

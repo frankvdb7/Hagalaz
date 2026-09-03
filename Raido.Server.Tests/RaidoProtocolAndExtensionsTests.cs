@@ -297,24 +297,32 @@ public sealed class RaidoProtocolAndExtensionsTests
     }
 
     [TestMethod]
-    public async Task ProtocolReader_PreservesCompleteMessageBeforeCanceledBoundary()
+    public async Task ProtocolReader_ReturnsCanceledReadBeforeParsingCompleteMessageAndTrailingData()
     {
         var underlying = Substitute.For<PipeReader>();
         underlying.ReadAsync(Arg.Any<CancellationToken>()).Returns(
-            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 }), isCanceled: true, isCompleted: false)));
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 }), isCanceled: true, isCompleted: false)),
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 3, 4 }), isCanceled: false, isCompleted: false)));
         await using var reader = new RaidoProtocolReader(underlying);
         var messageReader = new TwoByteMessageReader();
 
         var message = await reader.ReadAsync(messageReader);
 
-        Assert.IsNotNull(message.Message);
-        Assert.IsFalse(message.IsCanceled);
+        Assert.IsNull(message.Message);
+        Assert.IsTrue(message.IsCanceled);
         reader.Advance();
 
-        var canceled = await reader.ReadAsync(messageReader);
+        var complete = await reader.ReadAsync(messageReader);
 
-        Assert.IsTrue(canceled.IsCanceled);
-        reader.Advance(advanceCursor: true);
+        Assert.IsNotNull(complete.Message);
+        Assert.IsFalse(complete.IsCanceled);
+        reader.Advance();
+
+        var replacement = await reader.ReadAsync(messageReader);
+
+        Assert.IsNotNull(replacement.Message);
+        Assert.IsFalse(replacement.IsCanceled);
+        reader.Advance();
     }
 
     [TestMethod]
@@ -374,12 +382,12 @@ public sealed class RaidoProtocolAndExtensionsTests
         await using var protocolReader = new RaidoProtocolReader(underlying);
         var messageReader = new TwoByteMessageReader();
 
-        var completeMessage = await protocolReader.ReadAsync(messageReader);
-        Assert.IsNotNull(completeMessage.Message);
-        protocolReader.Advance();
-
         var canceled = await protocolReader.ReadAsync(messageReader);
         Assert.IsTrue(canceled.IsCanceled);
+        protocolReader.Advance();
+
+        var completeMessage = await protocolReader.ReadAsync(messageReader);
+        Assert.IsNotNull(completeMessage.Message);
         protocolReader.Advance();
 
         var resumed = protocolReader.ReadAsync(messageReader).AsTask();

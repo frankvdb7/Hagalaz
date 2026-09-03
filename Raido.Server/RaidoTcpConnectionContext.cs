@@ -59,13 +59,13 @@ namespace Raido.Server
         private bool _reconnectEnabled;
         private List<(Action<object> Callback, object State)>? _heartbeatHandlers;
 
-        internal RaidoTcpConnectionContext(RaidoHubConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
+        internal RaidoTcpConnectionContext(RaidoConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
             : this(contextOptions, loggerFactory, TimeProvider.System)
         {
         }
 
         internal RaidoTcpConnectionContext(
-            RaidoHubConnectionContextOptions contextOptions,
+            RaidoConnectionContextOptions contextOptions,
             ILoggerFactory loggerFactory,
             TimeProvider timeProvider)
         {
@@ -420,10 +420,15 @@ namespace Raido.Server
             }
         }
 
-        private static Task ObserveRelayTask(Task task)
+        private Task ObserveRelayTask(Task task)
         {
             task.ContinueWith(
-                static completedTask => _ = completedTask.Exception,
+                static (completedTask, state) =>
+                {
+                    var context = (RaidoTcpConnectionContext)state!;
+                    context.AbortWithException(completedTask.Exception!.GetBaseException());
+                },
+                this,
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
@@ -546,6 +551,8 @@ namespace Raido.Server
 
             inputBoundaryWaiter?.TrySetResult(true);
         }
+
+        internal void CompleteTransportInput() => _transport.Input.Complete();
 
         private void AcknowledgeOutputBoundary(bool result = true)
         {
@@ -932,7 +939,7 @@ namespace Raido.Server
             return terminal;
         }
 
-        internal bool TryAbortForCurrentConnection(Exception exception)
+        internal bool TryAbortIfActive(Exception exception)
         {
             ConnectionContext? currentConnection;
             CancellationTokenRegistration? closedRequestedRegistration;
@@ -1035,6 +1042,25 @@ namespace Raido.Server
         }
 
         internal IDuplexPipe Application => _application;
+
+        internal bool TryWriteStableTransport(
+            Action<PipeWriter> write,
+            out PipeWriter output)
+        {
+            lock (_reconnectLock)
+            {
+                if (_disposed || _currentPhysicalConnection is null)
+                {
+                    output = null!;
+                    return false;
+                }
+
+                output = _transport.Output;
+                write(output);
+                return true;
+            }
+        }
+
         public override CancellationToken ConnectionClosed => _connectionAbortedTokenSource.Token;
         public override IPEndPoint? LocalEndPoint => GetCurrentPhysicalConnection()?.LocalEndPoint as IPEndPoint;
         public override IPEndPoint? RemoteEndPoint => GetCurrentPhysicalConnection()?.RemoteEndPoint as IPEndPoint;

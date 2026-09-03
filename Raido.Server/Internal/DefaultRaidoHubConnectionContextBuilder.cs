@@ -63,7 +63,7 @@ namespace Raido.Server.Internal
         {
             var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
             var options = _serviceProvider.GetRequiredService<IOptions<RaidoOptions>>();
-            var contextOptions = new RaidoHubConnectionContextOptions()
+            var contextOptions = new RaidoConnectionContextOptions()
             {
                 KeepAliveInterval = _keepAliveInterval ?? options.Value.KeepAliveInterval.GetValueOrDefault(),
                 ClientTimeoutInterval = _clientTimeoutInterval ?? options.Value.ClientTimeoutInterval.GetValueOrDefault(),

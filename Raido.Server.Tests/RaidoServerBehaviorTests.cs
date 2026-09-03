@@ -245,7 +245,7 @@ public sealed class RaidoServerBehaviorTests
         raw.Transport.Returns(transport);
         _transports.Add((input, output));
 
-        var connection = new RaidoHubConnectionContext(raw, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
+        var connection = new RaidoHubConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
         {
             Protocol = Substitute.For<IRaidoProtocol>()
         };
@@ -333,7 +333,7 @@ public sealed class RaidoServerBehaviorTests
         raw.Transport.Returns(transport);
         raw.Features.Returns(new FeatureCollection());
         raw.ConnectionClosed.Returns(CancellationToken.None);
-        var connection = new RaidoHubConnectionContext(raw, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
+        var connection = new RaidoHubConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
         {
             Protocol = new PingProtocol()
         };
@@ -365,7 +365,7 @@ public sealed class RaidoServerBehaviorTests
         raw.Transport.Returns(transport);
         raw.Features.Returns(new FeatureCollection());
         raw.ConnectionClosed.Returns(CancellationToken.None);
-        var connection = new RaidoHubConnectionContext(raw, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
+        var connection = new RaidoHubConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
         {
             Protocol = new PingProtocol()
         };
@@ -407,7 +407,7 @@ public sealed class RaidoServerBehaviorTests
         transport.Input.Returns(Substitute.For<PipeReader>());
         transport.Output.Returns(Substitute.For<PipeWriter>());
         raw.Transport.Returns(transport);
-        var connection = new RaidoHubConnectionContext(raw, new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance);
+        var connection = new RaidoHubConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
         _connections.Add(connection);
         return connection;
     }

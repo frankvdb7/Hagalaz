@@ -106,7 +106,7 @@ public sealed class RaidoBuilderAndContextExtensionTests
         var lifetime = Substitute.For<IRaidoLifetimeManager>();
         var context = new DefaultRaidoContext(lifetime);
         Assert.IsNotNull(context.Clients);
-        var connection = new RaidoHubConnectionContext(RawConnection(), new RaidoHubConnectionContextOptions(), NullLoggerFactory.Instance)
+        var connection = new RaidoHubConnectionContext(RawConnection(), new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
         {
             Protocol = new SimpleProtocol()
         };

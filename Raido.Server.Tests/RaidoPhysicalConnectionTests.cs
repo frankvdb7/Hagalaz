@@ -318,8 +318,8 @@ public sealed class RaidoPhysicalConnectionTests
     [TestMethod]
     public async Task DetachedPartialMessageIsNotCombinedWithReplacementInput()
     {
-        var initial = CreatePhysicalConnection("initial");
-        var replacement = CreatePhysicalConnection("replacement");
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
         var initialMessage = new TestMessage();
         var replacementMessage = new TestMessage();
         var protocol = new StreamBoundaryProtocol(initialMessage, replacementMessage);
@@ -367,6 +367,73 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.AreEqual(1, dispatched.Count);
         Assert.AreSame(replacementMessage, dispatched[0]);
         Assert.IsFalse(dispatched.Contains(initialMessage));
+
+        context.Abort();
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task CompleteMessageAndIncompleteTailAreSeparatedAtPhysicalReplacement()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        var initialMessage = new TestMessage();
+        var replacementMessage = new TestMessage();
+        var combinedMessage = new TestMessage();
+        var protocol = new CompleteAndPartialStreamBoundaryProtocol(initialMessage, replacementMessage, combinedMessage);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
+        context.Protocol = protocol;
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var dispatched = new List<RaidoMessage>();
+        var initialDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var replacementDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dispatcher.DispatchMessageAsync(context, Arg.Any<RaidoMessage>()).Returns(callInfo =>
+        {
+            var message = callInfo.Arg<RaidoMessage>()!;
+            dispatched.Add(message);
+            if (ReferenceEquals(message, initialMessage))
+            {
+                initialDispatched.TrySetResult();
+            }
+
+            if (ReferenceEquals(message, replacementMessage))
+            {
+                replacementDispatched.TrySetResult();
+            }
+
+            return Task.CompletedTask;
+        });
+        using var meter = new Meter("Raido.Server.Tests.CompleteAndPartialBoundary");
+        var meterFactory = Substitute.For<IMeterFactory>();
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        var run = handler.DispatchMessagesAsync(context);
+        await initial.Input.Writer.WriteAsync(new byte[] { 1, 2 });
+        await initialDispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        await initial.Input.Writer.WriteAsync(new byte[] { 9 });
+        await protocol.PartialMessageObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.AreEqual(1, dispatched.Count);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+
+        await replacement.Input.Writer.WriteAsync(new byte[] { 10 });
+        await protocol.ReplacementInputObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await replacement.Input.Writer.WriteAsync(new byte[] { 3, 4 });
+        await replacementDispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.AreEqual(2, dispatched.Count);
+        Assert.IsFalse(dispatched.Contains(combinedMessage));
+        Assert.AreSame(replacementMessage, dispatched[1]);
 
         context.Abort();
         await run.WaitAsync(TimeSpan.FromSeconds(1));
@@ -789,6 +856,58 @@ public sealed class RaidoPhysicalConnectionTests
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task UnexpectedPhysicalInputRelayFaultTerminatesLogicalConnection()
+    {
+        var relayFailure = new InvalidOperationException("physical input relay failed");
+        var transportAccessed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var physicalTransport = Substitute.For<IDuplexPipe>();
+        physicalTransport.Input.Returns(Substitute.For<PipeReader>());
+        physicalTransport.Output.Returns(Substitute.For<PipeWriter>());
+        var transportAccessCount = 0;
+        var physicalConnection = Substitute.For<ConnectionContext>();
+        physicalConnection.ConnectionId.Returns("faulting");
+        physicalConnection.Features.Returns(new FeatureCollection());
+        physicalConnection.Items.Returns(new Dictionary<object, object?>());
+        physicalConnection.LocalEndPoint.Returns(new IPEndPoint(IPAddress.Loopback, 1000));
+        physicalConnection.RemoteEndPoint.Returns(new IPEndPoint(IPAddress.Loopback, 2000));
+        physicalConnection.ConnectionClosed.Returns(CancellationToken.None);
+        physicalConnection.Transport.Returns(_ =>
+        {
+            if (Interlocked.Increment(ref transportAccessCount) == 1)
+            {
+                transportAccessed.TrySetResult();
+                throw relayFailure;
+            }
+
+            return physicalTransport;
+        });
+        var context = CreateContext(physicalConnection, reconnectEnabled: true);
+        var terminal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var terminalRegistration = context.ConnectionAbortedToken.Register(() => terminal.TrySetResult());
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.UnexpectedRelayFault");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoDispatcher>(),
+            metrics);
+
+        var run = handler.DispatchMessagesAsync(context);
+
+        await transportAccessed.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await terminal.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
+        Assert.AreSame(relayFailure, context.TcpConnection.TerminalException);
         context.Cleanup();
     }
 
@@ -1234,9 +1353,9 @@ public sealed class RaidoPhysicalConnectionTests
         public bool IsVersionSupported(int version) => version == Version;
     }
 
-    private sealed class PhysicalConnectionWritingProtocol(int payloadLength = 1) : IRaidoProtocol
+    private sealed class PhysicalConnectionWritingProtocol : IRaidoProtocol
     {
-        private readonly byte[] _payload = CreatePayload(payloadLength);
+        private static readonly byte[] Payload = [42];
 
         public string Name => "reconnect";
         public int Version => 1;
@@ -1255,21 +1374,48 @@ public sealed class RaidoPhysicalConnectionTests
 
         public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output)
         {
-            _payload.CopyTo(output.GetSpan(_payload.Length));
-            output.Advance(_payload.Length);
+            Payload.CopyTo(output.GetSpan(Payload.Length));
+            output.Advance(Payload.Length);
         }
 
-        public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => _payload;
+        public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => Payload;
 
         public bool IsVersionSupported(int version) => version == 1;
+    }
 
-        private static byte[] CreatePayload(int length)
+    private sealed class BlockingWriteProtocol : IRaidoProtocol
+    {
+        public TaskCompletionSource WriteStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public string Name => "blocking-write";
+
+        public int Version => 1;
+
+        public bool TryParseMessage(
+            in ReadOnlySequence<byte> input,
+            ref SequencePosition consumed,
+            ref SequencePosition examined,
+            out RaidoMessage message)
         {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(length);
-            var payload = new byte[length];
-            payload[0] = 42;
-            return payload;
+            consumed = input.End;
+            examined = input.End;
+            message = new TestMessage();
+            return true;
         }
+
+        public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output)
+        {
+            WriteStarted.TrySetResult();
+            Release.Task.GetAwaiter().GetResult();
+            output.GetSpan(1)[0] = 42;
+            output.Advance(1);
+        }
+
+        public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => new byte[] { 42 };
+
+        public bool IsVersionSupported(int version) => version == 1;
     }
 
     private sealed class StreamBoundaryProtocol(TestMessage initialMessage, TestMessage replacementMessage) : IRaidoProtocol
@@ -1318,6 +1464,81 @@ public sealed class RaidoPhysicalConnectionTests
             if (bytes.Length == 1 && bytes[0] == 1)
             {
                 PartialMessageObserved.TrySetResult();
+            }
+
+            consumed = input.Start;
+            examined = input.End;
+            message = null!;
+            return false;
+        }
+
+        public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output) { }
+
+        public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => ReadOnlyMemory<byte>.Empty;
+
+        public bool IsVersionSupported(int version) => version == Version;
+    }
+
+    private sealed class CompleteAndPartialStreamBoundaryProtocol(
+        TestMessage initialMessage,
+        TestMessage replacementMessage,
+        TestMessage combinedMessage) : IRaidoProtocol
+    {
+        public string Name => "complete-and-partial-stream-boundary";
+
+        public int Version => 1;
+
+        public TaskCompletionSource PartialMessageObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource ReplacementInputObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool TryParseMessage(
+            in ReadOnlySequence<byte> input,
+            ref SequencePosition consumed,
+            ref SequencePosition examined,
+            out RaidoMessage message)
+        {
+            var bytes = input.ToArray();
+            if (bytes.Length >= 2 && bytes[0] == 1 && bytes[1] == 2)
+            {
+                consumed = input.GetPosition(2);
+                examined = consumed;
+                message = initialMessage;
+                return true;
+            }
+
+            if (bytes.Length >= 2 && bytes[0] == 9 && bytes[1] == 10)
+            {
+                consumed = input.GetPosition(2);
+                examined = consumed;
+                message = combinedMessage;
+                return true;
+            }
+
+            if (bytes.Length >= 2 && bytes[0] == 3 && bytes[1] == 4)
+            {
+                consumed = input.GetPosition(2);
+                examined = consumed;
+                message = replacementMessage;
+                return true;
+            }
+
+            if (bytes.Length == 1 && bytes[0] == 9)
+            {
+                PartialMessageObserved.TrySetResult();
+                consumed = input.Start;
+                examined = input.End;
+                message = null!;
+                return false;
+            }
+
+            if (bytes.Length > 0 && bytes[0] == 10)
+            {
+                ReplacementInputObserved.TrySetResult();
+                consumed = input.GetPosition(1);
+                examined = input.End;
+                message = null!;
+                return false;
             }
 
             consumed = input.Start;
@@ -1393,30 +1614,46 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task DetachedWriteAfterOutputBoundaryAcknowledgementIsDroppedBeforeReplacement()
+    public async Task DetachedWriteIsDroppedBeforeReplacementPublication()
     {
         using var initial = CreatePhysicalConnection("initial");
         var replacementWriter = new RecordingPipeWriter();
         using var replacement = CreatePhysicalConnection("replacement", outputWriter: replacementWriter);
-        var replacementHeartbeat = TrackBlockingHeartbeatFeature();
-        replacement.Connection.Features.Set<IConnectionHeartbeatFeature>(replacementHeartbeat);
+        var protocol = new BlockingWriteProtocol();
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
-        context.Protocol = new PhysicalConnectionWritingProtocol(payloadLength: 65_537);
+        context.Protocol = protocol;
+        Task? writeTask = null;
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        var outputBoundary = GetOutputBoundaryTask(context.TcpConnection);
-        var activation = Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
-        await replacementHeartbeat.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        await outputBoundary.WaitAsync(TimeSpan.FromSeconds(1));
 
-        await context.WriteAsync(new TestMessage());
-        Assert.IsFalse(activation.IsCompleted);
+        try
+        {
+            writeTask = Task.Run(() => context.WriteAsync(new TestMessage()).AsTask());
+            await Task.WhenAny(writeTask, protocol.WriteStarted.Task).WaitAsync(TimeSpan.FromSeconds(1));
+            var writeStarted = protocol.WriteStarted.Task.IsCompleted;
 
-        replacementHeartbeat.Release.TrySetResult();
-        Assert.IsTrue(await activation.WaitAsync(TimeSpan.FromSeconds(1)));
-        Assert.IsFalse(replacementWriter.FirstFlush.Task.IsCompleted);
+            Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+            protocol.Release.TrySetResult();
+            await writeTask.WaitAsync(TimeSpan.FromSeconds(1));
 
-        context.Cleanup();
+            if (writeStarted)
+            {
+                await replacementWriter.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+
+            Assert.IsFalse(writeStarted);
+            Assert.IsFalse(replacementWriter.FirstFlush.Task.IsCompleted);
+        }
+        finally
+        {
+            protocol.Release.TrySetResult();
+            if (writeTask is not null)
+            {
+                await writeTask.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+
+            context.Cleanup();
+        }
     }
 
     [TestMethod]
@@ -1498,6 +1735,34 @@ public sealed class RaidoPhysicalConnectionTests
         context.TcpConnection.Transport.Input.AdvanceTo(read.Buffer.End);
 
         context.Cleanup();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task LogicalCleanupCompletesAllStablePipeEnds()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var meterFactory = Substitute.For<IMeterFactory>();
+        using var meter = new Meter("Raido.Server.Tests.StablePipeCleanup");
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoDispatcher>(),
+            metrics);
+
+        var run = handler.DispatchMessagesAsync(context);
+        context.Abort();
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+        context.Cleanup();
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => context.TcpConnection.Transport.Input.ReadAsync().AsTask());
+        Assert.ThrowsExactly<InvalidOperationException>(() => context.TcpConnection.Application.Input.ReadAsync().AsTask());
+        Assert.ThrowsExactly<InvalidOperationException>(() => context.TcpConnection.Transport.Output.GetMemory(1));
+        Assert.ThrowsExactly<InvalidOperationException>(() => context.TcpConnection.Application.Output.GetMemory(1));
     }
 
     [TestMethod]
@@ -1973,7 +2238,7 @@ public sealed class RaidoPhysicalConnectionTests
         TimeSpan? clientTimeout = null,
         TimeProvider? timeProvider = null)
     {
-        var options = new RaidoHubConnectionContextOptions
+        var options = new RaidoConnectionContextOptions
         {
             KeepAliveInterval = TimeSpan.FromMinutes(1),
             ClientTimeoutInterval = clientTimeout ?? TimeSpan.FromMinutes(1),
@@ -2001,7 +2266,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new RaidoHubConnectionContext(
             physical.Connection,
-            new RaidoHubConnectionContextOptions
+            new RaidoConnectionContextOptions
             {
                 KeepAliveInterval = TimeSpan.FromMinutes(1),
                 ClientTimeoutInterval = TimeSpan.FromMinutes(1),
@@ -2020,11 +2285,6 @@ public sealed class RaidoPhysicalConnectionTests
         typeof(RaidoTcpConnectionContext)
             .GetMethod("OnConnectionClosedRequested", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(context.TcpConnection, new object[] { physicalConnection });
-
-    private static Task GetOutputBoundaryTask(RaidoTcpConnectionContext connection) =>
-        ((TaskCompletionSource<bool>?)typeof(RaidoTcpConnectionContext)
-            .GetField("_outputBoundaryWaiter", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-            .GetValue(connection))?.Task ?? Task.CompletedTask;
 
     private static async Task WaitForConditionAsync(Func<bool> condition)
     {

@@ -67,14 +67,14 @@ namespace Raido.Server
         public virtual IPEndPoint? RemoteEndPoint => _connectionContext.RemoteEndPoint as IPEndPoint;
         public virtual IRaidoProtocol Protocol { get; internal set; } = default!;
 
-        public RaidoHubConnectionContext(ConnectionContext connection, RaidoHubConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
+        public RaidoHubConnectionContext(ConnectionContext connection, RaidoConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
             : this(CreateTcpConnection(connection, contextOptions, loggerFactory), contextOptions, loggerFactory, TimeProvider.System)
         {
         }
 
         private static RaidoTcpConnectionContext CreateTcpConnection(
             ConnectionContext connection,
-            RaidoHubConnectionContextOptions contextOptions,
+            RaidoConnectionContextOptions contextOptions,
             ILoggerFactory loggerFactory)
         {
             var tcpConnection = new RaidoTcpConnectionContext(contextOptions, loggerFactory);
@@ -88,7 +88,7 @@ namespace Raido.Server
 
         internal RaidoHubConnectionContext(
             RaidoTcpConnectionContext connection,
-            RaidoHubConnectionContextOptions contextOptions,
+            RaidoConnectionContextOptions contextOptions,
             ILoggerFactory loggerFactory,
             TimeProvider timeProvider)
         {
@@ -159,8 +159,12 @@ namespace Raido.Server
             {
                 // We know that we are only writing this message to one receiver, so we can
                 // write it without caching.
-                output = connection.Transport.Output;
-                Protocol.WriteMessage(message, output);
+                if (!TcpConnection.TryWriteStableTransport(
+                        target => Protocol.WriteMessage(message, target),
+                        out output))
+                {
+                    return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: false));
+                }
             }
             catch (Exception ex)
             {
@@ -354,12 +358,12 @@ namespace Raido.Server
                     if (_receivedMessageElapsed >= _clientTimeoutInterval)
                     {
                         timeoutException = new OperationCanceledException(
-                            $"Client hasn't sent a message/ping within the configured {nameof(RaidoHubConnectionContextOptions.ClientTimeoutInterval)}.");
+                            $"Client hasn't sent a message/ping within the configured {nameof(RaidoConnectionContextOptions.ClientTimeoutInterval)}.");
                     }
                 }
             }
 
-            if (timeoutException is not null && TcpConnection.TryAbortForCurrentConnection(timeoutException))
+            if (timeoutException is not null && TcpConnection.TryAbortIfActive(timeoutException))
             {
                 Log.ClientTimeout(_logger, _clientTimeoutInterval);
                 RaidoEventSource.Log.ConnectionTimedOut(ConnectionId);
@@ -420,7 +424,19 @@ namespace Raido.Server
 
                 try
                 {
-                    await _connectionContext.Transport.Output.WriteAsync(pingMessage);
+                    if (!TcpConnection.TryWriteStableTransport(
+                            output =>
+                            {
+                                var destination = output.GetSpan(pingMessage.Length);
+                                pingMessage.Span.CopyTo(destination);
+                                output.Advance(pingMessage.Length);
+                            },
+                            out var output))
+                    {
+                        return;
+                    }
+
+                    await output.FlushAsync();
                     if (TcpConnection.IsActive)
                     {
                         Log.SentPing(_logger);

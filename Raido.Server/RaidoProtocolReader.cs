@@ -20,7 +20,6 @@ namespace Raido.Server
         private bool _isCanceled;
         private bool _isCompleted;
         private bool _hasMessage;
-        private bool _canceledReadPending;
         private bool _disposed;
 
         /// <summary>
@@ -83,13 +82,6 @@ namespace Raido.Server
             {
                 throw new InvalidOperationException($"{nameof(Advance)} must be called before calling {nameof(ReadAsync)}");
             }
-
-            if (_canceledReadPending)
-            {
-                return new ValueTask<RaidoProtocolReadResult<TReadMessage>>(
-                    new RaidoProtocolReadResult<TReadMessage>(default, isCanceled: true, _isCompleted));
-            }
-
 
             // If this is the very first read, then make it go async since we have no data
             if (_consumed.GetObject() == null)
@@ -205,14 +197,6 @@ namespace Raido.Server
 
             if (_isCanceled)
             {
-                if (TryParseMessage(maximumMessageSize, reader, _buffer, out var boundaryMessage))
-                {
-                    _hasMessage = true;
-                    _canceledReadPending = true;
-                    readResult = new RaidoProtocolReadResult<TReadMessage>(boundaryMessage, isCanceled: false, isCompleted: false);
-                    return (false, true);
-                }
-
                 readResult = default;
                 return (false, false);
             }
@@ -316,15 +300,7 @@ namespace Raido.Server
                 return;
             }
 
-            if (_canceledReadPending)
-            {
-                _reader.AdvanceTo(_buffer.Start, _buffer.End);
-                _buffer = default;
-                _consumed = default;
-                _examined = default;
-                _canceledReadPending = false;
-            }
-            else if (advanceCursor)
+            if (advanceCursor)
             {
                 _reader.AdvanceTo(_consumed);
             }
@@ -346,7 +322,32 @@ namespace Raido.Server
             _isCanceled = false;
             _isCompleted = false;
             _hasMessage = false;
-            _canceledReadPending = false;
+        }
+
+        internal bool TryReadBufferedMessage<TReadMessage>(
+            IRaidoMessageReader<TReadMessage> reader,
+            long? maximumMessageSize,
+            out RaidoProtocolReadResult<TReadMessage> readResult)
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(RaidoProtocolReader));
+            }
+
+            if (_hasMessage)
+            {
+                throw new InvalidOperationException($"{nameof(Advance)} must be called before reading another message");
+            }
+
+            if (TryParseMessage(maximumMessageSize, reader, _buffer, out var protocolMessage))
+            {
+                _hasMessage = true;
+                readResult = new RaidoProtocolReadResult<TReadMessage>(protocolMessage, isCanceled: false, isCompleted: false);
+                return true;
+            }
+
+            readResult = default;
+            return false;
         }
 
         /// <summary>

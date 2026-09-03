@@ -85,7 +85,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         connection.Transport.Returns(transport);
         connection.Features.Returns(features);
         connection.ConnectionClosed.Returns(connectionClosed.Token);
-        var context = new RaidoHubConnectionContext(connection, new RaidoHubConnectionContextOptions
+        var context = new RaidoHubConnectionContext(connection, new RaidoConnectionContextOptions
         {
             KeepAliveInterval = keepAlive ?? TimeSpan.FromMinutes(1),
             ClientTimeoutInterval = timeout ?? TimeSpan.FromMinutes(1)
