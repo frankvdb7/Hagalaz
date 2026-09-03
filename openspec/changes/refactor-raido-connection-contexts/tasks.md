@@ -18,5 +18,6 @@
 - [x] 3.2 Add stable-pipe continuity, detached-output, terminal-pipe-completion, and no-stale-physical-leakage coverage without duplicating the existing #477 lifecycle suite
 - [x] 3.3 Run strict OpenSpec validation, focused Raido tests, the solution build, full solution tests, and cumulative diff review against the #486 baseline
 - [x] 3.4 Add deterministic coverage for discarding incomplete stable input at a physical replacement boundary while preserving a complete replacement message, keep boundary acknowledgement separate from the public protocol-reader cursor API, cover a read returned before detach and rapid waiter-preserving replacement, and cover startup completion of handler-owned stable input
+- [x] 3.5 Add a separate real TCP/Kestrel integration suite covering physical replacement continuity, raw stream boundaries, timeout and replacement behavior, rapid replacement, detached output disposal, and deterministic resource cleanup
 
 Validation note: strict OpenSpec validation, focused Raido tests, the Raido and GameWorld test projects, and the solution build passed. The full solution test command ran; non-Docker projects passed, while Docker-dependent integration fixtures could not start because Docker was unavailable on the host.
