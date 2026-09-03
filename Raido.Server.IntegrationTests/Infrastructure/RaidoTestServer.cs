@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
@@ -20,14 +19,10 @@ namespace Raido.Server.IntegrationTests.Infrastructure;
 
 internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyncDisposable
 {
-    private static readonly PropertyInfo TcpConnectionProperty = typeof(RaidoHubConnectionContext).GetProperty(
-        "TcpConnection",
-        BindingFlags.Instance | BindingFlags.NonPublic)!;
-
     private readonly object _gate = new();
     private readonly RaidoTestApplication _application = new();
     private readonly RaidoTestProtocol _protocol = new();
-    private readonly TimeSpan _reconnectTimeout = reconnectTimeout ?? TimeSpan.FromSeconds(2);
+    private readonly TimeSpan _reconnectTimeout = reconnectTimeout ?? TimeSpan.FromSeconds(15);
     private readonly TaskCompletionSource<RaidoHubConnectionContext> _logicalConnection =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource<AcceptedPhysicalConnection> _initialConnection =
@@ -41,8 +36,7 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
 
     public RaidoTestApplication Application => _application;
 
-    public RaidoHubConnectionContext LogicalConnection =>
-        _logicalConnection.Task.GetAwaiter().GetResult();
+    public RaidoHubConnectionContext LogicalConnection => _logical!;
 
     public int Port { get; private set; }
 
@@ -100,14 +94,7 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
     public Task WaitForPartialFrameAsync() => _protocol.PartialFrameObserved.Task;
 
     public bool ActivateReplacement(AcceptedPhysicalConnection replacement)
-    {
-        var logical = LogicalConnection;
-        var tcpConnection = TcpConnectionProperty.GetValue(logical)!;
-        var activate = tcpConnection.GetType().GetMethod(
-            "TryActivatePersistentConnection",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-        return (bool)activate.Invoke(tcpConnection, [replacement.Context])!;
-    }
+        => LogicalConnection.TcpConnection.TryActivatePersistentConnection(replacement.Context);
 
     public Task WaitForLogicalConnectionAsync() => _logicalConnection.Task;
 
@@ -115,6 +102,7 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
     {
         try
         {
+            _application.ReleaseDispatch.TrySetResult();
             _logical?.Abort();
             if (_logicalTask is not null)
             {
