@@ -41,7 +41,7 @@ namespace Raido.Server
         private readonly CancellationTokenSource _connectionClosedRequestedTokenSource = new();
         private readonly ILogger _logger;
         private readonly Lock _heartbeatLock = new();
-        private readonly Lock _reconnectLock = new();
+        private readonly Lock _stateLock = new();
         private readonly TimeProvider _timeProvider;
         private readonly TimeSpan _statefulReconnectTimeout;
 
@@ -117,7 +117,7 @@ namespace Raido.Server
 
         private void RunHeartbeat(ConnectionContext physicalConnection)
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (!ReferenceEquals(physicalConnection, _currentPhysicalConnection) ||
                     _inputBoundaryWaiter is not null)
@@ -142,7 +142,7 @@ namespace Raido.Server
 
         private bool IsCurrentPhysicalConnection(ConnectionContext connection)
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 return ReferenceEquals(connection, _currentPhysicalConnection);
             }
@@ -157,7 +157,7 @@ namespace Raido.Server
             ConnectionContext? detachedConnection = null;
             CancellationToken? detachedCloseRequestedToken = null;
             bool initialActivation;
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 initialActivation = !_hasActivated && !_disposed;
                 if (!initialActivation)
@@ -206,7 +206,7 @@ namespace Raido.Server
                 if (initialActivation)
                 {
                     var initialPublished = false;
-                    lock (_reconnectLock)
+                    lock (_stateLock)
                     {
                         if (!_disposed && !_hasActivated)
                         {
@@ -259,7 +259,7 @@ namespace Raido.Server
                 CancellationTokenRegistration? obsoleteConnectionClosedRegistration = null;
                 var queueAbortCallback = false;
 
-                lock (_reconnectLock)
+                lock (_stateLock)
                 {
                     var reconnectWindowIsCurrent = !_disposed && _reconnectEnabled && _currentPhysicalConnection is null &&
                         ReferenceEquals(detachedPhysicalConnection, _detachedPhysicalConnection) &&
@@ -335,7 +335,7 @@ namespace Raido.Server
 
         private void StartApplicationOutputPump()
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_applicationOutputTask is null)
                 {
@@ -348,7 +348,7 @@ namespace Raido.Server
 
         private void StartPhysicalInputPump()
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_physicalInputTask is null)
                 {
@@ -462,7 +462,7 @@ namespace Raido.Server
             in ReadOnlySequence<byte> buffer,
             out ValueTask<FlushResult> flushTask)
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_disposed || !ReferenceEquals(physicalConnection, _currentPhysicalConnection))
                 {
@@ -584,7 +584,7 @@ namespace Raido.Server
         {
             get
             {
-                lock (_reconnectLock)
+                lock (_stateLock)
                 {
                     return !_disposed && _currentPhysicalConnection is not null;
                 }
@@ -595,7 +595,7 @@ namespace Raido.Server
         {
             get
             {
-                lock (_reconnectLock)
+                lock (_stateLock)
                 {
                     return _disposed;
                 }
@@ -605,7 +605,7 @@ namespace Raido.Server
         internal void AcknowledgeInputBoundary()
         {
             TaskCompletionSource<bool>? inputBoundaryWaiter;
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 inputBoundaryWaiter = _inputBoundaryWaiter;
                 _inputBoundaryWaiter = null;
@@ -616,7 +616,7 @@ namespace Raido.Server
 
         internal void CompleteTransportInput()
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_transportInputCompleted)
                 {
@@ -631,7 +631,7 @@ namespace Raido.Server
 
         internal void CompleteTransportOutput()
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_transportOutputCompleted)
                 {
@@ -647,7 +647,7 @@ namespace Raido.Server
         private void AcknowledgeOutputBoundary(bool result = true)
         {
             TaskCompletionSource<bool>? outputBoundaryWaiter;
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 outputBoundaryWaiter = _outputBoundaryWaiter;
                 _outputBoundaryWaiter = null;
@@ -660,7 +660,7 @@ namespace Raido.Server
         {
             get
             {
-                lock (_reconnectLock)
+                lock (_stateLock)
                 {
                     return _terminalException;
                 }
@@ -671,7 +671,7 @@ namespace Raido.Server
         {
             get
             {
-                lock (_reconnectLock)
+                lock (_stateLock)
                 {
                     return _reconnectEnabled && !_disposed;
                 }
@@ -680,7 +680,7 @@ namespace Raido.Server
 
         internal bool TryGetCurrentConnection(out ConnectionContext connection)
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_currentPhysicalConnection is null)
                 {
@@ -698,7 +698,7 @@ namespace Raido.Server
         internal async Task<bool> WaitForInputBoundaryAsync()
         {
             Task<bool>? inputBoundaryWaiter;
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_disposed)
                 {
@@ -715,7 +715,7 @@ namespace Raido.Server
         {
             TaskCompletionSource<bool>? reconnectWaiter;
             TimeSpan remainingTimeout;
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_disposed || !_reconnectEnabled)
                 {
@@ -761,7 +761,7 @@ namespace Raido.Server
             var queueAbortCallback = false;
             var timedOut = false;
 
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 timedOut = TryTransitionToTerminalLocked(
                     expectedConnection: null,
@@ -803,7 +803,7 @@ namespace Raido.Server
             var terminal = false;
             var queueAbortCallback = false;
 
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (!ReferenceEquals(connection, _currentPhysicalConnection))
                 {
@@ -932,7 +932,7 @@ namespace Raido.Server
 
         private void SignalStablePipes()
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_stablePipesSignaled)
                 {
@@ -954,7 +954,7 @@ namespace Raido.Server
 
         private void CompleteApplicationOutput()
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_applicationOutputCompleted)
                 {
@@ -969,7 +969,7 @@ namespace Raido.Server
 
         private ConnectionContext? GetCurrentPhysicalConnection()
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 return _currentPhysicalConnection;
             }
@@ -1041,7 +1041,7 @@ namespace Raido.Server
             bool queueAbortCallback;
             bool terminal;
 
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 var isCurrentConnection = ReferenceEquals(connection, _currentPhysicalConnection);
                 var isDetachedConnection = ReferenceEquals(connection, _detachedPhysicalConnection) &&
@@ -1080,7 +1080,7 @@ namespace Raido.Server
             bool queueAbortCallback;
             bool terminal;
 
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 terminal = TryTransitionToTerminalLocked(
                     expectedConnection: connection,
@@ -1110,7 +1110,7 @@ namespace Raido.Server
             bool queueAbortCallback;
             bool terminal;
 
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_currentPhysicalConnection is null)
                 {
@@ -1152,7 +1152,7 @@ namespace Raido.Server
             CancellationTokenRegistration? connectionClosedRegistration;
             var queueAbortCallback = false;
 
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 TryTransitionToTerminalLocked(
                     expectedConnection: null,
@@ -1173,7 +1173,7 @@ namespace Raido.Server
 
         internal async Task CleanupAsync()
         {
-            // Let callers release any producer-owned operation that currently holds the reconnect lock before
+            // Let callers release any producer-owned operation that currently holds the state lock before
             // the terminal transition acquires it.
             await Task.Yield();
             Abort();
@@ -1186,7 +1186,7 @@ namespace Raido.Server
             ConnectionContext? detachedConnection;
             Task? physicalInputTask;
             Task? applicationOutputTask;
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 closedRequestedRegistration = _closedRequestedRegistration;
                 _closedRequestedRegistration = null;
@@ -1280,7 +1280,7 @@ namespace Raido.Server
             out bool hasWrittenBytes,
             out ValueTask<FlushResult> flushTask)
         {
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 if (_disposed || _currentPhysicalConnection is null)
                 {
@@ -1353,7 +1353,7 @@ namespace Raido.Server
             CancellationTokenRegistration? connectionClosedRegistration = null;
             var queueAbortCallback = false;
 
-            lock (_reconnectLock)
+            lock (_stateLock)
             {
                 TryTransitionToTerminalLocked(
                     expectedConnection: null,
