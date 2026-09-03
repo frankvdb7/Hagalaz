@@ -1324,6 +1324,9 @@ namespace Raido.Server
                 physicalConnection = _currentPhysicalConnection ?? _detachedPhysicalConnection;
             }
 
+            SignalConnectionClosedRequested();
+            Abort();
+
             try
             {
                 physicalConnection?.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
@@ -1332,16 +1335,25 @@ namespace Raido.Server
             {
                 Log.CloseRequestedFailed(_logger, ex);
             }
-
-            SignalConnectionClosedRequested();
-            Abort();
         }
 
         private void SignalConnectionClosedRequested()
         {
             try
             {
-                _connectionClosedRequestedTokenSource.Cancel();
+                _ = ObserveCloseRequestedCallbacksAsync(_connectionClosedRequestedTokenSource.CancelAsync());
+            }
+            catch (Exception ex)
+            {
+                Log.CloseRequestedFailed(_logger, ex);
+            }
+        }
+
+        private async Task ObserveCloseRequestedCallbacksAsync(Task cancellationTask)
+        {
+            try
+            {
+                await cancellationTask.ConfigureAwait(false);
             }
             catch (Exception ex)
             {

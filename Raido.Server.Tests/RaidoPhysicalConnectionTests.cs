@@ -1734,6 +1734,55 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
+    public async Task BlockingStableLifetimeNotificationObserverCannotDelayTerminalCompletion()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        using var closeRequested = new CloseRequestedFeature();
+        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var stableFeature = context.Features.Get<IConnectionLifetimeNotificationFeature>();
+        var observerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var observerRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var observerExited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var observerRegistration = stableFeature!.ConnectionClosedRequested.Register(() =>
+        {
+            observerEntered.TrySetResult();
+            try
+            {
+                observerRelease.Task.GetAwaiter().GetResult();
+            }
+            finally
+            {
+                observerExited.TrySetResult();
+            }
+        });
+        var connectionClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var connectionClosedRegistration = context.ConnectionAbortedToken.Register(connectionClosed.SetResult);
+        var physicalCloseTask = Task.Run(closeRequested.RequestClose);
+
+        try
+        {
+            await observerEntered.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.IsTrue(stableFeature.ConnectionClosedRequested.IsCancellationRequested);
+            Assert.IsTrue(context.TcpConnection.IsTerminal);
+            await connectionClosed.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            initial.Connection.Received().Abort();
+            Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+            await context.AbortAsync().WaitAsync(TimeSpan.FromSeconds(1));
+        }
+        finally
+        {
+            observerRelease.TrySetResult();
+            await observerExited.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await physicalCloseTask.WaitAsync(TimeSpan.FromSeconds(1));
+        }
+
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
     public async Task StableRequestCloseTerminalizesWithoutPhysicalLifetimeFeature()
     {
         using var initial = CreatePhysicalConnection("initial");
@@ -1755,7 +1804,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task StableRequestCloseCannotBeLostWhileDetachedPhysicalRequestIsInFlight()
+    public async Task StableRequestCloseIsNotDelayedByInFlightPhysicalRequest()
     {
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
@@ -1767,22 +1816,21 @@ public sealed class RaidoPhysicalConnectionTests
         using var stableRegistration = stableFeature!.ConnectionClosedRequested.Register(stableRequested.SetResult);
 
         var requestCloseTask = Task.Run(stableFeature.RequestClose);
-        await blockingCloseRequested.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
-
-        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
-
-        blockingCloseRequested.Release.TrySetResult();
-        await requestCloseTask.WaitAsync(TimeSpan.FromSeconds(1));
-        await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        Assert.IsTrue(context.TcpConnection.IsTerminal);
-        using var rejected = CreatePhysicalConnection("rejected");
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(rejected.Connection));
-        await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
-        replacement.Connection.Received().Abort();
-
-        await context.CleanupAsync();
+        try
+        {
+            await blockingCloseRequested.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.IsTrue(stableFeature.ConnectionClosedRequested.IsCancellationRequested);
+            Assert.IsTrue(context.TcpConnection.IsTerminal);
+            await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+            await context.AbortAsync().WaitAsync(TimeSpan.FromSeconds(1));
+            await context.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(1));
+        }
+        finally
+        {
+            blockingCloseRequested.Release.TrySetResult();
+            await requestCloseTask.WaitAsync(TimeSpan.FromSeconds(1));
+        }
     }
 
     [TestMethod]
