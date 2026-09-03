@@ -155,13 +155,16 @@ namespace Raido.Server
             where TMessage : RaidoMessage
         {
             PipeWriter output;
+            ValueTask<FlushResult> flushTask;
             try
             {
                 // We know that we are only writing this message to one receiver, so we can
                 // write it without caching.
                 if (!TcpConnection.TryWriteStableTransport(
                         target => Protocol.WriteMessage(message, target),
-                        out output))
+                        cancellationToken,
+                        out output,
+                        out flushTask))
                 {
                     return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: false));
                 }
@@ -190,7 +193,7 @@ namespace Raido.Server
 
             try
             {
-                return output.FlushAsync(cancellationToken);
+                return flushTask;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -431,12 +434,14 @@ namespace Raido.Server
                                 pingMessage.Span.CopyTo(destination);
                                 output.Advance(pingMessage.Length);
                             },
-                            out var output))
+                            CancellationToken.None,
+                            out var output,
+                            out var flushTask))
                     {
                         return;
                     }
 
-                    await output.FlushAsync();
+                    await flushTask;
                     if (TcpConnection.IsActive)
                     {
                         Log.SentPing(_logger);
@@ -473,7 +478,22 @@ namespace Raido.Server
 
 
 
-        internal Task CleanupAsync() => TcpConnection.CleanupAsync();
+        internal async Task CleanupAsync()
+        {
+            // Start lower cleanup first so it cancels pending stable flushes and quiesces relays while
+            // the Hub write owner may still be holding this lock.
+            var tcpCleanup = TcpConnection.CleanupAsync();
+            await _writeLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                await tcpCleanup.ConfigureAwait(false);
+                TcpConnection.CompleteTransportOutput();
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
+        }
 
         private static class Log
         {

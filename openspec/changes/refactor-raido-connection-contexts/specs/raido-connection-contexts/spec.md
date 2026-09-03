@@ -80,12 +80,34 @@ The system SHALL expose one stable `Transport` pipe pair from the TCP context fo
 - **WHEN** output is produced after the replacement is published
 - **THEN** it is written to the replacement transport
 
+#### Scenario: Stable output admission commits before a physical boundary changes
+
+- **WHEN** a Hub write is admitted while a physical transport is current
+- **THEN** the active check, serialization, and stable-pipe flush invocation occur as one lower admission operation
+- **AND** caller cancellation before admission does not advance bytes
+- **AND** caller cancellation after admission cannot leave advanced bytes for a later write to commit
+- **AND** an admitted write cannot first become visible through a replacement physical transport
+
+#### Scenario: Physical input commit is not canceled by socket closure
+
+- **WHEN** bytes have been copied and advanced into the stable input pipe from a physical transport
+- **AND** that physical transport closes before its next read
+- **THEN** the stable input commit is completed without the physical close token canceling it
+- **AND** the bytes cannot remain unflushed until replacement input is copied
+
 #### Scenario: Input and output relay faults are observed during cleanup
 
 - **WHEN** terminal cleanup cancels the stable transport relays
 - **THEN** cleanup awaits both relay tasks after cancellation
 - **AND** relay task completion and faults are observed
 - **AND** relay faults do not remain unobserved
+
+#### Scenario: Stable pipe producers are quiesced before completion
+
+- **WHEN** terminal cleanup begins while a Hub writer or physical-input relay is active
+- **THEN** terminal signalling prevents new admissions and wakes pending operations without completing a producer-owned writer concurrently
+- **AND** cleanup awaits the active relays and the Hub write owner
+- **AND** each producer-owned stable writer is completed exactly once after its owner has quiesced
 
 ### Requirement: Stable physical heartbeat integration is identity-safe
 
@@ -98,6 +120,15 @@ The system SHALL keep heartbeat handlers on the stable TCP context. A physical h
 - **THEN** it does not invoke stable heartbeat handlers
 - **WHEN** the active replacement heartbeat fires
 - **THEN** it invokes the stable heartbeat handlers
+
+#### Scenario: Replacement heartbeat waits for the previous input boundary
+
+- **WHEN** a replacement is published while the previous physical input boundary is awaiting acknowledgement
+- **AND** the replacement heartbeat fires
+- **THEN** no stable Hub heartbeat handler is invoked for that tick
+- **AND** the replacement cannot inherit the detached transport's client-timeout state through that heartbeat
+- **WHEN** the previous input boundary is acknowledged
+- **THEN** later replacement heartbeats invoke the stable handlers normally
 
 ### Requirement: Stable infrastructure features remain stable
 

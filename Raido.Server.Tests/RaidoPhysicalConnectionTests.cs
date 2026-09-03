@@ -274,6 +274,70 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
+    public async Task CancelledOutboundWriteDoesNotCommitBytesForNextWrite()
+    {
+        var outputWriter = new RecordingPipeWriter();
+        using var initial = CreatePhysicalConnection("initial", outputWriter: outputWriter);
+        var protocol = new PayloadWritingProtocol();
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        context.Protocol = protocol;
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        protocol.Payload = [17];
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(
+            () => context.WriteAsync(new TestMessage(), cancellation.Token).AsTask());
+
+        protocol.Payload = [34];
+        await context.WriteAsync(new TestMessage());
+
+        var bytes = await outputWriter.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        CollectionAssert.AreEqual(new byte[] { 34 }, bytes);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task PhysicalDetachBeforeStableCommitDoesNotReplayAdmittedBytes()
+    {
+        var initialWriter = new RecordingPipeWriter();
+        using var initial = CreatePhysicalConnection("initial", outputWriter: initialWriter);
+        var replacementWriter = new RecordingPipeWriter();
+        using var replacement = CreatePhysicalConnection("replacement", outputWriter: replacementWriter);
+        var protocol = new PayloadWritingProtocol { Payload = [51] };
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        context.Protocol = protocol;
+        await context.WriteAsync(new TestMessage());
+        await initialWriter.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        using var cancellation = new CancellationTokenSource();
+        using var detachRegistration = cancellation.Token.Register(
+            () => context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection));
+        protocol.AfterWrite = () =>
+        {
+            cancellation.Cancel();
+        };
+
+        try
+        {
+            await context.WriteAsync(new TestMessage(), cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // The pre-fix path reports cancellation after leaving the bytes advanced but uncommitted.
+        }
+
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        protocol.Payload = [68];
+        protocol.AfterWrite = null;
+        await context.WriteAsync(new TestMessage());
+
+        var bytes = await replacementWriter.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        CollectionAssert.AreEqual(new byte[] { 68 }, bytes);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
     [Timeout(5000)]
     public async Task HandlerContinuesReadingAfterPhysicalReplacement()
     {
@@ -368,6 +432,67 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.AreSame(replacementMessage, dispatched[0]);
         Assert.IsFalse(dispatched.Contains(initialMessage));
 
+        context.Abort();
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task PhysicalCancellationBeforeStableInputCommitDoesNotContaminateReplacement()
+    {
+        var initialReader = new CancelBeforeReturningPipeReader(new ReadResult(
+            new ReadOnlySequence<byte>(new byte[] { 1 }),
+            isCanceled: false,
+            isCompleted: false));
+        using var initial = CreatePhysicalConnection("initial", inputReader: initialReader);
+        using var replacement = CreatePhysicalConnection("replacement");
+        var initialMessage = new TestMessage();
+        var replacementMessage = new TestMessage();
+        var protocol = new StreamBoundaryProtocol(initialMessage, replacementMessage);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
+        context.Protocol = protocol;
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var dispatched = new List<RaidoMessage>();
+        var replacementDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dispatcher.DispatchMessageAsync(context, Arg.Any<RaidoMessage>()).Returns(callInfo =>
+        {
+            var message = callInfo.Arg<RaidoMessage>()!;
+            dispatched.Add(message);
+            if (ReferenceEquals(message, replacementMessage))
+            {
+                replacementDispatched.TrySetResult();
+            }
+
+            return Task.CompletedTask;
+        });
+        using var meter = new Meter("Raido.Server.Tests.InputCommitBoundary");
+        var meterFactory = Substitute.For<IMeterFactory>();
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        initialReader.BeforeReturning = initial.Closed.Cancel;
+        var run = handler.DispatchMessagesAsync(context);
+        await initialReader.ReadReturned.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+
+        await replacement.Input.Writer.WriteAsync(new byte[] { 2 });
+        await protocol.ReplacementInputObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.AreEqual(0, dispatched.Count);
+
+        await replacement.Input.Writer.WriteAsync(new byte[] { 3, 4 });
+        await replacementDispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.AreEqual(1, dispatched.Count);
+        Assert.AreSame(replacementMessage, dispatched[0]);
+        Assert.IsFalse(dispatched.Contains(initialMessage));
         context.Abort();
         await run.WaitAsync(TimeSpan.FromSeconds(1));
         await context.CleanupAsync();
@@ -597,11 +722,12 @@ public sealed class RaidoPhysicalConnectionTests
 
         var pendingWrite = context.WriteAsync(new TestMessage());
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        var activation = Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
 
         var exception = new IOException("stale flush");
         pendingWriter.Fail(exception);
         await pendingWrite;
+        Assert.IsTrue(await activation.WaitAsync(TimeSpan.FromSeconds(1)));
 
         Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
@@ -969,6 +1095,41 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
+    public async Task ReplacementHeartbeatWaitsForThePreviousInputBoundary()
+    {
+        var clock = new ManualTimeProvider();
+        var initialHeartbeat = new RecordingHeartbeatFeature();
+        var replacementHeartbeat = new RecordingHeartbeatFeature();
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        initial.Connection.Features.Set<IConnectionHeartbeatFeature>(initialHeartbeat);
+        replacement.Connection.Features.Set<IConnectionHeartbeatFeature>(replacementHeartbeat);
+        var context = CreateContext(
+            initial.Connection,
+            reconnectEnabled: true,
+            clientTimeout: TimeSpan.FromSeconds(1),
+            timeout: TimeSpan.FromSeconds(5),
+            timeProvider: clock);
+        context.StartClientTimeout();
+        context.BeginClientTimeout();
+        clock.Advance(TimeSpan.FromSeconds(2));
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+
+        replacementHeartbeat.Run();
+        Assert.IsFalse(context.TcpConnection.IsTerminal);
+
+        context.TcpConnection.AcknowledgeInputBoundary();
+        context.StopClientTimeout();
+        context.BeginClientTimeout();
+        clock.Advance(TimeSpan.FromSeconds(2));
+        replacementHeartbeat.Run();
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
     public async Task StalePhysicalHeartbeatDoesNotInvokeStableHeartbeatAfterReplacement()
     {
         using var initial = CreatePhysicalConnection("initial");
@@ -989,6 +1150,9 @@ public sealed class RaidoPhysicalConnectionTests
 
         initialHeartbeat.Run();
         Assert.AreEqual(1, ticks);
+        replacementHeartbeat.Run();
+        Assert.AreEqual(1, ticks);
+        context.TcpConnection.AcknowledgeInputBoundary();
         replacementHeartbeat.Run();
         Assert.AreEqual(2, ticks);
         await context.CleanupAsync();
@@ -1018,6 +1182,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsFalse(await candidateActivation.WaitAsync(TimeSpan.FromSeconds(1)));
         candidateHeartbeat.Run();
         Assert.AreEqual(0, ticks);
+        context.TcpConnection.AcknowledgeInputBoundary();
         winnerHeartbeat.Run();
         Assert.AreEqual(1, ticks);
         await context.CleanupAsync();
@@ -1381,6 +1546,40 @@ public sealed class RaidoPhysicalConnectionTests
         public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => Payload;
 
         public bool IsVersionSupported(int version) => version == 1;
+    }
+
+    private sealed class PayloadWritingProtocol : IRaidoProtocol
+    {
+        public byte[] Payload { get; set; } = [];
+
+        public Action? AfterWrite { get; set; }
+
+        public string Name => "payload-writing";
+
+        public int Version => 1;
+
+        public bool TryParseMessage(
+            in ReadOnlySequence<byte> input,
+            ref SequencePosition consumed,
+            ref SequencePosition examined,
+            out RaidoMessage message)
+        {
+            consumed = input.End;
+            examined = input.End;
+            message = new TestMessage();
+            return true;
+        }
+
+        public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output)
+        {
+            Payload.CopyTo(output.GetSpan(Payload.Length));
+            output.Advance(Payload.Length);
+            AfterWrite?.Invoke();
+        }
+
+        public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => Payload;
+
+        public bool IsVersionSupported(int version) => version == Version;
     }
 
     private sealed class BlockingWriteProtocol : IRaidoProtocol
@@ -1772,18 +1971,15 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task TerminalConnectionCompletesStableTransportPipes()
+    public async Task TerminalConnectionLeavesStablePipeCompletionToItsOwners()
     {
         using var initial = CreatePhysicalConnection("initial");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.Abort();
-
-        var read = await context.TcpConnection.Transport.Input.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
-        Assert.IsTrue(read.IsCompleted);
-        context.TcpConnection.Transport.Input.AdvanceTo(read.Buffer.End);
-
         await context.CleanupAsync();
+        context.TcpConnection.CompleteTransportInput();
+        await AssertPipeReaderCompletedAsync(context.TcpConnection.Transport.Input);
     }
 
     [TestMethod]
@@ -1821,6 +2017,93 @@ public sealed class RaidoPhysicalConnectionTests
 
         await AssertPipeReaderCompletedAsync(context.TcpConnection.Transport.Input);
         await AssertPipeReaderCompletedAsync(context.TcpConnection.Application.Input);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task LogicalCleanupAwaitsActiveHubWriter()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        var protocol = new BlockingWriteProtocol();
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        context.Protocol = protocol;
+        Task? write = null;
+        Task? cleanup = null;
+        var cleanupStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            write = Task.Run(() => context.WriteAsync(new TestMessage()).AsTask());
+            await protocol.WriteStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            cleanup = Task.Run(async () =>
+            {
+                cleanupStarted.TrySetResult();
+                await context.CleanupAsync();
+            });
+            await cleanupStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.IsFalse(cleanup.IsCompleted);
+
+            protocol.Release.TrySetResult();
+            await write.WaitAsync(TimeSpan.FromSeconds(1));
+            await cleanup.WaitAsync(TimeSpan.FromSeconds(1));
+        }
+        finally
+        {
+            protocol.Release.TrySetResult();
+            if (write is not null)
+            {
+                await write.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+
+            if (cleanup is not null)
+            {
+                await cleanup.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+            else
+            {
+                await context.CleanupAsync();
+            }
+        }
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task LogicalCleanupAwaitsActivePhysicalInputRelay()
+    {
+        using var blockingMemory = new BlockingMemoryManager(new byte[] { 7 });
+        var inputBuffer = new ReadOnlySequence<byte>(blockingMemory.Memory);
+        blockingMemory.Block = true;
+        var inputReader = new SingleReadPipeReader(new ReadResult(
+            inputBuffer,
+            isCanceled: false,
+            isCompleted: false));
+        using var initial = CreatePhysicalConnection("initial", inputReader: inputReader);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        Task? cleanup = null;
+
+        try
+        {
+            await blockingMemory.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            cleanup = context.CleanupAsync();
+            Assert.IsFalse(cleanup.IsCompleted);
+
+            blockingMemory.Release.TrySetResult();
+            await cleanup.WaitAsync(TimeSpan.FromSeconds(1));
+        }
+        finally
+        {
+            blockingMemory.Release.TrySetResult();
+            if (cleanup is not null)
+            {
+                await cleanup.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+            else
+            {
+                await context.CleanupAsync();
+            }
+        }
     }
 
     [TestMethod]
@@ -2242,6 +2525,7 @@ public sealed class RaidoPhysicalConnectionTests
         await InvokePingAsync(context);
 
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        context.TcpConnection.AcknowledgeInputBoundary();
         replacementHeartbeat.Run();
         var ping = await replacementWriter.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -2547,6 +2831,100 @@ public sealed class RaidoPhysicalConnectionTests
             result = default;
             throw _exception;
         }
+    }
+
+    private sealed class CancelBeforeReturningPipeReader(ReadResult result) : PipeReader
+    {
+        private readonly ReadResult _result = result;
+        private int _returned;
+
+        public TaskCompletionSource ReadReturned { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Action? BeforeReturning { get; set; }
+
+        public override void AdvanceTo(SequencePosition consumed) { }
+
+        public override void AdvanceTo(SequencePosition consumed, SequencePosition examined) { }
+
+        public override void CancelPendingRead() { }
+
+        public override void Complete(Exception? exception = null) { }
+
+        public override ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Exchange(ref _returned, 1) != 0)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+
+            BeforeReturning?.Invoke();
+            ReadReturned.TrySetResult();
+            return new ValueTask<ReadResult>(_result);
+        }
+
+        public override bool TryRead(out ReadResult result)
+        {
+            result = _result;
+            return true;
+        }
+    }
+
+    private sealed class SingleReadPipeReader(ReadResult result) : PipeReader
+    {
+        private readonly ReadResult _result = result;
+        private int _read;
+
+        public override void AdvanceTo(SequencePosition consumed) { }
+
+        public override void AdvanceTo(SequencePosition consumed, SequencePosition examined) { }
+
+        public override void CancelPendingRead() { }
+
+        public override void Complete(Exception? exception = null) { }
+
+        public override ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Exchange(ref _read, 1) != 0)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+
+            return new ValueTask<ReadResult>(_result);
+        }
+
+        public override bool TryRead(out ReadResult result)
+        {
+            result = _result;
+            return true;
+        }
+    }
+
+    private sealed class BlockingMemoryManager(byte[] bytes) : MemoryManager<byte>
+    {
+        private readonly byte[] _bytes = bytes;
+
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool Block { get; set; }
+
+        public override Span<byte> GetSpan()
+        {
+            if (Block)
+            {
+                Entered.TrySetResult();
+                Release.Task.GetAwaiter().GetResult();
+            }
+
+            return _bytes;
+        }
+
+        public override MemoryHandle Pin(int elementIndex = 0) => throw new NotSupportedException();
+
+        public override void Unpin() { }
+
+        protected override void Dispose(bool disposing) { }
     }
 
     private sealed class PhysicalConnection(ConnectionContext connection, Pipe input, Pipe output) : IDisposable

@@ -7,10 +7,10 @@
 ## 2. Infrastructure migration
 
 - [x] 2.1 Update handler, dispatcher, lifetime manager, store, caller context, extensions, and consumers to use the Hub context while keeping the dispatcher contract and lifecycle ordering unchanged
-- [x] 2.2 Keep stable heartbeat, infrastructure features, and items on the TCP context, gate physical heartbeat callbacks by active physical identity, use the handler reader for normal physical input completion, and retain only the required close-request notification on the current physical context; verify replacement and stale-transport tests pass
+- [x] 2.2 Keep stable heartbeat, infrastructure features, and items on the TCP context, gate physical heartbeat callbacks by active physical identity and pending input-boundary acknowledgement, use the handler reader for normal physical input completion, and retain only the required close-request notification on the current physical context; verify replacement and stale-transport tests pass
 - [x] 2.3 Remove #488-specific Raido caller/reconnect bridges and unused raw-pipe context APIs, verifying repository searches find no obsolete production callers
 - [x] 2.4 Add stable TCP `Transport` and internal `Application` duplex-pipe ends, and relay physical input/output through them without changing #477 reconnect state or introducing replay buffering
-- [x] 2.5 Update the Hub write/keep-alive paths and connection handler to use the stable transport boundary, drop detached output at the lower boundary, preserve physical failures through reconnect expiry, and ensure terminal cleanup cancels and awaits the relay tasks
+- [x] 2.5 Update the Hub write/keep-alive paths and connection handler to use the stable transport boundary, commit stable output admission before releasing the reconnect lock, commit copied physical input independently of physical-read cancellation, drop detached output at the lower boundary, preserve physical failures through reconnect expiry, and ensure terminal cleanup quiesces producer owners before completing their pipe ends and awaits the relay tasks
 
 ## 3. Regression coverage and validation
 

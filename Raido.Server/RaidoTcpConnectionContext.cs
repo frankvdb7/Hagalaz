@@ -46,7 +46,9 @@ namespace Raido.Server
         private ConnectionContext? _detachedPhysicalConnection;
         private Task? _physicalInputTask;
         private Task? _applicationOutputTask;
-        private bool _stablePipesCompleted;
+        private bool _stablePipesSignaled;
+        private bool _applicationOutputCompleted;
+        private bool _transportOutputCompleted;
         private TaskCompletionSource<bool>? _inputBoundaryWaiter;
         private TaskCompletionSource<bool>? _outputBoundaryWaiter;
         private TaskCompletionSource<bool>? _reconnectWaiter;
@@ -108,7 +110,8 @@ namespace Raido.Server
         {
             lock (_reconnectLock)
             {
-                if (!ReferenceEquals(physicalConnection, _currentPhysicalConnection))
+                if (!ReferenceEquals(physicalConnection, _currentPhysicalConnection) ||
+                    _inputBoundaryWaiter is not null)
                 {
                     return;
                 }
@@ -382,7 +385,9 @@ namespace Raido.Server
                                         _application.Output.Advance(segment.Length);
                                     }
 
-                                    var flushResult = await _application.Output.FlushAsync(linkedCancellation.Token).ConfigureAwait(false);
+                                    // Physical cancellation stops subsequent reads, but cannot cancel the
+                                    // commit of bytes already copied into the stable input pipe.
+                                    var flushResult = await _application.Output.FlushAsync().ConfigureAwait(false);
                                     if (flushResult.IsCanceled || flushResult.IsCompleted)
                                     {
                                         break;
@@ -422,6 +427,10 @@ namespace Raido.Server
             catch (OperationCanceledException) when (_transportExecutionCancellation.IsCancellationRequested)
             {
                 // Terminal cleanup canceled the relay.
+            }
+            finally
+            {
+                CompleteApplicationOutput();
             }
         }
 
@@ -558,6 +567,21 @@ namespace Raido.Server
         }
 
         internal void CompleteTransportInput() => _transport.Input.Complete();
+
+        internal void CompleteTransportOutput()
+        {
+            lock (_reconnectLock)
+            {
+                if (_transportOutputCompleted)
+                {
+                    return;
+                }
+
+                _transportOutputCompleted = true;
+            }
+
+            _transport.Output.Complete();
+        }
 
         private void AcknowledgeOutputBoundary(bool result = true)
         {
@@ -818,7 +842,7 @@ namespace Raido.Server
                 currentConnection.Abort();
             }
 
-            CompleteStablePipes();
+            SignalStablePipes();
 
             if (queueAbortCallback)
             {
@@ -827,16 +851,16 @@ namespace Raido.Server
             }
         }
 
-        private void CompleteStablePipes()
+        private void SignalStablePipes()
         {
             lock (_reconnectLock)
             {
-                if (_stablePipesCompleted)
+                if (_stablePipesSignaled)
                 {
                     return;
                 }
 
-                _stablePipesCompleted = true;
+                _stablePipesSignaled = true;
             }
 
             _transport.Input.CancelPendingRead();
@@ -844,10 +868,23 @@ namespace Raido.Server
             _application.Input.CancelPendingRead();
             _application.Output.CancelPendingFlush();
 
-            // The handler owns the stable transport reader and completes it when its reader is disposed.
-            // Complete only the producer ends here so an in-flight reader can observe terminal completion
-            // and still advance its current read before disposing the reader.
-            _transport.Output.Complete();
+            // Producer-owned pipe ends are completed only after their execution contexts have quiesced.
+            // These cancellations only wake pending operations so terminal signalling never races a
+            // producer's GetSpan/Advance/FlushAsync sequence.
+        }
+
+        private void CompleteApplicationOutput()
+        {
+            lock (_reconnectLock)
+            {
+                if (_applicationOutputCompleted)
+                {
+                    return;
+                }
+
+                _applicationOutputCompleted = true;
+            }
+
             _application.Output.Complete();
         }
 
@@ -1041,7 +1078,7 @@ namespace Raido.Server
             _transportExecutionCancellation.Cancel();
             AcknowledgeInputBoundary();
             AcknowledgeOutputBoundary(false);
-            CompleteStablePipes();
+            SignalStablePipes();
             reconnectWaiter?.TrySetResult(false);
 
             CancelPhysicalTransport(currentConnection);
@@ -1052,6 +1089,7 @@ namespace Raido.Server
 
             await AwaitRelayTaskAsync(physicalInputTask).ConfigureAwait(false);
             await AwaitRelayTaskAsync(applicationOutputTask).ConfigureAwait(false);
+            CompleteApplicationOutput();
         }
 
         private static void CancelPhysicalTransport(ConnectionContext? connection)
@@ -1105,21 +1143,31 @@ namespace Raido.Server
 
         internal bool TryWriteStableTransport(
             Action<PipeWriter> write,
-            out PipeWriter output)
+            CancellationToken cancellationToken,
+            out PipeWriter output,
+            out ValueTask<FlushResult> flushTask)
         {
             lock (_reconnectLock)
             {
                 if (_disposed || _currentPhysicalConnection is null)
                 {
                     output = null!;
+                    flushTask = default;
                     return false;
                 }
 
                 output = _transport.Output;
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    flushTask = ValueTask.FromCanceled<FlushResult>(cancellationToken);
+                    return true;
+                }
+
                 // Serialization is synchronous. Keeping it under the lifecycle lock preserves the
-                // no-replay linearization: a detach either happens before admission or after the
-                // complete message has been committed to the stable transport.
+                // no-replay linearization. The stable flush is invoked before releasing the lock so
+                // an admitted message is committed before a physical detach can publish a boundary.
                 write(output);
+                flushTask = output.FlushAsync(CancellationToken.None);
                 return true;
             }
         }
