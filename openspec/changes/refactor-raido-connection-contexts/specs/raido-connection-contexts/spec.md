@@ -162,9 +162,28 @@ The system SHALL provide connection-owned infrastructure features from the stabl
 - **WHEN** a physical transport is activated and later replaced
 - **THEN** stable ID, items, transport, lifetime, and heartbeat features remain owned by the TCP context
 - **AND** the stable items feature exposes the same collection as the stable `Items` property
+- **AND** the stable lifetime-notification feature is owned by the TCP context
 - **AND** initial custom/application features remain available
 - **AND** replacement physical infrastructure features do not become authoritative
 - **AND** per-transport memory-pool, endpoint, socket, metrics-tag, and connection-complete features are not copied into the stable feature collection
+
+#### Scenario: Initial physical items become stable logical items
+
+- **WHEN** application or connection middleware adds items to the initial physical connection before Raido context construction
+- **THEN** those items are copied into the stable logical `Items` collection exactly once
+- **AND** the stable collection is not the initial physical dictionary
+- **WHEN** a physical replacement is activated
+- **THEN** replacement physical items do not overwrite or merge into the stable logical collection
+
+#### Scenario: Stable lifetime notification follows the authoritative physical connection
+
+- **WHEN** the current or authoritative detached physical connection requests a graceful close
+- **THEN** the stable `IConnectionLifetimeNotificationFeature.ConnectionClosedRequested` token is canceled
+- **AND** the existing terminal lifecycle transition runs
+- **WHEN** a stale physical connection requests a graceful close after a replacement wins
+- **THEN** the stable close-request token and logical lifetime are unaffected
+- **AND** the stable feature's `RequestClose()` forwards through the current physical lifetime-notification feature when one exists
+- **AND** the stable close-request token cannot be replaced by a caller
 
 ### Requirement: Keepalive follows the current physical capability
 

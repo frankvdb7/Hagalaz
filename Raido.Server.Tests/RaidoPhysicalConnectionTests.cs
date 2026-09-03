@@ -1612,6 +1612,95 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
+    public async Task StableItemsSnapshotInitialPhysicalItemsAndIgnoreReplacementItems()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        var initialItems = initial.Connection.Items;
+        var initialMiddlewareState = new object();
+        var logicalState = new object();
+        var replacementMiddlewareState = new object();
+        var replacementOnlyState = new object();
+        initialItems["middleware-state"] = initialMiddlewareState;
+
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var stableItems = context.Items;
+        stableItems["logical-state"] = logicalState;
+        replacement.Connection.Items["middleware-state"] = replacementMiddlewareState;
+        replacement.Connection.Items["replacement-only"] = replacementOnlyState;
+
+        Assert.AreNotSame(initialItems, stableItems);
+        Assert.AreSame(initialMiddlewareState, stableItems["middleware-state"]);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+
+        Assert.AreSame(stableItems, context.Items);
+        Assert.AreSame(initialMiddlewareState, stableItems["middleware-state"]);
+        Assert.AreSame(logicalState, stableItems["logical-state"]);
+        Assert.IsFalse(stableItems.ContainsKey("replacement-only"));
+
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task StableLifetimeNotificationIgnoresStalePhysicalCloseRequestAfterReplacement()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        using var initialCloseRequested = new CloseRequestedFeature();
+        using var replacementCloseRequested = new CloseRequestedFeature();
+        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(initialCloseRequested);
+        replacement.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(replacementCloseRequested);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var stableFeature = context.Features.Get<IConnectionLifetimeNotificationFeature>();
+        Assert.AreSame((object)context.TcpConnection, stableFeature);
+        Assert.ThrowsExactly<NotSupportedException>(() => stableFeature!.ConnectionClosedRequested = CancellationToken.None);
+        var stableRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var stableRegistration = stableFeature!.ConnectionClosedRequested.Register(stableRequested.SetResult);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        initialCloseRequested.RequestClose();
+
+        Assert.IsFalse(stableRequested.Task.IsCompleted);
+        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+
+        stableFeature.RequestClose();
+        Assert.IsTrue(replacementCloseRequested.ConnectionClosedRequested.IsCancellationRequested);
+        await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
+        await context.AbortAsync();
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task StableLifetimeNotificationReportsAuthoritativeDetachedCloseRequest()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        using var closeRequested = new CloseRequestedFeature();
+        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var stableFeature = context.Features.Get<IConnectionLifetimeNotificationFeature>();
+        var stableRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var stableRegistration = stableFeature!.ConnectionClosedRequested.Register(stableRequested.SetResult);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        closeRequested.RequestClose();
+
+        await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
+        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        await context.AbortAsync();
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
     public async Task ProtocolParserFailureIsTerminalAndCannotOpenReconnectWindow()
     {
         var initial = CreatePhysicalConnection("initial");

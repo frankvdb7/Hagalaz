@@ -24,6 +24,7 @@ namespace Raido.Server
         IConnectionItemsFeature,
         IConnectionTransportFeature,
         IConnectionLifetimeFeature,
+        IConnectionLifetimeNotificationFeature,
         IConnectionInherentKeepAliveFeature
     {
         private static readonly WaitCallback _abortedCallback = AbortConnection;
@@ -37,6 +38,7 @@ namespace Raido.Server
         private readonly IFeatureCollection _features = new FeatureCollection();
         private readonly IDictionary<object, object?> _items = new ConcurrentDictionary<object, object?>();
         private readonly CancellationTokenSource _connectionAbortedTokenSource = new();
+        private readonly CancellationTokenSource _connectionClosedRequestedTokenSource = new();
         private readonly ILogger _logger;
         private readonly Lock _heartbeatLock = new();
         private readonly Lock _reconnectLock = new();
@@ -99,6 +101,7 @@ namespace Raido.Server
             _features.Set<IConnectionItemsFeature>(this);
             _features.Set<IConnectionTransportFeature>(this);
             _features.Set<IConnectionLifetimeFeature>(this);
+            _features.Set<IConnectionLifetimeNotificationFeature>(this);
             _features.Set<IConnectionHeartbeatFeature>(this);
             _features.Set<IConnectionInherentKeepAliveFeature>(this);
         }
@@ -208,6 +211,7 @@ namespace Raido.Server
                         if (!_disposed && !_hasActivated)
                         {
                             CopyStableFeatures(replacement.Features);
+                            CopyInitialItems(replacement);
 
                             _connectionId = replacement.ConnectionId;
                             _currentPhysicalConnection = replacement;
@@ -984,6 +988,14 @@ namespace Raido.Server
             }
         }
 
+        private void CopyInitialItems(ConnectionContext physicalConnection)
+        {
+            foreach (var (key, value) in physicalConnection.Items)
+            {
+                _items[key] = value;
+            }
+        }
+
         private static bool IsPhysicalTransportFeature(Type featureType) =>
             featureType == typeof(IConnectionIdFeature) ||
             featureType == typeof(IConnectionItemsFeature) ||
@@ -1048,6 +1060,8 @@ namespace Raido.Server
                     out connectionClosedRegistration,
                     out queueAbortCallback);
             }
+
+            _connectionClosedRequestedTokenSource.Cancel();
 
             if (terminal)
             {
@@ -1294,9 +1308,25 @@ namespace Raido.Server
         }
 
         public override CancellationToken ConnectionClosed => _connectionAbortedTokenSource.Token;
+        public CancellationToken ConnectionClosedRequested
+        {
+            get => _connectionClosedRequestedTokenSource.Token;
+            set => throw new NotSupportedException("The stable connection owns its close-request token.");
+        }
         public override IPEndPoint? LocalEndPoint => GetCurrentPhysicalConnection()?.LocalEndPoint as IPEndPoint;
         public override IPEndPoint? RemoteEndPoint => GetCurrentPhysicalConnection()?.RemoteEndPoint as IPEndPoint;
         bool IConnectionInherentKeepAliveFeature.HasInherentKeepAlive => Volatile.Read(ref _hasInherentKeepAlive);
+
+        public void RequestClose()
+        {
+            ConnectionContext? physicalConnection;
+            lock (_reconnectLock)
+            {
+                physicalConnection = _currentPhysicalConnection ?? _detachedPhysicalConnection;
+            }
+
+            physicalConnection?.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
+        }
 
         public override void Abort()
         {
