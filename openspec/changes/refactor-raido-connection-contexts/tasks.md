@@ -17,5 +17,6 @@
 - [x] 3.1 Adapt existing #477 tests to assert stable identity, protocol ownership, timeout behavior, waiter behavior, physical input completion, stale transport behavior, concurrent replacement, and one logical lifecycle
 - [x] 3.2 Add stable-pipe continuity, detached-output, terminal-pipe-completion, and no-stale-physical-leakage coverage without duplicating the existing #477 lifecycle suite
 - [x] 3.3 Run strict OpenSpec validation, focused Raido tests, the solution build, full solution tests, and cumulative diff review against the #486 baseline
+- [x] 3.4 Add deterministic coverage for discarding incomplete stable input at a physical replacement boundary while preserving a complete replacement message
 
 Validation note: strict OpenSpec validation, focused Raido tests, the Raido and GameWorld test projects, and the solution build passed. The full solution test command ran; non-Docker projects passed, while Docker-dependent integration fixtures could not start because Docker was unavailable on the host.

@@ -80,6 +80,23 @@ public sealed class RaidoProtocolAndExtensionsTests
         }
     }
 
+    private sealed class TwoByteMessageReader : IRaidoMessageReader<TestMessage>
+    {
+        public bool TryParseMessage(in ReadOnlySequence<byte> input, ref SequencePosition consumed, ref SequencePosition examined, out TestMessage? message)
+        {
+            examined = input.End;
+            if (input.Length < 2)
+            {
+                message = null;
+                return false;
+            }
+
+            consumed = input.GetPosition(2);
+            message = new TestMessage();
+            return true;
+        }
+    }
+
     private sealed class NoopMessageWriter : IRaidoMessageWriter<TestMessage>
     {
         public void WriteMessage(TestMessage message, IBufferWriter<byte> output) { }
@@ -277,6 +294,27 @@ public sealed class RaidoProtocolAndExtensionsTests
         Assert.IsTrue(result.IsCanceled);
         Assert.IsFalse(result.IsCompleted);
         reader.Advance();
+    }
+
+    [TestMethod]
+    public async Task ProtocolReader_PreservesCompleteMessageBeforeCanceledBoundary()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        underlying.ReadAsync(Arg.Any<CancellationToken>()).Returns(
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 }), isCanceled: true, isCompleted: false)));
+        await using var reader = new RaidoProtocolReader(underlying);
+        var messageReader = new TwoByteMessageReader();
+
+        var message = await reader.ReadAsync(messageReader);
+
+        Assert.IsNotNull(message.Message);
+        Assert.IsFalse(message.IsCanceled);
+        reader.Advance();
+
+        var canceled = await reader.ReadAsync(messageReader);
+
+        Assert.IsTrue(canceled.IsCanceled);
+        reader.Advance(advanceCursor: true);
     }
 
     [TestMethod]

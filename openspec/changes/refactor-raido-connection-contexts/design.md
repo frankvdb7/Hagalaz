@@ -35,6 +35,8 @@ Rename `RaidoConnectionContextOptions` to `RaidoHubConnectionContextOptions` and
 
 Keep `RaidoConnectionHandler` as the owner of the logical Hub loop. It reads the stable TCP `Transport.Input` through one logical reader and dispatches against the same Hub context. Physical input is relayed into the stable pipe by the TCP context, so replacement does not create a second reader or require the handler to identify the physical socket. Move the existing persistent-connection activation operation (`TryActivatePersistentConnection(ConnectionContext)`) and its synchronized state to the TCP context without adding a second transition or a cross-context transfer operation.
 
+When a physical input read detaches, the handler advances the stable reader past the unread canceled buffer before it can read replacement input. The physical input relay waits for that boundary acknowledgement while the protocol reader is active, so bytes from the replacement cannot be appended to incomplete bytes from the detached socket. Messages already returned by the reader remain on the normal dispatch path.
+
 ### Stable transport/application pipes
 
 Create one duplex-pipe pair when the TCP context is constructed. Expose one end as the stable `Transport` and keep the opposite `Application` end internal to Raido. Each physical activation starts the lower input relay from the physical transport into `Application.Output`. A single lower outbound relay consumes `Application.Input`, writes to the currently attached physical output, and consumes/discards bytes while detached so the stable output cannot become a replay queue. Stable pipe completion occurs only during terminal TCP cleanup.

@@ -299,6 +299,64 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
+    public async Task DetachedPartialMessageIsNotCombinedWithReplacementInput()
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var initialMessage = new TestMessage();
+        var replacementMessage = new TestMessage();
+        var protocol = new StreamBoundaryProtocol(initialMessage, replacementMessage);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
+        context.Protocol = protocol;
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var dispatched = new List<RaidoMessage>();
+        var replacementDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dispatcher.DispatchMessageAsync(context, Arg.Any<RaidoMessage>()).Returns(callInfo =>
+        {
+            var message = callInfo.Arg<RaidoMessage>()!;
+            dispatched.Add(message);
+            if (ReferenceEquals(message, replacementMessage))
+            {
+                replacementDispatched.TrySetResult();
+            }
+
+            return Task.CompletedTask;
+        });
+        using var meter = new Meter("Raido.Server.Tests.StreamBoundary");
+        var meterFactory = Substitute.For<IMeterFactory>();
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        var run = handler.DispatchMessagesAsync(context);
+
+        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
+        await protocol.PartialMessageObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.AreEqual(0, dispatched.Count);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+
+        await replacement.Input.Writer.WriteAsync(new byte[] { 2 });
+        await protocol.ReplacementInputObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await replacement.Input.Writer.WriteAsync(new byte[] { 3, 4 });
+        await replacementDispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.AreEqual(1, dispatched.Count);
+        Assert.AreSame(replacementMessage, dispatched[0]);
+        Assert.IsFalse(dispatched.Contains(initialMessage));
+
+        context.Abort();
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+        context.Cleanup();
+    }
+
+    [TestMethod]
     [Timeout(5000)]
     public async Task PhysicalInputCompletionDetachesWithoutPhysicalClosedCallback()
     {
@@ -1053,6 +1111,67 @@ public sealed class RaidoPhysicalConnectionTests
         public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => new byte[] { 42 };
 
         public bool IsVersionSupported(int version) => version == 1;
+    }
+
+    private sealed class StreamBoundaryProtocol(TestMessage initialMessage, TestMessage replacementMessage) : IRaidoProtocol
+    {
+        public string Name => "stream-boundary";
+
+        public int Version => 1;
+
+        public TaskCompletionSource PartialMessageObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource ReplacementInputObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool TryParseMessage(
+            in ReadOnlySequence<byte> input,
+            ref SequencePosition consumed,
+            ref SequencePosition examined,
+            out RaidoMessage message)
+        {
+            var bytes = input.ToArray();
+            if (bytes.Length >= 2 && bytes[0] == 1 && bytes[1] == 2)
+            {
+                ReplacementInputObserved.TrySetResult();
+                consumed = input.GetPosition(2);
+                examined = consumed;
+                message = initialMessage;
+                return true;
+            }
+
+            if (bytes.Length >= 2 && bytes[0] == 3 && bytes[1] == 4)
+            {
+                consumed = input.GetPosition(2);
+                examined = consumed;
+                message = replacementMessage;
+                return true;
+            }
+
+            if (bytes.Length > 0 && bytes[0] == 2)
+            {
+                ReplacementInputObserved.TrySetResult();
+                consumed = input.GetPosition(1);
+                examined = input.End;
+                message = null!;
+                return false;
+            }
+
+            if (bytes.Length == 1 && bytes[0] == 1)
+            {
+                PartialMessageObserved.TrySetResult();
+            }
+
+            consumed = input.Start;
+            examined = input.End;
+            message = null!;
+            return false;
+        }
+
+        public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output) { }
+
+        public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message) => ReadOnlyMemory<byte>.Empty;
+
+        public bool IsVersionSupported(int version) => version == Version;
     }
 
     [TestMethod]

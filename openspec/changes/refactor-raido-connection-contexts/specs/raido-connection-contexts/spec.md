@@ -47,6 +47,14 @@ The system SHALL expose one stable `Transport` pipe pair from the TCP context fo
 - **WHEN** the initial physical transport is replaced
 - **THEN** input reaches the same stable transport reader and output reaches the replacement physical transport
 
+#### Scenario: Incomplete input does not cross a physical replacement boundary
+
+- **WHEN** the initial physical transport supplies only part of a protocol message and then detaches
+- **AND** a replacement physical transport is accepted
+- **THEN** the incomplete bytes from the initial transport are discarded before replacement input is parsed
+- **AND** a protocol message is never assembled from bytes belonging to both physical transports
+- **AND** a complete message supplied entirely by the replacement transport remains dispatchable
+
 #### Scenario: Detached output is not replayed
 
 - **WHEN** the stable logical connection has no attached physical transport and application output is produced

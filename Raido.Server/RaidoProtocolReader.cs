@@ -20,6 +20,7 @@ namespace Raido.Server
         private bool _isCanceled;
         private bool _isCompleted;
         private bool _hasMessage;
+        private bool _inputBoundaryPending;
         private bool _disposed;
 
         /// <summary>
@@ -81,6 +82,19 @@ namespace Raido.Server
             if (_hasMessage)
             {
                 throw new InvalidOperationException($"{nameof(Advance)} must be called before calling {nameof(ReadAsync)}");
+            }
+
+            if (_inputBoundaryPending)
+            {
+                if (TryParseMessage(maximumMessageSize, reader, _buffer, out var boundaryMessage))
+                {
+                    _hasMessage = true;
+                    return new ValueTask<RaidoProtocolReadResult<TReadMessage>>(
+                        new RaidoProtocolReadResult<TReadMessage>(boundaryMessage, isCanceled: false, isCompleted: false));
+                }
+
+                return new ValueTask<RaidoProtocolReadResult<TReadMessage>>(
+                    new RaidoProtocolReadResult<TReadMessage>(default, isCanceled: true, _isCompleted));
             }
 
 
@@ -198,6 +212,14 @@ namespace Raido.Server
 
             if (_isCanceled)
             {
+                if (TryParseMessage(maximumMessageSize, reader, _buffer, out var boundaryMessage))
+                {
+                    _hasMessage = true;
+                    _inputBoundaryPending = true;
+                    readResult = new RaidoProtocolReadResult<TReadMessage>(boundaryMessage, isCanceled: false, isCompleted: false);
+                    return (false, true);
+                }
+
                 readResult = default;
                 return (false, false);
             }
@@ -289,12 +311,28 @@ namespace Raido.Server
                 throw new ObjectDisposedException(nameof(RaidoProtocolReader));
             }
 
+            if (advanceCursor && _isCanceled)
+            {
+                _reader.AdvanceTo(_buffer.End);
+                _buffer = default;
+                _consumed = default;
+                _examined = default;
+                _isCanceled = false;
+                _isCompleted = false;
+                _hasMessage = false;
+                _inputBoundaryPending = false;
+                return;
+            }
+
             if (advanceCursor)
             {
                 _reader.AdvanceTo(_consumed);
             }
 
-            _isCanceled = false;
+            if (!_inputBoundaryPending)
+            {
+                _isCanceled = false;
+            }
 
             if (!_hasMessage)
             {

@@ -40,12 +40,14 @@ namespace Raido.Server
         private ConnectionContext? _detachedPhysicalConnection;
         private Task? _physicalInputTask;
         private Task? _applicationOutputTask;
+        private TaskCompletionSource<bool>? _inputBoundaryWaiter;
         private TaskCompletionSource<bool>? _reconnectWaiter;
         private long? _reconnectWindowStartTimestamp;
         private Exception? _terminalException;
 
         private volatile bool _connectionAborted;
         private bool _abortCallbackQueued;
+        private bool _protocolReaderRegistered;
         private bool _reconnectEnabled;
         private List<(Action<object> Callback, object State)>? _heartbeatHandlers;
 
@@ -312,6 +314,11 @@ namespace Raido.Server
                         continue;
                     }
 
+                    if (!await WaitForInputBoundaryAsync().ConfigureAwait(false))
+                    {
+                        break;
+                    }
+
                     using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
                         _transportExecutionCancellation.Token,
                         physicalConnection.ConnectionClosed);
@@ -457,6 +464,39 @@ namespace Raido.Server
 
         internal bool IsTerminal => _connectionAborted;
 
+        internal void RegisterProtocolReader()
+        {
+            lock (_reconnectLock)
+            {
+                _protocolReaderRegistered = true;
+            }
+        }
+
+        internal void UnregisterProtocolReader()
+        {
+            TaskCompletionSource<bool>? inputBoundaryWaiter;
+            lock (_reconnectLock)
+            {
+                _protocolReaderRegistered = false;
+                inputBoundaryWaiter = _inputBoundaryWaiter;
+                _inputBoundaryWaiter = null;
+            }
+
+            inputBoundaryWaiter?.TrySetResult(false);
+        }
+
+        internal void CompleteInputBoundary()
+        {
+            TaskCompletionSource<bool>? inputBoundaryWaiter;
+            lock (_reconnectLock)
+            {
+                inputBoundaryWaiter = _inputBoundaryWaiter;
+                _inputBoundaryWaiter = null;
+            }
+
+            inputBoundaryWaiter?.TrySetResult(true);
+        }
+
         internal Exception? TerminalException
         {
             get
@@ -495,6 +535,22 @@ namespace Raido.Server
         }
 
         internal Task<bool> WaitForReconnectAsync() => WaitForReconnectAsync(_statefulReconnectTimeout);
+
+        private async Task<bool> WaitForInputBoundaryAsync()
+        {
+            Task<bool>? inputBoundaryWaiter;
+            lock (_reconnectLock)
+            {
+                if (_connectionAborted)
+                {
+                    return false;
+                }
+
+                inputBoundaryWaiter = _inputBoundaryWaiter?.Task;
+            }
+
+            return inputBoundaryWaiter is null || await inputBoundaryWaiter.ConfigureAwait(false);
+        }
 
         internal async Task<bool> WaitForReconnectAsync(TimeSpan timeout)
         {
@@ -594,6 +650,9 @@ namespace Raido.Server
                 {
                     _currentPhysicalConnection = null;
                     _detachedPhysicalConnection = connection;
+                    _inputBoundaryWaiter = _protocolReaderRegistered
+                        ? new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
+                        : null;
                     _reconnectWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     _reconnectWindowStartTimestamp = _timeProvider.GetTimestamp();
                 }
@@ -672,6 +731,7 @@ namespace Raido.Server
             bool queueAbortCallback)
         {
             closedRequestedRegistration?.Dispose();
+            CompleteInputBoundary();
 
             if (currentConnection is not null)
             {
@@ -878,6 +938,7 @@ namespace Raido.Server
 
             closedRequestedRegistration?.Dispose();
             _transportExecutionCancellation.Cancel();
+            CompleteInputBoundary();
             CompleteStablePipes();
             reconnectWaiter?.TrySetResult(false);
         }
