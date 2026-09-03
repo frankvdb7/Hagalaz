@@ -46,6 +46,7 @@ namespace Raido.Server
         private ConnectionContext? _detachedPhysicalConnection;
         private Task? _physicalInputTask;
         private Task? _applicationOutputTask;
+        private bool _stablePipesCompleted;
         private TaskCompletionSource<bool>? _inputBoundaryWaiter;
         private TaskCompletionSource<bool>? _outputBoundaryWaiter;
         private TaskCompletionSource<bool>? _reconnectWaiter;
@@ -311,6 +312,8 @@ namespace Raido.Server
             {
                 if (_applicationOutputTask is null)
                 {
+                    // The first read may complete synchronously when buffered data is available;
+                    // keep relay work, including physical flushing, off the lifecycle lock.
                     _applicationOutputTask = ObserveRelayTask(Task.Run(RunApplicationOutputAsync));
                 }
             }
@@ -322,6 +325,8 @@ namespace Raido.Server
             {
                 if (_physicalInputTask is null)
                 {
+                    // The first read may complete synchronously when buffered data is available;
+                    // keep relay work, including physical flushing, off the lifecycle lock.
                     _physicalInputTask = ObserveRelayTask(Task.Run(RunPhysicalInputAsync));
                 }
             }
@@ -824,6 +829,16 @@ namespace Raido.Server
 
         private void CompleteStablePipes()
         {
+            lock (_reconnectLock)
+            {
+                if (_stablePipesCompleted)
+                {
+                    return;
+                }
+
+                _stablePipesCompleted = true;
+            }
+
             _transport.Input.CancelPendingRead();
             _transport.Output.CancelPendingFlush();
             _application.Input.CancelPendingRead();
@@ -996,14 +1011,20 @@ namespace Raido.Server
             CompleteTerminalTransition(currentConnection, closedRequestedRegistration, queueAbortCallback);
         }
 
-        internal void Cleanup()
+        internal async Task CleanupAsync()
         {
             CancellationTokenRegistration? closedRequestedRegistration;
             TaskCompletionSource<bool>? reconnectWaiter;
+            ConnectionContext? currentConnection;
+            ConnectionContext? detachedConnection;
+            Task? physicalInputTask;
+            Task? applicationOutputTask;
             lock (_reconnectLock)
             {
                 closedRequestedRegistration = _closedRequestedRegistration;
                 _closedRequestedRegistration = null;
+                currentConnection = _currentPhysicalConnection;
+                detachedConnection = _detachedPhysicalConnection;
                 _currentPhysicalConnection = null;
                 _detachedPhysicalConnection = null;
                 _disposed = true;
@@ -1012,6 +1033,8 @@ namespace Raido.Server
                 _reconnectWindowStartTimestamp = null;
                 reconnectWaiter = _reconnectWaiter;
                 _reconnectWaiter = null;
+                physicalInputTask = _physicalInputTask;
+                applicationOutputTask = _applicationOutputTask;
             }
 
             closedRequestedRegistration?.Dispose();
@@ -1020,6 +1043,43 @@ namespace Raido.Server
             AcknowledgeOutputBoundary(false);
             CompleteStablePipes();
             reconnectWaiter?.TrySetResult(false);
+
+            CancelPhysicalTransport(currentConnection);
+            if (detachedConnection is not null && !ReferenceEquals(detachedConnection, currentConnection))
+            {
+                CancelPhysicalTransport(detachedConnection);
+            }
+
+            await AwaitRelayTaskAsync(physicalInputTask).ConfigureAwait(false);
+            await AwaitRelayTaskAsync(applicationOutputTask).ConfigureAwait(false);
+        }
+
+        private static void CancelPhysicalTransport(ConnectionContext? connection)
+        {
+            if (connection is null)
+            {
+                return;
+            }
+
+            connection.Transport.Input.CancelPendingRead();
+            connection.Transport.Output.CancelPendingFlush();
+        }
+
+        private async Task AwaitRelayTaskAsync(Task? relayTask)
+        {
+            if (relayTask is null)
+            {
+                return;
+            }
+
+            try
+            {
+                await relayTask.ConfigureAwait(false);
+            }
+            catch (Exception) when (IsTerminal)
+            {
+                // Unexpected relay failures have already terminalized the logical connection.
+            }
         }
 
         private string _connectionId = null!;
@@ -1056,6 +1116,9 @@ namespace Raido.Server
                 }
 
                 output = _transport.Output;
+                // Serialization is synchronous. Keeping it under the lifecycle lock preserves the
+                // no-replay linearization: a detach either happens before admission or after the
+                // complete message has been committed to the stable transport.
                 write(output);
                 return true;
             }

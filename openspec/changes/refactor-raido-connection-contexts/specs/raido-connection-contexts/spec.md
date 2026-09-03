@@ -83,7 +83,8 @@ The system SHALL expose one stable `Transport` pipe pair from the TCP context fo
 #### Scenario: Input and output relay faults are observed during cleanup
 
 - **WHEN** terminal cleanup cancels the stable transport relays
-- **THEN** relay task completion and faults are observed
+- **THEN** cleanup awaits both relay tasks after cancellation
+- **AND** relay task completion and faults are observed
 - **AND** relay faults do not remain unobserved
 
 ### Requirement: Stable physical heartbeat integration is identity-safe

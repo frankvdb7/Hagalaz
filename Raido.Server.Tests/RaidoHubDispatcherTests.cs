@@ -224,12 +224,12 @@ public sealed class RaidoHubDispatcherTests
     }
 
     [TestCleanup]
-    public void CleanupConnections()
+    public async Task CleanupConnections()
     {
         foreach (var connection in _connections)
         {
             connection.Abort();
-            connection.Cleanup();
+            await connection.CleanupAsync();
         }
 
         foreach (var (input, output) in _transports)

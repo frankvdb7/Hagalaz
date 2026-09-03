@@ -473,7 +473,7 @@ namespace Raido.Server
 
 
 
-        internal void Cleanup() => TcpConnection.Cleanup();
+        internal Task CleanupAsync() => TcpConnection.CleanupAsync();
 
         private static class Log
         {

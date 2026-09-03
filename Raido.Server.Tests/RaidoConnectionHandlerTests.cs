@@ -101,10 +101,10 @@ namespace Raido.Server.Tests
         }
 
         [TestCleanup]
-        public void Cleanup()
+    public async Task Cleanup()
         {
             _connection.Abort();
-            _connection.Cleanup();
+            await _connection.CleanupAsync();
             _input.Reader.Complete();
             _input.Writer.Complete();
             _output.Reader.Complete();

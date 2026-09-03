@@ -22,12 +22,12 @@ public sealed class RaidoServerInfrastructureTests
     private readonly List<(Pipe Input, Pipe Output)> _transports = new();
 
     [TestCleanup]
-    public void CleanupConnections()
+    public async Task CleanupConnections()
     {
         foreach (var connection in _connections)
         {
             connection.Abort();
-            connection.Cleanup();
+            await connection.CleanupAsync();
         }
 
         foreach (var (input, output) in _transports)

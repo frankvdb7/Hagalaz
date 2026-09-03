@@ -19,7 +19,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
     private readonly List<(Pipe Input, Pipe Output)> _transports = new();
 
     [TestCleanup]
-    public void CleanupConnections()
+    public async Task CleanupConnections()
     {
         foreach (var source in _connectionClosedSources)
         {
@@ -29,7 +29,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         foreach (var context in _contexts)
         {
             context.Abort();
-            context.Cleanup();
+            await context.CleanupAsync();
         }
 
         foreach (var source in _connectionClosedSources)
@@ -114,7 +114,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         var result = await output.Reader.ReadAsync();
         CollectionAssert.AreEqual(new byte[] { 42 }, result.Buffer.ToArray());
         output.Reader.AdvanceTo(result.Buffer.End);
-        context.Cleanup();
+        await context.CleanupAsync();
     }
 
     [TestMethod]
