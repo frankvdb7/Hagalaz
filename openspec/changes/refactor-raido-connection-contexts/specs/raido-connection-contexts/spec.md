@@ -183,6 +183,9 @@ The system SHALL provide connection-owned infrastructure features from the stabl
 - **WHEN** a stale physical connection requests a graceful close after a replacement wins
 - **THEN** the stable close-request token and logical lifetime are unaffected
 - **AND** the stable feature's `RequestClose()` forwards through the current physical lifetime-notification feature when one exists
+- **AND** `RequestClose()` still signals the stable close-request token and terminalizes the logical connection when no physical lifetime-notification feature exists
+- **AND** a stable `RequestClose()` remains effective if the captured physical close request completes after that physical connection detaches and a replacement is activated
+- **AND** an exception from a close-request observer does not prevent stable pipes, physical transport, or logical abort completion
 - **AND** the stable close-request token cannot be replaced by a caller
 
 ### Requirement: Keepalive follows the current physical capability

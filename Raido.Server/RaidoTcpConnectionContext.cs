@@ -1061,10 +1061,9 @@ namespace Raido.Server
                     out queueAbortCallback);
             }
 
-            _connectionClosedRequestedTokenSource.Cancel();
-
             if (terminal)
             {
+                SignalConnectionClosedRequested();
                 CompleteTerminalTransition(
                     currentConnection,
                     closedRequestedRegistration,
@@ -1325,7 +1324,29 @@ namespace Raido.Server
                 physicalConnection = _currentPhysicalConnection ?? _detachedPhysicalConnection;
             }
 
-            physicalConnection?.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
+            try
+            {
+                physicalConnection?.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
+            }
+            catch (Exception ex)
+            {
+                Log.CloseRequestedFailed(_logger, ex);
+            }
+
+            SignalConnectionClosedRequested();
+            Abort();
+        }
+
+        private void SignalConnectionClosedRequested()
+        {
+            try
+            {
+                _connectionClosedRequestedTokenSource.Cancel();
+            }
+            catch (Exception ex)
+            {
+                Log.CloseRequestedFailed(_logger, ex);
+            }
         }
 
         public override void Abort()
@@ -1376,8 +1397,11 @@ namespace Raido.Server
         {
             private static readonly Action<ILogger, Exception> _abortFailed =
                 LoggerMessage.Define(LogLevel.Trace, new EventId(4, "AbortFailed"), "Abort callback failed.");
+            private static readonly Action<ILogger, Exception> _closeRequestedFailed =
+                LoggerMessage.Define(LogLevel.Trace, new EventId(5, "CloseRequestedFailed"), "Close-request notification failed.");
 
             public static void AbortFailed(ILogger logger, Exception exception) => _abortFailed(logger, exception);
+            public static void CloseRequestedFailed(ILogger logger, Exception exception) => _closeRequestedFailed(logger, exception);
         }
 
         private sealed class LocalDuplexPipe(PipeReader input, PipeWriter output) : IDuplexPipe
