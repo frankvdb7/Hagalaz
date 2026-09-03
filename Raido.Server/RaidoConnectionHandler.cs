@@ -117,82 +117,81 @@ namespace Raido.Server
         public virtual async Task DispatchMessagesAsync(RaidoHubConnectionContext connection)
         {
             var tcpConnection = connection.TcpConnection;
-            tcpConnection.RegisterProtocolReader();
-            try
+            await using var protocolReader = new RaidoProtocolReader(tcpConnection.Transport.Input);
+            while (!tcpConnection.IsTerminal)
             {
-                await using var protocolReader = new RaidoProtocolReader(tcpConnection.Transport.Input);
-                while (!tcpConnection.IsTerminal)
+                RaidoProtocolReadResult<RaidoMessage> result;
+                try
                 {
-                    RaidoProtocolReadResult<RaidoMessage> result;
-                    try
+                    connection.BeginClientTimeout();
+                    result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
+                }
+                catch (OperationCanceledException) when (tcpConnection.IsTerminal)
+                {
+                    break;
+                }
+
+                var discardInput = result.IsCanceled;
+                try
+                {
+                    if (result.IsCanceled)
                     {
-                        connection.BeginClientTimeout();
-                        result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
-                    }
-                    catch (OperationCanceledException) when (tcpConnection.IsTerminal)
-                    {
-                        break;
-                    }
-
-                    var advanceCursor = result.IsCanceled;
-                    try
-                    {
-                        if (result.IsCanceled)
-                        {
-                            connection.StopClientTimeout();
-                            if (tcpConnection.IsTerminal)
-                            {
-                                break;
-                            }
-
-                            if (!await tcpConnection.WaitForReconnectAsync().ConfigureAwait(false))
-                            {
-                                break;
-                            }
-
-                            continue;
-                        }
-
-                        if (result.Message == default)
-                        {
-                            if (result.IsCompleted)
-                            {
-                                break;
-                            }
-
-                            continue;
-                        }
-
                         connection.StopClientTimeout();
+                        if (tcpConnection.IsTerminal)
+                        {
+                            break;
+                        }
 
-                        Log.ReceivedMessage(_logger, result.Message);
+                        if (!await tcpConnection.WaitForReconnectAsync().ConfigureAwait(false))
+                        {
+                            break;
+                        }
 
-                        await _dispatcher.DispatchMessageAsync(connection, result.Message);
+                        continue;
+                    }
 
+                    if (result.Message == default)
+                    {
                         if (result.IsCompleted)
                         {
                             break;
                         }
+
+                        continue;
+                    }
+
+                    connection.StopClientTimeout();
+
+                    Log.ReceivedMessage(_logger, result.Message);
+
+                    await _dispatcher.DispatchMessageAsync(connection, result.Message);
+
+                    if (result.IsCompleted)
+                    {
+                        break;
+                    }
+                }
+                finally
+                {
+                    try
+                    {
+                        if (discardInput)
+                        {
+                            protocolReader.DiscardIncompleteInput();
+                        }
+                        else
+                        {
+                            protocolReader.Advance();
+                        }
                     }
                     finally
                     {
-                        try
+                        if (discardInput)
                         {
-                            protocolReader.Advance(advanceCursor);
-                        }
-                        finally
-                        {
-                            if (advanceCursor)
-                            {
-                                tcpConnection.CompleteInputBoundary();
-                            }
+                            tcpConnection.AcknowledgeInputBoundary();
                         }
                     }
                 }
-            }
-            finally
-            {
-                tcpConnection.UnregisterProtocolReader();
             }
         }
 

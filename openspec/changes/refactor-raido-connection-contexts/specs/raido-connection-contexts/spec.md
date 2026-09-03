@@ -36,6 +36,16 @@ The system SHALL preserve the existing stateful reconnect behavior for reconnect
 - **THEN** the stable connection follows the existing terminal behavior
 - **AND** later replacements are rejected
 
+#### Scenario: Stable connection status follows physical lifecycle
+
+- **WHEN** the stable TCP context is constructed
+- **THEN** its status is `Inactive`
+- **WHEN** a physical transport is activated
+- **THEN** its status is `Active`
+- **WHEN** the physical transport detaches during the reconnect window
+- **THEN** its status is `Inactive` until a replacement is published
+- **AND** terminal abort, cleanup, or reconnect expiry changes its status to `Disposed`
+
 ### Requirement: The lower transport boundary is stable
 
 The system SHALL expose one stable `Transport` pipe pair from the TCP context for the entire logical lifetime. Physical transport execution SHALL relay bytes through the TCP context's internal `Application` pipe pair, and replacing the physical transport SHALL NOT replace the stable `Transport` instance.

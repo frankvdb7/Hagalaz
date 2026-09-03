@@ -38,7 +38,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public void BuilderOptInUsesTheConfiguredFinitePhysicalConnectionTimeout()
+    public void BuilderOptInUsesTheConfiguredFiniteStatefulReconnectTimeout()
     {
         var options = new RaidoOptions { StatefulReconnectTimeout = TimeSpan.FromSeconds(7) };
         var services = new ServiceCollection();
@@ -60,7 +60,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public void BuilderOptInUsesTheDefaultFinitePhysicalConnectionTimeout()
+    public void BuilderOptInUsesTheDefaultFiniteStatefulReconnectTimeout()
     {
         var options = new RaidoOptions();
         var services = new ServiceCollection();
@@ -82,23 +82,23 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public void InfinitePhysicalConnectionTimeoutIsRejectedWhenActivationIsEnabled() =>
-        AssertPhysicalConnectionTimeoutRejected(Timeout.InfiniteTimeSpan);
+    public void InfiniteStatefulReconnectTimeoutIsRejectedWhenActivationIsEnabled() =>
+        AssertStatefulReconnectTimeoutRejected(Timeout.InfiniteTimeSpan);
 
     [TestMethod]
-    public void ZeroPhysicalConnectionTimeoutIsRejectedWhenActivationIsEnabled() =>
-        AssertPhysicalConnectionTimeoutRejected(TimeSpan.Zero);
+    public void ZeroStatefulReconnectTimeoutIsRejectedWhenActivationIsEnabled() =>
+        AssertStatefulReconnectTimeoutRejected(TimeSpan.Zero);
 
     [TestMethod]
-    public void NegativePhysicalConnectionTimeoutIsRejectedWhenActivationIsEnabled() =>
-        AssertPhysicalConnectionTimeoutRejected(TimeSpan.FromTicks(-1));
+    public void NegativeStatefulReconnectTimeoutIsRejectedWhenActivationIsEnabled() =>
+        AssertStatefulReconnectTimeoutRejected(TimeSpan.FromTicks(-1));
 
     [TestMethod]
-    public void PhysicalConnectionTimeoutAboveTimerMaximumIsRejectedWhenActivationIsEnabled() =>
-        AssertPhysicalConnectionTimeoutRejected(TimeSpan.FromMilliseconds(uint.MaxValue));
+    public void StatefulReconnectTimeoutAboveTimerMaximumIsRejectedWhenActivationIsEnabled() =>
+        AssertStatefulReconnectTimeoutRejected(TimeSpan.FromMilliseconds(uint.MaxValue));
 
     [TestMethod]
-    public void InvalidPhysicalConnectionTimeoutIsIgnoredWhenActivationIsDisabled()
+    public void InvalidStatefulReconnectTimeoutIsIgnoredWhenActivationIsDisabled()
     {
         using var physical = CreatePhysicalConnection("initial");
 
@@ -258,7 +258,7 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task HandlerUsesAFreshReaderAfterReplacement()
+    public async Task HandlerContinuesReadingAfterPhysicalReplacement()
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
@@ -1252,6 +1252,11 @@ public sealed class RaidoPhysicalConnectionTests
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
 
+        var boundary = await stableTransport.Input.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.IsTrue(boundary.IsCanceled);
+        stableTransport.Input.AdvanceTo(boundary.Buffer.End);
+        context.TcpConnection.AcknowledgeInputBoundary();
+
         await replacement.Input.Writer.WriteAsync(new byte[] { 4, 5, 6 });
         var replacementRead = await ReadNonCanceledAsync(stableTransport.Input);
         CollectionAssert.AreEqual(new byte[] { 4, 5, 6 }, replacementRead.Buffer.ToArray());
@@ -1354,7 +1359,7 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task PhysicalConnectionTimeoutDisconnectsThroughHandlerExactlyOnce()
+    public async Task StatefulReconnectTimeoutDisconnectsThroughHandlerExactlyOnce()
     {
         using var initial = CreatePhysicalConnection("initial");
         var timeProvider = new ManualTimeProvider();
@@ -1753,7 +1758,7 @@ public sealed class RaidoPhysicalConnectionTests
         return context;
     }
 
-    private void AssertPhysicalConnectionTimeoutRejected(TimeSpan timeout)
+    private void AssertStatefulReconnectTimeoutRejected(TimeSpan timeout)
     {
         using var physical = CreatePhysicalConnection("initial");
 

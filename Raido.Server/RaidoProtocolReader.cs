@@ -311,28 +311,12 @@ namespace Raido.Server
                 throw new ObjectDisposedException(nameof(RaidoProtocolReader));
             }
 
-            if (advanceCursor && _isCanceled)
-            {
-                _reader.AdvanceTo(_buffer.End);
-                _buffer = default;
-                _consumed = default;
-                _examined = default;
-                _isCanceled = false;
-                _isCompleted = false;
-                _hasMessage = false;
-                _inputBoundaryPending = false;
-                return;
-            }
-
             if (advanceCursor)
             {
                 _reader.AdvanceTo(_consumed);
             }
 
-            if (!_inputBoundaryPending)
-            {
-                _isCanceled = false;
-            }
+            _isCanceled = false;
 
             if (!_hasMessage)
             {
@@ -342,6 +326,23 @@ namespace Raido.Server
             _buffer = _buffer.Slice(_consumed);
 
             _hasMessage = false;
+        }
+
+        internal void DiscardIncompleteInput()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(RaidoProtocolReader));
+            }
+
+            _reader.AdvanceTo(_buffer.End);
+            _buffer = default;
+            _consumed = default;
+            _examined = default;
+            _isCanceled = false;
+            _isCompleted = false;
+            _hasMessage = false;
+            _inputBoundaryPending = false;
         }
 
         /// <summary>

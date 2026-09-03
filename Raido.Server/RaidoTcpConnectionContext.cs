@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipelines;
@@ -27,7 +28,7 @@ namespace Raido.Server
         private readonly IDuplexPipe _application;
         private readonly CancellationTokenSource _transportExecutionCancellation = new();
         private readonly IFeatureCollection _features = new FeatureCollection();
-        private readonly IDictionary<object, object?> _items = new Dictionary<object, object?>();
+        private readonly IDictionary<object, object?> _items = new ConcurrentDictionary<object, object?>();
         private readonly CancellationTokenSource _connectionAbortedTokenSource = new();
         private readonly ILogger _logger;
         private readonly Lock _heartbeatLock = new();
@@ -45,9 +46,8 @@ namespace Raido.Server
         private long? _reconnectWindowStartTimestamp;
         private Exception? _terminalException;
 
-        private volatile bool _connectionAborted;
+        private RaidoConnectionStatus _status;
         private bool _abortCallbackQueued;
-        private bool _protocolReaderRegistered;
         private bool _reconnectEnabled;
         private List<(Action<object> Callback, object State)>? _heartbeatHandlers;
 
@@ -125,15 +125,15 @@ namespace Raido.Server
             bool initialActivation;
             lock (_reconnectLock)
             {
-                initialActivation = _connectionId is null;
+                initialActivation = _status == RaidoConnectionStatus.Inactive && _connectionId is null;
                 if (initialActivation)
                 {
-                    if (_connectionAborted)
+                    if (_status == RaidoConnectionStatus.Disposed)
                     {
                         return false;
                     }
                 }
-                else if (_connectionAborted || !_reconnectEnabled || _currentPhysicalConnection is not null ||
+                else if (_status != RaidoConnectionStatus.Inactive || !_reconnectEnabled || _currentPhysicalConnection is not null ||
                          _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted ||
                          _detachedPhysicalConnection is not ConnectionContext currentDetachedConnection)
                 {
@@ -172,12 +172,13 @@ namespace Raido.Server
                 var initialPublished = false;
                 lock (_reconnectLock)
                 {
-                    if (!_connectionAborted && _connectionId is null)
+                    if (_status == RaidoConnectionStatus.Inactive && _connectionId is null)
                     {
                         CopyStableFeatures(replacement.Features);
 
                         _connectionId = replacement.ConnectionId;
                         _currentPhysicalConnection = replacement;
+                        _status = RaidoConnectionStatus.Active;
                         _closedRequestedRegistration = closedRequestedRegistration;
                         initialPublished = true;
                     }
@@ -218,7 +219,7 @@ namespace Raido.Server
 
             lock (_reconnectLock)
             {
-                var reconnectWindowIsCurrent = !_connectionAborted && _reconnectEnabled && _currentPhysicalConnection is null &&
+                var reconnectWindowIsCurrent = _status == RaidoConnectionStatus.Inactive && _reconnectEnabled && _currentPhysicalConnection is null &&
                     ReferenceEquals(detachedPhysicalConnection, _detachedPhysicalConnection) &&
                     ReferenceEquals(activationWaiter, _reconnectWaiter) && !activationWaiter.Task.IsCompleted;
 
@@ -239,6 +240,7 @@ namespace Raido.Server
                     obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
                     _currentPhysicalConnection = replacement;
                     _detachedPhysicalConnection = null;
+                    _status = RaidoConnectionStatus.Active;
                     _closedRequestedRegistration = closedRequestedRegistration;
                     _reconnectWaiter = null;
                     _reconnectWindowStartTimestamp = null;
@@ -462,30 +464,20 @@ namespace Raido.Server
             }
         }
 
-        internal bool IsTerminal => _connectionAborted;
-
-        internal void RegisterProtocolReader()
+        internal RaidoConnectionStatus Status
         {
-            lock (_reconnectLock)
+            get
             {
-                _protocolReaderRegistered = true;
+                lock (_reconnectLock)
+                {
+                    return _status;
+                }
             }
         }
 
-        internal void UnregisterProtocolReader()
-        {
-            TaskCompletionSource<bool>? inputBoundaryWaiter;
-            lock (_reconnectLock)
-            {
-                _protocolReaderRegistered = false;
-                inputBoundaryWaiter = _inputBoundaryWaiter;
-                _inputBoundaryWaiter = null;
-            }
+        internal bool IsTerminal => Status == RaidoConnectionStatus.Disposed;
 
-            inputBoundaryWaiter?.TrySetResult(false);
-        }
-
-        internal void CompleteInputBoundary()
+        internal void AcknowledgeInputBoundary()
         {
             TaskCompletionSource<bool>? inputBoundaryWaiter;
             lock (_reconnectLock)
@@ -514,7 +506,7 @@ namespace Raido.Server
             {
                 lock (_reconnectLock)
                 {
-                    return _reconnectEnabled && !_connectionAborted;
+                    return _reconnectEnabled && _status != RaidoConnectionStatus.Disposed;
                 }
             }
         }
@@ -541,7 +533,7 @@ namespace Raido.Server
             Task<bool>? inputBoundaryWaiter;
             lock (_reconnectLock)
             {
-                if (_connectionAborted)
+                if (_status == RaidoConnectionStatus.Disposed)
                 {
                     return false;
                 }
@@ -558,7 +550,7 @@ namespace Raido.Server
             TimeSpan remainingTimeout;
             lock (_reconnectLock)
             {
-                if (_connectionAborted || !_reconnectEnabled)
+                if (_status == RaidoConnectionStatus.Disposed || !_reconnectEnabled)
                 {
                     return false;
                 }
@@ -645,14 +637,13 @@ namespace Raido.Server
                     return false;
                 }
 
-                reconnecting = !_connectionAborted && _reconnectEnabled;
+                reconnecting = _status != RaidoConnectionStatus.Disposed && _reconnectEnabled;
                 if (reconnecting)
                 {
                     _currentPhysicalConnection = null;
                     _detachedPhysicalConnection = connection;
-                    _inputBoundaryWaiter = _protocolReaderRegistered
-                        ? new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
-                        : null;
+                    _status = RaidoConnectionStatus.Inactive;
+                    _inputBoundaryWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     _reconnectWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     _reconnectWindowStartTimestamp = _timeProvider.GetTimestamp();
                 }
@@ -695,14 +686,14 @@ namespace Raido.Server
             closedRequestedRegistration = null;
             queueAbortCallback = false;
 
-            if (_connectionAborted ||
+            if (_status == RaidoConnectionStatus.Disposed ||
                 (expectedConnection is not null && !ReferenceEquals(expectedConnection, _currentPhysicalConnection)) ||
                 (expectedWaiter is not null && !ReferenceEquals(expectedWaiter, _reconnectWaiter)))
             {
                 return false;
             }
 
-            _connectionAborted = true;
+            _status = RaidoConnectionStatus.Disposed;
             _reconnectEnabled = false;
             _terminalException = exception;
             currentConnection = _currentPhysicalConnection;
@@ -731,7 +722,7 @@ namespace Raido.Server
             bool queueAbortCallback)
         {
             closedRequestedRegistration?.Dispose();
-            CompleteInputBoundary();
+            AcknowledgeInputBoundary();
 
             if (currentConnection is not null)
             {
@@ -930,6 +921,7 @@ namespace Raido.Server
                 _closedRequestedRegistration = null;
                 _currentPhysicalConnection = null;
                 _detachedPhysicalConnection = null;
+                _status = RaidoConnectionStatus.Disposed;
                 _reconnectEnabled = false;
                 _reconnectWindowStartTimestamp = null;
                 reconnectWaiter = _reconnectWaiter;
@@ -938,7 +930,7 @@ namespace Raido.Server
 
             closedRequestedRegistration?.Dispose();
             _transportExecutionCancellation.Cancel();
-            CompleteInputBoundary();
+            AcknowledgeInputBoundary();
             CompleteStablePipes();
             reconnectWaiter?.TrySetResult(false);
         }
@@ -1019,5 +1011,12 @@ namespace Raido.Server
             public PipeWriter Output { get; } = output;
         }
 
+    }
+
+    internal enum RaidoConnectionStatus
+    {
+        Inactive,
+        Active,
+        Disposed
     }
 }

@@ -339,7 +339,7 @@ namespace Raido.Server
 
         private void CheckClientTimeout()
         {
-            if (Debugger.IsAttached || TcpConnection.IsTerminal || !TcpConnection.TryGetCurrentConnection(out _))
+            if (Debugger.IsAttached || TcpConnection.Status != RaidoConnectionStatus.Active)
             {
                 return;
             }
