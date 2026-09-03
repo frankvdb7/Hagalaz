@@ -21,10 +21,22 @@ public sealed class RaidoPhysicalConnectionTests
 {
     private readonly List<RaidoHubConnectionContext> _connections = new();
     private readonly List<PhysicalConnection> _physicalConnections = new();
+    private readonly List<BlockingHeartbeatFeature> _blockingHeartbeatFeatures = new();
+    private readonly List<BlockingPipeWriter> _blockingPipeWriters = new();
 
     [TestCleanup]
     public void DisposePhysicalConnections()
     {
+        foreach (var heartbeatFeature in _blockingHeartbeatFeatures)
+        {
+            heartbeatFeature.Release.TrySetResult();
+        }
+
+        foreach (var pipeWriter in _blockingPipeWriters)
+        {
+            pipeWriter.Release();
+        }
+
         foreach (var connection in _connections)
         {
             connection.Abort();
@@ -35,6 +47,11 @@ public sealed class RaidoPhysicalConnectionTests
         {
             physicalConnection.Dispose();
         }
+
+        _connections.Clear();
+        _physicalConnections.Clear();
+        _blockingHeartbeatFeatures.Clear();
+        _blockingPipeWriters.Clear();
     }
 
     [TestMethod]
@@ -82,19 +99,19 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public void InfiniteStatefulReconnectTimeoutIsRejectedWhenActivationIsEnabled() =>
+    public void InfiniteStatefulReconnectTimeoutIsRejectedWhenReconnectIsEnabled() =>
         AssertStatefulReconnectTimeoutRejected(Timeout.InfiniteTimeSpan);
 
     [TestMethod]
-    public void ZeroStatefulReconnectTimeoutIsRejectedWhenActivationIsEnabled() =>
+    public void ZeroStatefulReconnectTimeoutIsRejectedWhenReconnectIsEnabled() =>
         AssertStatefulReconnectTimeoutRejected(TimeSpan.Zero);
 
     [TestMethod]
-    public void NegativeStatefulReconnectTimeoutIsRejectedWhenActivationIsEnabled() =>
+    public void NegativeStatefulReconnectTimeoutIsRejectedWhenReconnectIsEnabled() =>
         AssertStatefulReconnectTimeoutRejected(TimeSpan.FromTicks(-1));
 
     [TestMethod]
-    public void StatefulReconnectTimeoutAboveTimerMaximumIsRejectedWhenActivationIsEnabled() =>
+    public void StatefulReconnectTimeoutAboveTimerMaximumIsRejectedWhenReconnectIsEnabled() =>
         AssertStatefulReconnectTimeoutRejected(TimeSpan.FromMilliseconds(uint.MaxValue));
 
     [TestMethod]
@@ -109,7 +126,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public void PreSignalledConnectionClosedStartsDetachedPhysicalConnectionWindow()
+    public void PreSignalledConnectionClosedStartsDetachedReconnectWindow()
     {
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
@@ -239,7 +256,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task CallerCancelledWriteDoesNotOpenPhysicalConnectionWindow()
+    public async Task CallerCancelledWriteDoesNotOpenReconnectWindow()
     {
         using var initial = CreatePhysicalConnection("initial");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
@@ -389,7 +406,7 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task HandlerWaitsWhenItStartsWithDetachedPhysicalConnectionWindow()
+    public async Task HandlerWaitsWhenItStartsWithDetachedReconnectWindow()
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
@@ -435,7 +452,7 @@ public sealed class RaidoPhysicalConnectionTests
     {
         var initial = CreatePhysicalConnection("initial");
         var candidate = CreatePhysicalConnection("candidate");
-        var heartbeat = new BlockingHeartbeatFeature();
+        var heartbeat = TrackBlockingHeartbeatFeature();
         candidate.Connection.Features.Set<IConnectionHeartbeatFeature>(heartbeat);
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
@@ -485,7 +502,7 @@ public sealed class RaidoPhysicalConnectionTests
         var lateCandidate = CreatePhysicalConnection("late");
         var winner = CreatePhysicalConnection("winner");
         var next = CreatePhysicalConnection("next");
-        var blockingHeartbeat = new BlockingHeartbeatFeature();
+        var blockingHeartbeat = TrackBlockingHeartbeatFeature();
         lateCandidate.Connection.Features.Set<IConnectionHeartbeatFeature>(blockingHeartbeat);
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
@@ -562,7 +579,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task ExplicitAbortWhileDetachedCompletesThePhysicalConnectionWindowAndStaysTerminal()
+    public async Task ExplicitAbortWhileDetachedCompletesTheReconnectWindowAndStaysTerminal()
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
@@ -782,7 +799,7 @@ public sealed class RaidoPhysicalConnectionTests
         var initial = CreatePhysicalConnection("initial");
         var candidate = CreatePhysicalConnection("candidate");
         var winner = CreatePhysicalConnection("winner");
-        var heartbeat = new BlockingHeartbeatFeature();
+        var heartbeat = TrackBlockingHeartbeatFeature();
         candidate.Connection.Features.Set<IConnectionHeartbeatFeature>(heartbeat);
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
@@ -865,7 +882,7 @@ public sealed class RaidoPhysicalConnectionTests
         using var initial = CreatePhysicalConnection("initial");
         using var candidate = CreatePhysicalConnection("candidate");
         using var winner = CreatePhysicalConnection("winner");
-        var candidateHeartbeat = new BlockingHeartbeatFeature();
+        var candidateHeartbeat = TrackBlockingHeartbeatFeature();
         var winnerHeartbeat = new RecordingHeartbeatFeature();
         candidate.Connection.Features.Set<IConnectionHeartbeatFeature>(candidateHeartbeat);
         winner.Connection.Features.Set<IConnectionHeartbeatFeature>(winnerHeartbeat);
@@ -933,7 +950,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task ProtocolParserFailureIsTerminalAndCannotOpenPhysicalConnectionWindow()
+    public async Task ProtocolParserFailureIsTerminalAndCannotOpenReconnectWindow()
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
@@ -1023,7 +1040,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task IncompleteProtocolDataIsTerminalAndCannotOpenPhysicalConnectionWindow()
+    public async Task IncompleteProtocolDataIsTerminalAndCannotOpenReconnectWindow()
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
@@ -1053,7 +1070,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task OversizedProtocolDataIsTerminalAndCannotOpenPhysicalConnectionWindow()
+    public async Task OversizedProtocolDataIsTerminalAndCannotOpenReconnectWindow()
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
@@ -1082,7 +1099,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task ApplicationDispatchFailureIsTerminalAndCannotOpenPhysicalConnectionWindow()
+    public async Task ApplicationDispatchFailureIsTerminalAndCannotOpenReconnectWindow()
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
@@ -1340,7 +1357,7 @@ public sealed class RaidoPhysicalConnectionTests
     [Timeout(5000)]
     public async Task DetachedWriteBehindBlockedPhysicalFlushIsDroppedBeforeReplacement()
     {
-        var blockedWriter = new BlockingPipeWriter();
+        var blockedWriter = TrackBlockingPipeWriter();
         var replacementWriter = new RecordingPipeWriter();
         using var initial = CreatePhysicalConnection("initial", outputWriter: blockedWriter);
         using var replacement = CreatePhysicalConnection("replacement", outputWriter: replacementWriter);
@@ -1446,7 +1463,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task PhysicalConnectionWindowIsReusedForFailedCandidateAndRecreatedAfterLaterDisconnect()
+    public async Task ReconnectWindowIsReusedForFailedCandidateAndRecreatedAfterLaterDisconnect()
     {
         var initial = CreatePhysicalConnection("initial");
         var failedCandidate = CreatePhysicalConnection("failed");
@@ -1473,7 +1490,7 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task TimedOutPhysicalConnectionWindowIsTerminalAndCannotBeReopened()
+    public async Task TimedOutReconnectWindowIsTerminalAndCannotBeReopened()
     {
         var initial = CreatePhysicalConnection("initial");
         var replacement = CreatePhysicalConnection("replacement");
@@ -1493,7 +1510,7 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task PhysicalConnectionDeadlineStartsAtDetach()
+    public async Task ReconnectDeadlineStartsAtPhysicalDetach()
     {
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
@@ -1642,7 +1659,7 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task DetachedCloseRequestCallbackTerminalizesTheSamePhysicalConnectionWindow()
+    public async Task DetachedCloseRequestCallbackTerminalizesTheSameReconnectWindow()
     {
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
@@ -1676,7 +1693,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task DetachedCloseRequestRegistrationRemainsTerminalForThePhysicalConnectionWindow()
+    public async Task DetachedCloseRequestRegistrationRemainsTerminalForTheReconnectWindow()
     {
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
@@ -1702,7 +1719,7 @@ public sealed class RaidoPhysicalConnectionTests
         using var candidate = CreatePhysicalConnection("candidate");
         using var closeRequested = new CloseRequestedFeature();
         initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
-        var candidateHeartbeat = new BlockingHeartbeatFeature();
+        var candidateHeartbeat = TrackBlockingHeartbeatFeature();
         candidate.Connection.Features.Set<IConnectionHeartbeatFeature>(candidateHeartbeat);
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
@@ -1776,7 +1793,7 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task KeepAlivePhysicalWriteFailureOpensAPhysicalConnectionWindow()
+    public async Task KeepAlivePhysicalWriteFailureOpensAReconnectWindow()
     {
         var failingWriter = new DeferredFailingPipeWriter();
         using var initial = CreatePhysicalConnection("initial", outputWriter: failingWriter);
@@ -1803,12 +1820,12 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         var ping = InvokePingAsync(context);
+        await failingWriter.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
 
         failingWriter.Fail(new IOException("stale ping write failure"));
         await ping;
-        await Task.Yield();
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
 
         Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
@@ -2023,11 +2040,27 @@ public sealed class RaidoPhysicalConnectionTests
         return physical;
     }
 
+    private BlockingHeartbeatFeature TrackBlockingHeartbeatFeature()
+    {
+        var feature = new BlockingHeartbeatFeature();
+        _blockingHeartbeatFeatures.Add(feature);
+        return feature;
+    }
+
+    private BlockingPipeWriter TrackBlockingPipeWriter()
+    {
+        var writer = new BlockingPipeWriter();
+        _blockingPipeWriters.Add(writer);
+        return writer;
+    }
+
     private sealed class DeferredFailingPipeWriter : PipeWriter
     {
         private readonly ArrayBufferWriter<byte> _buffer = new();
         private readonly TaskCompletionSource<FlushResult> _flush =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource FlushStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public void Fail(Exception exception) => _flush.TrySetException(exception);
 
@@ -2039,7 +2072,11 @@ public sealed class RaidoPhysicalConnectionTests
 
         public override void CancelPendingFlush() { }
 
-        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default) => new(_flush.Task.WaitAsync(cancellationToken));
+        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
+        {
+            FlushStarted.TrySetResult();
+            return new(_flush.Task.WaitAsync(cancellationToken));
+        }
 
         public override void Complete(Exception? exception = null) { }
     }

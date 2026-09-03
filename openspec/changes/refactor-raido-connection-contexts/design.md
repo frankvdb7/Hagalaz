@@ -23,7 +23,7 @@ The current `RaidoConnectionContext` combines the stable connection identity, ph
 
 ### Two contexts, one logical lifecycle
 
-Split the current class into an internal `RaidoTcpConnectionContext` and public `RaidoHubConnectionContext`. The TCP context owns the stable connection ID, stable feature/item collections, current and detached physical connections, reconnect synchronization, waiter, deadlines, terminal state, and lower abort behavior. Its small `Inactive`/`Active`/`Disposed` status describes the stable connection lifecycle, while the reconnect window remains separate policy state. The Hub context wraps the TCP context through `ConnectionContext` and owns protocol, caller state, write locking, Hub timeout policy, logical timestamps, activity, and metrics with Hub-level meaning.
+Split the current class into an internal `RaidoTcpConnectionContext` and public `RaidoHubConnectionContext`. The TCP context owns the stable connection ID, stable feature/item collections, current and detached physical connections, reconnect synchronization, waiter, deadlines, terminal state, and lower abort behavior. It separately records whether a physical transport has ever been activated and whether the logical TCP context is terminal; a reconnect waiter exists only during a detached stateful reconnect window. The Hub context wraps the TCP context through `ConnectionContext` and owns protocol, caller state, write locking, Hub timeout policy, logical timestamps, activity, and metrics with Hub-level meaning.
 
 The simpler alternative, leaving all fields in one class, preserves behavior but leaves the ownership problem unresolved. A second bootstrap or transfer architecture is not needed for this refactor.
 
@@ -47,7 +47,7 @@ The relays are owned by the TCP context, their faults are observed, and they are
 
 The TCP context owns the stable connection infrastructure features (`IConnectionIdFeature`, `IConnectionItemsFeature`, `IConnectionTransportFeature`, `IConnectionLifetimeFeature`, and `IConnectionHeartbeatFeature`) and preserves other custom/application features from the initial physical context. The item collection is concurrency-safe because it can be accessed by the logical Hub and physical callbacks concurrently. During each activation it registers one forwarding callback with the physical heartbeat feature; that callback ticks stable handlers only while its physical context is still active. The physical reader remains responsible for detecting normal input completion, while the existing close-request notification is registered on the active physical connection. The Hub context delegates ordinary connection information through the wrapped stable context and does not expose raw pipes publicly.
 
-Keepalive and client-timeout checks use the stable `Active`/`Inactive`/`Disposed` status. Inactive or disposed connections do not record keepalive writes or advance the last-send timestamp.
+Keepalive and client-timeout checks use the lower context's `IsActive` capability. A detached or terminal connection does not record keepalive writes or advance the last-send timestamp.
 
 When a physical transport fails during a reconnect window, the TCP context retains its exception privately. A successful replacement clears it; reconnect expiry promotes it to the stable terminal exception unless a more specific terminal exception was supplied.
 

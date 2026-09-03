@@ -36,15 +36,15 @@ The system SHALL preserve the existing stateful reconnect behavior for reconnect
 - **THEN** the stable connection follows the existing terminal behavior
 - **AND** later replacements are rejected
 
-#### Scenario: Stable connection status follows physical lifecycle
+#### Scenario: Stable connection capabilities follow physical lifecycle
 
 - **WHEN** the stable TCP context is constructed
-- **THEN** its status is `Inactive`
+- **THEN** it has not been activated, is not terminal, and has no current physical connection
 - **WHEN** a physical transport is activated
-- **THEN** its status is `Active`
+- **THEN** it is active while that physical connection is current
 - **WHEN** the physical transport detaches during the reconnect window
-- **THEN** its status is `Inactive` until a replacement is published
-- **AND** terminal abort, cleanup, or reconnect expiry changes its status to `Disposed`
+- **THEN** it is no longer active while the reconnect waiter remains available
+- **AND** terminal abort, cleanup, or reconnect expiry makes the context terminal
 
 ### Requirement: The lower transport boundary is stable
 
@@ -135,13 +135,13 @@ The system SHALL register and remove the logical Hub context once for its entire
 - **THEN** the lifetime manager and Hub dispatcher observe one connected lifecycle and one eventual disconnected lifecycle
 - **AND** the connection store does not remove and re-add the logical context during replacement
 
-### Requirement: Stable keepalive follows connection status
+### Requirement: Stable keepalive follows connection activity
 
-The system SHALL send and account for keepalive pings only while the stable TCP context is `Active`.
+The system SHALL send and account for keepalive pings only while the stable TCP context reports `IsActive`.
 
-#### Scenario: Inactive and disposed keepalive is not accounted as sent
+#### Scenario: Detached and terminal keepalive is not accounted as sent
 
-- **WHEN** the stable TCP context is `Inactive` or `Disposed`
+- **WHEN** the stable TCP context is detached or terminal
 - **AND** a keepalive tick occurs
 - **THEN** no ping is recorded as sent
 - **AND** the stable last-send timestamp is not advanced

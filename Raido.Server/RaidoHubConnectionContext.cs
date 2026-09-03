@@ -339,7 +339,7 @@ namespace Raido.Server
 
         private void CheckClientTimeout()
         {
-            if (Debugger.IsAttached || TcpConnection.Status != RaidoConnectionStatus.Active)
+            if (Debugger.IsAttached || !TcpConnection.IsActive)
             {
                 return;
             }
@@ -368,7 +368,7 @@ namespace Raido.Server
 
         private void KeepAliveTick()
         {
-            if (TcpConnection.Status != RaidoConnectionStatus.Active)
+            if (!TcpConnection.IsActive)
             {
                 return;
             }
@@ -404,7 +404,7 @@ namespace Raido.Server
                 ReadOnlyMemory<byte> pingMessage;
                 try
                 {
-                    if (TcpConnection.Status != RaidoConnectionStatus.Active)
+                    if (!TcpConnection.IsActive)
                     {
                         return;
                     }
@@ -421,7 +421,7 @@ namespace Raido.Server
                 try
                 {
                     await _connectionContext.Transport.Output.WriteAsync(pingMessage);
-                    if (TcpConnection.Status == RaidoConnectionStatus.Active)
+                    if (TcpConnection.IsActive)
                     {
                         Log.SentPing(_logger);
                         // We only update the timestamp after the captured transport successfully sent the ping.
