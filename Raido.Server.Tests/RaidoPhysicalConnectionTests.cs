@@ -500,14 +500,12 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task PhysicalReadReturnedBeforeDetachIsNotCommittedAfterInputBoundary()
+    public async Task PhysicalReadAfterDetachIsDroppedBeforeStableAdmission()
     {
-        using var blockingMemory = new BlockingMemoryManager(new byte[] { 1 });
-        var inputReader = new SingleReadPipeReader(new ReadResult(
-            new ReadOnlySequence<byte>(blockingMemory.Memory),
+        var inputReader = new CancelBeforeReturningPipeReader(new ReadResult(
+            new ReadOnlySequence<byte>(new byte[] { 1 }),
             isCanceled: false,
             isCompleted: false));
-        blockingMemory.Block = true;
         using var initial = CreatePhysicalConnection("initial", inputReader: inputReader);
         using var replacement = CreatePhysicalConnection("replacement");
         var initialMessage = new TestMessage();
@@ -543,16 +541,15 @@ public sealed class RaidoPhysicalConnectionTests
         Task? run = null;
         try
         {
+            inputReader.BeforeReturning = () => context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
             run = handler.DispatchMessagesAsync(context);
-            await blockingMemory.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await inputReader.ReadReturned.Task.WaitAsync(TimeSpan.FromSeconds(1));
             Assert.AreEqual(0, dispatched.Count);
 
-            initial.Closed.Cancel();
-            context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+            Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
             Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
             context.TcpConnection.AcknowledgeInputBoundary();
 
-            blockingMemory.Release.TrySetResult();
             await replacement.Input.Writer.WriteAsync(new byte[] { 2 });
             await protocol.ReplacementInputObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
             Assert.AreEqual(0, dispatched.Count);
@@ -566,7 +563,6 @@ public sealed class RaidoPhysicalConnectionTests
         }
         finally
         {
-            blockingMemory.Release.TrySetResult();
             context.Abort();
             if (run is not null)
             {
@@ -1054,7 +1050,7 @@ public sealed class RaidoPhysicalConnectionTests
         var run = handler.DispatchMessagesAsync(context);
         await failingReader.ReadInvoked.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
+        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
         context.Abort();
         await context.AbortAsync();
@@ -2118,6 +2114,25 @@ public sealed class RaidoPhysicalConnectionTests
         await context.CleanupAsync();
         context.TcpConnection.CompleteTransportInput();
         await AssertPipeReaderCompletedAsync(context.TcpConnection.Transport.Input);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task CleanupAsyncCancelsConnectionClosedAndCompletesAbortAsync()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var connectionClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var registration = context.ConnectionAbortedToken.Register(() => connectionClosed.TrySetResult());
+
+        await context.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.IsTrue(connectionClosed.Task.IsCompletedSuccessfully);
+        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
+        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        await context.AbortAsync().WaitAsync(TimeSpan.FromSeconds(1));
     }
 
     [TestMethod]

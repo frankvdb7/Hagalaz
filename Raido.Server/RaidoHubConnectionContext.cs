@@ -131,12 +131,12 @@ namespace Raido.Server
             }
 
             // This method should never throw synchronously
-            var task = WriteCore(_connectionContext, message, cancellationToken);
+            var task = WriteCore(message, cancellationToken);
 
             // The write didn't complete synchronously so await completion
             if (!task.IsCompletedSuccessfully)
             {
-                return new ValueTask(CompleteWriteAndReleaseAsync(_connectionContext, task, cancellationToken));
+                return new ValueTask(CompleteWriteAndReleaseAsync(task, cancellationToken));
             }
             else
             {
@@ -151,7 +151,7 @@ namespace Raido.Server
             return default;
         }
 
-        private ValueTask<FlushResult> WriteCore<TMessage>(ConnectionContext connection, TMessage message, CancellationToken cancellationToken)
+        private ValueTask<FlushResult> WriteCore<TMessage>(TMessage message, CancellationToken cancellationToken)
             where TMessage : RaidoMessage
         {
             bool hasWrittenBytes;
@@ -222,11 +222,11 @@ namespace Raido.Server
             return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
         }
 
-        private async Task CompleteWriteAndReleaseAsync(ConnectionContext connection, ValueTask<FlushResult> task, CancellationToken cancellationToken)
+        private async Task CompleteWriteAndReleaseAsync(ValueTask<FlushResult> task, CancellationToken cancellationToken)
         {
             try
             {
-                await CompleteWriteAsync(connection, task, cancellationToken);
+                await CompleteWriteAsync(task, cancellationToken);
             }
             finally
             {
@@ -235,7 +235,7 @@ namespace Raido.Server
             }
         }
 
-        private async Task CompleteWriteAsync(ConnectionContext connection, ValueTask<FlushResult> task, CancellationToken cancellationToken)
+        private async Task CompleteWriteAsync(ValueTask<FlushResult> task, CancellationToken cancellationToken)
         {
             try
             {
@@ -278,7 +278,7 @@ namespace Raido.Server
                     return;
                 }
 
-                await CompleteWriteAsync(_connectionContext, WriteCore(_connectionContext, message, cancellationToken), cancellationToken);
+                await CompleteWriteAsync(WriteCore(message, cancellationToken), cancellationToken);
             }
             finally
             {
@@ -444,7 +444,7 @@ namespace Raido.Server
                     if (TcpConnection.IsActive)
                     {
                         Log.SentPing(_logger);
-                        // We only update the timestamp after the captured transport successfully sent the ping.
+                        // The ping was admitted successfully while the stable connection was active.
                         Volatile.Write(ref _lastSendTick, _timeProvider.GetTimestamp());
                     }
                 }
@@ -477,7 +477,7 @@ namespace Raido.Server
 
 
 
-        internal async Task CleanupAsync()
+        public async Task CleanupAsync()
         {
             // Start lower cleanup first so it cancels pending stable flushes and quiesces relays while
             // the Hub write owner may still be holding this lock.

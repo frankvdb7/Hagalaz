@@ -68,7 +68,8 @@ The system SHALL expose one stable `Transport` pipe pair from the TCP context fo
 #### Scenario: Detached output is not replayed
 
 - **WHEN** the stable logical connection has no attached physical transport and application output is produced
-- **THEN** the lower transport execution consumes that output without retaining it for a later physical replacement
+- **THEN** that output is not retained for delivery to a later physical replacement
+- **AND** it is not emitted to a future replacement transport
 - **AND** no replay or acknowledgement mechanism is introduced
 
 #### Scenario: Detached output behind an in-flight physical flush is dropped

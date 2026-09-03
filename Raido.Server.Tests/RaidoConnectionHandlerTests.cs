@@ -149,6 +149,7 @@ namespace Raido.Server.Tests
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => _connectionHandler.ConnectAsync(_connection));
             await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
             await _dispatcher.DidNotReceive().OnConnectedAsync(_connection);
+            Assert.IsTrue(_connection.ConnectionAbortedToken.IsCancellationRequested);
             await AssertPipeReaderCompletedAsync(_connection.TcpConnection.Transport.Input);
         }
 
@@ -167,6 +168,7 @@ namespace Raido.Server.Tests
             await _lifetimeManager.Received(1).OnConnectedAsync(_connection);
             await _dispatcher.Received(1).OnDisconnectedAsync(_connection, ex);
             await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
+            Assert.IsTrue(_connection.ConnectionAbortedToken.IsCancellationRequested);
             await AssertPipeReaderCompletedAsync(_connection.TcpConnection.Transport.Input);
         }
 

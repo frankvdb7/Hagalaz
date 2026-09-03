@@ -185,130 +185,123 @@ namespace Raido.Server
                         heartbeatState.Context.RunHeartbeat(heartbeatState.PhysicalConnection);
                     },
                     (this, replacement));
-            }
-            catch
-            {
-                closedRequestedRegistration?.Dispose();
-                throw;
-            }
+                var closedRequestedToken = replacement.Features.Get<IConnectionLifetimeNotificationFeature>()?.ConnectionClosedRequested;
 
-            var closedRequestedToken = replacement.Features.Get<IConnectionLifetimeNotificationFeature>()?.ConnectionClosedRequested;
-
-            if (!initialActivation && outputBoundaryTask is not null && !outputBoundaryTask.GetAwaiter().GetResult())
-            {
-                closedRequestedRegistration?.Dispose();
-                return false;
-            }
-
-            if (initialActivation)
-            {
-                var initialPublished = false;
-                lock (_reconnectLock)
+                if (!initialActivation && outputBoundaryTask is not null && !outputBoundaryTask.GetAwaiter().GetResult())
                 {
-                    if (!_disposed && !_hasActivated)
-                    {
-                        CopyStableFeatures(replacement.Features);
-
-                        _connectionId = replacement.ConnectionId;
-                        _currentPhysicalConnection = replacement;
-                        _hasActivated = true;
-                        _closedRequestedRegistration = closedRequestedRegistration;
-                        initialPublished = true;
-                    }
-                }
-
-                if (!initialPublished)
-                {
-                    closedRequestedRegistration?.Dispose();
                     return false;
                 }
 
-                StartApplicationOutputPump();
-                StartPhysicalInputPump();
-
-                // A physical connection may already be closed when it is activated. Publish ownership first,
-                // then apply that state through the normal physical-disconnect path.
-                if (replacement.ConnectionClosed.IsCancellationRequested)
+                if (initialActivation)
                 {
-                    OnPhysicalConnectionClosed(replacement);
+                    var initialPublished = false;
+                    lock (_reconnectLock)
+                    {
+                        if (!_disposed && !_hasActivated)
+                        {
+                            CopyStableFeatures(replacement.Features);
+
+                            _connectionId = replacement.ConnectionId;
+                            _currentPhysicalConnection = replacement;
+                            _hasActivated = true;
+                            _closedRequestedRegistration = closedRequestedRegistration;
+                            closedRequestedRegistration = null;
+                            initialPublished = true;
+                        }
+                    }
+
+                    if (!initialPublished)
+                    {
+                        return false;
+                    }
+
+                    StartApplicationOutputPump();
+                    StartPhysicalInputPump();
+
+                    // A physical connection may already be closed when it is activated. Publish ownership first,
+                    // then apply that state through the normal physical-disconnect path.
+                    if (replacement.ConnectionClosed.IsCancellationRequested)
+                    {
+                        OnPhysicalConnectionClosed(replacement);
+                    }
+
+                    if (closedRequestedToken.GetValueOrDefault().IsCancellationRequested)
+                    {
+                        OnConnectionClosedRequested(replacement);
+                    }
+
+                    return true;
                 }
 
-                if (closedRequestedToken.GetValueOrDefault().IsCancellationRequested)
+                var activationWaiter = reconnectWaiter!;
+                var detachedPhysicalConnection = detachedConnection!;
+                var published = false;
+                var terminal = false;
+                ConnectionContext? terminalConnection = null;
+                CancellationTokenRegistration? terminalClosedRequestedRegistration = null;
+                CancellationTokenRegistration? obsoleteClosedRequestedRegistration = null;
+                var queueAbortCallback = false;
+
+                lock (_reconnectLock)
                 {
-                    OnConnectionClosedRequested(replacement);
+                    var reconnectWindowIsCurrent = !_disposed && _reconnectEnabled && _currentPhysicalConnection is null &&
+                        ReferenceEquals(detachedPhysicalConnection, _detachedPhysicalConnection) &&
+                        ReferenceEquals(activationWaiter, _reconnectWaiter) && !activationWaiter.Task.IsCompleted;
+
+                    if (reconnectWindowIsCurrent && detachedCloseRequestedToken.GetValueOrDefault().IsCancellationRequested)
+                    {
+                        terminal = TryTransitionToTerminalLocked(
+                            expectedConnection: null,
+                            expectedWaiter: activationWaiter,
+                            exception: null,
+                            out terminalConnection,
+                            out terminalClosedRequestedRegistration,
+                            out queueAbortCallback);
+                    }
+                    else if (reconnectWindowIsCurrent && !IsReconnectWindowExpiredLocked() &&
+                        !replacement.ConnectionClosed.IsCancellationRequested &&
+                        !closedRequestedToken.GetValueOrDefault().IsCancellationRequested)
+                    {
+                        obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
+                        _currentPhysicalConnection = replacement;
+                        _detachedPhysicalConnection = null;
+                        _detachedTransportException = null;
+                        _closedRequestedRegistration = closedRequestedRegistration;
+                        closedRequestedRegistration = null;
+                        _reconnectWaiter = null;
+                        _reconnectWindowStartTimestamp = null;
+                        activationWaiter.TrySetResult(true);
+                        published = true;
+                    }
+                    else if (reconnectWindowIsCurrent && IsReconnectWindowExpiredLocked())
+                    {
+                        terminal = TryTransitionToTerminalLocked(
+                            expectedConnection: null,
+                            expectedWaiter: activationWaiter,
+                            exception: null,
+                            out terminalConnection,
+                            out terminalClosedRequestedRegistration,
+                            out queueAbortCallback);
+                    }
                 }
 
-                return true;
+                obsoleteClosedRequestedRegistration?.Dispose();
+
+                if (terminal)
+                {
+                    CompleteTerminalTransition(terminalConnection, terminalClosedRequestedRegistration, queueAbortCallback);
+                }
+                else if (published)
+                {
+                    StartPhysicalInputPump();
+                }
+
+                return published;
             }
-
-            var activationWaiter = reconnectWaiter!;
-            var detachedPhysicalConnection = detachedConnection!;
-            var published = false;
-            var terminal = false;
-            ConnectionContext? terminalConnection = null;
-            CancellationTokenRegistration? terminalClosedRequestedRegistration = null;
-            CancellationTokenRegistration? obsoleteClosedRequestedRegistration = null;
-            var queueAbortCallback = false;
-
-            lock (_reconnectLock)
-            {
-                var reconnectWindowIsCurrent = !_disposed && _reconnectEnabled && _currentPhysicalConnection is null &&
-                    ReferenceEquals(detachedPhysicalConnection, _detachedPhysicalConnection) &&
-                    ReferenceEquals(activationWaiter, _reconnectWaiter) && !activationWaiter.Task.IsCompleted;
-
-                if (reconnectWindowIsCurrent && detachedCloseRequestedToken.GetValueOrDefault().IsCancellationRequested)
-                {
-                    terminal = TryTransitionToTerminalLocked(
-                        expectedConnection: null,
-                        expectedWaiter: activationWaiter,
-                        exception: null,
-                        out terminalConnection,
-                        out terminalClosedRequestedRegistration,
-                        out queueAbortCallback);
-                }
-                else if (reconnectWindowIsCurrent && !IsReconnectWindowExpiredLocked() &&
-                    !replacement.ConnectionClosed.IsCancellationRequested &&
-                    !closedRequestedToken.GetValueOrDefault().IsCancellationRequested)
-                {
-                    obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
-                    _currentPhysicalConnection = replacement;
-                    _detachedPhysicalConnection = null;
-                    _detachedTransportException = null;
-                    _closedRequestedRegistration = closedRequestedRegistration;
-                    _reconnectWaiter = null;
-                    _reconnectWindowStartTimestamp = null;
-                    activationWaiter.TrySetResult(true);
-                    published = true;
-                }
-                else if (reconnectWindowIsCurrent && IsReconnectWindowExpiredLocked())
-                {
-                    terminal = TryTransitionToTerminalLocked(
-                        expectedConnection: null,
-                        expectedWaiter: activationWaiter,
-                        exception: null,
-                        out terminalConnection,
-                        out terminalClosedRequestedRegistration,
-                        out queueAbortCallback);
-                }
-            }
-
-            if (!published)
+            finally
             {
                 closedRequestedRegistration?.Dispose();
             }
-
-            obsoleteClosedRequestedRegistration?.Dispose();
-
-            if (terminal)
-            {
-                CompleteTerminalTransition(terminalConnection, terminalClosedRequestedRegistration, queueAbortCallback);
-            }
-            else if (published)
-            {
-                StartPhysicalInputPump();
-            }
-
-            return published;
         }
 
         private void StartApplicationOutputPump()
@@ -380,12 +373,8 @@ namespace Raido.Server
                             {
                                 if (!result.Buffer.IsEmpty)
                                 {
-                                    // Copy the read result before taking the reconnect lock. This keeps a
-                                    // physical read from holding lifecycle synchronization while a source
-                                    // segment is being inspected, while stable-pipe admission below remains
-                                    // atomic with the current-physical check.
-                                    var bytes = result.Buffer.ToArray();
-                                    if (!TryCommitPhysicalInput(physicalConnection, bytes, out var flushTask))
+                                    var buffer = result.Buffer;
+                                    if (!TryCommitPhysicalInput(physicalConnection, in buffer, out var flushTask))
                                     {
                                         break;
                                     }
@@ -441,7 +430,7 @@ namespace Raido.Server
 
         private bool TryCommitPhysicalInput(
             ConnectionContext physicalConnection,
-            byte[] bytes,
+            in ReadOnlySequence<byte> buffer,
             out ValueTask<FlushResult> flushTask)
         {
             lock (_reconnectLock)
@@ -452,9 +441,13 @@ namespace Raido.Server
                     return false;
                 }
 
-                var destination = _application.Output.GetSpan(bytes.Length);
-                bytes.AsSpan().CopyTo(destination);
-                _application.Output.Advance(bytes.Length);
+                foreach (var segment in buffer)
+                {
+                    var destination = _application.Output.GetSpan(segment.Length);
+                    segment.Span.CopyTo(destination);
+                    _application.Output.Advance(segment.Length);
+                }
+
                 flushTask = _application.Output.FlushAsync(CancellationToken.None);
                 return true;
             }
@@ -1089,6 +1082,12 @@ namespace Raido.Server
 
         internal async Task CleanupAsync()
         {
+            // Let callers release any producer-owned operation that currently holds the reconnect lock before
+            // the terminal transition acquires it.
+            await Task.Yield();
+            Abort();
+            await _abortCompletedTcs.Task.ConfigureAwait(false);
+
             CancellationTokenRegistration? closedRequestedRegistration;
             TaskCompletionSource<bool>? reconnectWaiter;
             ConnectionContext? currentConnection;
