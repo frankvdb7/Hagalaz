@@ -103,7 +103,7 @@ public sealed class RaidoBuilderAndContextExtensionTests
     [TestMethod]
     public void DefaultContexts_ExposeLifetimeAndCallerState()
     {
-        var lifetime = Substitute.For<IRaidoLifetimeManager>();
+        var lifetime = Substitute.For<IRaidoHubLifetimeManager>();
         var context = new DefaultRaidoContext(lifetime);
         Assert.IsNotNull(context.Clients);
         var connection = new RaidoHubConnectionContext(RawConnection(), new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
@@ -115,11 +115,11 @@ public sealed class RaidoBuilderAndContextExtensionTests
         Assert.AreEqual(connection.ConnectionId, caller.ConnectionId);
         Assert.AreSame(connection.Items, caller.Items);
         Assert.AreSame(connection.Features, caller.Features);
-        Assert.AreEqual(connection.ConnectionAbortedToken, caller.ConnectionAbortedToken);
+        Assert.AreEqual(connection.ConnectionAborted, caller.ConnectionAborted);
         Assert.AreSame(connection.Protocol, caller.Protocol);
         caller.Protocol = new SimpleProtocol();
         caller.Abort();
-        Assert.IsTrue(connection.ConnectionAbortedToken.CanBeCanceled);
+        Assert.IsTrue(connection.ConnectionAborted.CanBeCanceled);
     }
 
     [TestMethod]

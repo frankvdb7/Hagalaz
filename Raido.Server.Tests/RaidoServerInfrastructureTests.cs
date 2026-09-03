@@ -194,7 +194,7 @@ public sealed class RaidoServerInfrastructureTests
     {
         var first = CreateConnection("one");
         var second = CreateConnection("two");
-        var store = new RaidoConnectionStore();
+        var store = new RaidoHubConnectionStore();
         store.Add(first);
         store.Add(second);
         store.Add(first);
@@ -203,7 +203,7 @@ public sealed class RaidoServerInfrastructureTests
         Assert.IsNull(store["missing"]);
         Assert.AreEqual(2, store.ToList().Count);
 
-        var manager = new DefaultRaidoLifetimeManager(store);
+        var manager = new DefaultRaidoHubLifetimeManager(store);
         await manager.SendAllAsync(new TestMessage(), CancellationToken.None);
         await manager.SendAllExceptAsync(new TestMessage(), new[] { "one" }, CancellationToken.None);
         await manager.SendConnectionsAsync(new TestMessage(), new[] { "two" }, CancellationToken.None);
@@ -219,7 +219,7 @@ public sealed class RaidoServerInfrastructureTests
     [TestMethod]
     public async Task ClientProxies_DelegateToLifetimeManager()
     {
-        var manager = Substitute.For<IRaidoLifetimeManager>();
+        var manager = Substitute.For<IRaidoHubLifetimeManager>();
         var message = new TestMessage();
         using var cancellation = new CancellationTokenSource();
         var token = cancellation.Token;
@@ -236,7 +236,7 @@ public sealed class RaidoServerInfrastructureTests
     [TestMethod]
     public void DefaultClientsAndCallerClients_CreateExpectedProxies()
     {
-        var manager = Substitute.For<IRaidoLifetimeManager>();
+        var manager = Substitute.For<IRaidoHubLifetimeManager>();
         var clients = new DefaultRaidoClients(manager);
         var caller = new DefaultRaidoCallerClients(clients, "caller");
         Assert.IsNotNull(clients.All);
@@ -272,10 +272,10 @@ public sealed class RaidoServerInfrastructureTests
         var builder = services.AddRaidoServerCore();
         Assert.AreSame(services, builder.Services);
         using var provider = services.BuildServiceProvider();
-        Assert.IsNotNull(provider.GetRequiredService<RaidoConnectionStore>());
+        Assert.IsNotNull(provider.GetRequiredService<RaidoHubConnectionStore>());
         Assert.IsNotNull(provider.GetRequiredService<IRaidoContext>());
         Assert.IsNotNull(provider.GetRequiredService<IRaidoDispatcher>());
-        Assert.IsNotNull(provider.GetRequiredService<IRaidoLifetimeManager>());
+        Assert.IsNotNull(provider.GetRequiredService<IRaidoHubLifetimeManager>());
         Assert.IsNotNull(provider.GetRequiredService<IRaidoHubConnectionContextBuilder>());
         Assert.ThrowsExactly<ArgumentNullException>(() => ServiceCollectionExtensions.AddRaidoServerCore(null!));
     }

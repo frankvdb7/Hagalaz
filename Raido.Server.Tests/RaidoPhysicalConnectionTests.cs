@@ -136,8 +136,8 @@ public sealed class RaidoPhysicalConnectionTests
 
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsTrue(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await context.CleanupAsync();
     }
@@ -156,18 +156,18 @@ public sealed class RaidoPhysicalConnectionTests
 
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsTrue(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
 
         closeRequested.RequestClose();
 
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         Assert.IsTrue(context.TcpConnection.IsTerminal);
 
         await context.AbortAsync();
 
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -185,10 +185,10 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -207,7 +207,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.CleanupAsync();
     }
 
@@ -226,10 +226,10 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -248,10 +248,10 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -267,7 +267,7 @@ public sealed class RaidoPhysicalConnectionTests
             () => context.WriteAsync(new TestMessage(), cancellation.Token).AsTask());
 
         Assert.IsNull(context.TcpConnection.TerminalException);
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
         Assert.AreSame(initial.Connection, current);
         await context.CleanupAsync();
@@ -327,7 +327,7 @@ public sealed class RaidoPhysicalConnectionTests
             // The pre-fix path reports cancellation after leaving the bytes advanced but uncommitted.
         }
 
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         protocol.Payload = [68];
         protocol.AfterWrite = null;
         await context.WriteAsync(new TestMessage());
@@ -357,17 +357,17 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.PhysicalConnection");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
         var run = handler.RunAsync(context);
         initial.Input.Writer.Complete();
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
         await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -407,10 +407,10 @@ public sealed class RaidoPhysicalConnectionTests
         var meterFactory = Substitute.For<IMeterFactory>();
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -422,7 +422,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         initial.Closed.Cancel();
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await replacement.Input.Writer.WriteAsync(new byte[] { 2 });
         await protocol.ReplacementInputObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -448,14 +448,14 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         replacement.Closed.Cancel();
 
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsFalse(context.TcpConnection.IsTerminal);
         Assert.IsTrue(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(later.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(later.Connection));
 
         context.TcpConnection.AcknowledgeInputBoundary();
         await later.Input.Writer.WriteAsync(new byte[] { 3, 4 });
@@ -490,7 +490,7 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         initial.Closed.Cancel();
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
@@ -534,10 +534,10 @@ public sealed class RaidoPhysicalConnectionTests
         var meterFactory = Substitute.For<IMeterFactory>();
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -546,7 +546,7 @@ public sealed class RaidoPhysicalConnectionTests
         await initialReader.ReadReturned.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await replacement.Input.Writer.WriteAsync(new byte[] { 2 });
         await protocol.ReplacementInputObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -595,10 +595,10 @@ public sealed class RaidoPhysicalConnectionTests
         var meterFactory = Substitute.For<IMeterFactory>();
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -611,7 +611,7 @@ public sealed class RaidoPhysicalConnectionTests
             Assert.AreEqual(0, dispatched.Count);
 
             Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-            Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+            Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
             context.TcpConnection.AcknowledgeInputBoundary();
 
             await replacement.Input.Writer.WriteAsync(new byte[] { 2 });
@@ -672,10 +672,10 @@ public sealed class RaidoPhysicalConnectionTests
         var meterFactory = Substitute.For<IMeterFactory>();
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -688,7 +688,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.AreEqual(1, dispatched.Count);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await replacement.Input.Writer.WriteAsync(new byte[] { 10 });
         await protocol.ReplacementInputObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -715,10 +715,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.PhysicalInputCompletion");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -755,10 +755,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.DetachedHandler");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -767,7 +767,7 @@ public sealed class RaidoPhysicalConnectionTests
         var run = handler.DispatchMessagesAsync(context);
 
         Assert.IsFalse(run.IsCompleted);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
         await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
         context.Abort();
@@ -788,7 +788,7 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
-        var activation = Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(candidate.Connection));
+        var activation = Task.Run(() => context.TcpConnection.TryAttachPhysicalConnection(candidate.Connection));
         await heartbeat.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.IsFalse(await context.TcpConnection.WaitForReconnectAsync(TimeSpan.Zero));
@@ -798,10 +798,10 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(candidate.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(candidate.Connection));
 
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -816,8 +816,8 @@ public sealed class RaidoPhysicalConnectionTests
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
         var results = await Task.WhenAll(
-            Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(first.Connection)),
-            Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(second.Connection)));
+            Task.Run(() => context.TcpConnection.TryAttachPhysicalConnection(first.Connection)),
+            Task.Run(() => context.TcpConnection.TryAttachPhysicalConnection(second.Connection)));
 
         Assert.AreEqual(1, results.Count(result => result));
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
@@ -838,15 +838,15 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
-        var lateActivation = Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(lateCandidate.Connection));
+        var lateActivation = Task.Run(() => context.TcpConnection.TryAttachPhysicalConnection(lateCandidate.Connection));
         await blockingHeartbeat.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(winner.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(winner.Connection));
         context.TcpConnection.OnPhysicalConnectionClosed(winner.Connection);
 
         blockingHeartbeat.Release.TrySetResult();
         Assert.IsFalse(await lateActivation.WaitAsync(TimeSpan.FromSeconds(1)));
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(next.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(next.Connection));
         await context.CleanupAsync();
     }
 
@@ -861,14 +861,14 @@ public sealed class RaidoPhysicalConnectionTests
 
         var pendingWrite = context.WriteAsync(new TestMessage());
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        var activation = Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        var activation = Task.Run(() => context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         var exception = new IOException("stale flush");
         pendingWriter.Fail(exception);
         await pendingWrite;
         Assert.IsTrue(await activation.WaitAsync(TimeSpan.FromSeconds(1)));
 
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
         await context.CleanupAsync();
@@ -886,10 +886,10 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -926,10 +926,10 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -945,10 +945,10 @@ public sealed class RaidoPhysicalConnectionTests
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(candidate.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(candidate.Connection));
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsTrue(closeRequested.ConnectionClosedRequested.IsCancellationRequested);
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -961,9 +961,9 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(winner.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(winner.Connection));
 
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(rejected.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(rejected.Connection));
         Assert.IsFalse(rejected.Closed.IsCancellationRequested);
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
         Assert.AreSame(winner.Connection, current);
@@ -987,10 +987,10 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsNull(context.TcpConnection.TerminalException);
 
         var physicalConnectionWindow = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         Assert.IsTrue(await physicalConnectionWindow);
         Assert.IsNull(context.TcpConnection.TerminalException);
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -1003,7 +1003,7 @@ public sealed class RaidoPhysicalConnectionTests
         var failure = new IOException("detached transport failure");
 
         Assert.IsTrue(context.TcpConnection.HandleTransportFailure(initial.Connection, failure));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         context.TcpConnection.OnPhysicalConnectionClosed(replacement.Connection);
         Assert.IsFalse(await context.TcpConnection.WaitForReconnectAsync(TimeSpan.Zero));
@@ -1034,7 +1034,7 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         var exception = new IOException("stale read");
         Assert.IsTrue(context.TcpConnection.HandleTransportFailure(initial.Connection, exception));
@@ -1042,7 +1042,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
         Assert.IsNull(context.TcpConnection.TerminalException);
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -1067,10 +1067,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.ReadFailure");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -1079,7 +1079,7 @@ public sealed class RaidoPhysicalConnectionTests
         await failingReader.ReadInvoked.Task.WaitAsync(TimeSpan.FromSeconds(1));
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
         await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
         replacement.Input.Writer.Complete();
@@ -1104,10 +1104,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.ReadCancellation");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             Substitute.For<IRaidoDispatcher>(),
             metrics);
 
@@ -1115,12 +1115,12 @@ public sealed class RaidoPhysicalConnectionTests
         await failingReader.ReadInvoked.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         context.Abort();
         await context.AbortAsync();
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -1153,15 +1153,15 @@ public sealed class RaidoPhysicalConnectionTests
         });
         var context = CreateContext(physicalConnection, reconnectEnabled: true);
         var terminal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var terminalRegistration = context.ConnectionAbortedToken.Register(() => terminal.TrySetResult());
+        using var terminalRegistration = context.ConnectionAborted.Register(() => terminal.TrySetResult());
         var meterFactory = Substitute.For<IMeterFactory>();
         using var meter = new Meter("Raido.Server.Tests.UnexpectedRelayFault");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             Substitute.For<IRaidoDispatcher>(),
             metrics);
 
@@ -1188,7 +1188,7 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        var candidateActivation = Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(candidate.Connection));
+        var candidateActivation = Task.Run(() => context.TcpConnection.TryAttachPhysicalConnection(candidate.Connection));
         await heartbeat.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         candidate.Closed.Cancel();
@@ -1198,7 +1198,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
 
         var physicalConnectionWindow = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(winner.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(winner.Connection));
         Assert.IsTrue(await physicalConnectionWindow);
         await context.CleanupAsync();
     }
@@ -1219,7 +1219,7 @@ public sealed class RaidoPhysicalConnectionTests
         context.BeginClientTimeout();
         context.StopClientTimeout();
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         Assert.AreEqual(1, initialHeartbeat.Callbacks.Count);
         Assert.AreEqual(1, replacementHeartbeat.Callbacks.Count);
@@ -1229,7 +1229,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -1254,7 +1254,7 @@ public sealed class RaidoPhysicalConnectionTests
         clock.Advance(TimeSpan.FromSeconds(2));
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         replacementHeartbeat.Run();
         Assert.IsFalse(context.TcpConnection.IsTerminal);
@@ -1325,7 +1325,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         context.OnConnectedAsync().GetAwaiter().GetResult();
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         context.TcpConnection.AcknowledgeInputBoundary();
         clock.Advance(TimeSpan.FromMinutes(2));
         replacementHeartbeat.Run();
@@ -1352,7 +1352,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         context.OnConnectedAsync().GetAwaiter().GetResult();
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         context.TcpConnection.AcknowledgeInputBoundary();
         clock.Advance(TimeSpan.FromMinutes(2));
         replacementHeartbeat.Run();
@@ -1400,7 +1400,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         context.OnConnectedAsync().GetAwaiter().GetResult();
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         context.TcpConnection.AcknowledgeInputBoundary();
         clock.Advance(TimeSpan.FromMinutes(2));
 
@@ -1425,14 +1425,14 @@ public sealed class RaidoPhysicalConnectionTests
         try
         {
             context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-            Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+            Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
             var firstBoundary = context.TcpConnection.WaitForInputBoundaryAsync();
 
             context.TcpConnection.OnPhysicalConnectionClosed(replacement.Connection);
             context.TcpConnection.AcknowledgeInputBoundary();
 
             Assert.IsTrue(await firstBoundary.WaitAsync(TimeSpan.FromSeconds(1)));
-            Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(later.Connection));
+            Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(later.Connection));
 
             var message = new TestMessage();
             context.Protocol = new TestProtocol { MessageToReturn = message };
@@ -1447,10 +1447,10 @@ public sealed class RaidoPhysicalConnectionTests
             var meterFactory = Substitute.For<IMeterFactory>();
             meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
             using var metrics = new RaidoMetrics(meterFactory);
-            var handler = new RaidoConnectionHandler(
+            var handler = new RaidoHubConnectionHandler(
                 NullLoggerFactory.Instance,
                 Options.Create(new RaidoOptions()),
-                Substitute.For<IRaidoLifetimeManager>(),
+                Substitute.For<IRaidoHubLifetimeManager>(),
                 dispatcher,
                 metrics);
 
@@ -1489,7 +1489,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.AreEqual(1, ticks);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         initialHeartbeat.Run();
         Assert.AreEqual(1, ticks);
@@ -1517,9 +1517,9 @@ public sealed class RaidoPhysicalConnectionTests
         context.TcpConnection.OnHeartbeat(_ => ticks++, null!);
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
-        var candidateActivation = Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(candidate.Connection));
+        var candidateActivation = Task.Run(() => context.TcpConnection.TryAttachPhysicalConnection(candidate.Connection));
         await candidateHeartbeat.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(winner.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(winner.Connection));
         candidateHeartbeat.Release.TrySetResult();
 
         Assert.IsFalse(await candidateActivation.WaitAsync(TimeSpan.FromSeconds(1)));
@@ -1596,7 +1596,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsNull(context.Features.Get<IConnectionCompleteFeature>());
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         Assert.AreSame(stableItems, context.Features.Get<IConnectionItemsFeature>());
         Assert.AreSame(stableHeartbeat, context.Features.Get<IConnectionHeartbeatFeature>());
         Assert.AreSame(stableLifetime, context.Features.Get<IConnectionLifetimeFeature>());
@@ -1633,7 +1633,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.AreSame(initialMiddlewareState, stableItems["middleware-state"]);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         Assert.AreSame(stableItems, context.Items);
         Assert.AreSame(initialMiddlewareState, stableItems["middleware-state"]);
@@ -1660,18 +1660,18 @@ public sealed class RaidoPhysicalConnectionTests
         using var stableRegistration = stableFeature!.ConnectionClosedRequested.Register(stableRequested.SetResult);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         initialCloseRequested.RequestClose();
 
         Assert.IsFalse(stableRequested.Task.IsCompleted);
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
 
         stableFeature.RequestClose();
         Assert.IsFalse(replacementCloseRequested.ConnectionClosedRequested.IsCancellationRequested);
         await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
 
         await context.CleanupAsync();
     }
@@ -1693,9 +1693,9 @@ public sealed class RaidoPhysicalConnectionTests
 
         await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
 
         await context.CleanupAsync();
     }
@@ -1709,7 +1709,7 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         var stableFeature = context.Features.Get<IConnectionLifetimeNotificationFeature>();
         var connectionClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var connectionClosedRegistration = context.ConnectionAbortedToken.Register(connectionClosed.SetResult);
+        using var connectionClosedRegistration = context.ConnectionAborted.Register(connectionClosed.SetResult);
         using var throwingRegistration = stableFeature!.ConnectionClosedRequested.Register(
             static () => throw new InvalidOperationException("observer failure"));
 
@@ -1727,7 +1727,7 @@ public sealed class RaidoPhysicalConnectionTests
         await connectionClosed.Task.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         initial.Connection.Received().Abort();
 
         await context.CleanupAsync();
@@ -1759,7 +1759,7 @@ public sealed class RaidoPhysicalConnectionTests
             }
         });
         var connectionClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var connectionClosedRegistration = context.ConnectionAbortedToken.Register(connectionClosed.SetResult);
+        using var connectionClosedRegistration = context.ConnectionAborted.Register(connectionClosed.SetResult);
         var physicalCloseTask = Task.Run(closeRequested.RequestClose);
 
         try
@@ -1769,7 +1769,7 @@ public sealed class RaidoPhysicalConnectionTests
             Assert.IsTrue(context.TcpConnection.IsTerminal);
             await connectionClosed.Task.WaitAsync(TimeSpan.FromSeconds(1));
             initial.Connection.Received().Abort();
-            Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+            Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
             await context.AbortAsync().WaitAsync(TimeSpan.FromSeconds(1));
         }
         finally
@@ -1796,9 +1796,9 @@ public sealed class RaidoPhysicalConnectionTests
 
         await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
 
         await context.CleanupAsync();
     }
@@ -1820,7 +1820,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(stableFeature.ConnectionClosedRequested.IsCancellationRequested);
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.AbortAsync().WaitAsync(TimeSpan.FromSeconds(1));
         Assert.AreEqual(0, closeRequested.RequestCloseCount);
         await context.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(1));
@@ -1839,10 +1839,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.ParserFailure");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -1851,8 +1851,8 @@ public sealed class RaidoPhysicalConnectionTests
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
         await dispatcher.Received(1).OnDisconnectedAsync(context, parserFailure);
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.CleanupAsync();
     }
 
@@ -1869,10 +1869,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.ParserIOException");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -1881,8 +1881,8 @@ public sealed class RaidoPhysicalConnectionTests
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
         await dispatcher.Received(1).OnDisconnectedAsync(context, parserFailure);
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.CleanupAsync();
     }
 
@@ -1899,10 +1899,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.ParserCancellation");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -1911,8 +1911,8 @@ public sealed class RaidoPhysicalConnectionTests
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
         await dispatcher.Received(1).OnDisconnectedAsync(context, parserFailure);
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.CleanupAsync();
     }
 
@@ -1928,10 +1928,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.IncompleteProtocolData");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -1941,8 +1941,8 @@ public sealed class RaidoPhysicalConnectionTests
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
         await dispatcher.Received(1).OnDisconnectedAsync(context, Arg.Is<Exception?>(exception => exception is InvalidDataException));
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.CleanupAsync();
     }
 
@@ -1958,10 +1958,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.OversizedProtocolData");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions { MaximumReceiveMessageSize = 0 }),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -1970,8 +1970,8 @@ public sealed class RaidoPhysicalConnectionTests
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
         await dispatcher.Received(1).OnDisconnectedAsync(context, Arg.Is<Exception?>(exception => exception is InvalidDataException));
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.CleanupAsync();
     }
 
@@ -1990,10 +1990,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.ApplicationFailure");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             dispatcher,
             metrics);
 
@@ -2002,8 +2002,8 @@ public sealed class RaidoPhysicalConnectionTests
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
         await dispatcher.Received(1).OnDisconnectedAsync(context, dispatchFailure);
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.CleanupAsync();
     }
 
@@ -2015,7 +2015,7 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
         var message = new TestMessage();
         context.Protocol = new TestProtocol { MessageToReturn = message };
-        var lifetimeManager = Substitute.For<IRaidoLifetimeManager>();
+        var lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
         var dispatcher = Substitute.For<IRaidoDispatcher>();
         var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         dispatcher.DispatchMessageAsync(context, message).Returns(_ =>
@@ -2027,7 +2027,7 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.PhysicalConnectionLifetime");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
             lifetimeManager,
@@ -2037,7 +2037,7 @@ public sealed class RaidoPhysicalConnectionTests
         var run = handler.ConnectAsync(context);
         initial.Input.Writer.Complete();
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
         await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
         replacement.Input.Writer.Complete();
@@ -2063,7 +2063,7 @@ public sealed class RaidoPhysicalConnectionTests
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
         var physicalConnectionWaiter = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
 
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         Assert.AreSame(originalProtocol, context.Protocol);
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
@@ -2358,7 +2358,7 @@ public sealed class RaidoPhysicalConnectionTests
         var result = await pendingRead.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.IsTrue(result.IsCanceled);
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
         context.TcpConnection.Transport.Input.AdvanceTo(result.Buffer.End);
         await context.CleanupAsync();
     }
@@ -2393,7 +2393,7 @@ public sealed class RaidoPhysicalConnectionTests
         await context.WriteAsync(new TestMessage());
         Assert.IsFalse(replacementWriter.FirstFlush.Task.IsCompleted);
 
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         blockedWriter.Release();
         await firstWrite;
 
@@ -2424,7 +2424,7 @@ public sealed class RaidoPhysicalConnectionTests
             await Task.WhenAny(writeTask, protocol.WriteStarted.Task).WaitAsync(TimeSpan.FromSeconds(1));
             var writeStarted = protocol.WriteStarted.Task.IsCompleted;
 
-            Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+            Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
             protocol.Release.TrySetResult();
             await writeTask.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -2510,7 +2510,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         Assert.AreEqual("initial", context.ConnectionId);
         Assert.IsInstanceOfType<ConnectionContext>(context.TcpConnection);
         Assert.AreSame(context.Features, context.TcpConnection.Features);
@@ -2543,7 +2543,7 @@ public sealed class RaidoPhysicalConnectionTests
         stableTransport.Input.AdvanceTo(initialRead.Buffer.End);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         var boundary = await stableTransport.Input.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
         Assert.IsTrue(boundary.IsCanceled);
@@ -2583,14 +2583,14 @@ public sealed class RaidoPhysicalConnectionTests
         using var replacement = CreatePhysicalConnection("replacement");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         var connectionClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var registration = context.ConnectionAbortedToken.Register(() => connectionClosed.TrySetResult());
+        using var registration = context.ConnectionAborted.Register(() => connectionClosed.TrySetResult());
 
         await context.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.IsTrue(connectionClosed.Task.IsCompletedSuccessfully);
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         Assert.IsTrue(context.TcpConnection.IsTerminal);
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.AbortAsync().WaitAsync(TimeSpan.FromSeconds(1));
     }
 
@@ -2606,10 +2606,10 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.StablePipeCleanup");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoLifetimeManager>(),
+            Substitute.For<IRaidoHubLifetimeManager>(),
             Substitute.For<IRaidoDispatcher>(),
             metrics);
 
@@ -2731,8 +2731,8 @@ public sealed class RaidoPhysicalConnectionTests
         var firstPhysicalWindow = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
 
         failedCandidate.Closed.Cancel();
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(failedCandidate.Connection));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(successfulCandidate.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(failedCandidate.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(successfulCandidate.Connection));
         Assert.IsTrue(await firstPhysicalWindow);
         context.TcpConnection.AcknowledgeInputBoundary();
 
@@ -2740,7 +2740,7 @@ public sealed class RaidoPhysicalConnectionTests
         var secondPhysicalWindow = context.TcpConnection.WaitForReconnectAsync(TimeSpan.FromSeconds(5));
 
         Assert.IsFalse(ReferenceEquals(firstPhysicalWindow, secondPhysicalWindow));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(laterCandidate.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(laterCandidate.Connection));
         Assert.IsTrue(await secondPhysicalWindow);
         context.TcpConnection.AcknowledgeInputBoundary();
         await context.CleanupAsync();
@@ -2760,9 +2760,9 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -2785,9 +2785,9 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         Assert.IsFalse(replacement.Closed.IsCancellationRequested);
         await context.CleanupAsync();
     }
@@ -2803,7 +2803,7 @@ public sealed class RaidoPhysicalConnectionTests
             reconnectEnabled: true,
             timeout: TimeSpan.FromSeconds(1),
             timeProvider: timeProvider);
-        var lifetimeManager = Substitute.For<IRaidoLifetimeManager>();
+        var lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
         var dispatcher = Substitute.For<IRaidoDispatcher>();
         var lifetimeConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var dispatcherConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -2821,7 +2821,7 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.HandlerTimeout");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
             lifetimeManager,
@@ -2852,7 +2852,7 @@ public sealed class RaidoPhysicalConnectionTests
     {
         using var initial = CreatePhysicalConnection("initial");
         var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
-        var lifetimeManager = Substitute.For<IRaidoLifetimeManager>();
+        var lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
         var dispatcher = Substitute.For<IRaidoDispatcher>();
         var lifetimeConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var dispatcherConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -2870,7 +2870,7 @@ public sealed class RaidoPhysicalConnectionTests
         using var meter = new Meter("Raido.Server.Tests.HandlerAbort");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
             lifetimeManager,
@@ -2905,13 +2905,13 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         InvokeCloseRequested(context, initial.Connection);
         closeRequested.RequestClose();
 
         Assert.AreEqual(1000, context.LocalEndPoint!.Port);
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -2946,7 +2946,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.CleanupAsync();
     }
 
@@ -2965,7 +2965,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.CleanupAsync();
     }
 
@@ -2982,7 +2982,7 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        var activation = Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(candidate.Connection));
+        var activation = Task.Run(() => context.TcpConnection.TryAttachPhysicalConnection(candidate.Connection));
         await candidateHeartbeat.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         closeRequested.RequestClose();
@@ -3011,7 +3011,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         context.OnConnectedAsync().GetAwaiter().GetResult();
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         Assert.AreEqual(1, initialHeartbeat.Callbacks.Count);
         Assert.AreEqual(1, replacementHeartbeat.Callbacks.Count);
@@ -3023,7 +3023,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         await context.AbortAsync();
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(CreatePhysicalConnection("after-close-request").Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(CreatePhysicalConnection("after-close-request").Connection));
         await context.CleanupAsync();
     }
 
@@ -3043,10 +3043,10 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -3063,9 +3063,9 @@ public sealed class RaidoPhysicalConnectionTests
         await ping;
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
 
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await context.CleanupAsync();
     }
 
@@ -3083,9 +3083,9 @@ public sealed class RaidoPhysicalConnectionTests
 
         failingWriter.Fail(new IOException("stale ping write failure"));
         await ping;
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
-        Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(context.ConnectionAborted.IsCancellationRequested);
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
         await context.CleanupAsync();
@@ -3101,7 +3101,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
         await InvokePingAsync(context);
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
 
@@ -3114,7 +3114,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.AreSame(replacement.Connection, current);
 
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.CleanupAsync();
     }
 
@@ -3136,7 +3136,7 @@ public sealed class RaidoPhysicalConnectionTests
         clock.Advance(TimeSpan.FromMinutes(2));
         await InvokePingAsync(context);
 
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         context.TcpConnection.AcknowledgeInputBoundary();
         replacementHeartbeat.Run();
         var ping = await replacementWriter.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -3151,14 +3151,14 @@ public sealed class RaidoPhysicalConnectionTests
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
         var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
-        var store = new RaidoConnectionStore();
-        var lifetimeManager = new DefaultRaidoLifetimeManager(store);
+        var store = new RaidoHubConnectionStore();
+        var lifetimeManager = new DefaultRaidoHubLifetimeManager(store);
         var dispatcher = Substitute.For<IRaidoDispatcher>();
         var meterFactory = Substitute.For<IMeterFactory>();
         using var meter = new Meter("Raido.Server.Tests.StorePhysicalConnection");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoConnectionHandler(
+        var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
             lifetimeManager,
@@ -3173,7 +3173,7 @@ public sealed class RaidoPhysicalConnectionTests
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.AreSame(context, store[context.ConnectionId]);
 
-        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
         await WaitForConditionAsync(() => context.TcpConnection.TryGetCurrentConnection(out var current) && ReferenceEquals(current, replacement.Connection));
         Assert.AreSame(context, store[context.ConnectionId]);
 
@@ -3204,7 +3204,7 @@ public sealed class RaidoPhysicalConnectionTests
         var tcpConnection = timeProvider is null
             ? new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance)
             : new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance, timeProvider);
-        Assert.IsTrue(tcpConnection.TryActivatePersistentConnection(connection));
+        Assert.IsTrue(tcpConnection.TryAttachPhysicalConnection(connection));
         var context = new RaidoHubConnectionContext(
             tcpConnection,
             options,

@@ -122,12 +122,12 @@ public sealed class RaidoHubConnectionContextAdditionalTests
     {
         var (context, _, _, _) = CreateContext();
         var abortCallbackCount = 0;
-        using var registration = context.ConnectionAbortedToken.Register(() => Interlocked.Increment(ref abortCallbackCount));
+        using var registration = context.ConnectionAborted.Register(() => Interlocked.Increment(ref abortCallbackCount));
 
         context.Abort();
         await context.AbortAsync();
         context.Abort();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         await context.AbortAsync();
         Assert.AreEqual(1, abortCallbackCount);
     }
@@ -159,7 +159,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         var check = typeof(RaidoHubConnectionContext).GetMethod("CheckClientTimeout", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         check.Invoke(context, Array.Empty<object>());
         await context.AbortAsync();
-        Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
         context.StopClientTimeout();
     }
 

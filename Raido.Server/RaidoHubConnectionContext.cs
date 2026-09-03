@@ -45,7 +45,7 @@ namespace Raido.Server
 
         internal RaidoTcpConnectionContext TcpConnection => (RaidoTcpConnectionContext)_connectionContext;
 
-        public virtual CancellationToken ConnectionAbortedToken => _connectionContext.ConnectionClosed;
+        public virtual CancellationToken ConnectionAborted => _connectionContext.ConnectionClosed;
         public virtual string ConnectionId => _connectionContext.ConnectionId;
 
         public virtual ClaimsPrincipal? User
@@ -78,7 +78,7 @@ namespace Raido.Server
             ILoggerFactory loggerFactory)
         {
             var tcpConnection = new RaidoTcpConnectionContext(contextOptions, loggerFactory);
-            if (!tcpConnection.TryActivatePersistentConnection(connection))
+            if (!tcpConnection.TryAttachPhysicalConnection(connection))
             {
                 throw new InvalidOperationException("The initial physical connection could not be activated.");
             }
@@ -124,7 +124,7 @@ namespace Raido.Server
                 return new ValueTask(WriteSlowAsync(message, ignoreAbort, cancellationToken));
             }
 
-            if (ConnectionAbortedToken.IsCancellationRequested && !ignoreAbort)
+            if (ConnectionAborted.IsCancellationRequested && !ignoreAbort)
             {
                 _writeLock.Release();
                 return default;
@@ -273,7 +273,7 @@ namespace Raido.Server
             await _writeLock.WaitAsync(cancellationToken);
             try
             {
-                if (ConnectionAbortedToken.IsCancellationRequested && !ignoreAbort)
+                if (ConnectionAborted.IsCancellationRequested && !ignoreAbort)
                 {
                     return;
                 }

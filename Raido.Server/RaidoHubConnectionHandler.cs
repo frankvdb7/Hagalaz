@@ -10,33 +10,33 @@ using Raido.Server.Internal;
 namespace Raido.Server
 {
     /// <summary>
-    /// Handles incoming Raido connections.
+    /// Handles incoming Raido Hub connections.
     /// </summary>
-    public class RaidoConnectionHandler
+    public class RaidoHubConnectionHandler
     {
-        private readonly IRaidoLifetimeManager _lifetimeManager;
+        private readonly IRaidoHubLifetimeManager _lifetimeManager;
         private readonly IRaidoDispatcher _dispatcher;
         private readonly RaidoMetrics _metrics;
-        private readonly ILogger<RaidoConnectionHandler> _logger;
+        private readonly ILogger<RaidoHubConnectionHandler> _logger;
         private readonly long? _maximumReceiveMessageSize;
         private readonly TimeProvider _timeProvider;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="RaidoConnectionHandler"/> class.
+        /// Initializes a new instance of the <see cref="RaidoHubConnectionHandler"/> class.
         /// </summary>
         /// <param name="loggerFactory">The logger factory.</param>
         /// <param name="raidoOptions">The Raido options.</param>
         /// <param name="lifetimeManager">The lifetime manager.</param>
         /// <param name="dispatcher">The dispatcher.</param>
         /// <param name="metrics">The metrics.</param>
-        public RaidoConnectionHandler(
+        public RaidoHubConnectionHandler(
             ILoggerFactory loggerFactory, IOptions<RaidoOptions> raidoOptions,
-            IRaidoLifetimeManager lifetimeManager, IRaidoDispatcher dispatcher, RaidoMetrics metrics)
+            IRaidoHubLifetimeManager lifetimeManager, IRaidoDispatcher dispatcher, RaidoMetrics metrics)
         {
             _lifetimeManager = lifetimeManager;
             _dispatcher = dispatcher;
             _metrics = metrics;
-            _logger = loggerFactory.CreateLogger<RaidoConnectionHandler>();
+            _logger = loggerFactory.CreateLogger<RaidoHubConnectionHandler>();
             _maximumReceiveMessageSize = raidoOptions.Value.MaximumReceiveMessageSize;
             _timeProvider = TimeProvider.System;
         }
@@ -127,7 +127,7 @@ namespace Raido.Server
                     try
                     {
                         connection.BeginClientTimeout();
-                        result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
+                        result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAborted);
                     }
                     catch (OperationCanceledException) when (tcpConnection.IsTerminal)
                     {

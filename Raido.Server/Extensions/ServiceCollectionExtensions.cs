@@ -26,11 +26,11 @@ namespace Raido.Server.Extensions
 
             services.AddSingleton<IConfigureOptions<RaidoOptions>, RaidoOptionsSetup>();
             
-            services.TryAddTransient<RaidoConnectionHandler>();
+            services.TryAddTransient<RaidoHubConnectionHandler>();
 
-            services.TryAddSingleton<RaidoConnectionStore>();
+            services.TryAddSingleton<RaidoHubConnectionStore>();
             services.TryAddSingleton<IRaidoProtocolResolver, DefaultRaidoProtocolResolver>();
-            services.TryAddSingleton<IRaidoLifetimeManager, DefaultRaidoLifetimeManager>();
+            services.TryAddSingleton<IRaidoHubLifetimeManager, DefaultRaidoHubLifetimeManager>();
             services.TryAddSingleton<IRaidoContext, DefaultRaidoContext>();
             services.TryAddSingleton<IRaidoDispatcher, DefaultRaidoDispatcher>();
             services.TryAddTransient<IRaidoHubConnectionContextBuilder, DefaultRaidoHubConnectionContextBuilder>();

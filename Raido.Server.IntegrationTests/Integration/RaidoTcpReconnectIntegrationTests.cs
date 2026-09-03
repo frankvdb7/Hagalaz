@@ -88,7 +88,7 @@ public sealed class RaidoTcpReconnectIntegrationTests
         await server.Application.DispatcherConnected.Task.WaitAsync(ObservationTimeout);
 
         var stableClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var stableClosedRegistration = logical.ConnectionAbortedToken.Register(
+        using var stableClosedRegistration = logical.ConnectionAborted.Register(
             static state => ((TaskCompletionSource)state!).TrySetResult(),
             stableClosed);
         await client.DisposeAsync();
@@ -121,7 +121,7 @@ public sealed class RaidoTcpReconnectIntegrationTests
         await server.Application.WaitForMessageAsync(0x31).WaitAsync(ObservationTimeout);
 
         Assert.AreEqual(0, server.Application.DispatcherDisconnectedCount);
-        Assert.IsFalse(logical.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsFalse(logical.ConnectionAborted.IsCancellationRequested);
 
         logical.Abort();
         await server.Application.DispatcherDisconnected.Task.WaitAsync(ObservationTimeout);

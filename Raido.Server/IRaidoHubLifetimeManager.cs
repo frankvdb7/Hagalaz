@@ -6,9 +6,9 @@ using Raido.Common.Protocol;
 namespace Raido.Server
 {
     /// <summary>
-    /// Manages the lifetime of Raido connections.
+    /// Manages the lifetime of Raido Hub connections.
     /// </summary>
-    public interface IRaidoLifetimeManager
+    public interface IRaidoHubLifetimeManager
     {
         /// <summary>
         /// Called when a new connection is established.

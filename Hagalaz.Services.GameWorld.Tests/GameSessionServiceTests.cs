@@ -20,7 +20,7 @@ public sealed class GameSessionServiceTests
     [TestMethod]
     public void GameSessionFactory_CreateLobbySession_IsNotWorldSession()
     {
-        var factory = new GameSessionFactory(Substitute.For<Raido.Server.IRaidoLifetimeManager>());
+        var factory = new GameSessionFactory(Substitute.For<Raido.Server.IRaidoHubLifetimeManager>());
 
         var lobbySession = factory.Create(42, "lobby-connection");
         var worldSession = factory.CreateWorld(42, "world-connection");

@@ -17,9 +17,9 @@ public interface IGameSessionConnectionTerminator
 
 public sealed class GameSessionConnectionTerminator : IGameSessionConnectionTerminator
 {
-    private readonly Raido.Server.RaidoConnectionStore _connections;
+    private readonly Raido.Server.RaidoHubConnectionStore _connections;
 
-    public GameSessionConnectionTerminator(Raido.Server.RaidoConnectionStore connections) => _connections = connections;
+    public GameSessionConnectionTerminator(Raido.Server.RaidoHubConnectionStore connections) => _connections = connections;
 
     public void Abort(IGameSession session) => _connections[session.ConnectionId]?.Abort();
 }

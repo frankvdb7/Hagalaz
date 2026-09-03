@@ -9,12 +9,12 @@ namespace Hagalaz.Services.GameWorld.Network;
 
 public class ClientConnectionHandler : ConnectionHandler
 {
-    private readonly RaidoConnectionHandler _connectionHandler;
+    private readonly RaidoHubConnectionHandler _connectionHandler;
     private readonly IRaidoHubConnectionContextBuilder _contextBuilder;
     private readonly ILogger<ClientConnectionHandler> _logger;
 
     public ClientConnectionHandler(
-        RaidoConnectionHandler connectionHandler,
+        RaidoHubConnectionHandler connectionHandler,
         IRaidoHubConnectionContextBuilder contextBuilder,
         ILogger<ClientConnectionHandler> logger)
     {

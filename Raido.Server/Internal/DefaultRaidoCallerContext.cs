@@ -17,7 +17,7 @@ namespace Raido.Server.Internal
         public override ClaimsPrincipal? User => _connection.User;
         public override IDictionary<object, object?> Items => _connection.Items;
         public override IFeatureCollection Features => _connection.Features;
-        public override CancellationToken ConnectionAbortedToken => _connection.ConnectionAbortedToken;
+        public override CancellationToken ConnectionAborted => _connection.ConnectionAborted;
         public override IPEndPoint? LocalIPEndPoint => _connection.LocalEndPoint;
         public override IPEndPoint? RemoteIPEndPoint => _connection.RemoteEndPoint;
 

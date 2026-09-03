@@ -187,7 +187,7 @@ namespace Raido.Server.Internal
                 }
                 else if (descriptor.ParameterTypes[parameterPointer] == ctType)
                 {
-                    var cts = CancellationTokenSource.CreateLinkedTokenSource(connection.ConnectionAbortedToken);
+                    var cts = CancellationTokenSource.CreateLinkedTokenSource(connection.ConnectionAborted);
                     arguments[parameterPointer] = cts;
                 }
                 else if (descriptor.IsServiceArgument(parameterPointer))

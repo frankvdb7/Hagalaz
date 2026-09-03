@@ -284,7 +284,7 @@ public sealed class RaidoServerBehaviorTests
     {
         var first = CreateConnection("first");
         var second = CreateConnection("second");
-        var store = new RaidoConnectionStore();
+        var store = new RaidoHubConnectionStore();
         store.Add(first);
         store.Add(second);
 
@@ -349,7 +349,7 @@ public sealed class RaidoServerBehaviorTests
         connection.Abort();
         await (ValueTask)ping.Invoke(connection, Array.Empty<object>())!;
         await connection.AbortAsync();
-        Assert.IsTrue(connection.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(connection.ConnectionAborted.IsCancellationRequested);
     }
 
     [TestMethod]

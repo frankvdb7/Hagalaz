@@ -6,6 +6,8 @@ Raido currently combines stable reconnect state, physical transport state, and l
 
 - **BREAKING** Rename the public logical context to `RaidoHubConnectionContext`.
 - **BREAKING** Replace `IRaidoConnectionContextBuilder` with `IRaidoHubConnectionContextBuilder`.
+- **BREAKING** Rename the Hub-facing `ConnectionAbortedToken` property to `ConnectionAborted`.
+- Rename the logical Hub handler, store, and lifetime-manager vocabulary to `RaidoHubConnectionHandler`, `RaidoHubConnectionStore`, and `IRaidoHubLifetimeManager`.
 - Add an internal `RaidoTcpConnectionContext : ConnectionContext` for stable TCP and physical transport state.
 - Give the TCP context stable `Transport` and internal `Application` pipes that survive physical replacement, with a minimal lower-level physical transport relay.
 - Move existing reconnect, transport, heartbeat-registration, and terminal-lifecycle behavior to the TCP context without redesigning it.
@@ -30,4 +32,4 @@ This is a source-level Raido refactor affecting the server context, handler, bui
 
 ## Migration
 
-This is a breaking Raido API refactor. Replace `RaidoConnectionContext` with `RaidoHubConnectionContext` and `IRaidoConnectionContextBuilder` with `IRaidoHubConnectionContextBuilder`. The raw connection `CreateReader`/`CreateWriter` extension APIs and public signatures using the old context type are removed; raw physical reader and writer access is intentionally no longer exposed through the public Hub context.
+This is a breaking Raido API refactor. Replace `RaidoConnectionContext` with `RaidoHubConnectionContext`, `IRaidoConnectionContextBuilder` with `IRaidoHubConnectionContextBuilder`, and `ConnectionAbortedToken` with `ConnectionAborted`. The logical Hub handler, store, and lifetime manager are now named `RaidoHubConnectionHandler`, `RaidoHubConnectionStore`, and `IRaidoHubLifetimeManager`. The raw connection `CreateReader`/`CreateWriter` extension APIs and public signatures using the old context type are removed; raw physical reader and writer access is intentionally no longer exposed through the public Hub context.

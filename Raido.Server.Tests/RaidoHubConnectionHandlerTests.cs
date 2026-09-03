@@ -59,16 +59,16 @@ namespace Raido.Server.Tests
     }
 
     [TestClass]
-    public class RaidoConnectionHandlerTests
+    public class RaidoHubConnectionHandlerTests
     {
         private ILoggerFactory _loggerFactory = null!;
         private IOptions<RaidoOptions> _raidoOptions = null!;
-        private IRaidoLifetimeManager _lifetimeManager = null!;
+        private IRaidoHubLifetimeManager _lifetimeManager = null!;
         private IRaidoDispatcher _dispatcher = null!;
         private RaidoMetrics _metrics = null!;
         private IMeterFactory _meterFactory = null!;
         private Meter _meter = null!;
-        private RaidoConnectionHandler _connectionHandler = null!;
+        private RaidoHubConnectionHandler _connectionHandler = null!;
         private RaidoHubConnectionContext _connection = null!;
         private DefaultConnectionContext _connectionContext = null!;
         private Pipe _input = null!;
@@ -79,14 +79,14 @@ namespace Raido.Server.Tests
         {
             _loggerFactory = Substitute.For<ILoggerFactory>();
             _raidoOptions = Options.Create(new RaidoOptions());
-            _lifetimeManager = Substitute.For<IRaidoLifetimeManager>();
+            _lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
             _dispatcher = Substitute.For<IRaidoDispatcher>();
             _meterFactory = Substitute.For<IMeterFactory>();
             _meter = new Meter("Raido.Server.Tests");
             _meterFactory.Create(Arg.Any<MeterOptions>()).Returns(_meter);
             _metrics = new RaidoMetrics(_meterFactory);
 
-            _connectionHandler = new RaidoConnectionHandler(
+            _connectionHandler = new RaidoHubConnectionHandler(
                 _loggerFactory,
                 _raidoOptions,
                 _lifetimeManager,
@@ -149,7 +149,7 @@ namespace Raido.Server.Tests
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => _connectionHandler.ConnectAsync(_connection));
             await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
             await _dispatcher.DidNotReceive().OnConnectedAsync(_connection);
-            Assert.IsTrue(_connection.ConnectionAbortedToken.IsCancellationRequested);
+            Assert.IsTrue(_connection.ConnectionAborted.IsCancellationRequested);
             await AssertPipeReaderCompletedAsync(_connection.TcpConnection.Transport.Input);
         }
 
@@ -168,7 +168,7 @@ namespace Raido.Server.Tests
             await _lifetimeManager.Received(1).OnConnectedAsync(_connection);
             await _dispatcher.Received(1).OnDisconnectedAsync(_connection, ex);
             await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
-            Assert.IsTrue(_connection.ConnectionAbortedToken.IsCancellationRequested);
+            Assert.IsTrue(_connection.ConnectionAborted.IsCancellationRequested);
             await AssertPipeReaderCompletedAsync(_connection.TcpConnection.Transport.Input);
         }
 

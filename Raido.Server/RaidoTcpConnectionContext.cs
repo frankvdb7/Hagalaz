@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging;
 namespace Raido.Server
 {
     /// <summary>
-    /// Represents the stable lower Raido connection and its physical transport.
+    /// Represents one stable Raido TCP connection across physical transport attachments.
     /// </summary>
     internal sealed class RaidoTcpConnectionContext : ConnectionContext,
         IConnectionHeartbeatFeature,
@@ -148,7 +148,7 @@ namespace Raido.Server
             }
         }
 
-        internal bool TryActivatePersistentConnection(ConnectionContext replacement)
+        internal bool TryAttachPhysicalConnection(ConnectionContext replacement)
         {
             ArgumentNullException.ThrowIfNull(replacement);
 

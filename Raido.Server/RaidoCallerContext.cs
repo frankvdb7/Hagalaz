@@ -35,7 +35,7 @@ namespace Raido.Server
         /// <summary>
         /// Gets a <see cref="CancellationToken"/> that is triggered when the connection is aborted.
         /// </summary>
-        public abstract CancellationToken ConnectionAbortedToken { get; }
+        public abstract CancellationToken ConnectionAborted { get; }
         
         /// <summary>
         /// Gets the local IP endpoint of the connection.

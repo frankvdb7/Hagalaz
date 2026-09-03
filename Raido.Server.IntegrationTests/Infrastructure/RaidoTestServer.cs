@@ -57,7 +57,7 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
             options.StatefulReconnectTimeout = _reconnectTimeout;
         });
         builder.Services.AddSingleton<IRaidoDispatcher>(_application);
-        builder.Services.AddSingleton<IRaidoLifetimeManager>(_application);
+        builder.Services.AddSingleton<IRaidoHubLifetimeManager>(_application);
         builder.Services.AddSingleton(new RaidoTestConnectionHandler(this));
         builder.WebHost.ConfigureKestrel(options => options.Listen(
             IPAddress.Loopback,
@@ -94,7 +94,7 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
     public Task WaitForPartialFrameAsync() => _protocol.PartialFrameObserved.Task;
 
     public bool ActivateReplacement(AcceptedPhysicalConnection replacement)
-        => LogicalConnection.TcpConnection.TryActivatePersistentConnection(replacement.Context);
+        => LogicalConnection.TcpConnection.TryAttachPhysicalConnection(replacement.Context);
 
     public Task WaitForLogicalConnectionAsync() => _logicalConnection.Task;
 
@@ -157,7 +157,7 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
 
         if (logicalToStart is not null)
         {
-            _logicalTask = _app!.Services.GetRequiredService<RaidoConnectionHandler>().ConnectAsync(logicalToStart);
+            _logicalTask = _app!.Services.GetRequiredService<RaidoHubConnectionHandler>().ConnectAsync(logicalToStart);
         }
 
         await accepted.Closed.Task.ConfigureAwait(false);
@@ -227,7 +227,7 @@ internal sealed class RaidoTestClient(TcpClient client) : IAsyncDisposable
     }
 }
 
-internal sealed class RaidoTestApplication : IRaidoDispatcher, IRaidoLifetimeManager
+internal sealed class RaidoTestApplication : IRaidoDispatcher, IRaidoHubLifetimeManager
 {
     private readonly ConcurrentDictionary<int, TaskCompletionSource> _messageSignals = new();
     private readonly ConcurrentQueue<int> _receivedMessageIds = new();
@@ -277,32 +277,32 @@ internal sealed class RaidoTestApplication : IRaidoDispatcher, IRaidoLifetimeMan
         return Task.CompletedTask;
     }
 
-    Task IRaidoLifetimeManager.OnConnectedAsync(RaidoHubConnectionContext connection)
+    Task IRaidoHubLifetimeManager.OnConnectedAsync(RaidoHubConnectionContext connection)
     {
         Interlocked.Increment(ref _lifetimeConnectedCount);
         return Task.CompletedTask;
     }
 
-    Task IRaidoLifetimeManager.OnDisconnectedAsync(RaidoHubConnectionContext connection)
+    Task IRaidoHubLifetimeManager.OnDisconnectedAsync(RaidoHubConnectionContext connection)
     {
         Interlocked.Increment(ref _lifetimeDisconnectedCount);
         LifetimeDisconnected.TrySetResult();
         return Task.CompletedTask;
     }
 
-    Task IRaidoLifetimeManager.SendAllAsync(RaidoMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+    Task IRaidoHubLifetimeManager.SendAllAsync(RaidoMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
 
-    Task IRaidoLifetimeManager.SendAllExceptAsync(
+    Task IRaidoHubLifetimeManager.SendAllExceptAsync(
         RaidoMessage message,
         IReadOnlyList<string> excludedConnectionIds,
         CancellationToken cancellationToken) => Task.CompletedTask;
 
-    Task IRaidoLifetimeManager.SendConnectionAsync(
+    Task IRaidoHubLifetimeManager.SendConnectionAsync(
         RaidoMessage message,
         string connectionId,
         CancellationToken cancellationToken) => Task.CompletedTask;
 
-    Task IRaidoLifetimeManager.SendConnectionsAsync(
+    Task IRaidoHubLifetimeManager.SendConnectionsAsync(
         RaidoMessage message,
         IReadOnlyList<string> connectionIds,
         CancellationToken cancellationToken) => Task.CompletedTask;

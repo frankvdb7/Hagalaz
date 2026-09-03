@@ -7,10 +7,10 @@ namespace Raido.Server.Internal.Proxies
 {
     internal class MultipleClientsProxy : IRaidoClientProxy
     {
-        private readonly IRaidoLifetimeManager _lifetimeManager;
+        private readonly IRaidoHubLifetimeManager _lifetimeManager;
         private readonly IReadOnlyList<string> _connectionIds;
 
-        public MultipleClientsProxy(IRaidoLifetimeManager lifetimeManager, IReadOnlyList<string> connectionIds)
+        public MultipleClientsProxy(IRaidoHubLifetimeManager lifetimeManager, IReadOnlyList<string> connectionIds)
         {
             _lifetimeManager = lifetimeManager;
             _connectionIds = connectionIds;

@@ -5,7 +5,10 @@ using System.Collections.Generic;
 
 namespace Raido.Server
 {
-    public class RaidoConnectionStore : IEnumerable<RaidoHubConnectionContext>
+    /// <summary>
+    /// Stores Raido Hub connections by connection ID.
+    /// </summary>
+    public class RaidoHubConnectionStore : IEnumerable<RaidoHubConnectionContext>
     {
         private readonly ConcurrentDictionary<string, RaidoHubConnectionContext> _connections = new(StringComparer.Ordinal);
         
@@ -32,7 +35,7 @@ namespace Raido.Server
         {
             private readonly IEnumerator<KeyValuePair<string, RaidoHubConnectionContext>> _enumerator;
 
-            public Enumerator(RaidoConnectionStore hubConnectionList) => _enumerator = hubConnectionList._connections.GetEnumerator();
+            public Enumerator(RaidoHubConnectionStore hubConnectionList) => _enumerator = hubConnectionList._connections.GetEnumerator();
 
             public RaidoHubConnectionContext Current => _enumerator.Current.Value;
 

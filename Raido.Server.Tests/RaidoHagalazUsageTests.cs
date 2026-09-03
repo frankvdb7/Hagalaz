@@ -234,7 +234,7 @@ public sealed class RaidoHagalazUsageTests
         var protocol = provider.GetRequiredService<UsageProtocol>();
         var (first, firstOutput) = CreateConnection("first", protocol);
         var (second, secondOutput) = CreateConnection("second", protocol);
-        var manager = new DefaultRaidoLifetimeManager(new RaidoConnectionStore());
+        var manager = new DefaultRaidoHubLifetimeManager(new RaidoHubConnectionStore());
 
         await manager.OnConnectedAsync(first);
         await manager.OnConnectedAsync(second);

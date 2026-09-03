@@ -7,10 +7,10 @@ namespace Raido.Server.Internal.Proxies
 {
     internal class AllClientsExceptProxy : IRaidoClientProxy
     {
-        private readonly IRaidoLifetimeManager _lifetimeManager;
+        private readonly IRaidoHubLifetimeManager _lifetimeManager;
         private readonly IReadOnlyList<string> _excludedConnectionIds;
 
-        public AllClientsExceptProxy(IRaidoLifetimeManager lifetimeManager, IReadOnlyList<string> excludedConnectionIds)
+        public AllClientsExceptProxy(IRaidoHubLifetimeManager lifetimeManager, IReadOnlyList<string> excludedConnectionIds)
         {
             _lifetimeManager = lifetimeManager;
             _excludedConnectionIds = excludedConnectionIds;

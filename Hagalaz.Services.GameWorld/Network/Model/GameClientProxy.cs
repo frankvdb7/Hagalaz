@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using Raido.Common.Protocol;
 using Raido.Server;
@@ -7,10 +7,10 @@ namespace Hagalaz.Services.GameWorld.Network.Model
 {
     public class GameClientProxy : IRaidoClientProxy
     {
-        private readonly IRaidoLifetimeManager _lifetimeManager;
+        private readonly IRaidoHubLifetimeManager _lifetimeManager;
         private readonly string _connectionId;
 
-        public GameClientProxy(IRaidoLifetimeManager lifetimeManager, string connectionId)
+        public GameClientProxy(IRaidoHubLifetimeManager lifetimeManager, string connectionId)
         {
             _lifetimeManager = lifetimeManager;
             _connectionId = connectionId;
