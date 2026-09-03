@@ -95,6 +95,22 @@ The system SHALL expose one stable `Transport` pipe pair from the TCP context fo
 - **THEN** the stable input commit is completed without the physical close token canceling it
 - **AND** the bytes cannot remain unflushed until replacement input is copied
 
+#### Scenario: Physical input admission is linearized with physical detach
+
+- **WHEN** a physical input read returns bytes for the current physical transport
+- **AND** that transport detaches before the relay commits the read result
+- **THEN** the relay admits the bytes to stable input only if that physical transport is still current
+- **AND** the stable input flush invocation occurs before a detach can publish that transport's logical input boundary
+- **AND** a stale read result is consumed without becoming visible after the boundary
+
+#### Scenario: A rapid replacement does not replace an outstanding input boundary
+
+- **WHEN** a physical transport detaches and its logical input boundary is awaiting acknowledgement
+- **AND** a replacement is published and detaches before that acknowledgement
+- **THEN** the existing unacknowledged input boundary remains authoritative
+- **AND** acknowledging it releases the stable input relay without orphaning its awaited operation
+- **AND** a later accepted replacement can provide input through the same stable reader
+
 #### Scenario: Input and output relay faults are observed during cleanup
 
 - **WHEN** terminal cleanup cancels the stable transport relays
@@ -166,6 +182,12 @@ The system SHALL register and remove the logical Hub context once for its entire
 - **WHEN** a logical connection loses and regains its physical transport
 - **THEN** the lifetime manager and Hub dispatcher observe one connected lifecycle and one eventual disconnected lifecycle
 - **AND** the connection store does not remove and re-add the logical context during replacement
+
+#### Scenario: Startup failure completes stable transport input
+
+- **WHEN** logical startup exits before message dispatch creates its protocol reader
+- **THEN** the outer connection-handler lifecycle completes the handler-owned stable `Transport.Input` end
+- **AND** normal dispatch cleanup remains safe when it has already completed that end
 
 ### Requirement: Stable keepalive follows connection activity
 

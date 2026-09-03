@@ -154,7 +154,7 @@ namespace Raido.Server
         private ValueTask<FlushResult> WriteCore<TMessage>(ConnectionContext connection, TMessage message, CancellationToken cancellationToken)
             where TMessage : RaidoMessage
         {
-            PipeWriter output;
+            bool hasWrittenBytes;
             ValueTask<FlushResult> flushTask;
             try
             {
@@ -163,7 +163,7 @@ namespace Raido.Server
                 if (!TcpConnection.TryWriteStableTransport(
                         target => Protocol.WriteMessage(message, target),
                         cancellationToken,
-                        out output,
+                        out hasWrittenBytes,
                         out flushTask))
                 {
                     return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: false));
@@ -178,8 +178,7 @@ namespace Raido.Server
 
             try
             {
-                // check if there is actually a message encoded
-                if (!output.CanGetUnflushedBytes || output.UnflushedBytes > 0)
+                if (hasWrittenBytes)
                 {
                     Log.SentMessage(_logger, message);
                 }
@@ -435,7 +434,7 @@ namespace Raido.Server
                                 output.Advance(pingMessage.Length);
                             },
                             CancellationToken.None,
-                            out var output,
+                            out _,
                             out var flushTask))
                     {
                         return;

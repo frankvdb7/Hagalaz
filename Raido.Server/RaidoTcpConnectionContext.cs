@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -48,6 +49,7 @@ namespace Raido.Server
         private Task? _applicationOutputTask;
         private bool _stablePipesSignaled;
         private bool _applicationOutputCompleted;
+        private bool _transportInputCompleted;
         private bool _transportOutputCompleted;
         private TaskCompletionSource<bool>? _inputBoundaryWaiter;
         private TaskCompletionSource<bool>? _outputBoundaryWaiter;
@@ -378,16 +380,19 @@ namespace Raido.Server
                             {
                                 if (!result.Buffer.IsEmpty)
                                 {
-                                    foreach (var segment in result.Buffer)
+                                    // Copy the read result before taking the reconnect lock. This keeps a
+                                    // physical read from holding lifecycle synchronization while a source
+                                    // segment is being inspected, while stable-pipe admission below remains
+                                    // atomic with the current-physical check.
+                                    var bytes = result.Buffer.ToArray();
+                                    if (!TryCommitPhysicalInput(physicalConnection, bytes, out var flushTask))
                                     {
-                                        var destination = _application.Output.GetSpan(segment.Length);
-                                        segment.Span.CopyTo(destination);
-                                        _application.Output.Advance(segment.Length);
+                                        break;
                                     }
 
                                     // Physical cancellation stops subsequent reads, but cannot cancel the
                                     // commit of bytes already copied into the stable input pipe.
-                                    var flushResult = await _application.Output.FlushAsync().ConfigureAwait(false);
+                                    var flushResult = await flushTask.ConfigureAwait(false);
                                     if (flushResult.IsCanceled || flushResult.IsCompleted)
                                     {
                                         break;
@@ -431,6 +436,27 @@ namespace Raido.Server
             finally
             {
                 CompleteApplicationOutput();
+            }
+        }
+
+        private bool TryCommitPhysicalInput(
+            ConnectionContext physicalConnection,
+            byte[] bytes,
+            out ValueTask<FlushResult> flushTask)
+        {
+            lock (_reconnectLock)
+            {
+                if (_disposed || !ReferenceEquals(physicalConnection, _currentPhysicalConnection))
+                {
+                    flushTask = default;
+                    return false;
+                }
+
+                var destination = _application.Output.GetSpan(bytes.Length);
+                bytes.AsSpan().CopyTo(destination);
+                _application.Output.Advance(bytes.Length);
+                flushTask = _application.Output.FlushAsync(CancellationToken.None);
+                return true;
             }
         }
 
@@ -566,7 +592,20 @@ namespace Raido.Server
             inputBoundaryWaiter?.TrySetResult(true);
         }
 
-        internal void CompleteTransportInput() => _transport.Input.Complete();
+        internal void CompleteTransportInput()
+        {
+            lock (_reconnectLock)
+            {
+                if (_transportInputCompleted)
+                {
+                    return;
+                }
+
+                _transportInputCompleted = true;
+            }
+
+            _transport.Input.Complete();
+        }
 
         internal void CompleteTransportOutput()
         {
@@ -634,7 +673,7 @@ namespace Raido.Server
 
         internal Task<bool> WaitForReconnectAsync() => WaitForReconnectAsync(_statefulReconnectTimeout);
 
-        private async Task<bool> WaitForInputBoundaryAsync()
+        internal async Task<bool> WaitForInputBoundaryAsync()
         {
             Task<bool>? inputBoundaryWaiter;
             lock (_reconnectLock)
@@ -749,7 +788,7 @@ namespace Raido.Server
                     _currentPhysicalConnection = null;
                     _detachedPhysicalConnection = connection;
                     _detachedTransportException = exception;
-                    _inputBoundaryWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    _inputBoundaryWaiter ??= new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     _outputBoundaryWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     _reconnectWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     _reconnectWindowStartTimestamp = _timeProvider.GetTimestamp();
@@ -1144,21 +1183,21 @@ namespace Raido.Server
         internal bool TryWriteStableTransport(
             Action<PipeWriter> write,
             CancellationToken cancellationToken,
-            out PipeWriter output,
+            out bool hasWrittenBytes,
             out ValueTask<FlushResult> flushTask)
         {
             lock (_reconnectLock)
             {
                 if (_disposed || _currentPhysicalConnection is null)
                 {
-                    output = null!;
+                    hasWrittenBytes = false;
                     flushTask = default;
                     return false;
                 }
 
-                output = _transport.Output;
                 if (cancellationToken.IsCancellationRequested)
                 {
+                    hasWrittenBytes = false;
                     flushTask = ValueTask.FromCanceled<FlushResult>(cancellationToken);
                     return true;
                 }
@@ -1166,8 +1205,9 @@ namespace Raido.Server
                 // Serialization is synchronous. Keeping it under the lifecycle lock preserves the
                 // no-replay linearization. The stable flush is invoked before releasing the lock so
                 // an admitted message is committed before a physical detach can publish a boundary.
-                write(output);
-                flushTask = output.FlushAsync(CancellationToken.None);
+                write(_transport.Output);
+                hasWrittenBytes = !_transport.Output.CanGetUnflushedBytes || _transport.Output.UnflushedBytes > 0;
+                flushTask = _transport.Output.FlushAsync(CancellationToken.None);
                 return true;
             }
         }

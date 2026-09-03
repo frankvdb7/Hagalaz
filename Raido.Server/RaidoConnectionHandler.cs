@@ -61,6 +61,7 @@ namespace Raido.Server
             }
             finally
             {
+                connection.TcpConnection.CompleteTransportInput();
                 await connection.CleanupAsync();
 
                 var currentTimestamp = (connection.StartTimestamp > 0) ? _timeProvider.GetTimestamp() : default;

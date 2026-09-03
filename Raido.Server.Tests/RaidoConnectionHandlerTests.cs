@@ -149,6 +149,7 @@ namespace Raido.Server.Tests
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => _connectionHandler.ConnectAsync(_connection));
             await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
             await _dispatcher.DidNotReceive().OnConnectedAsync(_connection);
+            await AssertPipeReaderCompletedAsync(_connection.TcpConnection.Transport.Input);
         }
 
         [TestMethod]
@@ -166,6 +167,7 @@ namespace Raido.Server.Tests
             await _lifetimeManager.Received(1).OnConnectedAsync(_connection);
             await _dispatcher.Received(1).OnDisconnectedAsync(_connection, ex);
             await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
+            await AssertPipeReaderCompletedAsync(_connection.TcpConnection.Transport.Input);
         }
 
         [TestMethod]
@@ -259,6 +261,22 @@ namespace Raido.Server.Tests
 
             // Assert
             await _dispatcher.DidNotReceiveWithAnyArgs().DispatchMessageAsync(Arg.Any<RaidoHubConnectionContext>(), Arg.Any<RaidoMessage>());
+        }
+
+        private static async Task AssertPipeReaderCompletedAsync(PipeReader reader)
+        {
+            ReadResult result;
+            try
+            {
+                result = await reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+
+            Assert.IsTrue(result.IsCompleted);
+            reader.AdvanceTo(result.Buffer.End);
         }
 
         private sealed class TestDuplexPipe(PipeReader input, PipeWriter output) : IDuplexPipe

@@ -499,6 +499,85 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
+    public async Task PhysicalReadReturnedBeforeDetachIsNotCommittedAfterInputBoundary()
+    {
+        using var blockingMemory = new BlockingMemoryManager(new byte[] { 1 });
+        var inputReader = new SingleReadPipeReader(new ReadResult(
+            new ReadOnlySequence<byte>(blockingMemory.Memory),
+            isCanceled: false,
+            isCompleted: false));
+        blockingMemory.Block = true;
+        using var initial = CreatePhysicalConnection("initial", inputReader: inputReader);
+        using var replacement = CreatePhysicalConnection("replacement");
+        var initialMessage = new TestMessage();
+        var replacementMessage = new TestMessage();
+        var protocol = new StreamBoundaryProtocol(initialMessage, replacementMessage);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
+        context.Protocol = protocol;
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var dispatched = new List<RaidoMessage>();
+        var replacementDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dispatcher.DispatchMessageAsync(context, Arg.Any<RaidoMessage>()).Returns(callInfo =>
+        {
+            var message = callInfo.Arg<RaidoMessage>()!;
+            dispatched.Add(message);
+            if (ReferenceEquals(message, replacementMessage))
+            {
+                replacementDispatched.TrySetResult();
+            }
+
+            return Task.CompletedTask;
+        });
+        using var meter = new Meter("Raido.Server.Tests.InputAdmissionBoundary");
+        var meterFactory = Substitute.For<IMeterFactory>();
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        using var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoLifetimeManager>(),
+            dispatcher,
+            metrics);
+
+        Task? run = null;
+        try
+        {
+            run = handler.DispatchMessagesAsync(context);
+            await blockingMemory.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.AreEqual(0, dispatched.Count);
+
+            initial.Closed.Cancel();
+            context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+            Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+            context.TcpConnection.AcknowledgeInputBoundary();
+
+            blockingMemory.Release.TrySetResult();
+            await replacement.Input.Writer.WriteAsync(new byte[] { 2 });
+            await protocol.ReplacementInputObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.AreEqual(0, dispatched.Count);
+
+            await replacement.Input.Writer.WriteAsync(new byte[] { 3, 4 });
+            await replacementDispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.AreEqual(1, dispatched.Count);
+            Assert.AreSame(replacementMessage, dispatched[0]);
+            Assert.IsFalse(dispatched.Contains(initialMessage));
+        }
+        finally
+        {
+            blockingMemory.Release.TrySetResult();
+            context.Abort();
+            if (run is not null)
+            {
+                await run.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+
+            await context.CleanupAsync();
+        }
+    }
+
+    [TestMethod]
     public async Task CompleteMessageAndIncompleteTailAreSeparatedAtPhysicalReplacement()
     {
         using var initial = CreatePhysicalConnection("initial");
@@ -1127,6 +1206,65 @@ public sealed class RaidoPhysicalConnectionTests
         replacementHeartbeat.Run();
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task RapidPhysicalReplacementDoesNotOrphanTheInputBoundaryWaiter()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        using var later = CreatePhysicalConnection("later");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
+        Task? run = null;
+        try
+        {
+            context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+            Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+            var firstBoundary = context.TcpConnection.WaitForInputBoundaryAsync();
+
+            context.TcpConnection.OnPhysicalConnectionClosed(replacement.Connection);
+            context.TcpConnection.AcknowledgeInputBoundary();
+
+            Assert.IsTrue(await firstBoundary.WaitAsync(TimeSpan.FromSeconds(1)));
+            Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(later.Connection));
+
+            var message = new TestMessage();
+            context.Protocol = new TestProtocol { MessageToReturn = message };
+            var dispatcher = Substitute.For<IRaidoDispatcher>();
+            var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            dispatcher.DispatchMessageAsync(context, message).Returns(_ =>
+            {
+                dispatched.TrySetResult();
+                return Task.CompletedTask;
+            });
+            using var meter = new Meter("Raido.Server.Tests.RapidInputBoundary");
+            var meterFactory = Substitute.For<IMeterFactory>();
+            meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+            using var metrics = new RaidoMetrics(meterFactory);
+            var handler = new RaidoConnectionHandler(
+                NullLoggerFactory.Instance,
+                Options.Create(new RaidoOptions()),
+                Substitute.For<IRaidoLifetimeManager>(),
+                dispatcher,
+                metrics);
+
+            run = handler.DispatchMessagesAsync(context);
+            await later.Input.Writer.WriteAsync(new byte[] { 1 });
+            await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            await dispatcher.Received(1).DispatchMessageAsync(context, message);
+        }
+        finally
+        {
+            context.Abort();
+            if (run is not null)
+            {
+                await run.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+
+            await context.CleanupAsync();
+        }
     }
 
     [TestMethod]
