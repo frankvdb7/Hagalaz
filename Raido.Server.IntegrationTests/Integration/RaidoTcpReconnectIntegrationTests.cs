@@ -16,7 +16,7 @@ public sealed class RaidoTcpReconnectIntegrationTests
         await using var server = new RaidoTestServer();
         await server.StartAsync();
         await using var clientA = await server.ConnectClientAsync();
-        await server.WaitForLogicalConnectionAsync();
+        await server.WaitForLogicalConnectionAsync().WaitAsync(ObservationTimeout);
         var logical = server.LogicalConnection;
         await server.Application.DispatcherConnected.Task.WaitAsync(ObservationTimeout);
 
@@ -53,7 +53,7 @@ public sealed class RaidoTcpReconnectIntegrationTests
         await using var server = new RaidoTestServer();
         await server.StartAsync();
         await using var clientA = await server.ConnectClientAsync();
-        await server.WaitForLogicalConnectionAsync();
+        await server.WaitForLogicalConnectionAsync().WaitAsync(ObservationTimeout);
 
         await clientA.SendAsync(new byte[] { 0x11 });
         await server.WaitForPartialFrameAsync().WaitAsync(ObservationTimeout);
@@ -83,7 +83,7 @@ public sealed class RaidoTcpReconnectIntegrationTests
         await using var server = new RaidoTestServer(TimeSpan.FromSeconds(2));
         await server.StartAsync();
         await using var client = await server.ConnectClientAsync();
-        await server.WaitForLogicalConnectionAsync();
+        await server.WaitForLogicalConnectionAsync().WaitAsync(ObservationTimeout);
         var logical = server.LogicalConnection;
         await server.Application.DispatcherConnected.Task.WaitAsync(ObservationTimeout);
 
@@ -92,6 +92,7 @@ public sealed class RaidoTcpReconnectIntegrationTests
             static state => ((TaskCompletionSource)state!).TrySetResult(),
             stableClosed);
         await client.DisposeAsync();
+        await stableClosed.Task.WaitAsync(ObservationTimeout);
         await server.Application.DispatcherDisconnected.Task.WaitAsync(ObservationTimeout);
         await server.Application.LifetimeDisconnected.Task.WaitAsync(ObservationTimeout);
 
@@ -107,7 +108,7 @@ public sealed class RaidoTcpReconnectIntegrationTests
         await using var server = new RaidoTestServer(ReplacementReconnectTimeout);
         await server.StartAsync();
         await using var clientA = await server.ConnectClientAsync();
-        await server.WaitForLogicalConnectionAsync();
+        await server.WaitForLogicalConnectionAsync().WaitAsync(ObservationTimeout);
         var logical = server.LogicalConnection;
         await server.Application.DispatcherConnected.Task.WaitAsync(ObservationTimeout);
         await clientA.DisposeAsync();
@@ -134,7 +135,7 @@ public sealed class RaidoTcpReconnectIntegrationTests
         await using var server = new RaidoTestServer();
         await server.StartAsync();
         await using var clientA = await server.ConnectClientAsync();
-        await server.WaitForLogicalConnectionAsync();
+        await server.WaitForLogicalConnectionAsync().WaitAsync(ObservationTimeout);
         server.Application.HoldDispatch = true;
 
         await clientA.SendAsync(RaidoTestProtocol.Encode(0x41));
@@ -169,12 +170,17 @@ public sealed class RaidoTcpReconnectIntegrationTests
         await using var server = new RaidoTestServer();
         await server.StartAsync();
         await using var clientA = await server.ConnectClientAsync();
-        await server.WaitForLogicalConnectionAsync();
+        await server.WaitForLogicalConnectionAsync().WaitAsync(ObservationTimeout);
         var logical = server.LogicalConnection;
         await server.Application.DispatcherConnected.Task.WaitAsync(ObservationTimeout);
 
         await logical.WriteAsync(new RaidoTestMessage(0x51));
-        CollectionAssert.AreEqual(RaidoTestProtocol.Encode(0x51), await clientA.ReadFrameAsync());
+        using (var readTimeout = new CancellationTokenSource(ObservationTimeout))
+        {
+            CollectionAssert.AreEqual(
+                RaidoTestProtocol.Encode(0x51),
+                await clientA.ReadFrameAsync(readTimeout.Token));
+        }
         await clientA.DisposeAsync();
         await server.WaitForInitialPhysicalCloseAsync().WaitAsync(ObservationTimeout);
 
@@ -184,7 +190,12 @@ public sealed class RaidoTcpReconnectIntegrationTests
         Assert.IsTrue(server.ActivateReplacement(replacement));
 
         await logical.WriteAsync(new RaidoTestMessage(0x53));
-        CollectionAssert.AreEqual(RaidoTestProtocol.Encode(0x53), await clientB.ReadFrameAsync());
+        using (var readTimeout = new CancellationTokenSource(ObservationTimeout))
+        {
+            CollectionAssert.AreEqual(
+                RaidoTestProtocol.Encode(0x53),
+                await clientB.ReadFrameAsync(readTimeout.Token));
+        }
 
         logical.Abort();
         await server.Application.DispatcherDisconnected.Task.WaitAsync(ObservationTimeout);

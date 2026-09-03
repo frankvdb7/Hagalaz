@@ -187,13 +187,13 @@ internal sealed class RaidoTestClient(TcpClient client) : IAsyncDisposable
         await Stream.WriteAsync(bytes).ConfigureAwait(false);
     }
 
-    public async Task<byte[]> ReadFrameAsync()
+    public async Task<byte[]> ReadFrameAsync(CancellationToken cancellationToken)
     {
         var frame = new byte[RaidoTestProtocol.FrameSize];
         var offset = 0;
         while (offset < frame.Length)
         {
-            var read = await Stream.ReadAsync(frame.AsMemory(offset)).ConfigureAwait(false);
+            var read = await Stream.ReadAsync(frame.AsMemory(offset), cancellationToken).ConfigureAwait(false);
             if (read == 0)
             {
                 throw new EndOfStreamException("The test client closed before a complete frame was received.");
