@@ -364,6 +364,34 @@ public sealed class RaidoProtocolAndExtensionsTests
     }
 
     [TestMethod]
+    public async Task ProtocolReader_ResumesAfterCanceledReadWithCompleteAndIncompleteMessages()
+    {
+        var underlying = Substitute.For<PipeReader>();
+        var resumedRead = new TaskCompletionSource<ReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        underlying.ReadAsync(Arg.Any<CancellationToken>()).Returns(
+            new ValueTask<ReadResult>(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 }), true, false)),
+            new ValueTask<ReadResult>(resumedRead.Task));
+        await using var protocolReader = new RaidoProtocolReader(underlying);
+        var messageReader = new TwoByteMessageReader();
+
+        var completeMessage = await protocolReader.ReadAsync(messageReader);
+        Assert.IsNotNull(completeMessage.Message);
+        protocolReader.Advance();
+
+        var canceled = await protocolReader.ReadAsync(messageReader);
+        Assert.IsTrue(canceled.IsCanceled);
+        protocolReader.Advance();
+
+        var resumed = protocolReader.ReadAsync(messageReader).AsTask();
+        Assert.IsFalse(resumed.IsCompleted);
+        resumedRead.SetResult(new ReadResult(new ReadOnlySequence<byte>(new byte[] { 3, 4 }), false, false));
+
+        var replacementMessage = await resumed;
+        Assert.IsNotNull(replacementMessage.Message);
+        protocolReader.Advance();
+    }
+
+    [TestMethod]
     public async Task ProtocolReader_AllowsMessageAtTheMaximumSize()
     {
         var pipe = new Pipe();

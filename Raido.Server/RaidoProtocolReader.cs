@@ -20,7 +20,7 @@ namespace Raido.Server
         private bool _isCanceled;
         private bool _isCompleted;
         private bool _hasMessage;
-        private bool _inputBoundaryPending;
+        private bool _canceledReadPending;
         private bool _disposed;
 
         /// <summary>
@@ -84,15 +84,8 @@ namespace Raido.Server
                 throw new InvalidOperationException($"{nameof(Advance)} must be called before calling {nameof(ReadAsync)}");
             }
 
-            if (_inputBoundaryPending)
+            if (_canceledReadPending)
             {
-                if (TryParseMessage(maximumMessageSize, reader, _buffer, out var boundaryMessage))
-                {
-                    _hasMessage = true;
-                    return new ValueTask<RaidoProtocolReadResult<TReadMessage>>(
-                        new RaidoProtocolReadResult<TReadMessage>(boundaryMessage, isCanceled: false, isCompleted: false));
-                }
-
                 return new ValueTask<RaidoProtocolReadResult<TReadMessage>>(
                     new RaidoProtocolReadResult<TReadMessage>(default, isCanceled: true, _isCompleted));
             }
@@ -215,7 +208,7 @@ namespace Raido.Server
                 if (TryParseMessage(maximumMessageSize, reader, _buffer, out var boundaryMessage))
                 {
                     _hasMessage = true;
-                    _inputBoundaryPending = true;
+                    _canceledReadPending = true;
                     readResult = new RaidoProtocolReadResult<TReadMessage>(boundaryMessage, isCanceled: false, isCompleted: false);
                     return (false, true);
                 }
@@ -311,21 +304,32 @@ namespace Raido.Server
                 throw new ObjectDisposedException(nameof(RaidoProtocolReader));
             }
 
-            if (advanceCursor)
+            if (_hasMessage)
+            {
+                if (advanceCursor)
+                {
+                    _reader.AdvanceTo(_consumed);
+                }
+
+                _buffer = _buffer.Slice(_consumed);
+                _hasMessage = false;
+                return;
+            }
+
+            if (_canceledReadPending)
+            {
+                _reader.AdvanceTo(_buffer.Start, _buffer.End);
+                _buffer = default;
+                _consumed = default;
+                _examined = default;
+                _canceledReadPending = false;
+            }
+            else if (advanceCursor)
             {
                 _reader.AdvanceTo(_consumed);
             }
 
             _isCanceled = false;
-
-            if (!_hasMessage)
-            {
-                return;
-            }
-
-            _buffer = _buffer.Slice(_consumed);
-
-            _hasMessage = false;
         }
 
         internal void DiscardIncompleteInput()
@@ -342,7 +346,7 @@ namespace Raido.Server
             _isCanceled = false;
             _isCompleted = false;
             _hasMessage = false;
-            _inputBoundaryPending = false;
+            _canceledReadPending = false;
         }
 
         /// <summary>
