@@ -368,7 +368,7 @@ namespace Raido.Server
 
         private void KeepAliveTick()
         {
-            if (TcpConnection.IsTerminal)
+            if (TcpConnection.Status != RaidoConnectionStatus.Active)
             {
                 return;
             }
@@ -404,7 +404,7 @@ namespace Raido.Server
                 ReadOnlyMemory<byte> pingMessage;
                 try
                 {
-                    if (TcpConnection.IsTerminal)
+                    if (TcpConnection.Status != RaidoConnectionStatus.Active)
                     {
                         return;
                     }
@@ -421,9 +421,9 @@ namespace Raido.Server
                 try
                 {
                     await _connectionContext.Transport.Output.WriteAsync(pingMessage);
-                    Log.SentPing(_logger);
-                    if (!TcpConnection.IsTerminal)
+                    if (TcpConnection.Status == RaidoConnectionStatus.Active)
                     {
+                        Log.SentPing(_logger);
                         // We only update the timestamp after the captured transport successfully sent the ping.
                         Volatile.Write(ref _lastSendTick, _timeProvider.GetTimestamp());
                     }

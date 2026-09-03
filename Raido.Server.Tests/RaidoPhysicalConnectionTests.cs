@@ -646,6 +646,38 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
+    public async Task FailedPhysicalConnectionExceptionIsClearedBySuccessfulReplacement()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var failure = new IOException("detached transport failure");
+
+        Assert.IsTrue(context.TcpConnection.HandleTransportFailure(initial.Connection, failure));
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+
+        context.TcpConnection.OnPhysicalConnectionClosed(replacement.Connection);
+        Assert.IsFalse(await context.TcpConnection.WaitForReconnectAsync(TimeSpan.Zero));
+        Assert.IsNull(context.TcpConnection.TerminalException);
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task FailedPhysicalConnectionExceptionBecomesTerminalAfterReconnectTimeout()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var failure = new IOException("detached transport failure");
+
+        Assert.IsTrue(context.TcpConnection.HandleTransportFailure(initial.Connection, failure));
+        Assert.IsFalse(await context.TcpConnection.WaitForReconnectAsync(TimeSpan.Zero));
+
+        Assert.AreSame(failure, context.TcpConnection.TerminalException);
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
+        context.Cleanup();
+    }
+
+    [TestMethod]
     public void StaleTransportFailureCannotDetachTheReplacement()
     {
         var initial = CreatePhysicalConnection("initial");
@@ -797,6 +829,106 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
         Assert.AreSame(replacement.Connection, current);
         Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public void StalePhysicalHeartbeatDoesNotInvokeStableHeartbeatAfterReplacement()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        var initialHeartbeat = new RecordingHeartbeatFeature();
+        var replacementHeartbeat = new RecordingHeartbeatFeature();
+        initial.Connection.Features.Set<IConnectionHeartbeatFeature>(initialHeartbeat);
+        replacement.Connection.Features.Set<IConnectionHeartbeatFeature>(replacementHeartbeat);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var ticks = 0;
+        context.TcpConnection.OnHeartbeat(_ => ticks++, null!);
+
+        initialHeartbeat.Run();
+        Assert.AreEqual(1, ticks);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+
+        initialHeartbeat.Run();
+        Assert.AreEqual(1, ticks);
+        replacementHeartbeat.Run();
+        Assert.AreEqual(2, ticks);
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task LosingPhysicalCandidateHeartbeatDoesNotInvokeStableHeartbeat()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var candidate = CreatePhysicalConnection("candidate");
+        using var winner = CreatePhysicalConnection("winner");
+        var candidateHeartbeat = new BlockingHeartbeatFeature();
+        var winnerHeartbeat = new RecordingHeartbeatFeature();
+        candidate.Connection.Features.Set<IConnectionHeartbeatFeature>(candidateHeartbeat);
+        winner.Connection.Features.Set<IConnectionHeartbeatFeature>(winnerHeartbeat);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var ticks = 0;
+        context.TcpConnection.OnHeartbeat(_ => ticks++, null!);
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+
+        var candidateActivation = Task.Run(() => context.TcpConnection.TryActivatePersistentConnection(candidate.Connection));
+        await candidateHeartbeat.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(winner.Connection));
+        candidateHeartbeat.Release.TrySetResult();
+
+        Assert.IsFalse(await candidateActivation.WaitAsync(TimeSpan.FromSeconds(1)));
+        candidateHeartbeat.Run();
+        Assert.AreEqual(0, ticks);
+        winnerHeartbeat.Run();
+        Assert.AreEqual(1, ticks);
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public void StableConnectionFeaturesRemainConsistentAcrossReplacement()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        var physicalItems = Substitute.For<IConnectionItemsFeature>();
+        var physicalId = Substitute.For<IConnectionIdFeature>();
+        var physicalTransport = Substitute.For<IConnectionTransportFeature>();
+        var physicalLifetime = Substitute.For<IConnectionLifetimeFeature>();
+        var replacementTransport = Substitute.For<IConnectionTransportFeature>();
+        var customFeature = new object();
+        initial.Connection.Features.Set(physicalItems);
+        initial.Connection.Features.Set(physicalId);
+        initial.Connection.Features.Set(physicalTransport);
+        initial.Connection.Features.Set(physicalLifetime);
+        initial.Connection.Features.Set(customFeature);
+        replacement.Connection.Features.Set(replacementTransport);
+
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        var stableItems = context.Features.Get<IConnectionItemsFeature>();
+        var stableId = context.Features.Get<IConnectionIdFeature>();
+        var stableTransport = context.Features.Get<IConnectionTransportFeature>();
+        var stableLifetime = context.Features.Get<IConnectionLifetimeFeature>();
+        var stableHeartbeat = context.Features.Get<IConnectionHeartbeatFeature>();
+
+        Assert.AreSame(context.Items, stableItems!.Items);
+        Assert.AreSame((object)context.TcpConnection, stableId);
+        Assert.AreSame((object)context.TcpConnection, stableTransport);
+        Assert.AreSame((object)context.TcpConnection, stableLifetime);
+        Assert.AreSame((object)context.TcpConnection, stableHeartbeat);
+        Assert.AreNotSame(physicalItems, stableItems);
+        Assert.AreNotSame(physicalId, stableId);
+        Assert.AreNotSame(physicalTransport, stableTransport);
+        Assert.AreNotSame(physicalLifetime, stableLifetime);
+        Assert.AreSame(customFeature, context.Features.Get<object>());
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        Assert.AreSame(stableItems, context.Features.Get<IConnectionItemsFeature>());
+        Assert.AreSame(stableHeartbeat, context.Features.Get<IConnectionHeartbeatFeature>());
+        Assert.AreSame(stableLifetime, context.Features.Get<IConnectionLifetimeFeature>());
+        Assert.AreNotSame(replacementTransport, context.Features.Get<IConnectionTransportFeature>());
         context.Cleanup();
     }
 
@@ -1201,6 +1333,34 @@ public sealed class RaidoPhysicalConnectionTests
         await context.WriteAsync(new TestMessage());
 
         Assert.IsFalse(initial.Output.Reader.TryRead(out _));
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task DetachedWriteBehindBlockedPhysicalFlushIsDroppedBeforeReplacement()
+    {
+        var blockedWriter = new BlockingPipeWriter();
+        var replacementWriter = new RecordingPipeWriter();
+        using var initial = CreatePhysicalConnection("initial", outputWriter: blockedWriter);
+        using var replacement = CreatePhysicalConnection("replacement", outputWriter: replacementWriter);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+
+        var firstWrite = context.WriteAsync(new TestMessage());
+        await blockedWriter.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        await context.WriteAsync(new TestMessage());
+        Assert.IsFalse(replacementWriter.FirstFlush.Task.IsCompleted);
+
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        blockedWriter.Release();
+        await firstWrite;
+
+        await context.WriteAsync(new TestMessage());
+        var replacementBytes = await replacementWriter.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        CollectionAssert.AreEqual(new byte[] { 42 }, replacementBytes);
         context.Cleanup();
     }
 
@@ -1658,20 +1818,16 @@ public sealed class RaidoPhysicalConnectionTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task StaleKeepAlivePingDoesNotBlockReplacementWritesOrAbort()
+    public async Task DetachedKeepAlivePingDoesNotBlockReplacementWritesOrAbort()
     {
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        await InvokePingAsync(context);
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
         Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
-        Assert.AreSame(replacement.Connection, current);
-
-        await InvokePingAsync(context);
-
-        Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out current));
         Assert.AreSame(replacement.Connection, current);
 
         await context.WriteAsync(new TestMessage());
@@ -1684,6 +1840,32 @@ public sealed class RaidoPhysicalConnectionTests
 
         await context.AbortAsync();
         Assert.IsTrue(context.ConnectionAbortedToken.IsCancellationRequested);
+        context.Cleanup();
+    }
+
+    [TestMethod]
+    public async Task DetachedKeepAlivePingDoesNotAdvanceStableSendTimestamp()
+    {
+        var clock = new ManualTimeProvider();
+        var initialHeartbeat = new RecordingHeartbeatFeature();
+        var replacementHeartbeat = new RecordingHeartbeatFeature();
+        var replacementWriter = new RecordingPipeWriter();
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement", outputWriter: replacementWriter);
+        initial.Connection.Features.Set<IConnectionHeartbeatFeature>(initialHeartbeat);
+        replacement.Connection.Features.Set<IConnectionHeartbeatFeature>(replacementHeartbeat);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromMinutes(5), timeProvider: clock);
+        context.OnConnectedAsync().GetAwaiter().GetResult();
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        clock.Advance(TimeSpan.FromMinutes(2));
+        await InvokePingAsync(context);
+
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        replacementHeartbeat.Run();
+        var ping = await replacementWriter.FirstFlush.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        CollectionAssert.AreEqual(new byte[] { 42 }, ping);
         context.Cleanup();
     }
 
@@ -1862,6 +2044,57 @@ public sealed class RaidoPhysicalConnectionTests
         public override void Complete(Exception? exception = null) { }
     }
 
+    private sealed class BlockingPipeWriter : PipeWriter
+    {
+        private ArrayBufferWriter<byte> _buffer = new();
+        private readonly TaskCompletionSource<FlushResult> _release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource FlushStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release() => _release.TrySetResult(new FlushResult(false, false));
+
+        public override void Advance(int bytes) => _buffer.Advance(bytes);
+
+        public override Memory<byte> GetMemory(int sizeHint = 0) => _buffer.GetMemory(sizeHint);
+
+        public override Span<byte> GetSpan(int sizeHint = 0) => _buffer.GetSpan(sizeHint);
+
+        public override void CancelPendingFlush() => Release();
+
+        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
+        {
+            FlushStarted.TrySetResult();
+            return new(_release.Task.WaitAsync(cancellationToken));
+        }
+
+        public override void Complete(Exception? exception = null) { }
+    }
+
+    private sealed class RecordingPipeWriter : PipeWriter
+    {
+        private ArrayBufferWriter<byte> _buffer = new();
+
+        public TaskCompletionSource<byte[]> FirstFlush { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override void Advance(int bytes) => _buffer.Advance(bytes);
+
+        public override Memory<byte> GetMemory(int sizeHint = 0) => _buffer.GetMemory(sizeHint);
+
+        public override Span<byte> GetSpan(int sizeHint = 0) => _buffer.GetSpan(sizeHint);
+
+        public override void CancelPendingFlush() { }
+
+        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
+        {
+            FirstFlush.TrySetResult(_buffer.WrittenSpan.ToArray());
+            _buffer = new ArrayBufferWriter<byte>();
+            return new(new FlushResult(false, false));
+        }
+
+        public override void Complete(Exception? exception = null) { }
+    }
+
     private sealed class ThrowingPipeReader : PipeReader
     {
         private readonly Exception _exception;
@@ -1949,11 +2182,21 @@ public sealed class RaidoPhysicalConnectionTests
     {
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public List<(Action<object> Callback, object State)> Callbacks { get; } = new();
 
         public void OnHeartbeat(Action<object> action, object state)
         {
+            Callbacks.Add((action, state));
             Entered.TrySetResult();
             Release.Task.GetAwaiter().GetResult();
+        }
+
+        public void Run()
+        {
+            foreach (var (callback, state) in Callbacks)
+            {
+                callback(state);
+            }
         }
     }
 

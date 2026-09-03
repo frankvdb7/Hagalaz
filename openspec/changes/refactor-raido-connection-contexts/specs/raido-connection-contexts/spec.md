@@ -71,6 +71,45 @@ The system SHALL expose one stable `Transport` pipe pair from the TCP context fo
 - **THEN** the lower transport execution consumes that output without retaining it for a later physical replacement
 - **AND** no replay or acknowledgement mechanism is introduced
 
+#### Scenario: Detached output behind an in-flight physical flush is dropped
+
+- **WHEN** output is being flushed to a physical transport and that transport detaches
+- **AND** additional output is produced before a replacement is published
+- **THEN** the lower transport consumes and drops the additional output
+- **AND** it is not written to the replacement transport
+- **WHEN** output is produced after the replacement is published
+- **THEN** it is written to the replacement transport
+
+#### Scenario: Input and output relay faults are observed during cleanup
+
+- **WHEN** terminal cleanup cancels the stable transport relays
+- **THEN** relay task completion and faults are observed
+- **AND** relay faults do not remain unobserved
+
+### Requirement: Stable physical heartbeat integration is identity-safe
+
+The system SHALL keep heartbeat handlers on the stable TCP context. A physical heartbeat SHALL tick those handlers only while its physical connection remains the active published transport.
+
+#### Scenario: Stale or losing physical heartbeat is ignored
+
+- **WHEN** a physical connection is replaced or loses the activation race
+- **AND** its registered heartbeat callback fires later
+- **THEN** it does not invoke stable heartbeat handlers
+- **WHEN** the active replacement heartbeat fires
+- **THEN** it invokes the stable heartbeat handlers
+
+### Requirement: Stable infrastructure features remain stable
+
+The system SHALL provide connection-owned infrastructure features from the stable TCP context and SHALL preserve legitimate custom/application features from the initial physical context.
+
+#### Scenario: Stable features do not alias physical infrastructure
+
+- **WHEN** a physical transport is activated and later replaced
+- **THEN** stable ID, items, transport, lifetime, and heartbeat features remain owned by the TCP context
+- **AND** the stable items feature exposes the same collection as the stable `Items` property
+- **AND** initial custom/application features remain available
+- **AND** replacement physical infrastructure features do not become authoritative
+
 ### Requirement: Hub state remains above the TCP transport
 
 The system SHALL keep the Hub protocol, message-writing coordination, Hub timeout policy, caller state, and logical lifecycle state on the Hub context. Physical transport replacement SHALL NOT implicitly change the Hub protocol or expose raw pipes through the public Hub-facing API.
@@ -95,3 +134,28 @@ The system SHALL register and remove the logical Hub context once for its entire
 - **WHEN** a logical connection loses and regains its physical transport
 - **THEN** the lifetime manager and Hub dispatcher observe one connected lifecycle and one eventual disconnected lifecycle
 - **AND** the connection store does not remove and re-add the logical context during replacement
+
+### Requirement: Stable keepalive follows connection status
+
+The system SHALL send and account for keepalive pings only while the stable TCP context is `Active`.
+
+#### Scenario: Inactive and disposed keepalive is not accounted as sent
+
+- **WHEN** the stable TCP context is `Inactive` or `Disposed`
+- **AND** a keepalive tick occurs
+- **THEN** no ping is recorded as sent
+- **AND** the stable last-send timestamp is not advanced
+
+### Requirement: Physical failure is retained through reconnect expiry
+
+The system SHALL preserve the original physical transport exception across a reconnect window until a replacement succeeds or the window expires.
+
+#### Scenario: Replacement clears a pending physical failure
+
+- **WHEN** a physical transport fails and a replacement is successfully published
+- **THEN** the pending physical failure is cleared
+
+#### Scenario: Reconnect expiry promotes the original physical failure
+
+- **WHEN** a physical transport fails and no replacement is published before reconnect expiry
+- **THEN** the stable terminal exception is the original physical transport failure
