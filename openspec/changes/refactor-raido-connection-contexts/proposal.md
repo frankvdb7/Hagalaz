@@ -12,6 +12,7 @@ Raido currently combines stable reconnect state, physical transport state, and l
 - Give the TCP context stable `Transport` and internal `Application` pipes that survive physical replacement, with a minimal lower-level physical transport relay.
 - Move existing reconnect, transport, heartbeat-registration, and terminal-lifecycle behavior to the TCP context without redesigning it.
 - Keep protocol, message writing, Hub timeout policy, caller state, and logical lifecycle state on the Hub context.
+- Resolve connection-specific initial protocols in the application connection scope, keep protocol selection outside the factory, and coordinate explicit protocol transitions with Hub writes.
 - Update the connection-context factory, dispatchers, lifetime management, stores, callers, handlers, consumers, and tests to use the split.
 - Remove Raido APIs and escape hatches added specifically for the current #488 GameWorld integration.
 - Stop exposing raw physical reader/writer access through the public Hub context; callers that need the logical API use `RaidoHubConnectionContext` instead.
@@ -32,4 +33,4 @@ This is a source-level Raido refactor affecting the server context, handler, con
 
 ## Migration
 
-This is a breaking Raido API refactor. Replace `RaidoConnectionContext` with `RaidoHubConnectionContext`, the staged connection-context builder API with `IRaidoHubConnectionContextFactory`, and `ConnectionAbortedToken` with `ConnectionAborted`. The logical Hub handler, store, and lifetime manager are now named `RaidoHubConnectionHandler`, `RaidoHubConnectionStore`, and `IRaidoHubLifetimeManager`. The raw connection `CreateReader`/`CreateWriter` extension APIs and public signatures using the old context type are removed; raw physical reader and writer access is intentionally no longer exposed through the public Hub context.
+This is a breaking Raido API refactor. Replace `RaidoConnectionContext` with `RaidoHubConnectionContext`, the staged connection-context builder API with `IRaidoHubConnectionContextFactory`, and `ConnectionAbortedToken` with `ConnectionAborted`. The logical Hub handler, store, and lifetime manager are now named `RaidoHubConnectionHandler`, `RaidoHubConnectionStore`, and `IRaidoHubLifetimeManager`. The raw connection `CreateReader`/`CreateWriter` extension APIs and public signatures using the old context type are removed; raw physical reader and writer access is intentionally no longer exposed through the public Hub context. Replace mutable `Protocol` assignment with the explicit asynchronous `SetProtocolAsync` transition.

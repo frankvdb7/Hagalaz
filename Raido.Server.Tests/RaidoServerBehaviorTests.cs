@@ -222,7 +222,7 @@ public sealed class RaidoServerBehaviorTests
     }
 
     [TestMethod]
-    public void CallerAndHubContexts_ExposeConnectionAndInvocationMetadata()
+    public async Task CallerAndHubContexts_ExposeConnectionAndInvocationMetadata()
     {
         var local = new IPEndPoint(IPAddress.Loopback, 4350);
         var remote = new IPEndPoint(IPAddress.Loopback, 4351);
@@ -246,7 +246,7 @@ public sealed class RaidoServerBehaviorTests
         _transports.Add((input, output));
 
         var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        connection.Protocol = Substitute.For<IRaidoProtocol>();
+        await connection.SetProtocolAsync(Substitute.For<IRaidoProtocol>());
         _connections.Add(connection);
         var caller = new DefaultRaidoCallerContext(connection);
 
@@ -332,7 +332,7 @@ public sealed class RaidoServerBehaviorTests
         raw.Features.Returns(new FeatureCollection());
         raw.ConnectionClosed.Returns(CancellationToken.None);
         var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        connection.Protocol = new PingProtocol();
+        await connection.SetProtocolAsync(new PingProtocol());
         _transports.Add((input, output));
         _connections.Add(connection);
 
@@ -362,7 +362,7 @@ public sealed class RaidoServerBehaviorTests
         raw.Features.Returns(new FeatureCollection());
         raw.ConnectionClosed.Returns(CancellationToken.None);
         var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        connection.Protocol = new PingProtocol();
+        await connection.SetProtocolAsync(new PingProtocol());
         _transports.Add((input, output));
         _connections.Add(connection);
 

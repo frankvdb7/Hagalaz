@@ -27,6 +27,10 @@ The Raido Hubs layer operates on the stable logical connection through `RaidoHub
 
 `IRaidoHubConnectionContextFactory` is the composition boundary: it creates and initially attaches `RaidoTcpConnectionContext` before constructing `RaidoHubConnectionContext`. Its dependencies are constructor-injected, and connection construction does not resolve services through `IServiceProvider`. The Hub context consumes that stable lower connection and does not create or attach physical Kestrel connections itself.
 
+Protocol instances may contain logical-connection-specific mutable state and must not be shared across unrelated logical connections. Application connection handlers therefore resolve their initial transient protocol inside an async DI scope that remains alive through the logical connection, then pass that runtime instance to the factory. The existing protocol resolver is scoped so its captured protocol instances belong to one scope; the selected GameWorld client protocol currently has only singleton dependencies and is safe to retain on the Hub context after its dispatcher scope ends. The factory performs no protocol resolution.
+
+The Hub protocol is read-only as a property. A logical protocol transition is an explicit asynchronous operation coordinated by the existing Hub write lock, so an already-started write completes under the old protocol before later writes use the new protocol. `RaidoHubConnectionHandler` uses only the narrow stable-input, terminal, reconnect, and boundary operations delegated by `RaidoHubConnectionContext`; it does not depend directly on `RaidoTcpConnectionContext`.
+
 ## Decisions
 
 ### Two contexts, one logical lifecycle

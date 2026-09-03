@@ -23,12 +23,14 @@ namespace Raido.Server
     public class RaidoHubConnectionContext
     {
         private readonly ConnectionContext _connectionContext;
+        private readonly RaidoTcpConnectionContext _tcpConnection;
         private readonly ILogger _logger;
         private readonly Lock _receiveMessageTimeoutLock = new();
         private readonly TimeProvider _timeProvider;
         private readonly SemaphoreSlim _writeLock = new(1);
         private readonly TimeSpan _keepAliveInterval;
         private readonly TimeSpan _clientTimeoutInterval;
+        private IRaidoProtocol _protocol;
 
         private ClaimsPrincipal? _user;
         private volatile bool _clientTimeoutActive;
@@ -42,8 +44,6 @@ namespace Raido.Server
         internal IRaidoCallerClients RaidoCallerClients { get; set; } = null!;
         internal Activity? OriginalActivity { get; set; }
         internal MetricsContext MetricsContext { get; set; }
-
-        internal RaidoTcpConnectionContext TcpConnection => (RaidoTcpConnectionContext)_connectionContext;
 
         public virtual CancellationToken ConnectionAborted => _connectionContext.ConnectionClosed;
         public virtual string ConnectionId => _connectionContext.ConnectionId;
@@ -65,15 +65,23 @@ namespace Raido.Server
         public virtual IDictionary<object, object?> Items => _connectionContext.Items;
         public virtual IPEndPoint? LocalEndPoint => _connectionContext.LocalEndPoint as IPEndPoint;
         public virtual IPEndPoint? RemoteEndPoint => _connectionContext.RemoteEndPoint as IPEndPoint;
-        public virtual IRaidoProtocol Protocol { get; internal set; } = default!;
+        public virtual IRaidoProtocol Protocol => Volatile.Read(ref _protocol);
+
+        internal PipeReader TransportInput => _tcpConnection.Transport.Input;
+        internal bool IsTerminal => _tcpConnection.IsTerminal;
+        internal bool IsReconnectEnabled => _tcpConnection.IsReconnectEnabled;
+        internal Exception? TerminalException => _tcpConnection.TerminalException;
 
         internal RaidoHubConnectionContext(
             RaidoTcpConnectionContext connection,
             RaidoConnectionContextOptions contextOptions,
+            IRaidoProtocol protocol,
             ILoggerFactory loggerFactory,
             TimeProvider timeProvider)
         {
             _connectionContext = connection;
+            _tcpConnection = connection;
+            _protocol = protocol ?? throw new ArgumentNullException(nameof(protocol));
             _logger = loggerFactory.CreateLogger<RaidoHubConnectionContext>();
             _clientTimeoutInterval = contextOptions.ClientTimeoutInterval;
             _keepAliveInterval = contextOptions.KeepAliveInterval;
@@ -81,6 +89,31 @@ namespace Raido.Server
             _lastSendTick = _timeProvider.GetTimestamp();
             RaidoCallerContext = new DefaultRaidoCallerContext(this);
         }
+
+        public virtual async ValueTask SetProtocolAsync(
+            IRaidoProtocol protocol,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(protocol);
+
+            await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                Volatile.Write(ref _protocol, protocol);
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
+        }
+
+        internal Task<bool> WaitForReconnectAsync() => _tcpConnection.WaitForReconnectAsync();
+
+        internal void AcknowledgeInputBoundary() => _tcpConnection.AcknowledgeInputBoundary();
+
+        internal void CompleteTransportInput() => _tcpConnection.CompleteTransportInput();
+
+        internal bool TryAttachPhysicalConnection(ConnectionContext connection) => _tcpConnection.TryAttachPhysicalConnection(connection);
 
         internal Task OnConnectedAsync()
         {
@@ -141,7 +174,7 @@ namespace Raido.Server
             {
                 // We know that we are only writing this message to one receiver, so we can
                 // write it without caching.
-                if (!TcpConnection.TryWriteStableTransport(
+                if (!_tcpConnection.TryWriteStableTransport(
                         target => Protocol.WriteMessage(message, target),
                         cancellationToken,
                         out hasWrittenBytes,
@@ -153,7 +186,7 @@ namespace Raido.Server
             catch (Exception ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                TcpConnection.AbortWithException(ex);
+                _tcpConnection.AbortWithException(ex);
                 return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
             }
 
@@ -167,7 +200,7 @@ namespace Raido.Server
             catch (Exception ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                TcpConnection.AbortWithException(ex);
+                _tcpConnection.AbortWithException(ex);
                 return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
             }
 
@@ -182,22 +215,22 @@ namespace Raido.Server
             catch (OperationCanceledException ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                TcpConnection.AbortWithException(ex);
+                _tcpConnection.AbortWithException(ex);
             }
             catch (IOException ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                TcpConnection.AbortWithException(ex);
+                _tcpConnection.AbortWithException(ex);
             }
             catch (ObjectDisposedException ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                TcpConnection.AbortWithException(ex);
+                _tcpConnection.AbortWithException(ex);
             }
             catch (Exception ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                TcpConnection.AbortWithException(ex);
+                _tcpConnection.AbortWithException(ex);
             }
 
             return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
@@ -229,22 +262,22 @@ namespace Raido.Server
             catch (OperationCanceledException ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                TcpConnection.AbortWithException(ex);
+                _tcpConnection.AbortWithException(ex);
             }
             catch (IOException ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                TcpConnection.AbortWithException(ex);
+                _tcpConnection.AbortWithException(ex);
             }
             catch (ObjectDisposedException ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                TcpConnection.AbortWithException(ex);
+                _tcpConnection.AbortWithException(ex);
             }
             catch (Exception ex)
             {
                 Log.FailedWritingMessage(_logger, ex);
-                TcpConnection.AbortWithException(ex);
+                _tcpConnection.AbortWithException(ex);
             }
         }
 
@@ -269,11 +302,11 @@ namespace Raido.Server
 
 
 
-        public virtual void Abort() => TcpConnection.Abort();
+        public virtual void Abort() => _tcpConnection.Abort();
 
         internal async Task AbortAsync()
         {
-            var abortTask = TcpConnection.AbortAsync();
+            var abortTask = _tcpConnection.AbortAsync();
             await _writeLock.WaitAsync().ConfigureAwait(false);
             _writeLock.Release();
             await abortTask.ConfigureAwait(false);
@@ -326,7 +359,7 @@ namespace Raido.Server
 
         private void CheckClientTimeout()
         {
-            if (Debugger.IsAttached || !TcpConnection.IsActive)
+            if (Debugger.IsAttached || !_tcpConnection.IsActive)
             {
                 return;
             }
@@ -346,7 +379,7 @@ namespace Raido.Server
                 }
             }
 
-            if (timeoutException is not null && TcpConnection.TryAbortIfActive(timeoutException))
+            if (timeoutException is not null && _tcpConnection.TryAbortIfActive(timeoutException))
             {
                 Log.ClientTimeout(_logger, _clientTimeoutInterval);
                 RaidoEventSource.Log.ConnectionTimedOut(ConnectionId);
@@ -355,7 +388,7 @@ namespace Raido.Server
 
         private void KeepAliveTick()
         {
-            if (!TcpConnection.IsActive)
+            if (!_tcpConnection.IsActive)
             {
                 return;
             }
@@ -396,7 +429,7 @@ namespace Raido.Server
                 ReadOnlyMemory<byte> pingMessage;
                 try
                 {
-                    if (!TcpConnection.IsActive)
+                    if (!_tcpConnection.IsActive)
                     {
                         return;
                     }
@@ -406,13 +439,13 @@ namespace Raido.Server
                 catch (Exception ex)
                 {
                     Log.FailedWritingMessage(_logger, ex);
-                    TcpConnection.AbortWithException(ex);
+                    _tcpConnection.AbortWithException(ex);
                     return;
                 }
 
                 try
                 {
-                    if (!TcpConnection.TryWriteStableTransport(
+                    if (!_tcpConnection.TryWriteStableTransport(
                             output =>
                             {
                                 var destination = output.GetSpan(pingMessage.Length);
@@ -427,7 +460,7 @@ namespace Raido.Server
                     }
 
                     await flushTask;
-                    if (TcpConnection.IsActive)
+                    if (_tcpConnection.IsActive)
                     {
                         Log.SentPing(_logger);
                         // The ping was admitted successfully while the stable connection was active.
@@ -437,22 +470,22 @@ namespace Raido.Server
                 catch (OperationCanceledException ex)
                 {
                     Log.FailedWritingMessage(_logger, ex);
-                    TcpConnection.AbortWithException(ex);
+                    _tcpConnection.AbortWithException(ex);
                 }
                 catch (IOException ex)
                 {
                     Log.FailedWritingMessage(_logger, ex);
-                    TcpConnection.AbortWithException(ex);
+                    _tcpConnection.AbortWithException(ex);
                 }
                 catch (ObjectDisposedException ex)
                 {
                     Log.FailedWritingMessage(_logger, ex);
-                    TcpConnection.AbortWithException(ex);
+                    _tcpConnection.AbortWithException(ex);
                 }
                 catch (Exception ex)
                 {
                     Log.FailedWritingMessage(_logger, ex);
-                    TcpConnection.AbortWithException(ex);
+                    _tcpConnection.AbortWithException(ex);
                 }
             }
             finally
@@ -467,12 +500,12 @@ namespace Raido.Server
         {
             // Start lower cleanup first so it cancels pending stable flushes and quiesces relays while
             // the Hub write owner may still be holding this lock.
-            var tcpCleanup = TcpConnection.CleanupAsync();
+            var tcpCleanup = _tcpConnection.CleanupAsync();
             await _writeLock.WaitAsync().ConfigureAwait(false);
             try
             {
                 await tcpCleanup.ConfigureAwait(false);
-                TcpConnection.CompleteTransportOutput();
+                _tcpConnection.CompleteTransportOutput();
             }
             finally
             {

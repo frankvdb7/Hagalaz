@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Security.Claims;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Features;
 using Raido.Common.Protocol;
 
@@ -21,11 +22,10 @@ namespace Raido.Server.Internal
         public override IPEndPoint? LocalIPEndPoint => _connection.LocalEndPoint;
         public override IPEndPoint? RemoteIPEndPoint => _connection.RemoteEndPoint;
 
-        public override IRaidoProtocol Protocol
-        {
-            get => _connection.Protocol;
-            set => _connection.Protocol = value;
-        }
+        public override IRaidoProtocol Protocol => _connection.Protocol;
+
+        public override ValueTask SetProtocolAsync(IRaidoProtocol protocol, CancellationToken cancellationToken = default) =>
+            _connection.SetProtocolAsync(protocol, cancellationToken);
 
         public override void Abort() => _connection.Abort();
     }

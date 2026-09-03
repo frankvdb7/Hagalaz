@@ -89,8 +89,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         {
             KeepAliveInterval = keepAlive ?? TimeSpan.FromMinutes(1),
             ClientTimeoutInterval = timeout ?? TimeSpan.FromMinutes(1)
-        }, NullLoggerFactory.Instance);
-        context.Protocol = new WritingProtocol();
+        }, NullLoggerFactory.Instance, protocol: new WritingProtocol());
         _contexts.Add(context);
         _connectionClosedSources.Add(connectionClosed);
         _transports.Add((input, output));
@@ -137,11 +136,20 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         var protocol = Substitute.For<IRaidoProtocol>();
         protocol.When(x => x.WriteMessage(Arg.Any<RaidoMessage>(), Arg.Any<IBufferWriter<byte>>()))
             .Do(_ => throw new InvalidOperationException("write"));
-        context.Protocol = protocol;
+        await context.SetProtocolAsync(protocol);
         await context.WriteAsync(new TestMessage());
-        Assert.IsInstanceOfType<InvalidOperationException>(context.TcpConnection.TerminalException);
+        Assert.IsInstanceOfType<InvalidOperationException>(context.TerminalException);
         context.Abort();
         await context.WriteAsync(new TestMessage());
+    }
+
+    [TestMethod]
+    public async Task SetProtocolAsync_RejectsNullProtocol()
+    {
+        var (context, _, _, _) = CreateContext();
+
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+            () => context.SetProtocolAsync(null!).AsTask());
     }
 
     [TestMethod]

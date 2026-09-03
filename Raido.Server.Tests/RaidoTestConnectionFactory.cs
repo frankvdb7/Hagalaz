@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Raido.Common.Protocol;
 using Raido.Server;
 
 namespace Raido.Server.Tests;
@@ -11,7 +12,8 @@ internal static class RaidoTestConnectionFactory
         ConnectionContext physicalConnection,
         RaidoConnectionContextOptions? options = null,
         ILoggerFactory? loggerFactory = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IRaidoProtocol? protocol = null)
     {
         options ??= new RaidoConnectionContextOptions();
         loggerFactory ??= NullLoggerFactory.Instance;
@@ -23,6 +25,11 @@ internal static class RaidoTestConnectionFactory
             throw new InvalidOperationException("The initial physical connection could not be activated.");
         }
 
-        return new RaidoHubConnectionContext(tcpConnection, options, loggerFactory, timeProvider);
+        return new RaidoHubConnectionContext(
+            tcpConnection,
+            options,
+            protocol ?? new TestProtocol { ParseMessageReturns = false },
+            loggerFactory,
+            timeProvider);
     }
 }

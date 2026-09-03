@@ -29,7 +29,7 @@ namespace Raido.Server.Extensions
             services.TryAddTransient<RaidoHubConnectionHandler>();
 
             services.TryAddSingleton<RaidoHubConnectionStore>();
-            services.TryAddSingleton<IRaidoProtocolResolver, DefaultRaidoProtocolResolver>();
+            services.TryAddScoped<IRaidoProtocolResolver, DefaultRaidoProtocolResolver>();
             services.TryAddSingleton<IRaidoHubLifetimeManager, DefaultRaidoHubLifetimeManager>();
             services.TryAddSingleton<IRaidoContext, DefaultRaidoContext>();
             services.TryAddSingleton<IRaidoDispatcher, DefaultRaidoDispatcher>();

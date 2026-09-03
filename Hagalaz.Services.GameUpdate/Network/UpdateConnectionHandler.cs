@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Hagalaz.Services.GameUpdate.Network.Messages;
 using Hagalaz.Services.GameUpdate.Network.Protocol;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raido.Server;
@@ -16,7 +17,7 @@ namespace Hagalaz.Services.GameUpdate.Network
     {
         private readonly RaidoHubConnectionHandler _connectionHandler;
         private readonly IRaidoHubConnectionContextFactory _connectionFactory;
-        private readonly FileProtocol _fileProtocol;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<UpdateConnectionHandler> _logger;
         private readonly IOptions<RaidoOptions> _raidoOptions;
         private readonly IOptions<ServerConfig> _serverOptions;
@@ -24,14 +25,14 @@ namespace Hagalaz.Services.GameUpdate.Network
         public UpdateConnectionHandler(
             RaidoHubConnectionHandler connectionHandler,
             IRaidoHubConnectionContextFactory connectionFactory,
-            FileProtocol fileProtocol,
+            IServiceScopeFactory scopeFactory,
             IOptions<RaidoOptions> raidoOptions,
             IOptions<ServerConfig> serverOptions,
             ILogger<UpdateConnectionHandler> logger)
         {
             _connectionHandler = connectionHandler;
             _connectionFactory = connectionFactory;
-            _fileProtocol = fileProtocol;
+            _scopeFactory = scopeFactory;
             _logger = logger;
             _raidoOptions = raidoOptions;
             _serverOptions = serverOptions;
@@ -39,6 +40,7 @@ namespace Hagalaz.Services.GameUpdate.Network
 
         public override async Task OnConnectedAsync(ConnectionContext connection)
         {
+            await using var scope = _scopeFactory.CreateAsyncScope();
             var protocol = new HandshakeProtocol();
             await using (var reader = connection.CreateReader())
             {
@@ -105,7 +107,8 @@ namespace Hagalaz.Services.GameUpdate.Network
                 }
             }
 
-            var connectionContext = _connectionFactory.Create(connection, _fileProtocol);
+            var fileProtocol = scope.ServiceProvider.GetRequiredService<FileProtocol>();
+            var connectionContext = _connectionFactory.Create(connection, fileProtocol);
 
             Log.HandshakeComplete(_logger, connectionContext.Protocol.Name);
 

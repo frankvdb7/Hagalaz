@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using Raido.Common.Protocol;
 using Raido.Server;
 using Raido.Server.Extensions;
 
@@ -122,6 +123,7 @@ public sealed class AdminHubAuthorizationTests
         return new RaidoHubConnectionContext(
             tcpConnection,
             options,
+            Substitute.For<IRaidoProtocol>(),
             NullLoggerFactory.Instance,
             TimeProvider.System);
     }

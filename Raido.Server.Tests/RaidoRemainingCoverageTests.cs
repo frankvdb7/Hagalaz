@@ -125,10 +125,13 @@ public sealed class RaidoRemainingCoverageTests
         var built = factory.Create(
             connection,
             provider.GetRequiredService<TestProtocol>(),
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromSeconds(2));
+            new RaidoConnectionContextOptions
+            {
+                KeepAliveInterval = TimeSpan.FromSeconds(1),
+                ClientTimeoutInterval = TimeSpan.FromSeconds(2)
+            });
         _connections.Add(built);
-        Assert.AreNotSame(connection.Transport.Input, built.TcpConnection.Transport.Input);
+        Assert.AreNotSame(connection.Transport.Input, built.TransportInput);
         Assert.IsInstanceOfType<TestProtocol>(built.Protocol);
         Assert.AreEqual("factory", built.ConnectionId);
     }

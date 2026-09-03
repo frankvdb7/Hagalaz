@@ -61,7 +61,7 @@ namespace Raido.Server
             }
             finally
             {
-                connection.TcpConnection.CompleteTransportInput();
+                connection.CompleteTransportInput();
                 await connection.CleanupAsync();
 
                 var currentTimestamp = (connection.StartTimestamp > 0) ? _timeProvider.GetTimestamp() : default;
@@ -80,7 +80,6 @@ namespace Raido.Server
         /// <returns>A <see cref="Task"/> that represents the asynchronous connection loop.</returns>
         public virtual async Task RunAsync(RaidoHubConnectionContext connection)
         {
-            var tcpConnection = connection.TcpConnection;
             try
             {
                 await _dispatcher.OnConnectedAsync(connection);
@@ -96,7 +95,7 @@ namespace Raido.Server
             {
                 await DispatchMessagesAsync(connection);
             }
-            catch (OperationCanceledException) when (tcpConnection.IsTerminal)
+            catch (OperationCanceledException) when (connection.IsTerminal)
             {
                 // Terminal cancellation is control flow used to stop transport operations.
             }
@@ -107,7 +106,7 @@ namespace Raido.Server
                 return;
             }
 
-            await OnDisconnectedAsync(connection, tcpConnection.TerminalException);
+            await OnDisconnectedAsync(connection, connection.TerminalException);
         }
 
         /// <summary>
@@ -117,11 +116,10 @@ namespace Raido.Server
         /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
         public virtual async Task DispatchMessagesAsync(RaidoHubConnectionContext connection)
         {
-            var tcpConnection = connection.TcpConnection;
-            var protocolReader = new RaidoProtocolReader(tcpConnection.Transport.Input);
+            var protocolReader = new RaidoProtocolReader(connection.TransportInput);
             try
             {
-                while (!tcpConnection.IsTerminal)
+                while (!connection.IsTerminal)
                 {
                     RaidoProtocolReadResult<RaidoMessage> result;
                     try
@@ -129,7 +127,7 @@ namespace Raido.Server
                         connection.BeginClientTimeout();
                         result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAborted);
                     }
-                    catch (OperationCanceledException) when (tcpConnection.IsTerminal)
+                    catch (OperationCanceledException) when (connection.IsTerminal)
                     {
                         break;
                     }
@@ -140,7 +138,7 @@ namespace Raido.Server
                         if (result.IsCanceled)
                         {
                             connection.StopClientTimeout();
-                            if (tcpConnection.IsTerminal)
+                            if (connection.IsTerminal)
                             {
                                 break;
                             }
@@ -160,7 +158,7 @@ namespace Raido.Server
                                 protocolReader.Advance();
                             }
 
-                            if (!await tcpConnection.WaitForReconnectAsync().ConfigureAwait(false))
+                            if (!await connection.WaitForReconnectAsync().ConfigureAwait(false))
                             {
                                 break;
                             }
@@ -206,7 +204,7 @@ namespace Raido.Server
                         {
                             if (discardInput)
                             {
-                                tcpConnection.AcknowledgeInputBoundary();
+                                connection.AcknowledgeInputBoundary();
                             }
                         }
                     }
@@ -215,7 +213,7 @@ namespace Raido.Server
             finally
             {
                 await protocolReader.DisposeAsync();
-                tcpConnection.CompleteTransportInput();
+                connection.CompleteTransportInput();
             }
         }
 

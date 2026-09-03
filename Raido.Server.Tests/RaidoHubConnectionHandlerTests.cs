@@ -150,7 +150,7 @@ namespace Raido.Server.Tests
             await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
             await _dispatcher.DidNotReceive().OnConnectedAsync(_connection);
             Assert.IsTrue(_connection.ConnectionAborted.IsCancellationRequested);
-            await AssertPipeReaderCompletedAsync(_connection.TcpConnection.Transport.Input);
+            await AssertPipeReaderCompletedAsync(_connection.TransportInput);
         }
 
         [TestMethod]
@@ -169,7 +169,7 @@ namespace Raido.Server.Tests
             await _dispatcher.Received(1).OnDisconnectedAsync(_connection, ex);
             await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
             Assert.IsTrue(_connection.ConnectionAborted.IsCancellationRequested);
-            await AssertPipeReaderCompletedAsync(_connection.TcpConnection.Transport.Input);
+            await AssertPipeReaderCompletedAsync(_connection.TransportInput);
         }
 
         [TestMethod]
@@ -177,7 +177,7 @@ namespace Raido.Server.Tests
         {
             // Arrange
             var message = new TestMessage();
-            _connection.Protocol = new TestProtocol { MessageToReturn = message };
+            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message });
             var buffer = new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 });
 
             var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -204,7 +204,7 @@ namespace Raido.Server.Tests
             // Arrange
             var message = new TestMessage();
             var ex = new InvalidOperationException("Dispatch failed");
-            _connection.Protocol = new TestProtocol { MessageToReturn = message };
+            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message });
             var buffer = new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 });
             var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _dispatcher.OnConnectedAsync(_connection).Returns(_ =>
@@ -230,7 +230,7 @@ namespace Raido.Server.Tests
         {
             var message = new TestMessage();
             var exception = new InvalidOperationException("Dispatch failed");
-            _connection.Protocol = new TestProtocol { MessageToReturn = message };
+            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message });
             var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _dispatcher.OnConnectedAsync(_connection).Returns(_ =>
             {
@@ -252,7 +252,7 @@ namespace Raido.Server.Tests
         public async Task DispatchMessagesAsync_WhenReadIsCanceled_ShouldStopGracefully()
         {
             // Arrange
-            _connection.Protocol = new TestProtocol();
+            await _connection.SetProtocolAsync(new TestProtocol());
 
             var run = _connectionHandler.DispatchMessagesAsync(_connection);
             await Task.Delay(10);

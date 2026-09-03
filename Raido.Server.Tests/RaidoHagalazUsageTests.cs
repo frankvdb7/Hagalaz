@@ -36,6 +36,8 @@ public sealed class RaidoHagalazUsageTests
     {
         private readonly IRaidoCodec<UsageProtocol> _codec;
 
+        public int ConnectionState { get; set; }
+
         public UsageProtocol(IRaidoCodec<UsageProtocol> codec) => _codec = codec;
 
         public string Name => "HagalazUsageProtocol";
@@ -190,7 +192,8 @@ public sealed class RaidoHagalazUsageTests
         Assert.AreEqual((byte)4, request.Value);
         Assert.AreEqual(protocol.Name, provider.GetRequiredService<IRaidoProtocol>().Name);
 
-        var resolver = provider.GetRequiredService<IRaidoProtocolResolver>();
+        using var scope = provider.CreateScope();
+        var resolver = scope.ServiceProvider.GetRequiredService<IRaidoProtocolResolver>();
         Assert.IsInstanceOfType<UsageProtocol>(resolver.GetProtocol(protocol.Name.ToLowerInvariant(), new[] { protocol.Name.ToUpperInvariant() }));
 
         var rawConnection = CreateRawConnection("factory").Connection;
@@ -201,6 +204,28 @@ public sealed class RaidoHagalazUsageTests
 
         Assert.AreEqual(protocol.Name, built.Protocol.Name);
         Assert.AreEqual("factory", built.ConnectionId);
+    }
+
+    [TestMethod]
+    public void ProtocolResolver_IsScopedWithItsCapturedProtocolInstances()
+    {
+        using var provider = CreateProvider();
+        using var firstScope = provider.CreateScope();
+        using var secondScope = provider.CreateScope();
+
+        var firstResolver = firstScope.ServiceProvider.GetRequiredService<IRaidoProtocolResolver>();
+        var secondResolver = secondScope.ServiceProvider.GetRequiredService<IRaidoProtocolResolver>();
+
+        Assert.AreNotSame(firstResolver, secondResolver);
+
+        var firstProtocol = firstResolver.GetProtocol("HagalazUsageProtocol", null);
+        var secondProtocol = secondResolver.GetProtocol("HagalazUsageProtocol", null);
+
+        Assert.IsNotNull(firstProtocol);
+        Assert.IsNotNull(secondProtocol);
+        Assert.AreNotSame(firstProtocol, secondProtocol);
+        ((UsageProtocol)firstProtocol).ConnectionState = 1;
+        Assert.AreEqual(0, ((UsageProtocol)secondProtocol).ConnectionState);
     }
 
     [TestMethod]
@@ -285,8 +310,11 @@ public sealed class RaidoHagalazUsageTests
     private (RaidoHubConnectionContext Connection, PipeReader Output) CreateConnection(string connectionId, IRaidoProtocol protocol)
     {
         var raw = CreateRawConnection(connectionId);
-        var connection = RaidoTestConnectionFactory.Create(raw.Connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        connection.Protocol = protocol;
+        var connection = RaidoTestConnectionFactory.Create(
+            raw.Connection,
+            new RaidoConnectionContextOptions(),
+            NullLoggerFactory.Instance,
+            protocol: protocol);
         _connections.Add(connection);
         return (connection, raw.Output.Reader);
     }

@@ -254,8 +254,11 @@ public sealed class RaidoHubDispatcherTests
         context.Features.Returns(new FeatureCollection());
         context.ConnectionClosed.Returns(CancellationToken.None);
         _transports.Add((input, output));
-        var connection = RaidoTestConnectionFactory.Create(context, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        connection.Protocol = new TestProtocol();
+        var connection = RaidoTestConnectionFactory.Create(
+            context,
+            new RaidoConnectionContextOptions(),
+            NullLoggerFactory.Instance,
+            protocol: new TestProtocol());
         _connections.Add(connection);
         return connection;
     }

@@ -94,7 +94,7 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
     public Task WaitForPartialFrameAsync() => _protocol.PartialFrameObserved.Task;
 
     public bool ActivateReplacement(AcceptedPhysicalConnection replacement)
-        => LogicalConnection.TcpConnection.TryAttachPhysicalConnection(replacement.Context);
+        => LogicalConnection.TryAttachPhysicalConnection(replacement.Context);
 
     public Task WaitForLogicalConnectionAsync() => _logicalConnection.Task;
 
@@ -141,8 +141,6 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
                 logicalToStart = factory.Create(
                     physical,
                     _protocol,
-                    TimeSpan.FromHours(1),
-                    TimeSpan.FromHours(1),
                     statefulReconnect: true);
                 _logical = logicalToStart;
                 _initialConnection.TrySetResult(accepted);

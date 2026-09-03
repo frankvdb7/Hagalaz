@@ -149,7 +149,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
             // now let the appropriate client protocol handle any communication
             clientProtocol.SetEncryptionSeed(message.IsaacSeed);
-            Context.Protocol = clientProtocol;
+            await Context.SetProtocolAsync(clientProtocol);
 
             _mediator.Publish(new LobbySignInCommand(masterId.Value, session));
         }
@@ -224,7 +224,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
             // now let the appropriate client protocol handle any communication
             clientProtocol.SetEncryptionSeed(message.IsaacSeed);
-            Context.Protocol = clientProtocol;
+            await Context.SetProtocolAsync(clientProtocol);
 
             _mediator.Publish(new WorldSignInCommand(character));
         }

@@ -23,21 +23,29 @@ namespace Raido.Server.Internal
         public RaidoHubConnectionContext Create(
             ConnectionContext connection,
             IRaidoProtocol protocol,
-            TimeSpan? keepAliveInterval = null,
-            TimeSpan? clientTimeoutInterval = null,
             bool statefulReconnect = false)
         {
             ArgumentNullException.ThrowIfNull(connection);
             ArgumentNullException.ThrowIfNull(protocol);
 
             var options = _options.Value;
-            var contextOptions = new RaidoConnectionContextOptions
+            return Create(connection, protocol, new RaidoConnectionContextOptions
             {
-                KeepAliveInterval = keepAliveInterval ?? options.KeepAliveInterval.GetValueOrDefault(),
-                ClientTimeoutInterval = clientTimeoutInterval ?? options.ClientTimeoutInterval.GetValueOrDefault(),
+                KeepAliveInterval = options.KeepAliveInterval.GetValueOrDefault(),
+                ClientTimeoutInterval = options.ClientTimeoutInterval.GetValueOrDefault(),
                 StatefulReconnectEnabled = statefulReconnect,
                 StatefulReconnectTimeout = options.StatefulReconnectTimeout.GetValueOrDefault(RaidoOptionsSetup.DefaultStatefulReconnectTimeout)
-            };
+            });
+        }
+
+        internal RaidoHubConnectionContext Create(
+            ConnectionContext connection,
+            IRaidoProtocol protocol,
+            RaidoConnectionContextOptions contextOptions)
+        {
+            ArgumentNullException.ThrowIfNull(connection);
+            ArgumentNullException.ThrowIfNull(protocol);
+            ArgumentNullException.ThrowIfNull(contextOptions);
 
             var tcpConnection = new RaidoTcpConnectionContext(contextOptions, _loggerFactory);
             if (!tcpConnection.TryAttachPhysicalConnection(connection))
@@ -45,11 +53,17 @@ namespace Raido.Server.Internal
                 throw new InvalidOperationException("The initial physical connection could not be activated.");
             }
 
-            return new RaidoHubConnectionContext(tcpConnection, contextOptions, _loggerFactory, TimeProvider.System)
+            var hubConnection = new RaidoHubConnectionContext(
+                tcpConnection,
+                contextOptions,
+                protocol,
+                _loggerFactory,
+                TimeProvider.System)
             {
-                Protocol = protocol,
                 OriginalActivity = Activity.Current
             };
+
+            return hubConnection;
         }
     }
 }
