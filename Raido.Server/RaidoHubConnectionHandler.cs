@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -61,15 +62,31 @@ namespace Raido.Server
             }
             finally
             {
-                connection.CompleteTransportInput();
-                await connection.CleanupAsync();
+                ExceptionDispatchInfo? cleanupException = null;
+                try
+                {
+                    connection.CompleteTransportInput();
+                    await connection.CleanupAsync();
+                }
+                catch (Exception ex)
+                {
+                    cleanupException = ExceptionDispatchInfo.Capture(ex);
+                }
 
                 var currentTimestamp = (connection.StartTimestamp > 0) ? _timeProvider.GetTimestamp() : default;
 
                 Log.ConnectedStopping(_logger, connection);
                 RaidoEventSource.Log.ConnectionStop(connection.ConnectionId, connection.StartTimestamp, currentTimestamp);
                 _metrics.ConnectionStop(connection.MetricsContext, connection.StartTimestamp, currentTimestamp);
-                await _lifetimeManager.OnDisconnectedAsync(connection);
+
+                try
+                {
+                    await _lifetimeManager.OnDisconnectedAsync(connection);
+                }
+                finally
+                {
+                    cleanupException?.Throw();
+                }
             }
         }
 

@@ -102,7 +102,9 @@ namespace Raido.Server
         /// The existing write lock serializes this transition with Raido writes. A write already in progress with the
         /// previous protocol completes before this operation changes <see cref="Protocol"/>; writes that begin after
         /// the transition use the new protocol. A read already started with the previous protocol is not
-        /// reinterpreted by this operation. Normal Hub dispatch ordering completes a transition performed by a Hub
+        /// reinterpreted by this operation. Once the new protocol is installed after acquiring the write boundary, the
+        /// transition is committed; failure while disposing a previous owned lifetime is reported as a cleanup failure
+        /// and does not roll back the protocol. Normal Hub dispatch ordering completes a transition performed by a Hub
         /// method before the next message read begins.
         /// </remarks>
         /// <param name="protocol">The protocol to use for subsequent reads and writes.</param>
@@ -580,12 +582,17 @@ namespace Raido.Server
             }
             finally
             {
-                if (protocolLifetime is not null)
+                try
                 {
-                    await protocolLifetime.DisposeAsync().ConfigureAwait(false);
+                    if (protocolLifetime is not null)
+                    {
+                        await protocolLifetime.DisposeAsync().ConfigureAwait(false);
+                    }
                 }
-
-                _writeLock.Release();
+                finally
+                {
+                    _writeLock.Release();
+                }
             }
         }
 

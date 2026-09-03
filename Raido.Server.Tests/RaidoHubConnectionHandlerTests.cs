@@ -12,6 +12,13 @@ using Raido.Server.Internal;
 
 namespace Raido.Server.Tests
 {
+    internal sealed class ThrowingConnectionLifetime : IAsyncDisposable
+    {
+        public InvalidOperationException Exception { get; } = new("Protocol lifetime disposal failed.");
+
+        public ValueTask DisposeAsync() => ValueTask.FromException(Exception);
+    }
+
     public class TestMessage : RaidoMessage
     {
     }
@@ -152,6 +159,20 @@ namespace Raido.Server.Tests
             await _dispatcher.DidNotReceive().OnConnectedAsync(_connection);
             Assert.IsTrue(_connection.ConnectionAborted.IsCancellationRequested);
             await AssertPipeReaderCompletedAsync(_connection.TransportInput);
+        }
+
+        [TestMethod]
+        public async Task ConnectAsync_WhenProtocolLifetimeCleanupThrows_StillRunsDisconnectLifecycle()
+        {
+            var lifetime = new ThrowingConnectionLifetime();
+            await _connection.SetProtocolAsync(new TestProtocol(), lifetime, CancellationToken.None);
+            _input.Writer.Complete();
+
+            var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+                () => _connectionHandler.ConnectAsync(_connection));
+
+            Assert.AreSame(lifetime.Exception, exception);
+            await _lifetimeManager.Received(1).OnDisconnectedAsync(_connection);
         }
 
         [TestMethod]

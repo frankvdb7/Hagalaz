@@ -84,6 +84,13 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         }
     }
 
+    private sealed class ThrowingProtocolLifetime : IAsyncDisposable
+    {
+        public InvalidOperationException Exception { get; } = new("Protocol lifetime disposal failed.");
+
+        public ValueTask DisposeAsync() => ValueTask.FromException(Exception);
+    }
+
     private (RaidoHubConnectionContext Context, Pipe Output, FeatureCollection Features, ConnectionContext Connection) CreateContext(TimeSpan? keepAlive = null, TimeSpan? timeout = null)
     {
         var input = new Pipe();
@@ -184,6 +191,45 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         await context.CleanupAsync();
 
         Assert.AreEqual(1, firstLifetime.DisposeCount);
+        Assert.AreEqual(1, secondLifetime.DisposeCount);
+    }
+
+    [TestMethod]
+    public async Task CleanupAsync_ReleasesWriteBoundaryWhenProtocolLifetimeDisposalThrows()
+    {
+        var (context, _, _, _) = CreateContext();
+        var lifetime = new ThrowingProtocolLifetime();
+        await context.SetProtocolAsync(new WritingProtocol(), lifetime, CancellationToken.None);
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => context.CleanupAsync());
+
+        Assert.AreSame(lifetime.Exception, exception);
+        await context.SetProtocolAsync(new WritingProtocol(), CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task SetProtocolAsync_KeepsNewProtocolCommittedWhenPreviousLifetimeDisposalThrows()
+    {
+        var (context, output, _, _) = CreateContext();
+        var firstLifetime = new ThrowingProtocolLifetime();
+        var secondLifetime = new TrackingProtocolLifetime();
+        var protocolB = new WritingProtocol();
+
+        await context.SetProtocolAsync(new WritingProtocol(), firstLifetime, CancellationToken.None);
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => context.SetProtocolAsync(protocolB, secondLifetime, CancellationToken.None).AsTask());
+
+        Assert.AreSame(firstLifetime.Exception, exception);
+        Assert.AreSame(protocolB, context.Protocol);
+
+        await context.WriteAsync(new TestMessage());
+        var result = await output.Reader.ReadAsync();
+        CollectionAssert.AreEqual(new byte[] { 42 }, result.Buffer.ToArray());
+        output.Reader.AdvanceTo(result.Buffer.End);
+
+        await context.CleanupAsync();
         Assert.AreEqual(1, secondLifetime.DisposeCount);
     }
 
