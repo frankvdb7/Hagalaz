@@ -31,7 +31,7 @@ public class ClientConnectionHandler : ConnectionHandler
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var handshakeProtocol = scope.ServiceProvider.GetRequiredService<HandshakeProtocol>();
-        var connectionContext = _connectionFactory.Create(connection, handshakeProtocol);
+        var connectionContext = _connectionFactory.Create(connection, handshakeProtocol, statefulReconnect: false);
 
         Log.HandshakeStart(_logger, connectionContext.Protocol.Name);
 

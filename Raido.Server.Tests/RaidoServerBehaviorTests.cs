@@ -7,6 +7,7 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Reflection;
 using System.Security.Claims;
+using System.Threading;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
@@ -246,7 +247,7 @@ public sealed class RaidoServerBehaviorTests
         _transports.Add((input, output));
 
         var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        await connection.SetProtocolAsync(Substitute.For<IRaidoProtocol>());
+        await connection.SetProtocolAsync(Substitute.For<IRaidoProtocol>(), CancellationToken.None);
         _connections.Add(connection);
         var caller = new DefaultRaidoCallerContext(connection);
 
@@ -332,7 +333,7 @@ public sealed class RaidoServerBehaviorTests
         raw.Features.Returns(new FeatureCollection());
         raw.ConnectionClosed.Returns(CancellationToken.None);
         var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        await connection.SetProtocolAsync(new PingProtocol());
+        await connection.SetProtocolAsync(new PingProtocol(), CancellationToken.None);
         _transports.Add((input, output));
         _connections.Add(connection);
 
@@ -362,7 +363,7 @@ public sealed class RaidoServerBehaviorTests
         raw.Features.Returns(new FeatureCollection());
         raw.ConnectionClosed.Returns(CancellationToken.None);
         var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        await connection.SetProtocolAsync(new PingProtocol());
+        await connection.SetProtocolAsync(new PingProtocol(), CancellationToken.None);
         _transports.Add((input, output));
         _connections.Add(connection);
 

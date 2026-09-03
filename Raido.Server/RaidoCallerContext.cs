@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Security.Claims;
@@ -59,7 +60,19 @@ namespace Raido.Server
         /// <param name="protocol">The protocol to use for subsequent writes.</param>
         /// <param name="cancellationToken">The token that cancels waiting for the write boundary.</param>
         /// <returns>A <see cref="ValueTask"/> that represents the transition.</returns>
-        public abstract ValueTask SetProtocolAsync(IRaidoProtocol protocol, CancellationToken cancellationToken = default);
+        public abstract ValueTask SetProtocolAsync(IRaidoProtocol protocol, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Changes the protocol used by the connection and transfers ownership of its lifetime to the connection.
+        /// </summary>
+        /// <param name="protocol">The protocol to use for subsequent reads and writes.</param>
+        /// <param name="protocolLifetime">The lifetime for the protocol and its connection-owned dependencies.</param>
+        /// <param name="cancellationToken">The token that cancels waiting for the write boundary.</param>
+        /// <returns>A <see cref="ValueTask"/> that represents the transition.</returns>
+        public abstract ValueTask SetProtocolAsync(
+            IRaidoProtocol protocol,
+            IAsyncDisposable protocolLifetime,
+            CancellationToken cancellationToken);
 
         /// <summary>
         /// Aborts the connection.

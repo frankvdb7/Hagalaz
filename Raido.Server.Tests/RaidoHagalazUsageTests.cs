@@ -199,7 +199,8 @@ public sealed class RaidoHagalazUsageTests
         var rawConnection = CreateRawConnection("factory").Connection;
         var built = provider.GetRequiredService<IRaidoHubConnectionContextFactory>().Create(
             rawConnection,
-            protocol);
+            protocol,
+            statefulReconnect: false);
         _connections.Add(built);
 
         Assert.AreEqual(protocol.Name, built.Protocol.Name);

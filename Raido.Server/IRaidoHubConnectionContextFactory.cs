@@ -18,6 +18,6 @@ namespace Raido.Server
         RaidoHubConnectionContext Create(
             ConnectionContext connection,
             IRaidoProtocol protocol,
-            bool statefulReconnect = false);
+            bool statefulReconnect);
     }
 }

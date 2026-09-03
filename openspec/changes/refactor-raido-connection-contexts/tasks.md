@@ -19,6 +19,6 @@
 - [x] 3.3 Run strict OpenSpec validation, focused Raido tests, the solution build, full solution tests, and cumulative diff review against the #486 baseline
 - [x] 3.4 Add deterministic coverage for discarding incomplete stable input at a physical replacement boundary while preserving a complete replacement message, keep boundary acknowledgement separate from the public protocol-reader cursor API, cover a read returned before detach and rapid waiter-preserving replacement, and cover startup completion of handler-owned stable input
 - [x] 3.5 Add a separate real TCP/Kestrel integration suite covering physical replacement continuity, raw stream boundaries, timeout and replacement behavior, rapid replacement, detached output disposal, and deterministic resource cleanup
-- [x] 3.6 Verify connection-scoped protocol ownership, write-serialized protocol transitions, narrow Hub-to-connections handler access, and the reduced public factory API
+- [x] 3.6 Verify initial and dynamically selected connection-scoped protocol ownership, lifetime disposal on replacement and cleanup, write-serialized protocol transitions with explicit cancellation tokens, narrow Hub-to-connections handler access, and the reduced public factory API
 
 Validation note: strict OpenSpec validation, focused Raido tests, the Raido and GameWorld test projects, and the solution build passed. The full solution test command ran; non-Docker projects passed, while Docker-dependent integration fixtures could not start because Docker was unavailable on the host.

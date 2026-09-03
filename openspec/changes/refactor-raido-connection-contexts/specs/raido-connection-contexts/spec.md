@@ -221,6 +221,24 @@ The system SHALL keep the Hub protocol, message-writing coordination, Hub timeou
 - **THEN** it can access logical connection state and coordinated Hub operations
 - **AND** it cannot access a TCP context, raw physical connection, or transport ownership operation
 
+### Requirement: Protocol instances follow logical connection lifetime
+
+The system SHALL keep every protocol instance with mutable logical-connection state alive for the logical connection lifetime that uses it. A protocol selected during Hub dispatch SHALL be resolved from a dedicated async scope and its lifetime SHALL be transferred to the Hub context; the per-message invocation scope SHALL NOT own a protocol retained after dispatch.
+
+#### Scenario: Dynamically selected protocol outlives its invocation scope
+
+- **WHEN** Hub code selects a stateful protocol during a Hub invocation
+- **THEN** the selected protocol remains usable after that invocation scope is disposed
+- **AND** the dedicated scope transferred with the protocol is disposed when another owned protocol replaces it or when the logical connection is cleaned up
+
+#### Scenario: Protocol transition preserves write and read ordering
+
+- **WHEN** Hub code requests a protocol transition
+- **THEN** an in-flight write using the previous protocol completes before the transition changes the protocol
+- **AND** writes that begin after the transition use the new protocol
+- **AND** a read already started with the previous protocol is not reinterpreted
+- **AND** normal Hub dispatch completes the transition before beginning the next message read
+
 ### Requirement: Logical lifecycle occurs once
 
 The system SHALL register and remove the logical Hub context once for its entire lifetime, including physical reconnect.

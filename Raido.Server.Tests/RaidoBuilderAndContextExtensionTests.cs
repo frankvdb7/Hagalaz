@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.IO.Pipelines;
+using System.Threading;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -107,7 +108,7 @@ public sealed class RaidoBuilderAndContextExtensionTests
         var context = new DefaultRaidoContext(lifetime);
         Assert.IsNotNull(context.Clients);
         var connection = RaidoTestConnectionFactory.Create(RawConnection(), new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        await connection.SetProtocolAsync(new SimpleProtocol());
+        await connection.SetProtocolAsync(new SimpleProtocol(), CancellationToken.None);
         _connections.Add(connection);
         var caller = new DefaultRaidoCallerContext(connection);
         Assert.AreEqual(connection.ConnectionId, caller.ConnectionId);
@@ -115,7 +116,7 @@ public sealed class RaidoBuilderAndContextExtensionTests
         Assert.AreSame(connection.Features, caller.Features);
         Assert.AreEqual(connection.ConnectionAborted, caller.ConnectionAborted);
         Assert.AreSame(connection.Protocol, caller.Protocol);
-        await caller.SetProtocolAsync(new SimpleProtocol());
+        await caller.SetProtocolAsync(new SimpleProtocol(), CancellationToken.None);
         caller.Abort();
         Assert.IsTrue(connection.ConnectionAborted.CanBeCanceled);
     }

@@ -1,7 +1,9 @@
+using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Security.Claims;
+using System.Threading;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
@@ -71,6 +73,17 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         public ClaimsPrincipal? User { get; set; }
     }
 
+    private sealed class TrackingProtocolLifetime : IAsyncDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            return ValueTask.CompletedTask;
+        }
+    }
+
     private (RaidoHubConnectionContext Context, Pipe Output, FeatureCollection Features, ConnectionContext Connection) CreateContext(TimeSpan? keepAlive = null, TimeSpan? timeout = null)
     {
         var input = new Pipe();
@@ -136,7 +149,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         var protocol = Substitute.For<IRaidoProtocol>();
         protocol.When(x => x.WriteMessage(Arg.Any<RaidoMessage>(), Arg.Any<IBufferWriter<byte>>()))
             .Do(_ => throw new InvalidOperationException("write"));
-        await context.SetProtocolAsync(protocol);
+        await context.SetProtocolAsync(protocol, CancellationToken.None);
         await context.WriteAsync(new TestMessage());
         Assert.IsInstanceOfType<InvalidOperationException>(context.TerminalException);
         context.Abort();
@@ -149,7 +162,29 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         var (context, _, _, _) = CreateContext();
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(
-            () => context.SetProtocolAsync(null!).AsTask());
+            () => context.SetProtocolAsync(null!, CancellationToken.None).AsTask());
+    }
+
+    [TestMethod]
+    public async Task SetProtocolAsync_DisposesOwnedProtocolLifetimeOnReplacementAndCleanup()
+    {
+        var (context, _, _, _) = CreateContext();
+        var firstLifetime = new TrackingProtocolLifetime();
+        var secondLifetime = new TrackingProtocolLifetime();
+
+        await context.SetProtocolAsync(new WritingProtocol(), firstLifetime, CancellationToken.None);
+        Assert.AreEqual(0, firstLifetime.DisposeCount);
+        Assert.AreEqual(0, secondLifetime.DisposeCount);
+
+        await context.SetProtocolAsync(new WritingProtocol(), secondLifetime, CancellationToken.None);
+        Assert.AreEqual(1, firstLifetime.DisposeCount);
+        Assert.AreEqual(0, secondLifetime.DisposeCount);
+
+        await context.CleanupAsync();
+        await context.CleanupAsync();
+
+        Assert.AreEqual(1, firstLifetime.DisposeCount);
+        Assert.AreEqual(1, secondLifetime.DisposeCount);
     }
 
     [TestMethod]

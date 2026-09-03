@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Security.Claims;
@@ -24,8 +25,14 @@ namespace Raido.Server.Internal
 
         public override IRaidoProtocol Protocol => _connection.Protocol;
 
-        public override ValueTask SetProtocolAsync(IRaidoProtocol protocol, CancellationToken cancellationToken = default) =>
+        public override ValueTask SetProtocolAsync(IRaidoProtocol protocol, CancellationToken cancellationToken) =>
             _connection.SetProtocolAsync(protocol, cancellationToken);
+
+        public override ValueTask SetProtocolAsync(
+            IRaidoProtocol protocol,
+            IAsyncDisposable protocolLifetime,
+            CancellationToken cancellationToken) =>
+            _connection.SetProtocolAsync(protocol, protocolLifetime, cancellationToken);
 
         public override void Abort() => _connection.Abort();
     }

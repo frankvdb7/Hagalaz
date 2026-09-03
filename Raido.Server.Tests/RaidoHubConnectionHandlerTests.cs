@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
+using System.Threading;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -177,7 +178,7 @@ namespace Raido.Server.Tests
         {
             // Arrange
             var message = new TestMessage();
-            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message });
+            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
             var buffer = new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 });
 
             var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -199,12 +200,47 @@ namespace Raido.Server.Tests
         }
 
         [TestMethod]
+        [Timeout(5000)]
+        public async Task DispatchMessagesAsync_WhenDispatchChangesProtocol_UsesNewProtocolForNextRead()
+        {
+            var firstMessage = new TestMessage();
+            var secondMessage = new TestMessage();
+            var firstDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var secondDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var protocolA = new TestProtocol { MessageToReturn = firstMessage };
+            var protocolB = new TestProtocol { MessageToReturn = secondMessage };
+
+            await _connection.SetProtocolAsync(protocolA, CancellationToken.None);
+            _dispatcher.DispatchMessageAsync(_connection, firstMessage).Returns(_ =>
+            {
+                firstDispatched.TrySetResult();
+                return _connection.SetProtocolAsync(protocolB, CancellationToken.None).AsTask();
+            });
+            _dispatcher.DispatchMessageAsync(_connection, secondMessage).Returns(_ =>
+            {
+                secondDispatched.TrySetResult();
+                return Task.CompletedTask;
+            });
+
+            var run = _connectionHandler.DispatchMessagesAsync(_connection);
+            await _input.Writer.WriteAsync(new byte[] { 1 });
+            await firstDispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await _input.Writer.WriteAsync(new byte[] { 2 });
+            await secondDispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            _input.Writer.Complete();
+            await run;
+
+            await _dispatcher.Received(1).DispatchMessageAsync(_connection, firstMessage);
+            await _dispatcher.Received(1).DispatchMessageAsync(_connection, secondMessage);
+        }
+
+        [TestMethod]
         public async Task RunAsync_WhenDispatcherThrows_ShouldDisconnect()
         {
             // Arrange
             var message = new TestMessage();
             var ex = new InvalidOperationException("Dispatch failed");
-            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message });
+            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
             var buffer = new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 });
             var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _dispatcher.OnConnectedAsync(_connection).Returns(_ =>
@@ -230,7 +266,7 @@ namespace Raido.Server.Tests
         {
             var message = new TestMessage();
             var exception = new InvalidOperationException("Dispatch failed");
-            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message });
+            await _connection.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
             var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _dispatcher.OnConnectedAsync(_connection).Returns(_ =>
             {
@@ -252,7 +288,7 @@ namespace Raido.Server.Tests
         public async Task DispatchMessagesAsync_WhenReadIsCanceled_ShouldStopGracefully()
         {
             // Arrange
-            await _connection.SetProtocolAsync(new TestProtocol());
+            await _connection.SetProtocolAsync(new TestProtocol(), CancellationToken.None);
 
             var run = _connectionHandler.DispatchMessagesAsync(_connection);
             await Task.Delay(10);

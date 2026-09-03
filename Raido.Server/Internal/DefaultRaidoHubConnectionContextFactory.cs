@@ -23,7 +23,7 @@ namespace Raido.Server.Internal
         public RaidoHubConnectionContext Create(
             ConnectionContext connection,
             IRaidoProtocol protocol,
-            bool statefulReconnect = false)
+            bool statefulReconnect)
         {
             ArgumentNullException.ThrowIfNull(connection);
             ArgumentNullException.ThrowIfNull(protocol);

@@ -31,6 +31,7 @@ namespace Raido.Server
         private readonly TimeSpan _keepAliveInterval;
         private readonly TimeSpan _clientTimeoutInterval;
         private IRaidoProtocol _protocol;
+        private IAsyncDisposable? _protocolLifetime;
 
         private ClaimsPrincipal? _user;
         private volatile bool _clientTimeoutActive;
@@ -65,6 +66,10 @@ namespace Raido.Server
         public virtual IDictionary<object, object?> Items => _connectionContext.Items;
         public virtual IPEndPoint? LocalEndPoint => _connectionContext.LocalEndPoint as IPEndPoint;
         public virtual IPEndPoint? RemoteEndPoint => _connectionContext.RemoteEndPoint as IPEndPoint;
+
+        /// <summary>
+        /// Gets the protocol used for the next protocol read and for writes that begin after a transition completes.
+        /// </summary>
         public virtual IRaidoProtocol Protocol => Volatile.Read(ref _protocol);
 
         internal PipeReader TransportInput => _tcpConnection.Transport.Input;
@@ -90,16 +95,80 @@ namespace Raido.Server
             RaidoCallerContext = new DefaultRaidoCallerContext(this);
         }
 
+        /// <summary>
+        /// Replaces the protocol after writes using the current protocol have completed.
+        /// </summary>
+        /// <remarks>
+        /// The existing write lock serializes this transition with Raido writes. A write already in progress with the
+        /// previous protocol completes before this operation changes <see cref="Protocol"/>; writes that begin after
+        /// the transition use the new protocol. A read already started with the previous protocol is not
+        /// reinterpreted by this operation. Normal Hub dispatch ordering completes a transition performed by a Hub
+        /// method before the next message read begins.
+        /// </remarks>
+        /// <param name="protocol">The protocol to use for subsequent reads and writes.</param>
+        /// <param name="cancellationToken">The token that cancels waiting for the write boundary.</param>
+        /// <returns>A <see cref="ValueTask"/> that represents the transition.</returns>
         public virtual async ValueTask SetProtocolAsync(
             IRaidoProtocol protocol,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(protocol);
 
-            await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await SetProtocolCoreAsync(protocol, protocolLifetime: null, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Replaces the protocol after writes using the current protocol have completed and transfers ownership of the supplied lifetime to this connection.
+        /// </summary>
+        /// <remarks>
+        /// The lifetime is disposed when this protocol is replaced or when the logical connection is cleaned up. The
+        /// lifetime is also disposed if cancellation prevents the transition from acquiring the write boundary. The
+        /// transition has the same write and read guarantees as <see cref="SetProtocolAsync(IRaidoProtocol, CancellationToken)"/>.
+        /// </remarks>
+        /// <param name="protocol">The protocol to use for subsequent reads and writes.</param>
+        /// <param name="protocolLifetime">The lifetime for the protocol and its connection-owned dependencies.</param>
+        /// <param name="cancellationToken">The token that cancels waiting for the write boundary.</param>
+        /// <returns>A <see cref="ValueTask"/> that represents the transition.</returns>
+        public virtual ValueTask SetProtocolAsync(
+            IRaidoProtocol protocol,
+            IAsyncDisposable protocolLifetime,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(protocol);
+            ArgumentNullException.ThrowIfNull(protocolLifetime);
+
+            return SetProtocolCoreAsync(protocol, protocolLifetime, cancellationToken);
+        }
+
+        private async ValueTask SetProtocolCoreAsync(
+            IRaidoProtocol protocol,
+            IAsyncDisposable? protocolLifetime,
+            CancellationToken cancellationToken)
+        {
             try
             {
+                await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                if (protocolLifetime is not null)
+                {
+                    await protocolLifetime.DisposeAsync().ConfigureAwait(false);
+                }
+
+                throw;
+            }
+
+            try
+            {
+                var previousProtocolLifetime = _protocolLifetime;
+                _protocolLifetime = protocolLifetime;
                 Volatile.Write(ref _protocol, protocol);
+
+                if (previousProtocolLifetime is not null)
+                {
+                    await previousProtocolLifetime.DisposeAsync().ConfigureAwait(false);
+                }
             }
             finally
             {
@@ -502,6 +571,8 @@ namespace Raido.Server
             // the Hub write owner may still be holding this lock.
             var tcpCleanup = _tcpConnection.CleanupAsync();
             await _writeLock.WaitAsync().ConfigureAwait(false);
+            var protocolLifetime = _protocolLifetime;
+            _protocolLifetime = null;
             try
             {
                 await tcpCleanup.ConfigureAwait(false);
@@ -509,6 +580,11 @@ namespace Raido.Server
             }
             finally
             {
+                if (protocolLifetime is not null)
+                {
+                    await protocolLifetime.DisposeAsync().ConfigureAwait(false);
+                }
+
                 _writeLock.Release();
             }
         }

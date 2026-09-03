@@ -108,7 +108,7 @@ namespace Hagalaz.Services.GameUpdate.Network
             }
 
             var fileProtocol = scope.ServiceProvider.GetRequiredService<FileProtocol>();
-            var connectionContext = _connectionFactory.Create(connection, fileProtocol);
+            var connectionContext = _connectionFactory.Create(connection, fileProtocol, statefulReconnect: false);
 
             Log.HandshakeComplete(_logger, connectionContext.Protocol.Name);
 
