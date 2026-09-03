@@ -109,9 +109,21 @@ public sealed class AdminHubAuthorizationTests
         rawConnection.ConnectionClosed.Returns(CancellationToken.None);
         _transports.Add((input, output));
 
-        var connection = new RaidoHubConnectionContext(rawConnection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        var connection = CreateHubConnection(rawConnection);
         _connections.Add(connection);
         return connection;
+    }
+
+    private static RaidoHubConnectionContext CreateHubConnection(ConnectionContext physicalConnection)
+    {
+        var options = new RaidoConnectionContextOptions();
+        var tcpConnection = new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance);
+        Assert.IsTrue(tcpConnection.TryAttachPhysicalConnection(physicalConnection));
+        return new RaidoHubConnectionContext(
+            tcpConnection,
+            options,
+            NullLoggerFactory.Instance,
+            TimeProvider.System);
     }
 
     private static ICharacter CreateCharacter(IEventManager eventManager)

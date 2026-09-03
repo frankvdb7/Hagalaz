@@ -245,10 +245,8 @@ public sealed class RaidoServerBehaviorTests
         raw.Transport.Returns(transport);
         _transports.Add((input, output));
 
-        var connection = new RaidoHubConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = Substitute.For<IRaidoProtocol>()
-        };
+        var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        connection.Protocol = Substitute.For<IRaidoProtocol>();
         _connections.Add(connection);
         var caller = new DefaultRaidoCallerContext(connection);
 
@@ -333,10 +331,8 @@ public sealed class RaidoServerBehaviorTests
         raw.Transport.Returns(transport);
         raw.Features.Returns(new FeatureCollection());
         raw.ConnectionClosed.Returns(CancellationToken.None);
-        var connection = new RaidoHubConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = new PingProtocol()
-        };
+        var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        connection.Protocol = new PingProtocol();
         _transports.Add((input, output));
         _connections.Add(connection);
 
@@ -365,10 +361,8 @@ public sealed class RaidoServerBehaviorTests
         raw.Transport.Returns(transport);
         raw.Features.Returns(new FeatureCollection());
         raw.ConnectionClosed.Returns(CancellationToken.None);
-        var connection = new RaidoHubConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = new PingProtocol()
-        };
+        var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        connection.Protocol = new PingProtocol();
         _transports.Add((input, output));
         _connections.Add(connection);
 
@@ -407,7 +401,7 @@ public sealed class RaidoServerBehaviorTests
         transport.Input.Returns(Substitute.For<PipeReader>());
         transport.Output.Returns(Substitute.For<PipeWriter>());
         raw.Transport.Returns(transport);
-        var connection = new RaidoHubConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
         _connections.Add(connection);
         return connection;
     }

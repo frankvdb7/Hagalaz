@@ -71,7 +71,13 @@ namespace Raido.Server.Internal
                 StatefulReconnectTimeout = options.Value.StatefulReconnectTimeout.GetValueOrDefault(RaidoOptionsSetup.DefaultStatefulReconnectTimeout)
             };
 
-            return new RaidoHubConnectionContext(_connection, contextOptions, loggerFactory)
+            var tcpConnection = new RaidoTcpConnectionContext(contextOptions, loggerFactory);
+            if (!tcpConnection.TryAttachPhysicalConnection(_connection))
+            {
+                throw new InvalidOperationException("The initial physical connection could not be activated.");
+            }
+
+            return new RaidoHubConnectionContext(tcpConnection, contextOptions, loggerFactory, TimeProvider.System)
             {
                 Protocol = _protocol,
                 OriginalActivity = Activity.Current

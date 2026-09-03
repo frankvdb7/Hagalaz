@@ -85,14 +85,12 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         connection.Transport.Returns(transport);
         connection.Features.Returns(features);
         connection.ConnectionClosed.Returns(connectionClosed.Token);
-        var context = new RaidoHubConnectionContext(connection, new RaidoConnectionContextOptions
+        var context = RaidoTestConnectionFactory.Create(connection, new RaidoConnectionContextOptions
         {
             KeepAliveInterval = keepAlive ?? TimeSpan.FromMinutes(1),
             ClientTimeoutInterval = timeout ?? TimeSpan.FromMinutes(1)
-        }, NullLoggerFactory.Instance)
-        {
-            Protocol = new WritingProtocol()
-        };
+        }, NullLoggerFactory.Instance);
+        context.Protocol = new WritingProtocol();
         _contexts.Add(context);
         _connectionClosedSources.Add(connectionClosed);
         _transports.Add((input, output));

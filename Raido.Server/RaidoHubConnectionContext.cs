@@ -67,25 +67,6 @@ namespace Raido.Server
         public virtual IPEndPoint? RemoteEndPoint => _connectionContext.RemoteEndPoint as IPEndPoint;
         public virtual IRaidoProtocol Protocol { get; internal set; } = default!;
 
-        public RaidoHubConnectionContext(ConnectionContext connection, RaidoConnectionContextOptions contextOptions, ILoggerFactory loggerFactory)
-            : this(CreateTcpConnection(connection, contextOptions, loggerFactory), contextOptions, loggerFactory, TimeProvider.System)
-        {
-        }
-
-        private static RaidoTcpConnectionContext CreateTcpConnection(
-            ConnectionContext connection,
-            RaidoConnectionContextOptions contextOptions,
-            ILoggerFactory loggerFactory)
-        {
-            var tcpConnection = new RaidoTcpConnectionContext(contextOptions, loggerFactory);
-            if (!tcpConnection.TryAttachPhysicalConnection(connection))
-            {
-                throw new InvalidOperationException("The initial physical connection could not be activated.");
-            }
-
-            return tcpConnection;
-        }
-
         internal RaidoHubConnectionContext(
             RaidoTcpConnectionContext connection,
             RaidoConnectionContextOptions contextOptions,

@@ -97,7 +97,7 @@ public sealed class RaidoServerInfrastructureTests
         connection.Transport.Returns(transport);
         connection.ConnectionClosed.Returns(CancellationToken.None);
         _transports.Add((input, output));
-        var context = new RaidoHubConnectionContext(connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        var context = RaidoTestConnectionFactory.Create(connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
         _connections.Add(context);
         return context;
     }

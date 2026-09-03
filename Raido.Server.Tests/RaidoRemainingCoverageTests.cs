@@ -139,7 +139,7 @@ public sealed class RaidoRemainingCoverageTests
         var second = Substitute.For<IRaidoHubDispatcher>();
         var dispatcher = new DefaultRaidoDispatcher(new[] { first, second });
         var rawConnection = CreateRawConnection("dispatcher");
-        var connection = new RaidoHubConnectionContext(rawConnection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        var connection = RaidoTestConnectionFactory.Create(rawConnection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
         _connections.Add(connection);
         var message = new TestMessage();
         await dispatcher.OnConnectedAsync(connection);

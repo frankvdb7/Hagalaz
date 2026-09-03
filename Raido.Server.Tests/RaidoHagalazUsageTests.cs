@@ -287,10 +287,8 @@ public sealed class RaidoHagalazUsageTests
     private (RaidoHubConnectionContext Connection, PipeReader Output) CreateConnection(string connectionId, IRaidoProtocol protocol)
     {
         var raw = CreateRawConnection(connectionId);
-        var connection = new RaidoHubConnectionContext(raw.Connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = protocol
-        };
+        var connection = RaidoTestConnectionFactory.Create(raw.Connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        connection.Protocol = protocol;
         _connections.Add(connection);
         return (connection, raw.Output.Reader);
     }

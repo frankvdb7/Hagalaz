@@ -97,7 +97,7 @@ namespace Raido.Server.Tests
             _input = new Pipe();
             _output = new Pipe();
             _connectionContext.Transport = new TestDuplexPipe(_input.Reader, _output.Writer);
-            _connection = new RaidoHubConnectionContext(_connectionContext, new RaidoConnectionContextOptions(), _loggerFactory);
+            _connection = RaidoTestConnectionFactory.Create(_connectionContext, new RaidoConnectionContextOptions(), _loggerFactory);
         }
 
         [TestCleanup]

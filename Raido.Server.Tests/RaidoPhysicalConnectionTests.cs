@@ -3218,10 +3218,7 @@ public sealed class RaidoPhysicalConnectionTests
 
     private void AssertStatefulReconnectTimeoutRejected(TimeSpan timeout)
     {
-        using var physical = CreatePhysicalConnection("initial");
-
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new RaidoHubConnectionContext(
-            physical.Connection,
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new RaidoTcpConnectionContext(
             new RaidoConnectionContextOptions
             {
                 KeepAliveInterval = TimeSpan.FromMinutes(1),
