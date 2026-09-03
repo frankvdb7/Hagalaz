@@ -163,6 +163,16 @@ namespace Raido.Server
 
             try
             {
+                if (_tcpConnection.IsTerminal)
+                {
+                    if (protocolLifetime is not null)
+                    {
+                        await protocolLifetime.DisposeAsync().ConfigureAwait(false);
+                    }
+
+                    throw new ObjectDisposedException(nameof(RaidoHubConnectionContext));
+                }
+
                 var previousProtocolLifetime = _protocolLifetime;
                 _protocolLifetime = protocolLifetime;
                 Volatile.Write(ref _protocol, protocol);

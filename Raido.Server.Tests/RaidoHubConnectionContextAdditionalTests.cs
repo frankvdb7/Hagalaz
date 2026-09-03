@@ -68,6 +68,19 @@ public sealed class RaidoHubConnectionContextAdditionalTests
         public bool IsVersionSupported(int version) => version == 1;
     }
 
+    private sealed class BlockingProtocolLifetime : IAsyncDisposable
+    {
+        public TaskCompletionSource DisposeStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource ReleaseDispose { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public ValueTask DisposeAsync()
+        {
+            DisposeStarted.TrySetResult();
+            return new ValueTask(ReleaseDispose.Task);
+        }
+    }
+
     private sealed class UserFeature : IConnectionUserFeature
     {
         public ClaimsPrincipal? User { get; set; }
@@ -205,7 +218,81 @@ public sealed class RaidoHubConnectionContextAdditionalTests
             () => context.CleanupAsync());
 
         Assert.AreSame(lifetime.Exception, exception);
-        await context.SetProtocolAsync(new WritingProtocol(), CancellationToken.None);
+
+        var transition = context.SetProtocolAsync(new WritingProtocol(), CancellationToken.None).AsTask();
+        await Assert.ThrowsExactlyAsync<ObjectDisposedException>(
+            () => transition.WaitAsync(TimeSpan.FromSeconds(1)));
+    }
+
+    [TestMethod]
+    public async Task SetProtocolAsync_RejectsOwnedTransitionAfterCleanup()
+    {
+        var (context, _, _, _) = CreateContext();
+        var protocolB = new WritingProtocol();
+        var lifetimeB = new TrackingProtocolLifetime();
+
+        await context.CleanupAsync();
+
+        var transition = context.SetProtocolAsync(protocolB, lifetimeB, CancellationToken.None).AsTask();
+        await Assert.ThrowsExactlyAsync<ObjectDisposedException>(
+            () => transition.WaitAsync(TimeSpan.FromSeconds(1)));
+
+        Assert.AreNotSame(protocolB, context.Protocol);
+        Assert.AreEqual(1, lifetimeB.DisposeCount);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task QueuedOwnedProtocolTransitionIsRejectedAfterConnectionBecomesTerminal()
+    {
+        var (context, _, _, _) = CreateContext();
+        var protocolA = new WritingProtocol();
+        var protocolB = new WritingProtocol();
+        var protocolX = new WritingProtocol();
+        var lifetimeA = new BlockingProtocolLifetime();
+        var lifetimeB = new TrackingProtocolLifetime();
+        Task? firstTransition = null;
+        Task? queuedTransition = null;
+
+        try
+        {
+            await context.SetProtocolAsync(protocolA, lifetimeA, CancellationToken.None);
+
+            firstTransition = context.SetProtocolAsync(protocolX, CancellationToken.None).AsTask();
+            await lifetimeA.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            queuedTransition = context.SetProtocolAsync(protocolB, lifetimeB, CancellationToken.None).AsTask();
+            Assert.IsFalse(queuedTransition.IsCompleted);
+
+            context.Abort();
+            lifetimeA.ReleaseDispose.TrySetResult();
+            await firstTransition.WaitAsync(TimeSpan.FromSeconds(1));
+
+            await Assert.ThrowsExactlyAsync<ObjectDisposedException>(
+                () => queuedTransition.WaitAsync(TimeSpan.FromSeconds(1)));
+            Assert.AreSame(protocolX, context.Protocol);
+            Assert.AreEqual(1, lifetimeB.DisposeCount);
+        }
+        finally
+        {
+            lifetimeA.ReleaseDispose.TrySetResult();
+            if (firstTransition is not null)
+            {
+                await firstTransition;
+            }
+
+            if (queuedTransition is not null)
+            {
+                try
+                {
+                    await queuedTransition;
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+
+        }
     }
 
     [TestMethod]
