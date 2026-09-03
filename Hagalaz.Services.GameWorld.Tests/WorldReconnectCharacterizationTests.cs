@@ -100,4 +100,3 @@ public sealed class WorldReconnectCharacterizationTests
     private static int Value(System.Collections.Specialized.NameValueCollection fixture, string key) =>
         int.Parse(fixture[key] ?? throw new AssertFailedException($"Missing fixture key '{key}'."));
 }
-

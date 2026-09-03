@@ -477,7 +477,7 @@ namespace Raido.Server
 
 
 
-        public async Task CleanupAsync()
+        internal async Task CleanupAsync()
         {
             // Start lower cleanup first so it cancels pending stable flushes and quiesces relays while
             // the Hub write owner may still be holding this lock.

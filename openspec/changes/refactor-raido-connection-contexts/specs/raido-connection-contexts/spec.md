@@ -65,6 +65,12 @@ The system SHALL expose one stable `Transport` pipe pair from the TCP context fo
 - **AND** a protocol message is never assembled from bytes belonging to both physical transports
 - **AND** a complete message supplied entirely by the replacement transport remains dispatchable
 
+#### Scenario: Physical close is observed independently of relay progress
+
+- **WHEN** an active physical transport's `ConnectionClosed` token is canceled
+- **THEN** the TCP context detaches or terminalizes that exact physical transport without waiting for its input relay to complete
+- **AND** a stale physical close notification cannot detach a later replacement
+
 #### Scenario: Detached output is not replayed
 
 - **WHEN** the stable logical connection has no attached physical transport and application output is produced
@@ -158,6 +164,7 @@ The system SHALL provide connection-owned infrastructure features from the stabl
 - **AND** the stable items feature exposes the same collection as the stable `Items` property
 - **AND** initial custom/application features remain available
 - **AND** replacement physical infrastructure features do not become authoritative
+- **AND** per-transport memory-pool, endpoint, socket, and metrics-tag features are not copied into the stable feature collection
 
 ### Requirement: Hub state remains above the TCP transport
 

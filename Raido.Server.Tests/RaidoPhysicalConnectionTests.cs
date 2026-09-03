@@ -420,7 +420,8 @@ public sealed class RaidoPhysicalConnectionTests
         await protocol.PartialMessageObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.AreEqual(0, dispatched.Count);
 
-        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        initial.Closed.Cancel();
+        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
 
         await replacement.Input.Writer.WriteAsync(new byte[] { 2 });
@@ -434,6 +435,69 @@ public sealed class RaidoPhysicalConnectionTests
 
         context.Abort();
         await run.WaitAsync(TimeSpan.FromSeconds(1));
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task PhysicalCloseDetachesReplacementWhilePriorInputBoundaryIsPending()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var inputReader = new PendingPipeReader();
+        using var replacement = CreatePhysicalConnection("replacement", inputReader: inputReader);
+        using var later = CreatePhysicalConnection("later");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+
+        replacement.Closed.Cancel();
+
+        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
+        Assert.IsFalse(context.TcpConnection.IsTerminal);
+        Assert.IsTrue(context.TcpConnection.IsReconnectEnabled);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(later.Connection));
+
+        context.TcpConnection.AcknowledgeInputBoundary();
+        await later.Input.Writer.WriteAsync(new byte[] { 3, 4 });
+        var read = await ReadNonCanceledAsync(context.TcpConnection.Transport.Input);
+        CollectionAssert.AreEqual(new byte[] { 3, 4 }, read.Buffer.ToArray());
+        context.TcpConnection.Transport.Input.AdvanceTo(read.Buffer.End);
+
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task PhysicalCloseIsTerminalWhenReconnectIsDisabledWithoutInputRelay()
+    {
+        using var inputReader = new PendingPipeReader();
+        using var initial = CreatePhysicalConnection("initial", inputReader: inputReader);
+        var context = CreateContext(initial.Connection, reconnectEnabled: false);
+
+        initial.Closed.Cancel();
+
+        Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
+        Assert.IsFalse(context.TcpConnection.IsReconnectEnabled);
+        await context.AbortAsync();
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    public async Task StalePhysicalCloseCannotDetachReplacementAndDuplicateCloseIsIdempotent()
+    {
+        using var initial = CreatePhysicalConnection("initial");
+        using var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+
+        initial.Closed.Cancel();
+        context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+
+        Assert.IsTrue(context.TcpConnection.TryGetCurrentConnection(out var current));
+        Assert.AreSame(replacement.Connection, current);
+        Assert.IsFalse(context.TcpConnection.IsTerminal);
         await context.CleanupAsync();
     }
 
@@ -1331,14 +1395,32 @@ public sealed class RaidoPhysicalConnectionTests
         var physicalId = Substitute.For<IConnectionIdFeature>();
         var physicalTransport = Substitute.For<IConnectionTransportFeature>();
         var physicalLifetime = Substitute.For<IConnectionLifetimeFeature>();
+        var physicalMemoryPool = Substitute.For<IMemoryPoolFeature>();
+        var physicalEndPoint = Substitute.For<IConnectionEndPointFeature>();
+        var physicalSocket = Substitute.For<IConnectionSocketFeature>();
+        var physicalMetricsTags = Substitute.For<IConnectionMetricsTagsFeature>();
+        var physicalUser = Substitute.For<IConnectionUserFeature>();
         var replacementTransport = Substitute.For<IConnectionTransportFeature>();
+        var replacementMemoryPool = Substitute.For<IMemoryPoolFeature>();
+        var replacementEndPoint = Substitute.For<IConnectionEndPointFeature>();
+        var replacementSocket = Substitute.For<IConnectionSocketFeature>();
+        var replacementMetricsTags = Substitute.For<IConnectionMetricsTagsFeature>();
         var customFeature = new object();
         initial.Connection.Features.Set(physicalItems);
         initial.Connection.Features.Set(physicalId);
         initial.Connection.Features.Set(physicalTransport);
         initial.Connection.Features.Set(physicalLifetime);
+        initial.Connection.Features.Set(physicalMemoryPool);
+        initial.Connection.Features.Set(physicalEndPoint);
+        initial.Connection.Features.Set(physicalSocket);
+        initial.Connection.Features.Set(physicalMetricsTags);
+        initial.Connection.Features.Set(physicalUser);
         initial.Connection.Features.Set(customFeature);
         replacement.Connection.Features.Set(replacementTransport);
+        replacement.Connection.Features.Set(replacementMemoryPool);
+        replacement.Connection.Features.Set(replacementEndPoint);
+        replacement.Connection.Features.Set(replacementSocket);
+        replacement.Connection.Features.Set(replacementMetricsTags);
 
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         var stableItems = context.Features.Get<IConnectionItemsFeature>();
@@ -1357,6 +1439,11 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.AreNotSame(physicalTransport, stableTransport);
         Assert.AreNotSame(physicalLifetime, stableLifetime);
         Assert.AreSame(customFeature, context.Features.Get<object>());
+        Assert.AreSame(physicalUser, context.Features.Get<IConnectionUserFeature>());
+        Assert.IsNull(context.Features.Get<IMemoryPoolFeature>());
+        Assert.IsNull(context.Features.Get<IConnectionEndPointFeature>());
+        Assert.IsNull(context.Features.Get<IConnectionSocketFeature>());
+        Assert.IsNull(context.Features.Get<IConnectionMetricsTagsFeature>());
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
         Assert.IsTrue(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
@@ -1364,6 +1451,12 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.AreSame(stableHeartbeat, context.Features.Get<IConnectionHeartbeatFeature>());
         Assert.AreSame(stableLifetime, context.Features.Get<IConnectionLifetimeFeature>());
         Assert.AreNotSame(replacementTransport, context.Features.Get<IConnectionTransportFeature>());
+        Assert.AreSame(customFeature, context.Features.Get<object>());
+        Assert.AreSame(physicalUser, context.Features.Get<IConnectionUserFeature>());
+        Assert.IsNull(context.Features.Get<IMemoryPoolFeature>());
+        Assert.IsNull(context.Features.Get<IConnectionEndPointFeature>());
+        Assert.IsNull(context.Features.Get<IConnectionSocketFeature>());
+        Assert.IsNull(context.Features.Get<IConnectionMetricsTagsFeature>());
         await context.CleanupAsync();
     }
 
@@ -3050,6 +3143,37 @@ public sealed class RaidoPhysicalConnectionTests
             result = _result;
             return true;
         }
+    }
+
+    private sealed class PendingPipeReader : PipeReader, IDisposable
+    {
+        private readonly TaskCompletionSource<ReadResult> _read =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override void AdvanceTo(SequencePosition consumed) { }
+
+        public override void AdvanceTo(SequencePosition consumed, SequencePosition examined) { }
+
+        public override void CancelPendingRead() => _read.TrySetResult(new ReadResult(
+            ReadOnlySequence<byte>.Empty,
+            isCanceled: true,
+            isCompleted: false));
+
+        public override void Complete(Exception? exception = null) => _read.TrySetResult(new ReadResult(
+            ReadOnlySequence<byte>.Empty,
+            isCanceled: false,
+            isCompleted: true));
+
+        public override ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default) =>
+            new(_read.Task.WaitAsync(cancellationToken));
+
+        public override bool TryRead(out ReadResult result)
+        {
+            result = default;
+            return false;
+        }
+
+        public void Dispose() => Complete();
     }
 
     private sealed class BlockingMemoryManager(byte[] bytes) : MemoryManager<byte>
