@@ -182,13 +182,11 @@ The system SHALL provide connection-owned infrastructure features from the stabl
 - **AND** the existing terminal lifecycle transition runs
 - **WHEN** a stale physical connection requests a graceful close after a replacement wins
 - **THEN** the stable close-request token and logical lifetime are unaffected
-- **AND** the stable feature's `RequestClose()` forwards through the current physical lifetime-notification feature when one exists
 - **AND** `RequestClose()` still signals the stable close-request token and terminalizes the logical connection when no physical lifetime-notification feature exists
-- **AND** a stable `RequestClose()` remains effective if the captured physical close request completes after that physical connection detaches and a replacement is activated
+- **AND** the stable feature's `RequestClose()` signals the stable logical token and initiates the existing logical terminal lifecycle without delegating to a previously captured physical lifetime-notification feature
 - **AND** stable close-request cancellation observers execute outside the framework-owned terminal completion path
 - **AND** a blocking or throwing close-request observer cannot delay logical terminal completion
-- **AND** stable `RequestClose()` applies the logical close without waiting for a physical `RequestClose()` implementation to return
-- **AND** physical close-request forwarding is best-effort and cannot override or postpone the stable logical request
+- **AND** no outbound physical `RequestClose()` delegation is required after the stable logical lifecycle owns the connection
 - **AND** an exception from a close-request observer does not prevent stable pipes, physical transport, or logical abort completion
 - **AND** the stable close-request token cannot be replaced by a caller
 

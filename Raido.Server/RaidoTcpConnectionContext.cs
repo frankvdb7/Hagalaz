@@ -1318,23 +1318,8 @@ namespace Raido.Server
 
         public void RequestClose()
         {
-            ConnectionContext? physicalConnection;
-            lock (_reconnectLock)
-            {
-                physicalConnection = _currentPhysicalConnection ?? _detachedPhysicalConnection;
-            }
-
             SignalConnectionClosedRequested();
             Abort();
-
-            try
-            {
-                physicalConnection?.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
-            }
-            catch (Exception ex)
-            {
-                Log.CloseRequestedFailed(_logger, ex);
-            }
         }
 
         private void SignalConnectionClosedRequested()

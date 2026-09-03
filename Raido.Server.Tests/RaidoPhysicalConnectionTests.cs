@@ -1667,7 +1667,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsFalse(context.ConnectionAbortedToken.IsCancellationRequested);
 
         stableFeature.RequestClose();
-        Assert.IsTrue(replacementCloseRequested.ConnectionClosedRequested.IsCancellationRequested);
+        Assert.IsFalse(replacementCloseRequested.ConnectionClosedRequested.IsCancellationRequested);
         await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.IsTrue(context.TcpConnection.IsTerminal);
         await context.AbortAsync();
@@ -1804,33 +1804,26 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
-    public async Task StableRequestCloseIsNotDelayedByInFlightPhysicalRequest()
+    public async Task StableRequestCloseOwnsLogicalCloseWithoutPhysicalForwarding()
     {
         using var initial = CreatePhysicalConnection("initial");
         using var replacement = CreatePhysicalConnection("replacement");
-        using var blockingCloseRequested = new BlockingCloseRequestedFeature();
-        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(blockingCloseRequested);
+        using var closeRequested = new CloseRequestedFeature();
+        initial.Connection.Features.Set<IConnectionLifetimeNotificationFeature>(closeRequested);
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         var stableFeature = context.Features.Get<IConnectionLifetimeNotificationFeature>();
         var stableRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var stableRegistration = stableFeature!.ConnectionClosedRequested.Register(stableRequested.SetResult);
 
-        var requestCloseTask = Task.Run(stableFeature.RequestClose);
-        try
-        {
-            await blockingCloseRequested.Entered.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            Assert.IsTrue(stableFeature.ConnectionClosedRequested.IsCancellationRequested);
-            Assert.IsTrue(context.TcpConnection.IsTerminal);
-            await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
-            await context.AbortAsync().WaitAsync(TimeSpan.FromSeconds(1));
-            await context.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(1));
-        }
-        finally
-        {
-            blockingCloseRequested.Release.TrySetResult();
-            await requestCloseTask.WaitAsync(TimeSpan.FromSeconds(1));
-        }
+        stableFeature.RequestClose();
+
+        Assert.IsTrue(stableFeature.ConnectionClosedRequested.IsCancellationRequested);
+        Assert.IsTrue(context.TcpConnection.IsTerminal);
+        await stableRequested.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.IsFalse(context.TcpConnection.TryActivatePersistentConnection(replacement.Connection));
+        await context.AbortAsync().WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.AreEqual(0, closeRequested.RequestCloseCount);
+        await context.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(1));
     }
 
     [TestMethod]
@@ -3662,39 +3655,19 @@ public sealed class RaidoPhysicalConnectionTests
     {
         public CancellationTokenSource Source { get; } = new();
 
+        public int RequestCloseCount { get; private set; }
+
         public CancellationToken ConnectionClosedRequested { get; set; }
 
         public CloseRequestedFeature() => ConnectionClosedRequested = Source.Token;
 
         public void RequestClose()
         {
+            RequestCloseCount++;
             Source.Cancel();
         }
 
         public void Dispose() => Source.Dispose();
     }
 
-    private sealed class BlockingCloseRequestedFeature : IConnectionLifetimeNotificationFeature, IDisposable
-    {
-        public CancellationTokenSource Source { get; } = new();
-        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public CancellationToken ConnectionClosedRequested { get; set; }
-
-        public BlockingCloseRequestedFeature() => ConnectionClosedRequested = Source.Token;
-
-        public void RequestClose()
-        {
-            Entered.TrySetResult();
-            Release.Task.GetAwaiter().GetResult();
-            Source.Cancel();
-        }
-
-        public void Dispose()
-        {
-            Release.TrySetResult();
-            Source.Dispose();
-        }
-    }
 }
