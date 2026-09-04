@@ -35,7 +35,8 @@ token issuing without a reconnect mode flag.
 
 The handler MUST resolve the existing world session by authenticated master ID,
 verify its stable connection ID, session claim, character reference, and
-authentication subject, and attach directly to that existing logical target.
+authentication subject, and ask Raido connection infrastructure to activate the
+raw connection on that existing logical target.
 It MUST NOT hydrate, register, publish fresh-login messages, or remove the
 existing session on rejected raw-connection cleanup.
 

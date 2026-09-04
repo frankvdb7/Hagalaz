@@ -1,14 +1,21 @@
 using System.Buffers;
+using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Network;
 using Hagalaz.Services.GameWorld.Network.Handshake;
 using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
+using Hagalaz.Services.GameWorld.Services;
+using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Raido.Common.Messages;
 using Raido.Common.Protocol;
+using Raido.Server;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -75,6 +82,59 @@ public sealed class ClientConnectionHandlerTests
         }
     }
 
+    [TestMethod]
+    public async Task OnConnectedAsync_ReconnectDoesNotCreateLogicalCandidate()
+    {
+        var (connection, input, output) = CreateConnection();
+        using var meter = new Meter($"{nameof(ClientConnectionHandlerTests)}-{Guid.NewGuid()}");
+        var meterFactory = Substitute.For<IMeterFactory>();
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        var raidoHandler = new RaidoHubConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(new RaidoOptions()),
+            Substitute.For<IRaidoHubLifetimeManager>(),
+            Substitute.For<IRaidoDispatcher>(),
+            new RaidoMetrics(meterFactory));
+        await using var provider = new ServiceCollection()
+            .AddScoped<HandshakeProtocol>(_ => CreateProtocol())
+            .BuildServiceProvider();
+        var validator = Substitute.For<IHandshakeValidator<WorldReconnectRequest>>();
+        validator.Validate(Arg.Any<WorldReconnectRequest>()).Returns(ClientSignInResponse.Outdated);
+        var factory = Substitute.For<IRaidoHubConnectionContextFactory>();
+        var reconnectHandler = new WorldReconnectConnectionHandler(
+            Substitute.For<IAuthenticationService>(),
+            Substitute.For<IGameSessionService>(),
+            Substitute.For<IGameSessionClaimStore>(),
+            new RaidoHubConnectionStore(),
+            raidoHandler,
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            validator,
+            NullLogger<WorldReconnectConnectionHandler>.Instance);
+        var handler = new ClientConnectionHandler(
+            raidoHandler,
+            factory,
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            reconnectHandler,
+            Options.Create(new RaidoOptions()),
+            NullLogger<ClientConnectionHandler>.Instance);
+
+        try
+        {
+            await input.Writer.WriteAsync(new byte[] { 16, 1 });
+            await handler.OnConnectedAsync(connection);
+
+            factory.DidNotReceiveWithAnyArgs().Create(null!, null!, false);
+        }
+        finally
+        {
+            connection.Abort();
+            await input.Reader.CompleteAsync();
+            await input.Writer.CompleteAsync();
+            await output.Reader.CompleteAsync();
+            await output.Writer.CompleteAsync();
+        }
+    }
+
     private static HandshakeProtocol CreateProtocol() =>
         new(new TestHandshakeCodec(), Options.Create(new ServerConfig { ClientRevision = 742 }));
 
@@ -103,6 +163,15 @@ public sealed class ClientConnectionHandlerTests
         }
 
         public bool TryEncodeMessage<TMessage>(TMessage message, IRaidoMessageBinaryWriter output)
-            where TMessage : RaidoMessage => false;
+            where TMessage : RaidoMessage
+        {
+            if (message is ClientSignInResponse response)
+            {
+                output.SetOpcode(response.GetOpcode());
+                return true;
+            }
+
+            return false;
+        }
     }
 }

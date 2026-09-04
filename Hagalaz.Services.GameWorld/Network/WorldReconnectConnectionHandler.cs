@@ -27,6 +27,7 @@ public sealed class WorldReconnectConnectionHandler
     private readonly IGameSessionService _gameSessionService;
     private readonly IGameSessionClaimStore _sessionClaims;
     private readonly RaidoHubConnectionStore _connections;
+    private readonly RaidoHubConnectionHandler _connectionHandler;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHandshakeValidator<WorldReconnectRequest> _handshakeValidator;
     private readonly ILogger<WorldReconnectConnectionHandler> _logger;
@@ -36,6 +37,7 @@ public sealed class WorldReconnectConnectionHandler
         IGameSessionService gameSessionService,
         IGameSessionClaimStore sessionClaims,
         RaidoHubConnectionStore connections,
+        RaidoHubConnectionHandler connectionHandler,
         IServiceScopeFactory scopeFactory,
         IHandshakeValidator<WorldReconnectRequest> handshakeValidator,
         ILogger<WorldReconnectConnectionHandler> logger)
@@ -44,6 +46,7 @@ public sealed class WorldReconnectConnectionHandler
         _gameSessionService = gameSessionService;
         _sessionClaims = sessionClaims;
         _connections = connections;
+        _connectionHandler = connectionHandler;
         _scopeFactory = scopeFactory;
         _handshakeValidator = handshakeValidator;
         _logger = logger;
@@ -141,7 +144,7 @@ public sealed class WorldReconnectConnectionHandler
                         },
                         CancellationToken.None);
 
-                    return target.TryAttachPhysicalConnection(connection);
+                    return _connectionHandler.TryActivatePhysicalConnection(target, connection);
                 },
                 connection.ConnectionClosed);
             if (!attached)

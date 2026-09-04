@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raido.Common.Protocol;
@@ -88,6 +89,21 @@ namespace Raido.Server
                     cleanupException?.Throw();
                 }
             }
+        }
+
+        /// <summary>
+        /// Activates a physical connection on an existing logical Raido connection.
+        /// </summary>
+        /// <param name="connection">The existing logical connection.</param>
+        /// <param name="physicalConnection">The physical connection to activate.</param>
+        /// <returns><see langword="true"/> when the physical connection was accepted.</returns>
+        public virtual bool TryActivatePhysicalConnection(
+            RaidoHubConnectionContext connection,
+            ConnectionContext physicalConnection)
+        {
+            ArgumentNullException.ThrowIfNull(connection);
+            ArgumentNullException.ThrowIfNull(physicalConnection);
+            return connection.TryAttachPhysicalConnection(physicalConnection);
         }
 
         /// <summary>

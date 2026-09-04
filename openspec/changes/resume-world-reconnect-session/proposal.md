@@ -16,8 +16,9 @@ session and character.
   normal factory path; only fresh world login enables the existing Raido
   stateful reconnect window.
 - For a reconnect request, validate the existing world session, claim, logical
-  connection, character, and authentication subject, then attach the raw
-  `ConnectionContext` directly to that existing logical connection.
+  connection, character, and authentication subject, then ask Raido connection
+  infrastructure to activate the raw `ConnectionContext` on that existing
+  logical connection.
 - Use the existing Raido attach lifecycle and protocol replacement API. No
   candidate logical context, cross-context handoff, transport transfer, or
   reconnect-specific Raido state is introduced.
@@ -31,9 +32,10 @@ session and character.
 - Do not call fresh world sign-in for reconnect or repeat character hydration,
   registration, Contacts publication, or world sign-in publication.
 - Do not change lobby or flag-0 fresh-login behavior.
-- Do not modify the existing #477/#488 Raido reconnect state machine. The only
-  possible Raido change is making its existing physical attach seam public so
-  GameWorld can call it directly. No high-level reconnect wrapper is added.
+- Do not modify the existing #477/#488 Raido reconnect state machine. Raido
+  connection infrastructure may expose one application-neutral physical
+  activation operation that delegates to its existing internal attach seam.
+  No high-level reconnect wrapper is added.
 
 ## Acceptance criteria
 

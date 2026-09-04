@@ -23,12 +23,14 @@ logical-session/character/auth-subject matching. It resolves the target by the
 stable session connection ID. Reconnect failure mapping and target ownership
 checking remain private to this handler because neither is handshake policy.
 
-The handler calls the existing target `TryAttachPhysicalConnection` method
-directly with the raw replacement connection. The target logical object,
-features, items, handlers, and stable ID remain the owner. The replacement
-physical ID is left untouched. Raido #477/#488 remains unchanged apart from
-the accessibility of that existing method if required by the assembly
-boundary.
+The handler asks `RaidoHubConnectionHandler` to activate the raw replacement
+connection on the resolved target. The handler owns this operation and calls
+the existing internal target attach seam. It receives only the logical Raido
+target and physical `ConnectionContext`, so it remains application-neutral.
+The target logical object, features, items, handlers, and stable ID remain the
+owner. The replacement physical ID is left untouched. `RaidoHubConnectionContext`
+does not expose physical attachment publicly, and Raido #477/#488 reconnect
+behavior remains unchanged.
 
 The existing `IGameSessionClaimStore.ExecuteIfOwnerAsync` serializes competing
 GameWorld reconnect attempts for the known session claim. Raido's existing
@@ -39,9 +41,10 @@ reconnect window and attach lock remain the transport winner mechanism.
 The reconnect handler creates a fresh revision-specific client protocol in its
 own scope and seeds it from the reconnect request. It installs that protocol
 on the detached target through `SetProtocolAsync`, sends and flushes response
-15 directly through the raw connection using `HandshakeProtocol`, then calls
-the existing `TryAttachPhysicalConnection`. Response 15 is opcode 15 with
-declared `VariableShort` framing and a 4,608-byte player-entry payload.
+15 directly through the raw connection using `HandshakeProtocol`, then asks
+Raido connection infrastructure to activate the physical connection. Response
+15 is opcode 15 with declared `VariableShort` framing and a 4,608-byte
+player-entry payload.
 
 The raw input pipe has no Raido reader before attach. A client packet sent
 immediately after response 15 therefore stays buffered, then is decoded once

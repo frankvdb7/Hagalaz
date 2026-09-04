@@ -196,12 +196,7 @@ namespace Raido.Server
 
         internal void CompleteTransportInput() => _tcpConnection.CompleteTransportInput();
 
-        /// <summary>
-        /// Attempts to attach a physical transport to this existing logical connection.
-        /// </summary>
-        /// <param name="connection">The physical connection to attach.</param>
-        /// <returns><see langword="true"/> when the existing reconnect window accepts the transport.</returns>
-        public bool TryAttachPhysicalConnection(ConnectionContext connection) => _tcpConnection.TryAttachPhysicalConnection(connection);
+        internal bool TryAttachPhysicalConnection(ConnectionContext connection) => _tcpConnection.TryAttachPhysicalConnection(connection);
 
         internal Task OnConnectedAsync()
         {
