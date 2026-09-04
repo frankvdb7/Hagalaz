@@ -353,7 +353,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.RunAsync(context);
+        var run = handler.ConnectAsync(context);
         initial.Input.Writer.Complete();
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
@@ -403,7 +403,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.DispatchMessagesAsync(context);
+        var run = handler.ConnectAsync(context);
 
         await initial.Input.Writer.WriteAsync(new byte[] { 1 });
         await protocol.PartialMessageObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -531,7 +531,7 @@ public sealed class RaidoPhysicalConnectionTests
             metrics);
 
         initialReader.BeforeReturning = initial.Closed.Cancel;
-        var run = handler.DispatchMessagesAsync(context);
+        var run = handler.ConnectAsync(context);
         await initialReader.ReadReturned.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
@@ -595,7 +595,7 @@ public sealed class RaidoPhysicalConnectionTests
         try
         {
             inputReader.BeforeReturning = () => context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
-            run = handler.DispatchMessagesAsync(context);
+            run = handler.ConnectAsync(context);
             await inputReader.ReadReturned.Task.WaitAsync(TimeSpan.FromSeconds(1));
             Assert.AreEqual(0, dispatched.Count);
 
@@ -668,7 +668,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.DispatchMessagesAsync(context);
+        var run = handler.ConnectAsync(context);
         await initial.Input.Writer.WriteAsync(new byte[] { 1, 2 });
         await initialDispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -711,7 +711,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.DispatchMessagesAsync(context);
+        var run = handler.ConnectAsync(context);
         initial.Input.Writer.Complete();
 
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
@@ -753,7 +753,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
-        var run = handler.DispatchMessagesAsync(context);
+        var run = handler.ConnectAsync(context);
 
         Assert.IsFalse(run.IsCompleted);
         Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
@@ -1063,7 +1063,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.DispatchMessagesAsync(context);
+        var run = handler.ConnectAsync(context);
 
         await failingReader.ReadInvoked.Task.WaitAsync(TimeSpan.FromSeconds(1));
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
@@ -1100,7 +1100,7 @@ public sealed class RaidoPhysicalConnectionTests
             Substitute.For<IRaidoDispatcher>(),
             metrics);
 
-        var run = handler.DispatchMessagesAsync(context);
+        var run = handler.ConnectAsync(context);
         await failingReader.ReadInvoked.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
@@ -1143,6 +1143,9 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(physicalConnection, reconnectEnabled: true);
         var terminal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var terminalRegistration = context.ConnectionAborted.Register(() => terminal.TrySetResult());
+        var lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
+        var allowHandlerStart = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lifetimeManager.OnConnectedAsync(context).Returns(allowHandlerStart.Task);
         var meterFactory = Substitute.For<IMeterFactory>();
         using var meter = new Meter("Raido.Server.Tests.UnexpectedRelayFault");
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
@@ -1150,14 +1153,15 @@ public sealed class RaidoPhysicalConnectionTests
         var handler = new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
+            lifetimeManager,
             Substitute.For<IRaidoDispatcher>(),
             metrics);
 
-        var run = handler.DispatchMessagesAsync(context);
+        var run = handler.ConnectAsync(context);
 
         await transportAccessed.Task.WaitAsync(TimeSpan.FromSeconds(1));
         await terminal.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        allowHandlerStart.TrySetResult();
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.IsTrue(context.TcpConnection.IsTerminal);
@@ -1443,7 +1447,7 @@ public sealed class RaidoPhysicalConnectionTests
                 dispatcher,
                 metrics);
 
-            run = handler.DispatchMessagesAsync(context);
+            run = handler.ConnectAsync(context);
             await later.Input.Writer.WriteAsync(new byte[] { 1 });
             await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -1835,7 +1839,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.RunAsync(context);
+        var run = handler.ConnectAsync(context);
         await initial.Input.Writer.WriteAsync(new byte[] { 1 });
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -1865,7 +1869,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.RunAsync(context);
+        var run = handler.ConnectAsync(context);
         await initial.Input.Writer.WriteAsync(new byte[] { 1 });
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -1895,7 +1899,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.RunAsync(context);
+        var run = handler.ConnectAsync(context);
         await initial.Input.Writer.WriteAsync(new byte[] { 1 });
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -1924,7 +1928,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.RunAsync(context);
+        var run = handler.ConnectAsync(context);
         await context.TcpConnection.Application.Output.WriteAsync(new byte[] { 1 });
         context.TcpConnection.Application.Output.Complete();
         await run.WaitAsync(TimeSpan.FromSeconds(1));
@@ -1954,7 +1958,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.RunAsync(context);
+        var run = handler.ConnectAsync(context);
         await initial.Input.Writer.WriteAsync(new byte[] { 1 });
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -1986,7 +1990,7 @@ public sealed class RaidoPhysicalConnectionTests
             dispatcher,
             metrics);
 
-        var run = handler.RunAsync(context);
+        var run = handler.ConnectAsync(context);
         await initial.Input.Writer.WriteAsync(new byte[] { 1 });
         await run.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -2602,19 +2606,16 @@ public sealed class RaidoPhysicalConnectionTests
             Substitute.For<IRaidoDispatcher>(),
             metrics);
 
-        var run = handler.DispatchMessagesAsync(context);
+        var run = handler.ConnectAsync(context);
         var write = context.WriteAsync(new TestMessage());
         await blockedWriter.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         context.Abort();
-        await run.WaitAsync(TimeSpan.FromSeconds(1));
-
-        var cleanup = context.CleanupAsync();
-        Assert.IsFalse(cleanup.IsCompleted);
+        Assert.IsFalse(run.IsCompleted);
 
         blockedWriter.Release();
         await write;
-        await cleanup;
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
 
         await AssertPipeReaderCompletedAsync(context.TcpConnection.Transport.Input);
         await AssertPipeReaderCompletedAsync(context.TcpConnection.Application.Input);

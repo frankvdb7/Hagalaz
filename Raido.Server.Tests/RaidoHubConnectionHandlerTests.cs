@@ -136,14 +136,15 @@ namespace Raido.Server.Tests
         }
 
         [TestMethod]
-        public async Task OnDisconnectedAsync_WhenDispatcherThrows_ShouldPropagateException()
+        public async Task ConnectAsync_WhenDispatcherDisconnectThrows_ShouldPropagateException()
         {
             // Arrange
             var ex = new InvalidOperationException("Dispatcher disconnect failed");
             _dispatcher.OnDisconnectedAsync(_connection, null).Returns(Task.FromException(ex));
+            _input.Writer.Complete();
 
             // Act & Assert
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => _connectionHandler.OnDisconnectedAsync(_connection, null));
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => _connectionHandler.ConnectAsync(_connection));
         }
 
         [TestMethod]
@@ -176,7 +177,7 @@ namespace Raido.Server.Tests
         }
 
         [TestMethod]
-        public async Task ConnectAsync_WhenDispatcherThrows_ShouldDisconnect()
+        public async Task ConnectAsync_WhenDispatcherOnConnectedThrows_ShouldDisconnect()
         {
             // Arrange
             var ex = new InvalidOperationException("Dispatcher failed");
@@ -195,7 +196,7 @@ namespace Raido.Server.Tests
         }
 
         [TestMethod]
-        public async Task DispatchMessagesAsync_ShouldReadAndDispatchMessages()
+        public async Task ConnectAsync_ShouldReadAndDispatchMessages()
         {
             // Arrange
             var message = new TestMessage();
@@ -210,7 +211,7 @@ namespace Raido.Server.Tests
             });
 
             // Act
-            var run = _connectionHandler.DispatchMessagesAsync(_connection);
+            var run = _connectionHandler.ConnectAsync(_connection);
             await _input.Writer.WriteAsync(buffer.ToArray());
             await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
             _input.Writer.Complete();
@@ -222,7 +223,7 @@ namespace Raido.Server.Tests
 
         [TestMethod]
         [Timeout(5000)]
-        public async Task DispatchMessagesAsync_WhenDispatchChangesProtocol_UsesNewProtocolForNextRead()
+        public async Task ConnectAsync_WhenDispatchChangesProtocol_UsesNewProtocolForNextRead()
         {
             var firstMessage = new TestMessage();
             var secondMessage = new TestMessage();
@@ -243,7 +244,7 @@ namespace Raido.Server.Tests
                 return Task.CompletedTask;
             });
 
-            var run = _connectionHandler.DispatchMessagesAsync(_connection);
+            var run = _connectionHandler.ConnectAsync(_connection);
             await _input.Writer.WriteAsync(new byte[] { 1 });
             await firstDispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
             await _input.Writer.WriteAsync(new byte[] { 2 });
@@ -256,7 +257,7 @@ namespace Raido.Server.Tests
         }
 
         [TestMethod]
-        public async Task RunAsync_WhenDispatcherThrows_ShouldDisconnect()
+        public async Task ConnectAsync_WhenDispatchMessageThrows_ShouldDisconnect()
         {
             // Arrange
             var message = new TestMessage();
@@ -273,7 +274,7 @@ namespace Raido.Server.Tests
             _dispatcher.DispatchMessageAsync(_connection, message).Returns(Task.FromException(ex));
 
             // Act
-            var run = _connectionHandler.RunAsync(_connection);
+            var run = _connectionHandler.ConnectAsync(_connection);
             await connected.Task.WaitAsync(TimeSpan.FromSeconds(1));
             await _input.Writer.WriteAsync(buffer.ToArray());
             await run;
@@ -306,13 +307,12 @@ namespace Raido.Server.Tests
         }
 
         [TestMethod]
-        public async Task DispatchMessagesAsync_WhenReadIsCanceled_ShouldStopGracefully()
+        public async Task ConnectAsync_WhenReadIsCanceled_ShouldStopGracefully()
         {
             // Arrange
             await _connection.SetProtocolAsync(new TestProtocol(), CancellationToken.None);
 
-            var run = _connectionHandler.DispatchMessagesAsync(_connection);
-            await Task.Delay(10);
+            var run = _connectionHandler.ConnectAsync(_connection);
             _input.Reader.CancelPendingRead();
 
             // Act

@@ -95,7 +95,7 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection to run.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous connection loop.</returns>
-        public virtual async Task RunAsync(RaidoHubConnectionContext connection)
+        private async Task RunAsync(RaidoHubConnectionContext connection)
         {
             try
             {
@@ -131,7 +131,7 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection to dispatch messages from.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
-        public virtual async Task DispatchMessagesAsync(RaidoHubConnectionContext connection)
+        private async Task DispatchMessagesAsync(RaidoHubConnectionContext connection)
         {
             var protocolReader = new RaidoProtocolReader(connection.TransportInput);
             try
@@ -240,7 +240,7 @@ namespace Raido.Server
         /// <param name="connection">The connection that disconnected.</param>
         /// <param name="exception">The exception that caused the disconnect, if any.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous disconnect handling.</returns>
-        public virtual async Task OnDisconnectedAsync(RaidoHubConnectionContext connection, Exception? exception)
+        private async Task OnDisconnectedAsync(RaidoHubConnectionContext connection, Exception? exception)
         {
             // We wait on abort to complete, this is so that we can guarantee that all callbacks have fired
             // before OnDisconnectedAsync
