@@ -2,7 +2,7 @@ using System;
 
 namespace Raido.Server
 {
-    public class RaidoConnectionContextOptions
+    internal sealed class RaidoConnectionContextOptions
     {
         public TimeSpan KeepAliveInterval { get; init; }
         public TimeSpan ClientTimeoutInterval { get; init; }

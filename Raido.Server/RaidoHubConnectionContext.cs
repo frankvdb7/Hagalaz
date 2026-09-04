@@ -46,10 +46,10 @@ namespace Raido.Server
         internal Activity? OriginalActivity { get; set; }
         internal MetricsContext MetricsContext { get; set; }
 
-        public virtual CancellationToken ConnectionAborted => _connectionContext.ConnectionClosed;
-        public virtual string ConnectionId => _connectionContext.ConnectionId;
+        public CancellationToken ConnectionAborted => _connectionContext.ConnectionClosed;
+        public string ConnectionId => _connectionContext.ConnectionId;
 
-        public virtual ClaimsPrincipal? User
+        public ClaimsPrincipal? User
         {
             get
             {
@@ -62,15 +62,15 @@ namespace Raido.Server
             }
         }
 
-        public virtual IFeatureCollection Features => _connectionContext.Features;
-        public virtual IDictionary<object, object?> Items => _connectionContext.Items;
-        public virtual IPEndPoint? LocalEndPoint => _connectionContext.LocalEndPoint as IPEndPoint;
-        public virtual IPEndPoint? RemoteEndPoint => _connectionContext.RemoteEndPoint as IPEndPoint;
+        public IFeatureCollection Features => _connectionContext.Features;
+        public IDictionary<object, object?> Items => _connectionContext.Items;
+        public IPEndPoint? LocalEndPoint => _connectionContext.LocalEndPoint as IPEndPoint;
+        public IPEndPoint? RemoteEndPoint => _connectionContext.RemoteEndPoint as IPEndPoint;
 
         /// <summary>
         /// Gets the protocol used for the next protocol read and for writes that begin after a transition completes.
         /// </summary>
-        public virtual IRaidoProtocol Protocol => Volatile.Read(ref _protocol);
+        public IRaidoProtocol Protocol => Volatile.Read(ref _protocol);
 
         internal PipeReader TransportInput => _tcpConnection.Transport.Input;
         internal bool IsTerminal => _tcpConnection.IsTerminal;
@@ -110,7 +110,7 @@ namespace Raido.Server
         /// <param name="protocol">The protocol to use for subsequent reads and writes.</param>
         /// <param name="cancellationToken">The token that cancels waiting for the write boundary.</param>
         /// <returns>A <see cref="ValueTask"/> that represents the transition.</returns>
-        public virtual async ValueTask SetProtocolAsync(
+        public async ValueTask SetProtocolAsync(
             IRaidoProtocol protocol,
             CancellationToken cancellationToken)
         {
@@ -133,7 +133,7 @@ namespace Raido.Server
         /// <param name="protocolLifetime">The lifetime for the protocol and its connection-owned dependencies.</param>
         /// <param name="cancellationToken">The token that cancels waiting for the write boundary.</param>
         /// <returns>A <see cref="ValueTask"/> that represents the transition.</returns>
-        public virtual ValueTask SetProtocolAsync(
+        public ValueTask SetProtocolAsync(
             IRaidoProtocol protocol,
             IAsyncDisposable protocolLifetime,
             CancellationToken cancellationToken)
@@ -210,7 +210,7 @@ namespace Raido.Server
         public ValueTask WriteAsync<TMessage>(TMessage message) where TMessage : RaidoMessage =>
             WriteAsync(message, CancellationToken.None);
 
-        public virtual ValueTask WriteAsync<TMessage>(TMessage message, CancellationToken cancellationToken) where TMessage : RaidoMessage =>
+        public ValueTask WriteAsync<TMessage>(TMessage message, CancellationToken cancellationToken) where TMessage : RaidoMessage =>
             WriteAsync<TMessage>(message, ignoreAbort: false, cancellationToken);
 
         internal ValueTask WriteAsync<TMessage>(TMessage message, bool ignoreAbort, CancellationToken cancellationToken = default)
@@ -388,7 +388,7 @@ namespace Raido.Server
 
 
 
-        public virtual void Abort() => _tcpConnection.Abort();
+        public void Abort() => _tcpConnection.Abort();
 
         internal async Task AbortAsync()
         {
