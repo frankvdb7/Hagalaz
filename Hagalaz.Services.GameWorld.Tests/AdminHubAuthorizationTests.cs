@@ -93,11 +93,6 @@ public sealed class AdminHubAuthorizationTests
             User = new ClaimsPrincipal(new ClaimsIdentity(
                 new[] { new Claim(ClaimTypes.Role, role) }, "test"))
         });
-        features.Set<ICharacterFeature>(new CharacterFeature
-        {
-            Character = CreateCharacter(eventManager)
-        });
-
         var rawConnection = Substitute.For<ConnectionContext>();
         rawConnection.ConnectionId.Returns("admin-hub-test");
         rawConnection.Features.Returns(features);
@@ -111,6 +106,10 @@ public sealed class AdminHubAuthorizationTests
         _transports.Add((input, output));
 
         var connection = CreateHubConnection(rawConnection);
+        connection.Features.Set<ICharacterFeature>(new CharacterFeature
+        {
+            Character = CreateCharacter(eventManager)
+        });
         _connections.Add(connection);
         return connection;
     }
