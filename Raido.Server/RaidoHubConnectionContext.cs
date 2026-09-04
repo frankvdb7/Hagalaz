@@ -124,8 +124,10 @@ namespace Raido.Server
         /// </summary>
         /// <remarks>
         /// The lifetime is disposed when this protocol is replaced or when the logical connection is cleaned up. The
-        /// lifetime is also disposed if cancellation prevents the transition from acquiring the write boundary. The
-        /// transition has the same write and read guarantees as <see cref="SetProtocolAsync(IRaidoProtocol, CancellationToken)"/>.
+        /// lifetime is also disposed if cancellation prevents the transition from acquiring the write boundary or if
+        /// the logical connection is terminal when the transition acquires the write boundary. The transition is
+        /// rejected without changing <see cref="Protocol"/>, and the incoming lifetime is disposed. The transition
+        /// has the same write and read guarantees as <see cref="SetProtocolAsync(IRaidoProtocol, CancellationToken)"/>.
         /// </remarks>
         /// <param name="protocol">The protocol to use for subsequent reads and writes.</param>
         /// <param name="protocolLifetime">The lifetime for the protocol and its connection-owned dependencies.</param>

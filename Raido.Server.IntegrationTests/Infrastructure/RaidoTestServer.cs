@@ -38,6 +38,8 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
 
     public RaidoHubConnectionContext LogicalConnection => _logical!;
 
+    public RaidoTestProtocol Protocol => _protocol;
+
     public int Port { get; private set; }
 
     public async Task StartAsync()
@@ -102,6 +104,7 @@ internal sealed class RaidoTestServer(TimeSpan? reconnectTimeout = null) : IAsyn
     {
         try
         {
+            _protocol.ReleaseWrite.TrySetResult();
             _application.ReleaseDispatch.TrySetResult();
             _logical?.Abort();
             if (_logicalTask is not null)
@@ -315,6 +318,9 @@ internal sealed class RaidoTestProtocol : IRaidoProtocol
     public string Name => "integration";
     public int Version => 1;
     public TaskCompletionSource PartialFrameObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource WriteStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource ReleaseWrite { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public bool BlockWrites { get; set; }
 
     public static byte[] Encode(byte id) => [id, PayloadMarker];
 
@@ -338,6 +344,11 @@ internal sealed class RaidoTestProtocol : IRaidoProtocol
         }
 
         var frame = input.Slice(0, FrameSize).ToArray();
+        if (frame[1] != PayloadMarker)
+        {
+            throw new InvalidDataException("The integration protocol A marker was not present.");
+        }
+
         consumed = input.GetPosition(FrameSize);
         examined = consumed;
         message = new RaidoTestMessage(frame[0]);
@@ -346,6 +357,12 @@ internal sealed class RaidoTestProtocol : IRaidoProtocol
 
     public void WriteMessage(RaidoMessage message, IBufferWriter<byte> output)
     {
+        if (BlockWrites)
+        {
+            WriteStarted.TrySetResult();
+            ReleaseWrite.Task.GetAwaiter().GetResult();
+        }
+
         var id = message is RaidoTestMessage testMessage ? testMessage.Id : (byte)0xFF;
         var destination = output.GetSpan(FrameSize);
         destination[0] = id;
