@@ -31,6 +31,23 @@ public sealed class AuthenticationSignInTests
 {
     [TestMethod]
     [Timeout(5000)]
+    public async Task AuthenticateWorldReconnectAsync_ReturnsExistingSubjectWithoutCreatingWorldState()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var service = CreateAuthenticationService(gameSessionService, reconnectAuthenticated: true);
+
+        var result = await service.AuthenticateWorldReconnectAsync("login", "password");
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(42u, result.MasterId);
+        await gameSessionService.DidNotReceive().TryAddWorldSession(
+            Arg.Any<uint>(),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignInWorldAsync_WhenCharacterHydrationFails_RemovesSession()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();
@@ -519,7 +536,8 @@ public sealed class AuthenticationSignInTests
         IRequestClient<HydrateCharacter>? getCharacterRequestClient = null,
         string connectionId = "connection",
         long snapshotRevision = 0,
-        ICharacterPersistenceService? characterPersistenceService = null)
+        ICharacterPersistenceService? characterPersistenceService = null,
+        bool reconnectAuthenticated = false)
     {
         var mapper = Substitute.For<IMapper>();
         mapper.Map<CharacterModel>(Arg.Any<CharacterHydrated>()).Returns(new CharacterModel { SnapshotRevision = snapshotRevision });
@@ -528,6 +546,8 @@ public sealed class AuthenticationSignInTests
         var signInResponse = CreateResponse(new SignInUserResponseMessage
         {
             Succeeded = true,
+            IsAuthenticated = reconnectAuthenticated,
+            Subject = reconnectAuthenticated ? "42" : null,
             IdToken = "id-token",
             AccessToken = "access-token",
             Scope = "openid",

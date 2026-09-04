@@ -116,6 +116,76 @@ public sealed class RaidoPhysicalConnectionTests
     }
 
     [TestMethod]
+    public async Task StatefulReconnectCanBeEnabledAfterInitialActivation()
+    {
+        using var physical = CreatePhysicalConnection("initial");
+        var context = CreateContext(physical.Connection, reconnectEnabled: false);
+
+        Assert.IsFalse(context.IsReconnectEnabled);
+        Assert.IsTrue(context.RaidoCallerContext.TryEnableStatefulReconnect());
+        Assert.IsTrue(context.IsReconnectEnabled);
+
+        await context.CleanupAsync();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task ReconnectHandoffPreservesTargetIdentityAndFlushesResponseBeforeTransfer()
+    {
+        using var initial = CreatePhysicalConnection("target");
+        using var candidatePhysical = CreatePhysicalConnection("candidate");
+        var target = CreateContext(initial.Connection, reconnectEnabled: true);
+        var candidate = CreateContext(candidatePhysical.Connection, reconnectEnabled: false);
+
+        target.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+        var replacementProtocol = new PhysicalConnectionWritingProtocol();
+        var result = await target.TryReconnectAsync(
+            candidate.RaidoCallerContext,
+            new byte[] { 15, 0, 4, 1, 2, 3, 4 },
+            replacementProtocol,
+            new NoopAsyncDisposable(),
+            CancellationToken.None);
+
+        Assert.IsTrue(result);
+        Assert.AreEqual("target", target.ConnectionId);
+        Assert.IsTrue(target.TcpConnection.TryGetCurrentConnection(out var current));
+        Assert.AreSame(candidatePhysical.Connection, current);
+        Assert.IsTrue(candidate.TcpConnection.IsTerminal);
+        Assert.IsFalse(candidatePhysical.Connection.ConnectionClosed.IsCancellationRequested);
+
+        var response = await candidatePhysical.Output.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
+        CollectionAssert.AreEqual(new byte[] { 15, 0, 4, 1, 2, 3, 4 }, response.Buffer.ToArray());
+        candidatePhysical.Output.Reader.AdvanceTo(response.Buffer.End);
+
+        target.TcpConnection.AcknowledgeInputBoundary();
+        await candidatePhysical.Input.Writer.WriteAsync(new byte[] { 99 });
+        var resumedInput = await ReadNonCanceledAsync(target.TransportInput);
+        CollectionAssert.AreEqual(new byte[] { 99 }, resumedInput.Buffer.ToArray());
+        target.TransportInput.AdvanceTo(resumedInput.Buffer.End);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task ConcurrentReconnectCandidatesHaveOneWinner()
+    {
+        using var initial = CreatePhysicalConnection("target");
+        using var firstPhysical = CreatePhysicalConnection("first");
+        using var secondPhysical = CreatePhysicalConnection("second");
+        var target = CreateContext(initial.Connection, reconnectEnabled: true);
+        var first = CreateContext(firstPhysical.Connection, reconnectEnabled: false);
+        var second = CreateContext(secondPhysical.Connection, reconnectEnabled: false);
+        target.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+
+        var attempts = await Task.WhenAll(
+            target.TryReconnectAsync(first.RaidoCallerContext, new byte[] { 1 }, new PhysicalConnectionWritingProtocol(), new NoopAsyncDisposable()).AsTask(),
+            target.TryReconnectAsync(second.RaidoCallerContext, new byte[] { 2 }, new PhysicalConnectionWritingProtocol(), new NoopAsyncDisposable()).AsTask());
+
+        Assert.AreEqual(1, attempts.Count(result => result));
+        Assert.IsTrue(target.TcpConnection.TryGetCurrentConnection(out var current));
+        Assert.IsTrue(ReferenceEquals(current, firstPhysical.Connection) || ReferenceEquals(current, secondPhysical.Connection));
+    }
+
+    [TestMethod]
     public async Task PreSignalledConnectionClosedStartsDetachedReconnectWindow()
     {
         using var initial = CreatePhysicalConnection("initial");
@@ -3297,6 +3367,11 @@ public sealed class RaidoPhysicalConnectionTests
             timeProvider)
     {
         public RaidoTcpConnectionContext TcpConnection { get; } = tcpConnection;
+    }
+
+    private sealed class NoopAsyncDisposable : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private void AssertStatefulReconnectTimeoutRejected(TimeSpan timeout)

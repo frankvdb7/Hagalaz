@@ -57,10 +57,17 @@ namespace Hagalaz.Services.Authorization.Consumers
                         {
                             await context.RespondAsync(new SignInUserResponseMessage
                             {
-                                IsAuthenticated = true
+                                IsAuthenticated = true,
+                                Subject = subject
                             });
                             return;
                         }
+                    }
+
+                    if (message.RequireExistingAuthentication)
+                    {
+                        await context.RespondAsync(new SignInUserResponseMessage());
+                        return;
                     }
                 }
             } 

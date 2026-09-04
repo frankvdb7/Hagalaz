@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using Hagalaz.Services.GameWorld.Configuration.Model;
+using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Microsoft.Extensions.Options;
 using Raido.Common.Buffers;
 using Raido.Common.Messages;
@@ -86,7 +87,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake
         {
             var buffer = MemoryBufferWriter.Get();
             var writer = new RaidoMessageBinaryWriter(buffer);
-            var headerBuffer = ArrayPool<byte>.Shared.Rent(2);
+            var headerBuffer = ArrayPool<byte>.Shared.Rent(message is WorldReconnectResponse ? 3 : 2);
             var headerPosition = 0;
             try
             {
@@ -97,7 +98,25 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake
                 headerBuffer[headerPosition++] = (byte)writer.Opcode;
                 if (buffer.Length > 0)
                 {
-                    headerBuffer[headerPosition++] = (byte)buffer.Length;
+                    if (message is WorldReconnectResponse)
+                    {
+                        if (buffer.Length > ushort.MaxValue)
+                        {
+                            throw new InvalidOperationException("Could not send a reconnect response with more than 16-bit payload length.");
+                        }
+
+                        headerBuffer[headerPosition++] = (byte)(buffer.Length >> 8);
+                        headerBuffer[headerPosition++] = (byte)buffer.Length;
+                    }
+                    else
+                    {
+                        if (buffer.Length > byte.MaxValue)
+                        {
+                            throw new InvalidOperationException("Could not send a handshake response with more than 8-bit payload length.");
+                        }
+
+                        headerBuffer[headerPosition++] = (byte)buffer.Length;
+                    }
                 }
                 output.Write(headerBuffer.AsSpan()[..headerPosition]);
                 buffer.CopyTo(output);

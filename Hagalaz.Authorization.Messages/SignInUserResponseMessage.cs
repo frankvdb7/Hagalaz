@@ -32,6 +32,11 @@ namespace Hagalaz.Authorization.Messages
         public bool IsAuthenticated { get; init; }
 
         /// <summary>
+        /// Gets the password-validated account subject when an existing authentication was found.
+        /// </summary>
+        public string? Subject { get; init; }
+
+        /// <summary>
         /// Gets a value indicating whether the user's account is locked out.
         /// </summary>
         public bool IsLockedOut { get; init; }

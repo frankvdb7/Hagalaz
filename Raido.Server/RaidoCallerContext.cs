@@ -14,6 +14,8 @@ namespace Raido.Server
     /// </summary>
     public abstract class RaidoCallerContext
     {
+        internal virtual RaidoHubConnectionContext? Connection => null;
+
         /// <summary>
         /// Gets the ID of the connection.
         /// </summary>
@@ -73,6 +75,11 @@ namespace Raido.Server
             IRaidoProtocol protocol,
             IAsyncDisposable protocolLifetime,
             CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Enables stateful reconnect for this logical connection after its application login succeeds.
+        /// </summary>
+        public abstract bool TryEnableStatefulReconnect();
 
         /// <summary>
         /// Aborts the connection.

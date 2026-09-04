@@ -204,6 +204,9 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async Task<IGameSession?> FindByMasterId(uint masterId) => await _sessions.FindByMasterId(masterId);
 
+        public async Task<IGameWorldSession?> FindWorldSessionByMasterId(uint masterId) =>
+            await _sessions.FindWorldSessionByMasterId(masterId);
+
         private async Task<ClaimCleanupResult> ReleaseClaimAsync(
             uint masterId,
             string claimId,
