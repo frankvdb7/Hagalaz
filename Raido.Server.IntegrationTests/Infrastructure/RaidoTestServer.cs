@@ -242,6 +242,7 @@ internal sealed class RaidoTestApplication : IRaidoDispatcher, IRaidoHubLifetime
     public TaskCompletionSource DispatchEntered { get; } = NewSignal();
     public TaskCompletionSource ReleaseDispatch { get; } = NewSignal();
     public bool HoldDispatch { get; set; }
+    public Func<RaidoHubConnectionContext, RaidoMessage, Task>? DispatchMessageCallback { get; set; }
     public IReadOnlyCollection<int> ReceivedMessageIds => _receivedMessageIds.ToArray();
     public int DispatcherConnectedCount => Volatile.Read(ref _dispatcherConnectedCount);
     public int DispatcherDisconnectedCount => Volatile.Read(ref _dispatcherDisconnectedCount);
@@ -263,6 +264,11 @@ internal sealed class RaidoTestApplication : IRaidoDispatcher, IRaidoHubLifetime
         var testMessage = (RaidoTestMessage)message;
         _receivedMessageIds.Enqueue(testMessage.Id);
         _messageSignals.GetOrAdd(testMessage.Id, static _ => NewSignal()).TrySetResult();
+        if (DispatchMessageCallback is not null)
+        {
+            await DispatchMessageCallback(connection, message).ConfigureAwait(false);
+        }
+
         if (HoldDispatch)
         {
             DispatchEntered.TrySetResult();
