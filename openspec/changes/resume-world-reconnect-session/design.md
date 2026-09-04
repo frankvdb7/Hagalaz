@@ -1,58 +1,55 @@
 # Design
 
-## Ownership
+## Initial classification
 
-`SignInUserRequestConsumer` keeps the normal token-issuing sign-in contract.
-Reconnect uses a dedicated validation request/response and the same password
-grant credential check. The reconnect consumer returns only success, the
-validated subject, and validation failure flags; it does not mint a token.
-`AuthenticationService` converts that subject to a master ID and does not
-install authentication, session, character, or Contacts features on the
-temporary candidate.
+`ClientConnectionHandler` reads the first raw handshake message with the
+existing `HandshakeProtocol`. For reconnect, it consumes the handshake bytes
+before passing the same raw `ConnectionContext` to the reconnect handler. For
+fresh world and lobby requests, it retains the bytes so the normal Raido
+logical handler reads the request again.
 
-`HandshakeHub` performs protocol/version checks, authenticates the candidate,
-looks up the existing world session, checks the session claim through
-`ExecuteIfOwnerAsync`, and obtains the logical Raido connection by the stable
-session connection ID. It does not reproduce Raido's reconnect window or
-concurrency rules, and it does not run fresh world sign-in for reconnect.
+The normal factory is called only after classification. It receives
+`statefulReconnect: true` for `WorldSignInRequest` and false for lobby and all
+other requests. The normal `HandshakeHub` therefore keeps its existing fresh
+world and lobby behavior and does not enable reconnect at runtime.
 
-## Raido handoff
+## Reconnect ownership
 
-The target's existing reconnect window and detach/attach lifecycle remain the
-only eligibility, ownership, and single-winner authority. The candidate is
-terminalized through that existing lifecycle and its current physical socket is
-attached to the exact detached target. No candidate/winner state machine or
-second registry is introduced. The target keeps its stable logical ID,
-features, items, protocol owner, and logical lifecycle callbacks. The
-replacement physical `ConnectionContext.ConnectionId` is left untouched and
-therefore remains distinct from the logical ID.
+`WorldReconnectConnectionHandler` performs version/system-update validation,
+dedicated existing-authentication validation, exact world-session lookup, the
+existing session-claim check, and exact logical-session/character/auth-subject
+matching. It resolves the target by the stable session connection ID.
 
-The handoff must stop candidate input ownership before target input ownership
-starts. It must also preserve the write boundary around response 15 and the
-fresh protocol installation so the target cannot parse a post-response packet
-with the candidate handshake protocol or the old ISAAC state. The candidate's
-abort token is checked before transfer; once the socket is target-owned, the
-remaining transition uses no candidate cancellation token.
+The handler calls the existing target attach lifecycle with the raw replacement
+connection. A single thin `RaidoHubConnectionContext.TryReconnect` wrapper
+delegates to the existing `TryAttachPhysicalConnection`; it adds no state,
+waiter, transfer, or cleanup behavior. The target logical object, features,
+items, handlers, and stable ID remain the owner. The replacement physical ID is
+left untouched.
 
-## Protocol
+The existing `IGameSessionClaimStore.ExecuteIfOwnerAsync` serializes competing
+GameWorld reconnect attempts for the known session claim. Raido's existing
+reconnect window and attach lock remain the transport winner mechanism.
 
-`HandshakeProtocol` writes the declared `Fixed`, `VariableByte`, or
-`VariableShort` framing for every handshake message. Normal handshake, lobby,
-and fresh world responses keep their current bytes. `WorldReconnectResponse`
-declares `VariableShort`, yielding opcode 15 and the exact 4,608-byte payload.
-The reconnect target receives a new revision-specific protocol scope, seeded
-from the reconnect request. The old target protocol scope is disposed once
-after the new protocol owns the target. The target accepts the replacement,
-installs the fresh protocol, writes and flushes response 15, and only then
-completes the existing reconnect waiter that releases resumed input.
+## Protocol and ordering
 
-## Failure rules
+The reconnect handler creates a fresh revision-specific client protocol in its
+own scope and seeds it from the reconnect request. It attaches the raw socket,
+then installs that protocol on the existing target through the existing
+`SetProtocolAsync` API. It sends response 15 directly through the raw
+connection using `HandshakeProtocol`; response 15 is opcode 15 with declared
+`VariableShort` framing and a 4,608-byte player-entry payload. The client sends
+game input only after this response, when the target's fresh protocol is
+already installed.
 
-Any failed credential proof, session lookup, exact ownership check, claim
-execution, physical handoff, response write, protocol allocation, or protocol
-transition rejects the candidate. A failed candidate remains safe to clean up.
-No failure path removes the existing session or character. Candidate cleanup
-has no logical GameWorld features, so its unconditional disconnect callback is
-side-effect free. If the target has accepted the physical socket but cannot
-finish the protocol/response transition, the target is terminalized rather
-than reopening a second handoff path.
+No response-aware Raido writer, physical transport writer, target-owned
+reconnect waiter, or candidate cancellation state is added. Failed requests
+abort only the raw replacement connection and dispose the untransferred
+protocol scope; they do not remove or sign out the existing session.
+
+## Authentication
+
+Normal sign-in keeps the token-issuing `SignInUserRequestMessage` contract.
+Reconnect uses the dedicated validation message and response. The GameWorld
+authentication service maps the validated subject to the master ID; it does
+not mint a token or install candidate features.

@@ -19,6 +19,7 @@ using Hagalaz.Cache.Types.Data;
 using Hagalaz.Cache.Types.Hooks;
 using Hagalaz.Cache.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.Animation;
+using Hagalaz.Services.GameWorld.Network;
 using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.Glow;
@@ -145,6 +146,7 @@ namespace Hagalaz.Services.GameWorld
             // services
             services.AddSingleton<Hagalaz.Game.Abstractions.Logic.Random.IRandomProvider, Hagalaz.Services.GameWorld.Logic.Random.DefaultRandomProvider>();
             services.AddScoped<IAuthenticationService, AuthenticationService>();
+            services.AddScoped<WorldReconnectConnectionHandler>();
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();
             services.AddSingleton<MapRegionLoadScheduler>();

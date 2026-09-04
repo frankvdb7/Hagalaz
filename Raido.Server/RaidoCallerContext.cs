@@ -14,8 +14,6 @@ namespace Raido.Server
     /// </summary>
     public abstract class RaidoCallerContext
     {
-        internal virtual RaidoHubConnectionContext? Connection => null;
-
         /// <summary>
         /// Gets the ID of the connection.
         /// </summary>

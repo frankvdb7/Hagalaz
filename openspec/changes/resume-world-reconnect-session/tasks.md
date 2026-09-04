@@ -2,23 +2,30 @@
 
 ## Authentication and GameWorld
 
-- [x] Add a dedicated reconnect-only authorization request/response using existing password validation and no token minting; preserve normal sign-in semantics.
-- [x] Add reconnect authentication and exact existing-session/claim/character checks without fresh-login features or side effects.
-- [x] Handle `WorldReconnectRequest`, delegate one candidate handoff to Raido, and keep candidate cleanup from signing out the target.
+- [x] Keep dedicated reconnect-only authorization validation separate from
+  normal token-issuing sign-in.
+- [x] Classify the raw first handshake before logical Raido context creation.
+- [x] Validate exact existing world session, claim, logical connection,
+  character, and authentication subject without fresh-login side effects.
+- [x] Attach the raw reconnect connection to the existing logical target and
+  update only reconnect client metadata.
 
-## Raido transport
+## Raido and protocol
 
-- [x] Enable stateful reconnect only after successful fresh world login.
-- [x] Extend the existing detach/attach lifecycle with one narrow physical handoff operation; preserve physical and logical IDs, single-winner ownership, and safe candidate cleanup.
-- [x] Expose reconnect enabling through `IRaidoStatefulReconnectFeature`, before fresh-login success is committed, and remove reconnect control from `RaidoCallerContext`.
-- [x] Enforce the candidate-token cancellation boundary and target-owned response/protocol ordering.
-- [x] Prove immediate post-handoff input uses the target and is parsed only after the fresh protocol transition.
+- [x] Preserve the existing #477/#488 Raido reconnect state machine and use a
+  single thin wrapper over its existing physical attach API.
+- [x] Remove candidate-context creation, cross-context transfer, transfer
+  methods, response-aware physical writes, runtime reconnect features, and
+  duplicate reconnect completion logic.
+- [x] Install the fresh reconnect protocol on the existing target before
+  sending response 15 and before the client can send game input.
+- [x] Keep generic handshake framing and response 15's declared two-byte
+  length with the exact 4,608-byte payload.
 
-## Protocol and tests
+## Tests and validation
 
-- [x] Add response 15 with exact shared 4,608-byte player-entry encoding and declared two-byte handshake framing without changing existing response bytes.
-- [x] Add focused authorization, GameWorld, Raido, handler, and protocol regression coverage for identity, ownership, races, lifetime, cleanup, framing, ISAAC state, first-packet routing, and unchanged fresh login.
-
-## Validation
-
-- [x] Run strict OpenSpec validation, the requested test matrix, solution build, and final diff/scope review.
+- [x] Preserve decoder, authentication, framing, fresh-login, and Raido
+  attach coverage; add focused coverage for the raw classification and direct
+  target attach boundary where the existing test seams permit.
+- [x] Run strict OpenSpec validation, the requested test matrix, solution
+  build, and final diff/scope review.
