@@ -8,6 +8,7 @@ using System.Threading;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -1538,6 +1539,10 @@ public sealed class RaidoPhysicalConnectionTests
         var physicalSocket = Substitute.For<IConnectionSocketFeature>();
         var physicalMetricsTags = Substitute.For<IConnectionMetricsTagsFeature>();
         var physicalComplete = Substitute.For<IConnectionCompleteFeature>();
+        var physicalTlsConnection = Substitute.For<ITlsConnectionFeature>();
+        var physicalTlsHandshake = Substitute.For<ITlsHandshakeFeature>();
+        var physicalTlsApplicationProtocol = Substitute.For<ITlsApplicationProtocolFeature>();
+        var physicalSslStream = Substitute.For<ISslStreamFeature>();
         var physicalUser = Substitute.For<IConnectionUserFeature>();
         var replacementTransport = Substitute.For<IConnectionTransportFeature>();
         var replacementMemoryPool = Substitute.For<IMemoryPoolFeature>();
@@ -1545,6 +1550,10 @@ public sealed class RaidoPhysicalConnectionTests
         var replacementSocket = Substitute.For<IConnectionSocketFeature>();
         var replacementMetricsTags = Substitute.For<IConnectionMetricsTagsFeature>();
         var replacementComplete = Substitute.For<IConnectionCompleteFeature>();
+        var replacementTlsConnection = Substitute.For<ITlsConnectionFeature>();
+        var replacementTlsHandshake = Substitute.For<ITlsHandshakeFeature>();
+        var replacementTlsApplicationProtocol = Substitute.For<ITlsApplicationProtocolFeature>();
+        var replacementSslStream = Substitute.For<ISslStreamFeature>();
         var customFeature = new object();
         initial.Connection.Features.Set(physicalItems);
         initial.Connection.Features.Set(physicalId);
@@ -1555,6 +1564,10 @@ public sealed class RaidoPhysicalConnectionTests
         initial.Connection.Features.Set(physicalSocket);
         initial.Connection.Features.Set(physicalMetricsTags);
         initial.Connection.Features.Set(physicalComplete);
+        initial.Connection.Features.Set(physicalTlsConnection);
+        initial.Connection.Features.Set(physicalTlsHandshake);
+        initial.Connection.Features.Set(physicalTlsApplicationProtocol);
+        initial.Connection.Features.Set(physicalSslStream);
         initial.Connection.Features.Set(physicalUser);
         initial.Connection.Features.Set(customFeature);
         replacement.Connection.Features.Set(replacementTransport);
@@ -1563,6 +1576,10 @@ public sealed class RaidoPhysicalConnectionTests
         replacement.Connection.Features.Set(replacementSocket);
         replacement.Connection.Features.Set(replacementMetricsTags);
         replacement.Connection.Features.Set(replacementComplete);
+        replacement.Connection.Features.Set(replacementTlsConnection);
+        replacement.Connection.Features.Set(replacementTlsHandshake);
+        replacement.Connection.Features.Set(replacementTlsApplicationProtocol);
+        replacement.Connection.Features.Set(replacementSslStream);
 
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         var stableItems = context.Features.Get<IConnectionItemsFeature>();
@@ -1587,6 +1604,10 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsNull(context.Features.Get<IConnectionSocketFeature>());
         Assert.IsNull(context.Features.Get<IConnectionMetricsTagsFeature>());
         Assert.IsNull(context.Features.Get<IConnectionCompleteFeature>());
+        Assert.IsNull(context.Features.Get<ITlsConnectionFeature>());
+        Assert.IsNull(context.Features.Get<ITlsHandshakeFeature>());
+        Assert.IsNull(context.Features.Get<ITlsApplicationProtocolFeature>());
+        Assert.IsNull(context.Features.Get<ISslStreamFeature>());
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
         Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
@@ -1601,6 +1622,10 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsNull(context.Features.Get<IConnectionSocketFeature>());
         Assert.IsNull(context.Features.Get<IConnectionMetricsTagsFeature>());
         Assert.IsNull(context.Features.Get<IConnectionCompleteFeature>());
+        Assert.IsNull(context.Features.Get<ITlsConnectionFeature>());
+        Assert.IsNull(context.Features.Get<ITlsHandshakeFeature>());
+        Assert.IsNull(context.Features.Get<ITlsApplicationProtocolFeature>());
+        Assert.IsNull(context.Features.Get<ISslStreamFeature>());
         await context.CleanupAsync();
     }
 

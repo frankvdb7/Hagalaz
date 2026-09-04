@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
 using Microsoft.Extensions.Logging;
 
 namespace Raido.Server
@@ -1008,7 +1009,11 @@ namespace Raido.Server
             featureType == typeof(IMemoryPoolFeature) ||
             featureType == typeof(IConnectionEndPointFeature) ||
             featureType == typeof(IConnectionSocketFeature) ||
-            featureType == typeof(IConnectionMetricsTagsFeature);
+            featureType == typeof(IConnectionMetricsTagsFeature) ||
+            featureType == typeof(ITlsConnectionFeature) ||
+            featureType == typeof(ITlsHandshakeFeature) ||
+            featureType == typeof(ITlsApplicationProtocolFeature) ||
+            featureType == typeof(ISslStreamFeature);
 
         private static bool HasInherentKeepAlive(ConnectionContext physicalConnection) =>
             physicalConnection.Features.Get<IConnectionInherentKeepAliveFeature>()?.HasInherentKeepAlive == true;
