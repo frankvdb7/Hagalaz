@@ -49,6 +49,35 @@ existing session on rejected raw-connection cleanup.
 - AND only the physical transport, reconnect protocol, and client metadata are
   replaced
 
+### Requirement: Handshake policy is injectable and request-specific
+
+Handshake revision and system-update policy MUST be provided through
+`IHandshakeValidator<TRequest>` for each request type. The default validator
+MAY be registered as an open generic, and a closed request-specific
+registration MUST be able to replace it without changing the callers. No
+static global handshake policy class may own this decision.
+
+#### Scenario: Reconnect validation can be substituted
+
+- GIVEN an injected `IHandshakeValidator<WorldReconnectRequest>` returns
+  `Outdated`
+- WHEN a reconnect request is handled
+- THEN `Outdated` is returned before reconnect authentication is called
+
+### Requirement: Reconnect failure and target ownership policy stay local
+
+Reconnect authentication-result mapping MUST remain outside the handshake
+validator. Session, claim, character, and authenticated-subject matching MUST
+remain reconnect target checks in the reconnect handler unless a second
+concrete consumer justifies a separate abstraction.
+
+#### Scenario: Authentication failure is mapped by the reconnect handler
+
+- GIVEN reconnect authentication reports invalid credentials
+- WHEN the reconnect handler creates its failure response
+- THEN the validator remains responsible only for handshake policy
+- AND the reconnect handler returns `CredentialsInvalid`
+
 ### Requirement: Fresh login and lobby remain unchanged
 
 Opcode 16 with reconnect flag 0 MUST use the normal fresh world sign-in path,
@@ -74,6 +103,8 @@ reconnect request before the client can send its first game packet.
 
 - GIVEN a valid revision-742 reconnect
 - WHEN the target accepts the raw connection
-- THEN response 15 is flushed on the raw handshake transport
+- THEN the fresh protocol is installed on the detached target
+- AND response 15 is flushed on the raw handshake transport
+- AND only then is the raw connection attached to the existing target
 - AND subsequent game input is read by the existing target using the fresh
   reconnect protocol

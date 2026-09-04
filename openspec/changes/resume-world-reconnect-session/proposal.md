@@ -21,6 +21,8 @@ session and character.
 - Use the existing Raido attach lifecycle and protocol replacement API. No
   candidate logical context, cross-context handoff, transport transfer, or
   reconnect-specific Raido state is introduced.
+- Provide handshake policy through an injectable, request-specific
+  `IHandshakeValidator<TRequest>`.
 
 ## Non-goals
 
@@ -29,9 +31,9 @@ session and character.
 - Do not call fresh world sign-in for reconnect or repeat character hydration,
   registration, Contacts publication, or world sign-in publication.
 - Do not change lobby or flag-0 fresh-login behavior.
-- Do not modify the existing #477/#488 Raido reconnect state machine. A single
-  thin public wrapper around the existing physical attach method is allowed
-  only because GameWorld receives the raw transport.
+- Do not modify the existing #477/#488 Raido reconnect state machine. The only
+  possible Raido change is making its existing physical attach seam public so
+  GameWorld can call it directly. No high-level reconnect wrapper is added.
 
 ## Acceptance criteria
 
@@ -46,10 +48,13 @@ session and character.
   single-winner race boundary. Invalid, stale, duplicate, concurrent, missing,
   and lost-claim requests fail without disturbing resumed state.
 - Response 15 uses plain handshake framing with a two-byte payload length and
-  the exact 4,608-byte player-entry payload. The existing logical target has
-  the fresh reconnect protocol before the client can send its first game
-  packet.
+  the exact 4,608-byte player-entry payload. GameWorld installs the fresh
+  protocol and flushes response 15 before handing the replacement transport to
+  the existing detached Raido logical connection. The first immediate game
+  packet remains buffered until that attach starts Raido's existing reader.
 - Existing fresh world and lobby response bytes and routing remain unchanged.
+- Handshake policy is injected through request-specific validators, with no
+  static global handshake policy class.
 
 ## Affected runtime boundary
 

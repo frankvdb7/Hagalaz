@@ -15,17 +15,20 @@ world and lobby behavior and does not enable reconnect at runtime.
 
 ## Reconnect ownership
 
-`WorldReconnectConnectionHandler` performs version/system-update validation,
-dedicated existing-authentication validation, exact world-session lookup, the
-existing session-claim check, and exact logical-session/character/auth-subject
-matching. It resolves the target by the stable session connection ID.
+`WorldReconnectConnectionHandler` receives an
+`IHandshakeValidator<WorldReconnectRequest>` for revision and system-update
+policy. It performs dedicated existing-authentication validation, exact
+world-session lookup, the existing session-claim check, and exact
+logical-session/character/auth-subject matching. It resolves the target by the
+stable session connection ID. Reconnect failure mapping and target ownership
+checking remain private to this handler because neither is handshake policy.
 
-The handler calls the existing target attach lifecycle with the raw replacement
-connection. A single thin `RaidoHubConnectionContext.TryReconnect` wrapper
-delegates to the existing `TryAttachPhysicalConnection`; it adds no state,
-waiter, transfer, or cleanup behavior. The target logical object, features,
-items, handlers, and stable ID remain the owner. The replacement physical ID is
-left untouched.
+The handler calls the existing target `TryAttachPhysicalConnection` method
+directly with the raw replacement connection. The target logical object,
+features, items, handlers, and stable ID remain the owner. The replacement
+physical ID is left untouched. Raido #477/#488 remains unchanged apart from
+the accessibility of that existing method if required by the assembly
+boundary.
 
 The existing `IGameSessionClaimStore.ExecuteIfOwnerAsync` serializes competing
 GameWorld reconnect attempts for the known session claim. Raido's existing
@@ -34,18 +37,22 @@ reconnect window and attach lock remain the transport winner mechanism.
 ## Protocol and ordering
 
 The reconnect handler creates a fresh revision-specific client protocol in its
-own scope and seeds it from the reconnect request. It attaches the raw socket,
-then installs that protocol on the existing target through the existing
-`SetProtocolAsync` API. It sends response 15 directly through the raw
-connection using `HandshakeProtocol`; response 15 is opcode 15 with declared
-`VariableShort` framing and a 4,608-byte player-entry payload. The client sends
-game input only after this response, when the target's fresh protocol is
-already installed.
+own scope and seeds it from the reconnect request. It installs that protocol
+on the detached target through `SetProtocolAsync`, sends and flushes response
+15 directly through the raw connection using `HandshakeProtocol`, then calls
+the existing `TryAttachPhysicalConnection`. Response 15 is opcode 15 with
+declared `VariableShort` framing and a 4,608-byte player-entry payload.
+
+The raw input pipe has no Raido reader before attach. A client packet sent
+immediately after response 15 therefore stays buffered, then is decoded once
+by the existing Raido input pump using the fresh protocol after attach.
 
 No response-aware Raido writer, physical transport writer, target-owned
-reconnect waiter, or candidate cancellation state is added. Failed requests
-abort only the raw replacement connection and dispose the untransferred
-protocol scope; they do not remove or sign out the existing session.
+reconnect waiter, or candidate cancellation state is added. If response
+flushing or attach fails after protocol ownership transfers, the target retains
+that scope under the existing `SetProtocolAsync` lifetime rules, the raw
+replacement is aborted, and the detached target remains subject to its normal
+Raido reconnect timeout. No two-phase Raido transaction is added.
 
 ## Authentication
 
@@ -53,3 +60,7 @@ Normal sign-in keeps the token-issuing `SignInUserRequestMessage` contract.
 Reconnect uses the dedicated validation message and response. The GameWorld
 authentication service maps the validated subject to the master ID; it does
 not mint a token or install candidate features.
+
+Fresh lobby and world hubs use request-specific validators through DI. The
+open-generic default registration can be replaced later by a closed
+request-specific registration without editing either caller.

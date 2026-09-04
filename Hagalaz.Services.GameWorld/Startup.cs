@@ -146,6 +146,7 @@ namespace Hagalaz.Services.GameWorld
             // services
             services.AddSingleton<Hagalaz.Game.Abstractions.Logic.Random.IRandomProvider, Hagalaz.Services.GameWorld.Logic.Random.DefaultRandomProvider>();
             services.AddScoped<IAuthenticationService, AuthenticationService>();
+            services.AddScoped(typeof(IHandshakeValidator<>), typeof(DefaultHandshakeValidator<>));
             services.AddScoped<WorldReconnectConnectionHandler>();
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();

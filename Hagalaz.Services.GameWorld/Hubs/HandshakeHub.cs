@@ -33,8 +33,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
         private readonly IAuthenticationService _authenticationService;
         private readonly IClientPermissionProvider _clientPermissionProvider;
         private readonly IServiceScopeFactory _scopeFactory;
-        private readonly ISystemUpdateService _systemUpdate;
-        private readonly IOptions<ServerConfig> _serverOptions;
+        private readonly IHandshakeValidator<LobbySignInRequest> _lobbyHandshakeValidator;
+        private readonly IHandshakeValidator<WorldSignInRequest> _worldHandshakeValidator;
         private readonly IOptions<WorldOptions> _worldOptions;
         private readonly IConfiguration _configuration;
         private readonly IScopedGameMediator _mediator;
@@ -46,8 +46,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
             IAuthenticationService authenticationService,
             IClientPermissionProvider clientPermissionProvider,
             IServiceScopeFactory scopeFactory,
-            ISystemUpdateService systemUpdate,
-            IOptions<ServerConfig> serverOptions,
+            IHandshakeValidator<LobbySignInRequest> lobbyHandshakeValidator,
+            IHandshakeValidator<WorldSignInRequest> worldHandshakeValidator,
             IOptions<WorldOptions> worldOptions,
             IConfiguration configuration,
             IScopedGameMediator mediator,
@@ -58,8 +58,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
             _authenticationService = authenticationService;
             _clientPermissionProvider = clientPermissionProvider;
             _scopeFactory = scopeFactory;
-            _systemUpdate = systemUpdate;
-            _serverOptions = serverOptions;
+            _lobbyHandshakeValidator = lobbyHandshakeValidator;
+            _worldHandshakeValidator = worldHandshakeValidator;
             _worldOptions = worldOptions;
             _configuration = configuration;
             _mediator = mediator;
@@ -99,7 +99,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
                 try
                 {
-                    var clientResponse = await SignInAsync(message, false);
+                    var clientResponse = await SignInAsync(message, _lobbyHandshakeValidator, false);
                     if (!clientResponse.Succeeded)
                     {
                         await Clients.Caller.SendAsync(clientResponse);
@@ -202,7 +202,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
                 try
                 {
-                    var clientResponse = await SignInAsync(message, true);
+                    var clientResponse = await SignInAsync(message, _worldHandshakeValidator, true);
                     if (!clientResponse.Succeeded)
                     {
                         await Clients.Caller.SendAsync(clientResponse);
@@ -263,9 +263,13 @@ namespace Hagalaz.Services.GameWorld.Hubs
             }
         }
 
-        private async ValueTask<ClientSignInResponse> SignInAsync(ClientSignInRequest request, bool isWorldSignIn)
+        private async ValueTask<ClientSignInResponse> SignInAsync<TRequest>(
+            TRequest request,
+            IHandshakeValidator<TRequest> handshakeValidator,
+            bool isWorldSignIn)
+            where TRequest : ClientSignInRequest
         {
-            var validation = ValidateHandshake(request);
+            var validation = handshakeValidator.Validate(request);
             if (validation != ClientSignInResponse.Success)
             {
                 return validation;
@@ -312,7 +316,5 @@ namespace Hagalaz.Services.GameWorld.Hubs
             return ClientSignInResponse.Success;
         }
 
-        private ClientSignInResponse ValidateHandshake(ClientSignInRequest request) =>
-            HandshakeValidation.Validate(request, _serverOptions, _systemUpdate);
     }
 }
