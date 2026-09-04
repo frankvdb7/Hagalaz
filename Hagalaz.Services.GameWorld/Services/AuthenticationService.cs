@@ -50,6 +50,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ICharacterLogoutService _characterLogoutService;
         private readonly IGameSessionService _gameSessionService;
         private readonly IRequestClient<SignInUserRequestMessage> _signInUserRequestClient;
+        private readonly IRequestClient<ValidateExistingAuthenticationRequestMessage> _validateExistingAuthenticationRequestClient;
         private readonly IRequestClient<GetUserInfoRequestMessage> _getUserInfoRequestClient;
         private readonly IRequestClient<RevokeTokenRequestMessage> _revokeTokenRequestClient;
         private readonly IRequestClient<HydrateCharacter> _getCharacterRequestClient;
@@ -69,6 +70,7 @@ namespace Hagalaz.Services.GameWorld.Services
             ICharacterLogoutService characterLogoutService,
             IGameSessionService gameSessionService,
             IRequestClient<SignInUserRequestMessage> signInUserRequestClient,
+            IRequestClient<ValidateExistingAuthenticationRequestMessage> validateExistingAuthenticationRequestClient,
             IRequestClient<GetUserInfoRequestMessage> getUserInfoRequestClient,
             IRequestClient<RevokeTokenRequestMessage> revokeTokenRequestClient,
             IRequestClient<HydrateCharacter> getCharacterRequestClient,
@@ -89,6 +91,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _characterLogoutService = characterLogoutService;
             _gameSessionService = gameSessionService;
             _signInUserRequestClient = signInUserRequestClient;
+            _validateExistingAuthenticationRequestClient = validateExistingAuthenticationRequestClient;
             _getUserInfoRequestClient = getUserInfoRequestClient;
             _revokeTokenRequestClient = revokeTokenRequestClient;
             _getCharacterRequestClient = getCharacterRequestClient;
@@ -311,20 +314,16 @@ namespace Hagalaz.Services.GameWorld.Services
             await ExecuteSignInAsync(async cancellationToken =>
             {
                 var context = _contextAccessor.Context;
-                var response = await _signInUserRequestClient.GetResponse<SignInUserResponseMessage>(
-                    new SignInUserRequestMessage(
+                var response = await _validateExistingAuthenticationRequestClient.GetResponse<ValidateExistingAuthenticationResponseMessage>(
+                    new ValidateExistingAuthenticationRequestMessage(
                         login,
                         password,
                         context.RemoteIPEndPoint!.Address.ToString(),
-                        Constants.OAuth.WorldClientId,
                         _defaultScopes,
-                        _worldClientScopes)
-                    {
-                        RequireExistingAuthentication = true
-                    },
+                        _worldClientScopes),
                     cancellationToken);
                 var result = response.Message;
-                if (result.IsAuthenticated && uint.TryParse(result.Subject, out var masterId))
+                if (result.Succeeded && uint.TryParse(result.Subject, out var masterId))
                 {
                     return WorldReconnectAuthenticationResult.Success(masterId);
                 }

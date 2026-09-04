@@ -34,10 +34,6 @@ namespace Raido.Server.Internal
             CancellationToken cancellationToken) =>
             _connection.SetProtocolAsync(protocol, protocolLifetime, cancellationToken);
 
-        internal override RaidoHubConnectionContext Connection => _connection;
-
-        public override bool TryEnableStatefulReconnect() => _connection.TryEnableStatefulReconnect();
-
         public override void Abort() => _connection.Abort();
     }
 }

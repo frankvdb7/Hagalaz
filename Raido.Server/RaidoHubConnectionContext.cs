@@ -206,15 +206,13 @@ namespace Raido.Server
 
         internal bool TryAttachPhysicalConnection(ConnectionContext connection) => _tcpConnection.TryAttachPhysicalConnection(connection);
 
-        internal bool TryEnableStatefulReconnect() => _tcpConnection.TryEnableStatefulReconnect();
-
         /// <summary>
         /// Transfers a candidate's physical connection to this existing logical connection.
         /// The candidate response is already encoded with the handshake protocol and is flushed
         /// before the target starts reading the replacement transport.
         /// </summary>
         public ValueTask<bool> TryReconnectAsync(
-            RaidoCallerContext candidate,
+            RaidoHubConnectionContext candidate,
             ReadOnlyMemory<byte> response,
             IRaidoProtocol replacementProtocol,
             IAsyncDisposable replacementProtocolLifetime,
@@ -224,23 +222,12 @@ namespace Raido.Server
             ArgumentNullException.ThrowIfNull(replacementProtocol);
             ArgumentNullException.ThrowIfNull(replacementProtocolLifetime);
 
-            if (candidate.Connection is not RaidoHubConnectionContext candidateConnection)
-            {
-                return RejectReconnectAsync(replacementProtocolLifetime);
-            }
-
             return TryReconnectCoreAsync(
-                candidateConnection,
+                candidate,
                 response,
                 replacementProtocol,
                 replacementProtocolLifetime,
                 cancellationToken);
-        }
-
-        private static async ValueTask<bool> RejectReconnectAsync(IAsyncDisposable protocolLifetime)
-        {
-            await protocolLifetime.DisposeAsync().ConfigureAwait(false);
-            return false;
         }
 
         private async ValueTask<bool> TryReconnectCoreAsync(
@@ -256,40 +243,31 @@ namespace Raido.Server
                 return false;
             }
 
-            if (!_tcpConnection.TryBeginReconnectHandoff(candidate))
-            {
-                await replacementProtocolLifetime.DisposeAsync().ConfigureAwait(false);
-                return false;
-            }
-
             ConnectionContext? physicalConnection = null;
             var protocolInstalled = false;
             var targetAttached = false;
             try
             {
-                if (!await candidate._tcpConnection.PausePhysicalInputAsync().ConfigureAwait(false) ||
-                    !await candidate.WriteRawAsync(response, cancellationToken).ConfigureAwait(false) ||
-                    (physicalConnection = await candidate._tcpConnection.TakePhysicalConnectionForTransferAsync().ConfigureAwait(false)) is null)
+                physicalConnection = await candidate._tcpConnection.TransferCurrentPhysicalConnectionAsync(cancellationToken).ConfigureAwait(false);
+                if (physicalConnection is null)
                 {
-                    _tcpConnection.FailReconnectHandoff(candidate);
                     await replacementProtocolLifetime.DisposeAsync().ConfigureAwait(false);
                     return false;
                 }
 
-                targetAttached = _tcpConnection.TryAttachPhysicalConnection(
-                    physicalConnection,
-                    completeReconnect: false,
-                    reconnectHandoffCandidate: candidate);
+                targetAttached = _tcpConnection.TryAttachPhysicalConnection(physicalConnection, completeReconnect: false);
                 if (!targetAttached)
                 {
                     physicalConnection.Abort();
                     physicalConnection = null;
-                    _tcpConnection.FailReconnectHandoff(candidate);
                     await replacementProtocolLifetime.DisposeAsync().ConfigureAwait(false);
                     return false;
                 }
+                physicalConnection = null;
 
-                await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+                // The candidate has terminalized and relinquished the socket. Its cancellation token no longer
+                // controls this target-owned transition.
+                await _writeLock.WaitAsync(CancellationToken.None).ConfigureAwait(false);
                 try
                 {
                     await SetProtocolCoreLockedAsync(
@@ -297,10 +275,14 @@ namespace Raido.Server
                         replacementProtocolLifetime,
                         disposeIncomingOnTerminal: false).ConfigureAwait(false);
                     protocolInstalled = true;
-                    if (!_tcpConnection.CompleteReconnectHandoff(candidate))
+                    if (!await WritePhysicalAsync(response).ConfigureAwait(false))
                     {
-                        _tcpConnection.AbortWithException(new InvalidOperationException("Reconnect handoff was no longer current."));
-                        return false;
+                        throw new InvalidOperationException("The reconnect response could not be sent.");
+                    }
+
+                    if (!_tcpConnection.TryCompleteReconnect())
+                    {
+                        throw new InvalidOperationException("The reconnect transition could not be completed.");
                     }
                 }
                 finally
@@ -308,18 +290,16 @@ namespace Raido.Server
                     _writeLock.Release();
                 }
 
-                physicalConnection = null;
                 return true;
             }
             catch
             {
-                _tcpConnection.FailReconnectHandoff(candidate);
                 if (targetAttached)
                 {
                     _tcpConnection.AbortWithException(new InvalidOperationException("Reconnect handoff failed."));
                 }
 
-                if (!protocolInstalled && !ReferenceEquals(Protocol, replacementProtocol))
+                if (!protocolInstalled)
                 {
                     await replacementProtocolLifetime.DisposeAsync().ConfigureAwait(false);
                 }
@@ -329,38 +309,24 @@ namespace Raido.Server
             }
         }
 
-        private async ValueTask<bool> WriteRawAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+        private async ValueTask<bool> WritePhysicalAsync(ReadOnlyMemory<byte> bytes)
         {
-            await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
+            if (!_tcpConnection.TryWritePhysicalTransport(
+                    output =>
+                    {
+                        var destination = output.GetSpan(bytes.Length);
+                        bytes.Span.CopyTo(destination);
+                        output.Advance(bytes.Length);
+                    },
+                    CancellationToken.None,
+                    out var flushTask))
             {
-                if (!TryWritePhysicalTransport(
-                        output =>
-                        {
-                            var destination = output.GetSpan(bytes.Length);
-                            bytes.Span.CopyTo(destination);
-                            output.Advance(bytes.Length);
-                        },
-                        cancellationToken,
-                        out var flushTask))
-                {
-                    return false;
-                }
+                return false;
+            }
 
-                var result = await flushTask.ConfigureAwait(false);
-                return !result.IsCanceled && !result.IsCompleted;
-            }
-            finally
-            {
-                _writeLock.Release();
-            }
+            var result = await flushTask.ConfigureAwait(false);
+            return !result.IsCanceled && !result.IsCompleted;
         }
-
-        private bool TryWritePhysicalTransport(
-            Action<PipeWriter> write,
-            CancellationToken cancellationToken,
-            out ValueTask<FlushResult> flushTask) =>
-            _tcpConnection.TryWritePhysicalTransport(write, cancellationToken, out flushTask);
 
         internal Task OnConnectedAsync()
         {

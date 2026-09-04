@@ -546,8 +546,7 @@ public sealed class AuthenticationSignInTests
         var signInResponse = CreateResponse(new SignInUserResponseMessage
         {
             Succeeded = true,
-            IsAuthenticated = reconnectAuthenticated,
-            Subject = reconnectAuthenticated ? "42" : null,
+            IsAuthenticated = false,
             IdToken = "id-token",
             AccessToken = "access-token",
             Scope = "openid",
@@ -559,6 +558,17 @@ public sealed class AuthenticationSignInTests
             .GetResponse<SignInUserResponseMessage>(
                 Arg.Any<SignInUserRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
             .ReturnsForAnyArgs(Task.FromResult(signInResponse));
+
+        var validateAuthenticationResponse = CreateResponse(new ValidateExistingAuthenticationResponseMessage
+        {
+            Succeeded = reconnectAuthenticated,
+            Subject = reconnectAuthenticated ? "42" : null
+        });
+        var validateAuthenticationRequestClient = Substitute.For<IRequestClient<ValidateExistingAuthenticationRequestMessage>>();
+        validateAuthenticationRequestClient
+            .GetResponse<ValidateExistingAuthenticationResponseMessage>(
+                Arg.Any<ValidateExistingAuthenticationRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .ReturnsForAnyArgs(Task.FromResult(validateAuthenticationResponse));
 
         var userInfoResponse = CreateResponse(new GetUserInfoResponseMessage
         {
@@ -604,6 +614,7 @@ public sealed class AuthenticationSignInTests
             Substitute.For<ICharacterLogoutService>(),
             gameSessionService,
             signInUserRequestClient,
+            validateAuthenticationRequestClient,
             getUserInfoRequestClient,
             Substitute.For<IRequestClient<RevokeTokenRequestMessage>>(),
             getCharacterRequestClient ?? hydrateRequestClient,

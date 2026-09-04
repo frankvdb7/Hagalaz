@@ -247,6 +247,14 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 var clientPermission = _clientPermissionProvider.GetClientPermission(roles);
                 var displayName = user.FindFirst(OpenIddictConstants.Claims.PreferredUsername)?.Value!;
 
+                clientProtocol.SetEncryptionSeed(message.IsaacSeed);
+                var reconnectFeature = Context.Features.Get<IRaidoStatefulReconnectFeature>();
+                if (reconnectFeature?.TryEnable() != true)
+                {
+                    Context.Abort();
+                    return;
+                }
+
                 // the handshake protocol should still handle the response
                 await Clients.Caller.SendAsync(new WorldSignInResponse()
                 {
@@ -258,10 +266,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 });
 
                 // now let the appropriate client protocol handle any communication
-                clientProtocol.SetEncryptionSeed(message.IsaacSeed);
                 protocolScopeTransferred = true;
                 await Context.SetProtocolAsync(clientProtocol, protocolScope, CancellationToken.None);
-                Context.TryEnableStatefulReconnect();
 
                 _mediator.Publish(new WorldSignInCommand(character));
             }
@@ -310,7 +316,9 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
                 var session = await _gameSessionService.FindWorldSessionByMasterId(masterId);
                 var target = session == null ? null : _connections[session.ConnectionId];
-                if (session == null || target == null || target.ConnectionId != session.ConnectionId ||
+                var candidate = _connections[Context.ConnectionId];
+                if (session == null || target == null || candidate == null || ReferenceEquals(target, candidate) ||
+                    target.ConnectionId != session.ConnectionId ||
                     !IsMatchingWorldConnection(target, session, masterId))
                 {
                     await Clients.Caller.SendAsync(ClientSignInResponse.BadSession);
@@ -358,7 +366,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                         // disposes it on every unsuccessful handoff.
                         protocolScopeTransferred = true;
                         return target.TryReconnectAsync(
-                            Context,
+                            candidate,
                             responseBytes,
                             clientProtocol,
                             protocolScope,

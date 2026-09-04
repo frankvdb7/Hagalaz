@@ -59,8 +59,6 @@ namespace Raido.Server
         private TaskCompletionSource<bool>? _outputBoundaryWaiter;
         private TaskCompletionSource<bool>? _reconnectWaiter;
         private long? _reconnectWindowStartTimestamp;
-        private object? _reconnectHandoffCandidate;
-        private bool _physicalInputTransferRequested;
         private Exception? _detachedTransportException;
         private Exception? _terminalException;
 
@@ -106,6 +104,7 @@ namespace Raido.Server
             _features.Set<IConnectionLifetimeNotificationFeature>(this);
             _features.Set<IConnectionHeartbeatFeature>(this);
             _features.Set<IConnectionInherentKeepAliveFeature>(this);
+            _features.Set<IRaidoStatefulReconnectFeature>(new StatefulReconnectFeature(this));
         }
 
         public void OnHeartbeat(Action<object> action, object state)
@@ -150,7 +149,7 @@ namespace Raido.Server
             }
         }
 
-        internal bool TryEnableStatefulReconnect()
+        private bool TryEnableStatefulReconnect()
         {
             lock (_stateLock)
             {
@@ -164,50 +163,18 @@ namespace Raido.Server
             }
         }
 
-        internal bool TryBeginReconnectHandoff(object candidate)
-        {
-            ArgumentNullException.ThrowIfNull(candidate);
-
-            lock (_stateLock)
-            {
-                if (_disposed || !_reconnectEnabled || _currentPhysicalConnection is not null ||
-                    _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted ||
-                    _detachedPhysicalConnection is null || _reconnectHandoffCandidate is not null ||
-                    IsReconnectWindowExpiredLocked())
-                {
-                    return false;
-                }
-
-                _reconnectHandoffCandidate = candidate;
-                return true;
-            }
-        }
-
-        internal void FailReconnectHandoff(object candidate)
-        {
-            lock (_stateLock)
-            {
-                if (ReferenceEquals(candidate, _reconnectHandoffCandidate))
-                {
-                    _reconnectHandoffCandidate = null;
-                }
-            }
-        }
-
-        internal bool CompleteReconnectHandoff(object candidate)
+        internal bool TryCompleteReconnect()
         {
             TaskCompletionSource<bool>? reconnectWaiter;
             lock (_stateLock)
             {
                 if (_disposed || _currentPhysicalConnection is null ||
-                    !ReferenceEquals(candidate, _reconnectHandoffCandidate) ||
                     _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted)
                 {
                     return false;
                 }
 
                 reconnectWaiter = waiter;
-                _reconnectHandoffCandidate = null;
                 _reconnectWaiter = null;
                 _reconnectWindowStartTimestamp = null;
             }
@@ -216,84 +183,46 @@ namespace Raido.Server
             return true;
         }
 
-        internal async Task<bool> PausePhysicalInputAsync()
+        internal async ValueTask<ConnectionContext?> TransferCurrentPhysicalConnectionAsync(CancellationToken cancellationToken)
         {
             ConnectionContext? physicalConnection;
-            Task? physicalInputTask;
-            lock (_stateLock)
-            {
-                if (_disposed ||
-                    (physicalConnection = _currentPhysicalConnection) is null ||
-                    _physicalInputTransferRequested)
-                {
-                    return false;
-                }
-
-                _physicalInputTransferRequested = true;
-                physicalInputTask = _physicalInputTask;
-            }
-
-            physicalConnection.Transport.Input.CancelPendingRead();
-            await AwaitRelayTaskAsync(physicalInputTask).ConfigureAwait(false);
-
-            lock (_stateLock)
-            {
-                return !_disposed && ReferenceEquals(physicalConnection, _currentPhysicalConnection);
-            }
-        }
-
-        internal async Task<ConnectionContext?> TakePhysicalConnectionForTransferAsync()
-        {
-            ConnectionContext? physicalConnection;
-            CancellationTokenRegistration? closedRequestedRegistration;
-            CancellationTokenRegistration? connectionClosedRegistration;
-            TaskCompletionSource<bool>? reconnectWaiter;
             Task? physicalInputTask;
             Task? applicationOutputTask;
-            var queueAbortCallback = false;
-
+            CancellationTokenRegistration? closedRequestedRegistration;
+            CancellationTokenRegistration? connectionClosedRegistration;
+            bool queueAbortCallback;
             lock (_stateLock)
             {
-                if (_disposed || !_physicalInputTransferRequested ||
-                    (physicalConnection = _currentPhysicalConnection) is null)
+                if (_disposed || (physicalConnection = _currentPhysicalConnection) is null)
                 {
                     return null;
                 }
 
-                _disposed = true;
-                _reconnectEnabled = false;
-                _currentPhysicalConnection = null;
-                _detachedPhysicalConnection = null;
-                _reconnectHandoffCandidate = null;
-                _reconnectWindowStartTimestamp = null;
-                reconnectWaiter = _reconnectWaiter;
-                _reconnectWaiter = null;
-                closedRequestedRegistration = _closedRequestedRegistration;
-                _closedRequestedRegistration = null;
-                connectionClosedRegistration = _connectionClosedRegistration;
-                _connectionClosedRegistration = null;
+                cancellationToken.ThrowIfCancellationRequested();
                 physicalInputTask = _physicalInputTask;
                 applicationOutputTask = _applicationOutputTask;
-                if (!_abortCallbackQueued)
+                if (!TryTransitionToTerminalLocked(
+                        expectedConnection: physicalConnection,
+                        expectedWaiter: null,
+                        exception: null,
+                        out var currentConnection,
+                        out closedRequestedRegistration,
+                        out connectionClosedRegistration,
+                        out queueAbortCallback))
                 {
-                    _abortCallbackQueued = true;
-                    queueAbortCallback = true;
+                    return null;
                 }
+
+                physicalConnection = currentConnection;
             }
 
-            closedRequestedRegistration?.Dispose();
-            connectionClosedRegistration?.Dispose();
-            reconnectWaiter?.TrySetResult(false);
+            CompleteTerminalTransition(
+                physicalConnection,
+                closedRequestedRegistration,
+                connectionClosedRegistration,
+                queueAbortCallback,
+                preserveCurrentConnection: true);
             _transportExecutionCancellation.Cancel();
-            AcknowledgeInputBoundary();
-            AcknowledgeOutputBoundary(false);
-            SignalStablePipes();
-
-            if (queueAbortCallback)
-            {
-                ThreadPool.QueueUserWorkItem(_abortedCallback, this);
-            }
-
             await AwaitRelayTaskAsync(physicalInputTask).ConfigureAwait(false);
             await AwaitRelayTaskAsync(applicationOutputTask).ConfigureAwait(false);
             CompleteApplicationOutput();
@@ -327,8 +256,7 @@ namespace Raido.Server
 
         internal bool TryAttachPhysicalConnection(
             ConnectionContext replacement,
-            bool completeReconnect = true,
-            object? reconnectHandoffCandidate = null)
+            bool completeReconnect = true)
         {
             ArgumentNullException.ThrowIfNull(replacement);
 
@@ -344,8 +272,7 @@ namespace Raido.Server
                 {
                     if (_disposed || !_reconnectEnabled || _currentPhysicalConnection is not null ||
                         _reconnectWaiter is not TaskCompletionSource<bool> waiter || waiter.Task.IsCompleted ||
-                        _detachedPhysicalConnection is not ConnectionContext currentDetachedConnection ||
-                        (!completeReconnect && !ReferenceEquals(reconnectHandoffCandidate, _reconnectHandoffCandidate)))
+                        _detachedPhysicalConnection is not ConnectionContext currentDetachedConnection)
                     {
                         return false;
                     }
@@ -463,7 +390,6 @@ namespace Raido.Server
                     {
                         obsoleteClosedRequestedRegistration = _closedRequestedRegistration;
                         obsoleteConnectionClosedRegistration = _connectionClosedRegistration;
-                        replacement.ConnectionId = _connectionId;
                         _currentPhysicalConnection = replacement;
                         Volatile.Write(ref _hasInherentKeepAlive, HasInherentKeepAlive(replacement));
                         _detachedPhysicalConnection = null;
@@ -472,12 +398,10 @@ namespace Raido.Server
                         connectionClosedRegistration = null;
                         _closedRequestedRegistration = closedRequestedRegistration;
                         closedRequestedRegistration = null;
-                        _physicalInputTransferRequested = false;
                         if (completeReconnect)
                         {
                             _reconnectWaiter = null;
                             _reconnectWindowStartTimestamp = null;
-                            _reconnectHandoffCandidate = null;
                             activationWaiter.TrySetResult(true);
                         }
                         published = true;
@@ -552,14 +476,6 @@ namespace Raido.Server
             {
                 while (!_transportExecutionCancellation.IsCancellationRequested)
                 {
-                    lock (_stateLock)
-                    {
-                        if (_physicalInputTransferRequested)
-                        {
-                            break;
-                        }
-                    }
-
                     if (!TryGetCurrentConnection(out var physicalConnection))
                     {
                         if (!await WaitForReconnectAsync().ConfigureAwait(false))
@@ -573,14 +489,6 @@ namespace Raido.Server
                     if (!await WaitForInputBoundaryAsync().ConfigureAwait(false))
                     {
                         break;
-                    }
-
-                    lock (_stateLock)
-                    {
-                        if (_physicalInputTransferRequested)
-                        {
-                            break;
-                        }
                     }
 
                     using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
@@ -644,14 +552,6 @@ namespace Raido.Server
                         break;
                     }
 
-                    lock (_stateLock)
-                    {
-                        if (_physicalInputTransferRequested)
-                        {
-                            break;
-                        }
-                    }
-
                     if (IsCurrentPhysicalConnection(physicalConnection))
                     {
                         OnPhysicalConnectionClosed(physicalConnection);
@@ -676,8 +576,7 @@ namespace Raido.Server
         {
             lock (_stateLock)
             {
-                if (_disposed || _physicalInputTransferRequested ||
-                    !ReferenceEquals(physicalConnection, _currentPhysicalConnection))
+                if (_disposed || !ReferenceEquals(physicalConnection, _currentPhysicalConnection))
                 {
                     flushTask = default;
                     return false;
@@ -1025,7 +924,7 @@ namespace Raido.Server
                     return false;
                 }
 
-                reconnecting = !_disposed && _reconnectEnabled;
+                reconnecting = !_disposed && _reconnectEnabled && _reconnectWaiter is null;
                 if (reconnecting)
                 {
                     _currentPhysicalConnection = null;
@@ -1092,8 +991,6 @@ namespace Raido.Server
 
             _disposed = true;
             _reconnectEnabled = false;
-            _reconnectHandoffCandidate = null;
-            _physicalInputTransferRequested = false;
             _terminalException = exception ?? _detachedTransportException;
             _detachedTransportException = null;
             currentConnection = _currentPhysicalConnection;
@@ -1122,14 +1019,15 @@ namespace Raido.Server
             ConnectionContext? currentConnection,
             CancellationTokenRegistration? closedRequestedRegistration,
             CancellationTokenRegistration? connectionClosedRegistration,
-            bool queueAbortCallback)
+            bool queueAbortCallback,
+            bool preserveCurrentConnection = false)
         {
             closedRequestedRegistration?.Dispose();
             connectionClosedRegistration?.Dispose();
             AcknowledgeInputBoundary();
             AcknowledgeOutputBoundary(false);
 
-            if (currentConnection is not null)
+            if (currentConnection is not null && !preserveCurrentConnection)
             {
                 // Physical cancellation wakes transport operations without changing the stable connection identity.
                 currentConnection.Transport.Output.CancelPendingFlush();
@@ -1585,6 +1483,11 @@ namespace Raido.Server
             {
                 connection._abortCompletedTcs.TrySetResult();
             }
+        }
+
+        private sealed class StatefulReconnectFeature(RaidoTcpConnectionContext connection) : IRaidoStatefulReconnectFeature
+        {
+            public bool TryEnable() => connection.TryEnableStatefulReconnect();
         }
 
         private static class Log

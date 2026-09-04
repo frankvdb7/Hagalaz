@@ -77,11 +77,6 @@ namespace Raido.Server
             CancellationToken cancellationToken);
 
         /// <summary>
-        /// Enables stateful reconnect for this logical connection after its application login succeeds.
-        /// </summary>
-        public abstract bool TryEnableStatefulReconnect();
-
-        /// <summary>
         /// Aborts the connection.
         /// </summary>
         public abstract void Abort();

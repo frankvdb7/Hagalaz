@@ -6,8 +6,10 @@
 
 The system MUST validate the submitted password before reconnect ownership is
 considered and MUST return the resulting authenticated subject only when the
-existing authentication is valid. Reconnect-only validation MUST NOT create or
-inspect a replacement token or install candidate GameWorld features.
+existing authentication is valid. Reconnect-only validation MUST use a
+dedicated request/response contract, MUST NOT mint a replacement token, and
+MUST NOT install candidate GameWorld features. The normal sign-in request MUST
+remain a token-issuing contract without a reconnect boolean.
 
 #### Scenario: Valid existing authentication returns the subject
 
@@ -24,6 +26,13 @@ inspect a replacement token or install candidate GameWorld features.
 - THEN it returns failure before session adoption
 - AND the existing target session remains unchanged
 
+#### Scenario: Normal sign-in contract remains token issuing
+
+- GIVEN a normal sign-in request
+- WHEN the authorization consumer handles it
+- THEN it preserves the existing token response behavior
+- AND reconnect-only validation is not selected by a request flag
+
 ### Requirement: Reconnect reuses exact GameWorld state
 
 The system MUST resolve the existing world session by authenticated master ID,
@@ -38,6 +47,10 @@ logical connection, session claim, character reference, and world registration.
 - THEN only the physical transport and reconnect protocol state change
 - AND fresh-login allocation, hydration, registration, and world sign-in
   publication do not run
+
+The stable logical connection ID MUST remain distinct from the replacement
+physical connection ID. Reconnect MUST reuse the existing session claim,
+character reference, registration, and handlers.
 
 #### Scenario: Missing, stale, duplicate, or lost-claim target fails safely
 
@@ -60,13 +73,15 @@ non-reconnectable.
 - THEN normal session creation, character hydration, registration, and
   response-2 behavior remain in use
 
-## MODIFIED Requirements
+Stateful reconnect MUST be enabled before a successful fresh world-login
+response is externally committed. Lobby and failed-login paths MUST NOT enable
+it.
 
 ### Requirement: World reconnect request is handled distinctly
 
 The existing world authentication decoder MUST route opcode 16 with reconnect
-flag 1 to reconnect handling and MUST NOT silently route it through fresh
-world sign-in.
+flag 1 to reconnect handling and MUST NOT silently route it through fresh world
+sign-in.
 
 #### Scenario: Reconnect flag selects reconnect handling
 

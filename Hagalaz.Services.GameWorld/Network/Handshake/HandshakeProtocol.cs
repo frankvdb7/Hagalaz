@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Buffers;
 using Hagalaz.Services.GameWorld.Configuration.Model;
-using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Microsoft.Extensions.Options;
 using Raido.Common.Buffers;
 using Raido.Common.Messages;
@@ -87,7 +86,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake
         {
             var buffer = MemoryBufferWriter.Get();
             var writer = new RaidoMessageBinaryWriter(buffer);
-            var headerBuffer = ArrayPool<byte>.Shared.Rent(message is WorldReconnectResponse ? 3 : 2);
+            var headerBuffer = ArrayPool<byte>.Shared.Rent(4);
             var headerPosition = 0;
             try
             {
@@ -96,27 +95,23 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake
                     return false;
                 }
                 headerBuffer[headerPosition++] = (byte)writer.Opcode;
-                if (buffer.Length > 0)
+                switch (writer.Size)
                 {
-                    if (message is WorldReconnectResponse)
-                    {
-                        if (buffer.Length > ushort.MaxValue)
-                        {
-                            throw new InvalidOperationException("Could not send a reconnect response with more than 16-bit payload length.");
-                        }
-
+                    case RaidoMessageSize.Fixed:
+                        break;
+                    case RaidoMessageSize.VariableByte when buffer.Length > byte.MaxValue:
+                        throw new InvalidOperationException("Could not send a handshake response with more than 8-bit payload length.");
+                    case RaidoMessageSize.VariableByte:
+                        headerBuffer[headerPosition++] = (byte)buffer.Length;
+                        break;
+                    case RaidoMessageSize.VariableShort when buffer.Length > ushort.MaxValue:
+                        throw new InvalidOperationException("Could not send a handshake response with more than 16-bit payload length.");
+                    case RaidoMessageSize.VariableShort:
                         headerBuffer[headerPosition++] = (byte)(buffer.Length >> 8);
                         headerBuffer[headerPosition++] = (byte)buffer.Length;
-                    }
-                    else
-                    {
-                        if (buffer.Length > byte.MaxValue)
-                        {
-                            throw new InvalidOperationException("Could not send a handshake response with more than 8-bit payload length.");
-                        }
-
-                        headerBuffer[headerPosition++] = (byte)buffer.Length;
-                    }
+                        break;
+                    default:
+                        throw new NotImplementedException(nameof(writer.Size));
                 }
                 output.Write(headerBuffer.AsSpan()[..headerPosition]);
                 buffer.CopyTo(output);
