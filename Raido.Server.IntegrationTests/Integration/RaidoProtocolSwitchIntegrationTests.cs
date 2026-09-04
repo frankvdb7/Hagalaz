@@ -87,12 +87,19 @@ public sealed class RaidoProtocolSwitchIntegrationTests
 
         var protocolB = new RaidoAlternateTestProtocol();
         server.Application.DispatchMessageCallback = (connection, message) =>
-            message is RaidoTestMessage { Id: 0x71 }
+            message is RaidoTestMessage { Id: RaidoTestProtocol.BufferedFrameFirstMessageId }
                 ? connection.SetProtocolAsync(protocolB, CancellationToken.None).AsTask()
                 : Task.CompletedTask;
 
+        // This single send must be buffered in full before A dispatches; the A parser deliberately waits for both
+        // frames so B remains in the same RaidoProtocolReader buffer when the dispatch callback selects Protocol B.
         var combinedFrames = new byte[RaidoTestProtocol.FrameSize * 2];
-        Buffer.BlockCopy(RaidoTestProtocol.Encode(0x71), 0, combinedFrames, 0, RaidoTestProtocol.FrameSize);
+        Buffer.BlockCopy(
+            RaidoTestProtocol.Encode(RaidoTestProtocol.BufferedFrameFirstMessageId),
+            0,
+            combinedFrames,
+            0,
+            RaidoTestProtocol.FrameSize);
         Buffer.BlockCopy(
             RaidoAlternateTestProtocol.Encode(0x72),
             0,
@@ -101,10 +108,12 @@ public sealed class RaidoProtocolSwitchIntegrationTests
             RaidoTestProtocol.FrameSize);
         await client.SendAsync(combinedFrames);
 
-        await server.Application.WaitForMessageAsync(0x71).WaitAsync(ObservationTimeout);
+        await server.Application.WaitForMessageAsync(RaidoTestProtocol.BufferedFrameFirstMessageId).WaitAsync(ObservationTimeout);
         await server.Application.WaitForMessageAsync(0x72).WaitAsync(ObservationTimeout);
 
-        CollectionAssert.AreEqual(new[] { 0x71, 0x72 }, server.Application.ReceivedMessageIds.ToArray());
+        CollectionAssert.AreEqual(
+            new[] { (int)RaidoTestProtocol.BufferedFrameFirstMessageId, 0x72 },
+            server.Application.ReceivedMessageIds.ToArray());
         Assert.AreSame(protocolB, logical.Protocol);
         Assert.AreEqual(1, server.Application.DispatcherConnectedCount);
         Assert.AreEqual(1, server.Application.LifetimeConnectedCount);

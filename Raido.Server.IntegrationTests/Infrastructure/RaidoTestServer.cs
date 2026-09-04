@@ -319,6 +319,7 @@ internal sealed class RaidoTestApplication : IRaidoDispatcher, IRaidoHubLifetime
 internal sealed class RaidoTestProtocol : IRaidoProtocol
 {
     public const int FrameSize = 2;
+    public const byte BufferedFrameFirstMessageId = 0x71;
     private const byte PayloadMarker = 0xA5;
 
     public string Name => "integration";
@@ -353,6 +354,16 @@ internal sealed class RaidoTestProtocol : IRaidoProtocol
         if (frame[1] != PayloadMarker)
         {
             throw new InvalidDataException("The integration protocol A marker was not present.");
+        }
+
+        if (frame[0] == BufferedFrameFirstMessageId && input.Length < FrameSize * 2)
+        {
+            // Require both frames in the same reader buffer before dispatching A, so the test proves B is parsed
+            // from the buffered remainder after the dispatch switches protocols.
+            consumed = input.Start;
+            examined = input.End;
+            message = null;
+            return false;
         }
 
         consumed = input.GetPosition(FrameSize);
