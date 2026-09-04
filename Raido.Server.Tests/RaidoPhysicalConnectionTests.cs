@@ -1554,7 +1554,8 @@ public sealed class RaidoPhysicalConnectionTests
         var replacementTlsHandshake = Substitute.For<ITlsHandshakeFeature>();
         var replacementTlsApplicationProtocol = Substitute.For<ITlsApplicationProtocolFeature>();
         var replacementSslStream = Substitute.For<ISslStreamFeature>();
-        var customFeature = new object();
+        var logicalFeature = new object();
+        var unknownPhysicalFeature = new UnknownPhysicalFeature();
         initial.Connection.Features.Set(physicalItems);
         initial.Connection.Features.Set(physicalId);
         initial.Connection.Features.Set(physicalTransport);
@@ -1569,7 +1570,7 @@ public sealed class RaidoPhysicalConnectionTests
         initial.Connection.Features.Set(physicalTlsApplicationProtocol);
         initial.Connection.Features.Set(physicalSslStream);
         initial.Connection.Features.Set(physicalUser);
-        initial.Connection.Features.Set(customFeature);
+        initial.Connection.Features.Set(unknownPhysicalFeature);
         replacement.Connection.Features.Set(replacementTransport);
         replacement.Connection.Features.Set(replacementMemoryPool);
         replacement.Connection.Features.Set(replacementEndPoint);
@@ -1582,6 +1583,7 @@ public sealed class RaidoPhysicalConnectionTests
         replacement.Connection.Features.Set(replacementSslStream);
 
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        context.Features.Set(logicalFeature);
         var stableItems = context.Features.Get<IConnectionItemsFeature>();
         var stableId = context.Features.Get<IConnectionIdFeature>();
         var stableTransport = context.Features.Get<IConnectionTransportFeature>();
@@ -1597,7 +1599,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.AreNotSame(physicalId, stableId);
         Assert.AreNotSame(physicalTransport, stableTransport);
         Assert.AreNotSame(physicalLifetime, stableLifetime);
-        Assert.AreSame(customFeature, context.Features.Get<object>());
+        Assert.AreSame(logicalFeature, context.Features.Get<object>());
         Assert.AreSame(physicalUser, context.Features.Get<IConnectionUserFeature>());
         Assert.IsNull(context.Features.Get<IMemoryPoolFeature>());
         Assert.IsNull(context.Features.Get<IConnectionEndPointFeature>());
@@ -1608,6 +1610,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsNull(context.Features.Get<ITlsHandshakeFeature>());
         Assert.IsNull(context.Features.Get<ITlsApplicationProtocolFeature>());
         Assert.IsNull(context.Features.Get<ISslStreamFeature>());
+        Assert.IsNull(context.Features.Get<UnknownPhysicalFeature>());
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
         Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
@@ -1615,7 +1618,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.AreSame(stableHeartbeat, context.Features.Get<IConnectionHeartbeatFeature>());
         Assert.AreSame(stableLifetime, context.Features.Get<IConnectionLifetimeFeature>());
         Assert.AreNotSame(replacementTransport, context.Features.Get<IConnectionTransportFeature>());
-        Assert.AreSame(customFeature, context.Features.Get<object>());
+        Assert.AreSame(logicalFeature, context.Features.Get<object>());
         Assert.AreSame(physicalUser, context.Features.Get<IConnectionUserFeature>());
         Assert.IsNull(context.Features.Get<IMemoryPoolFeature>());
         Assert.IsNull(context.Features.Get<IConnectionEndPointFeature>());
@@ -1626,6 +1629,7 @@ public sealed class RaidoPhysicalConnectionTests
         Assert.IsNull(context.Features.Get<ITlsHandshakeFeature>());
         Assert.IsNull(context.Features.Get<ITlsApplicationProtocolFeature>());
         Assert.IsNull(context.Features.Get<ISslStreamFeature>());
+        Assert.IsNull(context.Features.Get<UnknownPhysicalFeature>());
         await context.CleanupAsync();
     }
 
@@ -3745,5 +3749,7 @@ public sealed class RaidoPhysicalConnectionTests
 
         public void Dispose() => Source.Dispose();
     }
+
+    private sealed class UnknownPhysicalFeature { }
 
 }

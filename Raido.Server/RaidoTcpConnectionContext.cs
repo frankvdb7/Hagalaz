@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
 using Microsoft.Extensions.Logging;
 
 namespace Raido.Server
@@ -211,7 +210,7 @@ namespace Raido.Server
                     {
                         if (!_disposed && !_hasActivated)
                         {
-                            CopyStableFeatures(replacement.Features);
+                            CopyLogicalFeatures(replacement.Features);
                             CopyInitialItems(replacement);
 
                             _connectionId = replacement.ConnectionId;
@@ -976,16 +975,11 @@ namespace Raido.Server
             }
         }
 
-        private void CopyStableFeatures(IFeatureCollection physicalFeatures)
+        private void CopyLogicalFeatures(IFeatureCollection physicalFeatures)
         {
-            foreach (var (featureType, feature) in physicalFeatures)
+            if (physicalFeatures.Get<IConnectionUserFeature>() is IConnectionUserFeature userFeature)
             {
-                if (IsPhysicalTransportFeature(featureType))
-                {
-                    continue;
-                }
-
-                _features[featureType] = feature;
+                _features.Set(userFeature);
             }
         }
 
@@ -996,24 +990,6 @@ namespace Raido.Server
                 _items[key] = value;
             }
         }
-
-        private static bool IsPhysicalTransportFeature(Type featureType) =>
-            featureType == typeof(IConnectionIdFeature) ||
-            featureType == typeof(IConnectionItemsFeature) ||
-            featureType == typeof(IConnectionTransportFeature) ||
-            featureType == typeof(IConnectionLifetimeFeature) ||
-            featureType == typeof(IConnectionHeartbeatFeature) ||
-            featureType == typeof(IConnectionLifetimeNotificationFeature) ||
-            featureType == typeof(IConnectionInherentKeepAliveFeature) ||
-            featureType == typeof(IConnectionCompleteFeature) ||
-            featureType == typeof(IMemoryPoolFeature) ||
-            featureType == typeof(IConnectionEndPointFeature) ||
-            featureType == typeof(IConnectionSocketFeature) ||
-            featureType == typeof(IConnectionMetricsTagsFeature) ||
-            featureType == typeof(ITlsConnectionFeature) ||
-            featureType == typeof(ITlsHandshakeFeature) ||
-            featureType == typeof(ITlsApplicationProtocolFeature) ||
-            featureType == typeof(ISslStreamFeature);
 
         private static bool HasInherentKeepAlive(ConnectionContext physicalConnection) =>
             physicalConnection.Features.Get<IConnectionInherentKeepAliveFeature>()?.HasInherentKeepAlive == true;
