@@ -155,7 +155,7 @@ The system SHALL keep heartbeat handlers on the stable TCP context. A physical h
 
 ### Requirement: Stable infrastructure features remain stable
 
-The system SHALL provide connection-owned infrastructure features from the stable TCP context and SHALL preserve legitimate custom/application features from the initial physical context.
+The system SHALL provide connection-owned infrastructure features from the stable TCP context. Transport and infrastructure features SHALL remain physical unless explicitly represented by the stable TCP context. Arbitrary physical or custom features SHALL NOT be implicitly promoted into the stable logical feature collection; the current narrow bootstrap projection SHALL explicitly include only `IConnectionUserFeature`. Application features added to `RaidoHubConnectionContext.Features` SHALL be logical state and SHALL remain stable across physical replacement.
 
 #### Scenario: Stable features do not alias physical infrastructure
 
@@ -163,9 +163,11 @@ The system SHALL provide connection-owned infrastructure features from the stabl
 - **THEN** stable ID, items, transport, lifetime, and heartbeat features remain owned by the TCP context
 - **AND** the stable items feature exposes the same collection as the stable `Items` property
 - **AND** the stable lifetime-notification feature is owned by the TCP context
-- **AND** initial custom/application features remain available
+- **AND** an application feature explicitly added to the stable logical Hub feature collection remains available
+- **AND** the explicit `IConnectionUserFeature` bootstrap projection remains available
+- **AND** arbitrary unknown physical features and TLS features are absent from the stable logical feature collection
 - **AND** replacement physical infrastructure features do not become authoritative
-- **AND** per-transport memory-pool, endpoint, socket, metrics-tag, and connection-complete features are not copied into the stable feature collection
+- **AND** per-transport memory-pool, endpoint, socket, metrics-tag, connection-complete, and TLS features are not copied into the stable feature collection
 
 #### Scenario: Initial physical items become stable logical items
 
