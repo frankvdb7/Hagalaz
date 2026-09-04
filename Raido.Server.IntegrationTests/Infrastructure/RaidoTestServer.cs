@@ -209,17 +209,6 @@ internal sealed class RaidoTestClient(TcpClient client) : IAsyncDisposable
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
         {
-            try
-            {
-                client.Client.Shutdown(SocketShutdown.Both);
-            }
-            catch (SocketException)
-            {
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-
             client.Dispose();
         }
 

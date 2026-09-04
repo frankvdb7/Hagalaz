@@ -1591,10 +1591,10 @@ public sealed class RaidoPhysicalConnectionTests
         var stableHeartbeat = context.Features.Get<IConnectionHeartbeatFeature>();
 
         Assert.AreSame(context.Items, stableItems!.Items);
-        Assert.AreSame((object)context.TcpConnection, stableId);
-        Assert.AreSame((object)context.TcpConnection, stableTransport);
-        Assert.AreSame((object)context.TcpConnection, stableLifetime);
-        Assert.AreSame((object)context.TcpConnection, stableHeartbeat);
+        Assert.AreSame(context.TcpConnection, stableId);
+        Assert.AreSame(context.TcpConnection, stableTransport);
+        Assert.AreSame(context.TcpConnection, stableLifetime);
+        Assert.AreSame(context.TcpConnection, stableHeartbeat);
         Assert.AreNotSame(physicalItems, stableItems);
         Assert.AreNotSame(physicalId, stableId);
         Assert.AreNotSame(physicalTransport, stableTransport);
@@ -3439,7 +3439,7 @@ public sealed class RaidoPhysicalConnectionTests
 
     private sealed class BlockingPipeWriter : PipeWriter
     {
-        private ArrayBufferWriter<byte> _buffer = new();
+        private readonly ArrayBufferWriter<byte> _buffer = new();
         private readonly TaskCompletionSource<FlushResult> _release =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 

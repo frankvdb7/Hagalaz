@@ -270,6 +270,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
 
             await Assert.ThrowsExactlyAsync<ObjectDisposedException>(
                 () => queuedTransition.WaitAsync(TimeSpan.FromSeconds(1)));
+            queuedTransition = null;
             Assert.AreSame(protocolX, context.Protocol);
             Assert.AreEqual(1, lifetimeB.DisposeCount);
         }
@@ -283,13 +284,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
 
             if (queuedTransition is not null)
             {
-                try
-                {
-                    await queuedTransition;
-                }
-                catch (ObjectDisposedException)
-                {
-                }
+                await queuedTransition;
             }
 
         }
@@ -323,7 +318,7 @@ public sealed class RaidoHubConnectionContextAdditionalTests
     [TestMethod]
     public async Task Context_RegistersHeartbeatsAndTimeoutState()
     {
-        var (context, _, features, connection) = CreateContext(keepAlive: TimeSpan.Zero, timeout: TimeSpan.Zero);
+        var (context, _, features, _) = CreateContext(keepAlive: TimeSpan.Zero, timeout: TimeSpan.Zero);
         var heartbeat = Substitute.For<IConnectionHeartbeatFeature>();
         features.Set(heartbeat);
         context.OnConnectedAsync().GetAwaiter().GetResult();

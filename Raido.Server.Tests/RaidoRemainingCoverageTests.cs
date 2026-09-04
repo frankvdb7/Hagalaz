@@ -176,8 +176,6 @@ public sealed class RaidoRemainingCoverageTests
         var method = typeof(RaidoHub).GetMethod(nameof(RaidoHub.OnConnectedAsync))!;
         var executor = ObjectMethodExecutor.Create(method, typeof(RaidoHub).GetTypeInfo());
         var context = Substitute.For<RaidoCallerContext>();
-        using var emptyProvider = new ServiceCollection().BuildServiceProvider();
-        var invocation = new RaidoHubInvocationContext(executor, context, emptyProvider, new TestHub(), Array.Empty<object?>());
         var nextCalled = false;
         var registered = new DisposableFilter();
         using var services = new ServiceCollection().AddSingleton<DisposableFilter>(registered).BuildServiceProvider();

@@ -450,6 +450,7 @@ namespace Raido.Server
             catch (OperationCanceledException) when (_transportExecutionCancellation.IsCancellationRequested)
             {
                 // Terminal cleanup canceled the relay.
+                return;
             }
             finally
             {
@@ -573,6 +574,7 @@ namespace Raido.Server
             }
             catch (OperationCanceledException) when (_transportExecutionCancellation.IsCancellationRequested)
             {
+                return;
             }
             finally
             {
