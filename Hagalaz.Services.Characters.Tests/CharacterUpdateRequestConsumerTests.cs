@@ -174,7 +174,17 @@ public sealed class CharacterUpdateRequestConsumerTests
             .AddScoped(_ => CreateContext(databaseName))
             .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
             .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
+            .AddMassTransitTestHarness(x =>
+            {
+                x.AddConsumer<UpdateCharacterRequestConsumer>();
+                x.AddConfigureEndpointsCallback((name, endpoint) =>
+                {
+                    if (name == "UpdateCharacterRequest")
+                    {
+                        endpoint.ConcurrentMessageLimit = 1;
+                    }
+                });
+            })
             .BuildServiceProvider(true);
 
         var harness = provider.GetTestHarness();

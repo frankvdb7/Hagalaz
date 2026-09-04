@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Hagalaz.Services.GameUpdate.Network.Messages;
 using Hagalaz.Services.GameUpdate.Network.Protocol;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raido.Server;
@@ -14,21 +15,24 @@ namespace Hagalaz.Services.GameUpdate.Network
 {
     public class UpdateConnectionHandler : ConnectionHandler
     {
-        private readonly RaidoConnectionHandler _connectionHandler;
-        private readonly IRaidoConnectionContextBuilder _contextBuilder;
+        private readonly RaidoHubConnectionHandler _connectionHandler;
+        private readonly IRaidoHubConnectionContextFactory _connectionFactory;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<UpdateConnectionHandler> _logger;
         private readonly IOptions<RaidoOptions> _raidoOptions;
         private readonly IOptions<ServerConfig> _serverOptions;
 
         public UpdateConnectionHandler(
-            RaidoConnectionHandler connectionHandler,
-            IRaidoConnectionContextBuilder contextBuilder,
+            RaidoHubConnectionHandler connectionHandler,
+            IRaidoHubConnectionContextFactory connectionFactory,
+            IServiceScopeFactory scopeFactory,
             IOptions<RaidoOptions> raidoOptions,
             IOptions<ServerConfig> serverOptions,
             ILogger<UpdateConnectionHandler> logger)
         {
             _connectionHandler = connectionHandler;
-            _contextBuilder = contextBuilder;
+            _connectionFactory = connectionFactory;
+            _scopeFactory = scopeFactory;
             _logger = logger;
             _raidoOptions = raidoOptions;
             _serverOptions = serverOptions;
@@ -36,6 +40,7 @@ namespace Hagalaz.Services.GameUpdate.Network
 
         public override async Task OnConnectedAsync(ConnectionContext connection)
         {
+            await using var scope = _scopeFactory.CreateAsyncScope();
             var protocol = new HandshakeProtocol();
             await using (var reader = connection.CreateReader())
             {
@@ -102,7 +107,8 @@ namespace Hagalaz.Services.GameUpdate.Network
                 }
             }
 
-            var connectionContext = _contextBuilder.Create().WithConnection(connection).WithProtocol<FileProtocol>().Build();
+            var fileProtocol = scope.ServiceProvider.GetRequiredService<FileProtocol>();
+            var connectionContext = _connectionFactory.Create(connection, fileProtocol, statefulReconnect: false);
 
             Log.HandshakeComplete(_logger, connectionContext.Protocol.Name);
 

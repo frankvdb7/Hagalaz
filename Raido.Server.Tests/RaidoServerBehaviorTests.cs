@@ -7,6 +7,7 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Reflection;
 using System.Security.Claims;
+using System.Threading;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
@@ -26,6 +27,27 @@ namespace Raido.Server.Tests;
 [DoNotParallelize]
 public sealed class RaidoServerBehaviorTests
 {
+    private readonly List<RaidoHubConnectionContext> _connections = new();
+    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+
+    [TestCleanup]
+    public async Task CleanupConnections()
+    {
+        foreach (var connection in _connections)
+        {
+            connection.Abort();
+            await connection.CleanupAsync();
+        }
+
+        foreach (var (input, output) in _transports)
+        {
+            input.Reader.Complete();
+            input.Writer.Complete();
+            output.Reader.Complete();
+            output.Writer.Complete();
+        }
+    }
+
     private sealed class MetadataHub : RaidoHub
     {
         public void Handle(TestMessage message, TestDependency dependency, IEnumerable<TestDependency> dependencies) { }
@@ -201,7 +223,7 @@ public sealed class RaidoServerBehaviorTests
     }
 
     [TestMethod]
-    public void CallerAndHubContexts_ExposeConnectionAndInvocationMetadata()
+    public async Task CallerAndHubContexts_ExposeConnectionAndInvocationMetadata()
     {
         var local = new IPEndPoint(IPAddress.Loopback, 4350);
         var remote = new IPEndPoint(IPAddress.Loopback, 4351);
@@ -217,14 +239,16 @@ public sealed class RaidoServerBehaviorTests
         raw.Features.Returns(features);
         raw.ConnectionClosed.Returns(CancellationToken.None);
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
-        transport.Output.Returns(Substitute.For<PipeWriter>());
+        var input = new Pipe();
+        var output = new Pipe();
+        transport.Input.Returns(input.Reader);
+        transport.Output.Returns(output.Writer);
         raw.Transport.Returns(transport);
+        _transports.Add((input, output));
 
-        var connection = new RaidoConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = Substitute.For<IRaidoProtocol>()
-        };
+        var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        await connection.SetProtocolAsync(Substitute.For<IRaidoProtocol>(), CancellationToken.None);
+        _connections.Add(connection);
         var caller = new DefaultRaidoCallerContext(connection);
 
         Assert.AreSame(local, connection.LocalEndPoint);
@@ -234,11 +258,11 @@ public sealed class RaidoServerBehaviorTests
         Assert.AreSame(user, caller.User);
         Assert.AreSame(local, caller.LocalIPEndPoint);
         Assert.AreSame(remote, caller.RemoteIPEndPoint);
-        Assert.AreSame(items, caller.Items);
+        Assert.AreNotSame(items, caller.Items);
 
         var method = typeof(MetadataHub).GetMethod(nameof(MetadataHub.Handle))!;
         var executor = ObjectMethodExecutor.Create(method, typeof(MetadataHub).GetTypeInfo());
-        var provider = new ServiceCollection().BuildServiceProvider();
+        using var provider = new ServiceCollection().BuildServiceProvider();
         var hub = new MetadataHub();
         var arguments = new object?[] { new TestMessage() };
         var invocation = new RaidoHubInvocationContext(executor, caller, provider, hub, arguments);
@@ -259,7 +283,7 @@ public sealed class RaidoServerBehaviorTests
     {
         var first = CreateConnection("first");
         var second = CreateConnection("second");
-        var store = new RaidoConnectionStore();
+        var store = new RaidoHubConnectionStore();
         store.Add(first);
         store.Add(second);
 
@@ -271,7 +295,7 @@ public sealed class RaidoServerBehaviorTests
         try
         {
             Assert.IsTrue(untyped.MoveNext());
-            Assert.IsInstanceOfType<RaidoConnectionContext>(untyped.Current);
+            Assert.IsInstanceOfType<RaidoHubConnectionContext>(untyped.Current);
         }
         finally
         {
@@ -282,7 +306,7 @@ public sealed class RaidoServerBehaviorTests
     [TestMethod]
     public void HubMethodDescriptor_SeparatesMessageAndServiceArguments()
     {
-        var services = new ServiceCollection().AddSingleton<TestDependency>().BuildServiceProvider();
+        using var services = new ServiceCollection().AddSingleton<TestDependency>().BuildServiceProvider();
         var method = typeof(MetadataHub).GetMethod(nameof(MetadataHub.Handle))!;
         var executor = ObjectMethodExecutor.Create(method, typeof(MetadataHub).GetTypeInfo());
         var descriptor = new RaidoHubMethodDescriptor(executor, services.GetRequiredService<IServiceProviderIsService>(), Array.Empty<IAuthorizeData>());
@@ -298,50 +322,52 @@ public sealed class RaidoServerBehaviorTests
     [TestMethod]
     public async Task ConnectionContext_PingWriterSendsBytesAndStopsAfterAbort()
     {
+        var input = new Pipe();
         var output = new Pipe();
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
+        transport.Input.Returns(input.Reader);
         transport.Output.Returns(output.Writer);
         var raw = Substitute.For<ConnectionContext>();
         raw.ConnectionId.Returns("ping");
         raw.Transport.Returns(transport);
         raw.Features.Returns(new FeatureCollection());
         raw.ConnectionClosed.Returns(CancellationToken.None);
-        var connection = new RaidoConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = new PingProtocol()
-        };
+        var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        await connection.SetProtocolAsync(new PingProtocol(), CancellationToken.None);
+        _transports.Add((input, output));
+        _connections.Add(connection);
 
-        var ping = typeof(RaidoConnectionContext).GetMethod("TryWritePingAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        await (ValueTask)ping.Invoke(connection, new object[] { raw })!;
+        var ping = typeof(RaidoHubConnectionContext).GetMethod("TryWritePingAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        await (ValueTask)ping.Invoke(connection, Array.Empty<object>())!;
         var read = await output.Reader.ReadAsync();
         CollectionAssert.AreEqual(new byte[] { 9, 8, 7 }, read.Buffer.ToArray());
         output.Reader.AdvanceTo(read.Buffer.End);
 
         connection.Abort();
-        await (ValueTask)ping.Invoke(connection, new object[] { raw })!;
+        await (ValueTask)ping.Invoke(connection, Array.Empty<object>())!;
         await connection.AbortAsync();
-        Assert.IsTrue(connection.ConnectionAbortedToken.IsCancellationRequested);
+        Assert.IsTrue(connection.ConnectionAborted.IsCancellationRequested);
     }
 
     [TestMethod]
     public async Task ConnectionContext_WriteWaitsForAnAlreadyHeldWriteLock()
     {
+        var input = new Pipe();
         var output = new Pipe();
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
+        transport.Input.Returns(input.Reader);
         transport.Output.Returns(output.Writer);
         var raw = Substitute.For<ConnectionContext>();
         raw.ConnectionId.Returns("serialized");
         raw.Transport.Returns(transport);
         raw.Features.Returns(new FeatureCollection());
         raw.ConnectionClosed.Returns(CancellationToken.None);
-        var connection = new RaidoConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = new PingProtocol()
-        };
+        var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        await connection.SetProtocolAsync(new PingProtocol(), CancellationToken.None);
+        _transports.Add((input, output));
+        _connections.Add(connection);
 
-        var writeLock = (SemaphoreSlim)typeof(RaidoConnectionContext)
+        var writeLock = (SemaphoreSlim)typeof(RaidoHubConnectionContext)
             .GetField("_writeLock", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(connection)!;
         Assert.IsTrue(writeLock.Wait(0));
@@ -366,16 +392,18 @@ public sealed class RaidoServerBehaviorTests
         public ClaimsPrincipal? User { get; set; }
     }
 
-    private static RaidoConnectionContext CreateConnection(string id)
+    private RaidoHubConnectionContext CreateConnection(string id)
     {
         var raw = Substitute.For<ConnectionContext>();
         raw.ConnectionId.Returns(id);
         raw.Features.Returns(new FeatureCollection());
-        raw.ConnectionClosed.Returns(CancellationToken.None);
+        raw.ConnectionClosed.Returns(new CancellationToken(canceled: true));
         var transport = Substitute.For<IDuplexPipe>();
         transport.Input.Returns(Substitute.For<PipeReader>());
         transport.Output.Returns(Substitute.For<PipeWriter>());
         raw.Transport.Returns(transport);
-        return new RaidoConnectionContext(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        var connection = RaidoTestConnectionFactory.Create(raw, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        _connections.Add(connection);
+        return connection;
     }
 }

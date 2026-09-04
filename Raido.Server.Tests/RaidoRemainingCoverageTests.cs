@@ -20,6 +20,27 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoRemainingCoverageTests
 {
+    private readonly List<RaidoHubConnectionContext> _connections = new();
+    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+
+    [TestCleanup]
+    public async Task CleanupConnections()
+    {
+        foreach (var connection in _connections)
+        {
+            connection.Abort();
+            await connection.CleanupAsync();
+        }
+
+        foreach (var (input, output) in _transports)
+        {
+            input.Reader.Complete();
+            input.Writer.Complete();
+            output.Reader.Complete();
+            output.Writer.Complete();
+        }
+    }
+
     private sealed class EmptyFilter : IRaidoHubFilter { }
 
     private sealed class DisposableFilter : IRaidoHubFilter, IDisposable
@@ -38,15 +59,18 @@ public sealed class RaidoRemainingCoverageTests
         }
     }
 
-    private static ConnectionContext CreateRawConnection(string id = "builder")
+    private ConnectionContext CreateRawConnection(string id = "factory")
     {
         var connection = Substitute.For<ConnectionContext>();
         connection.ConnectionId.Returns(id);
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
-        transport.Output.Returns(Substitute.For<PipeWriter>());
+        var input = new Pipe();
+        var output = new Pipe();
+        transport.Input.Returns(input.Reader);
+        transport.Output.Returns(output.Writer);
         connection.Transport.Returns(transport);
         connection.ConnectionClosed.Returns(CancellationToken.None);
+        _transports.Add((input, output));
         return connection;
     }
 
@@ -83,7 +107,7 @@ public sealed class RaidoRemainingCoverageTests
     }
 
     [TestMethod]
-    public void ConnectionBuilder_BuildsWithExplicitAndResolvedProtocolOptions()
+    public void ConnectionFactory_BuildsWithExplicitProtocolAndOptions()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -94,17 +118,22 @@ public sealed class RaidoRemainingCoverageTests
         }));
         services.AddSingleton<TestProtocol>();
         using var provider = services.BuildServiceProvider();
-        var builder = new DefaultRaidoConnectionContextBuilder(provider);
+        var factory = new DefaultRaidoHubConnectionContextFactory(
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>(),
+            provider.GetRequiredService<IOptions<RaidoOptions>>());
         var connection = CreateRawConnection();
-        var built = builder.Create()
-            .WithConnection(connection)
-            .WithProtocol<TestProtocol>()
-            .WithKeepAliveInterval(TimeSpan.FromSeconds(1))
-            .WithClientTimeoutInterval(TimeSpan.FromSeconds(2))
-            .Build();
-        Assert.AreSame(connection.Transport.Input, built.Input);
+        var built = factory.Create(
+            connection,
+            provider.GetRequiredService<TestProtocol>(),
+            new RaidoConnectionContextOptions
+            {
+                KeepAliveInterval = TimeSpan.FromSeconds(1),
+                ClientTimeoutInterval = TimeSpan.FromSeconds(2)
+            });
+        _connections.Add(built);
+        Assert.AreNotSame(connection.Transport.Input, built.TransportInput);
         Assert.IsInstanceOfType<TestProtocol>(built.Protocol);
-        Assert.AreEqual("builder", built.ConnectionId);
+        Assert.AreEqual("factory", built.ConnectionId);
     }
 
     [TestMethod]
@@ -113,7 +142,9 @@ public sealed class RaidoRemainingCoverageTests
         var first = Substitute.For<IRaidoHubDispatcher>();
         var second = Substitute.For<IRaidoHubDispatcher>();
         var dispatcher = new DefaultRaidoDispatcher(new[] { first, second });
-        var connection = Substitute.For<RaidoConnectionContext>(CreateRawConnection(), new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        var rawConnection = CreateRawConnection("dispatcher");
+        var connection = RaidoTestConnectionFactory.Create(rawConnection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        _connections.Add(connection);
         var message = new TestMessage();
         await dispatcher.OnConnectedAsync(connection);
         await dispatcher.OnDisconnectedAsync(connection, null);
@@ -145,10 +176,9 @@ public sealed class RaidoRemainingCoverageTests
         var method = typeof(RaidoHub).GetMethod(nameof(RaidoHub.OnConnectedAsync))!;
         var executor = ObjectMethodExecutor.Create(method, typeof(RaidoHub).GetTypeInfo());
         var context = Substitute.For<RaidoCallerContext>();
-        var invocation = new RaidoHubInvocationContext(executor, context, new ServiceCollection().BuildServiceProvider(), new TestHub(), Array.Empty<object?>());
         var nextCalled = false;
         var registered = new DisposableFilter();
-        var services = new ServiceCollection().AddSingleton<DisposableFilter>(registered).BuildServiceProvider();
+        using var services = new ServiceCollection().AddSingleton<DisposableFilter>(registered).BuildServiceProvider();
         var factory = new RaidoHubFilterFactory(typeof(DisposableFilter));
         var registeredInvocation = new RaidoHubInvocationContext(executor, context, services, new TestHub(), Array.Empty<object?>());
         await factory.InvokeMethodAsync(registeredInvocation, _ =>
@@ -160,7 +190,8 @@ public sealed class RaidoRemainingCoverageTests
         Assert.IsFalse(registered.Disposed);
 
         var owned = new RaidoHubFilterFactory(typeof(DisposableFilter));
-        var ownedInvocation = new RaidoHubInvocationContext(executor, context, new ServiceCollection().BuildServiceProvider(), new TestHub(), Array.Empty<object?>());
+        using var ownedProvider = new ServiceCollection().BuildServiceProvider();
+        var ownedInvocation = new RaidoHubInvocationContext(executor, context, ownedProvider, new TestHub(), Array.Empty<object?>());
         await owned.InvokeMethodAsync(ownedInvocation, _ => ValueTask.FromResult<object?>(null));
 
         var asyncFactory = new RaidoHubFilterFactory(typeof(AsyncDisposableFilter));

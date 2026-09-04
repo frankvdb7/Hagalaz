@@ -6,23 +6,23 @@ using Raido.Common.Protocol;
 namespace Raido.Server
 {
     /// <summary>
-    /// Manages the lifetime of Raido connections.
+    /// Manages the lifetime of Raido Hub connections.
     /// </summary>
-    public interface IRaidoLifetimeManager
+    public interface IRaidoHubLifetimeManager
     {
         /// <summary>
         /// Called when a new connection is established.
         /// </summary>
         /// <param name="connection">The connection that was established.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous connect operation.</returns>
-        Task OnConnectedAsync(RaidoConnectionContext connection);
+        Task OnConnectedAsync(RaidoHubConnectionContext connection);
 
         /// <summary>
         /// Called when a connection is terminated.
         /// </summary>
         /// <param name="connection">The connection that was terminated.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous disconnect operation.</returns>
-        Task OnDisconnectedAsync(RaidoConnectionContext connection);
+        Task OnDisconnectedAsync(RaidoHubConnectionContext connection);
 
         /// <summary>
         /// Sends a message to all connected clients.

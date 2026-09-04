@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Services.GameWorld.Network.Model;
 using Raido.Server;
@@ -7,10 +7,10 @@ namespace Hagalaz.Services.GameWorld.Services
 {
     public class GameConnectionService : IGameConnectionService
     {
-        private readonly RaidoConnectionStore _connections;
+        private readonly RaidoHubConnectionStore _connections;
         private readonly IGameSessionService _gameSessionService;
 
-        public GameConnectionService(RaidoConnectionStore connections, IGameSessionService gameSessionService)
+        public GameConnectionService(RaidoHubConnectionStore connections, IGameSessionService gameSessionService)
         {
             _connections = connections;
             _gameSessionService = gameSessionService;

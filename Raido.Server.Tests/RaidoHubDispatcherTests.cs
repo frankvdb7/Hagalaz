@@ -22,6 +22,9 @@ namespace Raido.Server.Tests;
 [DoNotParallelize]
 public sealed class RaidoHubDispatcherTests
 {
+    private readonly List<RaidoHubConnectionContext> _connections = new();
+    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+
     private sealed class DispatchMessage : RaidoMessage { }
     private sealed class OtherMessage : RaidoMessage { }
     private sealed class TaskMessage : RaidoMessage { }
@@ -220,7 +223,25 @@ public sealed class RaidoHubDispatcherTests
         return (services.BuildServiceProvider(), context);
     }
 
-    private static RaidoConnectionContext CreateConnection(string id = "connection")
+    [TestCleanup]
+    public async Task CleanupConnections()
+    {
+        foreach (var connection in _connections)
+        {
+            connection.Abort();
+            await connection.CleanupAsync();
+        }
+
+        foreach (var (input, output) in _transports)
+        {
+            input.Reader.Complete();
+            input.Writer.Complete();
+            output.Reader.Complete();
+            output.Writer.Complete();
+        }
+    }
+
+    private RaidoHubConnectionContext CreateConnection(string id = "connection")
     {
         var context = Substitute.For<ConnectionContext>();
         context.ConnectionId.Returns(id);
@@ -232,10 +253,14 @@ public sealed class RaidoHubDispatcherTests
         context.Transport.Returns(transport);
         context.Features.Returns(new FeatureCollection());
         context.ConnectionClosed.Returns(CancellationToken.None);
-        return new RaidoConnectionContext(context, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = new TestProtocol()
-        };
+        _transports.Add((input, output));
+        var connection = RaidoTestConnectionFactory.Create(
+            context,
+            new RaidoConnectionContextOptions(),
+            NullLoggerFactory.Instance,
+            protocol: new TestProtocol());
+        _connections.Add(connection);
+        return connection;
     }
 
     private static DefaultRaidoHubDispatcher<DispatchHub> CreateDispatcher(ServiceProvider provider)

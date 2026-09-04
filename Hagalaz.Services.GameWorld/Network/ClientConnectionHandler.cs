@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Hagalaz.Services.GameWorld.Network.Handshake;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Raido.Server;
 
@@ -9,26 +10,28 @@ namespace Hagalaz.Services.GameWorld.Network;
 
 public class ClientConnectionHandler : ConnectionHandler
 {
-    private readonly RaidoConnectionHandler _connectionHandler;
-    private readonly IRaidoConnectionContextBuilder _contextBuilder;
+    private readonly RaidoHubConnectionHandler _connectionHandler;
+    private readonly IRaidoHubConnectionContextFactory _connectionFactory;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ClientConnectionHandler> _logger;
 
     public ClientConnectionHandler(
-        RaidoConnectionHandler connectionHandler,
-        IRaidoConnectionContextBuilder contextBuilder,
+        RaidoHubConnectionHandler connectionHandler,
+        IRaidoHubConnectionContextFactory connectionFactory,
+        IServiceScopeFactory scopeFactory,
         ILogger<ClientConnectionHandler> logger)
     {
         _connectionHandler = connectionHandler;
-        _contextBuilder = contextBuilder;
+        _connectionFactory = connectionFactory;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
     public override async Task OnConnectedAsync(ConnectionContext connection)
     {
-        var connectionContext = _contextBuilder.Create()
-            .WithConnection(connection)
-            .WithProtocol<HandshakeProtocol>()
-            .Build();
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var handshakeProtocol = scope.ServiceProvider.GetRequiredService<HandshakeProtocol>();
+        var connectionContext = _connectionFactory.Create(connection, handshakeProtocol, statefulReconnect: false);
 
         Log.HandshakeStart(_logger, connectionContext.Protocol.Name);
 

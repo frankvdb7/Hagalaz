@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.IO.Pipelines;
+using System.Threading;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,6 +14,27 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoBuilderAndContextExtensionTests
 {
+    private readonly List<RaidoHubConnectionContext> _connections = new();
+    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+
+    [TestCleanup]
+    public async Task CleanupConnections()
+    {
+        foreach (var connection in _connections)
+        {
+            connection.Abort();
+            await connection.CleanupAsync();
+        }
+
+        foreach (var (input, output) in _transports)
+        {
+            input.Reader.Complete();
+            input.Writer.Complete();
+            output.Reader.Complete();
+            output.Writer.Complete();
+        }
+    }
+
     private sealed class SimpleProtocol : IRaidoProtocol
     {
         public string Name => "simple";
@@ -31,15 +53,18 @@ public sealed class RaidoBuilderAndContextExtensionTests
 
     private sealed class DummyHub : RaidoHub { }
 
-    private static ConnectionContext RawConnection()
+    private ConnectionContext RawConnection()
     {
         var connection = Substitute.For<ConnectionContext>();
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(Substitute.For<PipeReader>());
-        transport.Output.Returns(Substitute.For<PipeWriter>());
+        var input = new Pipe();
+        var output = new Pipe();
+        transport.Input.Returns(input.Reader);
+        transport.Output.Returns(output.Writer);
         connection.Transport.Returns(transport);
         connection.ConnectionId.Returns("extensions");
         connection.ConnectionClosed.Returns(CancellationToken.None);
+        _transports.Add((input, output));
         return connection;
     }
 
@@ -49,7 +74,10 @@ public sealed class RaidoBuilderAndContextExtensionTests
         var services = new ServiceCollection();
         var builder = services.AddRaidoProtocol<IRaidoProtocol, SimpleProtocol>(_ => { });
         Assert.AreSame(services, builder);
-        Assert.IsNotNull(services.BuildServiceProvider().GetService<IRaidoProtocol>());
+        using (var provider = services.BuildServiceProvider())
+        {
+            Assert.IsNotNull(provider.GetService<IRaidoProtocol>());
+        }
         Assert.ThrowsExactly<ArgumentNullException>(() => RaidoBuilderExtensions.AddRaidoProtocol<IRaidoProtocol, SimpleProtocol>(null!, null));
 
         var serverBuilder = services.AddRaidoServerCore();
@@ -71,37 +99,26 @@ public sealed class RaidoBuilderAndContextExtensionTests
         Assert.IsInstanceOfType<RaidoProtocolReader>(reader);
         Assert.IsInstanceOfType<RaidoMessagePipeReader>(pipeReader);
 
-        var raido = new RaidoConnectionContext(connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = new SimpleProtocol()
-        };
-        await using var raidoWriter = raido.CreateWriter();
-        await using var raidoReader = raido.CreateReader();
-        var raidoPipeReader = raido.CreatePipeReader(Substitute.For<IRaidoMessageReader<ReadOnlySequence<byte>>>());
-        Assert.IsNotNull(raidoWriter);
-        Assert.IsNotNull(raidoReader);
-        Assert.IsNotNull(raidoPipeReader);
     }
 
     [TestMethod]
-    public void DefaultContexts_ExposeLifetimeAndCallerState()
+    public async Task DefaultContexts_ExposeLifetimeAndCallerState()
     {
-        var lifetime = Substitute.For<IRaidoLifetimeManager>();
+        var lifetime = Substitute.For<IRaidoHubLifetimeManager>();
         var context = new DefaultRaidoContext(lifetime);
         Assert.IsNotNull(context.Clients);
-        var connection = new RaidoConnectionContext(RawConnection(), new RaidoConnectionContextOptions(), NullLoggerFactory.Instance)
-        {
-            Protocol = new SimpleProtocol()
-        };
+        var connection = RaidoTestConnectionFactory.Create(RawConnection(), new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
+        await connection.SetProtocolAsync(new SimpleProtocol(), CancellationToken.None);
+        _connections.Add(connection);
         var caller = new DefaultRaidoCallerContext(connection);
         Assert.AreEqual(connection.ConnectionId, caller.ConnectionId);
         Assert.AreSame(connection.Items, caller.Items);
         Assert.AreSame(connection.Features, caller.Features);
-        Assert.AreEqual(connection.ConnectionAbortedToken, caller.ConnectionAbortedToken);
+        Assert.AreEqual(connection.ConnectionAborted, caller.ConnectionAborted);
         Assert.AreSame(connection.Protocol, caller.Protocol);
-        caller.Protocol = new SimpleProtocol();
+        await caller.SetProtocolAsync(new SimpleProtocol(), CancellationToken.None);
         caller.Abort();
-        Assert.IsTrue(connection.ConnectionAbortedToken.CanBeCanceled);
+        Assert.IsTrue(connection.ConnectionAborted.CanBeCanceled);
     }
 
     [TestMethod]

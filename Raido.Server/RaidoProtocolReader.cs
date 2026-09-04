@@ -21,7 +21,6 @@ namespace Raido.Server
         private bool _isCompleted;
         private bool _hasMessage;
         private bool _disposed;
-        private Exception? _physicalReadException;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RaidoProtocolReader"/> class.
@@ -84,8 +83,6 @@ namespace Raido.Server
                 throw new InvalidOperationException($"{nameof(Advance)} must be called before calling {nameof(ReadAsync)}");
             }
 
-            _physicalReadException = null;
-
             // If this is the very first read, then make it go async since we have no data
             if (_consumed.GetObject() == null)
             {
@@ -133,7 +130,7 @@ namespace Raido.Server
         {
             while (true)
             {
-                var readTask = ReadFromPhysicalTransportAsync(cancellationToken);
+                var readTask = _reader.ReadAsync(cancellationToken);
                 ReadResult result;
                 if (readTask.IsCompletedSuccessfully)
                 {
@@ -180,30 +177,10 @@ namespace Raido.Server
                     break;
                 }
 
-                readTask = ReadFromPhysicalTransportAsync(cancellationToken);
+                readTask = _reader.ReadAsync(cancellationToken);
             }
 
             return new RaidoProtocolReadResult<TReadMessage>(default, _isCanceled, _isCompleted);
-        }
-
-        internal bool IsPhysicalTransportFailure(Exception exception) => ReferenceEquals(exception, _physicalReadException);
-
-        private async ValueTask<ReadResult> ReadFromPhysicalTransportAsync(CancellationToken cancellationToken)
-        {
-            try
-            {
-                return await _reader.ReadAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException ex)
-            {
-                _physicalReadException = ex;
-                throw;
-            }
-            catch (IOException ex)
-            {
-                _physicalReadException = ex;
-                throw;
-            }
         }
 
         private (bool ShouldContinue, bool HasMessage) TrySetMessage<TReadMessage>(
@@ -311,21 +288,66 @@ namespace Raido.Server
                 throw new ObjectDisposedException(nameof(RaidoProtocolReader));
             }
 
+            if (_hasMessage)
+            {
+                if (advanceCursor)
+                {
+                    _reader.AdvanceTo(_consumed);
+                }
+
+                _buffer = _buffer.Slice(_consumed);
+                _hasMessage = false;
+                return;
+            }
+
             if (advanceCursor)
             {
                 _reader.AdvanceTo(_consumed);
             }
 
             _isCanceled = false;
+        }
 
-            if (!_hasMessage)
+        internal void DiscardIncompleteInput()
+        {
+            if (_disposed)
             {
-                return;
+                throw new ObjectDisposedException(nameof(RaidoProtocolReader));
             }
 
-            _buffer = _buffer.Slice(_consumed);
-
+            _reader.AdvanceTo(_buffer.End);
+            _buffer = default;
+            _consumed = default;
+            _examined = default;
+            _isCanceled = false;
+            _isCompleted = false;
             _hasMessage = false;
+        }
+
+        internal bool TryReadBufferedMessage<TReadMessage>(
+            IRaidoMessageReader<TReadMessage> reader,
+            long? maximumMessageSize,
+            out RaidoProtocolReadResult<TReadMessage> readResult)
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(RaidoProtocolReader));
+            }
+
+            if (_hasMessage)
+            {
+                throw new InvalidOperationException($"{nameof(Advance)} must be called before reading another message");
+            }
+
+            if (TryParseMessage(maximumMessageSize, reader, _buffer, out var protocolMessage))
+            {
+                _hasMessage = true;
+                readResult = new RaidoProtocolReadResult<TReadMessage>(protocolMessage, isCanceled: false, isCompleted: false);
+                return true;
+            }
+
+            readResult = default;
+            return false;
         }
 
         /// <summary>

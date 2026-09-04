@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Authorization.Constants;
 using Hagalaz.Game.Abstractions.Mediator;
@@ -14,6 +15,7 @@ using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
 using Polly.Timeout;
@@ -28,7 +30,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
     {
         private readonly IAuthenticationService _authenticationService;
         private readonly IClientPermissionProvider _clientPermissionProvider;
-        private readonly IClientProtocolResolver _clientProtocolResolver;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ISystemUpdateService _systemUpdate;
         private readonly IOptions<ServerConfig> _serverOptions;
         private readonly IOptions<WorldOptions> _worldOptions;
@@ -41,7 +43,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
         public HandshakeHub(
             IAuthenticationService authenticationService,
             IClientPermissionProvider clientPermissionProvider,
-            IClientProtocolResolver clientProtocolResolver,
+            IServiceScopeFactory scopeFactory,
             ISystemUpdateService systemUpdate,
             IOptions<ServerConfig> serverOptions,
             IOptions<WorldOptions> worldOptions,
@@ -53,7 +55,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
         {
             _authenticationService = authenticationService;
             _clientPermissionProvider = clientPermissionProvider;
-            _clientProtocolResolver = clientProtocolResolver;
+            _scopeFactory = scopeFactory;
             _systemUpdate = systemUpdate;
             _serverOptions = serverOptions;
             _worldOptions = worldOptions;
@@ -79,154 +81,184 @@ namespace Hagalaz.Services.GameWorld.Hubs
         [RaidoMessageHandler(typeof(LobbySignInRequest))]
         public async Task SignInLobby(LobbySignInRequest message)
         {
-            var clientProtocol = _clientProtocolResolver.GetProtocol(message.ClientRevision);
-            if (clientProtocol == null)
-            {
-                await Clients.Caller.SendAsync(ClientSignInResponse.Outdated);
-                Context.Abort();
-                return;
-            }
-
+            var protocolScope = _scopeFactory.CreateAsyncScope();
+            var protocolScopeTransferred = false;
             try
             {
-                var clientResponse = await SignInAsync(message, false);
-                if (!clientResponse.Succeeded)
+                var clientProtocol = protocolScope.ServiceProvider
+                    .GetRequiredService<IClientProtocolResolver>()
+                    .GetProtocol(message.ClientRevision);
+                if (clientProtocol == null)
                 {
-                    await Clients.Caller.SendAsync(clientResponse);
+                    await Clients.Caller.SendAsync(ClientSignInResponse.Outdated);
                     Context.Abort();
                     return;
                 }
+
+                try
+                {
+                    var clientResponse = await SignInAsync(message, false);
+                    if (!clientResponse.Succeeded)
+                    {
+                        await Clients.Caller.SendAsync(clientResponse);
+                        Context.Abort();
+                        return;
+                    }
+                }
+                catch (RequestTimeoutException)
+                {
+                    await Clients.Caller.SendAsync(ClientSignInResponse.AuthServiceOffline);
+                    Context.Abort();
+                    throw;
+                }
+                catch (Exception)
+                {
+                    await Clients.Caller.SendAsync(ClientSignInResponse.Failed);
+                    Context.Abort();
+                    throw;
+                }
+
+                var session = Context.GetSession();
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+                if (session == null)
+                {
+                    await Clients.Caller.SendAsync(ClientSignInResponse.BadSession);
+                    Context.Abort();
+                    return;
+                }
+
+                var user = Context.User!;
+                var masterId = Context.GetMasterId();
+                if (masterId == null)
+                {
+                    await Clients.Caller.SendAsync(ClientSignInResponse.BadSession);
+                    Context.Abort();
+                    return;
+                }
+
+                var worldId = _worldOptions.Value.Id;
+                var roles = user.FindAllRoles().Select(claim => claim.Value).ToList();
+                var clientPermission = _clientPermissionProvider.GetClientPermission(roles);
+                var displayName = user.FindFirst(OpenIddictConstants.Claims.PreferredUsername)?.Value!;
+                _ = DateTimeOffset.TryParse(user.FindFirst(Claims.LastLogin)?.Value, out var lastLogin);
+                var lastIp = user.FindFirst(Claims.LastIp)?.Value;
+
+                // the handshake protocol should still handle the response
+                await Clients.Caller.SendAsync(new LobbySignInResponse()
+                {
+                    DisplayName = displayName,
+                    ClientPermissions = clientPermission,
+                    LastLogin = lastLogin,
+                    LastIpAddress = lastIp,
+                    UnreadMessagesCount = 0,
+                    WorldId = worldId,
+                    WorldAddress = _worldOptions.Value.AdvertisedEndpoint.Host
+                });
+
+                // now let the appropriate client protocol handle any communication
+                clientProtocol.SetEncryptionSeed(message.IsaacSeed);
+                protocolScopeTransferred = true;
+                await Context.SetProtocolAsync(clientProtocol, protocolScope, CancellationToken.None);
+
+                _mediator.Publish(new LobbySignInCommand(masterId.Value, session));
             }
-            catch (RequestTimeoutException)
+            finally
             {
-                await Clients.Caller.SendAsync(ClientSignInResponse.AuthServiceOffline);
-                Context.Abort();
-                throw;
+                if (!protocolScopeTransferred)
+                {
+                    await protocolScope.DisposeAsync();
+                }
             }
-            catch (Exception)
-            {
-                await Clients.Caller.SendAsync(ClientSignInResponse.Failed);
-                Context.Abort();
-                throw;
-            }
-
-            var session = Context.GetSession();
-            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-            if (session == null)
-            {
-                await Clients.Caller.SendAsync(ClientSignInResponse.BadSession);
-                Context.Abort();
-                return;
-            }
-
-            var user = Context.User!;
-            var masterId = Context.GetMasterId();
-            if (masterId == null)
-            {
-                await Clients.Caller.SendAsync(ClientSignInResponse.BadSession);
-                Context.Abort();
-                return;
-            }
-
-            var worldId = _worldOptions.Value.Id;
-            var roles = user.FindAllRoles().Select(claim => claim.Value).ToList();
-            var clientPermission = _clientPermissionProvider.GetClientPermission(roles);
-            var displayName = user.FindFirst(OpenIddictConstants.Claims.PreferredUsername)?.Value!;
-            _ = DateTimeOffset.TryParse(user.FindFirst(Claims.LastLogin)?.Value, out var lastLogin);
-            var lastIp = user.FindFirst(Claims.LastIp)?.Value;
-
-            // the handshake protocol should still handle the response
-            await Clients.Caller.SendAsync(new LobbySignInResponse()
-            {
-                DisplayName = displayName,
-                ClientPermissions = clientPermission,
-                LastLogin = lastLogin,
-                LastIpAddress = lastIp,
-                UnreadMessagesCount = 0,
-                WorldId = worldId,
-                WorldAddress = _worldOptions.Value.AdvertisedEndpoint.Host
-            });
-
-            // now let the appropriate client protocol handle any communication
-            clientProtocol.SetEncryptionSeed(message.IsaacSeed);
-            Context.Protocol = clientProtocol;
-
-            _mediator.Publish(new LobbySignInCommand(masterId.Value, session));
         }
 
         [RaidoMessageHandler(typeof(WorldSignInRequest))]
         public async Task SignInWorld(WorldSignInRequest message)
         {
-            var worldOptions = _worldOptions.Value;
-            if (!_lifecycle.CanAcceptWorldSignIns ||
-                _registrations.HasConflict(worldOptions.Id, _identity.InstanceId) ||
-                !_registrations.IsLocalGenerationAvailable(worldOptions.Id, _identity.InstanceId))
-            {
-                await Clients.Caller.SendAsync(ClientSignInResponse.Failed);
-                Context.Abort();
-                return;
-            }
-
-            var clientProtocol = _clientProtocolResolver.GetProtocol(message.ClientRevision);
-            if (clientProtocol == null)
-            {
-                await Clients.Caller.SendAsync(ClientSignInResponse.Outdated);
-                Context.Abort();
-                return;
-            }
-
+            var protocolScope = _scopeFactory.CreateAsyncScope();
+            var protocolScopeTransferred = false;
             try
             {
-                var clientResponse = await SignInAsync(message, true);
-                if (!clientResponse.Succeeded)
+                var worldOptions = _worldOptions.Value;
+                if (!_lifecycle.CanAcceptWorldSignIns ||
+                    _registrations.HasConflict(worldOptions.Id, _identity.InstanceId) ||
+                    !_registrations.IsLocalGenerationAvailable(worldOptions.Id, _identity.InstanceId))
                 {
-                    await Clients.Caller.SendAsync(clientResponse);
+                    await Clients.Caller.SendAsync(ClientSignInResponse.Failed);
                     Context.Abort();
                     return;
                 }
+
+                var clientProtocol = protocolScope.ServiceProvider
+                    .GetRequiredService<IClientProtocolResolver>()
+                    .GetProtocol(message.ClientRevision);
+                if (clientProtocol == null)
+                {
+                    await Clients.Caller.SendAsync(ClientSignInResponse.Outdated);
+                    Context.Abort();
+                    return;
+                }
+
+                try
+                {
+                    var clientResponse = await SignInAsync(message, true);
+                    if (!clientResponse.Succeeded)
+                    {
+                        await Clients.Caller.SendAsync(clientResponse);
+                        Context.Abort();
+                        return;
+                    }
+                }
+                catch (Exception ex) when (ex is RequestTimeoutException or TimeoutRejectedException)
+                {
+                    await Clients.Caller.SendAsync(ClientSignInResponse.AuthServiceOffline);
+                    Context.Abort();
+                    throw;
+                }
+                catch (Exception)
+                {
+                    await Clients.Caller.SendAsync(ClientSignInResponse.Failed);
+                    Context.Abort();
+                    throw;
+                }
+
+                var character = Context.GetCharacter();
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+                if (character == null)
+                {
+                    await Clients.Caller.SendAsync(ClientSignInResponse.BadSession);
+                    Context.Abort();
+                    return;
+                }
+
+                var user = Context.User!;
+                var roles = user.FindAllRoles().Select(claim => claim.Value).ToList();
+                var clientPermission = _clientPermissionProvider.GetClientPermission(roles);
+                var displayName = user.FindFirst(OpenIddictConstants.Claims.PreferredUsername)?.Value!;
+
+                // the handshake protocol should still handle the response
+                await Clients.Caller.SendAsync(new WorldSignInResponse()
+                {
+                    DisplayName = displayName,
+                    ClientPermissions = clientPermission,
+                    IsQuickChatOnly = false,
+                    CharacterWorldIndex = character.Index,
+                    IsMembersOnly = true
+                });
+
+                // now let the appropriate client protocol handle any communication
+                clientProtocol.SetEncryptionSeed(message.IsaacSeed);
+                protocolScopeTransferred = true;
+                await Context.SetProtocolAsync(clientProtocol, protocolScope, CancellationToken.None);
+
+                _mediator.Publish(new WorldSignInCommand(character));
             }
-            catch (Exception ex) when (ex is RequestTimeoutException or TimeoutRejectedException)
+            finally
             {
-                await Clients.Caller.SendAsync(ClientSignInResponse.AuthServiceOffline);
-                Context.Abort();
-                throw;
+                if (!protocolScopeTransferred)
+                {
+                    await protocolScope.DisposeAsync();
+                }
             }
-            catch (Exception)
-            {
-                await Clients.Caller.SendAsync(ClientSignInResponse.Failed);
-                Context.Abort();
-                throw;
-            }
-
-            var character = Context.GetCharacter();
-            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-            if (character == null)
-            {
-                await Clients.Caller.SendAsync(ClientSignInResponse.BadSession);
-                Context.Abort();
-                return;
-            }
-
-            var user = Context.User!;
-            var roles = user.FindAllRoles().Select(claim => claim.Value).ToList();
-            var clientPermission = _clientPermissionProvider.GetClientPermission(roles);
-            var displayName = user.FindFirst(OpenIddictConstants.Claims.PreferredUsername)?.Value!;
-
-            // the handshake protocol should still handle the response
-            await Clients.Caller.SendAsync(new WorldSignInResponse()
-            {
-                DisplayName = displayName,
-                ClientPermissions = clientPermission,
-                IsQuickChatOnly = false,
-                CharacterWorldIndex = character.Index,
-                IsMembersOnly = true
-            });
-
-            // now let the appropriate client protocol handle any communication
-            clientProtocol.SetEncryptionSeed(message.IsaacSeed);
-            Context.Protocol = clientProtocol;
-
-            _mediator.Publish(new WorldSignInCommand(character));
         }
 
         private async ValueTask<ClientSignInResponse> SignInAsync(ClientSignInRequest request, bool isWorldSignIn)

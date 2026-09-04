@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using System.Diagnostics;
-using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -11,33 +11,33 @@ using Raido.Server.Internal;
 namespace Raido.Server
 {
     /// <summary>
-    /// Handles incoming Raido connections.
+    /// Handles incoming Raido Hub connections.
     /// </summary>
-    public class RaidoConnectionHandler
+    public class RaidoHubConnectionHandler
     {
-        private readonly IRaidoLifetimeManager _lifetimeManager;
+        private readonly IRaidoHubLifetimeManager _lifetimeManager;
         private readonly IRaidoDispatcher _dispatcher;
         private readonly RaidoMetrics _metrics;
-        private readonly ILogger<RaidoConnectionHandler> _logger;
+        private readonly ILogger<RaidoHubConnectionHandler> _logger;
         private readonly long? _maximumReceiveMessageSize;
         private readonly TimeProvider _timeProvider;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="RaidoConnectionHandler"/> class.
+        /// Initializes a new instance of the <see cref="RaidoHubConnectionHandler"/> class.
         /// </summary>
         /// <param name="loggerFactory">The logger factory.</param>
         /// <param name="raidoOptions">The Raido options.</param>
         /// <param name="lifetimeManager">The lifetime manager.</param>
         /// <param name="dispatcher">The dispatcher.</param>
         /// <param name="metrics">The metrics.</param>
-        public RaidoConnectionHandler(
+        public RaidoHubConnectionHandler(
             ILoggerFactory loggerFactory, IOptions<RaidoOptions> raidoOptions,
-            IRaidoLifetimeManager lifetimeManager, IRaidoDispatcher dispatcher, RaidoMetrics metrics)
+            IRaidoHubLifetimeManager lifetimeManager, IRaidoDispatcher dispatcher, RaidoMetrics metrics)
         {
             _lifetimeManager = lifetimeManager;
             _dispatcher = dispatcher;
             _metrics = metrics;
-            _logger = loggerFactory.CreateLogger<RaidoConnectionHandler>();
+            _logger = loggerFactory.CreateLogger<RaidoHubConnectionHandler>();
             _maximumReceiveMessageSize = raidoOptions.Value.MaximumReceiveMessageSize;
             _timeProvider = TimeProvider.System;
         }
@@ -47,7 +47,7 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection to handle.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous connection handling.</returns>
-        public async Task ConnectAsync(RaidoConnectionContext connection)
+        public async Task ConnectAsync(RaidoHubConnectionContext connection)
         {
             connection.MetricsContext = _metrics.CreateContext();
 
@@ -62,14 +62,31 @@ namespace Raido.Server
             }
             finally
             {
-                connection.Cleanup();
+                ExceptionDispatchInfo? cleanupException = null;
+                try
+                {
+                    connection.CompleteTransportInput();
+                    await connection.CleanupAsync();
+                }
+                catch (Exception ex)
+                {
+                    cleanupException = ExceptionDispatchInfo.Capture(ex);
+                }
 
                 var currentTimestamp = (connection.StartTimestamp > 0) ? _timeProvider.GetTimestamp() : default;
 
                 Log.ConnectedStopping(_logger, connection);
                 RaidoEventSource.Log.ConnectionStop(connection.ConnectionId, connection.StartTimestamp, currentTimestamp);
                 _metrics.ConnectionStop(connection.MetricsContext, connection.StartTimestamp, currentTimestamp);
-                await _lifetimeManager.OnDisconnectedAsync(connection);
+
+                try
+                {
+                    await _lifetimeManager.OnDisconnectedAsync(connection);
+                }
+                finally
+                {
+                    cleanupException?.Throw();
+                }
             }
         }
 
@@ -78,7 +95,7 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection to run.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous connection loop.</returns>
-        public virtual async Task RunAsync(RaidoConnectionContext connection)
+        private async Task RunAsync(RaidoHubConnectionContext connection)
         {
             try
             {
@@ -106,7 +123,7 @@ namespace Raido.Server
                 return;
             }
 
-            await OnDisconnectedAsync(connection, connection.CloseException);
+            await OnDisconnectedAsync(connection, connection.TerminalException);
         }
 
         /// <summary>
@@ -114,92 +131,106 @@ namespace Raido.Server
         /// </summary>
         /// <param name="connection">The connection to dispatch messages from.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous message dispatching.</returns>
-        public virtual async Task DispatchMessagesAsync(RaidoConnectionContext connection)
+        private async Task DispatchMessagesAsync(RaidoHubConnectionContext connection)
         {
-            while (!connection.IsTerminal)
+            var protocolReader = new RaidoProtocolReader(connection.TransportInput);
+            try
             {
-                if (!connection.TryGetCurrentConnection(out var physicalConnection))
+                while (!connection.IsTerminal)
                 {
-                    if (!connection.IsReconnectEnabled || !await connection.WaitForReconnectAsync())
+                    RaidoProtocolReadResult<RaidoMessage> result;
+                    try
+                    {
+                        connection.BeginClientTimeout();
+                        result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAborted);
+                    }
+                    catch (OperationCanceledException) when (connection.IsTerminal)
                     {
                         break;
                     }
 
-                    continue;
-                }
-
-                await using (var protocolReader = new RaidoProtocolReader(physicalConnection.Transport.Input))
-                {
-                    while (true)
+                    var discardInput = result.IsCanceled;
+                    try
                     {
-                        RaidoProtocolReadResult<RaidoMessage> result;
-                        try
+                        if (result.IsCanceled)
                         {
-                            connection.BeginClientTimeout();
-                            result = await protocolReader.ReadAsync(connection.Protocol, _maximumReceiveMessageSize, connection.ConnectionAbortedToken);
-                        }
-                        catch (OperationCanceledException ex)
-                        {
+                            connection.StopClientTimeout();
                             if (connection.IsTerminal)
                             {
                                 break;
                             }
 
-                            if (!protocolReader.IsPhysicalTransportFailure(ex) ||
-                                !connection.HandleTransportFailure(physicalConnection, ex))
+                            while (protocolReader.TryReadBufferedMessage(
+                                       connection.Protocol,
+                                       _maximumReceiveMessageSize,
+                                       out var bufferedResult))
                             {
-                                throw;
+                                if (bufferedResult.Message != default)
+                                {
+                                    connection.StopClientTimeout();
+                                    Log.ReceivedMessage(_logger, bufferedResult.Message);
+                                    await _dispatcher.DispatchMessageAsync(connection, bufferedResult.Message);
+                                }
+
+                                protocolReader.Advance();
                             }
 
-                            break;
-                        }
-                        catch (IOException ex)
-                        {
-                            if (!protocolReader.IsPhysicalTransportFailure(ex) ||
-                                !connection.HandleTransportFailure(physicalConnection, ex))
-                            {
-                                throw;
-                            }
-
-                            break;
-                        }
-
-                        try
-                        {
-                            if (result.IsCanceled)
+                            if (!await connection.WaitForReconnectAsync().ConfigureAwait(false))
                             {
                                 break;
                             }
 
-                            if (result.Message == default)
-                            {
-                                if (result.IsCompleted)
-                                {
-                                    break;
-                                }
+                            continue;
+                        }
 
-                                continue;
-                            }
-
-                            connection.StopClientTimeout();
-
-                            Log.ReceivedMessage(_logger, result.Message);
-
-                            await _dispatcher.DispatchMessageAsync(connection, result.Message);
-
+                        if (result.Message == default)
+                        {
                             if (result.IsCompleted)
                             {
                                 break;
                             }
+
+                            continue;
+                        }
+
+                        connection.StopClientTimeout();
+
+                        Log.ReceivedMessage(_logger, result.Message);
+
+                        await _dispatcher.DispatchMessageAsync(connection, result.Message);
+
+                        if (result.IsCompleted)
+                        {
+                            break;
+                        }
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            if (discardInput)
+                            {
+                                protocolReader.DiscardIncompleteInput();
+                            }
+                            else
+                            {
+                                protocolReader.Advance();
+                            }
                         }
                         finally
                         {
-                            protocolReader.Advance();
+                            if (discardInput)
+                            {
+                                connection.AcknowledgeInputBoundary();
+                            }
                         }
                     }
                 }
-
-                connection.OnPhysicalConnectionClosed(physicalConnection);
+            }
+            finally
+            {
+                await protocolReader.DisposeAsync();
+                connection.CompleteTransportInput();
             }
         }
 
@@ -209,7 +240,7 @@ namespace Raido.Server
         /// <param name="connection">The connection that disconnected.</param>
         /// <param name="exception">The exception that caused the disconnect, if any.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous disconnect handling.</returns>
-        public virtual async Task OnDisconnectedAsync(RaidoConnectionContext connection, Exception? exception)
+        private async Task OnDisconnectedAsync(RaidoHubConnectionContext connection, Exception? exception)
         {
             // We wait on abort to complete, this is so that we can guarantee that all callbacks have fired
             // before OnDisconnectedAsync
@@ -253,10 +284,10 @@ namespace Raido.Server
 
             public static void ErrorProcessingRequest(ILogger logger, Exception exception) => _errorProcessingRequest(logger, exception);
 
-            public static void ConnectedStarting(ILogger logger, RaidoConnectionContext connectionContext) =>
+            public static void ConnectedStarting(ILogger logger, RaidoHubConnectionContext connectionContext) =>
                 _connectedStarting(logger, connectionContext.ConnectionId, null);
 
-            public static void ConnectedStopping(ILogger logger, RaidoConnectionContext connectionContext) =>
+            public static void ConnectedStopping(ILogger logger, RaidoHubConnectionContext connectionContext) =>
                 _connectedStopping(logger, connectionContext.ConnectionId, null);
 
             public static void ReceivedMessage(ILogger logger, RaidoMessage message) => _receivedMessage(logger, message.GetType().Name, null);
