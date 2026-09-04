@@ -207,8 +207,11 @@ namespace Raido.Server
             return Task.CompletedTask;
         }
 
-        public virtual ValueTask WriteAsync<TMessage>(TMessage message, CancellationToken cancellationToken = default) where TMessage : RaidoMessage =>
-    WriteAsync<TMessage>(message, ignoreAbort: false, cancellationToken);
+        public ValueTask WriteAsync<TMessage>(TMessage message) where TMessage : RaidoMessage =>
+            WriteAsync(message, CancellationToken.None);
+
+        public virtual ValueTask WriteAsync<TMessage>(TMessage message, CancellationToken cancellationToken) where TMessage : RaidoMessage =>
+            WriteAsync<TMessage>(message, ignoreAbort: false, cancellationToken);
 
         internal ValueTask WriteAsync<TMessage>(TMessage message, bool ignoreAbort, CancellationToken cancellationToken = default)
             where TMessage : RaidoMessage

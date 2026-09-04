@@ -57,7 +57,7 @@ namespace Raido.Server
         /// <summary>
         /// Changes the protocol used by the connection after writes using the current protocol have completed.
         /// </summary>
-        /// <param name="protocol">The protocol to use for subsequent writes.</param>
+        /// <param name="protocol">The protocol to use for subsequent reads and writes.</param>
         /// <param name="cancellationToken">The token that cancels waiting for the write boundary.</param>
         /// <returns>A <see cref="ValueTask"/> that represents the transition.</returns>
         public abstract ValueTask SetProtocolAsync(IRaidoProtocol protocol, CancellationToken cancellationToken);
