@@ -177,6 +177,48 @@ public sealed class RaidoPhysicalConnectionActivationTests
     }
 
     [TestMethod]
+    public async Task Dispatcher_WhenPreparationFailsLeavesReconnectableTargetAlive()
+    {
+        using var fixture = CreateFixture();
+        var initial = CreatePhysicalConnection("physical-a", out var initialInput, out var initialOutput, out var initialClosed);
+        var replacement = CreatePhysicalConnection("physical-b", out var replacementInput, out var replacementOutput, out var replacementClosed);
+        try
+        {
+            Assert.IsTrue(fixture.Tcp.TryAttachPhysicalConnection(initial));
+            var logical = CreateLogicalConnection(fixture.Tcp, fixture.Options);
+            fixture.Tcp.OnPhysicalConnectionClosed(initial);
+            Assert.IsTrue(fixture.Tcp.Transport.Input.TryRead(out var boundary));
+            fixture.Tcp.Transport.Input.AdvanceTo(boundary.Buffer.End);
+            fixture.Tcp.AcknowledgeInputBoundary();
+
+            var (dispatcher, dispatcherProvider) = CreateDispatcher(
+                fixture,
+                logical,
+                (_, dispatch, cancellationToken) => dispatch.DispatchExistingAsync(
+                    logical,
+                    static _ => ValueTask.FromException(new OperationCanceledException()),
+                    cancellationToken).AsTask());
+            using (dispatcherProvider)
+            {
+                await dispatcher.OnConnectedAsync(replacement);
+            }
+
+            Assert.IsFalse(logical.IsTerminal);
+            Assert.IsFalse(fixture.Tcp.TryGetCurrentConnection(out _));
+            replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
+
+            logical.Abort();
+            await logical.CleanupAsync();
+        }
+        finally
+        {
+            initialClosed.Dispose();
+            replacementClosed.Dispose();
+            await CompleteAsync(initialInput, initialOutput, replacementInput, replacementOutput);
+        }
+    }
+
+    [TestMethod]
     public async Task DispatchContext_CannotDispatchOnePhysicalConnectionTwice()
     {
         using var fixture = CreateFixture();

@@ -67,6 +67,18 @@ public sealed class RaidoConnectionDispatchContext
         try
         {
             await prepareAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            Volatile.Write(ref _dispatchState, 3);
+            _connection.Abort(exception as ConnectionAbortedException ?? new ConnectionAbortedException(
+                "The Raido reconnect could not be completed safely.",
+                exception));
+            throw;
+        }
+
+        try
+        {
             if (!connection.TryAttachPhysicalConnection(_connection))
             {
                 throw new ConnectionAbortedException(

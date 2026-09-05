@@ -30,6 +30,7 @@ using Raido.Server;
 namespace Hagalaz.Services.GameWorld.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class ClientConnectionHandlerTests
 {
     [TestMethod]
@@ -43,6 +44,7 @@ public sealed class ClientConnectionHandlerTests
             await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsTrue(fixture.CreatedStatefulReconnect);
+            Assert.AreEqual(0, fixture.ReconnectHandlerResolutionCount);
             CollectionAssert.AreEqual(new byte[] { 0 }, await ReadAllAsync(fixture.Output.Reader));
             Assert.IsInstanceOfType(fixture.DispatchedMessage, typeof(WorldSignInRequest));
         }
@@ -63,6 +65,7 @@ public sealed class ClientConnectionHandlerTests
             await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsFalse(fixture.FactoryCalled);
+            Assert.AreEqual(1, fixture.ReconnectHandlerResolutionCount);
             Assert.IsNotNull(fixture.ValidatedReconnectMessage);
             CollectionAssert.AreEqual(new byte[] { 0, 6 }, await ReadAllAsync(fixture.Output.Reader));
         }
@@ -83,6 +86,7 @@ public sealed class ClientConnectionHandlerTests
             await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsFalse(fixture.CreatedStatefulReconnect);
+            Assert.AreEqual(0, fixture.ReconnectHandlerResolutionCount);
             Assert.IsInstanceOfType(fixture.DispatchedMessage, typeof(LobbySignInRequest));
         }
         finally
@@ -204,7 +208,7 @@ public sealed class ClientConnectionHandlerTests
             }
         });
 
-        initialClosed.Cancel();
+        tcp.OnPhysicalConnectionClosed(initial);
         Assert.IsTrue(tcp.Transport.Input.TryRead(out var boundary));
         tcp.Transport.Input.AdvanceTo(boundary.Buffer.End);
         tcp.AcknowledgeInputBoundary();
@@ -274,6 +278,10 @@ public sealed class ClientConnectionHandlerTests
             services.GetRequiredService<IServiceScopeFactory>(),
             validator,
             NullLogger<WorldReconnectConnectionHandler>.Instance);
+        await using var clientServices = new ServiceCollection()
+            .AddScoped<HandshakeProtocol>(_ => CreateProtocol())
+            .AddScoped<WorldReconnectConnectionHandler>(_ => reconnectHandler)
+            .BuildServiceProvider();
         var factory = Substitute.For<IRaidoHubConnectionContextFactory>();
         var factoryCalled = false;
         factory.Create(Arg.Any<ConnectionContext>(), Arg.Any<IRaidoProtocol>(), Arg.Any<bool>())
@@ -283,8 +291,8 @@ public sealed class ClientConnectionHandlerTests
                 throw new InvalidOperationException("Reconnect must not create a logical candidate.");
             });
         var clientHandler = new ClientConnectionHandler(
-            reconnectHandler,
-            services.GetRequiredService<HandshakeProtocol>(),
+            clientServices,
+            clientServices.GetRequiredService<HandshakeProtocol>(),
             new ClientHandshakeHandler(),
             Options.Create(new RaidoOptions()),
             NullLogger<ClientConnectionHandler>.Instance);
@@ -464,9 +472,18 @@ public sealed class ClientConnectionHandlerTests
             validator,
             NullLogger<WorldReconnectConnectionHandler>.Instance);
 
+        var reconnectHandlerResolutionCount = 0;
+        var clientServices = new ServiceCollection()
+            .AddScoped<HandshakeProtocol>(_ => CreateProtocol())
+            .AddScoped<WorldReconnectConnectionHandler>(_ =>
+            {
+                reconnectHandlerResolutionCount++;
+                return reconnectHandler;
+            })
+            .BuildServiceProvider();
         var handler = new ClientConnectionHandler(
-            reconnectHandler,
-            services.GetRequiredService<HandshakeProtocol>(),
+            clientServices,
+            clientServices.GetRequiredService<HandshakeProtocol>(),
             handshakeHandler ?? new ClientHandshakeHandler(),
             Options.Create(new RaidoOptions()),
             NullLogger<ClientConnectionHandler>.Instance);
@@ -488,6 +505,8 @@ public sealed class ClientConnectionHandlerTests
             output,
             meter,
             dispatcherProvider,
+            clientServices,
+            () => reconnectHandlerResolutionCount,
             () => connectionAbortCalled,
             () => factoryCalled,
             () => createdStatefulReconnect,
@@ -551,6 +570,8 @@ public sealed class ClientConnectionHandlerTests
         Pipe output,
         Meter meter,
         ServiceProvider dispatcherProvider,
+        ServiceProvider clientServices,
+        Func<int> reconnectHandlerResolutionCount,
         Func<bool> abortCalled,
         Func<bool> factoryCalled,
         Func<bool> createdStatefulReconnect,
@@ -565,6 +586,7 @@ public sealed class ClientConnectionHandlerTests
         public bool ConnectionAbortCalled => abortCalled();
         public bool FactoryCalled => factoryCalled();
         public bool CreatedStatefulReconnect => createdStatefulReconnect();
+        public int ReconnectHandlerResolutionCount => reconnectHandlerResolutionCount();
         public WorldReconnectRequest? ValidatedReconnectMessage => validatedReconnectMessage();
         public RaidoMessage? DispatchedMessage => dispatchedMessage();
 
@@ -576,6 +598,7 @@ public sealed class ClientConnectionHandlerTests
             await Output.Reader.CompleteAsync();
             await Output.Writer.CompleteAsync();
             await dispatcherProvider.DisposeAsync();
+            await clientServices.DisposeAsync();
             meter.Dispose();
         }
     }

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Hagalaz.Services.GameWorld.Network.Handshake;
 using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raido.Common.Messages;
@@ -16,20 +17,20 @@ namespace Hagalaz.Services.GameWorld.Network;
 
 public class ClientConnectionHandler
 {
-    private readonly WorldReconnectConnectionHandler _reconnectHandler;
+    private readonly IServiceProvider _serviceProvider;
     private readonly HandshakeProtocol _handshakeProtocol;
     private readonly IClientHandshakeHandler _clientHandshakeHandler;
     private readonly IOptions<RaidoOptions> _raidoOptions;
     private readonly ILogger<ClientConnectionHandler> _logger;
 
     public ClientConnectionHandler(
-        WorldReconnectConnectionHandler reconnectHandler,
+        IServiceProvider serviceProvider,
         HandshakeProtocol handshakeProtocol,
         IClientHandshakeHandler clientHandshakeHandler,
         IOptions<RaidoOptions> raidoOptions,
         ILogger<ClientConnectionHandler> logger)
     {
-        _reconnectHandler = reconnectHandler;
+        _serviceProvider = serviceProvider;
         _handshakeProtocol = handshakeProtocol;
         _clientHandshakeHandler = clientHandshakeHandler;
         _raidoOptions = raidoOptions;
@@ -124,7 +125,7 @@ public class ClientConnectionHandler
 
         if (authentication is WorldReconnectRequest reconnectRequest)
         {
-            await _reconnectHandler.HandleAsync(
+            await _serviceProvider.GetRequiredService<WorldReconnectConnectionHandler>().HandleAsync(
                 connection,
                 dispatch,
                 _handshakeProtocol,

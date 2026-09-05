@@ -139,36 +139,50 @@ public sealed class WorldReconnectConnectionHandler
                         return false;
                     }
 
-                    return await dispatch.DispatchExistingAsync(
-                        currentTarget,
-                        async prepareCancellationToken =>
-                        {
-                            // SetProtocolAsync owns disposal if it cannot accept the incoming lifetime. Mark the
-                            // scope as handed off before awaiting it to avoid disposing the same scope twice.
-                            clientProtocol.SetEncryptionSeed(message.IsaacSeed);
-                            protocolScopeTransferred = true;
-                            await currentTarget.SetProtocolAsync(
-                                clientProtocol,
-                                protocolScope,
-                                prepareCancellationToken);
-                            character.GameClient.DisplayMode = message.DisplayMode;
-                            character.GameClient.Language = message.Language;
-                            character.GameClient.ScreenSizeX = message.ClientSizeX;
-                            character.GameClient.ScreenSizeY = message.ClientSizeY;
+                    var targetMutated = false;
+                    try
+                    {
+                        return await dispatch.DispatchExistingAsync(
+                            currentTarget,
+                            async prepareCancellationToken =>
+                            {
+                                // SetProtocolAsync owns disposal if it cannot accept the incoming lifetime. Mark the
+                                // scope as handed off before awaiting it to avoid disposing the same scope twice.
+                                clientProtocol.SetEncryptionSeed(message.IsaacSeed);
+                                protocolScopeTransferred = true;
+                                await currentTarget.SetProtocolAsync(
+                                    clientProtocol,
+                                    protocolScope,
+                                    prepareCancellationToken);
+                                targetMutated = true;
+                                character.GameClient.DisplayMode = message.DisplayMode;
+                                character.GameClient.Language = message.Language;
+                                character.GameClient.ScreenSizeX = message.ClientSizeX;
+                                character.GameClient.ScreenSizeY = message.ClientSizeY;
 
-                            await SendResponseAsync(
-                                connection,
-                                handshakeProtocol,
-                                new WorldReconnectResponse
-                                {
-                                    CharacterIndex = character.Index,
-                                    CharacterLocation = character.Location
-                                },
-                                prepareCancellationToken);
-                        },
-                        claimCancellationToken);
+                                await SendResponseAsync(
+                                    connection,
+                                    handshakeProtocol,
+                                    new WorldReconnectResponse
+                                    {
+                                        CharacterIndex = character.Index,
+                                        CharacterLocation = character.Location
+                                    },
+                                    prepareCancellationToken);
+                            },
+                            claimCancellationToken);
+                    }
+                    catch
+                    {
+                        if (targetMutated)
+                        {
+                            currentTarget.Abort();
+                        }
+
+                        throw;
+                    }
                 },
-                connection.ConnectionClosed);
+                cancellationToken);
             if (!attached)
             {
                 return;

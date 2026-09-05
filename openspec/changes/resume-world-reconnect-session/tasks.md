@@ -31,6 +31,11 @@
   and lobby requests.
 - [x] Keep generic handshake framing and response 15's declared two-byte
   length with the exact 4,608-byte payload.
+- [x] Preserve the outer handshake cancellation token through claim,
+  preparation, response flush, and attach; split replacement-only preparation
+  failure from mutation-aware target cleanup.
+- [x] Resolve the reconnect handler lazily after reconnect classification while
+  retaining the accepted-connection handshake protocol scope.
 
 ## Tests and validation
 
@@ -38,7 +43,8 @@
   coverage.
 - [x] Add focused coverage for scoped dispatcher lifetimes, active-target
   preflight rejection, valid reconnect ordering, claim-serialized concurrent
-  candidates, first-packet buffering, attach-failure termination, and protocol
-  lifetime ownership.
+  candidates, first-packet buffering, attach-failure termination, mutation
+  boundary cancellation, claim release, lazy reconnect-handler resolution, and
+  protocol lifetime ownership.
 - [x] Run strict OpenSpec validation, the requested test matrix, solution
   build, architecture grep, and final diff/scope review.

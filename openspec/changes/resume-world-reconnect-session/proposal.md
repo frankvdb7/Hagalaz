@@ -25,6 +25,12 @@ session and character.
   its internal awaiting-reconnect preflight, GameWorld prepares the protocol,
   metadata, and response 15, and Raido performs the existing internal attach
   before the call returns.
+- Preserve the outer handshake timeout through the existing session claim. A
+  preparation cancellation before protocol commit leaves the logical target
+  reconnectable; a failure after protocol commit is terminalized by GameWorld.
+- Resolve the reconnect handler lazily from the accepted physical connection's
+  scoped provider after reconnect classification, while retaining the scoped
+  handshake protocol for the connection lifetime.
 - Provide handshake policy through an injectable, request-specific
   `IHandshakeValidator<TRequest>`.
 
@@ -66,6 +72,12 @@ session and character.
 - Existing fresh world and lobby response bytes and routing remain unchanged.
 - Handshake policy is injected through request-specific validators, with no
   static global handshake policy class.
+- Cancellation before protocol mutation must not terminalize an unchanged
+  target, while cancellation after mutation and final attach failure must
+  terminalize the partially transitioned target and abort the replacement.
+- Fresh and lobby handshakes must not instantiate the reconnect-only handler;
+  reconnect classification resolves it once from the accepted connection
+  scope.
 
 ## Affected runtime boundary
 

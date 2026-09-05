@@ -62,7 +62,8 @@ internal physical attach before the claim action returns.
 
 It MUST NOT hydrate, register, publish fresh-login messages, remove the existing
 session on rejected raw-connection cleanup, or use `Items` for reconnect
-coordination.
+coordination. The outer handshake cancellation token MUST remain in force
+through the claim action, preparation, response flush, and final attach.
 
 #### Scenario: Matching session resumes
 
@@ -156,3 +157,30 @@ target. It MUST NOT attempt protocol rollback.
 - THEN the replacement is aborted
 - AND the logical target is terminated
 - AND no second session, character, marker, or reconnect transition is created
+
+### Requirement: Preparation failure follows the mutation boundary
+
+If preparation is canceled or fails before `SetProtocolAsync` commits the fresh
+protocol, the logical target MUST remain non-terminal with its old protocol and
+metadata intact. The replacement physical connection MUST be aborted and the
+incoming protocol scope MUST be disposed exactly once according to the existing
+`SetProtocolAsync` ownership contract. If preparation fails after the protocol
+transition commits, GameWorld MUST terminalize the target without attempting
+protocol rollback.
+
+#### Scenario: Cancellation before protocol mutation
+
+- GIVEN a valid reconnect whose preparation cancellation occurs before the
+  incoming protocol is accepted
+- WHEN the reconnect continuation fails
+- THEN the target remains eligible for its existing reconnect lifecycle
+- AND no response 15 is sent
+- AND the replacement is aborted
+
+#### Scenario: Response flush fails after protocol mutation
+
+- GIVEN `SetProtocolAsync` succeeds and GameWorld metadata is updated
+- WHEN response 15 flushing fails or is canceled
+- THEN the target is terminalized
+- AND the replacement is aborted
+- AND the fresh protocol is not rolled back onto a reconnectable target

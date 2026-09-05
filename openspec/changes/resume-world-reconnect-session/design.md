@@ -41,7 +41,10 @@ expired. Only after this preflight does the context invoke GameWorld's
 preparation callback. The callback installs the fresh protocol, updates client
 metadata, and flushes response 15. The context then performs the existing
 internal `TryAttachPhysicalConnection` before returning, so the GameSession
-claim remains held through attachment.
+claim remains held through attachment. A preparation exception aborts only the
+replacement physical connection; GameWorld tracks whether `SetProtocolAsync`
+committed and aborts the logical target only when preparation fails after that
+mutation point. A final attach failure remains terminal for the target.
 
 There is no connection-selection result DTO, GameWorld reconnect marker,
 `Items`-based coordination, reservation, lease, or second reconnect state. The
@@ -59,11 +62,13 @@ The raw input pipe has no Raido reader before attach. A client packet sent
 immediately after response 15 therefore stays buffered, then is decoded once by
 the existing Raido input pump using the fresh protocol after attach.
 
-If preparation or final attach fails after the target has begun mutation, the
-dispatch context aborts the logical target and replacement physical connection,
-without protocol rollback. A clean preflight rejection returns false before the
-preparation callback. A failure after preparation throws an infrastructure
-connection-aborted exception.
+If preparation fails before the protocol transition commits, the target remains
+unchanged and reconnectable while the dispatch context aborts the replacement
+physical connection. If preparation fails after the transition commits,
+GameWorld aborts the partially transitioned target; no protocol rollback is
+attempted. A clean preflight rejection returns false before the preparation
+callback. A final attach failure throws an infrastructure
+connection-aborted exception and terminalizes both sides.
 
 ## Application scope and authentication
 
@@ -72,7 +77,14 @@ creates and disposes one async scope per accepted physical connection. The
 scope remains alive through a new logical Hub lifecycle and ends after an
 existing reconnect has internally attached. The separately created reconnect
 protocol scope transfers to the existing target on successful protocol
-replacement.
+replacement. `ClientConnectionHandler` keeps the handshake protocol in that
+accepted-connection scope but resolves `WorldReconnectConnectionHandler` from
+the same scoped provider only after reconnect classification, so fresh and
+lobby connections do not retain the reconnect-only dependency graph.
+
+The outer handshake timeout remains owned by `ClientConnectionHandler` and is
+passed through `ExecuteIfOwnerAsync`; the claim callback continues to pass its
+token through preparation, response flushing, and final attach.
 
 Normal sign-in keeps the token-issuing `SignInUserRequestMessage` contract.
 Reconnect uses the dedicated validation message and response. Its raw login,

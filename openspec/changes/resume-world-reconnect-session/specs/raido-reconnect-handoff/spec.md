@@ -14,7 +14,10 @@ attachment, reconnect state, or transport state.
 The existing-dispatch operation MUST first derive an awaiting-reconnect
 preflight from the existing Raido TCP state under its existing state lock, then
 invoke GameWorld preparation, and finally delegate to the existing internal
-`TryAttachPhysicalConnection` operation. GameWorld MUST NOT call physical
+`TryAttachPhysicalConnection` operation. A preparation exception MUST abort the
+replacement physical connection without assuming that the logical target was
+mutated. A failed final attach MUST terminalize the logical target and abort
+the replacement. GameWorld MUST NOT call physical
 attachment on `RaidoHubConnectionContext` and MUST NOT receive a public
 reconnect-state query.
 

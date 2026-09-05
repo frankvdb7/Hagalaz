@@ -29,6 +29,7 @@ using Raido.Server;
 namespace Hagalaz.Services.GameWorld.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class WorldReconnectConnectionHandlerTests
 {
     [TestMethod]
@@ -168,6 +169,130 @@ public sealed class WorldReconnectConnectionHandlerTests
         Assert.IsTrue(fixture.Tcp.IsTerminal);
         fixture.Replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
         Assert.AreEqual(4611, gate.FlushedBytes!.Length);
+
+        await fixture.DisposeAsync();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task HandleAsync_WhenHandshakeCancellationInterruptsResponseFlush_ReleasesClaimAndTerminalizesPreparedTarget()
+    {
+        var clientProtocol = CreateClientProtocol("replacement-protocol");
+        await using var provider = new ServiceCollection()
+            .AddScoped<IClientProtocolResolver>(_ => new DisposableClientProtocolResolver(clientProtocol))
+            .BuildServiceProvider();
+        var fixture = CreateReconnectFixture(provider, clientProtocol, out var gate, honorGateCancellation: true);
+        using var cancellation = new CancellationTokenSource();
+        var claimEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var claimExited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var claimToken = default(CancellationToken);
+        fixture.Claims.ExecuteIfOwnerAsync(
+                42,
+                "claim",
+                Arg.Any<Func<CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                claimToken = callInfo.Arg<CancellationToken>();
+                claimEntered.TrySetResult();
+                return ExecuteClaimAsync(
+                    callInfo.Arg<Func<CancellationToken, Task<bool>>>()!,
+                    claimToken,
+                    claimExited);
+            });
+
+        await using var dispatcherProvider = CreateApplicationProvider(
+            (connection, dispatch, _) => fixture.Handler.HandleAsync(
+                connection,
+                dispatch,
+                CreateHandshakeProtocol(),
+                CreateReconnectRequest(),
+                cancellation.Token));
+        var dispatcher = new RaidoConnectionDispatcher(
+            dispatcherProvider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IRaidoHubConnectionContextFactory>(),
+            fixture.ConnectionHandler,
+            NullLogger<RaidoConnectionDispatcher>.Instance);
+
+        var run = dispatcher.OnConnectedAsync(fixture.Replacement);
+        await gate.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await claimEntered.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        cancellation.Cancel();
+        await claimExited.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await run;
+
+        Assert.IsTrue(claimToken.CanBeCanceled);
+        Assert.IsTrue(claimToken.IsCancellationRequested);
+        Assert.IsTrue(fixture.Target.IsTerminal);
+        Assert.AreSame(clientProtocol, fixture.Target.Protocol);
+        Assert.IsTrue(fixture.Tcp.IsTerminal);
+        fixture.Replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
+        Assert.IsTrue(fixture.Gate.FlushedBytes is not null);
+
+        await fixture.DisposeAsync();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task HandleAsync_WhenCancellationHappensBeforeProtocolMutation_LeavesTargetReconnectableAndDisposesScopeOnce()
+    {
+        var clientProtocol = CreateClientProtocol("replacement-protocol");
+        var resolver = new DisposableClientProtocolResolver(clientProtocol);
+        await using var provider = new ServiceCollection()
+            .AddScoped<IClientProtocolResolver>(_ => resolver)
+            .BuildServiceProvider();
+        var fixture = CreateReconnectFixture(
+            provider,
+            clientProtocol,
+            out _);
+        using var cancellation = new CancellationTokenSource();
+        var claimExited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        clientProtocol.When(protocol => protocol.SetEncryptionSeed(Arg.Any<uint[]>()))
+            .Do(_ => cancellation.Cancel());
+        fixture.Claims.ExecuteIfOwnerAsync(
+                42,
+                "claim",
+                Arg.Any<Func<CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo => ExecuteClaimAsync(
+                callInfo.Arg<Func<CancellationToken, Task<bool>>>()!,
+                callInfo.Arg<CancellationToken>(),
+                claimExited));
+
+        await using var dispatcher = CreateDispatcher(fixture, CreateReconnectRequest(), cancellation.Token);
+
+        await claimExited.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await dispatcher.Run;
+
+        Assert.IsFalse(fixture.Target.IsTerminal);
+        Assert.AreNotSame(clientProtocol, fixture.Target.Protocol);
+        Assert.IsNull(fixture.Gate.FlushedBytes);
+        fixture.Replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
+        Assert.AreEqual(1, resolver.DisposeCount);
+
+        await fixture.DisposeAsync();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task HandleAsync_WhenResponseFlushFailsAfterProtocolMutation_TerminalizesTargetWithoutRollback()
+    {
+        var clientProtocol = CreateClientProtocol("replacement-protocol");
+        await using var provider = new ServiceCollection()
+            .AddScoped<IClientProtocolResolver>(_ => new DisposableClientProtocolResolver(clientProtocol))
+            .BuildServiceProvider();
+        var fixture = CreateReconnectFixture(provider, clientProtocol, out var gate);
+        await using var dispatcher = CreateDispatcher(fixture, CreateReconnectRequest(), CancellationToken.None);
+
+        await gate.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        gate.Release(new FlushResult(isCanceled: true, isCompleted: false));
+        await dispatcher.Run;
+
+        Assert.IsTrue(fixture.Target.IsTerminal);
+        Assert.AreSame(clientProtocol, fixture.Target.Protocol);
+        Assert.IsTrue(fixture.Tcp.IsTerminal);
+        fixture.Replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
 
         await fixture.DisposeAsync();
     }
@@ -468,6 +593,43 @@ public sealed class WorldReconnectConnectionHandlerTests
             .AddScoped<RaidoConnectionDelegate>(_ => application)
             .BuildServiceProvider();
 
+    private static DispatcherRun CreateDispatcher(
+        ReconnectFixture fixture,
+        WorldReconnectRequest request,
+        CancellationToken cancellationToken)
+    {
+        var provider = CreateApplicationProvider(
+            (connection, dispatch, _) => fixture.Handler.HandleAsync(
+                connection,
+                dispatch,
+                CreateHandshakeProtocol(),
+                request,
+                cancellationToken));
+        var dispatcher = new RaidoConnectionDispatcher(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IRaidoHubConnectionContextFactory>(),
+            fixture.ConnectionHandler,
+            NullLogger<RaidoConnectionDispatcher>.Instance);
+        return new DispatcherRun(
+            provider,
+            dispatcher.OnConnectedAsync(fixture.Replacement));
+    }
+
+    private static async Task<bool> ExecuteClaimAsync(
+        Func<CancellationToken, Task<bool>> action,
+        CancellationToken cancellationToken,
+        TaskCompletionSource claimExited)
+    {
+        try
+        {
+            return await action(cancellationToken);
+        }
+        finally
+        {
+            claimExited.TrySetResult();
+        }
+    }
+
     private static HandshakeProtocol CreateHandshakeProtocol() =>
         new(new TestHandshakeCodec(), Options.Create(new Hagalaz.Services.GameWorld.Configuration.Model.ServerConfig
         { ClientRevision = 742 }));
@@ -526,12 +688,14 @@ public sealed class WorldReconnectConnectionHandlerTests
         ServiceProvider provider,
         IClientProtocol clientProtocol,
         out GatedPipeWriter gate,
-        bool detach = true)
+        bool detach = true,
+        IRaidoProtocol? initialProtocol = null,
+        bool honorGateCancellation = false)
     {
         var stableConnectionId = "stable-logical";
         var initial = CreatePhysicalConnection(stableConnectionId, out var initialInput, out var initialOutput, out var initialClosed);
         var replacement = CreatePhysicalConnection("replacement", out var replacementInput, out var replacementOutput, out var replacementClosed);
-        gate = new GatedPipeWriter();
+        gate = new GatedPipeWriter(honorGateCancellation);
         replacement.Transport.Output.Returns(gate);
 
         var options = new RaidoConnectionContextOptions
@@ -544,7 +708,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         var target = new RaidoHubConnectionContext(
             tcp,
             options,
-            Substitute.For<IRaidoProtocol>(),
+            initialProtocol ?? Substitute.For<IRaidoProtocol>(),
             NullLoggerFactory.Instance,
             TimeProvider.System);
         if (detach)
@@ -620,10 +784,12 @@ public sealed class WorldReconnectConnectionHandlerTests
             replacementOutput,
             initialInput,
             initialOutput,
+            initialClosed,
             replacementClosed,
             stableConnectionId,
             clientProtocol,
             gate,
+            claims,
             metricsMeter);
     }
 
@@ -711,16 +877,19 @@ public sealed class WorldReconnectConnectionHandlerTests
         }
     }
 
-    private sealed class GatedPipeWriter : PipeWriter
+    private sealed class GatedPipeWriter(bool honorCancellation = false) : PipeWriter
     {
         private readonly ArrayBufferWriter<byte> _buffer = new();
+        private readonly bool _honorCancellation = honorCancellation;
         private readonly TaskCompletionSource<FlushResult> _release =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public TaskCompletionSource FlushStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public byte[]? FlushedBytes { get; private set; }
 
-        public void Release() => _release.TrySetResult(new FlushResult(false, false));
+        public void Release() => Release(new FlushResult(false, false));
+
+        public void Release(FlushResult result) => _release.TrySetResult(result);
 
         public override void Advance(int bytes) => _buffer.Advance(bytes);
 
@@ -734,10 +903,30 @@ public sealed class WorldReconnectConnectionHandlerTests
         {
             FlushedBytes = _buffer.WrittenSpan.ToArray();
             FlushStarted.TrySetResult();
-            return new ValueTask<FlushResult>(_release.Task);
+            return _honorCancellation
+                ? new ValueTask<FlushResult>(_release.Task.WaitAsync(cancellationToken))
+                : new ValueTask<FlushResult>(_release.Task);
         }
 
         public override void Complete(Exception? exception = null) { }
+    }
+
+    private sealed class DispatcherRun(ServiceProvider provider, Task run) : IAsyncDisposable
+    {
+        public Task Run { get; } = run;
+
+        public ValueTask DisposeAsync() => provider.DisposeAsync();
+    }
+
+    private sealed class DisposableClientProtocolResolver(IClientProtocol protocol) : IClientProtocolResolver, IDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public IReadOnlyList<IClientProtocol> AllProtocols => new[] { protocol };
+
+        public IClientProtocol? GetProtocol(int revision) => revision == protocol.Version ? protocol : null;
+
+        public void Dispose() => DisposeCount++;
     }
 
     private sealed class ReconnectFixture : IAsyncDisposable
@@ -754,10 +943,12 @@ public sealed class WorldReconnectConnectionHandlerTests
             Pipe replacementOutput,
             Pipe initialInput,
             Pipe initialOutput,
+            CancellationTokenSource initialClosed,
             CancellationTokenSource replacementClosed,
             string stableConnectionId,
             IClientProtocol clientProtocol,
             GatedPipeWriter gate,
+            IGameSessionClaimStore claims,
             Meter metricsMeter)
         {
             Handler = handler;
@@ -769,10 +960,12 @@ public sealed class WorldReconnectConnectionHandlerTests
             ReplacementOutput = replacementOutput;
             InitialInput = initialInput;
             InitialOutput = initialOutput;
+            InitialClosed = initialClosed;
             ReplacementClosed = replacementClosed;
             StableConnectionId = stableConnectionId;
             ClientProtocol = clientProtocol;
             Gate = gate;
+            Claims = claims;
             _metricsMeter = metricsMeter;
         }
 
@@ -785,15 +978,18 @@ public sealed class WorldReconnectConnectionHandlerTests
         public Pipe ReplacementOutput { get; }
         public Pipe InitialInput { get; }
         public Pipe InitialOutput { get; }
+        public CancellationTokenSource InitialClosed { get; }
         public CancellationTokenSource ReplacementClosed { get; }
         public string StableConnectionId { get; }
         public IClientProtocol ClientProtocol { get; }
         public GatedPipeWriter Gate { get; }
+        public IGameSessionClaimStore Claims { get; }
 
         public async ValueTask DisposeAsync()
         {
             Target.Abort();
             await Target.CleanupAsync();
+            InitialClosed.Dispose();
             ReplacementClosed.Dispose();
             await ReplacementInput.Reader.CompleteAsync();
             await ReplacementInput.Writer.CompleteAsync();
