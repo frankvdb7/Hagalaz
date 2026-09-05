@@ -11,10 +11,13 @@ session and character.
 
 - Keep dedicated reconnect-only authorization validation separate from normal
   token-issuing sign-in.
-- Process opcode 14 and its acknowledgement, then classify the following
-  authentication request before creating a logical Raido context. Fresh world
-  and lobby requests continue through the normal factory path; only fresh
-  world login enables Raido stateful reconnect.
+- Process opcode 14 and its acknowledgement, then cheaply classify the
+  following authentication request before creating a logical Raido context.
+  Opcode 19 is classified without full decoding. Opcode 16 is inspected only
+  through packet framing/header data and its reconnect flag; only flag 1 is
+  fully decoded. Fresh world and lobby requests continue through the normal
+  factory path; only fresh world login enables Raido stateful reconnect, and
+  both retain their raw authentication bytes for the logical reader.
 - For reconnect, validate the existing world session, claim, logical
   connection, character, and authentication subject inside the existing claim
   critical section.
@@ -30,9 +33,13 @@ session and character.
   reconnectable; a failure after protocol commit is terminalized by GameWorld.
 - Resolve the reconnect handler lazily from the accepted physical connection's
   scoped provider after reconnect classification, while retaining the scoped
-  handshake protocol for the connection lifetime.
-- Provide handshake policy through an injectable, request-specific
-  `IHandshakeValidator<TRequest>`.
+  handshake protocol for the connection lifetime. Create the reconnect
+  protocol scope only after the validated session target is ready for
+  preparation.
+- Provide one shared injectable handshake policy for lobby, fresh-world, and
+  reconnect requests.
+- Hide the Raido physical dispatcher behind a public listener-composition
+  extension, leaving the dispatcher implementation internal.
 
 ## Non-goals
 
@@ -53,6 +60,10 @@ session and character.
   context creation and never creates a temporary candidate context.
 - Valid credentials can identify only an already-authenticated subject that
   matches the existing world session and character.
+- Existing-token infrastructure failures propagate as request faults instead
+  of being converted into an ordinary unsuccessful authentication response;
+  cancellation propagates and internal authorization requests receive the
+  consumer cancellation token.
 - A successful reconnect preserves the existing logical connection ID,
   GameSession, claim, character reference, registration, and handlers. The raw
   replacement physical connection ID is never rewritten.
@@ -77,8 +88,8 @@ session and character.
   failure. An outer handshake-timeout cancellation is expected control flow
   and is not logged as a reconnect or dispatcher application failure.
 - Existing fresh world and lobby response bytes and routing remain unchanged.
-- Handshake policy is injected through request-specific validators, with no
-  static global handshake policy class.
+- Handshake revision and system-update policy is shared and injectable, with no
+  static global policy or request-specific validator hierarchy.
 - Cancellation before protocol mutation must not terminalize an unchanged
   target, while cancellation after mutation and final attach failure must
   terminalize the partially transitioned target and abort the replacement.

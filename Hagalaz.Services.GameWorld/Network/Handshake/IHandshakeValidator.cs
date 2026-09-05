@@ -2,8 +2,7 @@ using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 
 namespace Hagalaz.Services.GameWorld.Network.Handshake;
 
-public interface IHandshakeValidator<in TRequest>
-    where TRequest : ClientSignInRequest
+internal interface IHandshakeValidator
 {
-    ClientSignInResponse Validate(TRequest request);
+    ClientSignInResponse Validate(ClientSignInRequest request);
 }

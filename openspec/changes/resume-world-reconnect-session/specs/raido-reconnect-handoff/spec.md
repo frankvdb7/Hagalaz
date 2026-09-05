@@ -4,9 +4,11 @@
 
 ### Requirement: Dispatcher owns physical lifecycle and attachment
 
-`RaidoConnectionDispatcher` MUST own each accepted physical connection, create
-one application scope, and invoke a scoped application delegate with a
-per-connection dispatch context. The context MUST expose only high-level logical
+The Raido listener composition API MUST own each accepted physical connection
+through an internal dispatcher implementation, create one application scope,
+and invoke a scoped application delegate with a per-connection dispatch
+context. The dispatcher implementation MUST NOT be part of the public API. The
+context MUST expose only high-level logical
 operations for new and existing connections; its constructor MUST be internal
 and it MUST NOT publicly expose the physical `ConnectionContext`, physical
 attachment, reconnect state, or transport state.

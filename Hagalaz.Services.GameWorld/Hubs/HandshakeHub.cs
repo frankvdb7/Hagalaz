@@ -28,57 +28,47 @@ using Hagalaz.Services.GameWorld.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Hubs
 {
-    public class HandshakeHub : RaidoHub
+    internal sealed class HandshakeHub : RaidoHub
     {
         private readonly IAuthenticationService _authenticationService;
         private readonly IClientPermissionProvider _clientPermissionProvider;
         private readonly IServiceScopeFactory _scopeFactory;
-        private readonly IHandshakeValidator<LobbySignInRequest> _lobbyHandshakeValidator;
-        private readonly IHandshakeValidator<WorldSignInRequest> _worldHandshakeValidator;
+        private readonly IHandshakeValidator _handshakeValidator;
         private readonly IOptions<WorldOptions> _worldOptions;
         private readonly IConfiguration _configuration;
         private readonly IScopedGameMediator _mediator;
         private readonly WorldLifecycleState _lifecycle;
         private readonly WorldRegistrationStore _registrations;
         private readonly WorldInstanceIdentity _identity;
-        private readonly IClientHandshakeHandler _clientHandshakeHandler;
 
         public HandshakeHub(
             IAuthenticationService authenticationService,
             IClientPermissionProvider clientPermissionProvider,
             IServiceScopeFactory scopeFactory,
-            IHandshakeValidator<LobbySignInRequest> lobbyHandshakeValidator,
-            IHandshakeValidator<WorldSignInRequest> worldHandshakeValidator,
+            IHandshakeValidator handshakeValidator,
             IOptions<WorldOptions> worldOptions,
             IConfiguration configuration,
             IScopedGameMediator mediator,
             WorldLifecycleState lifecycle,
             WorldRegistrationStore registrations,
-            WorldInstanceIdentity identity,
-            IClientHandshakeHandler clientHandshakeHandler)
+            WorldInstanceIdentity identity)
         {
             _authenticationService = authenticationService;
             _clientPermissionProvider = clientPermissionProvider;
             _scopeFactory = scopeFactory;
-            _lobbyHandshakeValidator = lobbyHandshakeValidator;
-            _worldHandshakeValidator = worldHandshakeValidator;
+            _handshakeValidator = handshakeValidator;
             _worldOptions = worldOptions;
             _configuration = configuration;
             _mediator = mediator;
             _lifecycle = lifecycle;
             _registrations = registrations;
             _identity = identity;
-            _clientHandshakeHandler = clientHandshakeHandler;
         }
 
         [RaidoMessageHandler(typeof(ClientUpdateRequest))]
         public void HandleClientUpdate(ClientUpdateRequest message) =>
             // disconnect and let client forward to update server
             Context.Abort();
-
-        [RaidoMessageHandler(typeof(ClientHandshakeRequest))]
-        public ValueTask<ClientHandshakeResponse> HandleClientHandshake(ClientHandshakeRequest message) =>
-            ValueTask.FromResult(_clientHandshakeHandler.Handle(message));
 
         [RaidoMessageHandler(typeof(LobbySignInRequest))]
         public async Task SignInLobby(LobbySignInRequest message)
@@ -99,7 +89,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
                 try
                 {
-                    var clientResponse = await SignInAsync(message, _lobbyHandshakeValidator, false);
+                    var clientResponse = await SignInAsync(message, false);
                     if (!clientResponse.Succeeded)
                     {
                         await Clients.Caller.SendAsync(clientResponse);
@@ -202,7 +192,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
                 try
                 {
-                    var clientResponse = await SignInAsync(message, _worldHandshakeValidator, true);
+                    var clientResponse = await SignInAsync(message, true);
                     if (!clientResponse.Succeeded)
                     {
                         await Clients.Caller.SendAsync(clientResponse);
@@ -263,13 +253,11 @@ namespace Hagalaz.Services.GameWorld.Hubs
             }
         }
 
-        private async ValueTask<ClientSignInResponse> SignInAsync<TRequest>(
-            TRequest request,
-            IHandshakeValidator<TRequest> handshakeValidator,
+        private async ValueTask<ClientSignInResponse> SignInAsync(
+            ClientSignInRequest request,
             bool isWorldSignIn)
-            where TRequest : ClientSignInRequest
         {
-            var validation = handshakeValidator.Validate(request);
+            var validation = _handshakeValidator.Validate(request);
             if (validation != ClientSignInResponse.Success)
             {
                 return validation;

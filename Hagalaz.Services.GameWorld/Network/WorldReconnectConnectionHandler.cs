@@ -22,14 +22,14 @@ using MassTransit;
 
 namespace Hagalaz.Services.GameWorld.Network;
 
-public sealed class WorldReconnectConnectionHandler
+internal sealed class WorldReconnectConnectionHandler
 {
     private readonly IAuthenticationService _authenticationService;
     private readonly IGameSessionService _gameSessionService;
     private readonly IGameSessionClaimStore _sessionClaims;
     private readonly RaidoHubConnectionStore _connections;
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IHandshakeValidator<WorldReconnectRequest> _handshakeValidator;
+    private readonly IHandshakeValidator _handshakeValidator;
     private readonly ILogger<WorldReconnectConnectionHandler> _logger;
 
     public WorldReconnectConnectionHandler(
@@ -38,7 +38,7 @@ public sealed class WorldReconnectConnectionHandler
         IGameSessionClaimStore sessionClaims,
         RaidoHubConnectionStore connections,
         IServiceScopeFactory scopeFactory,
-        IHandshakeValidator<WorldReconnectRequest> handshakeValidator,
+        IHandshakeValidator handshakeValidator,
         ILogger<WorldReconnectConnectionHandler> logger)
     {
         _authenticationService = authenticationService;
@@ -57,7 +57,8 @@ public sealed class WorldReconnectConnectionHandler
         WorldReconnectRequest message,
         CancellationToken cancellationToken)
     {
-        var protocolScope = _scopeFactory.CreateAsyncScope();
+        var protocolScope = default(AsyncServiceScope);
+        var protocolScopeCreated = false;
         var protocolScopeTransferred = false;
         try
         {
@@ -106,15 +107,6 @@ public sealed class WorldReconnectConnectionHandler
                 return;
             }
 
-            var clientProtocol = protocolScope.ServiceProvider
-                .GetRequiredService<IClientProtocolResolver>()
-                .GetProtocol(message.ClientRevision);
-            if (clientProtocol is null)
-            {
-                await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.Outdated, cancellationToken);
-                return;
-            }
-
             var attached = await _sessionClaims.ExecuteIfOwnerAsync(
                 masterId,
                 session.SessionClaimId,
@@ -136,6 +128,17 @@ public sealed class WorldReconnectConnectionHandler
                     var character = currentTarget.Features.Get<ICharacterFeature>()?.Character;
                     if (character is null)
                     {
+                        return false;
+                    }
+
+                    protocolScope = _scopeFactory.CreateAsyncScope();
+                    protocolScopeCreated = true;
+                    var clientProtocol = protocolScope.ServiceProvider
+                        .GetRequiredService<IClientProtocolResolver>()
+                        .GetProtocol(message.ClientRevision);
+                    if (clientProtocol is null)
+                    {
+                        await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.Outdated, claimCancellationToken);
                         return false;
                     }
 
@@ -209,7 +212,7 @@ public sealed class WorldReconnectConnectionHandler
         }
         finally
         {
-            if (!protocolScopeTransferred)
+            if (protocolScopeCreated && !protocolScopeTransferred)
             {
                 await protocolScope.DisposeAsync();
             }

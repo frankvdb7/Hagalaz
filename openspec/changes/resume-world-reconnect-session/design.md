@@ -2,7 +2,10 @@
 
 ## Dispatcher boundary
 
-`RaidoConnectionDispatcher` owns each accepted physical `ConnectionContext`,
+`RaidoConnectionDispatcher` is an internal Kestrel connection-handler
+implementation. The public Raido composition extension configures it on a
+listener without exposing the implementation type or physical attach API.
+It owns each accepted physical `ConnectionContext`,
 creates one application scope, resolves the scoped `RaidoConnectionDelegate`,
 and invokes it with a per-connection `RaidoConnectionDispatchContext`. The
 dispatch context has an internal constructor and privately owns the accepted
@@ -11,11 +14,14 @@ It exposes only `DispatchNewAsync` and `DispatchExistingAsync`; it does not
 expose the physical connection or a reconnect-state query.
 
 `ClientConnectionHandler` reads opcode 14 with the existing
-`HandshakeProtocol`, consumes that fixed one-byte message, and sends the same
-acknowledgement that `HandshakeHub` previously produced. It then reads the
-following authentication request. Reconnect consumes those authentication bytes
-before Raido logical creation. Fresh world and lobby retain their bytes so the
-normal logical handler reads each request exactly once.
+`HandshakeProtocol`, consumes that fixed one-byte message, and sends the
+acknowledgement directly on the raw transport. It classifies the following
+authentication request without full authentication decoding: opcode 19 is
+lobby, while opcode 16 is inspected only through its validated packet
+framing/header and reconnect flag. Flag 0 is fresh world and flag 1 is
+reconnect. Only reconnect is passed through the full world decoder, exactly
+once, before logical Raido creation. Fresh world and lobby retain their bytes
+so the normal logical handler reads each request exactly once.
 
 `DispatchNewAsync` creates the logical context through the existing factory and
 awaits `RaidoHubConnectionHandler.ConnectAsync`, keeping the application scope
@@ -24,9 +30,10 @@ lobby receives false.
 
 ## Reconnect ownership
 
-`WorldReconnectConnectionHandler` receives an
-`IHandshakeValidator<WorldReconnectRequest>` for revision and system-update
-policy. It performs dedicated existing-authentication validation, exact
+`WorldReconnectConnectionHandler` receives the shared injectable handshake
+policy for revision and system-update validation. The same policy is used by
+lobby, fresh-world, and reconnect sign-in. It performs dedicated
+existing-authentication validation, exact
 world-session lookup, the existing session-claim check, and exact
 logical-session/character/auth-subject matching. It resolves the target by the
 stable session connection ID.
@@ -55,12 +62,14 @@ final internal attach is the authoritative winner operation.
 
 ## Protocol and ordering
 
-The reconnect handler creates a fresh revision-specific client protocol in its
-own async scope and seeds it from the reconnect request. Ownership of that scope
-transfers to the existing target when `SetProtocolAsync` commits; the handler
-does not dispose it afterward. If disposal of the previous protocol lifetime
-throws after that commit, the new protocol remains installed and target cleanup
-owns the incoming scope. Response 15 is opcode 15 with declared `VariableShort`
+The reconnect handler creates a fresh revision-specific client protocol scope
+only after handshake validation, authentication, session lookup, claim
+ownership, and target/character revalidation have succeeded. It seeds the
+protocol from the reconnect request. Ownership of that scope transfers to the
+existing target when `SetProtocolAsync` commits; the handler does not dispose it
+afterward. If disposal of the previous protocol lifetime throws after that
+commit, the new protocol remains installed and target cleanup owns the incoming
+scope. Response 15 is opcode 15 with declared `VariableShort`
 framing and a 4,608-byte player-entry payload. A response flush succeeds only
 when it is neither canceled nor completed; a completed writer is failed
 delivery.

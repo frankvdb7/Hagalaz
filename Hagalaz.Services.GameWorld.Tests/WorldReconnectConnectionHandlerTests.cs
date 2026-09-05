@@ -37,8 +37,7 @@ public sealed class WorldReconnectConnectionHandlerTests
     [TestMethod]
     public async Task HandleAsync_WhenInjectedValidatorRejects_DoesNotAuthenticate()
     {
-        var validator = Substitute.For<IHandshakeValidator<WorldReconnectRequest>>();
-        validator.Validate(Arg.Any<WorldReconnectRequest>()).Returns(ClientSignInResponse.Outdated);
+        var validator = new TestHandshakeValidator(ClientSignInResponse.Outdated);
         var authentication = Substitute.For<IAuthenticationService>();
         var sessions = Substitute.For<IGameSessionService>();
         var connection = CreateConnection(out var input, out var output);
@@ -450,7 +449,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             Substitute.For<IRaidoProtocol>(),
             NullLoggerFactory.Instance,
             TimeProvider.System);
-        initialClosed.Cancel();
+        tcp.OnPhysicalConnectionClosed(initial);
         Assert.IsTrue(tcp.Transport.Input.TryRead(out var boundary));
         tcp.Transport.Input.AdvanceTo(boundary.Buffer.End);
         tcp.AcknowledgeInputBoundary();
@@ -518,8 +517,7 @@ public sealed class WorldReconnectConnectionHandlerTests
                         }
                         : null);
             });
-        var validator = Substitute.For<IHandshakeValidator<WorldReconnectRequest>>();
-        validator.Validate(Arg.Any<WorldReconnectRequest>()).Returns(ClientSignInResponse.Success);
+        var validator = new TestHandshakeValidator(ClientSignInResponse.Success);
         var handler = new WorldReconnectConnectionHandler(
             authentication,
             sessions,
@@ -832,8 +830,7 @@ public sealed class WorldReconnectConnectionHandlerTests
                 Arg.Any<Func<CancellationToken, Task<bool>>>(),
                 Arg.Any<CancellationToken>())
             .Returns(callInfo => callInfo.Arg<Func<CancellationToken, Task<bool>>>()!(CancellationToken.None));
-        var validator = Substitute.For<IHandshakeValidator<WorldReconnectRequest>>();
-        validator.Validate(Arg.Any<WorldReconnectRequest>()).Returns(ClientSignInResponse.Success);
+        var validator = new TestHandshakeValidator(ClientSignInResponse.Success);
         var handler = new WorldReconnectConnectionHandler(
             authentication,
             sessions,

@@ -111,7 +111,7 @@ public sealed class RaidoConnectionDispatchContext
 /// <summary>
 /// Handles one accepted physical connection using a scoped application delegate.
 /// </summary>
-public sealed class RaidoConnectionDispatcher : ConnectionHandler
+internal sealed class RaidoConnectionDispatcher : ConnectionHandler
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IRaidoHubConnectionContextFactory _connectionFactory;

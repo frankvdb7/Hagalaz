@@ -39,11 +39,13 @@ public sealed class ClientConnectionHandlerTests
         var fixture = CreateFixture();
         try
         {
-            await fixture.Input.Writer.WriteAsync(new byte[] { 14, 16, 0 });
+            await fixture.Input.Writer.WriteAsync(HandshakeAndWorldAuthenticationPacket(reconnect: false));
 
             await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsTrue(fixture.CreatedStatefulReconnect);
+            Assert.AreEqual(0, fixture.WorldDecodeCountAtFactory);
+            Assert.AreEqual(1, fixture.WorldDecodeCount);
             Assert.AreEqual(0, fixture.ReconnectHandlerResolutionCount);
             CollectionAssert.AreEqual(new byte[] { 0 }, await ReadAllAsync(fixture.Output.Reader));
             Assert.IsInstanceOfType(fixture.DispatchedMessage, typeof(WorldSignInRequest));
@@ -60,12 +62,13 @@ public sealed class ClientConnectionHandlerTests
         var fixture = CreateFixture();
         try
         {
-            await fixture.Input.Writer.WriteAsync(new byte[] { 14, 16, 1 });
+            await fixture.Input.Writer.WriteAsync(HandshakeAndWorldAuthenticationPacket(reconnect: true));
 
             await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsFalse(fixture.FactoryCalled);
             Assert.AreEqual(1, fixture.ReconnectHandlerResolutionCount);
+            Assert.AreEqual(1, fixture.WorldDecodeCount);
             Assert.IsNotNull(fixture.ValidatedReconnectMessage);
             CollectionAssert.AreEqual(new byte[] { 0, 6 }, await ReadAllAsync(fixture.Output.Reader));
         }
@@ -86,6 +89,8 @@ public sealed class ClientConnectionHandlerTests
             await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsFalse(fixture.CreatedStatefulReconnect);
+            Assert.AreEqual(0, fixture.LobbyDecodeCountAtFactory);
+            Assert.AreEqual(1, fixture.LobbyDecodeCount);
             Assert.AreEqual(0, fixture.ReconnectHandlerResolutionCount);
             Assert.IsInstanceOfType(fixture.DispatchedMessage, typeof(LobbySignInRequest));
         }
@@ -127,30 +132,6 @@ public sealed class ClientConnectionHandlerTests
 
             Assert.IsFalse(fixture.FactoryCalled);
             Assert.IsTrue(fixture.ConnectionAbortCalled);
-        }
-        finally
-        {
-            await fixture.DisposeAsync();
-        }
-    }
-
-    [TestMethod]
-    public async Task Dispatch_CustomHandshakeHandlerRejectsBeforeAuthentication()
-    {
-        var handshakeHandler = Substitute.For<IClientHandshakeHandler>();
-        handshakeHandler.Handle(Arg.Any<ClientHandshakeRequest>())
-            .Returns(new ClientHandshakeResponse { ReturnCode = 1 });
-        var fixture = CreateFixture(handshakeHandler);
-        try
-        {
-            await fixture.Input.Writer.WriteAsync(new byte[] { 14, 16, 0 });
-
-            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
-
-            Assert.IsFalse(fixture.FactoryCalled);
-            Assert.IsFalse(fixture.ValidatedReconnectMessage is not null);
-            Assert.IsTrue(fixture.ConnectionAbortCalled);
-            CollectionAssert.AreEqual(new byte[] { 1 }, await ReadAllAsync(fixture.Output.Reader));
         }
         finally
         {
@@ -276,8 +257,7 @@ public sealed class ClientConnectionHandlerTests
                 Arg.Any<Func<CancellationToken, Task<bool>>>(),
                 Arg.Any<CancellationToken>())
             .Returns(callInfo => callInfo.Arg<Func<CancellationToken, Task<bool>>>()!(CancellationToken.None));
-        var validator = Substitute.For<IHandshakeValidator<WorldReconnectRequest>>();
-        validator.Validate(Arg.Any<WorldReconnectRequest>()).Returns(ClientSignInResponse.Success);
+        var validator = new TestHandshakeValidator(ClientSignInResponse.Success);
         var freshProtocol = new TestClientProtocol(canParseMessages: true);
         var services = new ServiceCollection()
             .AddScoped<HandshakeProtocol>(_ => CreateProtocol())
@@ -313,13 +293,12 @@ public sealed class ClientConnectionHandlerTests
         var clientHandler = new ClientConnectionHandler(
             clientServices,
             clientServices.GetRequiredService<HandshakeProtocol>(),
-            new ClientHandshakeHandler(),
             Options.Create(new RaidoOptions()),
             NullLogger<ClientConnectionHandler>.Instance);
 
         try
         {
-            await reconnectInput.Writer.WriteAsync(new byte[] { 14, 16, 1 });
+            await reconnectInput.Writer.WriteAsync(HandshakeAndWorldAuthenticationPacket(reconnect: true));
             await using var dispatcherProvider = new ServiceCollection()
                 .AddScoped<RaidoConnectionDelegate>(_ => clientHandler.HandleAsync)
                 .BuildServiceProvider();
@@ -368,7 +347,7 @@ public sealed class ClientConnectionHandlerTests
     }
 
     [TestMethod]
-    public async Task ReadMessageAsync_ConsumesOpcode14ButCanRetainFreshAuthenticationMessage()
+    public async Task ReadMessageAsync_ConsumesOpcode14AndLeavesAuthenticationBytes()
     {
         var (connection, input, output) = CreateConnection();
         try
@@ -377,14 +356,10 @@ public sealed class ClientConnectionHandlerTests
             var protocol = CreateProtocol();
 
             var handshake = await ClientConnectionHandler.ReadMessageAsync(
-                connection, protocol, null, CancellationToken.None, shouldConsume: static _ => true,
+                connection, protocol, null, CancellationToken.None,
                 isValidOpcode: static opcode => opcode == 14);
-            var authentication = await ClientConnectionHandler.ReadMessageAsync(
-                connection, protocol, null, CancellationToken.None, shouldConsume: static _ => false,
-                isValidOpcode: static opcode => opcode is 16 or 19);
 
             Assert.IsInstanceOfType(handshake, typeof(ClientHandshakeRequest));
-            Assert.IsInstanceOfType(authentication, typeof(WorldSignInRequest));
             Assert.IsTrue(input.Reader.TryRead(out var remaining));
             CollectionAssert.AreEqual(new byte[] { 16, 0 }, remaining.Buffer.ToArray());
             input.Reader.AdvanceTo(remaining.Buffer.End);
@@ -404,14 +379,14 @@ public sealed class ClientConnectionHandlerTests
             await input.Writer.WriteAsync(new byte[] { 14 });
             var protocol = CreateProtocol();
             await ClientConnectionHandler.ReadMessageAsync(
-                connection, protocol, null, CancellationToken.None, shouldConsume: static _ => true,
+                connection, protocol, null, CancellationToken.None,
                 isValidOpcode: static opcode => opcode == 14);
             using var cancellation = new CancellationTokenSource();
             cancellation.Cancel();
 
             await Assert.ThrowsAsync<OperationCanceledException>(() =>
                 ClientConnectionHandler.ReadMessageAsync(
-                    connection, protocol, null, cancellation.Token, shouldConsume: static _ => false,
+                    connection, protocol, null, cancellation.Token,
                     isValidOpcode: static opcode => opcode is 16 or 19).AsTask());
         }
         finally
@@ -421,7 +396,6 @@ public sealed class ClientConnectionHandlerTests
     }
 
     private static TestFixture CreateFixture(
-        IClientHandshakeHandler? handshakeHandler = null,
         bool handshakeResponseFlushCompletes = false)
     {
         var input = new Pipe();
@@ -461,10 +435,18 @@ public sealed class ClientConnectionHandlerTests
         var factory = Substitute.For<IRaidoHubConnectionContextFactory>();
         var factoryCalled = false;
         var createdStatefulReconnect = false;
+        var worldDecodeCountAtFactory = -1;
+        var lobbyDecodeCountAtFactory = -1;
+        var handshakeCodec = new TestHandshakeCodec();
+        var handshakeProtocol = new HandshakeProtocol(
+            handshakeCodec,
+            Options.Create(new ServerConfig { ClientRevision = 742 }));
         factory.Create(Arg.Any<ConnectionContext>(), Arg.Any<IRaidoProtocol>(), Arg.Any<bool>())
             .Returns(callInfo =>
             {
                 factoryCalled = true;
+                worldDecodeCountAtFactory = handshakeCodec.WorldDecodeCount;
+                lobbyDecodeCountAtFactory = handshakeCodec.LobbyDecodeCount;
                 createdStatefulReconnect = callInfo.ArgAt<bool>(2);
                 var options = new RaidoConnectionContextOptions
                 {
@@ -480,11 +462,10 @@ public sealed class ClientConnectionHandlerTests
         var services = new ServiceCollection()
             .AddScoped<HandshakeProtocol>(_ => CreateProtocol())
             .BuildServiceProvider();
-        var validator = Substitute.For<IHandshakeValidator<WorldReconnectRequest>>();
         WorldReconnectRequest? validatedReconnectMessage = null;
-        validator.Validate(Arg.Any<WorldReconnectRequest>()).Returns(callInfo =>
+        var validator = new TestHandshakeValidator(request =>
         {
-            validatedReconnectMessage = callInfo.Arg<WorldReconnectRequest>();
+            validatedReconnectMessage = (WorldReconnectRequest)request;
             return ClientSignInResponse.Outdated;
         });
         var reconnectHandler = new WorldReconnectConnectionHandler(
@@ -498,7 +479,7 @@ public sealed class ClientConnectionHandlerTests
 
         var reconnectHandlerResolutionCount = 0;
         var clientServices = new ServiceCollection()
-            .AddScoped<HandshakeProtocol>(_ => CreateProtocol())
+            .AddScoped<HandshakeProtocol>(_ => handshakeProtocol)
             .AddScoped<WorldReconnectConnectionHandler>(_ =>
             {
                 reconnectHandlerResolutionCount++;
@@ -508,7 +489,6 @@ public sealed class ClientConnectionHandlerTests
         var handler = new ClientConnectionHandler(
             clientServices,
             clientServices.GetRequiredService<HandshakeProtocol>(),
-            handshakeHandler ?? new ClientHandshakeHandler(),
             Options.Create(new RaidoOptions()),
             NullLogger<ClientConnectionHandler>.Instance);
 
@@ -535,7 +515,11 @@ public sealed class ClientConnectionHandlerTests
             () => factoryCalled,
             () => createdStatefulReconnect,
             () => validatedReconnectMessage,
-            () => dispatchedMessage);
+            () => dispatchedMessage,
+            () => worldDecodeCountAtFactory,
+            () => lobbyDecodeCountAtFactory,
+            () => handshakeCodec.WorldDecodeCount,
+            () => handshakeCodec.LobbyDecodeCount);
     }
 
     private static HandshakeProtocol CreateProtocol() =>
@@ -600,7 +584,11 @@ public sealed class ClientConnectionHandlerTests
         Func<bool> factoryCalled,
         Func<bool> createdStatefulReconnect,
         Func<WorldReconnectRequest?> validatedReconnectMessage,
-        Func<RaidoMessage?> dispatchedMessage) : IAsyncDisposable
+        Func<RaidoMessage?> dispatchedMessage,
+        Func<int> worldDecodeCountAtFactory,
+        Func<int> lobbyDecodeCountAtFactory,
+        Func<int> worldDecodeCount,
+        Func<int> lobbyDecodeCount) : IAsyncDisposable
     {
         public ClientConnectionHandler Handler { get; } = handler;
         public RaidoConnectionDispatcher Dispatcher { get; } = dispatcher;
@@ -613,6 +601,10 @@ public sealed class ClientConnectionHandlerTests
         public int ReconnectHandlerResolutionCount => reconnectHandlerResolutionCount();
         public WorldReconnectRequest? ValidatedReconnectMessage => validatedReconnectMessage();
         public RaidoMessage? DispatchedMessage => dispatchedMessage();
+        public int WorldDecodeCountAtFactory => worldDecodeCountAtFactory();
+        public int LobbyDecodeCountAtFactory => lobbyDecodeCountAtFactory();
+        public int WorldDecodeCount => worldDecodeCount();
+        public int LobbyDecodeCount => lobbyDecodeCount();
 
         public async ValueTask DisposeAsync()
         {
@@ -632,12 +624,25 @@ public sealed class ClientConnectionHandlerTests
         private readonly WorldReconnectResponseEncoder _reconnectEncoder =
             new(new CharacterLocationService());
 
+        public int WorldDecodeCount { get; private set; }
+
+        public int LobbyDecodeCount { get; private set; }
+
         public bool TryDecodeMessage(int opcode, in ReadOnlySequence<byte> input, out RaidoMessage? message)
         {
+            if (opcode == 16)
+            {
+                WorldDecodeCount++;
+            }
+            else if (opcode == 19)
+            {
+                LobbyDecodeCount++;
+            }
+
             message = opcode switch
             {
                 14 => ClientHandshakeRequest.Instance,
-                16 when input.FirstSpan.Length > 0 && input.FirstSpan[0] == 1 => new WorldReconnectRequest
+                16 when input.Length >= 11 && input.Slice(10).FirstSpan[0] == 1 => new WorldReconnectRequest
                 {
                     ClientRevision = 742,
                     Login = "login",
@@ -678,6 +683,24 @@ public sealed class ClientConnectionHandlerTests
 
             return false;
         }
+    }
+
+    private static byte[] WorldAuthenticationPacket(bool reconnect) =>
+    [
+        16,
+        0, 9,
+        0, 0, 2, 230,
+        0, 0, 0, 1,
+        reconnect ? (byte)1 : (byte)0
+    ];
+
+    private static byte[] HandshakeAndWorldAuthenticationPacket(bool reconnect)
+    {
+        var authentication = WorldAuthenticationPacket(reconnect);
+        var packet = new byte[authentication.Length + 1];
+        packet[0] = 14;
+        authentication.CopyTo(packet, 1);
+        return packet;
     }
 
     private sealed class TestGameMessage : RaidoMessage

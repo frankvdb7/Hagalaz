@@ -4,8 +4,9 @@
 
 - [x] Keep dedicated reconnect-only authorization validation separate from
   normal token-issuing sign-in.
-- [x] Acknowledge opcode 14, then classify the following authentication request
-  before logical Raido context creation.
+- [x] Acknowledge opcode 14, cheaply classify the following authentication
+  request before logical Raido context creation, and fully decode only
+  reconnect opcode 16 packets.
 - [x] Validate exact existing world session, claim, logical connection,
   character, and authentication subject without fresh-login side effects.
 - [x] Invoke the per-connection dispatch context for new and existing logical
@@ -27,20 +28,26 @@
 - [x] Revalidate the session, claim, target, character, and subject inside the
   existing claim, install the fresh reconnect protocol, flush response 15, and
   attach before releasing the claim.
-- [x] Inject request-specific handshake validators for reconnect, fresh world,
-  and lobby requests.
+- [x] Use one shared injectable handshake policy for reconnect, fresh world, and
+  lobby requests.
+- [x] Keep unexpected existing-token lookup failures as request faults and
+  forward the consumer cancellation token to internal authorization requests.
+- [x] Hide the physical dispatcher behind the public Raido listener extension
+  and remove the unreachable raw opcode-14 Hub handler abstraction.
 - [x] Keep generic handshake framing and response 15's declared two-byte
   length with the exact 4,608-byte payload.
 - [x] Preserve the outer handshake cancellation token through claim,
   preparation, response flush, and attach; split replacement-only preparation
   failure from mutation-aware target cleanup.
 - [x] Resolve the reconnect handler lazily after reconnect classification while
-  retaining the accepted-connection handshake protocol scope.
+  retaining the accepted-connection handshake protocol scope, and defer the
+  reconnect protocol scope until the validated target is ready for preparation.
 
 ## Tests and validation
 
 - [x] Preserve decoder, authentication, framing, fresh-login, and Raido attach
-  coverage.
+  coverage, including raw classification without duplicate full decoding,
+  retained fresh/lobby bytes, and reconnect full-decoder-once behavior.
 - [x] Add focused coverage for scoped dispatcher lifetimes, active-target
   preflight rejection, valid reconnect ordering, claim-serialized concurrent
   candidates, first-packet buffering, attach-failure termination, mutation

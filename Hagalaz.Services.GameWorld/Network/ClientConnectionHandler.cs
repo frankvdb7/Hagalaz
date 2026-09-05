@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.IO;
 using System.IO.Pipelines;
 using System.Threading;
@@ -15,24 +16,21 @@ using Raido.Server;
 
 namespace Hagalaz.Services.GameWorld.Network;
 
-public class ClientConnectionHandler
+internal sealed class ClientConnectionHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly HandshakeProtocol _handshakeProtocol;
-    private readonly IClientHandshakeHandler _clientHandshakeHandler;
     private readonly IOptions<RaidoOptions> _raidoOptions;
     private readonly ILogger<ClientConnectionHandler> _logger;
 
     public ClientConnectionHandler(
         IServiceProvider serviceProvider,
         HandshakeProtocol handshakeProtocol,
-        IClientHandshakeHandler clientHandshakeHandler,
         IOptions<RaidoOptions> raidoOptions,
         ILogger<ClientConnectionHandler> logger)
     {
         _serviceProvider = serviceProvider;
         _handshakeProtocol = handshakeProtocol;
-        _clientHandshakeHandler = clientHandshakeHandler;
         _raidoOptions = raidoOptions;
         _logger = logger;
     }
@@ -60,7 +58,6 @@ public class ClientConnectionHandler
                 _handshakeProtocol,
                 _raidoOptions.Value.MaximumReceiveMessageSize,
                 handshakeCancellationToken,
-                shouldConsume: static _ => true,
                 isValidOpcode: static opcode => opcode == 14);
         }
         catch (OperationCanceledException)
@@ -80,12 +77,11 @@ public class ClientConnectionHandler
 
         try
         {
-            var handshakeResponse = _clientHandshakeHandler.Handle((ClientHandshakeRequest)handshake);
-            await SendHandshakeResponseAsync(connection, _handshakeProtocol, handshakeResponse, handshakeCancellationToken);
-            if (handshakeResponse.ReturnCode != 0)
-            {
-                return;
-            }
+            await SendHandshakeResponseAsync(
+                connection,
+                _handshakeProtocol,
+                new ClientHandshakeResponse { ReturnCode = 0 },
+                handshakeCancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -94,6 +90,70 @@ public class ClientConnectionHandler
         catch (Exception ex)
         {
             Log.HandshakeFailed(_logger, ex);
+            return;
+        }
+
+        byte? authenticationOpcode;
+        try
+        {
+            authenticationOpcode = await ReadAuthenticationOpcodeAsync(
+                connection,
+                _raidoOptions.Value.MaximumReceiveMessageSize,
+                handshakeCancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Log.HandshakeFailed(_logger, ex);
+            return;
+        }
+
+        if (authenticationOpcode is null)
+        {
+            return;
+        }
+
+        if (authenticationOpcode == 19)
+        {
+            await dispatch.DispatchNewAsync(
+                _handshakeProtocol,
+                statefulReconnect: false,
+                handshakeCancellationToken);
+            return;
+        }
+
+        bool? isReconnect;
+        try
+        {
+            isReconnect = await ReadWorldReconnectFlagAsync(
+                connection,
+                _raidoOptions.Value.MaximumReceiveMessageSize,
+                handshakeCancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Log.HandshakeFailed(_logger, ex);
+            return;
+        }
+
+        if (isReconnect is null)
+        {
+            return;
+        }
+
+        if (!isReconnect.Value)
+        {
+            await dispatch.DispatchNewAsync(
+                _handshakeProtocol,
+                statefulReconnect: true,
+                handshakeCancellationToken);
             return;
         }
 
@@ -105,8 +165,7 @@ public class ClientConnectionHandler
                 _handshakeProtocol,
                 _raidoOptions.Value.MaximumReceiveMessageSize,
                 handshakeCancellationToken,
-                shouldConsume: static message => message is WorldReconnectRequest,
-                isValidOpcode: static opcode => opcode is 16 or 19);
+                isValidOpcode: static opcode => opcode == 16);
         }
         catch (OperationCanceledException)
         {
@@ -115,11 +174,6 @@ public class ClientConnectionHandler
         catch (Exception ex)
         {
             Log.HandshakeFailed(_logger, ex);
-            return;
-        }
-
-        if (authentication is null)
-        {
             return;
         }
 
@@ -134,10 +188,7 @@ public class ClientConnectionHandler
             return;
         }
 
-        await dispatch.DispatchNewAsync(
-            _handshakeProtocol,
-            statefulReconnect: authentication is WorldSignInRequest,
-            handshakeCancellationToken);
+        return;
     }
 
     internal static async ValueTask<RaidoMessage?> ReadMessageAsync(
@@ -145,7 +196,6 @@ public class ClientConnectionHandler
         HandshakeProtocol protocol,
         long? maximumMessageSize,
         CancellationToken cancellationToken,
-        Func<RaidoMessage, bool> shouldConsume,
         Func<byte, bool>? isValidOpcode = null)
     {
         while (true)
@@ -174,7 +224,7 @@ public class ClientConnectionHandler
 
             if (protocol.TryParseMessage(buffer, ref consumed, ref examined, out var message) && message is not null)
             {
-                var advanceTo = shouldConsume(message) ? consumed : buffer.Start;
+                var advanceTo = consumed;
                 if (message is ClientHandshakeRequest)
                 {
                     advanceTo = buffer.GetPosition(1);
@@ -191,6 +241,123 @@ public class ClientConnectionHandler
 
             connection.Transport.Input.AdvanceTo(buffer.Start, buffer.End);
         }
+    }
+
+    private static async ValueTask<byte?> ReadAuthenticationOpcodeAsync(
+        ConnectionContext connection,
+        long? maximumMessageSize,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var result = await connection.Transport.Input.ReadAsync(cancellationToken);
+            var buffer = result.Buffer;
+            if (result.IsCanceled)
+            {
+                connection.Transport.Input.AdvanceTo(buffer.Start, buffer.Start);
+                return null;
+            }
+
+            if (maximumMessageSize is long maximum && buffer.Length > maximum)
+            {
+                connection.Transport.Input.AdvanceTo(buffer.End);
+                throw new InvalidDataException($"The maximum message size of {maximum}B was exceeded.");
+            }
+
+            if (!buffer.IsEmpty)
+            {
+                var opcode = buffer.FirstSpan[0];
+                if (opcode is not 16 and not 19)
+                {
+                    connection.Transport.Input.AdvanceTo(buffer.End);
+                    throw new InvalidDataException("The handshake opcode was invalid.");
+                }
+
+                connection.Transport.Input.AdvanceTo(buffer.Start, buffer.Start);
+                return opcode;
+            }
+
+            if (result.IsCompleted)
+            {
+                connection.Transport.Input.AdvanceTo(buffer.End);
+                return null;
+            }
+
+            connection.Transport.Input.AdvanceTo(buffer.Start, buffer.End);
+        }
+    }
+
+    private static async ValueTask<bool?> ReadWorldReconnectFlagAsync(
+        ConnectionContext connection,
+        long? maximumMessageSize,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var result = await connection.Transport.Input.ReadAsync(cancellationToken);
+            var buffer = result.Buffer;
+            if (result.IsCanceled)
+            {
+                connection.Transport.Input.AdvanceTo(buffer.Start, buffer.Start);
+                return null;
+            }
+
+            if (maximumMessageSize is long maximum && buffer.Length > maximum)
+            {
+                connection.Transport.Input.AdvanceTo(buffer.End);
+                throw new InvalidDataException($"The maximum message size of {maximum}B was exceeded.");
+            }
+
+            if (!buffer.IsEmpty && TryReadWorldReconnectFlag(buffer.Slice(1), out var isReconnect))
+            {
+                connection.Transport.Input.AdvanceTo(buffer.Start, buffer.Start);
+                return isReconnect;
+            }
+
+            if (result.IsCompleted)
+            {
+                connection.Transport.Input.AdvanceTo(buffer.End);
+                return null;
+            }
+
+            connection.Transport.Input.AdvanceTo(buffer.Start, buffer.End);
+        }
+    }
+
+    internal static bool TryReadWorldReconnectFlag(
+        in ReadOnlySequence<byte> payload,
+        out bool isReconnect)
+    {
+        isReconnect = false;
+        var reader = new SequenceReader<byte>(payload);
+        if (!reader.TryReadBigEndian(out short packetSize))
+        {
+            return false;
+        }
+
+        if (packetSize < 0)
+        {
+            throw new InvalidDataException("The world authentication packet size was invalid.");
+        }
+
+        if (reader.Remaining < packetSize)
+        {
+            return false;
+        }
+
+        if (reader.Remaining != packetSize || packetSize < 9)
+        {
+            throw new InvalidDataException("The world authentication packet framing was invalid.");
+        }
+
+        reader.Advance(8);
+        if (!reader.TryRead(out byte reconnectFlag))
+        {
+            throw new InvalidDataException("The world authentication packet header was invalid.");
+        }
+
+        isReconnect = reconnectFlag != 0;
+        return true;
     }
 
     private static async Task SendHandshakeResponseAsync(

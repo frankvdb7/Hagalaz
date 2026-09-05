@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Services.Authorization.Mediator.Commands;
@@ -26,7 +27,8 @@ public sealed class ValidateExistingAuthenticationRequestConsumer : IConsumer<Va
     {
         var message = context.Message;
         var passwordGrant = await _passwordGrant.GetResponse<PasswordGrantResult>(
-            new PasswordGrantCommand(message.Login, message.Password, message.Scopes));
+            new PasswordGrantCommand(message.Login, message.Password, message.Scopes),
+            context.CancellationToken);
         var result = passwordGrant.Message;
         if (!result.Succeeded)
         {
@@ -39,34 +41,27 @@ public sealed class ValidateExistingAuthenticationRequestConsumer : IConsumer<Va
             return;
         }
 
-        try
-        {
-            var subject = result.User.GetClaim(Claims.Subject);
-            if (subject is null)
-            {
-                await context.RespondAsync(new ValidateExistingAuthenticationResponseMessage());
-                return;
-            }
-
-            foreach (var clientScope in message.ClientScopes)
-            {
-                var tokenResponse = await _tokens.GetResponse<GetTokensResponseMessage>(
-                    new GetTokensRequestMessage(clientScope, subject) { Status = Statuses.Valid });
-                if (tokenResponse.Message.Tokens.Any())
-                {
-                    await context.RespondAsync(new ValidateExistingAuthenticationResponseMessage
-                    {
-                        Succeeded = true,
-                        Subject = subject
-                    });
-                    return;
-                }
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        var subject = result.User.GetClaim(Claims.Subject);
+        if (subject is null)
         {
             await context.RespondAsync(new ValidateExistingAuthenticationResponseMessage());
             return;
+        }
+
+        foreach (var clientScope in message.ClientScopes)
+        {
+            var tokenResponse = await _tokens.GetResponse<GetTokensResponseMessage>(
+                new GetTokensRequestMessage(clientScope, subject) { Status = Statuses.Valid },
+                context.CancellationToken);
+            if (tokenResponse.Message.Tokens.Any())
+            {
+                await context.RespondAsync(new ValidateExistingAuthenticationResponseMessage
+                {
+                    Succeeded = true,
+                    Subject = subject
+                });
+                return;
+            }
         }
 
         await context.RespondAsync(new ValidateExistingAuthenticationResponseMessage());

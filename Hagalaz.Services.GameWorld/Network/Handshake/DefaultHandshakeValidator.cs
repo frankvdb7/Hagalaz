@@ -5,12 +5,11 @@ using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Network.Handshake;
 
-internal sealed class DefaultHandshakeValidator<TRequest>(
+internal sealed class DefaultHandshakeValidator(
     IOptions<ServerConfig> serverOptions,
-    ISystemUpdateService systemUpdate) : IHandshakeValidator<TRequest>
-    where TRequest : ClientSignInRequest
+    ISystemUpdateService systemUpdate) : IHandshakeValidator
 {
-    public ClientSignInResponse Validate(TRequest request)
+    public ClientSignInResponse Validate(ClientSignInRequest request)
     {
         var options = serverOptions.Value;
         if (request.ClientRevision != options.ClientRevision || request.ClientRevisionPatch != options.ClientRevisionPatch)

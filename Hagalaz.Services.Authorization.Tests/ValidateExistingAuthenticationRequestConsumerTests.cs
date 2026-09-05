@@ -17,6 +17,7 @@ public sealed class ValidateExistingAuthenticationRequestConsumerTests
     [TestMethod]
     public async Task Consume_WhenExistingTokenLookupIsCanceled_PropagatesCancellation()
     {
+        using var cancellation = new CancellationTokenSource();
         var passwordGrant = new Mock<IRequestClient<PasswordGrantCommand>>();
         passwordGrant
             .Setup(client => client.GetResponse<PasswordGrantResult>(
@@ -36,6 +37,7 @@ public sealed class ValidateExistingAuthenticationRequestConsumerTests
         mediator.Setup(value => value.CreateRequestClient<PasswordGrantCommand>(default)).Returns(passwordGrant.Object);
         mediator.Setup(value => value.CreateRequestClient<GetTokensRequestMessage>(default)).Returns(tokens.Object);
         var context = new Mock<ConsumeContext<ValidateExistingAuthenticationRequestMessage>>();
+        context.SetupGet(value => value.CancellationToken).Returns(cancellation.Token);
         context.SetupGet(value => value.Message).Returns(new ValidateExistingAuthenticationRequestMessage(
             "login",
             "password",
@@ -45,6 +47,52 @@ public sealed class ValidateExistingAuthenticationRequestConsumerTests
         var consumer = new ValidateExistingAuthenticationRequestConsumer(mediator.Object);
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => consumer.Consume(context.Object));
+    }
+
+    [TestMethod]
+    public async Task Consume_WhenExistingTokenLookupFails_PropagatesInfrastructureFailure()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var passwordGrant = new Mock<IRequestClient<PasswordGrantCommand>>();
+        passwordGrant
+            .Setup(client => client.GetResponse<PasswordGrantResult>(
+                It.IsAny<PasswordGrantCommand>(),
+                cancellation.Token,
+                It.IsAny<RequestTimeout>()))
+            .ReturnsAsync(CreateResponse(new PasswordGrantResult(new ClaimsPrincipal(
+                new ClaimsIdentity([new Claim(OpenIddictConstants.Claims.Subject, "42")])))));
+        var expected = new InvalidOperationException("token store unavailable");
+        var tokens = new Mock<IRequestClient<GetTokensRequestMessage>>();
+        tokens
+            .Setup(client => client.GetResponse<GetTokensResponseMessage>(
+                It.IsAny<GetTokensRequestMessage>(),
+                cancellation.Token,
+                It.IsAny<RequestTimeout>()))
+            .ThrowsAsync(expected);
+        var mediator = new Mock<IMediator>();
+        mediator.Setup(value => value.CreateRequestClient<PasswordGrantCommand>(default)).Returns(passwordGrant.Object);
+        mediator.Setup(value => value.CreateRequestClient<GetTokensRequestMessage>(default)).Returns(tokens.Object);
+        var context = new Mock<ConsumeContext<ValidateExistingAuthenticationRequestMessage>>();
+        context.SetupGet(value => value.CancellationToken).Returns(cancellation.Token);
+        context.SetupGet(value => value.Message).Returns(new ValidateExistingAuthenticationRequestMessage(
+            "login",
+            "password",
+            "203.0.113.7",
+            ImmutableArray<string>.Empty,
+            ImmutableArray.Create("world")));
+        var consumer = new ValidateExistingAuthenticationRequestConsumer(mediator.Object);
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => consumer.Consume(context.Object));
+
+        Assert.AreSame(expected, exception);
+        passwordGrant.Verify(client => client.GetResponse<PasswordGrantResult>(
+            It.IsAny<PasswordGrantCommand>(),
+            cancellation.Token,
+            It.IsAny<RequestTimeout>()), Times.Once);
+        tokens.Verify(client => client.GetResponse<GetTokensResponseMessage>(
+            It.IsAny<GetTokensRequestMessage>(),
+            cancellation.Token,
+            It.IsAny<RequestTimeout>()), Times.Once);
     }
 
     private static Response<T> CreateResponse<T>(T message) where T : class

@@ -6,10 +6,14 @@
 
 The GameWorld connection delegate MUST process opcode 14 and send its existing
 acknowledgement before reading the following authentication request. It MUST
-then classify that request before creating a logical Raido context. Opcode 16
-with reconnect flag 1 MUST go to the reconnect handler with the raw
-`ConnectionContext`; it MUST NOT create a temporary candidate context or invoke
-fresh world sign-in.
+then classify that request before creating a logical Raido context. The raw
+classification MUST inspect opcode 19 without full authentication decoding and
+MUST inspect opcode 16 only far enough to validate its packet framing/header
+and read the reconnect flag. Opcode 16 with flag 0 and opcode 19 MUST retain
+their complete authentication bytes for the normal logical reader. Opcode 16
+with reconnect flag 1 MUST then invoke the full world decoder exactly once and
+go to the reconnect handler with the raw `ConnectionContext`; it MUST NOT
+create a temporary candidate context or invoke fresh world sign-in.
 
 #### Scenario: Reconnect flag selects raw reconnect handling
 
@@ -20,6 +24,16 @@ fresh world sign-in.
 - THEN the decoder produces `WorldReconnectRequest`
 - AND no logical candidate context is created
 - AND the raw connection is validated against the existing target
+
+#### Scenario: Fresh and lobby classification avoids duplicate raw decoding
+
+- GIVEN a complete opcode-14 handshake followed by a flag-0 opcode-16 request
+  or an opcode-19 request
+- WHEN the connection is accepted
+- THEN the raw handler does not invoke the full world or lobby authentication
+  decoder before logical connection creation
+- AND the complete authentication bytes remain available to the logical reader
+- AND flag-0 world uses stateful reconnect while lobby does not
 
 ### Requirement: Reconnect authentication proves the existing identity
 
@@ -75,18 +89,37 @@ through the claim action, preparation, response flush, and final attach.
 - AND only the physical transport, reconnect protocol, and client metadata are
   replaced
 
-### Requirement: Handshake policy is injectable and request-specific
+### Requirement: Handshake policy is shared and injectable
 
-Handshake revision and system-update policy MUST be provided through
-`IHandshakeValidator<TRequest>` for each request type. No static global
-handshake policy class may own this decision.
+Handshake revision and system-update policy MUST be provided through one
+injectable policy shared by lobby, fresh-world, and reconnect sign-in. No
+static global policy or request-specific validator hierarchy may own this
+decision.
 
 #### Scenario: Reconnect validation can be substituted
 
-- GIVEN an injected `IHandshakeValidator<WorldReconnectRequest>` returns
-  `Outdated`
+- GIVEN the injected shared handshake policy returns `Outdated` for a reconnect
+  request
 - WHEN a reconnect request is handled
 - THEN `Outdated` is returned before reconnect authentication is called
+
+### Requirement: Existing-token infrastructure failures remain faults
+
+The existing-authentication consumer MUST preserve ordinary unsuccessful
+validation results for invalid credentials, disabled accounts, locked accounts,
+and absence of a valid existing token. Unexpected failures while looking up
+existing tokens MUST propagate as request faults rather than being converted to
+an ordinary unsuccessful response. Cancellation MUST propagate, and internal
+authorization request calls MUST receive the consume cancellation token.
+
+#### Scenario: Token lookup infrastructure failure
+
+- GIVEN valid password credentials
+- WHEN existing-token lookup throws an infrastructure exception
+- THEN the consumer faults instead of returning an ordinary failed
+  authentication response
+- AND the password-grant and token-lookup requests receive the consume
+  cancellation token
 
 ### Requirement: Fresh login and lobby remain unchanged
 

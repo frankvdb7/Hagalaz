@@ -16,7 +16,7 @@ public sealed class HandshakeValidatorTests
     public void DefaultHandshakeValidator_WhenRevisionDiffers_ReturnsOutdated()
     {
         var systemUpdate = Substitute.For<ISystemUpdateService>();
-        var validator = new DefaultHandshakeValidator<WorldReconnectRequest>(
+        var validator = new DefaultHandshakeValidator(
             Options.Create(new ServerConfig { ClientRevision = 742, ClientRevisionPatch = 1 }),
             systemUpdate);
 
@@ -34,7 +34,7 @@ public sealed class HandshakeValidatorTests
     {
         var systemUpdate = Substitute.For<ISystemUpdateService>();
         systemUpdate.SystemUpdateScheduled.Returns(true);
-        var validator = new DefaultHandshakeValidator<WorldSignInRequest>(
+        var validator = new DefaultHandshakeValidator(
             Options.Create(new ServerConfig { ClientRevision = 742, ClientRevisionPatch = 1 }),
             systemUpdate);
 
