@@ -33,14 +33,14 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class ClientConnectionHandlerTests
 {
     [TestMethod]
-    public async Task Bootstrap_Opcode14ThenFreshOpcode16_CreatesStatefulLogicalConnectionAndRetainsAuthentication()
+    public async Task Dispatch_Opcode14ThenFreshOpcode16_CreatesStatefulLogicalConnectionAndRetainsAuthentication()
     {
         var fixture = CreateFixture();
         try
         {
             await fixture.Input.Writer.WriteAsync(new byte[] { 14, 16, 0 });
 
-            await fixture.Handler.OnConnectedAsync(fixture.Connection);
+            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsTrue(fixture.CreatedStatefulReconnect);
             CollectionAssert.AreEqual(new byte[] { 0 }, await ReadAllAsync(fixture.Output.Reader));
@@ -53,14 +53,14 @@ public sealed class ClientConnectionHandlerTests
     }
 
     [TestMethod]
-    public async Task Bootstrap_Opcode14ThenReconnectOpcode16_InvokesReconnectWithoutCreatingLogicalConnection()
+    public async Task Dispatch_Opcode14ThenReconnectOpcode16_InvokesReconnectWithoutCreatingLogicalConnection()
     {
         var fixture = CreateFixture();
         try
         {
             await fixture.Input.Writer.WriteAsync(new byte[] { 14, 16, 1 });
 
-            await fixture.Handler.OnConnectedAsync(fixture.Connection);
+            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsFalse(fixture.FactoryCalled);
             Assert.IsNotNull(fixture.ValidatedReconnectMessage);
@@ -73,14 +73,14 @@ public sealed class ClientConnectionHandlerTests
     }
 
     [TestMethod]
-    public async Task Bootstrap_Opcode14ThenLobbyOpcode19_CreatesNonStatefulLogicalConnection()
+    public async Task Dispatch_Opcode14ThenLobbyOpcode19_CreatesNonStatefulLogicalConnection()
     {
         var fixture = CreateFixture();
         try
         {
             await fixture.Input.Writer.WriteAsync(new byte[] { 14, 19 });
 
-            await fixture.Handler.OnConnectedAsync(fixture.Connection);
+            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsFalse(fixture.CreatedStatefulReconnect);
             Assert.IsInstanceOfType(fixture.DispatchedMessage, typeof(LobbySignInRequest));
@@ -92,7 +92,7 @@ public sealed class ClientConnectionHandlerTests
     }
 
     [TestMethod]
-    public async Task Bootstrap_ConnectionEndingAfterOpcode14_AbortsWithoutCreatingLogicalConnection()
+    public async Task Dispatch_ConnectionEndingAfterOpcode14_AbortsWithoutCreatingLogicalConnection()
     {
         var fixture = CreateFixture();
         try
@@ -100,7 +100,7 @@ public sealed class ClientConnectionHandlerTests
             await fixture.Input.Writer.WriteAsync(new byte[] { 14 });
             await fixture.Input.Writer.CompleteAsync();
 
-            await fixture.Handler.OnConnectedAsync(fixture.Connection);
+            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsFalse(fixture.FactoryCalled);
             Assert.IsTrue(fixture.ConnectionAbortCalled);
@@ -112,14 +112,14 @@ public sealed class ClientConnectionHandlerTests
     }
 
     [TestMethod]
-    public async Task Bootstrap_InvalidAuthenticationOpcode_AbortsWithoutCreatingLogicalConnection()
+    public async Task Dispatch_InvalidAuthenticationOpcode_AbortsWithoutCreatingLogicalConnection()
     {
         var fixture = CreateFixture();
         try
         {
             await fixture.Input.Writer.WriteAsync(new byte[] { 14, 18 });
 
-            await fixture.Handler.OnConnectedAsync(fixture.Connection);
+            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsFalse(fixture.FactoryCalled);
             Assert.IsTrue(fixture.ConnectionAbortCalled);
@@ -131,7 +131,7 @@ public sealed class ClientConnectionHandlerTests
     }
 
     [TestMethod]
-    public async Task Bootstrap_CustomHandshakeHandlerRejectsBeforeAuthentication()
+    public async Task Dispatch_CustomHandshakeHandlerRejectsBeforeAuthentication()
     {
         var handshakeHandler = Substitute.For<IClientHandshakeHandler>();
         handshakeHandler.Handle(Arg.Any<ClientHandshakeRequest>())
@@ -141,7 +141,7 @@ public sealed class ClientConnectionHandlerTests
         {
             await fixture.Input.Writer.WriteAsync(new byte[] { 14, 16, 0 });
 
-            await fixture.Handler.OnConnectedAsync(fixture.Connection);
+            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
             Assert.IsFalse(fixture.FactoryCalled);
             Assert.IsFalse(fixture.ValidatedReconnectMessage is not null);
@@ -156,7 +156,7 @@ public sealed class ClientConnectionHandlerTests
 
     [TestMethod]
     [Timeout(10000)]
-    public async Task Bootstrap_ReconnectUsesRawConnectionAndResumesExistingLogicalConnection()
+    public async Task Dispatch_ReconnectUsesRawConnectionAndResumesExistingLogicalConnection()
     {
         var initialInput = new Pipe();
         var initialOutput = new Pipe();
@@ -271,7 +271,6 @@ public sealed class ClientConnectionHandlerTests
             sessions,
             claims,
             connections,
-            connectionHandler,
             services.GetRequiredService<IServiceScopeFactory>(),
             validator,
             NullLogger<WorldReconnectConnectionHandler>.Instance);
@@ -284,10 +283,8 @@ public sealed class ClientConnectionHandlerTests
                 throw new InvalidOperationException("Reconnect must not create a logical candidate.");
             });
         var clientHandler = new ClientConnectionHandler(
-            connectionHandler,
-            factory,
-            services.GetRequiredService<IServiceScopeFactory>(),
             reconnectHandler,
+            services.GetRequiredService<HandshakeProtocol>(),
             new ClientHandshakeHandler(),
             Options.Create(new RaidoOptions()),
             NullLogger<ClientConnectionHandler>.Instance);
@@ -295,7 +292,12 @@ public sealed class ClientConnectionHandlerTests
         try
         {
             await reconnectInput.Writer.WriteAsync(new byte[] { 14, 16, 1 });
-            var clientTask = clientHandler.OnConnectedAsync(reconnect);
+            var clientDispatcher = new RaidoConnectionDispatcher(
+                clientHandler.SelectAsync,
+                factory,
+                connectionHandler,
+                NullLogger<RaidoConnectionDispatcher>.Instance);
+            var clientTask = clientDispatcher.OnConnectedAsync(reconnect);
             await reconnectOutputGate.ResponseFlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
             await reconnectInput.Writer.WriteAsync(new byte[] { 0x55 });
             reconnectOutputGate.ReleaseResponse();
@@ -455,22 +457,26 @@ public sealed class ClientConnectionHandlerTests
             Substitute.For<IGameSessionService>(),
             Substitute.For<IGameSessionClaimStore>(),
             new RaidoHubConnectionStore(),
-            connectionHandler,
             services.GetRequiredService<IServiceScopeFactory>(),
             validator,
             NullLogger<WorldReconnectConnectionHandler>.Instance);
 
         var handler = new ClientConnectionHandler(
-            connectionHandler,
-            factory,
-            services.GetRequiredService<IServiceScopeFactory>(),
             reconnectHandler,
+            services.GetRequiredService<HandshakeProtocol>(),
             handshakeHandler ?? new ClientHandshakeHandler(),
             Options.Create(new RaidoOptions()),
             NullLogger<ClientConnectionHandler>.Instance);
 
+        var dispatcherHandler = new RaidoConnectionDispatcher(
+            handler.SelectAsync,
+            factory,
+            connectionHandler,
+            NullLogger<RaidoConnectionDispatcher>.Instance);
+
         return new TestFixture(
             handler,
+            dispatcherHandler,
             connection,
             input,
             output,
@@ -532,6 +538,7 @@ public sealed class ClientConnectionHandlerTests
 
     private sealed class TestFixture(
         ClientConnectionHandler handler,
+        RaidoConnectionDispatcher dispatcher,
         ConnectionContext connection,
         Pipe input,
         Pipe output,
@@ -543,6 +550,7 @@ public sealed class ClientConnectionHandlerTests
         Func<RaidoMessage?> dispatchedMessage) : IAsyncDisposable
     {
         public ClientConnectionHandler Handler { get; } = handler;
+        public RaidoConnectionDispatcher Dispatcher { get; } = dispatcher;
         public ConnectionContext Connection { get; } = connection;
         public Pipe Input { get; } = input;
         public Pipe Output { get; } = output;

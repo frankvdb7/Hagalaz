@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Hagalaz.Services.GameWorld.Network.Handshake;
 using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Microsoft.AspNetCore.Connections;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raido.Common.Messages;
@@ -15,91 +14,85 @@ using Raido.Server;
 
 namespace Hagalaz.Services.GameWorld.Network;
 
-public class ClientConnectionHandler : ConnectionHandler
+public class ClientConnectionHandler
 {
-    private readonly RaidoHubConnectionHandler _connectionHandler;
-    private readonly IRaidoHubConnectionContextFactory _connectionFactory;
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly WorldReconnectConnectionHandler _reconnectHandler;
+    private readonly HandshakeProtocol _handshakeProtocol;
     private readonly IClientHandshakeHandler _clientHandshakeHandler;
     private readonly IOptions<RaidoOptions> _raidoOptions;
     private readonly ILogger<ClientConnectionHandler> _logger;
 
     public ClientConnectionHandler(
-        RaidoHubConnectionHandler connectionHandler,
-        IRaidoHubConnectionContextFactory connectionFactory,
-        IServiceScopeFactory scopeFactory,
         WorldReconnectConnectionHandler reconnectHandler,
+        HandshakeProtocol handshakeProtocol,
         IClientHandshakeHandler clientHandshakeHandler,
         IOptions<RaidoOptions> raidoOptions,
         ILogger<ClientConnectionHandler> logger)
     {
-        _connectionHandler = connectionHandler;
-        _connectionFactory = connectionFactory;
-        _scopeFactory = scopeFactory;
         _reconnectHandler = reconnectHandler;
+        _handshakeProtocol = handshakeProtocol;
         _clientHandshakeHandler = clientHandshakeHandler;
         _raidoOptions = raidoOptions;
         _logger = logger;
     }
 
-    public override async Task OnConnectedAsync(ConnectionContext connection)
+    public async ValueTask<RaidoConnectionSelection> SelectAsync(
+        ConnectionContext connection,
+        CancellationToken cancellationToken)
     {
-        await using var scope = _scopeFactory.CreateAsyncScope();
-        var handshakeProtocol = scope.ServiceProvider.GetRequiredService<HandshakeProtocol>();
         using var cancellation = new CancellationTokenSource();
         if (!System.Diagnostics.Debugger.IsAttached)
         {
             cancellation.CancelAfter(TimeSpan.FromSeconds(10));
         }
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellation.Token,
+            cancellationToken);
+        var handshakeCancellationToken = linkedCancellation.Token;
 
         RaidoMessage? handshake;
         try
         {
             handshake = await ReadMessageAsync(
                 connection,
-                handshakeProtocol,
+                _handshakeProtocol,
                 _raidoOptions.Value.MaximumReceiveMessageSize,
-                cancellation.Token,
+                handshakeCancellationToken,
                 shouldConsume: static _ => true,
                 isValidOpcode: static opcode => opcode == 14);
         }
         catch (OperationCanceledException)
         {
-            connection.Abort(new ConnectionAbortedException("The connection handshake was canceled."));
-            return;
+            return RaidoConnectionSelection.Rejected();
         }
         catch (Exception ex)
         {
-            connection.Abort(new ConnectionAbortedException("The connection handshake was invalid.", ex));
-            return;
+            Log.HandshakeFailed(_logger, ex);
+            return RaidoConnectionSelection.Rejected();
         }
 
         if (handshake is not ClientHandshakeRequest)
         {
-            connection.Abort(new ConnectionAbortedException("The client handshake was invalid."));
-            return;
+            return RaidoConnectionSelection.Rejected();
         }
 
         try
         {
             var handshakeResponse = _clientHandshakeHandler.Handle((ClientHandshakeRequest)handshake);
-            await SendHandshakeResponseAsync(connection, handshakeProtocol, handshakeResponse, cancellation.Token);
+            await SendHandshakeResponseAsync(connection, _handshakeProtocol, handshakeResponse, handshakeCancellationToken);
             if (handshakeResponse.ReturnCode != 0)
             {
-                connection.Abort(new ConnectionAbortedException("The client handshake was rejected."));
-                return;
+                return RaidoConnectionSelection.Rejected();
             }
         }
         catch (OperationCanceledException)
         {
-            connection.Abort(new ConnectionAbortedException("The handshake response was canceled."));
-            return;
+            return RaidoConnectionSelection.Rejected();
         }
         catch (Exception ex)
         {
-            connection.Abort(new ConnectionAbortedException("The handshake response could not be sent.", ex));
-            return;
+            Log.HandshakeFailed(_logger, ex);
+            return RaidoConnectionSelection.Rejected();
         }
 
         RaidoMessage? authentication;
@@ -107,43 +100,39 @@ public class ClientConnectionHandler : ConnectionHandler
         {
             authentication = await ReadMessageAsync(
                 connection,
-                handshakeProtocol,
+                _handshakeProtocol,
                 _raidoOptions.Value.MaximumReceiveMessageSize,
-                cancellation.Token,
+                handshakeCancellationToken,
                 shouldConsume: static message => message is WorldReconnectRequest,
                 isValidOpcode: static opcode => opcode is 16 or 19);
         }
         catch (OperationCanceledException)
         {
-            connection.Abort(new ConnectionAbortedException("The authentication handshake was canceled."));
-            return;
+            return RaidoConnectionSelection.Rejected();
         }
         catch (Exception ex)
         {
-            connection.Abort(new ConnectionAbortedException("The authentication handshake was invalid.", ex));
-            return;
+            Log.HandshakeFailed(_logger, ex);
+            return RaidoConnectionSelection.Rejected();
         }
 
         if (authentication is null)
         {
-            connection.Abort(new ConnectionAbortedException("Unknown authentication handshake message."));
-            return;
+            return RaidoConnectionSelection.Rejected();
         }
 
         if (authentication is WorldReconnectRequest reconnectRequest)
         {
-            await _reconnectHandler.HandleAsync(connection, handshakeProtocol, reconnectRequest, cancellation.Token);
-            return;
+            return await _reconnectHandler.SelectAsync(
+                connection,
+                _handshakeProtocol,
+                reconnectRequest,
+                handshakeCancellationToken);
         }
 
-        var connectionContext = _connectionFactory.Create(
-            connection,
-            handshakeProtocol,
+        return RaidoConnectionSelection.New(
+            _handshakeProtocol,
             statefulReconnect: authentication is WorldSignInRequest);
-
-        Log.HandshakeStart(_logger, connectionContext.Protocol.Name);
-
-        await _connectionHandler.ConnectAsync(connectionContext);
     }
 
     internal static async ValueTask<RaidoMessage?> ReadMessageAsync(
@@ -215,11 +204,12 @@ public class ClientConnectionHandler : ConnectionHandler
 
     private static class Log
     {
-        private static readonly Action<ILogger, string, Exception?> _handshakeStart = LoggerMessage.Define<string>(LogLevel.Debug,
-            new EventId(1, "HandshakeStart"),
-            "Start connection handshake. Using protocol '{Protocol}'.");
+        private static readonly Action<ILogger, Exception> _handshakeFailed = LoggerMessage.Define(
+            LogLevel.Debug,
+            new EventId(1, "HandshakeFailed"),
+            "Client handshake failed.");
 
-        public static void HandshakeStart(ILogger logger, string protocol) => _handshakeStart(logger, protocol, null);
+        public static void HandshakeFailed(ILogger logger, Exception exception) => _handshakeFailed(logger, exception);
 
     }
 }

@@ -55,10 +55,12 @@ reconnect handler. It MUST NOT create or fake a caller context.
 
 The handler MUST resolve the existing world session by authenticated master ID,
 then re-resolve and verify its stable connection ID, expected session claim,
-exact logical target, character reference, authentication subject, and detached
-reconnectable state inside the existing session-claim critical section before
-mutating the target or asking Raido connection infrastructure to activate the
-raw connection on that existing logical target.
+exact logical target, character reference, and authentication subject inside
+the existing session-claim critical section before mutating the target or
+returning that logical target to Raido connection infrastructure. A transient
+logical reconnect transition marker MUST reject a second candidate after the
+winner has committed application state and MUST be cleared when the selected
+physical connection closes.
 It MUST NOT hydrate, register, publish fresh-login messages, or remove the
 existing session on rejected raw-connection cleanup.
 
@@ -124,7 +126,8 @@ claim before it mutates the existing target. A losing or stale candidate MUST
 NOT mutate the target protocol, ISAAC state, protocol lifetime, character
 metadata, or transport. The winner MUST install the fresh revision-specific
 protocol and reconnect client metadata, flush response 15, and then perform
-the existing single Raido physical attachment transition.
+the existing logical target to Raido connection infrastructure, which performs
+the existing single physical attachment transition internally.
 
 #### Scenario: Response precedes resumed input
 

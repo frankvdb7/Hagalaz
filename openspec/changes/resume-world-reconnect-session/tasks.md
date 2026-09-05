@@ -8,21 +8,22 @@
   request before logical Raido context creation.
 - [x] Validate exact existing world session, claim, logical connection,
   character, and authentication subject without fresh-login side effects.
-- [x] Resolve the existing logical target, ask Raido connection infrastructure
-  to activate the raw connection, and update only reconnect client metadata.
+- [x] Resolve the existing logical target, return it to Raido connection
+  infrastructure, and update only reconnect client metadata.
 
 ## Raido and protocol
 
 - [x] Preserve the existing #477/#488 Raido reconnect state machine and route
-  the one final physical activation through `RaidoHubConnectionHandler`, which
-  delegates to the existing internal attach seam.
+  physical dispatch through `RaidoConnectionDispatcher`, which delegates the
+  one final attach to the existing internal seam.
 - [x] Remove candidate-context creation, cross-context transfer, transfer
   methods, response-aware physical writes, runtime reconnect features, and
   duplicate reconnect completion logic.
-- [x] Revalidate the session, claim, target, character, subject, and detached
-  state inside the existing claim, install the fresh reconnect protocol, flush
-  response 15, and only then perform the existing single raw transport attach.
-  Abort the target if that final attach loses the narrow post-response race.
+- [x] Revalidate the session, claim, target, character, and subject inside the
+  existing claim, install the fresh reconnect protocol, flush response 15, and
+  return the target for the dispatcher to perform the existing single raw
+  transport attach. Abort the target if that final attach loses the narrow
+  post-response race.
 - [x] Inject request-specific handshake validators for reconnect, fresh world,
   and lobby requests. Keep reconnect failure mapping and target ownership
   checks local to the reconnect handler.

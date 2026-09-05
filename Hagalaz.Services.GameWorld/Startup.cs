@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Raido.Server;
 using Raido.Server.Extensions;
 using MassTransit;
 using System;
@@ -148,6 +149,9 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IAuthenticationService, AuthenticationService>();
             services.AddScoped(typeof(IHandshakeValidator<>), typeof(DefaultHandshakeValidator<>));
             services.AddScoped<WorldReconnectConnectionHandler>();
+            services.AddScoped<ClientConnectionHandler>();
+            services.AddScoped<RaidoConnectionSelector>(provider =>
+                provider.GetRequiredService<ClientConnectionHandler>().SelectAsync);
             services.AddSingleton<IClientHandshakeHandler, ClientHandshakeHandler>();
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();

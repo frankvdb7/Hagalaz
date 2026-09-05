@@ -4,11 +4,10 @@
 
 ### Requirement: GameWorld uses the existing Raido reconnect lifecycle
 
-GameWorld MUST resolve the existing logical Raido connection and ask Raido
-connection infrastructure to activate a raw replacement `ConnectionContext`
-on it. The infrastructure MUST delegate to Raido's existing internal
-`TryAttachPhysicalConnection` operation. GameWorld MUST NOT call physical
-attachment on `RaidoHubConnectionContext`. It MUST NOT create a temporary
+GameWorld MUST resolve the existing logical Raido connection and return it to
+Raido connection infrastructure. The connection dispatcher MUST delegate to
+Raido's existing internal `TryAttachPhysicalConnection` operation. GameWorld
+MUST NOT call physical attachment on `RaidoHubConnectionContext`. It MUST NOT create a temporary
 candidate logical context, transfer a physical connection between logical
 contexts, add a second reconnect registry or state machine, or add
 response-aware transport writes. Existing #477/#488 Raido reconnect timing,
@@ -42,9 +41,8 @@ be rewritten as the logical ID.
 ### Requirement: GameWorld completes the reconnect handshake before attach
 
 GameWorld MUST install the fresh client protocol and flush response 15 before
-asking Raido connection infrastructure to activate the physical connection.
-Raido MUST receive the replacement transport only after GameWorld has completed
-that response.
+returning the existing logical connection. Raido MUST receive the replacement
+transport only after GameWorld has completed that response.
 
 #### Scenario: Immediate game input is buffered before attach
 

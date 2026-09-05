@@ -24,11 +24,12 @@ namespace Hagalaz.Services.GameWorld.Network;
 
 public sealed class WorldReconnectConnectionHandler
 {
+    private static readonly object ReconnectTransitionKey = new();
+
     private readonly IAuthenticationService _authenticationService;
     private readonly IGameSessionService _gameSessionService;
     private readonly IGameSessionClaimStore _sessionClaims;
     private readonly RaidoHubConnectionStore _connections;
-    private readonly RaidoHubConnectionHandler _connectionHandler;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHandshakeValidator<WorldReconnectRequest> _handshakeValidator;
     private readonly ILogger<WorldReconnectConnectionHandler> _logger;
@@ -38,7 +39,6 @@ public sealed class WorldReconnectConnectionHandler
         IGameSessionService gameSessionService,
         IGameSessionClaimStore sessionClaims,
         RaidoHubConnectionStore connections,
-        RaidoHubConnectionHandler connectionHandler,
         IServiceScopeFactory scopeFactory,
         IHandshakeValidator<WorldReconnectRequest> handshakeValidator,
         ILogger<WorldReconnectConnectionHandler> logger)
@@ -47,13 +47,12 @@ public sealed class WorldReconnectConnectionHandler
         _gameSessionService = gameSessionService;
         _sessionClaims = sessionClaims;
         _connections = connections;
-        _connectionHandler = connectionHandler;
         _scopeFactory = scopeFactory;
         _handshakeValidator = handshakeValidator;
         _logger = logger;
     }
 
-    public async Task HandleAsync(
+    public async Task<RaidoConnectionSelection> SelectAsync(
         ConnectionContext connection,
         HandshakeProtocol handshakeProtocol,
         WorldReconnectRequest message,
@@ -67,8 +66,7 @@ public sealed class WorldReconnectConnectionHandler
             if (validation != ClientSignInResponse.Success)
             {
                 await SendResponseAsync(connection, handshakeProtocol, validation, cancellationToken);
-                connection.Abort();
-                return;
+                return RaidoConnectionSelection.Rejected();
             }
 
             WorldReconnectAuthenticationResult authentication;
@@ -84,21 +82,18 @@ public sealed class WorldReconnectConnectionHandler
             catch (RequestTimeoutException)
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.AuthServiceOffline, cancellationToken);
-                connection.Abort();
-                return;
+                return RaidoConnectionSelection.Rejected();
             }
             catch (TimeoutRejectedException)
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.AuthServiceOffline, cancellationToken);
-                connection.Abort();
-                return;
+                return RaidoConnectionSelection.Rejected();
             }
 
             if (!authentication.Succeeded || authentication.MasterId is not uint)
             {
                 await SendResponseAsync(connection, handshakeProtocol, GetFailureResponse(authentication), cancellationToken);
-                connection.Abort();
-                return;
+                return RaidoConnectionSelection.Rejected();
             }
 
             var masterId = authentication.MasterId.Value;
@@ -109,8 +104,7 @@ public sealed class WorldReconnectConnectionHandler
                 !IsMatchingWorldConnection(target, session, masterId))
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.BadSession, cancellationToken);
-                connection.Abort();
-                return;
+                return RaidoConnectionSelection.Rejected();
             }
 
             var clientProtocol = protocolScope.ServiceProvider
@@ -119,8 +113,7 @@ public sealed class WorldReconnectConnectionHandler
             if (clientProtocol is null)
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.Outdated, cancellationToken);
-                connection.Abort();
-                return;
+                return RaidoConnectionSelection.Rejected();
             }
 
             clientProtocol.SetEncryptionSeed(message.IsaacSeed);
@@ -137,14 +130,13 @@ public sealed class WorldReconnectConnectionHandler
                         currentSession.SessionClaimId != session.SessionClaimId ||
                         !ReferenceEquals(currentTarget, target) ||
                         currentTarget.ConnectionId != currentSession.ConnectionId ||
-                        !IsMatchingWorldConnection(currentTarget, currentSession, masterId) ||
-                        !_connectionHandler.IsReconnectable(currentTarget))
+                        !IsMatchingWorldConnection(currentTarget, currentSession, masterId))
                     {
                         return false;
                     }
 
                     var character = currentTarget.Features.Get<ICharacterFeature>()?.Character;
-                    if (character is null)
+                    if (character is null || !TryBeginReconnectTransition(currentTarget, connection))
                     {
                         return false;
                     }
@@ -170,19 +162,17 @@ public sealed class WorldReconnectConnectionHandler
                             },
                             CancellationToken.None);
 
-                        if (_connectionHandler.TryActivatePhysicalConnection(currentTarget, connection))
-                        {
-                            return true;
-                        }
-
-                        currentTarget.Abort();
-                        return false;
+                        return true;
                     }
                     catch
                     {
                         if (targetMutated)
                         {
                             currentTarget.Abort();
+                        }
+                        else
+                        {
+                            EndReconnectTransition(currentTarget);
                         }
 
                         throw;
@@ -191,19 +181,19 @@ public sealed class WorldReconnectConnectionHandler
                 connection.ConnectionClosed);
             if (!attached)
             {
-                connection.Abort();
-                return;
+                return RaidoConnectionSelection.Rejected();
             }
 
+            return RaidoConnectionSelection.Existing(target);
         }
         catch (OperationCanceledException) when (connection.ConnectionClosed.IsCancellationRequested)
         {
-            connection.Abort();
+            return RaidoConnectionSelection.Rejected();
         }
         catch (Exception ex)
         {
             Log.Failed(_logger, ex);
-            connection.Abort(new ConnectionAbortedException("World reconnect failed.", ex));
+            return RaidoConnectionSelection.Rejected();
         }
         finally
         {
@@ -253,6 +243,34 @@ public sealed class WorldReconnectConnectionHandler
             targetAuthentication?.TryGetClaim<string>(OpenIddictConstants.Claims.Subject, out var subject) == true &&
             uint.TryParse(subject, out var authenticatedMasterId) &&
             authenticatedMasterId == masterId;
+    }
+
+    private static bool TryBeginReconnectTransition(
+        RaidoHubConnectionContext target,
+        ConnectionContext connection)
+    {
+        lock (target.Items)
+        {
+            if (target.Items.ContainsKey(ReconnectTransitionKey))
+            {
+                return false;
+            }
+
+            target.Items[ReconnectTransitionKey] = new object();
+        }
+
+        connection.ConnectionClosed.Register(
+            static state => EndReconnectTransition((RaidoHubConnectionContext)state!),
+            target);
+        return true;
+    }
+
+    private static void EndReconnectTransition(RaidoHubConnectionContext target)
+    {
+        lock (target.Items)
+        {
+            target.Items.Remove(ReconnectTransitionKey);
+        }
     }
 
     private static class Log

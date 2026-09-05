@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raido.Common.Protocol;
@@ -89,32 +88,6 @@ namespace Raido.Server
                     cleanupException?.Throw();
                 }
             }
-        }
-
-        /// <summary>
-        /// Activates a physical connection on an existing logical Raido connection.
-        /// </summary>
-        /// <param name="connection">The existing logical connection.</param>
-        /// <param name="physicalConnection">The physical connection to activate.</param>
-        /// <returns><see langword="true"/> when the physical connection was accepted.</returns>
-        public bool TryActivatePhysicalConnection(
-            RaidoHubConnectionContext connection,
-            ConnectionContext physicalConnection)
-        {
-            ArgumentNullException.ThrowIfNull(connection);
-            ArgumentNullException.ThrowIfNull(physicalConnection);
-            return connection.TryAttachPhysicalConnection(physicalConnection);
-        }
-
-        /// <summary>
-        /// Gets whether the logical connection is currently detached within its existing reconnect window.
-        /// </summary>
-        /// <param name="connection">The existing logical connection.</param>
-        /// <returns><see langword="true"/> when a replacement physical connection can currently be considered.</returns>
-        public bool IsReconnectable(RaidoHubConnectionContext connection)
-        {
-            ArgumentNullException.ThrowIfNull(connection);
-            return connection.IsReconnectable;
         }
 
         /// <summary>

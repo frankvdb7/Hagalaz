@@ -14,8 +14,31 @@ namespace Raido.Server.Tests;
 public sealed class RaidoPhysicalConnectionActivationTests
 {
     [TestMethod]
+    public void PublicRaidoHubApis_DoNotExposePhysicalConnectionReplacement()
+    {
+        var forbiddenNames = new[]
+        {
+            "TryActivatePhysicalConnection",
+            "TryAttachPhysicalConnection",
+            "TryReconnect",
+            "ResumePhysicalConnection",
+            "ReplaceTransport"
+        };
+
+        foreach (var type in new[] { typeof(RaidoHubConnectionContext), typeof(RaidoHubConnectionHandler) })
+        {
+            foreach (var method in type.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static))
+            {
+                Assert.IsFalse(forbiddenNames.Contains(method.Name));
+                Assert.IsFalse(method.GetParameters().Any(parameter =>
+                    typeof(ConnectionContext).IsAssignableFrom(parameter.ParameterType)));
+            }
+        }
+    }
+
+    [TestMethod]
     [Timeout(5000)]
-    public async Task TryActivatePhysicalConnection_AttachesToExistingLogicalConnectionAndReadsBufferedInput()
+    public async Task Dispatcher_AttachesToExistingLogicalConnectionAndReadsBufferedInput()
     {
         using var fixture = CreateFixture();
         var initial = CreatePhysicalConnection("physical-a", out var initialInput, out var initialOutput, out var initialClosed);
@@ -32,7 +55,8 @@ public sealed class RaidoPhysicalConnectionActivationTests
             fixture.Tcp.AcknowledgeInputBoundary();
             await replacementInput.Writer.WriteAsync(new byte[] { 7, 8 });
 
-            Assert.IsTrue(fixture.Handler.TryActivatePhysicalConnection(logical, replacement));
+            var dispatcher = CreateDispatcher(fixture, logical);
+            await dispatcher.OnConnectedAsync(replacement);
             Assert.IsTrue(fixture.Tcp.TryGetCurrentConnection(out var current));
             Assert.AreSame(replacement, current);
             var buffered = await fixture.Tcp.Transport.Input.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
@@ -55,7 +79,7 @@ public sealed class RaidoPhysicalConnectionActivationTests
     }
 
     [TestMethod]
-    public async Task TryActivatePhysicalConnection_WhenLogicalConnectionIsTerminal_ReturnsFalse()
+    public async Task Dispatcher_WhenLogicalConnectionIsTerminalRejectsPhysicalConnection()
     {
         using var fixture = CreateFixture();
         var initial = CreatePhysicalConnection("physical-a", out var initialInput, out var initialOutput, out var initialClosed);
@@ -66,7 +90,8 @@ public sealed class RaidoPhysicalConnectionActivationTests
             var logical = CreateLogicalConnection(fixture.Tcp, fixture.Options);
             logical.Abort();
 
-            Assert.IsFalse(fixture.Handler.TryActivatePhysicalConnection(logical, replacement));
+            var dispatcher = CreateDispatcher(fixture, logical);
+            await dispatcher.OnConnectedAsync(replacement);
             Assert.IsFalse(fixture.Tcp.TryGetCurrentConnection(out _));
             await fixture.LifetimeManager.DidNotReceiveWithAnyArgs().OnConnectedAsync(null!);
             await fixture.LifetimeManager.DidNotReceiveWithAnyArgs().OnDisconnectedAsync(null!);
@@ -108,6 +133,13 @@ public sealed class RaidoPhysicalConnectionActivationTests
             dispatcher,
             meter);
     }
+
+    private static RaidoConnectionDispatcher CreateDispatcher(Fixture fixture, RaidoHubConnectionContext logical) =>
+        new(
+            (_, _) => new ValueTask<RaidoConnectionSelection>(RaidoConnectionSelection.Existing(logical)),
+            Substitute.For<IRaidoHubConnectionContextFactory>(),
+            fixture.Handler,
+            NullLogger<RaidoConnectionDispatcher>.Instance);
 
     private static RaidoHubConnectionContext CreateLogicalConnection(
         RaidoTcpConnectionContext tcp,
