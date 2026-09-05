@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Raido.Server;
 using Raido.Server.Extensions;
 using MassTransit;
 using System;
@@ -19,6 +20,7 @@ using Hagalaz.Cache.Types.Data;
 using Hagalaz.Cache.Types.Hooks;
 using Hagalaz.Cache.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.Animation;
+using Hagalaz.Services.GameWorld.Network;
 using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.Glow;
@@ -145,6 +147,12 @@ namespace Hagalaz.Services.GameWorld
             // services
             services.AddSingleton<Hagalaz.Game.Abstractions.Logic.Random.IRandomProvider, Hagalaz.Services.GameWorld.Logic.Random.DefaultRandomProvider>();
             services.AddScoped<IAuthenticationService, AuthenticationService>();
+            services.AddScoped(typeof(IHandshakeValidator<>), typeof(DefaultHandshakeValidator<>));
+            services.AddScoped<WorldReconnectConnectionHandler>();
+            services.AddScoped<ClientConnectionHandler>();
+            services.AddScoped<RaidoConnectionDelegate>(provider =>
+                provider.GetRequiredService<ClientConnectionHandler>().HandleAsync);
+            services.AddSingleton<IClientHandshakeHandler, ClientHandshakeHandler>();
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();
             services.AddSingleton<MapRegionLoadScheduler>();
@@ -518,6 +526,7 @@ namespace Hagalaz.Services.GameWorld
                 options.AddEncoder<ClientSignInResponseEncoder>();
                 options.AddEncoder<LobbySignInResponseEncoder>();
                 options.AddEncoder<WorldSignInResponseEncoder>();
+                options.AddEncoder<WorldReconnectResponseEncoder>();
             });
 
             services.AddRaidoProtocol<ClientProtocol742>(options =>
