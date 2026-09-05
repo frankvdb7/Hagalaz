@@ -3,6 +3,7 @@ using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -25,7 +26,12 @@ public sealed class RaidoPhysicalConnectionActivationTests
             "ReplaceTransport"
         };
 
-        foreach (var type in new[] { typeof(RaidoHubConnectionContext), typeof(RaidoHubConnectionHandler) })
+        foreach (var type in new[]
+                 {
+                     typeof(RaidoHubConnectionContext),
+                     typeof(RaidoHubConnectionHandler),
+                     typeof(RaidoConnectionDispatchContext)
+                 })
         {
             foreach (var method in type.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static))
             {
@@ -34,6 +40,10 @@ public sealed class RaidoPhysicalConnectionActivationTests
                     typeof(ConnectionContext).IsAssignableFrom(parameter.ParameterType)));
             }
         }
+
+        Assert.AreEqual(0, typeof(RaidoConnectionDispatchContext)
+            .GetConstructors(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+            .Length);
     }
 
     [TestMethod]
@@ -55,7 +65,9 @@ public sealed class RaidoPhysicalConnectionActivationTests
             fixture.Tcp.AcknowledgeInputBoundary();
             await replacementInput.Writer.WriteAsync(new byte[] { 7, 8 });
 
-            var dispatcher = CreateDispatcher(fixture, logical);
+            var (dispatcher, dispatcherProvider) = CreateDispatcher(fixture, logical);
+            using (dispatcherProvider)
+            {
             await dispatcher.OnConnectedAsync(replacement);
             Assert.IsTrue(fixture.Tcp.TryGetCurrentConnection(out var current));
             Assert.AreSame(replacement, current);
@@ -66,6 +78,7 @@ public sealed class RaidoPhysicalConnectionActivationTests
             await fixture.LifetimeManager.DidNotReceiveWithAnyArgs().OnConnectedAsync(null!);
             await fixture.LifetimeManager.DidNotReceiveWithAnyArgs().OnDisconnectedAsync(null!);
             await fixture.Dispatcher.DidNotReceiveWithAnyArgs().OnConnectedAsync(null!);
+            }
 
             logical.Abort();
             await logical.CleanupAsync();
@@ -90,12 +103,15 @@ public sealed class RaidoPhysicalConnectionActivationTests
             var logical = CreateLogicalConnection(fixture.Tcp, fixture.Options);
             logical.Abort();
 
-            var dispatcher = CreateDispatcher(fixture, logical);
+            var (dispatcher, dispatcherProvider) = CreateDispatcher(fixture, logical);
+            using (dispatcherProvider)
+            {
             await dispatcher.OnConnectedAsync(replacement);
             Assert.IsFalse(fixture.Tcp.TryGetCurrentConnection(out _));
             await fixture.LifetimeManager.DidNotReceiveWithAnyArgs().OnConnectedAsync(null!);
             await fixture.LifetimeManager.DidNotReceiveWithAnyArgs().OnDisconnectedAsync(null!);
             await fixture.Dispatcher.DidNotReceiveWithAnyArgs().OnConnectedAsync(null!);
+            }
 
             await logical.CleanupAsync();
         }
@@ -104,6 +120,155 @@ public sealed class RaidoPhysicalConnectionActivationTests
             initialClosed.Dispose();
             replacementClosed.Dispose();
             await CompleteAsync(initialInput, initialOutput, replacementInput, replacementOutput);
+        }
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_WhenExistingTargetIsActiveRejectsBeforePreparation()
+    {
+        using var fixture = CreateFixture();
+        var initial = CreatePhysicalConnection("physical-a", out var initialInput, out var initialOutput, out var initialClosed);
+        var replacement = CreatePhysicalConnection("physical-b", out var replacementInput, out var replacementOutput, out var replacementClosed);
+        var prepared = 0;
+        try
+        {
+            Assert.IsTrue(fixture.Tcp.TryAttachPhysicalConnection(initial));
+            var oldProtocol = Substitute.For<IRaidoProtocol>();
+            var logical = new RaidoHubConnectionContext(
+                fixture.Tcp,
+                fixture.Options,
+                oldProtocol,
+                NullLoggerFactory.Instance,
+                TimeProvider.System);
+
+            var (dispatcher, dispatcherProvider) = CreateDispatcher(
+                fixture,
+                logical,
+                (_, dispatch, cancellationToken) =>
+                    dispatch.DispatchExistingAsync(
+                        logical,
+                        _ =>
+                        {
+                            Interlocked.Increment(ref prepared);
+                            return ValueTask.CompletedTask;
+                        },
+                        cancellationToken).AsTask());
+            using (dispatcherProvider)
+            {
+                await dispatcher.OnConnectedAsync(replacement);
+            }
+
+            Assert.AreEqual(0, prepared);
+            Assert.AreSame(oldProtocol, logical.Protocol);
+            Assert.IsFalse(logical.IsTerminal);
+            Assert.IsTrue(fixture.Tcp.TryGetCurrentConnection(out var current));
+            Assert.AreSame(initial, current);
+            replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
+
+            logical.Abort();
+            await logical.CleanupAsync();
+        }
+        finally
+        {
+            initialClosed.Dispose();
+            replacementClosed.Dispose();
+            await CompleteAsync(initialInput, initialOutput, replacementInput, replacementOutput);
+        }
+    }
+
+    [TestMethod]
+    public async Task DispatchContext_CannotDispatchOnePhysicalConnectionTwice()
+    {
+        using var fixture = CreateFixture();
+        var initial = CreatePhysicalConnection("physical-a", out var initialInput, out var initialOutput, out var initialClosed);
+        var replacement = CreatePhysicalConnection("physical-b", out var replacementInput, out var replacementOutput, out var replacementClosed);
+        try
+        {
+            Assert.IsTrue(fixture.Tcp.TryAttachPhysicalConnection(initial));
+            var logical = CreateLogicalConnection(fixture.Tcp, fixture.Options);
+            fixture.Tcp.OnPhysicalConnectionClosed(initial);
+            Assert.IsTrue(fixture.Tcp.Transport.Input.TryRead(out var boundary));
+            fixture.Tcp.Transport.Input.AdvanceTo(boundary.Buffer.End);
+            fixture.Tcp.AcknowledgeInputBoundary();
+
+            var dispatch = new RaidoConnectionDispatchContext(
+                replacement,
+                Substitute.For<IRaidoHubConnectionContextFactory>(),
+                fixture.Handler);
+            Assert.IsTrue(await dispatch.DispatchExistingAsync(
+                logical,
+                static _ => ValueTask.CompletedTask,
+                CancellationToken.None));
+
+            var threw = false;
+            try
+            {
+                await dispatch.DispatchExistingAsync(
+                    logical,
+                    static _ => ValueTask.CompletedTask,
+                    CancellationToken.None);
+            }
+            catch (InvalidOperationException)
+            {
+                threw = true;
+            }
+
+            Assert.IsTrue(threw);
+
+            logical.Abort();
+            await logical.CleanupAsync();
+        }
+        finally
+        {
+            initialClosed.Dispose();
+            replacementClosed.Dispose();
+            await CompleteAsync(initialInput, initialOutput, replacementInput, replacementOutput);
+        }
+    }
+
+    [TestMethod]
+    public async Task Dispatcher_CreatesAndDisposesAnIndependentApplicationScopePerConnection()
+    {
+        var states = new List<ScopedConnectionState>();
+        var services = new ServiceCollection();
+        services.AddScoped<ScopedConnectionState>();
+        services.AddScoped<RaidoConnectionDelegate>(provider =>
+        {
+            var state = provider.GetRequiredService<ScopedConnectionState>();
+            states.Add(state);
+            return (_, _, _) =>
+            {
+                state.Used++;
+                return Task.CompletedTask;
+            };
+        });
+        await using var provider = services.BuildServiceProvider();
+        using var fixture = CreateFixture();
+        var first = CreatePhysicalConnection("physical-a", out var firstInput, out var firstOutput, out var firstClosed);
+        var second = CreatePhysicalConnection("physical-b", out var secondInput, out var secondOutput, out var secondClosed);
+        var dispatcher = new RaidoConnectionDispatcher(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IRaidoHubConnectionContextFactory>(),
+            fixture.Handler,
+            NullLogger<RaidoConnectionDispatcher>.Instance);
+
+        try
+        {
+            await dispatcher.OnConnectedAsync(first);
+            await dispatcher.OnConnectedAsync(second);
+
+            Assert.AreEqual(2, states.Count);
+            Assert.AreNotSame(states[0], states[1]);
+            Assert.AreEqual(1, states[0].Used);
+            Assert.AreEqual(1, states[1].Used);
+            Assert.IsTrue(states[0].Disposed);
+            Assert.IsTrue(states[1].Disposed);
+        }
+        finally
+        {
+            firstClosed.Dispose();
+            secondClosed.Dispose();
+            await CompleteAsync(firstInput, firstOutput, secondInput, secondOutput);
         }
     }
 
@@ -134,12 +299,27 @@ public sealed class RaidoPhysicalConnectionActivationTests
             meter);
     }
 
-    private static RaidoConnectionDispatcher CreateDispatcher(Fixture fixture, RaidoHubConnectionContext logical) =>
-        new(
-            (_, _) => new ValueTask<RaidoConnectionSelection>(RaidoConnectionSelection.Existing(logical)),
-            Substitute.For<IRaidoHubConnectionContextFactory>(),
-            fixture.Handler,
-            NullLogger<RaidoConnectionDispatcher>.Instance);
+    private static (RaidoConnectionDispatcher Dispatcher, ServiceProvider Provider) CreateDispatcher(
+        Fixture fixture,
+        RaidoHubConnectionContext logical,
+        RaidoConnectionDelegate? application = null)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<RaidoConnectionDelegate>((_) => application ??
+            ((_, dispatch, cancellationToken) =>
+                dispatch.DispatchExistingAsync(
+                    logical,
+                    static _ => ValueTask.CompletedTask,
+                    cancellationToken).AsTask()));
+        var provider = services.BuildServiceProvider();
+        return (
+            new RaidoConnectionDispatcher(
+                provider.GetRequiredService<IServiceScopeFactory>(),
+                Substitute.For<IRaidoHubConnectionContextFactory>(),
+                fixture.Handler,
+                NullLogger<RaidoConnectionDispatcher>.Instance),
+            provider);
+    }
 
     private static RaidoHubConnectionContext CreateLogicalConnection(
         RaidoTcpConnectionContext tcp,
@@ -197,5 +377,13 @@ public sealed class RaidoPhysicalConnectionActivationTests
         public IRaidoDispatcher Dispatcher { get; } = dispatcher;
 
         public void Dispose() => meter.Dispose();
+    }
+
+    private sealed class ScopedConnectionState : IDisposable
+    {
+        public int Used { get; set; }
+        public bool Disposed { get; private set; }
+
+        public void Dispose() => Disposed = true;
     }
 }

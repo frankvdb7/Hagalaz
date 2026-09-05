@@ -36,8 +36,9 @@ public class ClientConnectionHandler
         _logger = logger;
     }
 
-    public async ValueTask<RaidoConnectionSelection> SelectAsync(
+    public async Task HandleAsync(
         ConnectionContext connection,
+        RaidoConnectionDispatchContext dispatch,
         CancellationToken cancellationToken)
     {
         using var cancellation = new CancellationTokenSource();
@@ -63,17 +64,17 @@ public class ClientConnectionHandler
         }
         catch (OperationCanceledException)
         {
-            return RaidoConnectionSelection.Rejected();
+            return;
         }
         catch (Exception ex)
         {
             Log.HandshakeFailed(_logger, ex);
-            return RaidoConnectionSelection.Rejected();
+            return;
         }
 
         if (handshake is not ClientHandshakeRequest)
         {
-            return RaidoConnectionSelection.Rejected();
+            return;
         }
 
         try
@@ -82,17 +83,17 @@ public class ClientConnectionHandler
             await SendHandshakeResponseAsync(connection, _handshakeProtocol, handshakeResponse, handshakeCancellationToken);
             if (handshakeResponse.ReturnCode != 0)
             {
-                return RaidoConnectionSelection.Rejected();
+                return;
             }
         }
         catch (OperationCanceledException)
         {
-            return RaidoConnectionSelection.Rejected();
+            return;
         }
         catch (Exception ex)
         {
             Log.HandshakeFailed(_logger, ex);
-            return RaidoConnectionSelection.Rejected();
+            return;
         }
 
         RaidoMessage? authentication;
@@ -108,31 +109,34 @@ public class ClientConnectionHandler
         }
         catch (OperationCanceledException)
         {
-            return RaidoConnectionSelection.Rejected();
+            return;
         }
         catch (Exception ex)
         {
             Log.HandshakeFailed(_logger, ex);
-            return RaidoConnectionSelection.Rejected();
+            return;
         }
 
         if (authentication is null)
         {
-            return RaidoConnectionSelection.Rejected();
+            return;
         }
 
         if (authentication is WorldReconnectRequest reconnectRequest)
         {
-            return await _reconnectHandler.SelectAsync(
+            await _reconnectHandler.HandleAsync(
                 connection,
+                dispatch,
                 _handshakeProtocol,
                 reconnectRequest,
                 handshakeCancellationToken);
+            return;
         }
 
-        return RaidoConnectionSelection.New(
+        await dispatch.DispatchNewAsync(
             _handshakeProtocol,
-            statefulReconnect: authentication is WorldSignInRequest);
+            statefulReconnect: authentication is WorldSignInRequest,
+            handshakeCancellationToken);
     }
 
     internal static async ValueTask<RaidoMessage?> ReadMessageAsync(

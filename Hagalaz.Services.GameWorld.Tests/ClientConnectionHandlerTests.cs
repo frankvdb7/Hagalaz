@@ -292,8 +292,11 @@ public sealed class ClientConnectionHandlerTests
         try
         {
             await reconnectInput.Writer.WriteAsync(new byte[] { 14, 16, 1 });
+            await using var dispatcherProvider = new ServiceCollection()
+                .AddScoped<RaidoConnectionDelegate>(_ => clientHandler.HandleAsync)
+                .BuildServiceProvider();
             var clientDispatcher = new RaidoConnectionDispatcher(
-                clientHandler.SelectAsync,
+                dispatcherProvider.GetRequiredService<IServiceScopeFactory>(),
                 factory,
                 connectionHandler,
                 NullLogger<RaidoConnectionDispatcher>.Instance);
@@ -468,8 +471,11 @@ public sealed class ClientConnectionHandlerTests
             Options.Create(new RaidoOptions()),
             NullLogger<ClientConnectionHandler>.Instance);
 
+        var dispatcherProvider = new ServiceCollection()
+            .AddScoped<RaidoConnectionDelegate>(_ => handler.HandleAsync)
+            .BuildServiceProvider();
         var dispatcherHandler = new RaidoConnectionDispatcher(
-            handler.SelectAsync,
+            dispatcherProvider.GetRequiredService<IServiceScopeFactory>(),
             factory,
             connectionHandler,
             NullLogger<RaidoConnectionDispatcher>.Instance);
@@ -481,6 +487,7 @@ public sealed class ClientConnectionHandlerTests
             input,
             output,
             meter,
+            dispatcherProvider,
             () => connectionAbortCalled,
             () => factoryCalled,
             () => createdStatefulReconnect,
@@ -543,6 +550,7 @@ public sealed class ClientConnectionHandlerTests
         Pipe input,
         Pipe output,
         Meter meter,
+        ServiceProvider dispatcherProvider,
         Func<bool> abortCalled,
         Func<bool> factoryCalled,
         Func<bool> createdStatefulReconnect,
@@ -567,6 +575,7 @@ public sealed class ClientConnectionHandlerTests
             await Input.Writer.CompleteAsync();
             await Output.Reader.CompleteAsync();
             await Output.Writer.CompleteAsync();
+            await dispatcherProvider.DisposeAsync();
             meter.Dispose();
         }
     }

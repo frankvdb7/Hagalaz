@@ -4,12 +4,12 @@
 
 ### Requirement: Reconnect is classified before logical connection creation
 
-The GameWorld connection handler MUST process opcode 14 and send its existing
+The GameWorld connection delegate MUST process opcode 14 and send its existing
 acknowledgement before reading the following authentication request. It MUST
 then classify that request before creating a logical Raido context. Opcode 16
 with reconnect flag 1 MUST go to the reconnect handler with the raw
-`ConnectionContext`; it MUST NOT create a temporary candidate context or
-invoke fresh world sign-in.
+`ConnectionContext`; it MUST NOT create a temporary candidate context or invoke
+fresh world sign-in.
 
 #### Scenario: Reconnect flag selects raw reconnect handling
 
@@ -25,8 +25,8 @@ invoke fresh world sign-in.
 
 Reconnect MUST use the dedicated existing-authentication request/response,
 return only the validated subject and failure flags, and never mint a token or
-install candidate GameWorld features. The normal sign-in contract MUST remain
-token issuing without a reconnect mode flag.
+install candidate GameWorld features. Normal sign-in MUST remain token issuing
+without a reconnect mode flag.
 
 #### Scenario: Valid and invalid credentials
 
@@ -55,32 +55,30 @@ reconnect handler. It MUST NOT create or fake a caller context.
 
 The handler MUST resolve the existing world session by authenticated master ID,
 then re-resolve and verify its stable connection ID, expected session claim,
-exact logical target, character reference, and authentication subject inside
-the existing session-claim critical section before mutating the target or
-returning that logical target to Raido connection infrastructure. A transient
-logical reconnect transition marker MUST reject a second candidate after the
-winner has committed application state and MUST be cleared when the selected
-physical connection closes.
-It MUST NOT hydrate, register, publish fresh-login messages, or remove the
-existing session on rejected raw-connection cleanup.
+exact logical target, character reference, and authentication subject inside the
+existing session-claim critical section. It MUST invoke Raido's existing
+awaiting-reconnect preflight before GameWorld mutation and MUST complete the
+internal physical attach before the claim action returns.
+
+It MUST NOT hydrate, register, publish fresh-login messages, remove the existing
+session on rejected raw-connection cleanup, or use `Items` for reconnect
+coordination.
 
 #### Scenario: Matching session resumes
 
 - GIVEN an exact authenticated world session with a detached logical target in
   the existing Raido reconnect window
 - WHEN reconnect succeeds
-- THEN the same logical connection, GameSession, claim, character, and
-  handlers resume
+- THEN the same logical connection, GameSession, claim, character, and handlers
+  resume
 - AND only the physical transport, reconnect protocol, and client metadata are
   replaced
 
 ### Requirement: Handshake policy is injectable and request-specific
 
 Handshake revision and system-update policy MUST be provided through
-`IHandshakeValidator<TRequest>` for each request type. The default validator
-MAY be registered as an open generic, and a closed request-specific
-registration MUST be able to replace it without changing the callers. No
-static global handshake policy class may own this decision.
+`IHandshakeValidator<TRequest>` for each request type. No static global
+handshake policy class may own this decision.
 
 #### Scenario: Reconnect validation can be substituted
 
@@ -88,20 +86,6 @@ static global handshake policy class may own this decision.
   `Outdated`
 - WHEN a reconnect request is handled
 - THEN `Outdated` is returned before reconnect authentication is called
-
-### Requirement: Reconnect failure and target ownership policy stay local
-
-Reconnect authentication-result mapping MUST remain outside the handshake
-validator. Session, claim, character, and authenticated-subject matching MUST
-remain reconnect target checks in the reconnect handler unless a second
-concrete consumer justifies a separate abstraction.
-
-#### Scenario: Authentication failure is mapped by the reconnect handler
-
-- GIVEN reconnect authentication reports invalid credentials
-- WHEN the reconnect handler creates its failure response
-- THEN the validator remains responsible only for handshake policy
-- AND the reconnect handler returns `CredentialsInvalid`
 
 ### Requirement: Fresh login and lobby remain unchanged
 
@@ -121,48 +105,49 @@ creation. Lobby authentication MUST remain non-reconnectable.
 
 Successful reconnect MUST send response 15 as plain handshake framing with a
 two-byte payload length and exactly the 4,608-byte player-entry payload. The
-candidate MUST pass authoritative revalidation inside the existing session
-claim before it mutates the existing target. A losing or stale candidate MUST
-NOT mutate the target protocol, ISAAC state, protocol lifetime, character
-metadata, or transport. The winner MUST install the fresh revision-specific
-protocol and reconnect client metadata, flush response 15, and then perform
-the existing logical target to Raido connection infrastructure, which performs
-the existing single physical attachment transition internally.
+candidate MUST pass authoritative session-claim revalidation and Raido's
+awaiting-reconnect preflight before GameWorld preparation. The winner MUST
+install the fresh protocol and metadata, flush response 15, and then perform the
+existing single physical attach internally.
 
 #### Scenario: Response precedes resumed input
 
 - GIVEN a valid revision-742 reconnect
 - WHEN the target accepts the raw connection
-- THEN the candidate passes the session-claim revalidation for the existing detached reconnect target
 - THEN the fresh protocol is installed on the detached target
 - AND response 15 is flushed on the raw handshake transport
-- AND only then does the existing Raido single attach operation resume normal input
+- AND only then does the existing Raido single attach operation resume normal
+  input
 - AND subsequent game input is read by the existing target using the fresh
   reconnect protocol
+
+#### Scenario: Active target is rejected before preparation
+
+- GIVEN physical A is still active on the existing logical target
+- AND physical B presents valid reconnect credentials and matching GameWorld
+  identity
+- WHEN B reaches Raido's existing-dispatch preflight
+- THEN preparation is not invoked
+- AND protocol, ISAAC, metadata, response 15, session, character, and physical A
+  remain unchanged
+- AND B is rejected
 
 #### Scenario: Losing candidate cannot disturb the winner
 
 - GIVEN two valid candidates target the same detached logical connection
-- WHEN the first candidate enters the existing session claim and completes reconnect
-- THEN the other candidate receives no response 15
-- AND its protocol scope is disposed locally
-- AND the winner protocol, ISAAC state, metadata, lifetime, session,
-  character, and physical transport remain unchanged
-
-#### Scenario: Stale candidate after success is rejected
-
-- GIVEN a candidate has resumed the existing logical connection
-- WHEN a stale duplicate reconnect is handled
-- THEN it is rejected without response 15
-- AND the resumed target remains attached to the original winner
+- WHEN the first candidate enters the existing session claim and completes the
+  continuation through physical attach
+- THEN the other candidate is rejected by Raido preflight before preparation
+- AND it receives no response 15
+- AND the winner protocol, metadata, session, character, and physical transport
+  remain unchanged
 
 ### Requirement: Attach failure after target mutation is terminal
 
 If the existing single Raido attach operation fails after the target protocol,
-metadata, and response 15 have been committed, the reconnect handler MUST abort
-the raw replacement and terminate the partially transitioned logical target.
-It MUST NOT leave that target reconnectable with the candidate protocol and
-metadata, and it MUST NOT attempt protocol rollback.
+metadata, and response 15 have been committed, the reconnect continuation MUST
+abort the raw replacement and terminate the partially transitioned logical
+target. It MUST NOT attempt protocol rollback.
 
 #### Scenario: Final attach loses the narrow post-response race
 
@@ -170,4 +155,4 @@ metadata, and it MUST NOT attempt protocol rollback.
 - WHEN the existing single attach operation rejects the replacement
 - THEN the replacement is aborted
 - AND the logical target is terminated
-- AND no second session, character, or reconnect transition is created
+- AND no second session, character, marker, or reconnect transition is created

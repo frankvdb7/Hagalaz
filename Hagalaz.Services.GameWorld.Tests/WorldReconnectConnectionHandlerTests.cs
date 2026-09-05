@@ -32,7 +32,7 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class WorldReconnectConnectionHandlerTests
 {
     [TestMethod]
-    public async Task SelectAsync_WhenInjectedValidatorRejects_DoesNotAuthenticate()
+    public async Task HandleAsync_WhenInjectedValidatorRejects_DoesNotAuthenticate()
     {
         var validator = Substitute.For<IHandshakeValidator<WorldReconnectRequest>>();
         validator.Validate(Arg.Any<WorldReconnectRequest>()).Returns(ClientSignInResponse.Outdated);
@@ -53,8 +53,13 @@ public sealed class WorldReconnectConnectionHandlerTests
 
         try
         {
-            await handler.SelectAsync(
+            var dispatch = new RaidoConnectionDispatchContext(
                 connection,
+                Substitute.For<IRaidoHubConnectionContextFactory>(),
+                connectionHandler);
+            await handler.HandleAsync(
+                connection,
+                dispatch,
                 CreateHandshakeProtocol(),
                 new WorldReconnectRequest(),
                 CancellationToken.None);
@@ -75,7 +80,7 @@ public sealed class WorldReconnectConnectionHandlerTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SelectAsync_FlushesResponseBeforeDispatcherAttachAndLeavesImmediateInputBuffered()
+    public async Task HandleAsync_FlushesResponseBeforeDispatcherAttachAndLeavesImmediateInputBuffered()
     {
         var clientProtocol = Substitute.For<IClientProtocol>();
         clientProtocol.Name.Returns("test-client");
@@ -89,7 +94,19 @@ public sealed class WorldReconnectConnectionHandlerTests
         var handler = fixture.Handler;
         var reconnect = CreateReconnectRequest();
 
-        var run = handler.SelectAsync(fixture.Replacement, CreateHandshakeProtocol(), reconnect, CancellationToken.None);
+        await using var dispatcherProvider = CreateApplicationProvider(
+            (connection, dispatch, cancellationToken) => handler.HandleAsync(
+                connection,
+                dispatch,
+                CreateHandshakeProtocol(),
+                reconnect,
+                cancellationToken));
+        var dispatcher = new RaidoConnectionDispatcher(
+            dispatcherProvider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IRaidoHubConnectionContextFactory>(),
+            fixture.ConnectionHandler,
+            NullLogger<RaidoConnectionDispatcher>.Instance);
+        var run = dispatcher.OnConnectedAsync(fixture.Replacement);
         await gate.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.AreSame(fixture.ClientProtocol, fixture.Target.Protocol);
@@ -97,15 +114,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         await fixture.ReplacementInput.Writer.WriteAsync(new byte[] { 0x12, 0x34 });
 
         gate.Release();
-        var selection = await run;
-        Assert.AreSame(fixture.Target, selection.ExistingConnection);
-
-        var dispatcher = new RaidoConnectionDispatcher(
-            (_, _) => new ValueTask<RaidoConnectionSelection>(selection),
-            Substitute.For<IRaidoHubConnectionContextFactory>(),
-            fixture.ConnectionHandler,
-            NullLogger<RaidoConnectionDispatcher>.Instance);
-        await dispatcher.OnConnectedAsync(fixture.Replacement);
+        await run;
 
         Assert.IsTrue(fixture.Tcp.TryGetCurrentConnection(out var current));
         Assert.AreSame(fixture.Replacement, current);
@@ -136,29 +145,73 @@ public sealed class WorldReconnectConnectionHandlerTests
             .AddScoped<IClientProtocolResolver>(_ => resolver)
             .BuildServiceProvider();
         var fixture = CreateReconnectFixture(provider, clientProtocol, out var gate);
-        var run = fixture.Handler.SelectAsync(
-            fixture.Replacement,
-            CreateHandshakeProtocol(),
-            CreateReconnectRequest(),
-            CancellationToken.None);
+        await using var dispatcherProvider = CreateApplicationProvider(
+            (connection, dispatch, cancellationToken) => fixture.Handler.HandleAsync(
+                connection,
+                dispatch,
+                CreateHandshakeProtocol(),
+                CreateReconnectRequest(),
+                cancellationToken));
+        var dispatcher = new RaidoConnectionDispatcher(
+            dispatcherProvider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IRaidoHubConnectionContextFactory>(),
+            fixture.ConnectionHandler,
+            NullLogger<RaidoConnectionDispatcher>.Instance);
+        var run = dispatcher.OnConnectedAsync(fixture.Replacement);
 
         await gate.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
         fixture.Target.Abort();
         gate.Release();
-        var selection = await run;
-        Assert.AreSame(fixture.Target, selection.ExistingConnection);
-
-        var dispatcher = new RaidoConnectionDispatcher(
-            (_, _) => new ValueTask<RaidoConnectionSelection>(selection),
-            Substitute.For<IRaidoHubConnectionContextFactory>(),
-            fixture.ConnectionHandler,
-            NullLogger<RaidoConnectionDispatcher>.Instance);
-        await dispatcher.OnConnectedAsync(fixture.Replacement);
+        await run;
 
         Assert.IsFalse(fixture.Tcp.TryGetCurrentConnection(out _));
         Assert.IsTrue(fixture.Tcp.IsTerminal);
         fixture.Replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
         Assert.AreEqual(4611, gate.FlushedBytes!.Length);
+
+        await fixture.DisposeAsync();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task HandleAsync_WhenTargetIsActiveRejectsBeforePreparation()
+    {
+        var clientProtocol = CreateClientProtocol("replacement-protocol");
+        await using var provider = new ServiceCollection()
+            .AddScoped<IClientProtocolResolver>(_ =>
+            {
+                var resolver = Substitute.For<IClientProtocolResolver>();
+                resolver.GetProtocol(742).Returns(clientProtocol);
+                return resolver;
+            })
+            .BuildServiceProvider();
+        var fixture = CreateReconnectFixture(provider, clientProtocol, out var gate, detach: false);
+        var oldProtocol = fixture.Target.Protocol;
+        var oldGameClient = fixture.Target.Features.Get<ICharacterFeature>()!.Character!.GameClient;
+        var reconnect = CreateReconnectRequest();
+        await using var dispatcherProvider = CreateApplicationProvider(
+            (connection, dispatch, cancellationToken) => fixture.Handler.HandleAsync(
+                connection,
+                dispatch,
+                CreateHandshakeProtocol(),
+                reconnect,
+                cancellationToken));
+        var dispatcher = new RaidoConnectionDispatcher(
+            dispatcherProvider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IRaidoHubConnectionContextFactory>(),
+            fixture.ConnectionHandler,
+            NullLogger<RaidoConnectionDispatcher>.Instance);
+
+        await dispatcher.OnConnectedAsync(fixture.Replacement);
+
+        Assert.IsNull(gate.FlushedBytes);
+        clientProtocol.DidNotReceive().SetEncryptionSeed(Arg.Any<uint[]>());
+        Assert.AreSame(oldProtocol, fixture.Target.Protocol);
+        Assert.AreSame(oldGameClient, fixture.Target.Features.Get<ICharacterFeature>()!.Character!.GameClient);
+        Assert.IsFalse(fixture.Target.IsTerminal);
+        Assert.IsTrue(fixture.Tcp.TryGetCurrentConnection(out var current));
+        Assert.AreNotSame(fixture.Replacement, current);
+        fixture.Replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
 
         await fixture.DisposeAsync();
     }
@@ -214,6 +267,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         session.MasterId.Returns(42u);
         session.SessionClaimId.Returns("claim");
         var gameClient = new GameClient(DisplayMode.FixedScreen, Language.English, 800, 600);
+        var targetItemsCount = target.Items.Count;
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
         character.Session.Returns(session);
@@ -245,6 +299,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         using var claimLock = new SemaphoreSlim(1, 1);
         var secondClaimAttempted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var claimCalls = 0;
+        var firstClaimReleasedAfterAttach = false;
         claims.ExecuteIfOwnerAsync(
                 42,
                 "claim",
@@ -260,7 +315,15 @@ public sealed class WorldReconnectConnectionHandlerTests
 
                 return ExecuteClaimAsync(
                     claimLock,
-                    callInfo.Arg<Func<CancellationToken, Task<bool>>>()!);
+                    callInfo.Arg<Func<CancellationToken, Task<bool>>>()!,
+                    claimNumber == 1
+                        ? () =>
+                        {
+                            Assert.IsTrue(tcp.TryGetCurrentConnection(out var current));
+                            Assert.AreSame(candidateA, current);
+                            firstClaimReleasedAfterAttach = true;
+                        }
+                        : null);
             });
         var validator = Substitute.For<IHandshakeValidator<WorldReconnectRequest>>();
         validator.Validate(Arg.Any<WorldReconnectRequest>()).Returns(ClientSignInResponse.Success);
@@ -273,30 +336,39 @@ public sealed class WorldReconnectConnectionHandlerTests
             validator,
             NullLogger<WorldReconnectConnectionHandler>.Instance);
         var dispatcherFactory = Substitute.For<IRaidoHubConnectionContextFactory>();
-        var dispatcherA = new RaidoConnectionDispatcher(
-            (connection, cancellationToken) => new ValueTask<RaidoConnectionSelection>(handler.SelectAsync(
+        await using var dispatcherProviderA = CreateApplicationProvider(
+            (connection, dispatch, cancellationToken) => handler.HandleAsync(
                 connection,
+                dispatch,
                 CreateHandshakeProtocol(),
                 CreateReconnectRequest(1, DisplayMode.FixedScreen, Language.English, 800, 600),
-                cancellationToken)),
+                cancellationToken));
+        await using var dispatcherProviderB = CreateApplicationProvider(
+            (connection, dispatch, cancellationToken) => handler.HandleAsync(
+                connection,
+                dispatch,
+                CreateHandshakeProtocol(),
+                CreateReconnectRequest(5, DisplayMode.ResizedScreen, Language.German, 1024, 768),
+                cancellationToken));
+        await using var dispatcherProviderC = CreateApplicationProvider(
+            (connection, dispatch, cancellationToken) => handler.HandleAsync(
+                connection,
+                dispatch,
+                CreateHandshakeProtocol(),
+                CreateReconnectRequest(9, DisplayMode.FullScreen, Language.German, 1280, 720),
+                cancellationToken));
+        var dispatcherA = new RaidoConnectionDispatcher(
+            dispatcherProviderA.GetRequiredService<IServiceScopeFactory>(),
             dispatcherFactory,
             connectionHandler,
             NullLogger<RaidoConnectionDispatcher>.Instance);
         var dispatcherB = new RaidoConnectionDispatcher(
-            (connection, cancellationToken) => new ValueTask<RaidoConnectionSelection>(handler.SelectAsync(
-                connection,
-                CreateHandshakeProtocol(),
-                CreateReconnectRequest(5, DisplayMode.ResizedScreen, Language.German, 1024, 768),
-                cancellationToken)),
+            dispatcherProviderB.GetRequiredService<IServiceScopeFactory>(),
             dispatcherFactory,
             connectionHandler,
             NullLogger<RaidoConnectionDispatcher>.Instance);
         var dispatcherC = new RaidoConnectionDispatcher(
-            (connection, cancellationToken) => new ValueTask<RaidoConnectionSelection>(handler.SelectAsync(
-                connection,
-                CreateHandshakeProtocol(),
-                CreateReconnectRequest(9, DisplayMode.FullScreen, Language.German, 1280, 720),
-                cancellationToken)),
+            dispatcherProviderC.GetRequiredService<IServiceScopeFactory>(),
             dispatcherFactory,
             connectionHandler,
             NullLogger<RaidoConnectionDispatcher>.Instance);
@@ -317,6 +389,8 @@ public sealed class WorldReconnectConnectionHandlerTests
             await taskB.WaitAsync(TimeSpan.FromSeconds(1));
 
             Assert.IsTrue(claimCalls >= 2);
+            Assert.IsTrue(firstClaimReleasedAfterAttach);
+            Assert.AreEqual(targetItemsCount, target.Items.Count);
             Assert.AreEqual(4611, gateA.FlushedBytes!.Length);
             Assert.IsNull(gateB.FlushedBytes);
             Assert.AreSame(protocolA, target.Protocol);
@@ -373,7 +447,8 @@ public sealed class WorldReconnectConnectionHandlerTests
 
         static async Task<bool> ExecuteClaimAsync(
             SemaphoreSlim claimLock,
-            Func<CancellationToken, Task<bool>> action)
+            Func<CancellationToken, Task<bool>> action,
+            Action? onReleased = null)
         {
             await claimLock.WaitAsync();
             try
@@ -383,9 +458,15 @@ public sealed class WorldReconnectConnectionHandlerTests
             finally
             {
                 claimLock.Release();
+                onReleased?.Invoke();
             }
         }
     }
+
+    private static ServiceProvider CreateApplicationProvider(RaidoConnectionDelegate application) =>
+        new ServiceCollection()
+            .AddScoped<RaidoConnectionDelegate>(_ => application)
+            .BuildServiceProvider();
 
     private static HandshakeProtocol CreateHandshakeProtocol() =>
         new(new TestHandshakeCodec(), Options.Create(new Hagalaz.Services.GameWorld.Configuration.Model.ServerConfig
@@ -444,7 +525,8 @@ public sealed class WorldReconnectConnectionHandlerTests
     private static ReconnectFixture CreateReconnectFixture(
         ServiceProvider provider,
         IClientProtocol clientProtocol,
-        out GatedPipeWriter gate)
+        out GatedPipeWriter gate,
+        bool detach = true)
     {
         var stableConnectionId = "stable-logical";
         var initial = CreatePhysicalConnection(stableConnectionId, out var initialInput, out var initialOutput, out var initialClosed);
@@ -465,12 +547,15 @@ public sealed class WorldReconnectConnectionHandlerTests
             Substitute.For<IRaidoProtocol>(),
             NullLoggerFactory.Instance,
             TimeProvider.System);
-        initialClosed.Cancel();
-        Assert.IsTrue(tcp.Transport.Input.TryRead(out var boundary));
-        Assert.IsTrue(boundary.IsCanceled);
-        Assert.IsTrue(boundary.Buffer.IsEmpty);
-        tcp.Transport.Input.AdvanceTo(boundary.Buffer.End);
-        tcp.AcknowledgeInputBoundary();
+        if (detach)
+        {
+            initialClosed.Cancel();
+            Assert.IsTrue(tcp.Transport.Input.TryRead(out var boundary));
+            Assert.IsTrue(boundary.IsCanceled);
+            Assert.IsTrue(boundary.Buffer.IsEmpty);
+            tcp.Transport.Input.AdvanceTo(boundary.Buffer.End);
+            tcp.AcknowledgeInputBoundary();
+        }
 
         var session = Substitute.For<IGameWorldSession>();
         session.ConnectionId.Returns(stableConnectionId);

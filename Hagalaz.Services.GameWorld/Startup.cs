@@ -150,8 +150,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped(typeof(IHandshakeValidator<>), typeof(DefaultHandshakeValidator<>));
             services.AddScoped<WorldReconnectConnectionHandler>();
             services.AddScoped<ClientConnectionHandler>();
-            services.AddScoped<RaidoConnectionSelector>(provider =>
-                provider.GetRequiredService<ClientConnectionHandler>().SelectAsync);
+            services.AddScoped<RaidoConnectionDelegate>(provider =>
+                provider.GetRequiredService<ClientConnectionHandler>().HandleAsync);
             services.AddSingleton<IClientHandshakeHandler, ClientHandshakeHandler>();
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();

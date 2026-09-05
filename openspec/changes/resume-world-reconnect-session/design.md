@@ -1,20 +1,26 @@
 # Design
 
-## Initial classification
+## Dispatcher boundary
 
-`RaidoConnectionDispatcher` owns the accepted physical `ConnectionContext` and
-invokes the GameWorld selection callback. `ClientConnectionHandler` reads opcode 14 with the existing
+`RaidoConnectionDispatcher` owns each accepted physical `ConnectionContext`,
+creates one application scope, resolves the scoped `RaidoConnectionDelegate`,
+and invokes it with a per-connection `RaidoConnectionDispatchContext`. The
+dispatch context has an internal constructor and privately owns the accepted
+physical connection, the logical-context factory, and the logical Hub handler.
+It exposes only `DispatchNewAsync` and `DispatchExistingAsync`; it does not
+expose the physical connection or a reconnect-state query.
+
+`ClientConnectionHandler` reads opcode 14 with the existing
 `HandshakeProtocol`, consumes that fixed one-byte message, and sends the same
 acknowledgement that `HandshakeHub` previously produced. It then reads the
-following authentication request. For reconnect, it consumes those
-authentication bytes before passing the same raw `ConnectionContext` to the
-reconnect handler. For fresh world and lobby requests, it retains the bytes so
-the normal Raido logical handler reads the request exactly once.
+following authentication request. Reconnect consumes those authentication bytes
+before Raido logical creation. Fresh world and lobby retain their bytes so the
+normal logical handler reads each request exactly once.
 
-The dispatcher creates the normal logical context only after classification. It
-receives `statefulReconnect: true` for `WorldSignInRequest` and false for lobby
-and all other requests. The normal `HandshakeHub` therefore keeps its existing fresh
-world and lobby behavior and does not enable reconnect at runtime.
+`DispatchNewAsync` creates the logical context through the existing factory and
+awaits `RaidoHubConnectionHandler.ConnectAsync`, keeping the application scope
+alive for the logical connection. Fresh world receives `statefulReconnect: true`;
+lobby receives false.
 
 ## Reconnect ownership
 
@@ -23,68 +29,53 @@ world and lobby behavior and does not enable reconnect at runtime.
 policy. It performs dedicated existing-authentication validation, exact
 world-session lookup, the existing session-claim check, and exact
 logical-session/character/auth-subject matching. It resolves the target by the
-stable session connection ID. Reconnect failure mapping and target ownership
-checking remain private to this handler because neither is handshake policy.
+stable session connection ID.
 
-The handler returns the resolved target to `RaidoConnectionDispatcher`; it
-never calls a physical attach operation. The dispatcher calls the existing
-internal target attach seam after selection. Competing candidates are
-serialized by `IGameSessionClaimStore.ExecuteIfOwnerAsync`; after entering that
-critical section, the handler re-resolves and validates the current session,
-claim, target, character, and authentication subject. A transient marker on
-the existing logical target rejects a second candidate after the winner has
-committed application state and clears when the selected physical connection
-closes. Only the candidate that passes those checks mutates the target. It
-installs the protocol and metadata, flushes response 15, and returns the
-existing target. No new transport state owner, reservation, lease, or second
-Raido transition is introduced.
+Inside `IGameSessionClaimStore.ExecuteIfOwnerAsync`, the handler re-resolves
+and validates the current session, claim, target, character, and subject, then
+calls `DispatchExistingAsync`. Raido first verifies under its existing state
+lock that the target is awaiting reconnect: reconnect is enabled, the target is
+not terminal or disposed, no physical connection is current, a live reconnect
+waiter and detached physical connection exist, and the reconnect window has not
+expired. Only after this preflight does the context invoke GameWorld's
+preparation callback. The callback installs the fresh protocol, updates client
+metadata, and flushes response 15. The context then performs the existing
+internal `TryAttachPhysicalConnection` before returning, so the GameSession
+claim remains held through attachment.
 
-It receives only the logical Raido target and physical `ConnectionContext`, so
-it remains application-neutral. The target logical object, features, items,
-handlers, and stable ID remain the owner. The replacement physical ID is left
-untouched. `RaidoHubConnectionContext` does not expose physical attachment
-publicly, and Raido #477/#488 reconnect behavior remains the single
-synchronized attach transition defined by that architecture.
-
-The existing `IGameSessionClaimStore.ExecuteIfOwnerAsync` serializes competing
-GameWorld reconnect attempts for the known session claim. Raido's existing
-reconnect window and attach lock remain the transport winner mechanism.
+There is no connection-selection result DTO, GameWorld reconnect marker,
+`Items`-based coordination, reservation, lease, or second reconnect state. The
+final internal attach is the authoritative winner operation.
 
 ## Protocol and ordering
 
 The reconnect handler creates a fresh revision-specific client protocol in its
-own scope and seeds it from the reconnect request. Inside the existing session
-claim critical section, the selected winner installs that protocol on the
-detached target through `SetProtocolAsync`, updates reconnect-specific client
-metadata, and sends and flushes response 15 directly through the raw
-connection using `HandshakeProtocol`. Response 15 is opcode 15 with declared
-`VariableShort` framing and a 4,608-byte player-entry payload. The handler then
-returns the existing target; the connection dispatcher performs the existing
-single Raido attach operation, which publishes the replacement and resumes the
-existing logical reader.
+own async scope and seeds it from the reconnect request. Ownership of that scope
+transfers to the existing target when `SetProtocolAsync` is called; the handler
+does not dispose it afterward. Response 15 is opcode 15 with declared
+`VariableShort` framing and a 4,608-byte player-entry payload.
 
 The raw input pipe has no Raido reader before attach. A client packet sent
-immediately after response 15 therefore stays buffered, then is decoded once
-by the existing Raido input pump using the fresh protocol after attach.
+immediately after response 15 therefore stays buffered, then is decoded once by
+the existing Raido input pump using the fresh protocol after attach.
 
-No response-aware Raido writer, physical transport writer, candidate registry,
-generation, reservation, lease, or second reconnect state machine is added. If
-response flushing or the final attach fails after protocol ownership
-transfers, the target is aborted and the raw replacement is aborted. This
-simple terminal policy avoids leaving a partially transitioned target
-reconnectable; protocol rollback is not attempted.
+If preparation or final attach fails after the target has begun mutation, the
+dispatch context aborts the logical target and replacement physical connection,
+without protocol rollback. A clean preflight rejection returns false before the
+preparation callback. A failure after preparation throws an infrastructure
+connection-aborted exception.
 
-## Authentication
+## Application scope and authentication
+
+The dispatcher does not constructor-inject a scoped application handler. It
+creates and disposes one async scope per accepted physical connection. The
+scope remains alive through a new logical Hub lifecycle and ends after an
+existing reconnect has internally attached. The separately created reconnect
+protocol scope transfers to the existing target on successful protocol
+replacement.
 
 Normal sign-in keeps the token-issuing `SignInUserRequestMessage` contract.
 Reconnect uses the dedicated validation message and response. Its raw login,
-password, remote address, and physical connection ID are passed in an
-explicit `WorldReconnectAuthenticationRequest`, so this pre-Raido path does
-not read `IRaidoCallerContextAccessor.Context`. The GameWorld authentication
-service maps the validated subject to the master ID, uses the explicit address
-or connection ID for rate limiting, and does not mint a token or install
-candidate features.
-
-Fresh lobby and world hubs use request-specific validators through DI. The
-open-generic default registration can be replaced later by a closed
-request-specific registration without editing either caller.
+password, remote address, and physical connection ID are passed in an explicit
+`WorldReconnectAuthenticationRequest`, so this pre-Raido path does not read
+`IRaidoCallerContextAccessor.Context`.

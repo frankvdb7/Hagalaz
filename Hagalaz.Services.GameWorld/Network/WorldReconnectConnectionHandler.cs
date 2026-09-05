@@ -24,8 +24,6 @@ namespace Hagalaz.Services.GameWorld.Network;
 
 public sealed class WorldReconnectConnectionHandler
 {
-    private static readonly object ReconnectTransitionKey = new();
-
     private readonly IAuthenticationService _authenticationService;
     private readonly IGameSessionService _gameSessionService;
     private readonly IGameSessionClaimStore _sessionClaims;
@@ -52,8 +50,9 @@ public sealed class WorldReconnectConnectionHandler
         _logger = logger;
     }
 
-    public async Task<RaidoConnectionSelection> SelectAsync(
+    public async Task HandleAsync(
         ConnectionContext connection,
+        RaidoConnectionDispatchContext dispatch,
         HandshakeProtocol handshakeProtocol,
         WorldReconnectRequest message,
         CancellationToken cancellationToken)
@@ -66,7 +65,7 @@ public sealed class WorldReconnectConnectionHandler
             if (validation != ClientSignInResponse.Success)
             {
                 await SendResponseAsync(connection, handshakeProtocol, validation, cancellationToken);
-                return RaidoConnectionSelection.Rejected();
+                return;
             }
 
             WorldReconnectAuthenticationResult authentication;
@@ -82,18 +81,18 @@ public sealed class WorldReconnectConnectionHandler
             catch (RequestTimeoutException)
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.AuthServiceOffline, cancellationToken);
-                return RaidoConnectionSelection.Rejected();
+                return;
             }
             catch (TimeoutRejectedException)
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.AuthServiceOffline, cancellationToken);
-                return RaidoConnectionSelection.Rejected();
+                return;
             }
 
             if (!authentication.Succeeded || authentication.MasterId is not uint)
             {
                 await SendResponseAsync(connection, handshakeProtocol, GetFailureResponse(authentication), cancellationToken);
-                return RaidoConnectionSelection.Rejected();
+                return;
             }
 
             var masterId = authentication.MasterId.Value;
@@ -104,7 +103,7 @@ public sealed class WorldReconnectConnectionHandler
                 !IsMatchingWorldConnection(target, session, masterId))
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.BadSession, cancellationToken);
-                return RaidoConnectionSelection.Rejected();
+                return;
             }
 
             var clientProtocol = protocolScope.ServiceProvider
@@ -113,14 +112,13 @@ public sealed class WorldReconnectConnectionHandler
             if (clientProtocol is null)
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.Outdated, cancellationToken);
-                return RaidoConnectionSelection.Rejected();
+                return;
             }
 
-            clientProtocol.SetEncryptionSeed(message.IsaacSeed);
             var attached = await _sessionClaims.ExecuteIfOwnerAsync(
                 masterId,
                 session.SessionClaimId,
-                async _ =>
+                async claimCancellationToken =>
                 {
                     var currentSession = await _gameSessionService.FindWorldSessionByMasterId(masterId);
                     var currentTarget = currentSession is null ? null : _connections[currentSession.ConnectionId];
@@ -136,64 +134,54 @@ public sealed class WorldReconnectConnectionHandler
                     }
 
                     var character = currentTarget.Features.Get<ICharacterFeature>()?.Character;
-                    if (character is null || !TryBeginReconnectTransition(currentTarget, connection))
+                    if (character is null)
                     {
                         return false;
                     }
 
-                    var targetMutated = false;
-                    try
-                    {
-                        await currentTarget.SetProtocolAsync(clientProtocol, protocolScope, CancellationToken.None);
-                        protocolScopeTransferred = true;
-                        targetMutated = true;
-                        character.GameClient.DisplayMode = message.DisplayMode;
-                        character.GameClient.Language = message.Language;
-                        character.GameClient.ScreenSizeX = message.ClientSizeX;
-                        character.GameClient.ScreenSizeY = message.ClientSizeY;
-
-                        await SendResponseAsync(
-                            connection,
-                            handshakeProtocol,
-                            new WorldReconnectResponse
-                            {
-                                CharacterIndex = character.Index,
-                                CharacterLocation = character.Location
-                            },
-                            CancellationToken.None);
-
-                        return true;
-                    }
-                    catch
-                    {
-                        if (targetMutated)
+                    return await dispatch.DispatchExistingAsync(
+                        currentTarget,
+                        async prepareCancellationToken =>
                         {
-                            currentTarget.Abort();
-                        }
-                        else
-                        {
-                            EndReconnectTransition(currentTarget);
-                        }
+                            // SetProtocolAsync owns disposal if it cannot accept the incoming lifetime. Mark the
+                            // scope as handed off before awaiting it to avoid disposing the same scope twice.
+                            clientProtocol.SetEncryptionSeed(message.IsaacSeed);
+                            protocolScopeTransferred = true;
+                            await currentTarget.SetProtocolAsync(
+                                clientProtocol,
+                                protocolScope,
+                                prepareCancellationToken);
+                            character.GameClient.DisplayMode = message.DisplayMode;
+                            character.GameClient.Language = message.Language;
+                            character.GameClient.ScreenSizeX = message.ClientSizeX;
+                            character.GameClient.ScreenSizeY = message.ClientSizeY;
 
-                        throw;
-                    }
+                            await SendResponseAsync(
+                                connection,
+                                handshakeProtocol,
+                                new WorldReconnectResponse
+                                {
+                                    CharacterIndex = character.Index,
+                                    CharacterLocation = character.Location
+                                },
+                                prepareCancellationToken);
+                        },
+                        claimCancellationToken);
                 },
                 connection.ConnectionClosed);
             if (!attached)
             {
-                return RaidoConnectionSelection.Rejected();
+                return;
             }
-
-            return RaidoConnectionSelection.Existing(target);
         }
         catch (OperationCanceledException) when (connection.ConnectionClosed.IsCancellationRequested)
         {
-            return RaidoConnectionSelection.Rejected();
+            return;
         }
         catch (Exception ex)
         {
             Log.Failed(_logger, ex);
-            return RaidoConnectionSelection.Rejected();
+            throw;
         }
         finally
         {
@@ -243,34 +231,6 @@ public sealed class WorldReconnectConnectionHandler
             targetAuthentication?.TryGetClaim<string>(OpenIddictConstants.Claims.Subject, out var subject) == true &&
             uint.TryParse(subject, out var authenticatedMasterId) &&
             authenticatedMasterId == masterId;
-    }
-
-    private static bool TryBeginReconnectTransition(
-        RaidoHubConnectionContext target,
-        ConnectionContext connection)
-    {
-        lock (target.Items)
-        {
-            if (target.Items.ContainsKey(ReconnectTransitionKey))
-            {
-                return false;
-            }
-
-            target.Items[ReconnectTransitionKey] = new object();
-        }
-
-        connection.ConnectionClosed.Register(
-            static state => EndReconnectTransition((RaidoHubConnectionContext)state!),
-            target);
-        return true;
-    }
-
-    private static void EndReconnectTransition(RaidoHubConnectionContext target)
-    {
-        lock (target.Items)
-        {
-            target.Items.Remove(ReconnectTransitionKey);
-        }
     }
 
     private static class Log

@@ -680,6 +680,20 @@ namespace Raido.Server
             }
         }
 
+        internal bool IsAwaitingReconnect
+        {
+            get
+            {
+                lock (_stateLock)
+                {
+                    return !_disposed && _reconnectEnabled && _currentPhysicalConnection is null &&
+                        _reconnectWaiter is TaskCompletionSource<bool> reconnectWaiter &&
+                        !reconnectWaiter.Task.IsCompleted && _detachedPhysicalConnection is not null &&
+                        !IsReconnectWindowExpiredLocked();
+                }
+            }
+        }
+
         internal bool TryGetCurrentConnection(out ConnectionContext connection)
         {
             lock (_stateLock)
