@@ -17,16 +17,16 @@ session and character.
   requests continue through the normal factory path; only fresh world login
   enables the existing Raido stateful reconnect window.
 - For a reconnect request, validate the existing world session, claim, logical
-  connection, character, and authentication subject, then ask Raido connection
-  infrastructure to activate the raw `ConnectionContext` on that existing
-  logical connection.
+  connection, character, and authentication subject, then use the existing
+  session claim critical section to revalidate the target before mutating it
+  and asking Raido to activate the raw `ConnectionContext`.
 - Use the existing Raido attach lifecycle and protocol replacement API. No
   candidate logical context, cross-context handoff, transport transfer, or
   reconnect-specific Raido state is introduced.
-- Select the physical winner through one application-neutral Raido reservation
-  before mutating the target. Keep the existing reconnect waiter pending while
-  GameWorld installs the winner protocol and metadata and flushes response 15;
-  resume the existing Raido reader only after that boundary.
+- Install the winner protocol and metadata and flush response 15 while the
+  replacement transport is still raw, then perform one existing Raido physical
+  attach transition. A stale or concurrent candidate is rejected inside the
+  existing session claim before target mutation.
 - Provide handshake policy through an injectable, request-specific
   `IHandshakeValidator<TRequest>`.
 
@@ -40,7 +40,8 @@ session and character.
 - Do not modify the existing #477/#488 Raido reconnect state machine. Raido
   connection infrastructure may expose one application-neutral physical
   activation operation that delegates to its existing internal attach seam.
-  No high-level reconnect wrapper is added.
+  No reservation, lease, handoff, callback, or second reconnect transition is
+  added.
 
 ## Acceptance criteria
 
@@ -52,17 +53,19 @@ session and character.
 - A successful reconnect preserves the existing logical connection ID,
   GameSession, claim, character reference, registration, and handlers. The raw
   replacement physical connection ID is never rewritten.
-- The existing Raido reconnect window and GameWorld session claim provide the
-  single-winner race boundary. Invalid, stale, duplicate, concurrent, missing,
-  and lost-claim requests fail without disturbing resumed state. A candidate
-  that loses physical reservation cannot mutate the target protocol, ISAAC,
-  protocol lifetime, character metadata, or transport.
+- The existing GameWorld session claim serializes reconnect candidates. Each
+  candidate revalidates the current session, claim, target, character, subject,
+  and detached/reconnectable state inside that claim before changing target
+  state. Invalid, stale, duplicate, concurrent, missing, and lost-claim
+  requests fail without disturbing resumed state.
 - Response 15 uses plain handshake framing with a two-byte payload length and
-  the exact 4,608-byte player-entry payload. The candidate must reserve the
-  physical winner before GameWorld installs protocol/metadata or sends success;
-  the existing detached Raido logical connection resumes only after response
-  15 is flushed. The first immediate game packet remains buffered until that
-  resume starts Raido's existing reader.
+  the exact 4,608-byte player-entry payload. The winner installs
+  protocol/metadata and flushes response 15 while the physical connection is
+  still raw, then performs one existing Raido attach. The first immediate game
+  packet remains buffered until that attach starts Raido's existing reader.
+- If the final attach fails after target mutation, the replacement is aborted
+  and the existing logical target is terminated rather than left partially
+  transitioned and reconnectable.
 - Existing fresh world and lobby response bytes and routing remain unchanged.
 - Handshake policy is injected through request-specific validators, with no
   static global handshake policy class.

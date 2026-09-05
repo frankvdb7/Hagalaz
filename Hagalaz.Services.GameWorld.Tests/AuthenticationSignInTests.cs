@@ -92,6 +92,41 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task AuthenticateWorldReconnectAsync_WhenRemoteAddressIsMissingLeavesRemoteIpAddressNull()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var validateClient = Substitute.For<IRequestClient<ValidateExistingAuthenticationRequestMessage>>();
+        var validateResponse = CreateResponse(new ValidateExistingAuthenticationResponseMessage
+        {
+            Succeeded = true,
+            Subject = "42"
+        });
+        validateClient
+            .GetResponse<ValidateExistingAuthenticationResponseMessage>(
+                Arg.Any<ValidateExistingAuthenticationRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .ReturnsForAnyArgs(Task.FromResult(validateResponse));
+        var contextAccessor = Substitute.For<IRaidoCallerContextAccessor>();
+        contextAccessor.Context.Returns(_ => throw new InvalidOperationException("Ambient Raido context must not be used."));
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            validateAuthenticationRequestClient: validateClient,
+            contextAccessor: contextAccessor);
+
+        var result = await service.AuthenticateWorldReconnectAsync(
+            new WorldReconnectAuthenticationRequest("login", "password", null, "physical-reconnect"));
+
+        Assert.IsTrue(result.Succeeded);
+        await validateClient.Received(1).GetResponse<ValidateExistingAuthenticationResponseMessage>(
+            Arg.Is<ValidateExistingAuthenticationRequestMessage>(message =>
+                message!.RemoteIpAddress == null &&
+                message.Login == "login" &&
+                message.Password == "password"),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<RequestTimeout>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignInWorldAsync_WhenCharacterHydrationFails_RemovesSession()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();

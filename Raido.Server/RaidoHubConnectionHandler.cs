@@ -107,36 +107,14 @@ namespace Raido.Server
         }
 
         /// <summary>
-        /// Selects a replacement physical connection, runs work that must complete before normal input resumes, and resumes the logical connection.
+        /// Gets whether the logical connection is currently detached within its existing reconnect window.
         /// </summary>
         /// <param name="connection">The existing logical connection.</param>
-        /// <param name="physicalConnection">The physical connection to activate.</param>
-        /// <param name="beforeResume">The work to run after winner selection and before normal input resumes.</param>
-        /// <returns><see langword="true"/> when the physical connection was accepted.</returns>
-        public async ValueTask<bool> TryActivatePhysicalConnectionAsync(
-            RaidoHubConnectionContext connection,
-            ConnectionContext physicalConnection,
-            Func<ValueTask> beforeResume)
+        /// <returns><see langword="true"/> when a replacement physical connection can currently be considered.</returns>
+        public bool IsReconnectable(RaidoHubConnectionContext connection)
         {
             ArgumentNullException.ThrowIfNull(connection);
-            ArgumentNullException.ThrowIfNull(physicalConnection);
-            ArgumentNullException.ThrowIfNull(beforeResume);
-
-            if (!connection.TryReservePhysicalConnection(physicalConnection))
-            {
-                return false;
-            }
-
-            try
-            {
-                await beforeResume().ConfigureAwait(false);
-                return connection.ResumePhysicalConnection(physicalConnection);
-            }
-            catch
-            {
-                connection.Abort();
-                throw;
-            }
+            return connection.IsReconnectable;
         }
 
         /// <summary>

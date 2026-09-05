@@ -54,8 +54,10 @@ reconnect handler. It MUST NOT create or fake a caller context.
 ### Requirement: Reconnect reuses exact GameWorld state
 
 The handler MUST resolve the existing world session by authenticated master ID,
-verify its stable connection ID, session claim, character reference, and
-authentication subject, and ask Raido connection infrastructure to activate the
+then re-resolve and verify its stable connection ID, expected session claim,
+exact logical target, character reference, authentication subject, and detached
+reconnectable state inside the existing session-claim critical section before
+mutating the target or asking Raido connection infrastructure to activate the
 raw connection on that existing logical target.
 It MUST NOT hydrate, register, publish fresh-login messages, or remove the
 existing session on rejected raw-connection cleanup.
@@ -117,27 +119,28 @@ creation. Lobby authentication MUST remain non-reconnectable.
 
 Successful reconnect MUST send response 15 as plain handshake framing with a
 two-byte payload length and exactly the 4,608-byte player-entry payload. The
-candidate MUST atomically win physical eligibility before it mutates the
-existing target. A losing or stale candidate MUST NOT mutate the target
-protocol, ISAAC state, protocol lifetime, character metadata, or transport.
-The winner MUST have the fresh revision-specific protocol and reconnect client
-metadata installed before normal Raido input resumes.
+candidate MUST pass authoritative revalidation inside the existing session
+claim before it mutates the existing target. A losing or stale candidate MUST
+NOT mutate the target protocol, ISAAC state, protocol lifetime, character
+metadata, or transport. The winner MUST install the fresh revision-specific
+protocol and reconnect client metadata, flush response 15, and then perform
+the existing single Raido physical attachment transition.
 
 #### Scenario: Response precedes resumed input
 
 - GIVEN a valid revision-742 reconnect
 - WHEN the target accepts the raw connection
-- THEN the candidate atomically wins the existing detached reconnect target
+- THEN the candidate passes the session-claim revalidation for the existing detached reconnect target
 - THEN the fresh protocol is installed on the detached target
 - AND response 15 is flushed on the raw handshake transport
-- AND only then does the existing Raido reconnect waiter resume normal input
+- AND only then does the existing Raido single attach operation resume normal input
 - AND subsequent game input is read by the existing target using the fresh
   reconnect protocol
 
 #### Scenario: Losing candidate cannot disturb the winner
 
 - GIVEN two valid candidates target the same detached logical connection
-- WHEN the first candidate reserves the physical winner
+- WHEN the first candidate enters the existing session claim and completes reconnect
 - THEN the other candidate receives no response 15
 - AND its protocol scope is disposed locally
 - AND the winner protocol, ISAAC state, metadata, lifetime, session,
@@ -149,3 +152,19 @@ metadata installed before normal Raido input resumes.
 - WHEN a stale duplicate reconnect is handled
 - THEN it is rejected without response 15
 - AND the resumed target remains attached to the original winner
+
+### Requirement: Attach failure after target mutation is terminal
+
+If the existing single Raido attach operation fails after the target protocol,
+metadata, and response 15 have been committed, the reconnect handler MUST abort
+the raw replacement and terminate the partially transitioned logical target.
+It MUST NOT leave that target reconnectable with the candidate protocol and
+metadata, and it MUST NOT attempt protocol rollback.
+
+#### Scenario: Final attach loses the narrow post-response race
+
+- GIVEN authoritative revalidation succeeds and response 15 is flushed
+- WHEN the existing single attach operation rejects the replacement
+- THEN the replacement is aborted
+- AND the logical target is terminated
+- AND no second session, character, or reconnect transition is created

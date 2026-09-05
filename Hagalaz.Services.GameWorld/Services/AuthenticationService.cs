@@ -318,7 +318,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     new ValidateExistingAuthenticationRequestMessage(
                         request.Login,
                         request.Password,
-                        request.RemoteAddress?.ToString() ?? request.ConnectionId,
+                        request.RemoteAddress?.ToString(),
                         _defaultScopes,
                         _worldClientScopes),
                     cancellationToken);

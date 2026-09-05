@@ -123,24 +123,38 @@ public sealed class WorldReconnectConnectionHandler
                 return;
             }
 
-            var character = target.Features.Get<ICharacterFeature>()?.Character;
-            if (character is null)
-            {
-                await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.BadSession, cancellationToken);
-                connection.Abort();
-                return;
-            }
-
             clientProtocol.SetEncryptionSeed(message.IsaacSeed);
             var attached = await _sessionClaims.ExecuteIfOwnerAsync(
                 masterId,
                 session.SessionClaimId,
                 async _ =>
                 {
-                    return await _connectionHandler.TryActivatePhysicalConnectionAsync(target, connection, async () =>
+                    var currentSession = await _gameSessionService.FindWorldSessionByMasterId(masterId);
+                    var currentTarget = currentSession is null ? null : _connections[currentSession.ConnectionId];
+                    if (currentSession is null ||
+                        !ReferenceEquals(currentSession, session) ||
+                        currentSession.ConnectionId != session.ConnectionId ||
+                        currentSession.SessionClaimId != session.SessionClaimId ||
+                        !ReferenceEquals(currentTarget, target) ||
+                        currentTarget.ConnectionId != currentSession.ConnectionId ||
+                        !IsMatchingWorldConnection(currentTarget, currentSession, masterId) ||
+                        !_connectionHandler.IsReconnectable(currentTarget))
                     {
-                        await target.SetProtocolAsync(clientProtocol, protocolScope, CancellationToken.None);
+                        return false;
+                    }
+
+                    var character = currentTarget.Features.Get<ICharacterFeature>()?.Character;
+                    if (character is null)
+                    {
+                        return false;
+                    }
+
+                    var targetMutated = false;
+                    try
+                    {
+                        await currentTarget.SetProtocolAsync(clientProtocol, protocolScope, CancellationToken.None);
                         protocolScopeTransferred = true;
+                        targetMutated = true;
                         character.GameClient.DisplayMode = message.DisplayMode;
                         character.GameClient.Language = message.Language;
                         character.GameClient.ScreenSizeX = message.ClientSizeX;
@@ -155,7 +169,24 @@ public sealed class WorldReconnectConnectionHandler
                                 CharacterLocation = character.Location
                             },
                             CancellationToken.None);
-                    });
+
+                        if (_connectionHandler.TryActivatePhysicalConnection(currentTarget, connection))
+                        {
+                            return true;
+                        }
+
+                        currentTarget.Abort();
+                        return false;
+                    }
+                    catch
+                    {
+                        if (targetMutated)
+                        {
+                            currentTarget.Abort();
+                        }
+
+                        throw;
+                    }
                 },
                 connection.ConnectionClosed);
             if (!attached)

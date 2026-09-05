@@ -75,6 +75,7 @@ namespace Raido.Server
         internal PipeReader TransportInput => _tcpConnection.Transport.Input;
         internal bool IsTerminal => _tcpConnection.IsTerminal;
         internal bool IsReconnectEnabled => _tcpConnection.IsReconnectEnabled;
+        internal bool IsReconnectable => _tcpConnection.IsReconnectEnabled && !_tcpConnection.IsActive;
         internal Exception? TerminalException => _tcpConnection.TerminalException;
 
         internal RaidoHubConnectionContext(
@@ -197,12 +198,6 @@ namespace Raido.Server
         internal void CompleteTransportInput() => _tcpConnection.CompleteTransportInput();
 
         internal bool TryAttachPhysicalConnection(ConnectionContext connection) => _tcpConnection.TryAttachPhysicalConnection(connection);
-
-        internal bool TryReservePhysicalConnection(ConnectionContext connection) =>
-            _tcpConnection.TryAttachPhysicalConnection(connection, resume: false);
-
-        internal bool ResumePhysicalConnection(ConnectionContext connection) =>
-            _tcpConnection.ResumePhysicalConnection(connection);
 
         internal Task OnConnectedAsync()
         {
