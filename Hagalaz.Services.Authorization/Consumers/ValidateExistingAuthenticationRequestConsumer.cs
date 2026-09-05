@@ -63,7 +63,7 @@ public sealed class ValidateExistingAuthenticationRequestConsumer : IConsumer<Va
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             await context.RespondAsync(new ValidateExistingAuthenticationResponseMessage());
             return;

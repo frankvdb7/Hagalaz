@@ -198,6 +198,12 @@ namespace Raido.Server
 
         internal bool TryAttachPhysicalConnection(ConnectionContext connection) => _tcpConnection.TryAttachPhysicalConnection(connection);
 
+        internal bool TryReservePhysicalConnection(ConnectionContext connection) =>
+            _tcpConnection.TryAttachPhysicalConnection(connection, resume: false);
+
+        internal bool ResumePhysicalConnection(ConnectionContext connection) =>
+            _tcpConnection.ResumePhysicalConnection(connection);
+
         internal Task OnConnectedAsync()
         {
             Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(

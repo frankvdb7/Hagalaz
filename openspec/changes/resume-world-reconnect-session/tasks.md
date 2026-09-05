@@ -20,8 +20,8 @@
   methods, response-aware physical writes, runtime reconnect features, and
   duplicate reconnect completion logic.
 - [x] Install the fresh reconnect protocol on the existing target, flush
-  response 15, and only then activate the raw transport so immediate game
-  input remains buffered until Raido resumes.
+  response 15, and only then resume the atomically selected raw transport so
+  immediate game input remains buffered until Raido resumes.
 - [x] Inject request-specific handshake validators for reconnect, fresh world,
   and lobby requests. Keep reconnect failure mapping and target ownership
   checks local to the reconnect handler.
@@ -32,7 +32,8 @@
 
 - [x] Preserve decoder, authentication, framing, fresh-login, and Raido
   attach coverage; add focused coverage for raw classification, infrastructure
-  activation, and injected reconnect validation. Existing Raido transport
-  tests cover the reconnect state machine and protocol lifetime behavior.
+  activation, explicit raw authentication metadata, winner-before-mutation,
+  stale duplicates, first-packet buffering, and protocol lifetime ownership.
+  Existing Raido transport tests cover the reconnect state machine.
 - [x] Run strict OpenSpec validation, the requested test matrix, solution
   build, and final diff/scope review.

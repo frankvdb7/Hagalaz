@@ -23,6 +23,10 @@ session and character.
 - Use the existing Raido attach lifecycle and protocol replacement API. No
   candidate logical context, cross-context handoff, transport transfer, or
   reconnect-specific Raido state is introduced.
+- Select the physical winner through one application-neutral Raido reservation
+  before mutating the target. Keep the existing reconnect waiter pending while
+  GameWorld installs the winner protocol and metadata and flushes response 15;
+  resume the existing Raido reader only after that boundary.
 - Provide handshake policy through an injectable, request-specific
   `IHandshakeValidator<TRequest>`.
 
@@ -50,12 +54,15 @@ session and character.
   replacement physical connection ID is never rewritten.
 - The existing Raido reconnect window and GameWorld session claim provide the
   single-winner race boundary. Invalid, stale, duplicate, concurrent, missing,
-  and lost-claim requests fail without disturbing resumed state.
+  and lost-claim requests fail without disturbing resumed state. A candidate
+  that loses physical reservation cannot mutate the target protocol, ISAAC,
+  protocol lifetime, character metadata, or transport.
 - Response 15 uses plain handshake framing with a two-byte payload length and
-  the exact 4,608-byte player-entry payload. GameWorld installs the fresh
-  protocol and flushes response 15 before handing the replacement transport to
-  the existing detached Raido logical connection. The first immediate game
-  packet remains buffered until that attach starts Raido's existing reader.
+  the exact 4,608-byte player-entry payload. The candidate must reserve the
+  physical winner before GameWorld installs protocol/metadata or sends success;
+  the existing detached Raido logical connection resumes only after response
+  15 is flushed. The first immediate game packet remains buffered until that
+  resume starts Raido's existing reader.
 - Existing fresh world and lobby response bytes and routing remain unchanged.
 - Handshake policy is injected through request-specific validators, with no
   static global handshake policy class.

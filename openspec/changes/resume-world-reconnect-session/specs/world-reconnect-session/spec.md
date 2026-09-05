@@ -35,6 +35,22 @@ token issuing without a reconnect mode flag.
 - THEN only the matching existing master ID can be considered
 - AND invalid credentials are rejected before session adoption
 
+### Requirement: Raw reconnect authentication has no ambient Raido dependency
+
+Reconnect authentication MUST be executable before a Raido caller context
+exists. The raw physical remote address and connection ID required for
+Authorization validation and rate limiting MUST be supplied explicitly by the
+reconnect handler. It MUST NOT create or fake a caller context.
+
+#### Scenario: Raw authentication uses explicit physical metadata
+
+- GIVEN a reconnect request on a raw physical connection with a remote IP
+- WHEN reconnect authentication runs before logical Raido creation
+- THEN the Authorization validation request contains that remote IP
+- AND rate limiting uses that IP or the explicit physical connection ID
+- AND the validated subject maps to the existing master ID
+- AND no fresh world session or character hydration is performed
+
 ### Requirement: Reconnect reuses exact GameWorld state
 
 The handler MUST resolve the existing world session by authenticated master ID,
@@ -101,15 +117,35 @@ creation. Lobby authentication MUST remain non-reconnectable.
 
 Successful reconnect MUST send response 15 as plain handshake framing with a
 two-byte payload length and exactly the 4,608-byte player-entry payload. The
-existing target MUST have the fresh revision-specific protocol seeded from the
-reconnect request before the client can send its first game packet.
+candidate MUST atomically win physical eligibility before it mutates the
+existing target. A losing or stale candidate MUST NOT mutate the target
+protocol, ISAAC state, protocol lifetime, character metadata, or transport.
+The winner MUST have the fresh revision-specific protocol and reconnect client
+metadata installed before normal Raido input resumes.
 
 #### Scenario: Response precedes resumed input
 
 - GIVEN a valid revision-742 reconnect
 - WHEN the target accepts the raw connection
+- THEN the candidate atomically wins the existing detached reconnect target
 - THEN the fresh protocol is installed on the detached target
 - AND response 15 is flushed on the raw handshake transport
-- AND only then is the raw connection attached to the existing target
+- AND only then does the existing Raido reconnect waiter resume normal input
 - AND subsequent game input is read by the existing target using the fresh
   reconnect protocol
+
+#### Scenario: Losing candidate cannot disturb the winner
+
+- GIVEN two valid candidates target the same detached logical connection
+- WHEN the first candidate reserves the physical winner
+- THEN the other candidate receives no response 15
+- AND its protocol scope is disposed locally
+- AND the winner protocol, ISAAC state, metadata, lifetime, session,
+  character, and physical transport remain unchanged
+
+#### Scenario: Stale candidate after success is rejected
+
+- GIVEN a candidate has resumed the existing logical connection
+- WHEN a stale duplicate reconnect is handled
+- THEN it is rejected without response 15
+- AND the resumed target remains attached to the original winner

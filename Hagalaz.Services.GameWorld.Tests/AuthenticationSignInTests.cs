@@ -36,10 +36,54 @@ public sealed class AuthenticationSignInTests
         var gameSessionService = Substitute.For<IGameSessionService>();
         var service = CreateAuthenticationService(gameSessionService, reconnectAuthenticated: true);
 
-        var result = await service.AuthenticateWorldReconnectAsync("login", "password");
+        var result = await service.AuthenticateWorldReconnectAsync(CreateReconnectAuthenticationRequest());
 
         Assert.IsTrue(result.Succeeded);
         Assert.AreEqual(42u, result.MasterId);
+        await gameSessionService.DidNotReceive().TryAddWorldSession(
+            Arg.Any<uint>(),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task AuthenticateWorldReconnectAsync_UsesExplicitConnectionMetadataWithoutAmbientRaidoContext()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var validateClient = Substitute.For<IRequestClient<ValidateExistingAuthenticationRequestMessage>>();
+        var validateResponse = CreateResponse(new ValidateExistingAuthenticationResponseMessage
+        {
+            Succeeded = true,
+            Subject = "42"
+        });
+        validateClient
+            .GetResponse<ValidateExistingAuthenticationResponseMessage>(
+                Arg.Any<ValidateExistingAuthenticationRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .ReturnsForAnyArgs(Task.FromResult(validateResponse));
+        var contextAccessor = Substitute.For<IRaidoCallerContextAccessor>();
+        contextAccessor.Context.Returns(_ => throw new InvalidOperationException("Ambient Raido context must not be used."));
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            validateAuthenticationRequestClient: validateClient,
+            contextAccessor: contextAccessor);
+        var request = new WorldReconnectAuthenticationRequest(
+            "login",
+            "password",
+            IPAddress.Parse("203.0.113.7"),
+            "physical-reconnect");
+
+        var result = await service.AuthenticateWorldReconnectAsync(request);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(42u, result.MasterId);
+        await validateClient.Received(1).GetResponse<ValidateExistingAuthenticationResponseMessage>(
+            Arg.Is<ValidateExistingAuthenticationRequestMessage>(message =>
+                message!.RemoteIpAddress == "203.0.113.7" &&
+                message.Login == "login" &&
+                message.Password == "password"),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<RequestTimeout>());
         await gameSessionService.DidNotReceive().TryAddWorldSession(
             Arg.Any<uint>(),
             Arg.Any<string>(),
@@ -537,7 +581,9 @@ public sealed class AuthenticationSignInTests
         string connectionId = "connection",
         long snapshotRevision = 0,
         ICharacterPersistenceService? characterPersistenceService = null,
-        bool reconnectAuthenticated = false)
+        bool reconnectAuthenticated = false,
+        IRequestClient<ValidateExistingAuthenticationRequestMessage>? validateAuthenticationRequestClient = null,
+        IRaidoCallerContextAccessor? contextAccessor = null)
     {
         var mapper = Substitute.For<IMapper>();
         mapper.Map<CharacterModel>(Arg.Any<CharacterHydrated>()).Returns(new CharacterModel { SnapshotRevision = snapshotRevision });
@@ -559,16 +605,19 @@ public sealed class AuthenticationSignInTests
                 Arg.Any<SignInUserRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
             .ReturnsForAnyArgs(Task.FromResult(signInResponse));
 
-        var validateAuthenticationResponse = CreateResponse(new ValidateExistingAuthenticationResponseMessage
+        if (validateAuthenticationRequestClient is null)
         {
-            Succeeded = reconnectAuthenticated,
-            Subject = reconnectAuthenticated ? "42" : null
-        });
-        var validateAuthenticationRequestClient = Substitute.For<IRequestClient<ValidateExistingAuthenticationRequestMessage>>();
-        validateAuthenticationRequestClient
-            .GetResponse<ValidateExistingAuthenticationResponseMessage>(
-                Arg.Any<ValidateExistingAuthenticationRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
-            .ReturnsForAnyArgs(Task.FromResult(validateAuthenticationResponse));
+            validateAuthenticationRequestClient = Substitute.For<IRequestClient<ValidateExistingAuthenticationRequestMessage>>();
+            var validateAuthenticationResponse = CreateResponse(new ValidateExistingAuthenticationResponseMessage
+            {
+                Succeeded = reconnectAuthenticated,
+                Subject = reconnectAuthenticated ? "42" : null
+            });
+            validateAuthenticationRequestClient
+                .GetResponse<ValidateExistingAuthenticationResponseMessage>(
+                    Arg.Any<ValidateExistingAuthenticationRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+                .ReturnsForAnyArgs(Task.FromResult(validateAuthenticationResponse));
+        }
 
         var userInfoResponse = CreateResponse(new GetUserInfoResponseMessage
         {
@@ -619,7 +668,7 @@ public sealed class AuthenticationSignInTests
             Substitute.For<IRequestClient<RevokeTokenRequestMessage>>(),
             getCharacterRequestClient ?? hydrateRequestClient,
             claimsPrincipalFactory,
-            CreateContextAccessor(connectionId),
+            contextAccessor ?? CreateContextAccessor(connectionId),
             Substitute.For<IGameMediator>(),
             new ResiliencePipelineBuilder().Build(),
             new ResiliencePipelineBuilder().Build());
@@ -631,6 +680,12 @@ public sealed class AuthenticationSignInTests
         Password = "password",
         GameClient = Substitute.For<IGameClient>()
     };
+
+    private static WorldReconnectAuthenticationRequest CreateReconnectAuthenticationRequest() => new(
+        "login",
+        "password",
+        IPAddress.Loopback,
+        "connection");
 
     private static IRaidoCallerContextAccessor CreateContextAccessor(string connectionId = "connection")
     {

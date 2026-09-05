@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Immutable;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -310,15 +311,14 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
             });
 
-        public async ValueTask<WorldReconnectAuthenticationResult> AuthenticateWorldReconnectAsync(string login, string password) =>
-            await ExecuteSignInAsync(async cancellationToken =>
+        public async ValueTask<WorldReconnectAuthenticationResult> AuthenticateWorldReconnectAsync(WorldReconnectAuthenticationRequest request) =>
+            await ExecuteSignInAsync(GetSignInPartitionKey(request), async cancellationToken =>
             {
-                var context = _contextAccessor.Context;
                 var response = await _validateExistingAuthenticationRequestClient.GetResponse<ValidateExistingAuthenticationResponseMessage>(
                     new ValidateExistingAuthenticationRequestMessage(
-                        login,
-                        password,
-                        context.RemoteIPEndPoint!.Address.ToString(),
+                        request.Login,
+                        request.Password,
+                        request.RemoteAddress?.ToString() ?? request.ConnectionId,
                         _defaultScopes,
                         _worldClientScopes),
                     cancellationToken);
@@ -336,9 +336,14 @@ namespace Hagalaz.Services.GameWorld.Services
 
         private async ValueTask<TResult> ExecuteSignInAsync<TResult>(
             Func<CancellationToken, ValueTask<TResult>> signIn)
+            => await ExecuteSignInAsync(GetSignInPartitionKey(), signIn);
+
+        private async ValueTask<TResult> ExecuteSignInAsync<TResult>(
+            string partitionKey,
+            Func<CancellationToken, ValueTask<TResult>> signIn)
         {
             var resilienceContext = ResilienceContextPool.Shared.Get();
-            resilienceContext.Properties.Set(AuthenticationRateLimiting.PartitionKey, GetSignInPartitionKey());
+            resilienceContext.Properties.Set(AuthenticationRateLimiting.PartitionKey, partitionKey);
             try
             {
                 return await _authLoginPipeline.ExecuteAsync(
@@ -357,6 +362,11 @@ namespace Hagalaz.Services.GameWorld.Services
                 ? $"ip:{address}"
                 : $"connection:{context.ConnectionId}";
         }
+
+        private static string GetSignInPartitionKey(WorldReconnectAuthenticationRequest request) =>
+            request.RemoteAddress is { } address
+                ? $"ip:{address}"
+                : $"connection:{request.ConnectionId}";
 
         private async ValueTask<SignInResult> SignInAsync(
             SignInRequest signInRequest, string clientId, ImmutableArray<string> clientScopes, CancellationToken cancellationToken)

@@ -148,7 +148,10 @@ namespace Raido.Server
             }
         }
 
-        internal bool TryAttachPhysicalConnection(ConnectionContext replacement)
+        internal bool TryAttachPhysicalConnection(ConnectionContext replacement) =>
+            TryAttachPhysicalConnection(replacement, resume: true);
+
+        internal bool TryAttachPhysicalConnection(ConnectionContext replacement, bool resume)
         {
             ArgumentNullException.ThrowIfNull(replacement);
 
@@ -290,9 +293,12 @@ namespace Raido.Server
                         connectionClosedRegistration = null;
                         _closedRequestedRegistration = closedRequestedRegistration;
                         closedRequestedRegistration = null;
-                        _reconnectWaiter = null;
-                        _reconnectWindowStartTimestamp = null;
-                        activationWaiter.TrySetResult(true);
+                        if (resume)
+                        {
+                            _reconnectWaiter = null;
+                            _reconnectWindowStartTimestamp = null;
+                            activationWaiter.TrySetResult(true);
+                        }
                         published = true;
                     }
                     else if (reconnectWindowIsCurrent && IsReconnectWindowExpiredLocked())
@@ -330,6 +336,23 @@ namespace Raido.Server
             {
                 closedRequestedRegistration?.Dispose();
                 connectionClosedRegistration?.Dispose();
+            }
+        }
+
+        internal bool ResumePhysicalConnection(ConnectionContext physicalConnection)
+        {
+            lock (_stateLock)
+            {
+                if (_disposed || !ReferenceEquals(physicalConnection, _currentPhysicalConnection) ||
+                    _reconnectWaiter is not TaskCompletionSource<bool> reconnectWaiter || reconnectWaiter.Task.IsCompleted)
+                {
+                    return false;
+                }
+
+                _reconnectWaiter = null;
+                _reconnectWindowStartTimestamp = null;
+                reconnectWaiter.TrySetResult(true);
+                return true;
             }
         }
 
@@ -724,12 +747,13 @@ namespace Raido.Server
                     return false;
                 }
 
-                if (_currentPhysicalConnection is not null)
+                reconnectWaiter = _reconnectWaiter;
+                if (_currentPhysicalConnection is not null &&
+                    (reconnectWaiter is null || reconnectWaiter.Task.IsCompleted))
                 {
                     return true;
                 }
 
-                reconnectWaiter = _reconnectWaiter;
                 if (reconnectWaiter is null)
                 {
                     return false;

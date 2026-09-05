@@ -61,8 +61,7 @@ public sealed class WorldReconnectConnectionHandlerTests
                 CancellationToken.None);
 
             await authentication.DidNotReceive().AuthenticateWorldReconnectAsync(
-                Arg.Any<string>(),
-                Arg.Any<string>());
+                Arg.Any<WorldReconnectAuthenticationRequest>());
             await sessions.DidNotReceive().FindWorldSessionByMasterId(Arg.Any<uint>());
             Assert.AreEqual((byte)6, await ReadByteAsync(output.Reader));
         }
@@ -95,7 +94,8 @@ public sealed class WorldReconnectConnectionHandlerTests
         await gate.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.AreSame(fixture.ClientProtocol, fixture.Target.Protocol);
-        Assert.IsFalse(fixture.Tcp.TryGetCurrentConnection(out _));
+        Assert.IsTrue(fixture.Tcp.TryGetCurrentConnection(out var reserved));
+        Assert.AreSame(fixture.Replacement, reserved);
         await fixture.ReplacementInput.Writer.WriteAsync(new byte[] { 0x12, 0x34 });
 
         gate.Release();
@@ -143,10 +143,189 @@ public sealed class WorldReconnectConnectionHandlerTests
 
         Assert.IsFalse(fixture.Tcp.TryGetCurrentConnection(out _));
         Assert.IsTrue(fixture.Tcp.IsTerminal);
-        fixture.Replacement.Received(1).Abort();
+        fixture.Replacement.Received(2).Abort();
         Assert.AreEqual(4611, gate.FlushedBytes!.Length);
 
         await fixture.DisposeAsync();
+    }
+
+    [TestMethod]
+    [Timeout(30000)]
+    public async Task ConcurrentReconnectCandidates_DoNotReplaceWinnerProtocolOrSendLoserSuccess()
+    {
+        var initial = CreatePhysicalConnection("stable-logical", out var initialInput, out var initialOutput, out var initialClosed);
+        var candidateA = CreatePhysicalConnection("candidate-a", out var inputA, out var outputA, out var closedA);
+        var candidateB = CreatePhysicalConnection("candidate-b", out var inputB, out var outputB, out var closedB);
+        var candidateC = CreatePhysicalConnection("candidate-c", out var inputC, out var outputC, out var closedC);
+        var gateA = new GatedPipeWriter();
+        var gateB = new GatedPipeWriter();
+        var gateC = new GatedPipeWriter();
+        candidateA.Transport.Output.Returns(gateA);
+        candidateB.Transport.Output.Returns(gateB);
+        candidateC.Transport.Output.Returns(gateC);
+        var protocolA = Substitute.For<IClientProtocol>();
+        protocolA.Name.Returns("protocol-a");
+        protocolA.Version.Returns(742);
+        var protocolB = Substitute.For<IClientProtocol>();
+        protocolB.Name.Returns("protocol-b");
+        protocolB.Version.Returns(742);
+        var scopeLifetimes = new List<TrackingScopeLifetime>();
+        var resolverCalls = 0;
+        await using var provider = new ServiceCollection()
+            .AddScoped<TrackingScopeLifetime>()
+            .AddScoped<IClientProtocolResolver>(scope =>
+            {
+                var lifetime = scope.GetRequiredService<TrackingScopeLifetime>();
+                lock (scopeLifetimes)
+                {
+                    scopeLifetimes.Add(lifetime);
+                }
+
+                var resolver = Substitute.For<IClientProtocolResolver>();
+                resolver.GetProtocol(Arg.Any<int>()).Returns(_ =>
+                {
+                    var protocol = Interlocked.Increment(ref resolverCalls) == 1 ? protocolA : protocolB;
+                    lifetime.ProtocolName = protocol.Name;
+                    return protocol;
+                });
+                return resolver;
+            })
+            .BuildServiceProvider();
+        var options = new RaidoConnectionContextOptions
+        {
+            StatefulReconnectEnabled = true,
+            StatefulReconnectTimeout = TimeSpan.FromSeconds(5)
+        };
+        var tcp = new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance);
+        Assert.IsTrue(tcp.TryAttachPhysicalConnection(initial));
+        var target = new RaidoHubConnectionContext(
+            tcp,
+            options,
+            Substitute.For<IRaidoProtocol>(),
+            NullLoggerFactory.Instance,
+            TimeProvider.System);
+        initialClosed.Cancel();
+        Assert.IsTrue(tcp.Transport.Input.TryRead(out var boundary));
+        tcp.Transport.Input.AdvanceTo(boundary.Buffer.End);
+        tcp.AcknowledgeInputBoundary();
+
+        var session = Substitute.For<IGameWorldSession>();
+        session.ConnectionId.Returns("stable-logical");
+        session.MasterId.Returns(42u);
+        session.SessionClaimId.Returns("claim");
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        character.Session.Returns(session);
+        character.Index.Returns(1);
+        character.Location.Returns(Location.Create(3200, 3200));
+        character.GameClient.Returns(new GameClient(DisplayMode.FixedScreen, Language.English, 800, 600));
+        target.Features.Set<Hagalaz.Services.GameWorld.Features.ISessionFeature>(new SessionFeature { Session = session });
+        target.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
+        target.Features.Set<IAuthenticationFeature>(new AuthenticationFeature
+        {
+            AuthenticationProperties = new AuthenticationProperties
+            {
+                Claims = new Dictionary<string, object> { [OpenIddictConstants.Claims.Subject] = "42" }
+            }
+        });
+
+        var connections = new RaidoHubConnectionStore();
+        connections.Add(target);
+        using var meter = new Meter($"{nameof(WorldReconnectConnectionHandlerTests)}-{Guid.NewGuid()}");
+        var connectionHandler = CreateConnectionHandler(meter);
+        var authentication = Substitute.For<IAuthenticationService>();
+#pragma warning disable CA2012 // NSubstitute consumes the configured ValueTask exactly once.
+        authentication.AuthenticateWorldReconnectAsync(Arg.Any<WorldReconnectAuthenticationRequest>())
+            .Returns(new ValueTask<WorldReconnectAuthenticationResult>(WorldReconnectAuthenticationResult.Success(42)));
+#pragma warning restore CA2012
+        var sessions = Substitute.For<IGameSessionService>();
+        sessions.FindWorldSessionByMasterId(42).Returns(Task.FromResult<IGameWorldSession?>(session));
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        claims.ExecuteIfOwnerAsync(
+                42,
+                "claim",
+                Arg.Any<Func<CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo => callInfo.Arg<Func<CancellationToken, Task<bool>>>()!(CancellationToken.None));
+        var validator = Substitute.For<IHandshakeValidator<WorldReconnectRequest>>();
+        validator.Validate(Arg.Any<WorldReconnectRequest>()).Returns(ClientSignInResponse.Success);
+        var handler = new WorldReconnectConnectionHandler(
+            authentication,
+            sessions,
+            claims,
+            connections,
+            connectionHandler,
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            validator,
+            NullLogger<WorldReconnectConnectionHandler>.Instance);
+
+        try
+        {
+            var taskA = handler.HandleAsync(candidateA, CreateHandshakeProtocol(), CreateReconnectRequest(1), CancellationToken.None);
+            await gateA.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            var taskB = handler.HandleAsync(candidateB, CreateHandshakeProtocol(), CreateReconnectRequest(5), CancellationToken.None);
+            await taskB.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.IsNull(gateB.FlushedBytes);
+
+            gateA.Release();
+            await taskA.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.IsTrue(tcp.TryGetCurrentConnection(out var current));
+            Assert.AreSame(candidateA, current);
+            Assert.AreSame(protocolA, target.Protocol);
+
+            candidateB.Received(1).Abort();
+
+            var taskC = handler.HandleAsync(candidateC, CreateHandshakeProtocol(), CreateReconnectRequest(9), CancellationToken.None);
+            await taskC.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.IsNull(gateC.FlushedBytes);
+            candidateC.Received(1).Abort();
+            Assert.AreSame(candidateA, current);
+            Assert.AreSame(protocolA, target.Protocol);
+
+            TrackingScopeLifetime winnerLifetime;
+            TrackingScopeLifetime loserLifetimeB;
+            TrackingScopeLifetime loserLifetimeC;
+            lock (scopeLifetimes)
+            {
+                winnerLifetime = scopeLifetimes.Single(lifetime => lifetime.ProtocolName == "protocol-a");
+                var loserLifetimes = scopeLifetimes.Where(lifetime => lifetime.ProtocolName == "protocol-b").ToArray();
+                Assert.AreEqual(2, loserLifetimes.Length);
+                loserLifetimeB = loserLifetimes[0];
+                loserLifetimeC = loserLifetimes[1];
+            }
+
+            Assert.AreEqual(0, winnerLifetime.DisposeCount);
+            Assert.AreEqual(1, loserLifetimeB.DisposeCount);
+            Assert.AreEqual(1, loserLifetimeC.DisposeCount);
+
+            await target.CleanupAsync();
+            Assert.AreEqual(1, winnerLifetime.DisposeCount);
+        }
+        finally
+        {
+            target.Abort();
+            await target.CleanupAsync();
+            closedA.Dispose();
+            closedB.Dispose();
+            closedC.Dispose();
+            await inputA.Reader.CompleteAsync();
+            await inputA.Writer.CompleteAsync();
+            await outputA.Reader.CompleteAsync();
+            await outputA.Writer.CompleteAsync();
+            await inputB.Reader.CompleteAsync();
+            await inputB.Writer.CompleteAsync();
+            await outputB.Reader.CompleteAsync();
+            await outputB.Writer.CompleteAsync();
+            await inputC.Reader.CompleteAsync();
+            await inputC.Writer.CompleteAsync();
+            await outputC.Reader.CompleteAsync();
+            await outputC.Writer.CompleteAsync();
+            await initialInput.Reader.CompleteAsync();
+            await initialInput.Writer.CompleteAsync();
+            await initialOutput.Reader.CompleteAsync();
+            await initialOutput.Writer.CompleteAsync();
+        }
     }
 
     private static HandshakeProtocol CreateHandshakeProtocol() =>
@@ -178,12 +357,12 @@ public sealed class WorldReconnectConnectionHandlerTests
         return connection;
     }
 
-    private static WorldReconnectRequest CreateReconnectRequest() => new()
+    private static WorldReconnectRequest CreateReconnectRequest(uint seed = 1) => new()
     {
         ClientRevision = 742,
         Login = "login",
         Password = "password",
-        IsaacSeed = new uint[] { 1, 2, 3, 4 }
+        IsaacSeed = new uint[] { seed, seed + 1, seed + 2, seed + 3 }
     };
 
     private static ReconnectFixture CreateReconnectFixture(
@@ -192,7 +371,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         out GatedPipeWriter gate)
     {
         var stableConnectionId = "stable-logical";
-        var initial = CreatePhysicalConnection(stableConnectionId, out var initialInput, out var initialOutput, out _);
+        var initial = CreatePhysicalConnection(stableConnectionId, out var initialInput, out var initialOutput, out var initialClosed);
         var replacement = CreatePhysicalConnection("replacement", out var replacementInput, out var replacementOutput, out var replacementClosed);
         gate = new GatedPipeWriter();
         replacement.Transport.Output.Returns(gate);
@@ -210,7 +389,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             Substitute.For<IRaidoProtocol>(),
             NullLoggerFactory.Instance,
             TimeProvider.System);
-        tcp.OnPhysicalConnectionClosed(initial);
+        initialClosed.Cancel();
         Assert.IsTrue(tcp.Transport.Input.TryRead(out var boundary));
         Assert.IsTrue(boundary.IsCanceled);
         Assert.IsTrue(boundary.Buffer.IsEmpty);
@@ -246,8 +425,10 @@ public sealed class WorldReconnectConnectionHandlerTests
         var metricsMeter = new Meter($"{nameof(WorldReconnectConnectionHandlerTests)}-{Guid.NewGuid()}");
         var connectionHandler = CreateConnectionHandler(metricsMeter);
         var authentication = Substitute.For<IAuthenticationService>();
-        authentication.AuthenticateWorldReconnectAsync("login", "password")
+#pragma warning disable CA2012 // NSubstitute consumes the configured ValueTask exactly once.
+        authentication.AuthenticateWorldReconnectAsync(Arg.Any<WorldReconnectAuthenticationRequest>())
             .Returns(new ValueTask<WorldReconnectAuthenticationResult>(WorldReconnectAuthenticationResult.Success(42)));
+#pragma warning restore CA2012
         var sessions = Substitute.For<IGameSessionService>();
         sessions.FindWorldSessionByMasterId(42).Returns(Task.FromResult<IGameWorldSession?>(session));
         var claims = Substitute.For<IGameSessionClaimStore>();
@@ -397,6 +578,21 @@ public sealed class WorldReconnectConnectionHandlerTests
         }
 
         public override void Complete(Exception? exception = null) { }
+    }
+
+    private sealed class TrackingScopeLifetime : IAsyncDisposable
+    {
+        private int _disposeCount;
+
+        public string? ProtocolName { get; set; }
+
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        public ValueTask DisposeAsync()
+        {
+            Interlocked.Increment(ref _disposeCount);
+            return ValueTask.CompletedTask;
+        }
     }
 
     private sealed class ReconnectFixture : IAsyncDisposable

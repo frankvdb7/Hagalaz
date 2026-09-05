@@ -21,6 +21,7 @@ public class ClientConnectionHandler : ConnectionHandler
     private readonly IRaidoHubConnectionContextFactory _connectionFactory;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly WorldReconnectConnectionHandler _reconnectHandler;
+    private readonly IClientHandshakeHandler _clientHandshakeHandler;
     private readonly IOptions<RaidoOptions> _raidoOptions;
     private readonly ILogger<ClientConnectionHandler> _logger;
 
@@ -29,6 +30,7 @@ public class ClientConnectionHandler : ConnectionHandler
         IRaidoHubConnectionContextFactory connectionFactory,
         IServiceScopeFactory scopeFactory,
         WorldReconnectConnectionHandler reconnectHandler,
+        IClientHandshakeHandler clientHandshakeHandler,
         IOptions<RaidoOptions> raidoOptions,
         ILogger<ClientConnectionHandler> logger)
     {
@@ -36,6 +38,7 @@ public class ClientConnectionHandler : ConnectionHandler
         _connectionFactory = connectionFactory;
         _scopeFactory = scopeFactory;
         _reconnectHandler = reconnectHandler;
+        _clientHandshakeHandler = clientHandshakeHandler;
         _raidoOptions = raidoOptions;
         _logger = logger;
     }
@@ -80,7 +83,13 @@ public class ClientConnectionHandler : ConnectionHandler
 
         try
         {
-            await SendHandshakeResponseAsync(connection, handshakeProtocol, cancellation.Token);
+            var handshakeResponse = _clientHandshakeHandler.Handle((ClientHandshakeRequest)handshake);
+            await SendHandshakeResponseAsync(connection, handshakeProtocol, handshakeResponse, cancellation.Token);
+            if (handshakeResponse.ReturnCode != 0)
+            {
+                connection.Abort(new ConnectionAbortedException("The client handshake was rejected."));
+                return;
+            }
         }
         catch (OperationCanceledException)
         {
@@ -193,11 +202,10 @@ public class ClientConnectionHandler : ConnectionHandler
     private static async Task SendHandshakeResponseAsync(
         ConnectionContext connection,
         HandshakeProtocol protocol,
+        ClientHandshakeResponse response,
         CancellationToken cancellationToken)
     {
-        protocol.WriteMessage(
-            new ClientHandshakeResponse { ReturnCode = 0 },
-            connection.Transport.Output);
+        protocol.WriteMessage(response, connection.Transport.Output);
         var result = await connection.Transport.Output.FlushAsync(cancellationToken);
         if (result.IsCanceled)
         {

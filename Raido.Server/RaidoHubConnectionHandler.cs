@@ -107,6 +107,39 @@ namespace Raido.Server
         }
 
         /// <summary>
+        /// Selects a replacement physical connection, runs work that must complete before normal input resumes, and resumes the logical connection.
+        /// </summary>
+        /// <param name="connection">The existing logical connection.</param>
+        /// <param name="physicalConnection">The physical connection to activate.</param>
+        /// <param name="beforeResume">The work to run after winner selection and before normal input resumes.</param>
+        /// <returns><see langword="true"/> when the physical connection was accepted.</returns>
+        public async ValueTask<bool> TryActivatePhysicalConnectionAsync(
+            RaidoHubConnectionContext connection,
+            ConnectionContext physicalConnection,
+            Func<ValueTask> beforeResume)
+        {
+            ArgumentNullException.ThrowIfNull(connection);
+            ArgumentNullException.ThrowIfNull(physicalConnection);
+            ArgumentNullException.ThrowIfNull(beforeResume);
+
+            if (!connection.TryReservePhysicalConnection(physicalConnection))
+            {
+                return false;
+            }
+
+            try
+            {
+                await beforeResume().ConfigureAwait(false);
+                return connection.ResumePhysicalConnection(physicalConnection);
+            }
+            catch
+            {
+                connection.Abort();
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Runs the connection loop.
         /// </summary>
         /// <param name="connection">The connection to run.</param>

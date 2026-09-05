@@ -148,6 +148,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IAuthenticationService, AuthenticationService>();
             services.AddScoped(typeof(IHandshakeValidator<>), typeof(DefaultHandshakeValidator<>));
             services.AddScoped<WorldReconnectConnectionHandler>();
+            services.AddSingleton<IClientHandshakeHandler, ClientHandshakeHandler>();
             services.AddScoped<IClientPermissionProvider, ClientPermissionProvider>();
             services.AddScoped<IClientProtocolResolver, ClientProtocolResolver>();
             services.AddSingleton<MapRegionLoadScheduler>();

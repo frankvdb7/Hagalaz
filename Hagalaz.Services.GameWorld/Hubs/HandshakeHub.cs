@@ -41,6 +41,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
         private readonly WorldLifecycleState _lifecycle;
         private readonly WorldRegistrationStore _registrations;
         private readonly WorldInstanceIdentity _identity;
+        private readonly IClientHandshakeHandler _clientHandshakeHandler;
 
         public HandshakeHub(
             IAuthenticationService authenticationService,
@@ -53,7 +54,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
             IScopedGameMediator mediator,
             WorldLifecycleState lifecycle,
             WorldRegistrationStore registrations,
-            WorldInstanceIdentity identity)
+            WorldInstanceIdentity identity,
+            IClientHandshakeHandler clientHandshakeHandler)
         {
             _authenticationService = authenticationService;
             _clientPermissionProvider = clientPermissionProvider;
@@ -66,6 +68,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             _lifecycle = lifecycle;
             _registrations = registrations;
             _identity = identity;
+            _clientHandshakeHandler = clientHandshakeHandler;
         }
 
         [RaidoMessageHandler(typeof(ClientUpdateRequest))]
@@ -75,10 +78,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
 
         [RaidoMessageHandler(typeof(ClientHandshakeRequest))]
         public ValueTask<ClientHandshakeResponse> HandleClientHandshake(ClientHandshakeRequest message) =>
-            ValueTask.FromResult(new ClientHandshakeResponse()
-            {
-                ReturnCode = 0 // acknowledge return code
-            });
+            ValueTask.FromResult(_clientHandshakeHandler.Handle(message));
 
         [RaidoMessageHandler(typeof(LobbySignInRequest))]
         public async Task SignInLobby(LobbySignInRequest message)

@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Services;
@@ -73,7 +74,12 @@ public sealed class WorldReconnectConnectionHandler
             WorldReconnectAuthenticationResult authentication;
             try
             {
-                authentication = await _authenticationService.AuthenticateWorldReconnectAsync(message.Login, message.Password);
+                authentication = await _authenticationService.AuthenticateWorldReconnectAsync(
+                    new WorldReconnectAuthenticationRequest(
+                        message.Login,
+                        message.Password,
+                        (connection.RemoteEndPoint as IPEndPoint)?.Address,
+                        connection.ConnectionId));
             }
             catch (RequestTimeoutException)
             {
@@ -131,20 +137,25 @@ public sealed class WorldReconnectConnectionHandler
                 session.SessionClaimId,
                 async _ =>
                 {
-                    await target.SetProtocolAsync(clientProtocol, protocolScope, CancellationToken.None);
-                    protocolScopeTransferred = true;
+                    return await _connectionHandler.TryActivatePhysicalConnectionAsync(target, connection, async () =>
+                    {
+                        await target.SetProtocolAsync(clientProtocol, protocolScope, CancellationToken.None);
+                        protocolScopeTransferred = true;
+                        character.GameClient.DisplayMode = message.DisplayMode;
+                        character.GameClient.Language = message.Language;
+                        character.GameClient.ScreenSizeX = message.ClientSizeX;
+                        character.GameClient.ScreenSizeY = message.ClientSizeY;
 
-                    await SendResponseAsync(
-                        connection,
-                        handshakeProtocol,
-                        new WorldReconnectResponse
-                        {
-                            CharacterIndex = character.Index,
-                            CharacterLocation = character.Location
-                        },
-                        CancellationToken.None);
-
-                    return _connectionHandler.TryActivatePhysicalConnection(target, connection);
+                        await SendResponseAsync(
+                            connection,
+                            handshakeProtocol,
+                            new WorldReconnectResponse
+                            {
+                                CharacterIndex = character.Index,
+                                CharacterLocation = character.Location
+                            },
+                            CancellationToken.None);
+                    });
                 },
                 connection.ConnectionClosed);
             if (!attached)
@@ -153,10 +164,6 @@ public sealed class WorldReconnectConnectionHandler
                 return;
             }
 
-            character.GameClient.DisplayMode = message.DisplayMode;
-            character.GameClient.Language = message.Language;
-            character.GameClient.ScreenSizeX = message.ClientSizeX;
-            character.GameClient.ScreenSizeY = message.ClientSizeY;
         }
         catch (OperationCanceledException) when (connection.ConnectionClosed.IsCancellationRequested)
         {
