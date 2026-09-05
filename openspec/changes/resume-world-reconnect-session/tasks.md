@@ -4,7 +4,8 @@
 
 - [x] Keep dedicated reconnect-only authorization validation separate from
   normal token-issuing sign-in.
-- [x] Classify the raw first handshake before logical Raido context creation.
+- [x] Acknowledge opcode 14, then classify the following authentication
+  request before logical Raido context creation.
 - [x] Validate exact existing world session, claim, logical connection,
   character, and authentication subject without fresh-login side effects.
 - [x] Resolve the existing logical target, ask Raido connection infrastructure

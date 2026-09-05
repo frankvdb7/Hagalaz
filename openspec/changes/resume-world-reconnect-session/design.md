@@ -2,11 +2,13 @@
 
 ## Initial classification
 
-`ClientConnectionHandler` reads the first raw handshake message with the
-existing `HandshakeProtocol`. For reconnect, it consumes the handshake bytes
-before passing the same raw `ConnectionContext` to the reconnect handler. For
-fresh world and lobby requests, it retains the bytes so the normal Raido
-logical handler reads the request again.
+`ClientConnectionHandler` reads opcode 14 with the existing
+`HandshakeProtocol`, consumes that fixed one-byte message, and sends the same
+acknowledgement that `HandshakeHub` previously produced. It then reads the
+following authentication request. For reconnect, it consumes those
+authentication bytes before passing the same raw `ConnectionContext` to the
+reconnect handler. For fresh world and lobby requests, it retains the bytes so
+the normal Raido logical handler reads the request exactly once.
 
 The normal factory is called only after classification. It receives
 `statefulReconnect: true` for `WorldSignInRequest` and false for lobby and all

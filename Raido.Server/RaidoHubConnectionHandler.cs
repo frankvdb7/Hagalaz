@@ -97,7 +97,7 @@ namespace Raido.Server
         /// <param name="connection">The existing logical connection.</param>
         /// <param name="physicalConnection">The physical connection to activate.</param>
         /// <returns><see langword="true"/> when the physical connection was accepted.</returns>
-        public virtual bool TryActivatePhysicalConnection(
+        public bool TryActivatePhysicalConnection(
             RaidoHubConnectionContext connection,
             ConnectionContext physicalConnection)
         {

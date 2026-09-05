@@ -4,15 +4,19 @@
 
 ### Requirement: Reconnect is classified before logical connection creation
 
-The GameWorld connection handler MUST parse the first raw handshake before
-creating a logical Raido context. Opcode 16 with reconnect flag 1 MUST go to
-the reconnect handler with the raw `ConnectionContext`; it MUST NOT create a
-temporary candidate context or invoke fresh world sign-in.
+The GameWorld connection handler MUST process opcode 14 and send its existing
+acknowledgement before reading the following authentication request. It MUST
+then classify that request before creating a logical Raido context. Opcode 16
+with reconnect flag 1 MUST go to the reconnect handler with the raw
+`ConnectionContext`; it MUST NOT create a temporary candidate context or
+invoke fresh world sign-in.
 
 #### Scenario: Reconnect flag selects raw reconnect handling
 
-- GIVEN a complete opcode-16 handshake with reconnect flag 1
+- GIVEN a complete opcode-14 handshake followed by opcode 16 with reconnect
+  flag 1
 - WHEN the connection is accepted
+- THEN opcode 14 is acknowledged
 - THEN the decoder produces `WorldReconnectRequest`
 - AND no logical candidate context is created
 - AND the raw connection is validated against the existing target

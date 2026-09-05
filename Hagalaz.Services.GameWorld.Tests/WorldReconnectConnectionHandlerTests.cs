@@ -40,13 +40,14 @@ public sealed class WorldReconnectConnectionHandlerTests
         var sessions = Substitute.For<IGameSessionService>();
         var connection = CreateConnection(out var input, out var output);
         await using var provider = new ServiceCollection().BuildServiceProvider();
-        using var infrastructure = CreateConnectionHandlerSubstitute();
+        using var metricsMeter = new Meter($"{nameof(WorldReconnectConnectionHandlerTests)}-{Guid.NewGuid()}");
+        var connectionHandler = CreateConnectionHandler(metricsMeter);
         var handler = new WorldReconnectConnectionHandler(
             authentication,
             sessions,
             Substitute.For<IGameSessionClaimStore>(),
             new RaidoHubConnectionStore(),
-            infrastructure.Handler,
+            connectionHandler,
             provider.GetRequiredService<IServiceScopeFactory>(),
             validator,
             NullLogger<WorldReconnectConnectionHandler>.Instance);
@@ -63,7 +64,6 @@ public sealed class WorldReconnectConnectionHandlerTests
                 Arg.Any<string>(),
                 Arg.Any<string>());
             await sessions.DidNotReceive().FindWorldSessionByMasterId(Arg.Any<uint>());
-            infrastructure.Handler.DidNotReceiveWithAnyArgs().TryActivatePhysicalConnection(null!, null!);
             Assert.AreEqual((byte)6, await ReadByteAsync(output.Reader));
         }
         finally
@@ -96,17 +96,16 @@ public sealed class WorldReconnectConnectionHandlerTests
 
         Assert.AreSame(fixture.ClientProtocol, fixture.Target.Protocol);
         Assert.IsFalse(fixture.Tcp.TryGetCurrentConnection(out _));
-        fixture.ConnectionHandler.DidNotReceiveWithAnyArgs().TryActivatePhysicalConnection(null!, null!);
         await fixture.ReplacementInput.Writer.WriteAsync(new byte[] { 0x12, 0x34 });
-        Assert.IsTrue(fixture.ReplacementInput.Reader.TryRead(out var buffered));
-        CollectionAssert.AreEqual(new byte[] { 0x12, 0x34 }, buffered.Buffer.ToArray());
-        fixture.ReplacementInput.Reader.AdvanceTo(buffered.Buffer.Start, buffered.Buffer.End);
 
         gate.Release();
         await run;
 
-        fixture.ConnectionHandler.Received(1).TryActivatePhysicalConnection(fixture.Target, fixture.Replacement);
-        Assert.IsFalse(fixture.Tcp.TryGetCurrentConnection(out _));
+        Assert.IsTrue(fixture.Tcp.TryGetCurrentConnection(out var current));
+        Assert.AreSame(fixture.Replacement, current);
+        var buffered = await ReadNonCanceledAsync(fixture.Tcp.Transport.Input);
+        CollectionAssert.AreEqual(new byte[] { 0x12, 0x34 }, buffered.Buffer.ToArray());
+        fixture.Tcp.Transport.Input.AdvanceTo(buffered.Buffer.End);
         Assert.AreEqual(fixture.StableConnectionId, fixture.Target.ConnectionId);
         fixture.ClientProtocol.Received(1).SetEncryptionSeed(
             Arg.Is<uint[]>(seed => seed.SequenceEqual(new uint[] { 1, 2, 3, 4 })));
@@ -130,7 +129,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         await using var provider = new ServiceCollection()
             .AddScoped<IClientProtocolResolver>(_ => resolver)
             .BuildServiceProvider();
-        var fixture = CreateReconnectFixture(provider, clientProtocol, out var gate, activationAccepted: false);
+        var fixture = CreateReconnectFixture(provider, clientProtocol, out var gate);
         var run = fixture.Handler.HandleAsync(
             fixture.Replacement,
             CreateHandshakeProtocol(),
@@ -138,12 +137,12 @@ public sealed class WorldReconnectConnectionHandlerTests
             CancellationToken.None);
 
         await gate.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        fixture.Target.Abort();
         gate.Release();
         await run;
 
-        fixture.ConnectionHandler.Received(1).TryActivatePhysicalConnection(fixture.Target, fixture.Replacement);
         Assert.IsFalse(fixture.Tcp.TryGetCurrentConnection(out _));
-        Assert.IsFalse(fixture.Tcp.IsTerminal);
+        Assert.IsTrue(fixture.Tcp.IsTerminal);
         fixture.Replacement.Received(1).Abort();
         Assert.AreEqual(4611, gate.FlushedBytes!.Length);
 
@@ -154,19 +153,16 @@ public sealed class WorldReconnectConnectionHandlerTests
         new(new TestHandshakeCodec(), Options.Create(new Hagalaz.Services.GameWorld.Configuration.Model.ServerConfig
         { ClientRevision = 742 }));
 
-    private static ConnectionHandlerSubstitute CreateConnectionHandlerSubstitute()
+    private static RaidoHubConnectionHandler CreateConnectionHandler(Meter meter)
     {
-        var meter = new Meter($"{nameof(WorldReconnectConnectionHandlerTests)}-{Guid.NewGuid()}");
         var meterFactory = Substitute.For<IMeterFactory>();
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        var metrics = new RaidoMetrics(meterFactory);
-        var handler = Substitute.For<RaidoHubConnectionHandler>(
+        return new RaidoHubConnectionHandler(
             NullLoggerFactory.Instance,
             Options.Create(new RaidoOptions()),
             Substitute.For<IRaidoHubLifetimeManager>(),
             Substitute.For<IRaidoDispatcher>(),
-            metrics);
-        return new ConnectionHandlerSubstitute(handler, meter);
+            new RaidoMetrics(meterFactory));
     }
 
     private static ConnectionContext CreateConnection(out Pipe input, out Pipe output)
@@ -193,8 +189,7 @@ public sealed class WorldReconnectConnectionHandlerTests
     private static ReconnectFixture CreateReconnectFixture(
         ServiceProvider provider,
         IClientProtocol clientProtocol,
-        out GatedPipeWriter gate,
-        bool activationAccepted = true)
+        out GatedPipeWriter gate)
     {
         var stableConnectionId = "stable-logical";
         var initial = CreatePhysicalConnection(stableConnectionId, out var initialInput, out var initialOutput, out _);
@@ -216,6 +211,11 @@ public sealed class WorldReconnectConnectionHandlerTests
             NullLoggerFactory.Instance,
             TimeProvider.System);
         tcp.OnPhysicalConnectionClosed(initial);
+        Assert.IsTrue(tcp.Transport.Input.TryRead(out var boundary));
+        Assert.IsTrue(boundary.IsCanceled);
+        Assert.IsTrue(boundary.Buffer.IsEmpty);
+        tcp.Transport.Input.AdvanceTo(boundary.Buffer.End);
+        tcp.AcknowledgeInputBoundary();
 
         var session = Substitute.For<IGameWorldSession>();
         session.ConnectionId.Returns(stableConnectionId);
@@ -243,9 +243,8 @@ public sealed class WorldReconnectConnectionHandlerTests
 
         var connections = new RaidoHubConnectionStore();
         connections.Add(target);
-        var infrastructure = CreateConnectionHandlerSubstitute();
-        var connectionHandler = infrastructure.Handler;
-        connectionHandler.TryActivatePhysicalConnection(target, replacement).Returns(activationAccepted);
+        var metricsMeter = new Meter($"{nameof(WorldReconnectConnectionHandlerTests)}-{Guid.NewGuid()}");
+        var connectionHandler = CreateConnectionHandler(metricsMeter);
         var authentication = Substitute.For<IAuthenticationService>();
         authentication.AuthenticateWorldReconnectAsync("login", "password")
             .Returns(new ValueTask<WorldReconnectAuthenticationResult>(WorldReconnectAuthenticationResult.Success(42)));
@@ -257,7 +256,7 @@ public sealed class WorldReconnectConnectionHandlerTests
                 "claim",
                 Arg.Any<Func<CancellationToken, Task<bool>>>(),
                 Arg.Any<CancellationToken>())
-            .Returns(callInfo => callInfo.Arg<Func<CancellationToken, Task<bool>>>()(CancellationToken.None));
+            .Returns(callInfo => callInfo.Arg<Func<CancellationToken, Task<bool>>>()!(CancellationToken.None));
         var validator = Substitute.For<IHandshakeValidator<WorldReconnectRequest>>();
         validator.Validate(Arg.Any<WorldReconnectRequest>()).Returns(ClientSignInResponse.Success);
         var handler = new WorldReconnectConnectionHandler(
@@ -284,7 +283,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             stableConnectionId,
             clientProtocol,
             gate,
-            infrastructure.Meter);
+            metricsMeter);
     }
 
     private static ConnectionContext CreatePhysicalConnection(
@@ -318,6 +317,20 @@ public sealed class WorldReconnectConnectionHandlerTests
         finally
         {
             reader.AdvanceTo(result.Buffer.End);
+        }
+    }
+
+    private static async Task<ReadResult> ReadNonCanceledAsync(PipeReader reader)
+    {
+        while (true)
+        {
+            var result = await reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
+            if (!result.IsCanceled || !result.Buffer.IsEmpty)
+            {
+                return result;
+            }
+
+            reader.AdvanceTo(result.Buffer.Start, result.Buffer.End);
         }
     }
 
@@ -453,20 +466,4 @@ public sealed class WorldReconnectConnectionHandlerTests
         }
     }
 
-    private sealed class ConnectionHandlerSubstitute : IDisposable
-    {
-        private readonly Meter _meter;
-
-        public ConnectionHandlerSubstitute(RaidoHubConnectionHandler handler, Meter meter)
-        {
-            Handler = handler;
-            Meter = meter;
-            _meter = meter;
-        }
-
-        public RaidoHubConnectionHandler Handler { get; }
-        public Meter Meter { get; }
-
-        public void Dispose() => _meter.Dispose();
-    }
 }

@@ -11,10 +11,11 @@ session and character.
 
 - Keep the dedicated reconnect-only authorization request/response. It proves
   the existing identity without minting a token or creating GameWorld state.
-- Read and classify the first raw GameWorld handshake before creating a
-  logical Raido context. Fresh world and lobby requests continue through the
-  normal factory path; only fresh world login enables the existing Raido
-  stateful reconnect window.
+- Process the fixed opcode-14 session handshake and send its existing
+  acknowledgement, then read and classify the following authentication
+  request before creating a logical Raido context. Fresh world and lobby
+  requests continue through the normal factory path; only fresh world login
+  enables the existing Raido stateful reconnect window.
 - For a reconnect request, validate the existing world session, claim, logical
   connection, character, and authentication subject, then ask Raido connection
   infrastructure to activate the raw `ConnectionContext` on that existing
@@ -39,8 +40,9 @@ session and character.
 
 ## Acceptance criteria
 
-- Opcode 16 with reconnect flag 1 is handled before logical Raido context
-  creation and never creates a temporary candidate context.
+- Opcode 14 is acknowledged before the following authentication request is
+  classified. Opcode 16 with reconnect flag 1 is handled before logical Raido
+  context creation and never creates a temporary candidate context.
 - Valid credentials can identify only an already-authenticated subject that
   matches the existing world session and character.
 - A successful reconnect preserves the existing logical connection ID,

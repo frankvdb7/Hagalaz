@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.IO;
 using System.IO.Pipelines;
 using System.Threading;
@@ -51,10 +50,16 @@ public class ClientConnectionHandler : ConnectionHandler
             cancellation.CancelAfter(TimeSpan.FromSeconds(10));
         }
 
-        RaidoMessage? message;
+        RaidoMessage? handshake;
         try
         {
-            message = await ReadInitialMessageAsync(connection, handshakeProtocol, _raidoOptions.Value.MaximumReceiveMessageSize, cancellation.Token);
+            handshake = await ReadMessageAsync(
+                connection,
+                handshakeProtocol,
+                _raidoOptions.Value.MaximumReceiveMessageSize,
+                cancellation.Token,
+                shouldConsume: static _ => true,
+                isValidOpcode: static opcode => opcode == 14);
         }
         catch (OperationCanceledException)
         {
@@ -67,13 +72,56 @@ public class ClientConnectionHandler : ConnectionHandler
             return;
         }
 
-        if (message is null)
+        if (handshake is not ClientHandshakeRequest)
         {
-            connection.Abort(new ConnectionAbortedException("Unknown handshake message."));
+            connection.Abort(new ConnectionAbortedException("The client handshake was invalid."));
             return;
         }
 
-        if (message is WorldReconnectRequest reconnectRequest)
+        try
+        {
+            await SendHandshakeResponseAsync(connection, handshakeProtocol, cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            connection.Abort(new ConnectionAbortedException("The handshake response was canceled."));
+            return;
+        }
+        catch (Exception ex)
+        {
+            connection.Abort(new ConnectionAbortedException("The handshake response could not be sent.", ex));
+            return;
+        }
+
+        RaidoMessage? authentication;
+        try
+        {
+            authentication = await ReadMessageAsync(
+                connection,
+                handshakeProtocol,
+                _raidoOptions.Value.MaximumReceiveMessageSize,
+                cancellation.Token,
+                shouldConsume: static message => message is WorldReconnectRequest,
+                isValidOpcode: static opcode => opcode is 16 or 19);
+        }
+        catch (OperationCanceledException)
+        {
+            connection.Abort(new ConnectionAbortedException("The authentication handshake was canceled."));
+            return;
+        }
+        catch (Exception ex)
+        {
+            connection.Abort(new ConnectionAbortedException("The authentication handshake was invalid.", ex));
+            return;
+        }
+
+        if (authentication is null)
+        {
+            connection.Abort(new ConnectionAbortedException("Unknown authentication handshake message."));
+            return;
+        }
+
+        if (authentication is WorldReconnectRequest reconnectRequest)
         {
             await _reconnectHandler.HandleAsync(connection, handshakeProtocol, reconnectRequest, cancellation.Token);
             return;
@@ -82,18 +130,20 @@ public class ClientConnectionHandler : ConnectionHandler
         var connectionContext = _connectionFactory.Create(
             connection,
             handshakeProtocol,
-            statefulReconnect: message is WorldSignInRequest);
+            statefulReconnect: authentication is WorldSignInRequest);
 
         Log.HandshakeStart(_logger, connectionContext.Protocol.Name);
 
         await _connectionHandler.ConnectAsync(connectionContext);
     }
 
-    internal static async ValueTask<RaidoMessage?> ReadInitialMessageAsync(
+    internal static async ValueTask<RaidoMessage?> ReadMessageAsync(
         ConnectionContext connection,
         HandshakeProtocol protocol,
         long? maximumMessageSize,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<RaidoMessage, bool> shouldConsume,
+        Func<byte, bool>? isValidOpcode = null)
     {
         while (true)
         {
@@ -113,10 +163,19 @@ public class ClientConnectionHandler : ConnectionHandler
 
             var consumed = buffer.Start;
             var examined = buffer.End;
+            if (isValidOpcode is not null && !buffer.IsEmpty && !isValidOpcode(buffer.FirstSpan[0]))
+            {
+                connection.Transport.Input.AdvanceTo(buffer.End);
+                throw new InvalidDataException("The handshake opcode was invalid.");
+            }
+
             if (protocol.TryParseMessage(buffer, ref consumed, ref examined, out var message) && message is not null)
             {
-                var isReconnect = message is WorldReconnectRequest;
-                var advanceTo = isReconnect ? consumed : buffer.Start;
+                var advanceTo = shouldConsume(message) ? consumed : buffer.Start;
+                if (message is ClientHandshakeRequest)
+                {
+                    advanceTo = buffer.GetPosition(1);
+                }
                 connection.Transport.Input.AdvanceTo(advanceTo, advanceTo);
                 return message;
             }
@@ -128,6 +187,21 @@ public class ClientConnectionHandler : ConnectionHandler
             }
 
             connection.Transport.Input.AdvanceTo(buffer.Start, buffer.End);
+        }
+    }
+
+    private static async Task SendHandshakeResponseAsync(
+        ConnectionContext connection,
+        HandshakeProtocol protocol,
+        CancellationToken cancellationToken)
+    {
+        protocol.WriteMessage(
+            new ClientHandshakeResponse { ReturnCode = 0 },
+            connection.Transport.Output);
+        var result = await connection.Transport.Output.FlushAsync(cancellationToken);
+        if (result.IsCanceled)
+        {
+            throw new OperationCanceledException(cancellationToken);
         }
     }
 
