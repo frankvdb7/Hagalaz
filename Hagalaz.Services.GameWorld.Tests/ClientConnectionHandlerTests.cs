@@ -159,6 +159,26 @@ public sealed class ClientConnectionHandlerTests
     }
 
     [TestMethod]
+    public async Task Dispatch_WhenHandshakeResponseFlushCompletes_AbortsWithoutCreatingLogicalConnection()
+    {
+        var fixture = CreateFixture(handshakeResponseFlushCompletes: true);
+        try
+        {
+            await fixture.Input.Writer.WriteAsync(new byte[] { 14 });
+
+            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
+
+            Assert.IsFalse(fixture.FactoryCalled);
+            Assert.AreEqual(0, fixture.ReconnectHandlerResolutionCount);
+            Assert.IsTrue(fixture.ConnectionAbortCalled);
+        }
+        finally
+        {
+            await fixture.DisposeAsync();
+        }
+    }
+
+    [TestMethod]
     [Timeout(10000)]
     public async Task Dispatch_ReconnectUsesRawConnectionAndResumesExistingLogicalConnection()
     {
@@ -400,14 +420,18 @@ public sealed class ClientConnectionHandlerTests
         }
     }
 
-    private static TestFixture CreateFixture(IClientHandshakeHandler? handshakeHandler = null)
+    private static TestFixture CreateFixture(
+        IClientHandshakeHandler? handshakeHandler = null,
+        bool handshakeResponseFlushCompletes = false)
     {
         var input = new Pipe();
         var output = new Pipe();
         var connection = Substitute.For<ConnectionContext>();
         var transport = Substitute.For<IDuplexPipe>();
         transport.Input.Returns(input.Reader);
-        transport.Output.Returns(output.Writer);
+        transport.Output.Returns(handshakeResponseFlushCompletes
+            ? new CompletedPipeWriter(output.Writer)
+            : output.Writer);
         connection.Transport.Returns(transport);
         connection.ConnectionId.Returns("physical");
         connection.ConnectionClosed.Returns(CancellationToken.None);
@@ -731,6 +755,22 @@ public sealed class ClientConnectionHandlerTests
             output.Write(bytes);
             return await output.FlushAsync(cancellationToken);
         }
+
+        public override void Complete(Exception? exception = null) => output.Complete(exception);
+    }
+
+    private sealed class CompletedPipeWriter(PipeWriter output) : PipeWriter
+    {
+        public override void Advance(int bytes) => output.Advance(bytes);
+
+        public override Memory<byte> GetMemory(int sizeHint = 0) => output.GetMemory(sizeHint);
+
+        public override Span<byte> GetSpan(int sizeHint = 0) => output.GetSpan(sizeHint);
+
+        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default) =>
+            new(new FlushResult(isCanceled: false, isCompleted: true));
+
+        public override void CancelPendingFlush() { }
 
         public override void Complete(Exception? exception = null) => output.Complete(exception);
     }

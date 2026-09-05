@@ -109,7 +109,9 @@ two-byte payload length and exactly the 4,608-byte player-entry payload. The
 candidate MUST pass authoritative session-claim revalidation and Raido's
 awaiting-reconnect preflight before GameWorld preparation. The winner MUST
 install the fresh protocol and metadata, flush response 15, and then perform the
-existing single physical attach internally.
+existing single physical attach internally. A response flush is successful only
+when it is neither canceled nor completed; a completed writer MUST be treated as
+failed response delivery and MUST prevent final attach.
 
 #### Scenario: Response precedes resumed input
 
@@ -166,7 +168,9 @@ metadata intact. The replacement physical connection MUST be aborted and the
 incoming protocol scope MUST be disposed exactly once according to the existing
 `SetProtocolAsync` ownership contract. If preparation fails after the protocol
 transition commits, GameWorld MUST terminalize the target without attempting
-protocol rollback.
+protocol rollback. `SetProtocolAsync` commits the new protocol before disposing
+the previous protocol lifetime, so a cleanup exception after that commit MUST be
+treated as a committed mutation by checking the target's current protocol.
 
 #### Scenario: Cancellation before protocol mutation
 
@@ -184,3 +188,27 @@ protocol rollback.
 - THEN the target is terminalized
 - AND the replacement is aborted
 - AND the fresh protocol is not rolled back onto a reconnectable target
+
+#### Scenario: Previous protocol cleanup fails after commit
+
+- GIVEN `SetProtocolAsync` installs the fresh protocol and transfers its lifetime
+- WHEN disposal of the previous protocol lifetime throws
+- THEN the fresh protocol remains installed
+- AND the target is terminalized
+- AND the incoming protocol lifetime is disposed exactly once by target cleanup
+
+### Requirement: Expected handshake cancellation is quiet
+
+If the outer handshake or reconnect cancellation token is canceled, the handler
+MUST release the session claim and return without logging `ReconnectFailed` or
+causing the dispatcher to log an application failure. An unrelated
+`OperationCanceledException` MUST still be surfaced and logged when that token is
+not canceled.
+
+#### Scenario: Handshake timeout cancels a blocked response flush
+
+- GIVEN a reconnect response flush is waiting on the outer handshake token
+- WHEN that token is canceled while the physical connection remains open
+- THEN the claim callback exits
+- AND the replacement is aborted
+- AND no reconnect or dispatcher application failure is logged

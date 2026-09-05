@@ -45,6 +45,7 @@
   preflight rejection, valid reconnect ordering, claim-serialized concurrent
   candidates, first-packet buffering, attach-failure termination, mutation
   boundary cancellation, claim release, lazy reconnect-handler resolution, and
-  protocol lifetime ownership.
+  protocol lifetime ownership, commit-before-cleanup failure, completed
+  response flush failure, and expected timeout cancellation logging.
 - [x] Run strict OpenSpec validation, the requested test matrix, solution
   build, architecture grep, and final diff/scope review.

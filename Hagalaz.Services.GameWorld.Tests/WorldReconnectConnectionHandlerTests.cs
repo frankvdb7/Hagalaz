@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
 using Hagalaz.Game.Abstractions.Services;
@@ -18,6 +19,7 @@ using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -177,11 +179,18 @@ public sealed class WorldReconnectConnectionHandlerTests
     [Timeout(5000)]
     public async Task HandleAsync_WhenHandshakeCancellationInterruptsResponseFlush_ReleasesClaimAndTerminalizesPreparedTarget()
     {
+        var reconnectLogger = new TestLogger<WorldReconnectConnectionHandler>();
+        var dispatcherLogger = new TestLogger<RaidoConnectionDispatcher>();
         var clientProtocol = CreateClientProtocol("replacement-protocol");
         await using var provider = new ServiceCollection()
             .AddScoped<IClientProtocolResolver>(_ => new DisposableClientProtocolResolver(clientProtocol))
             .BuildServiceProvider();
-        var fixture = CreateReconnectFixture(provider, clientProtocol, out var gate, honorGateCancellation: true);
+        var fixture = CreateReconnectFixture(
+            provider,
+            clientProtocol,
+            out var gate,
+            honorGateCancellation: true,
+            logger: reconnectLogger);
         using var cancellation = new CancellationTokenSource();
         var claimEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var claimExited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -212,7 +221,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             dispatcherProvider.GetRequiredService<IServiceScopeFactory>(),
             Substitute.For<IRaidoHubConnectionContextFactory>(),
             fixture.ConnectionHandler,
-            NullLogger<RaidoConnectionDispatcher>.Instance);
+            dispatcherLogger);
 
         var run = dispatcher.OnConnectedAsync(fixture.Replacement);
         await gate.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -229,6 +238,8 @@ public sealed class WorldReconnectConnectionHandlerTests
         Assert.IsTrue(fixture.Tcp.IsTerminal);
         fixture.Replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
         Assert.IsTrue(fixture.Gate.FlushedBytes is not null);
+        Assert.IsFalse(reconnectLogger.Entries.Any(entry => entry.EventId.Name == "ReconnectFailed"));
+        Assert.IsFalse(dispatcherLogger.Entries.Any(entry => entry.EventId.Name == "ApplicationConnectionFailed"));
 
         await fixture.DisposeAsync();
     }
@@ -292,6 +303,63 @@ public sealed class WorldReconnectConnectionHandlerTests
         Assert.IsTrue(fixture.Target.IsTerminal);
         Assert.AreSame(clientProtocol, fixture.Target.Protocol);
         Assert.IsTrue(fixture.Tcp.IsTerminal);
+        fixture.Replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
+
+        await fixture.DisposeAsync();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task HandleAsync_WhenProtocolCommitIsFollowedByPreviousLifetimeFailure_TerminalizesTargetAndDisposesCommittedScopeOnce()
+    {
+        var clientProtocol = CreateClientProtocol("replacement-protocol");
+        var resolver = new DisposableClientProtocolResolver(clientProtocol);
+        await using var provider = new ServiceCollection()
+            .AddScoped<IClientProtocolResolver>(_ => resolver)
+            .BuildServiceProvider();
+        var oldProtocol = Substitute.For<IRaidoProtocol>();
+        var oldLifetime = new ThrowingProtocolLifetime();
+        var fixture = CreateReconnectFixture(
+            provider,
+            clientProtocol,
+            out var gate,
+            initialProtocol: oldProtocol);
+        await fixture.Target.SetProtocolAsync(oldProtocol, oldLifetime, CancellationToken.None);
+        await using var dispatcher = CreateDispatcher(fixture, CreateReconnectRequest(), CancellationToken.None);
+
+        await dispatcher.Run;
+
+        Assert.AreEqual(1, oldLifetime.DisposeCount);
+        Assert.IsTrue(fixture.Target.IsTerminal);
+        Assert.AreSame(clientProtocol, fixture.Target.Protocol);
+        Assert.IsNull(gate.FlushedBytes);
+        Assert.IsTrue(fixture.Tcp.IsTerminal);
+        fixture.Replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
+
+        await fixture.DisposeAsync();
+
+        Assert.AreEqual(1, resolver.DisposeCount);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task HandleAsync_WhenResponseFlushCompletesBeforeDelivery_TerminalizesPreparedTargetWithoutAttach()
+    {
+        var clientProtocol = CreateClientProtocol("replacement-protocol");
+        await using var provider = new ServiceCollection()
+            .AddScoped<IClientProtocolResolver>(_ => new DisposableClientProtocolResolver(clientProtocol))
+            .BuildServiceProvider();
+        var fixture = CreateReconnectFixture(provider, clientProtocol, out var gate);
+        await using var dispatcher = CreateDispatcher(fixture, CreateReconnectRequest(), CancellationToken.None);
+
+        await gate.FlushStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        gate.Release(new FlushResult(isCanceled: false, isCompleted: true));
+        await dispatcher.Run;
+
+        Assert.IsTrue(fixture.Target.IsTerminal);
+        Assert.AreSame(clientProtocol, fixture.Target.Protocol);
+        Assert.IsTrue(fixture.Tcp.IsTerminal);
+        Assert.IsFalse(fixture.Tcp.TryGetCurrentConnection(out _));
         fixture.Replacement.Received(1).Abort(Arg.Any<ConnectionAbortedException>());
 
         await fixture.DisposeAsync();
@@ -690,7 +758,8 @@ public sealed class WorldReconnectConnectionHandlerTests
         out GatedPipeWriter gate,
         bool detach = true,
         IRaidoProtocol? initialProtocol = null,
-        bool honorGateCancellation = false)
+        bool honorGateCancellation = false,
+        ILogger<WorldReconnectConnectionHandler>? logger = null)
     {
         var stableConnectionId = "stable-logical";
         var initial = CreatePhysicalConnection(stableConnectionId, out var initialInput, out var initialOutput, out var initialClosed);
@@ -713,7 +782,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             TimeProvider.System);
         if (detach)
         {
-            initialClosed.Cancel();
+            tcp.OnPhysicalConnectionClosed(initial);
             Assert.IsTrue(tcp.Transport.Input.TryRead(out var boundary));
             Assert.IsTrue(boundary.IsCanceled);
             Assert.IsTrue(boundary.Buffer.IsEmpty);
@@ -772,7 +841,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             connections,
             provider.GetRequiredService<IServiceScopeFactory>(),
             validator,
-            NullLogger<WorldReconnectConnectionHandler>.Instance);
+            logger ?? NullLogger<WorldReconnectConnectionHandler>.Instance);
 
         return new ReconnectFixture(
             handler,
@@ -927,6 +996,45 @@ public sealed class WorldReconnectConnectionHandlerTests
         public IClientProtocol? GetProtocol(int revision) => revision == protocol.Version ? protocol : null;
 
         public void Dispose() => DisposeCount++;
+    }
+
+    private sealed class ThrowingProtocolLifetime : IAsyncDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            return ValueTask.FromException(new InvalidOperationException("Previous protocol cleanup failed."));
+        }
+    }
+
+    private sealed class TestLogger<T> : ILogger<T>
+    {
+        public ConcurrentQueue<LogEntry> Entries { get; } = new();
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Entries.Enqueue(new LogEntry(logLevel, eventId, formatter(state, exception), exception));
+        }
+    }
+
+    private sealed record LogEntry(LogLevel Level, EventId EventId, string Message, Exception? Exception);
+
+    private sealed class NullScope : IDisposable
+    {
+        public static NullScope Instance { get; } = new();
+
+        public void Dispose() { }
     }
 
     private sealed class ReconnectFixture : IAsyncDisposable

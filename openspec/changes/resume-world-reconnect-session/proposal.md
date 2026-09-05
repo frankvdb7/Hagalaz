@@ -69,6 +69,13 @@ session and character.
 - If the final attach fails after target mutation, the replacement is aborted
   and the existing logical target is terminated rather than left partially
   transitioned and reconnectable.
+- If disposing the previous protocol lifetime throws after
+  `SetProtocolAsync` has committed the new protocol, the target remains
+  terminalized with the new protocol installed and the incoming protocol scope
+  owned by target cleanup.
+- Response delivery treats both a canceled flush and a completed writer as
+  failure. An outer handshake-timeout cancellation is expected control flow
+  and is not logged as a reconnect or dispatcher application failure.
 - Existing fresh world and lobby response bytes and routing remain unchanged.
 - Handshake policy is injected through request-specific validators, with no
   static global handshake policy class.

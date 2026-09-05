@@ -205,6 +205,12 @@ public class ClientConnectionHandler
         {
             throw new OperationCanceledException(cancellationToken);
         }
+
+        if (result.IsCompleted)
+        {
+            throw new ConnectionAbortedException(
+                "The client connection completed while sending the handshake response.");
+        }
     }
 
     private static class Log

@@ -44,7 +44,10 @@ internal `TryAttachPhysicalConnection` before returning, so the GameSession
 claim remains held through attachment. A preparation exception aborts only the
 replacement physical connection; GameWorld tracks whether `SetProtocolAsync`
 committed and aborts the logical target only when preparation fails after that
-mutation point. A final attach failure remains terminal for the target.
+mutation point. Because `SetProtocolAsync` commits the new protocol before
+disposing the previous protocol lifetime, GameWorld also checks the target's
+current protocol when that cleanup throws. A final attach failure remains
+terminal for the target.
 
 There is no connection-selection result DTO, GameWorld reconnect marker,
 `Items`-based coordination, reservation, lease, or second reconnect state. The
@@ -54,9 +57,13 @@ final internal attach is the authoritative winner operation.
 
 The reconnect handler creates a fresh revision-specific client protocol in its
 own async scope and seeds it from the reconnect request. Ownership of that scope
-transfers to the existing target when `SetProtocolAsync` is called; the handler
-does not dispose it afterward. Response 15 is opcode 15 with declared
-`VariableShort` framing and a 4,608-byte player-entry payload.
+transfers to the existing target when `SetProtocolAsync` commits; the handler
+does not dispose it afterward. If disposal of the previous protocol lifetime
+throws after that commit, the new protocol remains installed and target cleanup
+owns the incoming scope. Response 15 is opcode 15 with declared `VariableShort`
+framing and a 4,608-byte player-entry payload. A response flush succeeds only
+when it is neither canceled nor completed; a completed writer is failed
+delivery.
 
 The raw input pipe has no Raido reader before attach. A client packet sent
 immediately after response 15 therefore stays buffered, then is decoded once by
@@ -84,7 +91,9 @@ lobby connections do not retain the reconnect-only dependency graph.
 
 The outer handshake timeout remains owned by `ClientConnectionHandler` and is
 passed through `ExecuteIfOwnerAsync`; the claim callback continues to pass its
-token through preparation, response flushing, and final attach.
+token through preparation, response flushing, and final attach. Cancellation
+caused by that outer token is expected control flow and is not logged as a
+reconnect or application failure. Other cancellation exceptions remain errors.
 
 Normal sign-in keeps the token-issuing `SignInUserRequestMessage` contract.
 Reconnect uses the dedicated validation message and response. Its raw login,

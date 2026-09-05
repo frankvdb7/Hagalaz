@@ -157,7 +157,7 @@ public sealed class RaidoConnectionDispatcher : ConnectionHandler
             return;
         }
 
-        if (!dispatch.WasDispatched)
+        if (!dispatch.WasDispatched && !dispatch.WasAborted)
         {
             connection.Abort(new ConnectionAbortedException(
                 "The Raido application connection did not dispatch the physical connection."));

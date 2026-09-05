@@ -150,11 +150,21 @@ public sealed class WorldReconnectConnectionHandler
                                 // scope as handed off before awaiting it to avoid disposing the same scope twice.
                                 clientProtocol.SetEncryptionSeed(message.IsaacSeed);
                                 protocolScopeTransferred = true;
-                                await currentTarget.SetProtocolAsync(
-                                    clientProtocol,
-                                    protocolScope,
-                                    prepareCancellationToken);
-                                targetMutated = true;
+                                try
+                                {
+                                    await currentTarget.SetProtocolAsync(
+                                        clientProtocol,
+                                        protocolScope,
+                                        prepareCancellationToken);
+                                    targetMutated = true;
+                                }
+                                catch
+                                {
+                                    // SetProtocolAsync commits the new protocol before disposing the old lifetime.
+                                    // A cleanup failure can therefore throw after the target already owns this protocol.
+                                    targetMutated |= ReferenceEquals(currentTarget.Protocol, clientProtocol);
+                                    throw;
+                                }
                                 character.GameClient.DisplayMode = message.DisplayMode;
                                 character.GameClient.Language = message.Language;
                                 character.GameClient.ScreenSizeX = message.ClientSizeX;
@@ -188,7 +198,7 @@ public sealed class WorldReconnectConnectionHandler
                 return;
             }
         }
-        catch (OperationCanceledException) when (connection.ConnectionClosed.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return;
         }
@@ -218,6 +228,12 @@ public sealed class WorldReconnectConnectionHandler
         if (result.IsCanceled)
         {
             throw new OperationCanceledException(cancellationToken);
+        }
+
+        if (result.IsCompleted)
+        {
+            throw new ConnectionAbortedException(
+                "The client connection completed while sending the world reconnect response.");
         }
     }
 
