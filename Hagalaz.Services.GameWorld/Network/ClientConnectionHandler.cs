@@ -118,6 +118,29 @@ internal sealed class ClientConnectionHandler
 
         if (authenticationOpcode == 19)
         {
+            bool? lobbyFrameReceived;
+            try
+            {
+                lobbyFrameReceived = await ReadLobbyAuthenticationFrameAsync(
+                    connection,
+                    _raidoOptions.Value.MaximumReceiveMessageSize,
+                    handshakeCancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                Log.HandshakeFailed(_logger, ex);
+                return;
+            }
+
+            if (lobbyFrameReceived is null)
+            {
+                return;
+            }
+
             await DispatchNewAsync(dispatch, statefulReconnect: false, handshakeCancellationToken);
             return;
         }
@@ -173,6 +196,9 @@ internal sealed class ClientConnectionHandler
 
         if (authentication is WorldReconnectRequest reconnectRequest)
         {
+            // Resolve reconnect handling only after reconnect classification so
+            // fresh and lobby connections do not retain reconnect-only scoped
+            // dependencies for the lifetime of the logical connection.
             await _serviceProvider.GetRequiredService<WorldReconnectConnectionHandler>().HandleAsync(
                 connection,
                 dispatch,
@@ -183,6 +209,47 @@ internal sealed class ClientConnectionHandler
         }
 
         return;
+    }
+
+    private static async ValueTask<bool?> ReadLobbyAuthenticationFrameAsync(
+        ConnectionContext connection,
+        long? maximumMessageSize,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var result = await connection.Transport.Input.ReadAsync(cancellationToken);
+            var buffer = result.Buffer;
+            if (result.IsCanceled)
+            {
+                connection.Transport.Input.AdvanceTo(buffer.Start, buffer.Start);
+                return null;
+            }
+
+            if (maximumMessageSize is long maximum && buffer.Length > maximum)
+            {
+                connection.Transport.Input.AdvanceTo(buffer.End);
+                throw new InvalidDataException($"The maximum message size of {maximum}B was exceeded.");
+            }
+
+            if (!buffer.IsEmpty)
+            {
+                var reader = new SequenceReader<byte>(buffer.Slice(1));
+                if (TryReadAuthenticationFrame(ref reader))
+                {
+                    connection.Transport.Input.AdvanceTo(buffer.Start, buffer.Start);
+                    return true;
+                }
+            }
+
+            if (result.IsCompleted)
+            {
+                connection.Transport.Input.AdvanceTo(buffer.End);
+                return null;
+            }
+
+            connection.Transport.Input.AdvanceTo(buffer.Start, buffer.End);
+        }
     }
 
     private async ValueTask DispatchNewAsync(
@@ -341,22 +408,12 @@ internal sealed class ClientConnectionHandler
     {
         isReconnect = false;
         var reader = new SequenceReader<byte>(payload);
-        if (!reader.TryReadBigEndian(out short packetSize))
+        if (!TryReadAuthenticationFrame(ref reader))
         {
             return false;
         }
 
-        if (packetSize < 0)
-        {
-            throw new InvalidDataException("The world authentication packet size was invalid.");
-        }
-
-        if (reader.Remaining < packetSize)
-        {
-            return false;
-        }
-
-        if (reader.Remaining != packetSize || packetSize < 9)
+        if (reader.Remaining < 9)
         {
             throw new InvalidDataException("The world authentication packet framing was invalid.");
         }
@@ -368,6 +425,31 @@ internal sealed class ClientConnectionHandler
         }
 
         isReconnect = reconnectFlag == 1;
+        return true;
+    }
+
+    private static bool TryReadAuthenticationFrame(ref SequenceReader<byte> reader)
+    {
+        if (!reader.TryReadBigEndian(out short packetSize))
+        {
+            return false;
+        }
+
+        if (packetSize < 0)
+        {
+            throw new InvalidDataException("The authentication packet size was invalid.");
+        }
+
+        if (reader.Remaining < packetSize)
+        {
+            return false;
+        }
+
+        if (reader.Remaining != packetSize)
+        {
+            throw new InvalidDataException("The authentication packet framing was invalid.");
+        }
+
         return true;
     }
 

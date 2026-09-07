@@ -5,8 +5,9 @@
 - [x] Keep dedicated reconnect-only authorization validation separate from
   normal token-issuing sign-in.
 - [x] Acknowledge opcode 14, cheaply classify the following authentication
-  request before logical Raido context creation, and fully decode only
-  reconnect opcode 16 packets.
+  request before logical Raido context creation, wait for complete opcode-19
+  framing without decoding or consuming it, and fully decode only reconnect
+  opcode 16 packets.
 - [x] Validate exact existing world session, claim, logical connection,
   character, and authentication subject without fresh-login side effects.
 - [x] Invoke the per-connection dispatch context for new and existing logical
@@ -47,7 +48,8 @@
 
 - [x] Preserve decoder, authentication, framing, fresh-login, and Raido attach
   coverage, including raw classification without duplicate full decoding,
-  retained fresh/lobby bytes, and reconnect full-decoder-once behavior.
+  retained fresh/lobby bytes, lobby frame completeness under the handshake
+  timeout, and reconnect full-decoder-once behavior.
 - [x] Add focused coverage for scoped dispatcher lifetimes, active-target
   preflight rejection, valid reconnect ordering, claim-serialized concurrent
   candidates, first-packet buffering, attach-failure termination, mutation

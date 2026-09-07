@@ -8,6 +8,7 @@ The GameWorld connection delegate MUST process opcode 14 and send its existing
 acknowledgement before reading the following authentication request. It MUST
 then classify that request before creating a logical Raido context. The raw
 classification MUST inspect opcode 19 without full authentication decoding and
+wait for its complete declared authentication frame before dispatching. It
 MUST inspect opcode 16 only far enough to validate its packet framing/header
 and read the reconnect flag. Opcode 16 with flag 0 and opcode 19 MUST retain
 their complete authentication bytes for the normal logical reader. Opcode 16
@@ -28,12 +29,21 @@ create a temporary candidate context or invoke fresh world sign-in.
 #### Scenario: Fresh and lobby classification avoids duplicate raw decoding
 
 - GIVEN a complete opcode-14 handshake followed by a flag-0 opcode-16 request
-  or an opcode-19 request
+  or a complete opcode-19 authentication frame
 - WHEN the connection is accepted
 - THEN the raw handler does not invoke the full world or lobby authentication
   decoder before logical connection creation
 - AND the complete authentication bytes remain available to the logical reader
 - AND flag-0 world uses stateful reconnect while lobby does not
+
+#### Scenario: Partial lobby authentication remains under handshake timeout
+
+- GIVEN a complete opcode-14 handshake followed by only part of an opcode-19
+  authentication frame
+- WHEN the connection waits for the remainder
+- THEN no logical connection is created before the frame is complete
+- AND cancellation of the outer handshake token aborts the physical connection
+- AND the cancellation does not produce a dispatcher application failure
 
 ### Requirement: Reconnect authentication proves the existing identity
 

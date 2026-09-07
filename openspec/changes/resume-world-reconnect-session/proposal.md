@@ -13,11 +13,13 @@ session and character.
   token-issuing sign-in.
 - Process opcode 14 and its acknowledgement, then cheaply classify the
   following authentication request before creating a logical Raido context.
-  Opcode 19 is classified without full decoding. Opcode 16 is inspected only
-  through packet framing/header data and its reconnect flag; only flag 1 is
-  fully decoded. Fresh world and lobby requests continue through the normal
-  factory path; only fresh world login enables Raido stateful reconnect, and
-  both retain their raw authentication bytes for the logical reader.
+  Opcode 19 waits for its complete declared authentication frame but is
+  classified without full decoding. Opcode 16 is inspected only through
+  packet framing/header data and its reconnect flag; only flag 1 is fully
+  decoded. Fresh world and lobby requests continue through the normal factory
+  path; only fresh world login enables Raido stateful reconnect, and both
+  retain their raw authentication bytes for the logical reader. The outer
+  handshake timeout remains active while the lobby frame is incomplete.
 - For reconnect, validate the existing world session, claim, logical
   connection, character, and authentication subject inside the existing claim
   critical section.
@@ -47,7 +49,9 @@ session and character.
   claim, replay, snapshots, or resynchronization.
 - Do not call fresh world sign-in for reconnect or repeat character hydration,
   registration, Contacts publication, or world sign-in publication.
-- Do not change lobby or flag-0 fresh-login behavior.
+- Do not change lobby or flag-0 fresh-login decoding, routing, or response
+  behavior beyond keeping the pre-logical timeout active until lobby framing
+  is complete.
 - Do not modify the existing #477/#488 Raido reconnect state machine. No
   connection-selection result DTO, GameWorld reconnect marker, `Items`-based
   coordination, public physical attach API, public reconnect-state query,
@@ -96,6 +100,8 @@ session and character.
 - Fresh and lobby handshakes must not instantiate the reconnect-only handler;
   reconnect classification resolves it once from the accepted connection
   scope.
+- The pre-logical timeout remains active while an opcode-19 authentication
+  frame is incomplete, without consuming or fully decoding that frame.
 
 ## Affected runtime boundary
 

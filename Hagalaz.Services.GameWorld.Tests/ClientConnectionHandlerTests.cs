@@ -86,7 +86,7 @@ public sealed class ClientConnectionHandlerTests
         var fixture = CreateFixture();
         try
         {
-            await fixture.Input.Writer.WriteAsync(new byte[] { 14, 19 });
+            await fixture.Input.Writer.WriteAsync(HandshakeAndLobbyAuthenticationPacket());
 
             await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
@@ -94,7 +94,58 @@ public sealed class ClientConnectionHandlerTests
             Assert.AreEqual(0, fixture.LobbyDecodeCountAtFactory);
             Assert.AreEqual(1, fixture.LobbyDecodeCount);
             Assert.AreEqual(0, fixture.ReconnectHandlerResolutionCount);
+            CollectionAssert.AreEqual(
+                new byte[] { 19, 0, 1, 0 },
+                fixture.AuthenticationBytesAtFactory);
             Assert.IsInstanceOfType(fixture.DispatchedMessage, typeof(LobbySignInRequest));
+        }
+        finally
+        {
+            await fixture.DisposeAsync();
+        }
+    }
+
+    [TestMethod]
+    public async Task Dispatch_LobbyOpcodeOnlyWaitsForCompleteAuthenticationFrame()
+    {
+        var gate = new AuthenticationFrameGate();
+        var fixture = CreateFixture(authenticationFrameGate: gate);
+        try
+        {
+            await fixture.Input.Writer.WriteAsync(new byte[] { 14, 19 });
+            var dispatchTask = fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
+
+            await gate.FrameReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.IsFalse(fixture.FactoryCalled);
+            fixture.CancelConnection();
+            await dispatchTask;
+        }
+        finally
+        {
+            await fixture.DisposeAsync();
+        }
+    }
+
+    [TestMethod]
+    public async Task Dispatch_LobbyPartialAuthenticationFrameWaitsWithoutDispatching()
+    {
+        var gate = new AuthenticationFrameGate();
+        var fixture = CreateFixture(authenticationFrameGate: gate);
+        try
+        {
+            await fixture.Input.Writer.WriteAsync(new byte[] { 14, 19, 0 });
+            var dispatchTask = fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
+
+            await gate.FrameReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.IsFalse(fixture.FactoryCalled);
+            gate.Continue.TrySetResult();
+            await gate.FrameReadCompleted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.IsFalse(fixture.FactoryCalled);
+            Assert.AreEqual(0, fixture.LobbyDecodeCount);
+            fixture.CancelConnection();
+            await dispatchTask;
         }
         finally
         {
@@ -165,14 +216,19 @@ public sealed class ClientConnectionHandlerTests
     }
 
     [TestMethod]
-    public async Task Dispatch_FreshWorldHandshakeCancellationDoesNotLogApplicationFailure()
+    public async Task Dispatch_FreshWorldCancelWhenAuthenticationFrameWaitBeginsDoesNotLogApplicationFailure()
     {
-        var fixture = CreateFixture(cancelConnectionAfterInputRead: 3);
+        var gate = new AuthenticationFrameGate();
+        var fixture = CreateFixture(authenticationFrameGate: gate);
         try
         {
-            await fixture.Input.Writer.WriteAsync(HandshakeAndWorldAuthenticationPacket(reconnect: false));
+            await fixture.Input.Writer.WriteAsync(new byte[] { 14, 16 });
+            var dispatchTask = fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
-            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
+            await gate.FrameReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            fixture.CancelConnection();
+            await dispatchTask;
 
             Assert.IsTrue(fixture.ConnectionAbortCalled);
             Assert.IsFalse(fixture.FactoryCalled);
@@ -186,14 +242,19 @@ public sealed class ClientConnectionHandlerTests
     }
 
     [TestMethod]
-    public async Task Dispatch_LobbyHandshakeCancellationDoesNotLogApplicationFailure()
+    public async Task Dispatch_LobbyCancelWhenAuthenticationFrameWaitBeginsDoesNotLogApplicationFailure()
     {
-        var fixture = CreateFixture(cancelConnectionAfterInputRead: 2);
+        var gate = new AuthenticationFrameGate();
+        var fixture = CreateFixture(authenticationFrameGate: gate);
         try
         {
             await fixture.Input.Writer.WriteAsync(new byte[] { 14, 19 });
+            var dispatchTask = fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
 
-            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
+            await gate.FrameReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            fixture.CancelConnection();
+            await dispatchTask;
 
             Assert.IsTrue(fixture.ConnectionAbortCalled);
             Assert.IsFalse(fixture.FactoryCalled);
@@ -503,15 +564,15 @@ public sealed class ClientConnectionHandlerTests
 
     private static TestFixture CreateFixture(
         bool handshakeResponseFlushCompletes = false,
-        int? cancelConnectionAfterInputRead = null)
+        AuthenticationFrameGate? authenticationFrameGate = null)
     {
         var input = new Pipe();
         var output = new Pipe();
         var connectionClosed = new CancellationTokenSource();
         var connection = Substitute.For<ConnectionContext>();
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(cancelConnectionAfterInputRead is int readCount
-            ? new CancelAfterReadPipeReader(input.Reader, connectionClosed, readCount)
+        transport.Input.Returns(authenticationFrameGate is not null
+            ? new AuthenticationFrameGatePipeReader(input.Reader, authenticationFrameGate)
             : input.Reader);
         transport.Output.Returns(handshakeResponseFlushCompletes
             ? new CompletedPipeWriter(output.Writer)
@@ -545,6 +606,7 @@ public sealed class ClientConnectionHandlerTests
             new RaidoMetrics(meterFactory));
         var factory = Substitute.For<IRaidoHubConnectionContextFactory>();
         var factoryCalled = false;
+        byte[]? authenticationBytesAtFactory = null;
         var createdStatefulReconnect = false;
         var worldDecodeCountAtFactory = -1;
         var lobbyDecodeCountAtFactory = -1;
@@ -556,6 +618,11 @@ public sealed class ClientConnectionHandlerTests
             .Returns(callInfo =>
             {
                 factoryCalled = true;
+                if (connection.Transport.Input.TryRead(out var buffered))
+                {
+                    authenticationBytesAtFactory = buffered.Buffer.ToArray();
+                    connection.Transport.Input.AdvanceTo(buffered.Buffer.Start, buffered.Buffer.Start);
+                }
                 worldDecodeCountAtFactory = handshakeCodec.WorldDecodeCount;
                 lobbyDecodeCountAtFactory = handshakeCodec.LobbyDecodeCount;
                 createdStatefulReconnect = callInfo.ArgAt<bool>(2);
@@ -631,6 +698,7 @@ public sealed class ClientConnectionHandlerTests
             () => lobbyDecodeCountAtFactory,
             () => handshakeCodec.WorldDecodeCount,
             () => handshakeCodec.LobbyDecodeCount,
+            () => authenticationBytesAtFactory,
             dispatcherLogger,
             connectionClosed);
     }
@@ -702,6 +770,7 @@ public sealed class ClientConnectionHandlerTests
         Func<int> lobbyDecodeCountAtFactory,
         Func<int> worldDecodeCount,
         Func<int> lobbyDecodeCount,
+        Func<byte[]?> authenticationBytesAtFactory,
         TestLogger<RaidoConnectionDispatcher> dispatcherLogger,
         CancellationTokenSource connectionClosed) : IAsyncDisposable
     {
@@ -720,7 +789,10 @@ public sealed class ClientConnectionHandlerTests
         public int LobbyDecodeCountAtFactory => lobbyDecodeCountAtFactory();
         public int WorldDecodeCount => worldDecodeCount();
         public int LobbyDecodeCount => lobbyDecodeCount();
+        public byte[]? AuthenticationBytesAtFactory => authenticationBytesAtFactory();
         public ConcurrentQueue<LogEntry> DispatcherLogEntries => dispatcherLogger.Entries;
+
+        public void CancelConnection() => connectionClosed.Cancel();
 
         public async ValueTask DisposeAsync()
         {
@@ -736,15 +808,26 @@ public sealed class ClientConnectionHandlerTests
         }
     }
 
-    private sealed class CancelAfterReadPipeReader(
+    private sealed class AuthenticationFrameGate
+    {
+        public TaskCompletionSource FrameReadStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Continue { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource FrameReadCompleted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private sealed class AuthenticationFrameGatePipeReader(
         PipeReader inner,
-        CancellationTokenSource cancellation,
-        int cancelAfterRead) : PipeReader
+        AuthenticationFrameGate gate) : PipeReader
     {
         private readonly PipeReader _inner = inner;
-        private readonly CancellationTokenSource _cancellation = cancellation;
-        private readonly int _cancelAfterRead = cancelAfterRead;
-        private int _readCount;
+        private readonly AuthenticationFrameGate _gate = gate;
+        private bool _authenticationOpcodeObserved;
+        private bool _frameReadStarted;
 
         public override void AdvanceTo(SequencePosition consumed) => _inner.AdvanceTo(consumed);
 
@@ -758,18 +841,29 @@ public sealed class ClientConnectionHandlerTests
         public override ValueTask CompleteAsync(Exception? exception = null) =>
             _inner.CompleteAsync(exception);
 
+        public override bool TryRead(out ReadResult result) => _inner.TryRead(out result);
+
         public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
         {
-            var result = await _inner.ReadAsync(cancellationToken);
-            if (Interlocked.Increment(ref _readCount) == _cancelAfterRead)
+            if (_authenticationOpcodeObserved && !_frameReadStarted)
             {
-                _cancellation.Cancel();
+                _frameReadStarted = true;
+                _gate.FrameReadStarted.TrySetResult();
+                await _gate.Continue.Task.WaitAsync(cancellationToken);
+            }
+
+            var result = await _inner.ReadAsync(cancellationToken);
+            if (_frameReadStarted)
+            {
+                _gate.FrameReadCompleted.TrySetResult();
+            }
+            if (!result.Buffer.IsEmpty && result.Buffer.FirstSpan[0] is 16 or 19)
+            {
+                _authenticationOpcodeObserved = true;
             }
 
             return result;
         }
-
-        public override bool TryRead(out ReadResult result) => _inner.TryRead(out result);
     }
 
     private sealed class TestLogger<T> : ILogger<T>
@@ -891,6 +985,14 @@ public sealed class ClientConnectionHandlerTests
         authentication.CopyTo(packet, 1);
         return packet;
     }
+
+    private static byte[] HandshakeAndLobbyAuthenticationPacket() =>
+    [
+        14,
+        19,
+        0, 1,
+        0
+    ];
 
     private sealed class TestGameMessage : RaidoMessage
     {

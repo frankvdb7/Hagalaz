@@ -16,12 +16,14 @@ expose the physical connection or a reconnect-state query.
 `ClientConnectionHandler` reads opcode 14 with the existing
 `HandshakeProtocol`, consumes that fixed one-byte message, and sends the
 acknowledgement directly on the raw transport. It classifies the following
-authentication request without full authentication decoding: opcode 19 is
-lobby, while opcode 16 is inspected only through its validated packet
-framing/header and reconnect flag. Flag 0 is fresh world and flag 1 is
-reconnect. Only reconnect is passed through the full world decoder, exactly
-once, before logical Raido creation. Fresh world and lobby retain their bytes
-so the normal logical handler reads each request exactly once.
+authentication request without full authentication decoding: opcode 19 waits
+for a complete declared authentication frame, while opcode 16 is inspected
+only through its validated packet framing/header and reconnect flag. Flag 0
+is fresh world and flag 1 is reconnect. Only reconnect is passed through the
+full world decoder, exactly once, before logical Raido creation. Fresh world
+and lobby retain their bytes so the normal logical handler reads each request
+exactly once. The outer handshake timeout remains active through the lobby
+framing wait.
 
 `DispatchNewAsync` creates the logical context through the existing factory and
 awaits `RaidoHubConnectionHandler.ConnectAsync`, keeping the application scope
