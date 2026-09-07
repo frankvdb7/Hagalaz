@@ -18,6 +18,8 @@ using Hagalaz.Game.Abstractions.Scripts;
 using Hagalaz.Services.GameWorld.Network;
 using Hagalaz.Services.GameWorld.Providers;
 using Hagalaz.Services.GameWorld.Services;
+using Raido.Server;
+using Raido.Server.Extensions;
 using Hagalaz.ServiceDefaults;
 
 namespace Hagalaz.Services.GameWorld
@@ -53,7 +55,7 @@ namespace Hagalaz.Services.GameWorld
                     tcpPort,
                     listenOptions =>
                     {
-                        listenOptions.UseConnectionHandler<ClientConnectionHandler>();
+                        listenOptions.UseRaido();
                         listenOptions.UseConnectionLogging();
                     });
 

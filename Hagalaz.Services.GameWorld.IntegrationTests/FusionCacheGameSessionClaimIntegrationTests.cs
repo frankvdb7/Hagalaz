@@ -262,6 +262,7 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
             services.AddSingleton(harness.GetUserInfoRequestClient);
             services.AddSingleton(harness.RevokeTokenRequestClient);
             services.AddSingleton(harness.GetCharacterRequestClient);
+            services.AddSingleton(harness.ValidateExistingAuthenticationRequestClient);
         }
         services.AddLogging();
         return services.BuildServiceProvider();
@@ -324,6 +325,17 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         harness.RevokeTokenRequestClient
             .GetResponse<RevokeTokenResponseMessage>(Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
             .ReturnsForAnyArgs(Task.FromResult(revokeTokenResponse));
+        var validateAuthenticationResponse = CreateResponse(new ValidateExistingAuthenticationResponseMessage
+        {
+            Succeeded = true,
+            Subject = "47"
+        });
+        harness.ValidateExistingAuthenticationRequestClient
+            .GetResponse<ValidateExistingAuthenticationResponseMessage>(
+                Arg.Any<ValidateExistingAuthenticationRequestMessage>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<RequestTimeout>())
+            .ReturnsForAnyArgs(Task.FromResult(validateAuthenticationResponse));
 
         return harness;
     }
@@ -421,6 +433,7 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
         public IRequestClient<GetUserInfoRequestMessage> GetUserInfoRequestClient { get; } = Substitute.For<IRequestClient<GetUserInfoRequestMessage>>();
         public IRequestClient<RevokeTokenRequestMessage> RevokeTokenRequestClient { get; } = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
         public IRequestClient<HydrateCharacter> GetCharacterRequestClient { get; } = Substitute.For<IRequestClient<HydrateCharacter>>();
+        public IRequestClient<ValidateExistingAuthenticationRequestMessage> ValidateExistingAuthenticationRequestClient { get; } = Substitute.For<IRequestClient<ValidateExistingAuthenticationRequestMessage>>();
         public ICharacter Character { get; } = Substitute.For<ICharacter>();
         public int HydrationCalls;
         public int CharacterAddCalls;

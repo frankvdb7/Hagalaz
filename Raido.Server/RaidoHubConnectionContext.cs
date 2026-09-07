@@ -75,6 +75,7 @@ namespace Raido.Server
         internal PipeReader TransportInput => _tcpConnection.Transport.Input;
         internal bool IsTerminal => _tcpConnection.IsTerminal;
         internal bool IsReconnectEnabled => _tcpConnection.IsReconnectEnabled;
+        internal bool IsAwaitingReconnect => _tcpConnection.IsAwaitingReconnect;
         internal Exception? TerminalException => _tcpConnection.TerminalException;
 
         internal RaidoHubConnectionContext(

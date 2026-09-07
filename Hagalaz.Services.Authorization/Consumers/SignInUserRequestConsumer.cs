@@ -55,10 +55,7 @@ namespace Hagalaz.Services.Authorization.Consumers
                         var tokenResult = tokenResponse.Message;
                         if (tokenResult.Tokens.Any())
                         {
-                            await context.RespondAsync(new SignInUserResponseMessage
-                            {
-                                IsAuthenticated = true
-                            });
+                            await context.RespondAsync(new SignInUserResponseMessage { IsAuthenticated = true });
                             return;
                         }
                     }
