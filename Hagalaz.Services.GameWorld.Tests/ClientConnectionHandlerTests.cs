@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
 using System.Net;
@@ -19,6 +20,7 @@ using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -93,6 +95,110 @@ public sealed class ClientConnectionHandlerTests
             Assert.AreEqual(1, fixture.LobbyDecodeCount);
             Assert.AreEqual(0, fixture.ReconnectHandlerResolutionCount);
             Assert.IsInstanceOfType(fixture.DispatchedMessage, typeof(LobbySignInRequest));
+        }
+        finally
+        {
+            await fixture.DisposeAsync();
+        }
+    }
+
+    [TestMethod]
+    public async Task Dispatch_Opcode14ThenWorldFlag2_CreatesStatefulLogicalConnectionLikeWorldDecoder()
+    {
+        var fixture = CreateFixture();
+        try
+        {
+            await fixture.Input.Writer.WriteAsync(HandshakeAndWorldAuthenticationPacket(reconnectFlag: 2));
+
+            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
+
+            Assert.IsTrue(fixture.CreatedStatefulReconnect);
+            Assert.AreEqual(0, fixture.ReconnectHandlerResolutionCount);
+            Assert.AreEqual(0, fixture.WorldDecodeCountAtFactory);
+            Assert.AreEqual(1, fixture.WorldDecodeCount);
+            Assert.IsInstanceOfType(fixture.DispatchedMessage, typeof(WorldSignInRequest));
+        }
+        finally
+        {
+            await fixture.DisposeAsync();
+        }
+    }
+
+    [TestMethod]
+    public void TryReadWorldReconnectFlag_Flag0_ReturnsFalse()
+    {
+        Assert.IsTrue(ClientConnectionHandler.TryReadWorldReconnectFlag(
+            new ReadOnlySequence<byte>(WorldAuthenticationPacket(0).AsMemory(1)),
+            out var isReconnect));
+
+        Assert.IsFalse(isReconnect);
+    }
+
+    [TestMethod]
+    public void TryReadWorldReconnectFlag_Flag1_ReturnsTrue()
+    {
+        Assert.IsTrue(ClientConnectionHandler.TryReadWorldReconnectFlag(
+            new ReadOnlySequence<byte>(WorldAuthenticationPacket(1).AsMemory(1)),
+            out var isReconnect));
+
+        Assert.IsTrue(isReconnect);
+    }
+
+    [TestMethod]
+    public void TryReadWorldReconnectFlag_Flag2_ReturnsFalse()
+    {
+        Assert.IsTrue(ClientConnectionHandler.TryReadWorldReconnectFlag(
+            new ReadOnlySequence<byte>(WorldAuthenticationPacket(2).AsMemory(1)),
+            out var isReconnect));
+
+        Assert.IsFalse(isReconnect);
+    }
+
+    [TestMethod]
+    public void TryReadWorldReconnectFlag_Flag255_ReturnsFalse()
+    {
+        Assert.IsTrue(ClientConnectionHandler.TryReadWorldReconnectFlag(
+            new ReadOnlySequence<byte>(WorldAuthenticationPacket(byte.MaxValue).AsMemory(1)),
+            out var isReconnect));
+
+        Assert.IsFalse(isReconnect);
+    }
+
+    [TestMethod]
+    public async Task Dispatch_FreshWorldHandshakeCancellationDoesNotLogApplicationFailure()
+    {
+        var fixture = CreateFixture(cancelConnectionAfterInputRead: 3);
+        try
+        {
+            await fixture.Input.Writer.WriteAsync(HandshakeAndWorldAuthenticationPacket(reconnect: false));
+
+            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
+
+            Assert.IsTrue(fixture.ConnectionAbortCalled);
+            Assert.IsFalse(fixture.FactoryCalled);
+            Assert.AreEqual(0, fixture.ReconnectHandlerResolutionCount);
+            Assert.IsFalse(fixture.DispatcherLogEntries.Any(entry => entry.EventId.Name == "ApplicationConnectionFailed"));
+        }
+        finally
+        {
+            await fixture.DisposeAsync();
+        }
+    }
+
+    [TestMethod]
+    public async Task Dispatch_LobbyHandshakeCancellationDoesNotLogApplicationFailure()
+    {
+        var fixture = CreateFixture(cancelConnectionAfterInputRead: 2);
+        try
+        {
+            await fixture.Input.Writer.WriteAsync(new byte[] { 14, 19 });
+
+            await fixture.Dispatcher.OnConnectedAsync(fixture.Connection);
+
+            Assert.IsTrue(fixture.ConnectionAbortCalled);
+            Assert.IsFalse(fixture.FactoryCalled);
+            Assert.AreEqual(0, fixture.ReconnectHandlerResolutionCount);
+            Assert.IsFalse(fixture.DispatcherLogEntries.Any(entry => entry.EventId.Name == "ApplicationConnectionFailed"));
         }
         finally
         {
@@ -396,19 +502,23 @@ public sealed class ClientConnectionHandlerTests
     }
 
     private static TestFixture CreateFixture(
-        bool handshakeResponseFlushCompletes = false)
+        bool handshakeResponseFlushCompletes = false,
+        int? cancelConnectionAfterInputRead = null)
     {
         var input = new Pipe();
         var output = new Pipe();
+        var connectionClosed = new CancellationTokenSource();
         var connection = Substitute.For<ConnectionContext>();
         var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(input.Reader);
+        transport.Input.Returns(cancelConnectionAfterInputRead is int readCount
+            ? new CancelAfterReadPipeReader(input.Reader, connectionClosed, readCount)
+            : input.Reader);
         transport.Output.Returns(handshakeResponseFlushCompletes
             ? new CompletedPipeWriter(output.Writer)
             : output.Writer);
         connection.Transport.Returns(transport);
         connection.ConnectionId.Returns("physical");
-        connection.ConnectionClosed.Returns(CancellationToken.None);
+        connection.ConnectionClosed.Returns(connectionClosed.Token);
         var connectionAbortCalled = false;
         connection.When(x => x.Abort()).Do(_ => connectionAbortCalled = true);
         connection.When(x => x.Abort(Arg.Any<ConnectionAbortedException>())).Do(_ => connectionAbortCalled = true);
@@ -418,6 +528,7 @@ public sealed class ClientConnectionHandlerTests
         meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
         var lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
         var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var dispatcherLogger = new TestLogger<RaidoConnectionDispatcher>();
         RaidoMessage? dispatchedMessage = null;
         dispatcher.DispatchMessageAsync(Arg.Any<RaidoHubConnectionContext>(), Arg.Any<RaidoMessage>())
             .Returns(callInfo =>
@@ -499,7 +610,7 @@ public sealed class ClientConnectionHandlerTests
             dispatcherProvider.GetRequiredService<IServiceScopeFactory>(),
             factory,
             connectionHandler,
-            NullLogger<RaidoConnectionDispatcher>.Instance);
+            dispatcherLogger);
 
         return new TestFixture(
             handler,
@@ -519,7 +630,9 @@ public sealed class ClientConnectionHandlerTests
             () => worldDecodeCountAtFactory,
             () => lobbyDecodeCountAtFactory,
             () => handshakeCodec.WorldDecodeCount,
-            () => handshakeCodec.LobbyDecodeCount);
+            () => handshakeCodec.LobbyDecodeCount,
+            dispatcherLogger,
+            connectionClosed);
     }
 
     private static HandshakeProtocol CreateProtocol() =>
@@ -588,7 +701,9 @@ public sealed class ClientConnectionHandlerTests
         Func<int> worldDecodeCountAtFactory,
         Func<int> lobbyDecodeCountAtFactory,
         Func<int> worldDecodeCount,
-        Func<int> lobbyDecodeCount) : IAsyncDisposable
+        Func<int> lobbyDecodeCount,
+        TestLogger<RaidoConnectionDispatcher> dispatcherLogger,
+        CancellationTokenSource connectionClosed) : IAsyncDisposable
     {
         public ClientConnectionHandler Handler { get; } = handler;
         public RaidoConnectionDispatcher Dispatcher { get; } = dispatcher;
@@ -605,6 +720,7 @@ public sealed class ClientConnectionHandlerTests
         public int LobbyDecodeCountAtFactory => lobbyDecodeCountAtFactory();
         public int WorldDecodeCount => worldDecodeCount();
         public int LobbyDecodeCount => lobbyDecodeCount();
+        public ConcurrentQueue<LogEntry> DispatcherLogEntries => dispatcherLogger.Entries;
 
         public async ValueTask DisposeAsync()
         {
@@ -615,7 +731,74 @@ public sealed class ClientConnectionHandlerTests
             await Output.Writer.CompleteAsync();
             await dispatcherProvider.DisposeAsync();
             await clientServices.DisposeAsync();
+            connectionClosed.Dispose();
             meter.Dispose();
+        }
+    }
+
+    private sealed class CancelAfterReadPipeReader(
+        PipeReader inner,
+        CancellationTokenSource cancellation,
+        int cancelAfterRead) : PipeReader
+    {
+        private readonly PipeReader _inner = inner;
+        private readonly CancellationTokenSource _cancellation = cancellation;
+        private readonly int _cancelAfterRead = cancelAfterRead;
+        private int _readCount;
+
+        public override void AdvanceTo(SequencePosition consumed) => _inner.AdvanceTo(consumed);
+
+        public override void AdvanceTo(SequencePosition consumed, SequencePosition examined) =>
+            _inner.AdvanceTo(consumed, examined);
+
+        public override void CancelPendingRead() => _inner.CancelPendingRead();
+
+        public override void Complete(Exception? exception = null) => _inner.Complete(exception);
+
+        public override ValueTask CompleteAsync(Exception? exception = null) =>
+            _inner.CompleteAsync(exception);
+
+        public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            var result = await _inner.ReadAsync(cancellationToken);
+            if (Interlocked.Increment(ref _readCount) == _cancelAfterRead)
+            {
+                _cancellation.Cancel();
+            }
+
+            return result;
+        }
+
+        public override bool TryRead(out ReadResult result) => _inner.TryRead(out result);
+    }
+
+    private sealed class TestLogger<T> : ILogger<T>
+    {
+        public ConcurrentQueue<LogEntry> Entries { get; } = new();
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Entries.Enqueue(new LogEntry(logLevel, eventId, formatter(state, exception), exception));
+        }
+    }
+
+    private sealed record LogEntry(LogLevel Level, EventId EventId, string Message, Exception? Exception);
+
+    private sealed class NullScope : IDisposable
+    {
+        public static NullScope Instance { get; } = new();
+
+        public void Dispose()
+        {
         }
     }
 
@@ -686,17 +869,23 @@ public sealed class ClientConnectionHandlerTests
     }
 
     private static byte[] WorldAuthenticationPacket(bool reconnect) =>
+        WorldAuthenticationPacket(reconnect ? (byte)1 : (byte)0);
+
+    private static byte[] WorldAuthenticationPacket(byte reconnectFlag) =>
     [
         16,
         0, 9,
         0, 0, 2, 230,
         0, 0, 0, 1,
-        reconnect ? (byte)1 : (byte)0
+        reconnectFlag
     ];
 
     private static byte[] HandshakeAndWorldAuthenticationPacket(bool reconnect)
+        => HandshakeAndWorldAuthenticationPacket(reconnect ? (byte)1 : (byte)0);
+
+    private static byte[] HandshakeAndWorldAuthenticationPacket(byte reconnectFlag)
     {
-        var authentication = WorldAuthenticationPacket(reconnect);
+        var authentication = WorldAuthenticationPacket(reconnectFlag);
         var packet = new byte[authentication.Length + 1];
         packet[0] = 14;
         authentication.CopyTo(packet, 1);

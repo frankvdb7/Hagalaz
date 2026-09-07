@@ -118,10 +118,7 @@ internal sealed class ClientConnectionHandler
 
         if (authenticationOpcode == 19)
         {
-            await dispatch.DispatchNewAsync(
-                _handshakeProtocol,
-                statefulReconnect: false,
-                handshakeCancellationToken);
+            await DispatchNewAsync(dispatch, statefulReconnect: false, handshakeCancellationToken);
             return;
         }
 
@@ -150,10 +147,7 @@ internal sealed class ClientConnectionHandler
 
         if (!isReconnect.Value)
         {
-            await dispatch.DispatchNewAsync(
-                _handshakeProtocol,
-                statefulReconnect: true,
-                handshakeCancellationToken);
+            await DispatchNewAsync(dispatch, statefulReconnect: true, handshakeCancellationToken);
             return;
         }
 
@@ -189,6 +183,23 @@ internal sealed class ClientConnectionHandler
         }
 
         return;
+    }
+
+    private async ValueTask DispatchNewAsync(
+        RaidoConnectionDispatchContext dispatch,
+        bool statefulReconnect,
+        CancellationToken handshakeCancellationToken)
+    {
+        try
+        {
+            await dispatch.DispatchNewAsync(
+                _handshakeProtocol,
+                statefulReconnect,
+                handshakeCancellationToken);
+        }
+        catch (OperationCanceledException) when (handshakeCancellationToken.IsCancellationRequested)
+        {
+        }
     }
 
     internal static async ValueTask<RaidoMessage?> ReadMessageAsync(
@@ -356,7 +367,7 @@ internal sealed class ClientConnectionHandler
             throw new InvalidDataException("The world authentication packet header was invalid.");
         }
 
-        isReconnect = reconnectFlag != 0;
+        isReconnect = reconnectFlag == 1;
         return true;
     }
 

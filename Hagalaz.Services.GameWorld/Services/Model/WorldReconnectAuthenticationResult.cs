@@ -2,8 +2,6 @@ namespace Hagalaz.Services.GameWorld.Services.Model;
 
 public sealed record WorldReconnectAuthenticationResult
 {
-    public static WorldReconnectAuthenticationResult Fail { get; } = new();
-
     public bool Succeeded { get; private init; }
     public uint? MasterId { get; private init; }
     public bool IsLockedOut { get; private init; }
