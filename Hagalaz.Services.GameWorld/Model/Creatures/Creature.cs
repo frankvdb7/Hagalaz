@@ -33,6 +33,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
         private CreatureUpdateState _updateState = CreatureUpdateState.Initializing;
         private readonly IServiceScope _serviceScope = default!;
+        private bool _isRegisteredInRegion;
 
         public bool IsDestroyed { get; private set; }
 
@@ -222,10 +223,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             _updateState = CreatureUpdateState.Destroyed;
             IsDestroyed = true;
             // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-            if (Location != null)
+            if (Location != null && _isRegisteredInRegion)
             {
                 var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
                 RemoveFromRegion(region);
+                _isRegisteredInRegion = false;
             }
             Area?.OnCreatureExitArea(this);
             OnDestroy();
@@ -267,10 +269,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                 if (LastLocation != null)
                 {
                     var lastRegion = MapRegionService.GetOrCreateMapRegion(LastLocation.RegionId, LastLocation.Dimension, false);
-                    RemoveFromRegion(lastRegion);
+                    if (_isRegisteredInRegion)
+                    {
+                        RemoveFromRegion(lastRegion);
+                        _isRegisteredInRegion = false;
+                    }
                 }
                 var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, true);
                 AddToRegion(region);
+                _isRegisteredInRegion = true;
 
                 OnRegionChange();
             }

@@ -30,6 +30,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly Dictionary<int, IGameObject> _disabledStaticGameObjects = new();
         private List<IRegionPartUpdate> _pendingUpdates = [];
         private List<IRegionPartUpdate> _preparedUpdates = [];
+        private bool _preparedGenerationActive;
         private readonly object _updatesLock = new();
 
         public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder)
@@ -371,10 +372,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             lock (_updatesLock)
             {
+                if (_preparedGenerationActive)
+                {
+                    throw new InvalidOperationException("The current prepared update generation has not been completed.");
+                }
+
                 var previousPrepared = _preparedUpdates;
                 _preparedUpdates = _pendingUpdates;
                 _pendingUpdates = previousPrepared;
                 _pendingUpdates.Clear();
+                _preparedGenerationActive = true;
             }
         }
 
@@ -383,6 +390,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             lock (_updatesLock)
             {
                 _preparedUpdates.Clear();
+                _preparedGenerationActive = false;
             }
         }
 
@@ -411,6 +419,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 _pendingUpdates.Clear();
                 _preparedUpdates.Clear();
+                _preparedGenerationActive = false;
             }
         }
 

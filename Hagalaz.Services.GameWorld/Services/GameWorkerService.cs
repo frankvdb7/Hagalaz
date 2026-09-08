@@ -123,20 +123,55 @@ namespace Hagalaz.Services.GameWorld.Services
                 region.MajorUpdateTick();
             }
 
-            foreach (var region in regions)
+            try
             {
-                region.MajorClientPrepareUpdateTick();
+                foreach (var region in regions)
+                {
+                    try
+                    {
+                        region.MajorClientPrepareUpdateTick();
+                    }
+                    catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error preparing client updates for region {RegionId}; continuing with other regions.", region.Id);
+                    }
+                }
+
+                foreach (var region in regions)
+                {
+                    try
+                    {
+                        region.MajorClientUpdateTick(characters);
+                    }
+                    catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error sending client updates for region {RegionId}; continuing with other regions.", region.Id);
+                    }
+                }
+            }
+            finally
+            {
+                foreach (var region in regions)
+                {
+                    try
+                    {
+                        region.MajorClientUpdateResetTick();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error completing client updates for region {RegionId}.", region.Id);
+                    }
+                }
             }
 
-            foreach (var region in regions)
-            {
-                region.MajorClientUpdateTick(characters);
-            }
-
-            foreach (var region in regions)
-            {
-                region.MajorClientUpdateResetTick();
-            }
         }
     }
 }

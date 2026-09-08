@@ -7,6 +7,7 @@ using AutoMapper;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Mediator;
@@ -116,13 +117,25 @@ namespace Hagalaz.Services.GameWorld.Services
                 var authentication = context.GetAuthentication();
                 if (!authentication.AuthenticationProperties.TryGetClaim(Claims.Subject, out string? subject))
                 {
+                    await RevokeCurrentAuthenticationAsync("lobby sign-in did not produce a subject");
                     return SignInResult.Fail;
                 }
 
                 var masterId = Convert.ToUInt32(subject);
-                var sessionRegistration = await _gameSessionService.AddSession(masterId, context.ConnectionId);
+                (IGameSession Session, bool Created) sessionRegistration;
+                try
+                {
+                    sessionRegistration = await _gameSessionService.AddSession(masterId, context.ConnectionId);
+                }
+                catch
+                {
+                    await RevokeCurrentAuthenticationAsync("lobby session registration failed");
+                    throw;
+                }
+
                 if (!sessionRegistration.Created)
                 {
+                    await RevokeCurrentAuthenticationAsync("lobby session ownership was already taken");
                     return SignInResult.AlreadyLoggedOn;
                 }
 
@@ -156,13 +169,25 @@ namespace Hagalaz.Services.GameWorld.Services
                 var authentication = context.GetAuthentication();
                 if (!authentication.AuthenticationProperties.TryGetClaim(Claims.Subject, out string? subject))
                 {
+                    await RevokeCurrentAuthenticationAsync("world sign-in did not produce a subject");
                     return SignInResult.Fail;
                 }
 
                 var masterId = Convert.ToUInt32(subject);
-                var sessionRegistration = await _gameSessionService.TryAddWorldSession(masterId, context.ConnectionId, cancellationToken);
+                (IGameSession? Session, bool Created) sessionRegistration;
+                try
+                {
+                    sessionRegistration = await _gameSessionService.TryAddWorldSession(masterId, context.ConnectionId, cancellationToken);
+                }
+                catch
+                {
+                    await RevokeCurrentAuthenticationAsync("world session registration failed");
+                    throw;
+                }
+
                 if (!sessionRegistration.Created || sessionRegistration.Session == null)
                 {
+                    await RevokeCurrentAuthenticationAsync("world session ownership was already taken");
                     return SignInResult.AlreadyLoggedOn;
                 }
 
@@ -244,6 +269,8 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     if (!signInSucceeded && sessionRegistration.Created)
                     {
+                        await RevokeCurrentAuthenticationAsync("world sign-in initialization failed");
+
                         if (characterRegistered)
                         {
                             try
@@ -382,39 +409,55 @@ namespace Hagalaz.Services.GameWorld.Services
             var signInMessage = signInResponse.Message;
             if (signInMessage.Succeeded)
             {
-                var userInfoResponse =
-                    await _getUserInfoRequestClient.GetResponse<GetUserInfoResponseMessage>(new GetUserInfoRequestMessage(signInMessage.AccessToken),
-                        cancellationToken);
-                var userInfoMessage = userInfoResponse.Message;
-                if (userInfoMessage.Claims == null)
+                var authenticationCommitted = false;
+                try
                 {
-                    return SignInResult.Fail;
-                }
+                    var userInfoResponse =
+                        await _getUserInfoRequestClient.GetResponse<GetUserInfoResponseMessage>(new GetUserInfoRequestMessage(signInMessage.AccessToken),
+                            cancellationToken);
+                    var userInfoMessage = userInfoResponse.Message;
+                    if (userInfoMessage.Claims == null)
+                    {
+                        return SignInResult.Fail;
+                    }
 
-                var user = _claimsPrincipalFactory.Create(userInfoMessage.Claims);
-                if (user.Identity == null || !user.Identity.IsAuthenticated)
-                {
-                    return SignInResult.Fail;
-                }
+                    var user = _claimsPrincipalFactory.Create(userInfoMessage.Claims);
+                    if (user.Identity == null || !user.Identity.IsAuthenticated)
+                    {
+                        return SignInResult.Fail;
+                    }
 
-                var properties = new Features_AuthenticationProperties
+                    var properties = new Features_AuthenticationProperties
+                    {
+                        ClientId = clientId,
+                        AuthorizationId = signInMessage.AuthorizationId,
+                        IdToken = signInMessage.IdToken,
+                        AccessToken = signInMessage.AccessToken,
+                        ExpireDate = signInMessage.ExpireDate,
+                        Scope = signInMessage.Scope,
+                        TokenType = signInMessage.TokenType,
+                        Claims = userInfoMessage.Claims
+                    };
+                    var authenticationFeature = new Features_AuthenticationFeature
+                    {
+                        AuthenticationProperties = properties, User = user
+                    };
+                    context.Features.Set<Features_IAuthenticationFeature>(authenticationFeature);
+                    context.Features.Set<IConnectionUserFeature>(authenticationFeature);
+                    authenticationCommitted = true;
+                    return SignInResult.Success;
+                }
+                finally
                 {
-                    ClientId = clientId,
-                    AuthorizationId = signInMessage.AuthorizationId,
-                    IdToken = signInMessage.IdToken,
-                    AccessToken = signInMessage.AccessToken,
-                    ExpireDate = signInMessage.ExpireDate,
-                    Scope = signInMessage.Scope,
-                    TokenType = signInMessage.TokenType,
-                    Claims = userInfoMessage.Claims
-                };
-                var authenticationFeature = new Features_AuthenticationFeature
-                {
-                    AuthenticationProperties = properties, User = user
-                };
-                context.Features.Set<Features_IAuthenticationFeature>(authenticationFeature);
-                context.Features.Set<IConnectionUserFeature>(authenticationFeature);
-                return SignInResult.Success;
+                    if (!authenticationCommitted)
+                    {
+                        await RevokeIssuedAuthorizationAsync(
+                            clientId,
+                            signInMessage.Subject,
+                            signInMessage.AuthorizationId,
+                            "post-issuance authentication validation failed");
+                    }
+                }
             }
 
             if (signInMessage.IsDisabled)
@@ -438,6 +481,65 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             return SignInResult.Fail;
+        }
+
+        private async Task RevokeCurrentAuthenticationAsync(string reason)
+        {
+            var context = _contextAccessor.Context;
+            var authentication = context.Features.Get<Features_IAuthenticationFeature>();
+            var properties = authentication?.AuthenticationProperties;
+            if (properties is null)
+            {
+                return;
+            }
+
+            await RevokeIssuedAuthorizationAsync(
+                properties.ClientId,
+                properties.GetClaim<string>(Claims.Subject),
+                properties.AuthorizationId,
+                reason);
+            context.Features.Set<Features_IAuthenticationFeature>(null);
+            context.Features.Set<IConnectionUserFeature>(null);
+        }
+
+        private async Task RevokeIssuedAuthorizationAsync(
+            string? clientId,
+            string? subject,
+            string? authorizationId,
+            string reason)
+        {
+            if (string.IsNullOrWhiteSpace(clientId) ||
+                string.IsNullOrWhiteSpace(subject) ||
+                string.IsNullOrWhiteSpace(authorizationId))
+            {
+                _logger.LogWarning(
+                    "Cannot revoke the newly issued authorization after {Reason}: client, subject, or authorization id is missing.",
+                    reason);
+                return;
+            }
+
+            try
+            {
+                var response = await _revokeTokenRequestClient.GetResponse<RevokeTokenResponseMessage>(
+                    new RevokeTokenRequestMessage(clientId, subject, authorizationId),
+                    CancellationToken.None);
+                if (!response.Message.Succeeded)
+                {
+                    _logger.LogError(
+                        "Failed to revoke newly issued authorization '{AuthorizationId}' after {Reason}: {Error}",
+                        authorizationId,
+                        reason,
+                        response.Message.Error);
+                }
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(
+                    exception,
+                    "Failed to revoke newly issued authorization '{AuthorizationId}' after {Reason}.",
+                    authorizationId,
+                    reason);
+            }
         }
 
         public async Task SignOutAsync() =>

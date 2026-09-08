@@ -42,3 +42,31 @@ lock while invoking character or network callbacks.
 
 - **WHEN** sending invokes a callback that blocks
 - **THEN** another producer MUST still be able to queue an update
+
+### Requirement: Prepared generations have explicit completion ownership
+
+A prepared update generation MUST remain owned until the client-update phase
+explicitly completes or abandons it. A later preparation MUST NOT silently
+replace an active prepared generation, and a failure in one region or
+character MUST NOT skip completion for unrelated regions.
+
+#### Scenario: A region update fails
+
+- **WHEN** one region throws while delivering its prepared client updates
+- **THEN** unrelated regions MUST still run their client-update phase
+- **AND** every prepared region MUST reach an explicit completion or abandonment
+  boundary before the next client tick begins
+
+#### Scenario: One character update fails
+
+- **WHEN** a character callback throws while another character is receiving the
+  same client tick
+- **THEN** the other character MUST still receive its prepared updates
+- **AND** the failure MUST remain observable through the worker's error logging
+
+#### Scenario: Preparation is attempted before completion
+
+- **WHEN** a second preparation is requested while a prepared generation is
+  still active
+- **THEN** the operation MUST fail explicitly without discarding that
+  generation

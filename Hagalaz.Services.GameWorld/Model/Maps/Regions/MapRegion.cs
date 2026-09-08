@@ -152,18 +152,55 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         public void MajorClientUpdateTick(IReadOnlyDictionary<int, ICharacter> characters)
         {
+            List<Exception>? failures = null;
+
             foreach (var part in _parts)
             {
                 foreach (var character in _characters)
                 {
-                    part.SendUpdates(character);
+                    try
+                    {
+                        part.SendUpdates(character);
+                    }
+                    catch (Exception exception) when (IsClientUpdateFailure(exception))
+                    {
+                        (failures ??= []).Add(exception);
+                    }
                 }
             }
 
-            ForEachCreature(
-                character => character.MajorClientUpdateTick(characters),
-                npc => npc.MajorClientUpdateTick());
+            foreach (var character in _characters)
+            {
+                try
+                {
+                    character.MajorClientUpdateTick(characters);
+                }
+                catch (Exception exception) when (IsClientUpdateFailure(exception))
+                {
+                    (failures ??= []).Add(exception);
+                }
+            }
+
+            foreach (var npc in _npcs)
+            {
+                try
+                {
+                    npc.MajorClientUpdateTick();
+                }
+                catch (Exception exception) when (IsClientUpdateFailure(exception))
+                {
+                    (failures ??= []).Add(exception);
+                }
+            }
+
+            if (failures is not null)
+            {
+                throw new AggregateException($"One or more client updates failed in region {Id}.", failures);
+            }
         }
+
+        private static bool IsClientUpdateFailure(Exception exception) =>
+            exception is not (OutOfMemoryException or AccessViolationException or OperationCanceledException);
 
         /// <summary>
         /// Tick 4.

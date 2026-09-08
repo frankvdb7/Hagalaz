@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Model;
@@ -146,6 +147,59 @@ public sealed class MapRegionPartTests
         part.SendUpdates(character);
 
         Assert.IsTrue(pending.All(update => update.CanUpdateForCalls == 1));
+    }
+
+    [TestMethod]
+    public void PrepareUpdatesForTick_DoesNotReplaceAnActivePreparedGeneration()
+    {
+        var part = CreatePart(out _);
+        var character = CreateCharacter();
+        var currentTick = new TestRegionPartUpdate();
+        var nextTick = new TestRegionPartUpdate();
+
+        part.QueueUpdate(currentTick);
+        part.PrepareUpdatesForTick();
+        part.QueueUpdate(nextTick);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => part.PrepareUpdatesForTick());
+
+        part.SendUpdates(character);
+        part.CompleteUpdateTick();
+        part.PrepareUpdatesForTick();
+        part.SendUpdates(character);
+
+        Assert.AreEqual(1, currentTick.CanUpdateForCalls);
+        Assert.AreEqual(1, nextTick.CanUpdateForCalls);
+    }
+
+    [TestMethod]
+    public void FailedPreparedSend_DoesNotLoseUpdatesQueuedForTheNextTick()
+    {
+        var part = CreatePart(out _);
+        var character = CreateCharacter();
+        var currentTick = new TestRegionPartUpdate();
+        var nextTick = new TestRegionPartUpdate();
+        var sendCalls = 0;
+        character.Session.When(session => session.SendMessage(Arg.Any<RaidoMessage>())).Do(_ =>
+        {
+            if (Interlocked.Increment(ref sendCalls) == 1)
+            {
+                throw new InvalidOperationException("session send failed");
+            }
+        });
+
+        part.QueueUpdate(currentTick);
+        part.PrepareUpdatesForTick();
+        part.QueueUpdate(nextTick);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => part.SendUpdates(character));
+
+        part.CompleteUpdateTick();
+        part.PrepareUpdatesForTick();
+        part.SendUpdates(character);
+
+        Assert.AreEqual(1, currentTick.CanUpdateForCalls);
+        Assert.AreEqual(1, nextTick.CanUpdateForCalls);
     }
 
     private static MapRegionPart CreatePart(out IMapper mapper)

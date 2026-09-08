@@ -36,3 +36,32 @@ The authorization revocation flow SHALL only process valid tokens created before
 
 - **WHEN** a new token is created after the original logout starts but before its revocation request is processed
 - **THEN** the original logout does not revoke the new token
+
+### Requirement: Uncommitted authorization issuance is cleaned up exactly
+
+After an ad-hoc authorization is created, the authorization service and
+GameWorld MUST retain ownership of that exact authorization until issuance and
+authentication commit. Any failure before commit MUST revoke its tokens and
+delete/revoke that authorization using cleanup independent of the canceled
+request token.
+
+#### Scenario: Authorization dispatch fails after request cancellation
+
+- **WHEN** token dispatch fails after an authorization was created and the
+  request cancellation token is canceled
+- **THEN** cleanup MUST use a non-canceled cleanup token
+- **AND** the created authorization MUST not remain orphaned
+
+#### Scenario: GameWorld user validation fails after issuance
+
+- **WHEN** token issuance succeeds but UserInfo or principal validation fails
+- **THEN** GameWorld MUST revoke the exact newly issued authorization
+- **AND** MUST NOT revoke an unrelated authorization belonging to another
+  established session
+
+#### Scenario: Authentication commits successfully
+
+- **WHEN** token issuance, UserInfo, principal validation, and authentication
+  feature installation all succeed
+- **THEN** the exact authorization ID MUST be retained by the connection
+- **AND** pre-commit cleanup MUST NOT run

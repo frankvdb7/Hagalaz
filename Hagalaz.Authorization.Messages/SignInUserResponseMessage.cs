@@ -13,7 +13,7 @@ namespace Hagalaz.Authorization.Messages
         /// If <c>true</c>, the token properties will be populated. If <c>false</c>, the <see cref="Error"/> property will be populated.
         /// </summary>
         [MemberNotNullWhen(false, nameof(Error))]
-        [MemberNotNullWhen(true, nameof(IdToken), nameof(AccessToken), nameof(Scope), nameof(ExpireDate), nameof(TokenType), nameof(AuthorizationId))]
+        [MemberNotNullWhen(true, nameof(IdToken), nameof(AccessToken), nameof(Scope), nameof(ExpireDate), nameof(TokenType), nameof(Subject), nameof(AuthorizationId))]
         public bool Succeeded { get; init; }
 
         /// <summary>
@@ -65,6 +65,11 @@ namespace Hagalaz.Authorization.Messages
         /// Gets the authorization identifier that owns the issued tokens.
         /// </summary>
         public string? AuthorizationId { get; init; }
+
+        /// <summary>
+        /// Gets the subject that owns the authorization and its issued tokens.
+        /// </summary>
+        public string? Subject { get; init; }
 
         /// <summary>
         /// Gets the error message if the sign-in failed.

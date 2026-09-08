@@ -8,6 +8,7 @@
 2. Move token revocation after session removal and character-detach coordination. This makes the live-session owner authoritative for login admission and prevents an authorization failure from retaining a successfully persisted session.
 3. Catch non-cancellation revocation exceptions after cleanup and log them. The logout boundary has already released live ownership; a failed remote cleanup must not recreate the login lock. Cancellation remains observable to the caller.
 4. Resolve the authorization named by the logout request and verify its subject and application before revoking its tokens. An unknown or mismatched authorization is an idempotent no-op; it must never fall back to subject-wide or client-wide revocation. Revoke the authorization's tokens by authorization id and transition a still-valid authorization to revoked when required.
+5. Treat ad-hoc authorization creation as an ownership transaction. The Authorization consumer revokes tokens and deletes the exact authorization with `CancellationToken.None` until it has returned a successful issuance response. GameWorld keeps the returned subject and authorization ID in local ownership until UserInfo, principal validation, and the relevant lobby/world session commit complete; failed post-issuance setup sends the existing exact revocation request with non-cancelable cleanup.
 
 ## Invariants
 
@@ -16,3 +17,4 @@
 - Releasing a session never depends on a successful authorization response.
 - Revocation remains scoped to the exact authorization, whose subject and application must match the requested client and subject.
 - A token created by a replacement login belongs to a different authorization and is not revoked by the old logout request.
+- A failed new login can only clean up the authorization returned by that login; it cannot infer or revoke another persisted authorization.

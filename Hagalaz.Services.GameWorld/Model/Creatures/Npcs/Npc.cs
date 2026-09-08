@@ -67,6 +67,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <value>The bounds.</value>
         public IBounds Bounds { get; }
 
+        private bool _scriptCreated;
+
         /// <summary>
         /// Gets the path finder.
         /// </summary>
@@ -154,6 +156,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             RenderInformation.OnRegistered();
             await base.OnRegistered();
             Script.OnCreate();
+            _scriptCreated = true;
             if (Definition.WalksRandomly && Definition.BoundsType != BoundsType.Static)
             {
                 QueueTask(new NpcRandomWalkTask(this));
@@ -166,7 +169,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         protected override void OnDestroy()
         {
             EventManager.SendEvent(new CreatureDestroyedEvent(this));
-            Script.OnDestroy();
+            if (_scriptCreated)
+            {
+                Script.OnDestroy();
+            }
             UnregisterEventHandlers();
         }
 

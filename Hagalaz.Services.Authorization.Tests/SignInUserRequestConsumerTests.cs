@@ -35,7 +35,13 @@ public sealed class SignInUserRequestConsumerTests
         var authorizationManager = CreateAuthorizationManager().Object;
         var context = CreateContext();
 
-        var consumer = new SignInUserRequestConsumer(mediator.Object, openIddict.Object, applicationManager, authorizationManager);
+        var consumer = new SignInUserRequestConsumer(
+            mediator.Object,
+            openIddict.Object,
+            applicationManager,
+            authorizationManager,
+            CreateTokenManager().Object,
+            NullLogger<SignInUserRequestConsumer>.Instance);
 
         await consumer.Consume(context.Context.Object);
 
@@ -63,13 +69,16 @@ public sealed class SignInUserRequestConsumerTests
             mediator.Object,
             openIddict.Object,
             applicationManager.Object,
-            authorizationManager.Object);
+            authorizationManager.Object,
+            CreateTokenManager().Object,
+            NullLogger<SignInUserRequestConsumer>.Instance);
 
         await consumer.Consume(context.Context.Object);
 
         Assert.IsNotNull(context.Response);
         Assert.IsTrue(context.Response!.Succeeded);
         Assert.AreEqual("authorization-id", context.Response.AuthorizationId);
+        Assert.AreEqual("42", context.Response.Subject);
         openIddict.Verify(service => service.DispatchAsync(It.Is<ProcessSignInContext>(value =>
             value.Principal!.GetAuthorizationId() == "authorization-id")), Times.Once);
         authorizationManager.Verify(manager => manager.CreateAsync(
@@ -90,19 +99,91 @@ public sealed class SignInUserRequestConsumerTests
             .ThrowsAsync(new InvalidOperationException("token generation failed"));
         var applicationManager = CreateApplicationManager();
         var authorizationManager = CreateAuthorizationManager();
+        var tokenManager = CreateTokenManager();
         var context = CreateContext();
         var consumer = new SignInUserRequestConsumer(
             mediator.Object,
             openIddict.Object,
             applicationManager.Object,
-            authorizationManager.Object);
+            authorizationManager.Object,
+            tokenManager.Object,
+            NullLogger<SignInUserRequestConsumer>.Instance);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => consumer.Consume(context.Context.Object));
 
         authorizationManager.Verify(manager => manager.DeleteAsync(
             It.Is<OpenIddictEntityFrameworkCoreAuthorization>(authorization => authorization.Id == "authorization-id"),
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.Is<CancellationToken>(token => !token.IsCancellationRequested)), Times.Once);
+        tokenManager.Verify(manager => manager.RevokeByAuthorizationIdAsync(
+            "authorization-id", It.Is<CancellationToken>(token => !token.IsCancellationRequested)), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task Consume_WhenAuthorizationIdLookupFails_DeletesTheCreatedAuthorization()
+    {
+        var passwordGrant = CreateSuccessfulPasswordGrant();
+        var mediator = new Mock<IMediator>();
+        mediator.Setup(value => value.CreateRequestClient<PasswordGrantCommand>(default)).Returns(passwordGrant.Object);
+        var openIddict = CreateSuccessfulOpenIddictService();
+        var applicationManager = CreateApplicationManager();
+        var authorizationManager = CreateAuthorizationManager();
+        authorizationManager
+            .Setup(manager => manager.GetIdAsync(
+                It.IsAny<OpenIddictEntityFrameworkCoreAuthorization>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<string?>((string?)null));
+        var tokenManager = CreateTokenManager();
+        var context = CreateContext();
+        var consumer = new SignInUserRequestConsumer(
+            mediator.Object,
+            openIddict.Object,
+            applicationManager.Object,
+            authorizationManager.Object,
+            tokenManager.Object,
+            NullLogger<SignInUserRequestConsumer>.Instance);
+
+        await consumer.Consume(context.Context.Object);
+
+        Assert.IsNotNull(context.Response);
+        Assert.IsFalse(context.Response!.Succeeded);
+        authorizationManager.Verify(manager => manager.DeleteAsync(
+            It.Is<OpenIddictEntityFrameworkCoreAuthorization>(authorization => authorization.Id == "authorization-id"),
+            It.Is<CancellationToken>(token => !token.IsCancellationRequested)), Times.Once);
+        tokenManager.Verify(manager => manager.RevokeByAuthorizationIdAsync(
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        openIddict.Verify(service => service.DispatchAsync(It.IsAny<ProcessSignInContext>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task Consume_WhenDispatchFailsAfterRequestCancellation_CleansUpWithNonCanceledToken()
+    {
+        var passwordGrant = CreateSuccessfulPasswordGrant();
+        var mediator = new Mock<IMediator>();
+        mediator.Setup(value => value.CreateRequestClient<PasswordGrantCommand>(default)).Returns(passwordGrant.Object);
+        var openIddict = CreateSuccessfulOpenIddictService();
+        openIddict
+            .Setup(service => service.DispatchAsync(It.IsAny<ProcessSignInContext>()))
+            .ThrowsAsync(new InvalidOperationException("token generation failed"));
+        var applicationManager = CreateApplicationManager();
+        var authorizationManager = CreateAuthorizationManager();
+        var tokenManager = CreateTokenManager();
+        var context = CreateContext(new CancellationToken(canceled: true));
+        var consumer = new SignInUserRequestConsumer(
+            mediator.Object,
+            openIddict.Object,
+            applicationManager.Object,
+            authorizationManager.Object,
+            tokenManager.Object,
+            NullLogger<SignInUserRequestConsumer>.Instance);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => consumer.Consume(context.Context.Object));
+
+        tokenManager.Verify(manager => manager.RevokeByAuthorizationIdAsync(
+            "authorization-id", It.Is<CancellationToken>(token => !token.IsCancellationRequested)), Times.Once);
+        authorizationManager.Verify(manager => manager.DeleteAsync(
+            It.Is<OpenIddictEntityFrameworkCoreAuthorization>(authorization => authorization.Id == "authorization-id"),
+            It.Is<CancellationToken>(token => !token.IsCancellationRequested)), Times.Once);
     }
 
     private static Mock<IRequestClient<PasswordGrantCommand>> CreateSuccessfulPasswordGrant()
@@ -149,6 +230,19 @@ public sealed class SignInUserRequestConsumerTests
         return manager;
     }
 
+    private static Mock<OpenIddictTokenManager<OpenIddictEntityFrameworkCoreToken>> CreateTokenManager()
+    {
+        var manager = new Mock<OpenIddictTokenManager<OpenIddictEntityFrameworkCoreToken>>(
+            new Mock<IOpenIddictTokenCache<OpenIddictEntityFrameworkCoreToken>>().Object,
+            NullLogger<OpenIddictTokenManager<OpenIddictEntityFrameworkCoreToken>>.Instance,
+            new Mock<Microsoft.Extensions.Options.IOptionsMonitor<OpenIddictCoreOptions>>().Object,
+            new Mock<IOpenIddictTokenStore<OpenIddictEntityFrameworkCoreToken>>().Object);
+        manager.Setup(value => value.RevokeByAuthorizationIdAsync(
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<long>(1));
+        return manager;
+    }
+
     private static Mock<OpenIddictAuthorizationManager<OpenIddictEntityFrameworkCoreAuthorization>> CreateAuthorizationManager()
     {
         var authorization = new OpenIddictEntityFrameworkCoreAuthorization { Id = "authorization-id" };
@@ -168,12 +262,12 @@ public sealed class SignInUserRequestConsumerTests
         return manager;
     }
 
-    private static ContextFixture CreateContext()
+    private static ContextFixture CreateContext(CancellationToken cancellationToken = default)
     {
         var context = new Mock<ConsumeContext<SignInUserRequestMessage>>();
         var fixture = new ContextFixture(context);
         context.SetupGet(value => value.Message).Returns(CreateRequest());
-        context.SetupGet(value => value.CancellationToken).Returns(CancellationToken.None);
+        context.SetupGet(value => value.CancellationToken).Returns(cancellationToken);
         context.Setup(value => value.RespondAsync(It.IsAny<SignInUserResponseMessage>()))
             .Callback<SignInUserResponseMessage>(message => fixture.Response = message)
             .Returns(Task.CompletedTask);

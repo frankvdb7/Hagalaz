@@ -51,3 +51,27 @@ load and MUST permit a later load attempt on the same instance.
 - **WHEN** a failed load is reset and the loader is invoked again for the same
   region instance
 - **THEN** the second load MUST be able to commit normally
+
+### Requirement: NPC registration is atomic during unpublished population
+
+NPC registration during an unpublished region load MUST either publish the NPC
+to the global store, region membership, initialization lifecycle, and owned
+scope together, or leave none of those resources owned by the failed attempt.
+
+#### Scenario: NPC initialization fails before region attachment
+
+- **WHEN** `NpcService.RegisterAsync` fails before the NPC enters its region
+- **THEN** the global NPC store MUST contain no entry for that NPC
+- **AND** the owned NPC scope MUST be released
+
+#### Scenario: NPC initialization fails after region attachment
+
+- **WHEN** NPC initialization fails after region membership was added
+- **THEN** registration rollback MUST remove both the regional and global entry
+- **AND** lifecycle cleanup MUST run at most once
+
+#### Scenario: NPC store insertion fails
+
+- **WHEN** the global NPC store rejects a new NPC
+- **THEN** registration MUST report failure to its caller
+- **AND** the unowned NPC MUST be destroyed without invoking registration

@@ -394,6 +394,33 @@ public sealed class GameWorkerServiceTests
     }
 
     [TestMethod]
+    public async Task ExecuteTickAsync_ContinuesClientUpdatesAfterOneRegionFailsAndCompletesEveryPreparedRegion()
+    {
+        var logger = new TestLogger<GameWorkerService>();
+        var failingRegion = Substitute.For<IMapRegion>();
+        var healthyRegion = Substitute.For<IMapRegion>();
+        var healthyUpdates = 0;
+        var failingResets = 0;
+        var healthyResets = 0;
+        failingRegion.When(region => region.MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>()))
+            .Do(_ => throw new InvalidOperationException("region update failed"));
+        healthyRegion.When(region => region.MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>()))
+            .Do(_ => Interlocked.Increment(ref healthyUpdates));
+        failingRegion.When(region => region.MajorClientUpdateResetTick())
+            .Do(_ => Interlocked.Increment(ref failingResets));
+        healthyRegion.When(region => region.MajorClientUpdateResetTick())
+            .Do(_ => Interlocked.Increment(ref healthyResets));
+
+        using var worker = CreateWorker(new[] { failingRegion, healthyRegion }, TimeSpan.Zero, logger: logger).Worker;
+        await worker.ExecuteTickAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, Volatile.Read(ref healthyUpdates));
+        Assert.AreEqual(1, Volatile.Read(ref failingResets));
+        Assert.AreEqual(1, Volatile.Read(ref healthyResets));
+        Assert.AreEqual(1, logger.ErrorCount);
+    }
+
+    [TestMethod]
     public async Task HostCancellation_ExitsWithoutUnexpectedFailureLog()
     {
         var logger = new TestLogger<GameWorkerService>();
