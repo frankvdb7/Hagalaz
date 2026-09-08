@@ -102,6 +102,8 @@ public sealed class GameWorkerServiceTests
         var firstSnapshotStarted = NewSignal();
         var releaseFirstSnapshot = new TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>>(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseSecondSnapshot = new TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         var secondTickStarted = NewSignal();
         var snapshotCalls = 0;
         var store = Substitute.For<ICharacterStore>();
@@ -115,7 +117,12 @@ public sealed class GameWorkerServiceTests
                 return new ValueTask<IReadOnlyDictionary<int, ICharacter>>(releaseFirstSnapshot.Task);
             }
 
-            secondTickStarted.TrySetResult();
+            if (call == 2)
+            {
+                secondTickStarted.TrySetResult();
+                return new ValueTask<IReadOnlyDictionary<int, ICharacter>>(releaseSecondSnapshot.Task);
+            }
+
             return new ValueTask<IReadOnlyDictionary<int, ICharacter>>(EmptyCharacters);
         });
 #pragma warning restore CA2012
@@ -142,6 +149,7 @@ public sealed class GameWorkerServiceTests
         finally
         {
             releaseFirstSnapshot.TrySetResult(EmptyCharacters);
+            releaseSecondSnapshot.TrySetResult(EmptyCharacters);
             if (startAttempted && worker.ExecuteTask is { IsCompleted: false })
             {
                 await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(1));
