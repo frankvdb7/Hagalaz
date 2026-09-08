@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System;
 using ICSharpCode.SharpZipLib.BZip2;
 using ICSharpCode.SharpZipLib.GZip;
 
@@ -82,6 +83,17 @@ namespace Hagalaz.Cache.Utilities
         /// <returns>The uncompressed data.</returns>
         public static byte[] BzipDecompress(byte[] data)
         {
+            if (data.Length < 4 || data[0] != (byte)'B' || data[1] != (byte)'Z' || data[2] != (byte)'h')
+            {
+                var prefixedData = new byte[data.Length + 4];
+                prefixedData[0] = (byte)'B';
+                prefixedData[1] = (byte)'Z';
+                prefixedData[2] = (byte)'h';
+                prefixedData[3] = (byte)'1';
+                Buffer.BlockCopy(data, 0, prefixedData, 4, data.Length);
+                data = prefixedData;
+            }
+
             byte[] output;
             using (var io = new MemoryStream())
             {

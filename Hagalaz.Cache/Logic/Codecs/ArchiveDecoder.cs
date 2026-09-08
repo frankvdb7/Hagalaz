@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
@@ -20,6 +21,11 @@ namespace Hagalaz.Cache.Logic.Codecs
         /// <returns>A decoded <see cref="Archive"/> with its member file entries populated.</returns>
         public IArchive Decode(IContainer container, int size)
         {
+            if (size <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(size), "An archive must contain at least one entry.");
+            }
+
             var stream = container.Data;
             var archive = new Archive(size);
 
@@ -30,48 +36,87 @@ namespace Hagalaz.Cache.Logic.Codecs
                 return archive;
             }
 
+            if (stream.Length < 1)
+            {
+                throw new InvalidDataException("Archive is missing its chunk count.");
+            }
+
             stream.Position = stream.Length - 1;
             var chunks = stream.ReadUnsignedByte();
+            if (chunks == 0)
+            {
+                throw new InvalidDataException("Archive must contain at least one data chunk.");
+            }
+
+            var footerSize = (long)chunks * size * sizeof(int);
+            var footerStart = stream.Length - 1 - footerSize;
+            if (footerStart < 0 || footerSize > int.MaxValue)
+            {
+                throw new InvalidDataException("Archive footer is outside the archive data.");
+            }
 
             var chunkSizes = new int[chunks, size];
-            stream.Position = stream.Length - 1 - chunks * size * 4;
+            stream.Position = footerStart;
 
             for (var chunk = 0; chunk < chunks; chunk++)
             {
                 var cumulativeChunkSize = 0;
                 for (var id = 0; id < size; id++)
                 {
-                    cumulativeChunkSize += stream.ReadInt();
+                    try
+                    {
+                        cumulativeChunkSize = checked(cumulativeChunkSize + stream.ReadInt());
+                    }
+                    catch (OverflowException exception)
+                    {
+                        throw new InvalidDataException("Archive footer contains an overflowing chunk size.", exception);
+                    }
+
+                    if (cumulativeChunkSize < 0)
+                    {
+                        throw new InvalidDataException("Archive footer contains a negative chunk size.");
+                    }
+
                     chunkSizes[chunk, id] = cumulativeChunkSize;
                 }
             }
 
-            var fileSizes = new int[size];
+            var fileSizes = new long[size];
+            long dataSize = 0;
             for (var id = 0; id < size; id++)
             {
-                var totalSize = 0;
                 for (var chunk = 0; chunk < chunks; chunk++)
                 {
-                    var chunkSize = chunkSizes[chunk, id] - (id > 0 ? chunkSizes[chunk, id - 1] : 0);
-                    totalSize += chunkSize;
+                    fileSizes[id] += chunkSizes[chunk, id];
+                    dataSize += chunkSizes[chunk, id];
                 }
-                fileSizes[id] = totalSize;
-                archive.Entries![id] = new MemoryStream(fileSizes[id]);
+
+                if (fileSizes[id] > int.MaxValue)
+                {
+                    throw new InvalidDataException("Archive member is too large.");
+                }
+            }
+
+            if (dataSize != footerStart)
+            {
+                throw new InvalidDataException("Archive footer sizes do not match the archive data.");
+            }
+
+            for (var id = 0; id < size; id++)
+            {
+                archive.Entries![id] = new MemoryStream((int)fileSizes[id]);
             }
 
             stream.Position = 0;
             for (var chunk = 0; chunk < chunks; chunk++)
             {
-                var lastChunkSize = 0;
                 for (var id = 0; id < size; id++)
                 {
                     var currentChunkSize = chunkSizes[chunk, id];
-                    var delta = currentChunkSize - lastChunkSize;
-                    lastChunkSize = currentChunkSize;
 
-                    var temp = new byte[delta];
-                    stream.Read(temp, 0, delta);
-                    archive.Entries![id].Write(temp, 0, delta);
+                    var temp = new byte[currentChunkSize];
+                    stream.ReadExactly(temp);
+                    archive.Entries![id].Write(temp, 0, currentChunkSize);
                 }
             }
 

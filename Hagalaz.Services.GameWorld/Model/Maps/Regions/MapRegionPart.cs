@@ -29,6 +29,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly Dictionary<int, IGameObject> _gameObjects = new();
         private readonly Dictionary<int, IGameObject> _disabledStaticGameObjects = new();
         private readonly List<IRegionPartUpdate> _updates = [];
+        private readonly object _updatesLock = new();
 
         public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder)
         {
@@ -307,9 +308,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void SendUpdates(ICharacter character)
         {
-            if (_updates.Count <= 0)
+            IRegionPartUpdate[] updates;
+            lock (_updatesLock)
             {
-                return;
+                if (_updates.Count <= 0)
+                {
+                    return;
+                }
+
+                updates = _updates.ToArray();
             }
             //var lastLocation = character.LastLocation;
             //var fullUpdate = lastLocation == null || 
@@ -317,7 +324,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             //    lastLocation.RegionPartY != DrawRegionPartY ||
             //    lastLocation.Z != DrawRegionZ;
 
-            SendUpdates(character, _updates, false);
+            SendUpdates(character, updates, false);
         }
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
@@ -346,15 +353,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void QueueUpdate(IRegionPartUpdate update)
         {
-            if (_updates.Any(u => u.Equals(update)))
-            {
-                return;
-            }
+            ArgumentNullException.ThrowIfNull(update);
 
-            _updates.Add(update);
+            lock (_updatesLock)
+            {
+                if (_updates.Any(u => u.Equals(update)))
+                {
+                    return;
+                }
+
+                _updates.Add(update);
+            }
         }
 
-        public void ClearUpdates() => _updates.Clear();
+        public void ClearUpdates()
+        {
+            lock (_updatesLock)
+            {
+                _updates.Clear();
+            }
+        }
 
         public void Erase()
         {

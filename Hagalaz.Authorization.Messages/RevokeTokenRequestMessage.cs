@@ -1,3 +1,5 @@
+using System;
+
 namespace Hagalaz.Authorization.Messages
 {
     /// <summary>
@@ -5,5 +7,6 @@ namespace Hagalaz.Authorization.Messages
     /// </summary>
     /// <param name="ClientId">The unique identifier of the client application.</param>
     /// <param name="Subject">The unique subject identifier of the user whose tokens should be revoked.</param>
-    public record RevokeTokenRequestMessage(string ClientId, string Subject);
+    /// <param name="TokenCreatedBefore">Only tokens created before this UTC time are revoked.</param>
+    public record RevokeTokenRequestMessage(string ClientId, string Subject, DateTime TokenCreatedBefore);
 }

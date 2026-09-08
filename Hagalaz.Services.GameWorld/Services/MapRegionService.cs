@@ -103,6 +103,11 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             var regionId = absX >> 6 << 8 | absY >> 6;
             var mapRegion = GetOrCreateMapRegion(regionId, 0, false);
+            if (!mapRegion.IsLoaded)
+            {
+                return CollisionFlag.FloorBlock;
+            }
+
             return mapRegion.GetCollision(absX & 0x3F, absY & 0x3F, z);
         }
 

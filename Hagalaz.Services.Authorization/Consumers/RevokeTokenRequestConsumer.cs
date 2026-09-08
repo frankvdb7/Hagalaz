@@ -4,6 +4,7 @@ using MassTransit;
 using OpenIddict.Abstractions;
 using OpenIddict.Core;
 using OpenIddict.EntityFrameworkCore.Models;
+using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Hagalaz.Services.Authorization.Consumers
 {
@@ -34,13 +35,28 @@ namespace Hagalaz.Services.Authorization.Consumers
                 return;
             }
             var revokeFailed = false;
-            await foreach (var token in _tokenManager.FindBySubjectAsync(message.Subject, context.CancellationToken))
+            await foreach (var token in _tokenManager.FindAsync(
+                               message.Subject,
+                               client,
+                               Statuses.Valid,
+                               type: null,
+                               context.CancellationToken))
             {
-                if (token.Application?.Id != application.Id)
+                if (token.CreationDate is { } creationDate &&
+                    creationDate > message.TokenCreatedBefore)
                 {
                     continue;
                 }
-                if (!await _tokenManager.TryRevokeAsync(token, context.CancellationToken))
+
+                if (await _tokenManager.TryRevokeAsync(token, context.CancellationToken))
+                {
+                    continue;
+                }
+
+                // Another logout may have won the race between the valid-token query and
+                // the update. Treat that completed state transition as success; only keep
+                // the failure when the token is still valid after the failed attempt.
+                if (await _tokenManager.GetStatusAsync(token, context.CancellationToken) == Statuses.Valid)
                 {
                     revokeFailed = true;
                 }

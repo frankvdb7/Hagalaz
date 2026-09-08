@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -28,7 +27,6 @@ namespace Hagalaz.Services.GameWorld.Data
         private readonly IGroundItemSpawnRepository _itemSpawnRepository;
         private readonly IGameObjectSpawnRepository _objectSpawnRepository;
         private readonly IMapProvider _mapProvider;
-        private readonly ITypeProvider<IObjectType> _objectTypeProvider;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
@@ -42,7 +40,6 @@ namespace Hagalaz.Services.GameWorld.Data
             IGroundItemSpawnRepository itemSpawnRepository,
             IGameObjectSpawnRepository objectSpawnRepository,
             IMapProvider mapProvider,
-            ITypeProvider<IObjectType> objectTypeProvider,
             ILocationBuilder locationBuilder,
             IGroundItemBuilder groundItemBuilder,
             IGameObjectBuilder gameObjectBuilder,
@@ -55,7 +52,6 @@ namespace Hagalaz.Services.GameWorld.Data
             _itemSpawnRepository = itemSpawnRepository;
             _objectSpawnRepository = objectSpawnRepository;
             _mapProvider = mapProvider;
-            _objectTypeProvider = objectTypeProvider;
             _locationBuilder = locationBuilder;
             _groundItemBuilder = groundItemBuilder;
             _gameObjectBuilder = gameObjectBuilder;
@@ -80,11 +76,12 @@ namespace Hagalaz.Services.GameWorld.Data
                 .Build();
             try
             {
+                await LoadAllNpcsAsync(region, min, max, cancellationToken);
+                await LoadAllGroundItemsAsync(region, min, max, cancellationToken);
+                await LoadAllStaticGameObjectsAsync(region, cancellationToken);
+                await LoadAllNonStaticGameObjectsAsync(region, min, max, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
                 region.Load();
-                await LoadAllNpcsAsync(region, min, max);
-                await LoadAllGroundItemsAsync(region, min, max);
-                await LoadAllStaticGameObjectsAsync(region);
-                await LoadAllNonStaticGameObjectsAsync(region, min, max);
 
                 _logger.LogDebug("Region[{id}] was loaded in {ms} ms", region.Id, watch.ElapsedMilliseconds);
             }
@@ -94,9 +91,9 @@ namespace Hagalaz.Services.GameWorld.Data
             }
         }
 
-        private async Task LoadAllNpcsAsync(IMapRegion region, ILocation min, ILocation max)
+        private async Task LoadAllNpcsAsync(IMapRegion region, ILocation min, ILocation max, CancellationToken cancellationToken)
         {
-            var spawnsInRegion = await _mapper.ProjectTo<NpcSpawnDto>(_npcSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync();
+            var spawnsInRegion = await _mapper.ProjectTo<NpcSpawnDto>(_npcSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync(cancellationToken);
             var npcsInRegion = spawnsInRegion.Select(spawn =>
             {
                 var location = spawn.Location.Copy(region.BaseLocation.Dimension);
@@ -116,13 +113,14 @@ namespace Hagalaz.Services.GameWorld.Data
 
             foreach (var npc in npcsInRegion)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 await _npcService.RegisterAsync(npc);
             }
         }
 
-        private async Task LoadAllGroundItemsAsync(IMapRegion region, ILocation min, ILocation max)
+        private async Task LoadAllGroundItemsAsync(IMapRegion region, ILocation min, ILocation max, CancellationToken cancellationToken)
         {
-            var spawnsInRegion = await _mapper.ProjectTo<GroundItemSpawnDto>(_itemSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync();
+            var spawnsInRegion = await _mapper.ProjectTo<GroundItemSpawnDto>(_itemSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync(cancellationToken);
             var itemsInRegion = spawnsInRegion.Select(spawn =>
             {
                 var location = spawn.Location.Copy(region.BaseLocation.Dimension);
@@ -137,48 +135,51 @@ namespace Hagalaz.Services.GameWorld.Data
 
             foreach (var groundItem in itemsInRegion)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 region.Add(groundItem);
             }
         }
 
-        private async Task LoadAllNonStaticGameObjectsAsync(IMapRegion region, ILocation min, ILocation max)
+        private async Task LoadAllNonStaticGameObjectsAsync(IMapRegion region, ILocation min, ILocation max, CancellationToken cancellationToken)
         {
-            var spawnsInRegion = await _mapper.ProjectTo<GameObjectSpawnDto>(_objectSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync();
+            var spawnsInRegion = await _objectSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)
+                .Select(spawn => new
+                {
+                    spawn.GameobjectId,
+                    spawn.CoordX,
+                    spawn.CoordY,
+                    spawn.CoordZ,
+                    spawn.Face,
+                    spawn.Type
+                })
+                .ToArrayAsync(cancellationToken);
             var objectsInRegion = spawnsInRegion.Select(spawn =>
             {
-                var location = spawn.Location.Copy(region.BaseLocation.Dimension);
+                var location = new Location(spawn.CoordX, spawn.CoordY, spawn.CoordZ, region.BaseLocation.Dimension);
                 var gameObject = _gameObjectBuilder
                     .Create()
-                    .WithId(spawn.ObjectId)
+                    .WithId((int)spawn.GameobjectId)
                     .WithLocation(location)
-                    .WithRotation(spawn.Rotation)
-                    .WithShape(spawn.ShapeType)
+                    .WithRotation(spawn.Face)
+                    .WithShape((ShapeType)spawn.Type)
                     .Build();
                 return gameObject;
             });
 
             foreach (var gameObject in objectsInRegion)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 region.Add(gameObject);
             }
         }
 
-        private async Task LoadAllStaticGameObjectsAsync(IMapRegion region)
+        private Task LoadAllStaticGameObjectsAsync(IMapRegion region, CancellationToken cancellationToken)
         {
-            await Task.CompletedTask;
-            var request = new DecodePartRequest
-            {
-                RegionID = region.Id,
-                XteaKeys = region.XteaKeys,
-                MinX = 0,
-                MinY = 0,
-                MaxX = region.Size.X - 1,
-                MaxY = region.Size.Y - 1,
-                PartZ = 0,
-                PartRotation = 0,
-                PartRotationCallback = (objectId, objectRotation, xIndex, yIndex, partRotation, calculateRotationY) =>
-                    MapRotationHelper.CalculateObjectPartRotation(_objectTypeProvider, objectId, objectRotation, xIndex, yIndex, partRotation, calculateRotationY),
-                Callback = (objectId, shapeType, rotation, localX, localY, z) =>
+            cancellationToken.ThrowIfCancellationRequested();
+            _mapProvider.DecodeRegion(
+                region.Id,
+                region.XteaKeys,
+                (objectId, shapeType, rotation, localX, localY, z) =>
                 {
                     var location = _locationBuilder.Create()
                         .FromLocation(region.BaseLocation)
@@ -195,9 +196,9 @@ namespace Hagalaz.Services.GameWorld.Data
                         .Build();
                     region.Add(gameObject);
                 },
-                GroundCallback = (localX, localY, z) => region.FlagCollision(localX, localY, z, CollisionFlag.FloorBlock)
-            };
-            _mapProvider.DecodePart(request);
+                (localX, localY, z) => region.FlagCollision(localX, localY, z, CollisionFlag.FloorBlock));
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
         }
     }
 }

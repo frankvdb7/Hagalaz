@@ -1,0 +1,18 @@
+## Context
+
+`AuthenticationService.SignOutAsync` owns both live GameWorld session cleanup and the authorization revocation request. The current sequence sends the revocation request first, then persists the character and removes the session. Authorization can be slower than the client retry, and concurrent disconnect callbacks can revoke the same token set.
+
+## Decisions
+
+1. Keep persistence before world-session removal. The existing pending-logout/dehydration flow relies on the registered character remaining available until the durable handoff has been queued.
+2. Move token revocation after session removal and character-detach coordination. This makes the live-session owner authoritative for login admission and prevents an authorization failure from retaining a successfully persisted session.
+3. Catch non-cancellation revocation exceptions after cleanup and log them. The logout boundary has already released live ownership; a failed remote cleanup must not recreate the login lock. Cancellation remains observable to the caller.
+4. Query only valid tokens for the requested application and restrict the set to tokens created before logout began. If a concurrent revoke makes a token invalid between query and update, re-read its status and treat that already-completed transition as success. A token still valid after the failed update remains a real revocation failure.
+
+## Invariants
+
+- Persistence failure leaves the session and pending character intact for retry.
+- Session release failure leaves existing session-cleanup recovery behavior unchanged.
+- Releasing a session never depends on a successful authorization response.
+- Revocation remains scoped to the requested client and subject.
+- A token created by a replacement login after logout began is not revoked by the old logout request.

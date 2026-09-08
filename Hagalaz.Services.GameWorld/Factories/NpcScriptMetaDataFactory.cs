@@ -24,9 +24,17 @@ namespace Hagalaz.Services.GameWorld.Factories
         {
             await Task.CompletedTask;
             var type = typeof(INpcScript);
-            var scriptTypes = _serviceDescriptorProvider.GetServiceDescriptors()
+            var descriptorScriptTypes = _serviceDescriptorProvider.GetServiceDescriptors()
                 .Where(x => x.ServiceType.IsAssignableTo(type))
-                .Select(x => (ScriptType: x.ImplementationType, MetaData: x.ImplementationType?.GetCustomAttribute<NpcScriptMetaDataAttribute>()));
+                .Select(x => x.ImplementationType)
+                .OfType<Type>();
+            var loadedScriptTypes = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(GetLoadableTypes)
+                .Where(x => x.IsClass && !x.IsAbstract && x.IsAssignableTo(type));
+            var scriptTypes = descriptorScriptTypes
+                .Concat(loadedScriptTypes)
+                .Distinct()
+                .Select(x => (ScriptType: x, MetaData: x.GetCustomAttribute<NpcScriptMetaDataAttribute>()));
 
             foreach (var (scriptType, metaData) in scriptTypes)
             {
@@ -44,6 +52,18 @@ namespace Hagalaz.Services.GameWorld.Factories
                 {
                     yield return (npcId, scriptType);
                 }
+            }
+        }
+
+        private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException exception)
+            {
+                return exception.Types.OfType<Type>();
             }
         }
     }

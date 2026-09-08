@@ -758,6 +758,29 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
+    public async Task RemoveSession_AllowsImmediateLobbyReplacement()
+    {
+        var claims = new InMemoryGameSessionClaimStore();
+        var factory = Substitute.For<IGameSessionFactory>();
+        var firstSession = CreateLobbySession(42, "connection-1");
+        var replacementSession = CreateLobbySession(42, "connection-2");
+        factory.Create(42, "connection-1").Returns(firstSession);
+        factory.Create(42, "connection-2").Returns(replacementSession);
+        var store = new GameSessionStore();
+        var service = GameSessionTestDependencies.CreateService(
+            store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+
+        var first = await service.AddSession(42, "connection-1");
+        Assert.IsTrue(first.Created);
+        Assert.IsTrue(await service.RemoveSession(first.Session));
+
+        var replacement = await service.AddSession(42, "connection-2");
+
+        Assert.IsTrue(replacement.Created);
+        Assert.AreSame(replacementSession, replacement.Session);
+    }
+
+    [TestMethod]
     public async Task LeaseService_HealthyClaimIsRenewedWithoutAbortingConnection()
     {
         var store = new GameSessionStore();

@@ -331,7 +331,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         Assert.AreEqual(request.Statistics.AttackExp, statistics.AttackExp);
         Assert.AreEqual(request.ItemCollection.Bank[0].ItemId, items.ItemId);
         Assert.AreEqual((sbyte)0, items.ContainerType);
-        Assert.AreEqual(request.State.StatesEx[0].Id.ToString(), state.StateId);
+        Assert.AreEqual(request.State.StatesEx[0].Id, state.StateId);
         Assert.AreEqual(request.Profile.JsonData, (await verificationContext.CharacterProfiles.SingleAsync(x => x.MasterId == request.MasterId)).Data);
         Assert.AreEqual(request.Music.UnlockedMusicIds[0].ToString(), (await verificationContext.CharactersMusics.SingleAsync(x => x.MasterId == request.MasterId)).UnlockedMusic.Split(',')[0]);
     }
@@ -367,7 +367,7 @@ public sealed class CharacterUpdateRequestConsumerTests
             Farming = new FarmingDto { Patches = [new FarmingDto.PatchDto { Id = 999, SeedId = 999 }] },
             Notes = new NotesDto { Notes = [new NotesDto.NoteDto { Id = 999, Text = "stale" }] },
             ItemAppearanceCollection = new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 999 }] },
-            State = new StateDto { StatesEx = [new StateDto.StateExDto { Id = 999, TicksLeft = 999 }] }
+            State = new StateDto { StatesEx = [new StateDto.StateExDto { Id = "999", TicksLeft = 999 }] }
         };
         var response = await client.GetResponse<UpdateCharacterResponse>(staleRequest);
 
@@ -389,7 +389,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         Assert.AreEqual((uint)currentRequest.Farming.Patches[0].Id, farmingPatch.PatchId);
         Assert.AreEqual(currentRequest.Notes.Notes[0].Id, note.NoteId);
         Assert.AreEqual(currentRequest.ItemAppearanceCollection.Appearances[0].Id, itemAppearance.ItemId);
-        Assert.AreEqual(currentRequest.State.StatesEx[0].Id.ToString(), state.StateId);
+        Assert.AreEqual(currentRequest.State.StatesEx[0].Id, state.StateId);
     }
 
     [TestMethod]
@@ -591,7 +591,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         new NotesDto { Notes = [new NotesDto.NoteDto { Id = 32, Color = 33, Text = "note" }] },
         new ProfileDto { JsonData = "{\"changed\":true}" },
         new ItemAppearanceCollectionDto { Appearances = [new ItemAppearanceDto { Id = 40, MaleModels = [1, 2, 3], FemaleModels = [4, 5, 6], ModelColors = [7, 8], TextureColors = [9, 10] }] },
-        new StateDto { StatesEx = [new StateDto.StateExDto { Id = 50, TicksLeft = 51 }] },
+        new StateDto { StatesEx = [new StateDto.StateExDto { Id = "50", TicksLeft = 51 }] },
         2);
 
     private static PersistCharacterCommand CreateCommand()

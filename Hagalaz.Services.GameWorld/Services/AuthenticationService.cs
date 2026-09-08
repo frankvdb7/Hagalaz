@@ -448,25 +448,16 @@ namespace Hagalaz.Services.GameWorld.Services
                 var properties = authentication?.AuthenticationProperties;
                 var character = context.GetCharacter();
                 var session = context.GetSession();
+                var logoutStartedAtUtc = DateTime.UtcNow;
                 var persistenceSucceeded = character == null;
                 if (character != null)
                 {
                     _characterPersistenceService.TrackPendingLogout(character);
                 }
 
+                var sessionRemoved = session == null;
                 try
                 {
-                    if (masterId != null && properties?.ClientId != null)
-                    {
-                        var response = await _revokeTokenRequestClient.GetResponse<RevokeTokenResponseMessage>(
-                            new RevokeTokenRequestMessage(properties.ClientId, masterId.Value.ToString()),
-                            cancellationToken);
-                        if (!response.Message.Succeeded)
-                        {
-                            _logger.LogWarning("Failed to revoke token '{error}'", response.Message.Error);
-                        }
-                    }
-
                     // Persist before removing the only registered copy. The EF bus outbox is
                     // the durable handoff boundary; consumer acknowledgement is asynchronous
                     // and is completed by the dehydration worker.
@@ -475,29 +466,46 @@ namespace Hagalaz.Services.GameWorld.Services
                         await _characterPersistenceService.PersistAsync(character, force: true, cancellationToken: cancellationToken);
                         persistenceSucceeded = true;
                     }
+
+                    if (session != null && persistenceSucceeded)
+                    {
+                        sessionRemoved = await _gameSessionService.RemoveSession(session);
+                    }
                 }
                 finally
                 {
-                    var sessionRemoved = session == null;
-                    try
+                    if (character != null && persistenceSucceeded && sessionRemoved)
                     {
-                        if (session != null && persistenceSucceeded)
-                        {
-                            sessionRemoved = await _gameSessionService.RemoveSession(session);
-                        }
-                    }
-                    finally
-                    {
-                        if (character != null && persistenceSucceeded && sessionRemoved)
-                        {
-                            await _characterLogoutService.DetachAsync(character);
-                        }
+                        await _characterLogoutService.DetachAsync(character);
                     }
                 }
 
                 if (character == null && masterId != null)
                 {
                     _mediator.Publish(new LobbySignOutCommand(masterId.Value));
+                }
+
+                // Token revocation is remote cleanup. It must not retain a successfully
+                // persisted live-session owner when the authorization service is slow or
+                // unavailable. A later logout/reconnect cleanup can revoke the token again.
+                if (masterId != null && properties?.ClientId != null)
+                {
+                    try
+                    {
+                        var response = await _revokeTokenRequestClient.GetResponse<RevokeTokenResponseMessage>(
+                            new RevokeTokenRequestMessage(properties.ClientId, masterId.Value.ToString(), logoutStartedAtUtc),
+                            cancellationToken);
+                        if (!response.Message.Succeeded)
+                        {
+                            _logger.LogWarning("Failed to revoke token '{error}'", response.Message.Error);
+                        }
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogWarning(ex,
+                            "Token revocation failed after session cleanup for account '{masterId}'.",
+                            masterId.Value);
+                    }
                 }
             });
     }

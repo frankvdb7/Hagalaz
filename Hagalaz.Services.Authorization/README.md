@@ -39,6 +39,16 @@ The certificate files and passwords must be supplied by the deployment's secure 
 
 OpenIddict's transport-security requirement remains enabled outside Development. If TLS is terminated by a reverse proxy, configure forwarded headers so the service receives the original HTTPS scheme.
 
+### OpenIddict issuer
+
+The issuer is required because Hagalaz also creates tokens from MassTransit consumers, where no HTTP request exists from which OpenIddict can infer an issuer. Configure the externally reachable authorization-service URI in non-development environments:
+
+```text
+OpenIddict:Issuer=https://auth.example.test/
+```
+
+Development Aspire and HTTPS launch-profile runs derive the issuer from `ASPNETCORE_HTTPS_PORT` when `OpenIddict:Issuer` is not set.
+
 ### Trusted reverse proxy configuration
 
 The authorization service and gateway process `X-Forwarded-Proto` before HTTPS redirection. Non-development environments fail during startup unless the proxy that sends those headers is explicitly trusted. Configure either the gateway's IP address or its network in the deployment's secure configuration provider:

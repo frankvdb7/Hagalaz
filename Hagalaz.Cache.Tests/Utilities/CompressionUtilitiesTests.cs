@@ -21,5 +21,34 @@ namespace Hagalaz.Cache.Tests.Utilities
             // Assert
             Assert.Equal(originalString, decompressedString);
         }
+
+        [Fact]
+        public void BzipDecompress_ShouldAcceptCachePayloadWithoutStreamHeader()
+        {
+            var originalData = Encoding.UTF8.GetBytes("Cache-style Bzip2 payload.");
+            var compressedData = CompressionUtilities.BzipCompress(originalData);
+            var cachePayload = compressedData[4..];
+
+            Assert.Equal("1AY&SY", Encoding.ASCII.GetString(cachePayload, 0, 6));
+
+            var decompressedData = CompressionUtilities.BzipDecompress(cachePayload);
+
+            Assert.Equal(originalData, decompressedData);
+        }
+
+        [Fact]
+        public void BzipDecompress_ShouldAcceptLargeCachePayloadWithoutStreamHeader()
+        {
+            var originalData = new byte[16 * 1024];
+            for (var i = 0; i < originalData.Length; i++)
+                originalData[i] = (byte)((i * 31 + i / 17) % 256);
+
+            var compressedData = CompressionUtilities.BzipCompress(originalData);
+            var cachePayload = compressedData[4..];
+
+            var decompressedData = CompressionUtilities.BzipDecompress(cachePayload);
+
+            Assert.Equal(originalData, decompressedData);
+        }
     }
 }

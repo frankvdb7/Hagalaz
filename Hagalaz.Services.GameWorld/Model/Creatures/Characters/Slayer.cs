@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Threading.Tasks;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
@@ -76,7 +77,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
-            _creatureKilledHandler = _owner.RegisterEventHandler(new EventHappened<CreatureKillEvent>((e) =>
+            _creatureKilledHandler = _owner.RegisterEventHandler(new EventHappened<CreatureKillEvent>(e =>
             {
                 if (e.Victim is not INpc npc)
                 {
@@ -88,27 +89,32 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return false; // allow other events to catch a creature killed event.
                 }
 
-                var task = _slayerService.FindSlayerTaskDefinition(CurrentTaskId).Result;
-                if (task == null)
-                {
-                    return false; // allow other events to catch a creature killed event.
-                }
-
-                _owner.Statistics.AddExperience(StatisticsConstants.Slayer, npc.Definition.MaxLifePoints * 0.1);
-                CurrentKillCount--;
-                if (CurrentKillCount <= 0)
-                {
-                    OnCompleted();
-                }
+                _owner.QueueTask(() => ProcessCreatureKillAsync(npc));
 
                 return false; // allow other events to catch a creature killed event.
             }));
         }
 
+        private async Task ProcessCreatureKillAsync(INpc npc)
+        {
+            var task = await _slayerService.FindSlayerTaskDefinition(CurrentTaskId);
+            if (task == null)
+            {
+                return;
+            }
+
+            _owner.Statistics.AddExperience(StatisticsConstants.Slayer, npc.Definition.MaxLifePoints * 0.1);
+            CurrentKillCount--;
+            if (CurrentKillCount <= 0)
+            {
+                await OnCompletedAsync();
+            }
+        }
+
         /// <summary>
         /// Called when [completed].
         /// </summary>
-        private void OnCompleted()
+        private async Task OnCompletedAsync()
         {
             if (_creatureKilledHandler != null)
             {
@@ -116,7 +122,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _creatureKilledHandler = null;
             }
 
-            var task = _slayerService.FindSlayerTaskDefinition(CurrentTaskId).Result;
+            var task = await _slayerService.FindSlayerTaskDefinition(CurrentTaskId);
             if (task == null)
             {
                 return;
@@ -130,7 +136,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _owner.Inventory.TryAddItems(_owner, [(995, coinsEarned)], out _);
             }
 
-            var masterTable = _slayerService.FindSlayerMasterTableByNpcId(task.SlayerMasterId).Result;
+            var masterTable = await _slayerService.FindSlayerMasterTableByNpcId(task.SlayerMasterId);
             if (masterTable == null)
             {
                 return;

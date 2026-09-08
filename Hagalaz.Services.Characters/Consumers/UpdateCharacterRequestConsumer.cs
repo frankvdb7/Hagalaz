@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -396,7 +395,7 @@ namespace Hagalaz.Services.Characters.Consumers
         private async Task ReplaceStatesAsync(ICharacterPersistenceMessage message)
         {
             var existing = await _unitOfWork.CharacterStateRepository.FindAll().Where(s => s.MasterId == message.MasterId).ToListAsync();
-            var incoming = message.State.StatesEx.ToDictionary(state => state.Id.ToString(CultureInfo.InvariantCulture));
+            var incoming = message.State.StatesEx.ToDictionary(state => state.Id);
             foreach (var state in existing)
             {
                 if (!incoming.TryGetValue(state.StateId, out var stateDto))

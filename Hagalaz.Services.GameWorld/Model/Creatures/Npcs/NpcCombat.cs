@@ -90,7 +90,9 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
             if (_npc.Script.CanRespawn())
                 Owner.QueueTask(new RsTask(() => _npc.Script.Respawn(), delay + _npc.Definition.RespawnTime + 1));
             else
-                Owner.QueueTask(new RsTask(() => _npcService.UnregisterAsync(_npc).Wait(), delay + 1));
+                Owner.QueueTask(new RsTask(
+                    () => Owner.QueueTask(() => _npcService.UnregisterAsync(_npc)),
+                    delay + 1));
         }
 
         /// <summary>

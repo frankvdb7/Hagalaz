@@ -116,7 +116,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void TryParseXteaBlock_NonBlockAlignedPayload_ReturnsFalseWithoutInvokingParser()
+        public void TryParseXteaBlock_WithoutCompleteBlock_ReturnsFalseWithoutInvokingParser()
         {
             var reader = new SequenceReader<byte>(new ReadOnlySequence<byte>(new byte[7]));
             var parserInvoked = false;
@@ -132,6 +132,30 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             Assert.IsFalse(result);
             Assert.IsFalse(parserInvoked);
+        }
+
+        [TestMethod]
+        public void TryParseXteaBlock_WithClearTailDecryptsCompleteBlocksAndPreservesTail()
+        {
+            var keys = new uint[] { 1, 2, 3, 4 };
+            var plaintext = Enumerable.Range(1, 15).Select(value => (byte)value).ToArray();
+            var encrypted = new byte[plaintext.Length];
+            XTEA.Encrypt(plaintext, encrypted, keys);
+            plaintext.AsSpan(8).CopyTo(encrypted.AsSpan(8));
+            var reader = new SequenceReader<byte>(new ReadOnlySequence<byte>(encrypted));
+            byte[]? parsedPayload = null;
+
+            var result = HandshakeDecoderHelper.TryParseXteaBlock(
+                ref reader,
+                keys,
+                (in ReadOnlySequence<byte> payload) =>
+                {
+                    parsedPayload = payload.ToArray();
+                    return true;
+                });
+
+            Assert.IsTrue(result);
+            CollectionAssert.AreEqual(plaintext, parsedPayload);
         }
 
         [TestMethod]
@@ -194,6 +218,46 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             Assert.IsFalse(result);
             Assert.IsNull(message);
+        }
+
+        [TestMethod]
+        public void LobbyHandshakeDecoder_ClearTailAfterCompleteXteaBlocks_ReturnsRequest()
+        {
+            var rsaBlock = CreateRsaBlock();
+            var cacheApi = Substitute.For<ICacheAPI>();
+            cacheApi.GetFileCount(byte.MaxValue).Returns(2);
+            var decoder = new LobbyHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                cacheApi);
+            var encryptedPayload = EncryptPayload(CreateValidPayload(world: false));
+            var payloadWithClearTail = encryptedPayload.Concat(new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77 }).ToArray();
+
+            var result = decoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: false, encryptedPayload: payloadWithClearTail),
+                out var message);
+
+            Assert.IsTrue(result);
+            Assert.IsInstanceOfType<LobbySignInRequest>(message);
+        }
+
+        [TestMethod]
+        public void WorldHandshakeDecoder_ClearTailAfterCompleteXteaBlocks_ReturnsRequest()
+        {
+            var rsaBlock = CreateRsaBlock();
+            var cacheApi = Substitute.For<ICacheAPI>();
+            cacheApi.GetFileCount(byte.MaxValue).Returns(2);
+            var decoder = new WorldHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                cacheApi);
+            var encryptedPayload = EncryptPayload(CreateValidPayload(world: true));
+            var payloadWithClearTail = encryptedPayload.Concat(new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77 }).ToArray();
+
+            var result = decoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: true, encryptedPayload: payloadWithClearTail),
+                out var message);
+
+            Assert.IsTrue(result);
+            Assert.IsInstanceOfType<WorldSignInRequest>(message);
         }
 
         [TestMethod]

@@ -180,7 +180,7 @@ public sealed class AuthenticationLogoutTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignOutAsync_WhenTokenRevocationFails_KeepsSessionClaim()
+    public async Task SignOutAsync_WhenTokenRevocationFails_ReleasesSessionClaim()
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
@@ -208,16 +208,62 @@ public sealed class AuthenticationLogoutTests
             persistenceService,
             gameSessionService,
             contextAccessor,
+            revokeTokenRequestClient,
+            characterLogoutService: Substitute.For<ICharacterLogoutService>());
+
+        await service.SignOutAsync();
+
+        persistenceService.Received(1).TrackPendingLogout(character);
+        await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
+        await gameSessionService.Received(1).RemoveSession(session);
+        await characterService.DidNotReceive().RemoveAsync(character);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignOutAsync_ReleasesSessionBeforeRevocationCompletes()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        var revokeStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completeRevocation = new TaskCompletionSource<Response<RevokeTokenResponseMessage>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var revokeResponse = Substitute.For<Response<RevokeTokenResponseMessage>>();
+        revokeResponse.Message.Returns(new RevokeTokenResponseMessage { Succeeded = true });
+        var revokeTokenRequestClient = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
+        revokeTokenRequestClient
+            .GetResponse<RevokeTokenResponseMessage>(Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                revokeStarted.TrySetResult(true);
+                return completeRevocation.Task;
+            });
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+        var service = CreateAuthenticationService(
+            Substitute.For<ICharacterService>(),
+            persistenceService,
+            gameSessionService,
+            CreateContextAccessor(
+                character,
+                session,
+                new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                {
+                    ClientId = "world-client",
+                    Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
+                }),
             revokeTokenRequestClient);
 
-        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => service.SignOutAsync());
+        var signOutTask = service.SignOutAsync();
+        await revokeStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
-        Assert.AreSame(revokeFailure, exception);
-        persistenceService.Received(1).TrackPendingLogout(character);
-        await persistenceService.DidNotReceive().PersistAsync(Arg.Any<ICharacter>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
-        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>());
-        await characterService.DidNotReceive().RemoveAsync(character);
+        await gameSessionService.Received(1).RemoveSession(session);
+        Assert.IsFalse(signOutTask.IsCompleted);
+
+        completeRevocation.TrySetResult(revokeResponse);
+        await signOutTask;
     }
 
     [TestMethod]
@@ -228,7 +274,7 @@ public sealed class AuthenticationLogoutTests
         character.IsDestroyed.Returns(false);
         var authenticationService = Substitute.For<IAuthenticationService>();
         authenticationService.SignOutAsync().Returns(Task.FromException(new InvalidOperationException("Sign out failed.")));
-        var hub = new ConnectionHub(authenticationService);
+        var hub = new ConnectionHub(authenticationService, NullLogger<ConnectionHub>.Instance);
         SetContext(hub, CreateContext(character, session: null));
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
@@ -245,7 +291,7 @@ public sealed class AuthenticationLogoutTests
         character.IsDestroyed.Returns(false);
         var authenticationService = Substitute.For<IAuthenticationService>();
         authenticationService.SignOutAsync().Returns(Task.CompletedTask);
-        var hub = new ConnectionHub(authenticationService);
+        var hub = new ConnectionHub(authenticationService, NullLogger<ConnectionHub>.Instance);
         SetContext(hub, CreateContext(character, session: null));
 
         await hub.OnDisconnectedAsync(null);

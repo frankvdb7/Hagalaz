@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Services.Authorization.Mediator.Commands;
@@ -9,7 +8,6 @@ using MassTransit;
 using MassTransit.Mediator;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
-using static OpenIddict.Abstractions.OpenIddictConstants;
 using static OpenIddict.Server.OpenIddictServerEvents;
 
 
@@ -19,12 +17,10 @@ namespace Hagalaz.Services.Authorization.Consumers
     {
         private readonly IOpenIddictService _openIddictService;
         private readonly IRequestClient<PasswordGrantCommand> _requestClientPasswordGrantCommand;
-        private readonly IRequestClient<GetTokensRequestMessage> _requestClientGetTokensRequestCommand;
 
         public SignInUserRequestConsumer(IMediator mediator, IOpenIddictService openIddictService)
         {
             _requestClientPasswordGrantCommand = mediator.CreateRequestClient<PasswordGrantCommand>();
-            _requestClientGetTokensRequestCommand = mediator.CreateRequestClient<GetTokensRequestMessage>();
             _openIddictService = openIddictService;
         }
 
@@ -41,35 +37,6 @@ namespace Hagalaz.Services.Authorization.Consumers
                 });
                 return;
             }
-            try
-            {
-                var subject = signInResult.User.GetClaim(Claims.Subject);
-                if (subject != null)
-                {
-                    foreach (var clientScope in message.ClientScopes)
-                    {
-                        var tokenResponse = await _requestClientGetTokensRequestCommand.GetResponse<GetTokensResponseMessage>(new GetTokensRequestMessage(clientScope, subject)
-                        {
-                            Status = Statuses.Valid
-                        });
-                        var tokenResult = tokenResponse.Message;
-                        if (tokenResult.Tokens.Any())
-                        {
-                            await context.RespondAsync(new SignInUserResponseMessage { IsAuthenticated = true });
-                            return;
-                        }
-                    }
-                }
-            } 
-            catch(Exception ex)
-            {
-                await context.RespondAsync(new SignInUserResponseMessage
-                {
-                    Error = ex.Message
-                });
-                return;
-            }
-
             // openiddict token creation
             var transaction = await _openIddictService.CreateTransactionAsync();
             var response = new OpenIddictResponse();

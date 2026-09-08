@@ -61,8 +61,6 @@ using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Hubs;
 using Hagalaz.Services.GameWorld.Hubs.Filters;
 using Hagalaz.Services.GameWorld.Logic.Characters.Consumers;
-using Hagalaz.Services.GameWorld.Logic.Characters.StateMachines;
-using Hagalaz.Services.GameWorld.Logic.Characters.States;
 using Hagalaz.Services.GameWorld.Logic.Dehydrators;
 using Hagalaz.Services.GameWorld.Logic.Hydrators;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
@@ -117,7 +115,8 @@ namespace Hagalaz.Services.GameWorld
         {
             services.AddSingleton<WorldLifecycleState>();
             services.AddSingleton<IStartupTaskState>(provider => provider.GetRequiredService<WorldLifecycleState>());
-            services.AddSingleton<WorldInstanceIdentity>();
+            var worldIdentity = new WorldInstanceIdentity();
+            services.AddSingleton(worldIdentity);
             services.AddSingleton<WorldRegistrationStore>();
             services.AddHealthChecks().AddCheck<WorldReadinessHealthCheck>("world-readiness");
 
@@ -700,8 +699,7 @@ namespace Hagalaz.Services.GameWorld
                     cfg.ConfigureEndpoints(context);
                 });
 
-                x.AddSagaStateMachine<CharacterHydrationStateMachine, CharacterHydrationState>()
-                    .InMemoryRepository();
+                x.AddWorldCharacterHydration(worldIdentity);
 
                 x.AddConsumer<WorldUserSignInConsumer>();
                 x.AddConsumer<WorldUserSignOutConsumer>();
