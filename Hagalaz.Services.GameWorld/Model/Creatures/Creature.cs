@@ -33,7 +33,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         private Dictionary<Type, List<EventHappened>> _registeredEventHandlers = new();
         private CreatureUpdateState _updateState = CreatureUpdateState.Initializing;
         private readonly IServiceScope _serviceScope = default!;
-        private bool _isRegisteredInRegion;
 
         public bool IsDestroyed { get; private set; }
 
@@ -222,16 +221,23 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             }
             _updateState = CreatureUpdateState.Destroyed;
             IsDestroyed = true;
-            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-            if (Location != null && _isRegisteredInRegion)
+            try
             {
-                var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, false);
-                RemoveFromRegion(region);
-                _isRegisteredInRegion = false;
+                if (Location != null)
+                {
+                    var region = MapRegionService.GetMapRegion(Location.RegionId, Location.Dimension, false, false);
+                    if (region != null)
+                    {
+                        RemoveFromRegion(region);
+                    }
+                }
+                Area?.OnCreatureExitArea(this);
+                OnDestroy();
             }
-            Area?.OnCreatureExitArea(this);
-            OnDestroy();
-            _serviceScope.Dispose();
+            finally
+            {
+                _serviceScope.Dispose();
+            }
         }
 
         /// <summary>
@@ -268,16 +274,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             {
                 if (LastLocation != null)
                 {
-                    var lastRegion = MapRegionService.GetOrCreateMapRegion(LastLocation.RegionId, LastLocation.Dimension, false);
-                    if (_isRegisteredInRegion)
+                    var lastRegion = MapRegionService.GetMapRegion(LastLocation.RegionId, LastLocation.Dimension, false, false);
+                    if (lastRegion != null)
                     {
                         RemoveFromRegion(lastRegion);
-                        _isRegisteredInRegion = false;
                     }
                 }
                 var region = MapRegionService.GetOrCreateMapRegion(Location.RegionId, Location.Dimension, true);
                 AddToRegion(region);
-                _isRegisteredInRegion = true;
 
                 OnRegionChange();
             }

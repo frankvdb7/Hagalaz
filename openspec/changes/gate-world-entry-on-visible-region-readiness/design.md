@@ -8,13 +8,30 @@
 
 Keep `IMapRegionLoadScheduler.RequestLoad` unchanged. Add an internal operation on the concrete `MapRegionLoadScheduler` for the world-entry consumer to submit a finite set of regions and await their existing in-flight operations. The scheduler remains the only reader and loader owner.
 
-Each scheduled region receives a completion signal owned by the scheduler. The worker completes it successfully only when `region.IsLoaded` is true after `IMapRegionLoader.LoadAsync` returns. Loader exceptions and a completed load that did not publish readiness complete the signal as failure. The entry caller observes the first failure and does not submit another request. Fire-and-forget callers do not receive faulted unobserved tasks.
+The scheduler keeps one completion signal per in-flight region in a normal
+dictionary protected by its existing lock. The worker completes it only when
+`region.IsLoaded` is true after `IMapRegionLoader.LoadAsync` returns. Loader
+exceptions fault the shared task and cancellation cancels it; a completed load
+that did not publish readiness faults it as well. `EnsureLoadedAsync` awaits
+the distinct region tasks together, while its caller cancellation only stops
+that caller's wait. Shutdown cancels unresolved waiters before the worker
+exits, so no entry waiter can remain pending indefinitely. Fire-and-forget
+callers do not receive or observe these internal completion tasks.
 
 ### 2. Gate the existing world-sign-in consumer
 
-Before `WorldSignInCommandConsumer` calls `character.OnRegistered()`, it will rebuild `character.Viewport` and await the scheduler for `character.Viewport.VisibleRegions`. This uses the same visible-region calculation as the startup map update, so the set being awaited matches the set subsequently rendered. `OnRegistered()` then sends the existing startup packets only after the barrier succeeds.
+Before `WorldSignInCommandConsumer` calls `character.OnRegistered()`, it will
+rebuild `character.Viewport` and await the scheduler for
+`character.Viewport.VisibleRegions`. This is required to know the initial
+visible set before registration. `MapUpdateService` reuses that prepared
+viewport when `Character.OnRegistered()` sends the startup map, so the set
+being awaited matches the set subsequently rendered without a second rebuild.
 
-The consumer will use the existing `IGameSessionConnectionTerminator` for terminal failure. Its current cleanup remains authoritative for character removal, session removal, and world sign-out; the connection abort occurs after cleanup in a `finally` path so a failed entry cannot leave an active client connection behind.
+The consumer will use the existing `IGameSessionConnectionTerminator` for
+terminal failure. It logs the initialization failure and aborts the session;
+`ConnectionHub` and `AuthenticationService.SignOutAsync` remain the sole
+owners of character removal, persistence, session release, detachment, and
+world sign-out. The consumer does not duplicate that cleanup.
 
 ### 3. Preserve public script-facing contracts
 
@@ -24,7 +41,8 @@ No new member is added to `IMapRegionLoadScheduler`, `IMapUpdateService`, `IChar
 
 - A successful world-entry barrier returns only when every initial visible region has `IsLoaded == true`.
 - No startup registration or map packet occurs before the barrier returns.
-- A failed barrier performs one cleanup path and one connection abort; it never retries the failed region.
+- A failed barrier performs one connection abort and delegates cleanup to the
+  normal disconnect/sign-out owner; it never retries the failed region.
 - The existing scheduler has one worker and one in-flight admission per region.
 - No script-facing public API gains an asynchronous counterpart.
 
@@ -41,3 +59,5 @@ No new member is added to `IMapRegionLoadScheduler`, `IMapUpdateService`, `IChar
 - Add failure coverage for a loader that returns without readiness, proving no second attempt is made by the entry path.
 - Add world-sign-in consumer tests proving registration and successful world/contact publication occur only after readiness, while failure cleans up and aborts the connection.
 - Retain existing scheduler deduplication and normal `MapUpdateService` synchronous-contract tests.
+- Verify that startup map delivery reuses the prebuilt entry viewport without a
+  second rebuild.

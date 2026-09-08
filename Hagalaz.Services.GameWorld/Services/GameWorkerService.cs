@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Services.GameWorld.Configuration.Model;
@@ -125,11 +127,13 @@ namespace Hagalaz.Services.GameWorld.Services
 
             try
             {
+                var preparedRegions = new List<IMapRegion>(regions.Count);
                 foreach (var region in regions)
                 {
                     try
                     {
                         region.MajorClientPrepareUpdateTick();
+                        preparedRegions.Add(region);
                     }
                     catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
                     {
@@ -141,7 +145,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
                 }
 
-                foreach (var region in regions)
+                foreach (var region in preparedRegions)
                 {
                     try
                     {

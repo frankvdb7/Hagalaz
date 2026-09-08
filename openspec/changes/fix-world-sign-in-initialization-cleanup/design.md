@@ -2,26 +2,18 @@
 
 `HandshakeHub.SignInWorld` commits authentication and transfers the protocol,
 then publishes `WorldSignInCommand` without awaiting it. The consumer invokes
-`ICharacter.OnRegistered`, sends contact/world presence messages, and currently
-has no failure cleanup. `AuthenticationService` cannot clean this failure because
-its sign-in operation has already returned successfully.
+`ICharacter.OnRegistered`, sends contact/world presence messages, and must abort
+the connection if initialization fails. `ConnectionHub` and
+`AuthenticationService` own the resulting disconnect cleanup.
 
 ## Decision
 
-Keep `WorldSignInCommandConsumer` as the single owner of post-authentication
-initialization and add a local failure path there. On any initialization or
-presence-publication exception it will:
-
-1. Destroy the character, removing any region membership created before the
-   failure.
-2. Remove the character from the character store.
-3. Release the game session and always remove its local store entry.
-4. Publish the existing `WorldUserSignOutMessage` so world/contact presence can
-   converge.
-5. Rethrow the original initialization exception.
-
-Cleanup failures are logged individually and do not replace the original
-failure. The existing strict duplicate check in `MapRegion.Add` remains intact.
+Keep `WorldSignInCommandConsumer` responsible only for post-authentication
+initialization. On any initialization or presence-publication exception it logs,
+aborts the session, and rethrows the original exception. `ConnectionHub` and
+`AuthenticationService.SignOutAsync` remain the cleanup owner, so character
+destruction, persistence, session release, detachment, and world-presence
+cleanup occur through one lifecycle path.
 
 ## Alternatives considered
 
@@ -30,5 +22,6 @@ failure. The existing strict duplicate check in `MapRegion.Add` remains intact.
 - Moving all work into `AuthenticationService` would expand the authentication
   boundary and still leave asynchronous post-authentication work without a
   clear owner.
-- Relying on disconnect cleanup would leave the client stuck and makes recovery
-  depend on transport behavior rather than the failed initialization boundary.
+- Relying on the existing disconnect cleanup is intentional: aborting the
+  connection invokes the established lifecycle owner and avoids two competing
+  cleanup paths.

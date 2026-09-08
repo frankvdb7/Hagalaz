@@ -9,7 +9,7 @@ created by the existing `NpcScriptActivator` at the NPC composition boundary.
 
 - Stop registering concrete owner-aware NPC scripts as ordinary DI services.
 - Discover NPC script metadata from explicitly registered plugin type catalogs
-  while retaining descriptor discovery for existing callers and tests.
+  as the one deterministic NPC-script source.
 - Keep default NPC and familiar script types available through their existing
   providers and owner-aware activation path.
 - Add regression coverage for plugin registration and metadata discovery.

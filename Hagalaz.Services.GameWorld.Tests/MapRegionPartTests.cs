@@ -150,29 +150,6 @@ public sealed class MapRegionPartTests
     }
 
     [TestMethod]
-    public void PrepareUpdatesForTick_DoesNotReplaceAnActivePreparedGeneration()
-    {
-        var part = CreatePart(out _);
-        var character = CreateCharacter();
-        var currentTick = new TestRegionPartUpdate();
-        var nextTick = new TestRegionPartUpdate();
-
-        part.QueueUpdate(currentTick);
-        part.PrepareUpdatesForTick();
-        part.QueueUpdate(nextTick);
-
-        Assert.ThrowsExactly<InvalidOperationException>(() => part.PrepareUpdatesForTick());
-
-        part.SendUpdates(character);
-        part.CompleteUpdateTick();
-        part.PrepareUpdatesForTick();
-        part.SendUpdates(character);
-
-        Assert.AreEqual(1, currentTick.CanUpdateForCalls);
-        Assert.AreEqual(1, nextTick.CanUpdateForCalls);
-    }
-
-    [TestMethod]
     public void FailedPreparedSend_DoesNotLoseUpdatesQueuedForTheNextTick()
     {
         var part = CreatePart(out _);

@@ -25,7 +25,7 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class WorldSignInCommandConsumerTests
 {
     [TestMethod]
-    public async Task Consume_WhenRegistrationFails_CleansUpCharacterSessionAndWorldPresence()
+    public async Task Consume_WhenRegistrationFails_AbortsConnectionForNormalDisconnectCleanup()
     {
         var failure = new InvalidOperationException("Map initialization failed.");
         var character = Substitute.For<ICharacter>();
@@ -36,30 +36,22 @@ public sealed class WorldSignInCommandConsumerTests
         character.MasterId.Returns(42u);
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
-        character.IsDestroyed.Returns(false);
         character.OnRegistered().Returns(Task.FromException(failure));
 
-        var characterService = Substitute.For<ICharacterService>();
-        var gameSessionService = Substitute.For<IGameSessionService>();
-        gameSessionService.RemoveSession(session, CancellationToken.None).Returns(Task.FromResult(true));
-        gameSessionService.RemoveLocalSession(session).Returns(Task.FromResult(true));
         var connectionTerminator = Substitute.For<IGameSessionConnectionTerminator>();
         var publishEndpoint = Substitute.For<IBus>();
         using var schedulerProvider = new ServiceCollection().BuildServiceProvider();
         using var scheduler = CreateScheduler(schedulerProvider);
-        var consumer = CreateConsumer(publishEndpoint, characterService, gameSessionService, scheduler, connectionTerminator);
+        var consumer = CreateConsumer(publishEndpoint, scheduler, connectionTerminator);
 
         var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => consumer.Consume(CreateContext(new WorldSignInCommand(character))));
 
         Assert.AreSame(failure, exception);
-        character.Received(1).Destroy();
-        await characterService.Received(1).RemoveAsync(character);
-        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
-        await gameSessionService.Received(1).RemoveLocalSession(session);
+        character.DidNotReceive().Destroy();
         connectionTerminator.Received(1).Abort(session);
-        await publishEndpoint.Received(1).Publish(
-            Arg.Is<WorldUserSignOutMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1),
+        await publishEndpoint.DidNotReceive().Publish(
+            Arg.Any<WorldUserSignOutMessage>(),
             Arg.Any<CancellationToken>());
         await publishEndpoint.DidNotReceive().Publish(
             Arg.Any<GetContactsRequest>(),
@@ -86,8 +78,6 @@ public sealed class WorldSignInCommandConsumerTests
         using var scheduler = CreateScheduler(schedulerProvider);
         var consumer = CreateConsumer(
             publishEndpoint,
-            Substitute.For<ICharacterService>(),
-            Substitute.For<IGameSessionService>(),
             scheduler,
             Substitute.For<IGameSessionConnectionTerminator>());
 
@@ -129,15 +119,13 @@ public sealed class WorldSignInCommandConsumerTests
         character.Viewport.Returns(viewport);
         character.OnRegistered().Returns(Task.CompletedTask);
         var publishEndpoint = Substitute.For<IBus>();
-        var characterService = Substitute.For<ICharacterService>();
-        var gameSessionService = Substitute.For<IGameSessionService>();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         using var schedulerProvider = new ServiceCollection()
             .AddScoped(_ => loader)
             .BuildServiceProvider();
         using var scheduler = CreateScheduler(schedulerProvider);
         await scheduler.StartAsync(CancellationToken.None);
-        var consumer = CreateConsumer(publishEndpoint, characterService, gameSessionService, scheduler, terminator);
+        var consumer = CreateConsumer(publishEndpoint, scheduler, terminator);
 
         var consumeTask = consumer.Consume(CreateContext(new WorldSignInCommand(character)));
         await loadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -161,7 +149,7 @@ public sealed class WorldSignInCommandConsumerTests
     }
 
     [TestMethod]
-    public async Task Consume_WhenVisibleRegionDoesNotBecomeReady_CleansUpAndDisconnectsWithoutRetry()
+    public async Task Consume_WhenVisibleRegionDoesNotBecomeReady_AbortsAndDisconnectsWithoutRetry()
     {
         var loader = Substitute.For<IMapRegionLoader>();
         loader.LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>())
@@ -178,10 +166,6 @@ public sealed class WorldSignInCommandConsumerTests
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
         character.IsDestroyed.Returns(false);
-        var characterService = Substitute.For<ICharacterService>();
-        var gameSessionService = Substitute.For<IGameSessionService>();
-        gameSessionService.RemoveSession(session, CancellationToken.None).Returns(Task.FromResult(true));
-        gameSessionService.RemoveLocalSession(session).Returns(Task.FromResult(true));
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var publishEndpoint = Substitute.For<IBus>();
         using var schedulerProvider = new ServiceCollection()
@@ -189,7 +173,7 @@ public sealed class WorldSignInCommandConsumerTests
             .BuildServiceProvider();
         using var scheduler = CreateScheduler(schedulerProvider);
         await scheduler.StartAsync(CancellationToken.None);
-        var consumer = CreateConsumer(publishEndpoint, characterService, gameSessionService, scheduler, terminator);
+        var consumer = CreateConsumer(publishEndpoint, scheduler, terminator);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => consumer.Consume(CreateContext(new WorldSignInCommand(character))));
@@ -197,10 +181,6 @@ public sealed class WorldSignInCommandConsumerTests
 
         await loader.Received(1).LoadAsync(region, Arg.Any<CancellationToken>());
         await character.DidNotReceive().OnRegistered();
-        character.Received(1).Destroy();
-        await characterService.Received(1).RemoveAsync(character);
-        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
-        await gameSessionService.Received(1).RemoveLocalSession(session);
         terminator.Received(1).Abort(session);
         await publishEndpoint.DidNotReceive().Publish(
             Arg.Any<GetContactsRequest>(),
@@ -212,15 +192,11 @@ public sealed class WorldSignInCommandConsumerTests
 
     private static WorldSignInCommandConsumer CreateConsumer(
         IBus publishEndpoint,
-        ICharacterService characterService,
-        IGameSessionService gameSessionService,
         MapRegionLoadScheduler scheduler,
         IGameSessionConnectionTerminator connectionTerminator) =>
         new(
             publishEndpoint,
             Options.Create(new WorldOptions { Id = 1 }),
-            characterService,
-            gameSessionService,
             scheduler,
             connectionTerminator,
             NullLogger<WorldSignInCommandConsumer>.Instance);

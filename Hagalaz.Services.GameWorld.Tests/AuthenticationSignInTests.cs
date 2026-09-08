@@ -85,6 +85,53 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task SignInLobbyAsync_WhenUserInfoSubjectIsMissing_RevokesTheIssuedAuthorization()
+    {
+        var revokeClient = CreateSuccessfulRevokeClient();
+        var contextAccessor = CreateContextAccessor();
+        var service = CreateAuthenticationService(
+            Substitute.For<IGameSessionService>(),
+            contextAccessor: contextAccessor,
+            userInfoRequestClient: CreateUserInfoClient(new Dictionary<string, object>()),
+            revokeTokenRequestClient: revokeClient);
+
+        var result = await service.SignInLobbyAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
+            Arg.Is<RevokeTokenRequestMessage>(message =>
+                message.Subject == "42" && message.AuthorizationId == "authorization-id"),
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested));
+        Assert.IsNull(contextAccessor.Context.Features.Get<IAuthenticationFeature>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInWorldAsync_WhenUserInfoSubjectIsMalformed_RevokesTheIssuedAuthorization()
+    {
+        var revokeClient = CreateSuccessfulRevokeClient();
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            userInfoRequestClient: CreateUserInfoClient(new Dictionary<string, object>
+            {
+                [Claims.Subject] = "not-a-number"
+            }),
+            revokeTokenRequestClient: revokeClient);
+
+        var result = await service.SignInWorldAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
+            Arg.Is<RevokeTokenRequestMessage>(message =>
+                message.Subject == "42" && message.AuthorizationId == "authorization-id"),
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested));
+        await gameSessionService.DidNotReceive().TryAddWorldSession(
+            Arg.Any<uint>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignInLobbyAsync_WhenPrincipalIsUnauthenticated_RevokesTheIssuedAuthorization()
     {
         var revokeClient = CreateSuccessfulRevokeClient();
@@ -890,6 +937,19 @@ public sealed class AuthenticationSignInTests
         client
             .GetResponse<RevokeTokenResponseMessage>(Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(CreateResponse(new RevokeTokenResponseMessage { Succeeded = true })));
+        return client;
+    }
+
+    private static IRequestClient<GetUserInfoRequestMessage> CreateUserInfoClient(IDictionary<string, object> claims)
+    {
+        var client = Substitute.For<IRequestClient<GetUserInfoRequestMessage>>();
+        client
+            .GetResponse<GetUserInfoResponseMessage>(Arg.Any<GetUserInfoRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(Task.FromResult(CreateResponse(new GetUserInfoResponseMessage
+            {
+                Succeeded = true,
+                Claims = claims
+            })));
         return client;
     }
 

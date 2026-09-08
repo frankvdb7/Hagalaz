@@ -9,11 +9,11 @@ script with Microsoft DI, which validates constructors before an owner exists.
 
 Remove only the concrete NPC-script scan and the ordinary DI registrations for
 the default NPC and familiar scripts. Register one explicit
-`INpcScriptTypeCatalog` for the plugin assembly and update
-`NpcScriptMetaDataFactory` to combine its existing service-descriptor types
-with concrete `INpcScript` types from all registered catalogs, deduplicating by
-type. The catalog owns the assembly boundary, so unrelated loaded assemblies
-cannot become script sources accidentally.
+`INpcScriptTypeCatalog` for the plugin assembly and make
+`NpcScriptMetaDataFactory` flatten concrete `INpcScript` types from all
+registered catalogs, deduplicating by type. The catalog owns the assembly
+boundary, so unrelated loaded assemblies and ordinary service descriptors
+cannot become a second NPC-script source accidentally.
 
 `NpcScriptActivator` remains the sole owner-aware construction path. Other
 script categories continue using their current registration and metadata

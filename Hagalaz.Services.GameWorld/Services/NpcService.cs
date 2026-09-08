@@ -30,6 +30,10 @@ namespace Hagalaz.Services.GameWorld.Services
         public async Task RegisterAsync(INpc npc)
         {
             ArgumentNullException.ThrowIfNull(npc);
+            if (npc.IsDestroyed)
+            {
+                throw new InvalidOperationException($"Cannot register destroyed NPC '{npc}'.");
+            }
 
             bool added;
             try

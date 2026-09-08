@@ -1,0 +1,125 @@
+using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Services.GameWorld.Model.Creatures;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NSubstitute;
+
+namespace Hagalaz.Services.GameWorld.Tests;
+
+[TestClass]
+public sealed class CreatureLifecycleTests
+{
+    [TestMethod]
+    public void DestroyBeforeRegionRegistration_DoesNotCreateARegion()
+    {
+        var (creature, mapRegionService, scope) = CreateCreature();
+
+        creature.Destroy();
+
+        mapRegionService.DidNotReceive().GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>());
+        mapRegionService.Received(1).GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, false);
+        scope.Received(1).Dispose();
+    }
+
+    [TestMethod]
+    public void DestroyAfterRegionRegistration_UnlinksFromExistingRegionWithoutCreatingAnother()
+    {
+        var (creature, mapRegionService, scope) = CreateCreature();
+        var region = Substitute.For<IMapRegion>();
+        mapRegionService.GetOrCreateMapRegion(creature.Location.RegionId, creature.Location.Dimension, true).Returns(region);
+        mapRegionService.GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, false).Returns(region);
+
+        creature.SetLocation(creature.Location, forceRegionUpdate: true, firstUpdate: true);
+        creature.Destroy();
+
+        mapRegionService.Received(1).GetOrCreateMapRegion(creature.Location.RegionId, creature.Location.Dimension, true);
+        mapRegionService.Received(1).GetMapRegion(creature.Location.RegionId, creature.Location.Dimension, false, false);
+        scope.Received(1).Dispose();
+    }
+
+    [TestMethod]
+    public void Destroy_WhenOnDestroyFails_StillDisposesOwnedScope()
+    {
+        var (creature, _, scope) = CreateCreature(onDestroyFailure: true);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => creature.Destroy());
+
+        Assert.IsTrue(creature.IsDestroyed);
+        scope.Received(1).Dispose();
+    }
+
+    private static (TestCreature Creature, IMapRegionService MapRegionService, IServiceScope Scope) CreateCreature(
+        bool onDestroyFailure = false)
+    {
+        var serviceProvider = Substitute.For<IServiceProvider>();
+        var scope = Substitute.For<IServiceScope>();
+        var mapRegionService = Substitute.For<IMapRegionService>();
+        serviceProvider.GetService(typeof(ICreatureTaskService)).Returns(Substitute.For<ICreatureTaskService>());
+        serviceProvider.GetService(typeof(IMapRegionService)).Returns(mapRegionService);
+        serviceProvider.GetService(typeof(IAreaService)).Returns(Substitute.For<IAreaService>());
+        serviceProvider.GetService(typeof(IScopedGameMediator)).Returns(Substitute.For<IScopedGameMediator>());
+        scope.ServiceProvider.Returns(serviceProvider);
+
+        return (new TestCreature(scope, onDestroyFailure), mapRegionService, scope);
+    }
+
+    private sealed class TestCreature : Creature
+    {
+        private readonly bool _onDestroyFailure;
+
+        public TestCreature(IServiceScope scope, bool onDestroyFailure)
+            : base(scope)
+        {
+            _onDestroyFailure = onDestroyFailure;
+            Location = new Location(3200, 3200, 0, 0);
+        }
+
+        public override int Size => 1;
+        public override IPathFinder PathFinder => Substitute.For<IPathFinder>();
+        public override bool CanDestroy() => true;
+        public override bool CanSuspend() => true;
+        protected override void OnDestroy()
+        {
+            if (_onDestroyFailure)
+            {
+                throw new InvalidOperationException("destroy failed");
+            }
+        }
+
+        public override void OnSpawn() { }
+        public override void OnDeath() { }
+        public override void OnKilledBy(ICreature killer) { }
+        public override void OnTargetKilled(ICreature target) { }
+        public override bool Poison(short amount) => false;
+        public override void Respawn() { }
+        public override void Interrupt(object source) { }
+        public override void MovementTypeChanged(MovementType newtype) { }
+        public override void TemporaryMovementTypeEnabled(MovementType type) { }
+        protected override void ContentTick() { }
+        protected override void UpdatesPrepareTick() { }
+        protected override void UpdateTick() { }
+        protected override void ResetTick() { }
+        protected override void OnLocationChange(ILocation? oldLocation) { }
+        protected override void OnRegionChange() { }
+        protected override void AddToRegion(IMapRegion newRegion) { }
+        protected override void RemoveFromRegion(IMapRegion region) { }
+        protected override void CreatureFaced(ICreature? creature) { }
+        protected override void TurnedTo(int x, int y) { }
+        protected override void TextSpoken(string text) { }
+        protected override void HitSplatRendered(IHitSplat splat) { }
+        protected override void HitBarRendered(IHitBar bar) { }
+        public override bool ShouldBeRenderedFor(ICharacter viewer) => false;
+        public override bool ShouldBeRenderedFor(INpc viewer) => false;
+        protected override void NonstandardMovementRendered(IForceMovement movement) { }
+        protected override void GlowRendered(IGlow glow) { }
+    }
+}

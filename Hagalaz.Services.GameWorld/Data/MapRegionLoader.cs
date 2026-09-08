@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Runtime.ExceptionServices;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -105,7 +104,6 @@ namespace Hagalaz.Services.GameWorld.Data
                 }
 
                 _logger.LogError(ex, "Region[{id}] failed to load", region.Id);
-                ExceptionDispatchInfo.Capture(ex).Throw();
                 throw;
             }
         }

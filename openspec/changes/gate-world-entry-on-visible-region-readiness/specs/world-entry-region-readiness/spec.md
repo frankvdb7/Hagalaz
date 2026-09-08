@@ -29,7 +29,7 @@ The system MUST treat a failure to complete any initial visible-region load as a
 
 - **WHEN** a scheduled initial visible-region load fails or completes without publishing readiness
 - **THEN** world entry MUST stop without retrying the failed region
-- **AND** the existing character/session/world-presence cleanup MUST run
+- **AND** the normal disconnect/sign-out cleanup owner MUST run
 - **AND** the underlying client session MUST be disconnected cleanly
 
 #### Scenario: Entry failure does not publish world presence
@@ -50,3 +50,11 @@ The system MUST use the existing single-reader map-region scheduler as the sole 
 
 - **WHEN** a character performs a later viewport update after entry
 - **THEN** the existing synchronous map-update contract MUST remain unchanged
+
+#### Scenario: Startup map delivery reuses the entry viewport
+
+- **WHEN** world entry has already rebuilt the initial viewport for the
+  readiness barrier
+- **THEN** the startup map update MUST reuse that visible-region set
+- **AND** it MUST NOT rebuild the viewport a second time before sending the
+  initial map

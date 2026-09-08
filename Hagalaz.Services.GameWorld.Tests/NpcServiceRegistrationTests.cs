@@ -92,21 +92,36 @@ public sealed class NpcServiceRegistrationTests
     public async Task RegisterAsync_WhenFirstAttemptFails_AllowsASecondAttemptWithoutDuplicateOwnership()
     {
         var store = new NpcStore();
-        var npc = CreateNpc();
+        var firstNpc = CreateNpc();
         var attempts = 0;
         var failure = new InvalidOperationException("first attempt failed");
-        npc.OnRegistered().Returns(_ =>
+        firstNpc.OnRegistered().Returns(_ =>
             ++attempts == 1 ? Task.FromException(failure) : Task.CompletedTask);
         var service = CreateService(store);
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.RegisterAsync(npc));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.RegisterAsync(firstNpc));
         Assert.AreEqual(0, await store.CountAsync());
 
-        await service.RegisterAsync(npc);
+        var secondNpc = CreateNpc();
+        await service.RegisterAsync(secondNpc);
 
         Assert.AreEqual(1, await store.CountAsync());
-        await npc.Received(2).OnRegistered();
-        npc.Received(1).Destroy();
+        await secondNpc.Received(1).OnRegistered();
+        firstNpc.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    public async Task RegisterAsync_WhenNpcIsDestroyed_RejectsRegistration()
+    {
+        var store = new NpcStore();
+        var npc = CreateNpc();
+        npc.IsDestroyed.Returns(true);
+        var service = CreateService(store);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.RegisterAsync(npc));
+
+        await npc.DidNotReceive().OnRegistered();
+        Assert.AreEqual(0, await store.CountAsync());
     }
 
     private static INpc CreateNpc()

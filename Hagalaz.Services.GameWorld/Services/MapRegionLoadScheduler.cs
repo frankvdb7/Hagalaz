@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -27,11 +26,10 @@ namespace Hagalaz.Services.GameWorld.Services
         });
 
         private readonly object _stateLock = new();
-        private readonly ConcurrentDictionary<IMapRegion, byte> _scheduled = new();
-        private readonly ConcurrentDictionary<IMapRegion, TaskCompletionSource<Exception?>> _completions = new();
+        private readonly Dictionary<IMapRegion, TaskCompletionSource> _inFlight = new();
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<MapRegionLoadScheduler> _logger;
-        private volatile bool _stopping;
+        private bool _stopping;
 
         public MapRegionLoadScheduler(
             IServiceScopeFactory scopeFactory,
@@ -43,7 +41,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public void RequestLoad(IMapRegion region)
         {
-            if (TryQueueRegion(region, out _) || _stopping)
+            if (TryQueueRegion(region, out _) || IsStopping)
             {
                 return;
             }
@@ -59,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             ArgumentNullException.ThrowIfNull(regions);
 
-            var waits = new List<Task<Exception?>>();
+            var waits = new List<Task>();
             foreach (var region in regions.Distinct())
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -68,14 +66,14 @@ namespace Hagalaz.Services.GameWorld.Services
                     continue;
                 }
 
-                if (_stopping)
+                if (IsStopping)
                 {
                     throw new InvalidOperationException("The map-region scheduler is stopping.");
                 }
 
                 if (!TryQueueRegion(region, out var completion))
                 {
-                    if (_stopping)
+                    if (IsStopping)
                     {
                         throw new InvalidOperationException("The map-region scheduler is stopping.");
                     }
@@ -84,29 +82,10 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
 
                 if (completion != null)
-                {
                     waits.Add(completion.Task);
-                }
             }
 
-            var pending = waits.ToHashSet();
-            while (pending.Count > 0)
-            {
-                var completed = await Task.WhenAny(pending).WaitAsync(cancellationToken);
-                pending.Remove(completed);
-                var failure = await completed;
-                if (failure == null)
-                {
-                    continue;
-                }
-
-                if (failure is OperationCanceledException operationCanceledException)
-                {
-                    throw operationCanceledException;
-                }
-
-                throw new InvalidOperationException("One or more visible map regions failed to become ready.", failure);
-            }
+            await Task.WhenAll(waits).WaitAsync(cancellationToken);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -114,6 +93,7 @@ namespace Hagalaz.Services.GameWorld.Services
             await foreach (var region in _requests.Reader.ReadAllAsync(stoppingToken))
             {
                 Exception? failure = null;
+                var canceled = false;
                 try
                 {
                     await using var scope = _scopeFactory.CreateAsyncScope();
@@ -121,12 +101,13 @@ namespace Hagalaz.Services.GameWorld.Services
                         .LoadAsync(region, stoppingToken);
                     if (!region.IsLoaded)
                     {
-                        failure = new InvalidOperationException($"Region {region.Id} did not publish readiness after loading.");
+                        throw new InvalidOperationException($"Region {region.Id} did not publish readiness after loading.");
                     }
                 }
                 catch (OperationCanceledException ex) when (stoppingToken.IsCancellationRequested && ex.CancellationToken == stoppingToken)
                 {
                     failure = ex;
+                    canceled = true;
                     _logger.LogDebug(ex, "Loading region {id} was canceled during scheduler shutdown", region.Id);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -134,21 +115,19 @@ namespace Hagalaz.Services.GameWorld.Services
                     failure = ex;
                     _logger.LogError(ex, "Failed to load region {id}", region.Id);
                 }
+                catch (OperationCanceledException ex)
+                {
+                    failure = ex;
+                    canceled = true;
+                }
                 finally
                 {
-                    TaskCompletionSource<Exception?>? completion;
-                    lock (_stateLock)
-                    {
-                        _scheduled.TryRemove(region, out _);
-                        _completions.TryRemove(region, out completion);
-                    }
-
-                    completion?.TrySetResult(failure);
+                    Complete(region, canceled, failure);
                 }
             }
         }
 
-        private bool TryQueueRegion(IMapRegion region, out TaskCompletionSource<Exception?>? completion)
+        private bool TryQueueRegion(IMapRegion region, out TaskCompletionSource? completion)
         {
             lock (_stateLock)
             {
@@ -164,30 +143,76 @@ namespace Hagalaz.Services.GameWorld.Services
                     return true;
                 }
 
-                completion = _completions.GetOrAdd(region, static _ =>
-                    new TaskCompletionSource<Exception?>(TaskCreationOptions.RunContinuationsAsynchronously));
-                if (!_scheduled.TryAdd(region, 0))
+                if (_inFlight.TryGetValue(region, out completion))
                 {
                     return true;
                 }
 
+                completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _inFlight.Add(region, completion);
                 if (_requests.Writer.TryWrite(region))
                 {
                     return true;
                 }
 
-                _scheduled.TryRemove(region, out _);
-                _completions.TryRemove(region, out _);
-                completion.TrySetResult(new InvalidOperationException($"Unable to schedule loading for region {region.Id}."));
+                _inFlight.Remove(region);
+                completion.TrySetException(new InvalidOperationException($"Unable to schedule loading for region {region.Id}."));
                 return false;
             }
         }
 
-        public override Task StopAsync(CancellationToken stoppingToken)
+        private bool IsStopping
         {
-            _stopping = true;
+            get
+            {
+                lock (_stateLock)
+                {
+                    return _stopping;
+                }
+            }
+        }
+
+        private void Complete(IMapRegion region, bool cancellation, Exception? exception)
+        {
+            TaskCompletionSource? completion;
+            lock (_stateLock)
+            {
+                _inFlight.Remove(region, out completion);
+            }
+
+            if (completion is null)
+                return;
+
+            if (cancellation)
+            {
+                completion.TrySetCanceled();
+            }
+            else if (exception is null)
+            {
+                completion.TrySetResult();
+            }
+            else
+            {
+                completion.TrySetException(exception);
+            }
+        }
+
+        public override async Task StopAsync(CancellationToken stoppingToken)
+        {
+            List<TaskCompletionSource> completions;
+            lock (_stateLock)
+            {
+                _stopping = true;
+                completions = _inFlight.Values.ToList();
+            }
+
             _requests.Writer.TryComplete();
-            return base.StopAsync(stoppingToken);
+            foreach (var completion in completions)
+            {
+                completion.TrySetCanceled();
+            }
+
+            await base.StopAsync(stoppingToken);
         }
     }
 }

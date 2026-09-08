@@ -117,11 +117,16 @@ namespace Hagalaz.Services.GameWorld.Services
                 var authentication = context.GetAuthentication();
                 if (!authentication.AuthenticationProperties.TryGetClaim(Claims.Subject, out string? subject))
                 {
-                    await RevokeCurrentAuthenticationAsync("lobby sign-in did not produce a subject");
+                    await RevokeCurrentAuthenticationAsync("lobby sign-in did not produce a valid subject");
                     return SignInResult.Fail;
                 }
 
-                var masterId = Convert.ToUInt32(subject);
+                if (!uint.TryParse(subject, out var masterId))
+                {
+                    await RevokeCurrentAuthenticationAsync("lobby sign-in did not produce a valid subject");
+                    return SignInResult.Fail;
+                }
+
                 (IGameSession Session, bool Created) sessionRegistration;
                 try
                 {
@@ -169,11 +174,16 @@ namespace Hagalaz.Services.GameWorld.Services
                 var authentication = context.GetAuthentication();
                 if (!authentication.AuthenticationProperties.TryGetClaim(Claims.Subject, out string? subject))
                 {
-                    await RevokeCurrentAuthenticationAsync("world sign-in did not produce a subject");
+                    await RevokeCurrentAuthenticationAsync("world sign-in did not produce a valid subject");
                     return SignInResult.Fail;
                 }
 
-                var masterId = Convert.ToUInt32(subject);
+                if (!uint.TryParse(subject, out var masterId))
+                {
+                    await RevokeCurrentAuthenticationAsync("world sign-in did not produce a valid subject");
+                    return SignInResult.Fail;
+                }
+
                 (IGameSession? Session, bool Created) sessionRegistration;
                 try
                 {
@@ -417,6 +427,13 @@ namespace Hagalaz.Services.GameWorld.Services
                             cancellationToken);
                     var userInfoMessage = userInfoResponse.Message;
                     if (userInfoMessage.Claims == null)
+                    {
+                        return SignInResult.Fail;
+                    }
+
+                    if (!userInfoMessage.Claims.TryGetValue(Claims.Subject, out var subjectValue) ||
+                        subjectValue is not string subject ||
+                        !uint.TryParse(subject, out _))
                     {
                         return SignInResult.Fail;
                     }

@@ -39,9 +39,19 @@ Returning a walkable value during loading is rejected because it recreates the r
 
 ### 3. Reuse scheduler admission for retry
 
-`MapRegionLoadScheduler` remains the sole asynchronous loading owner. Its existing `finally` block will continue to release the in-flight marker after success, failure, or cancellation. With readiness published only at the end, failed and canceled loads leave `IsLoaded == false`; a later `RequestLoad` is therefore admitted by the existing scheduler without an additional retry loop.
+`MapRegionLoadScheduler` remains the sole asynchronous loading owner. A normal
+`Dictionary<IMapRegion, TaskCompletionSource>` under its existing lock is the
+single in-flight source of truth. Dictionary membership deduplicates requests;
+the worker completes the shared task successfully, faulted, or canceled and
+removes it when the attempt finishes. `EnsureLoadedAsync` awaits the collected
+tasks with `Task.WhenAll(...).WaitAsync(cancellationToken)`, so caller
+cancellation stops only that caller's wait. Scheduler shutdown cancels all
+unresolved waiters before the worker exits. With readiness published only at
+the end, failed and canceled loads leave `IsLoaded == false`; a later
+`RequestLoad` is therefore admitted without an additional retry loop.
 
-Duplicate requests during the active operation remain suppressed by `_scheduled`, and requests for a committed region remain suppressed by `IsLoaded`.
+Duplicate requests during the active operation share the one task, and
+requests for a committed region remain suppressed by `IsLoaded`.
 
 ### 4. Test the semantic gates, not timing
 

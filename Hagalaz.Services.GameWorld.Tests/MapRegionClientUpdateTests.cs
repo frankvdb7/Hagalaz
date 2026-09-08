@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Connections;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
@@ -34,7 +36,7 @@ public sealed class MapRegionClientUpdateTests
         var failingCharacter = CreateCharacter(1);
         var healthyCharacter = CreateCharacter(2);
         failingCharacter.Session.When(session => session.SendMessage(Arg.Any<RaidoMessage>()))
-            .Do(_ => throw new InvalidOperationException("character update failed"));
+            .Do(_ => throw new ConnectionAbortedException("connection failed"));
 
         region.Add(failingCharacter);
         region.Add(healthyCharacter);
@@ -45,6 +47,60 @@ public sealed class MapRegionClientUpdateTests
             region.MajorClientUpdateTick(new Dictionary<int, ICharacter>()));
 
         healthyCharacter.Session.Received().SendMessage(Arg.Any<RaidoMessage>());
+
+        region.MajorClientUpdateResetTick();
+    }
+
+    [TestMethod]
+    public void MajorClientUpdateTick_PropagatesUnexpectedCharacterFailures()
+    {
+        var mapper = Substitute.For<IMapper>();
+        mapper.Map<RaidoMessage>(Arg.Any<object>()).Returns(Substitute.For<RaidoMessage>());
+        var region = new MapRegion(
+            Location.Zero,
+            new int[4],
+            Substitute.For<INpcService>(),
+            Substitute.For<IMapRegionService>(),
+            Substitute.For<IGameObjectBuilder>(),
+            Substitute.For<IGroundItemBuilder>(),
+            mapper);
+        var character = CreateCharacter(1);
+        character.Session.When(session => session.SendMessage(Arg.Any<RaidoMessage>()))
+            .Do(_ => throw new InvalidOperationException("programming failure"));
+
+        region.Add(character);
+        region.QueueUpdate(new TestRegionPartUpdate());
+        region.MajorClientPrepareUpdateTick();
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => region.MajorClientUpdateTick(new Dictionary<int, ICharacter>()));
+
+        region.MajorClientUpdateResetTick();
+    }
+
+    [TestMethod]
+    public void MajorClientUpdateTick_PropagatesUnexpectedNpcFailures()
+    {
+        var mapper = Substitute.For<IMapper>();
+        mapper.Map<RaidoMessage>(Arg.Any<object>()).Returns(Substitute.For<RaidoMessage>());
+        var region = new MapRegion(
+            Location.Zero,
+            new int[4],
+            Substitute.For<INpcService>(),
+            Substitute.For<IMapRegionService>(),
+            Substitute.For<IGameObjectBuilder>(),
+            Substitute.For<IGroundItemBuilder>(),
+            mapper);
+        var npc = Substitute.For<INpc>();
+        npc.Index.Returns(1);
+        npc.When(value => value.MajorClientUpdateTick())
+            .Do(_ => throw new InvalidOperationException("NPC update failed"));
+
+        region.Add(npc);
+        region.MajorClientPrepareUpdateTick();
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            region.MajorClientUpdateTick(new Dictionary<int, ICharacter>()));
 
         region.MajorClientUpdateResetTick();
     }

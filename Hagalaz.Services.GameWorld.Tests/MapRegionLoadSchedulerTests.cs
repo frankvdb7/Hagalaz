@@ -286,6 +286,79 @@ namespace Hagalaz.Services.GameWorld.Tests
             scheduler.RequestLoad(region);
         }
 
+        [TestMethod]
+        public async Task EnsureLoadedAsync_WhenSchedulerStops_CompletesWaitingCaller()
+        {
+            var loadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var loader = Substitute.For<IMapRegionLoader>();
+            loader.LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    loadStarted.TrySetResult();
+                    return Task.Delay(Timeout.InfiniteTimeSpan, callInfo.Arg<CancellationToken>());
+                });
+
+            using var provider = new ServiceCollection()
+                .AddScoped(_ => loader)
+                .BuildServiceProvider();
+            using var scheduler = new MapRegionLoadScheduler(
+                provider.GetRequiredService<IServiceScopeFactory>(),
+                Substitute.For<ILogger<MapRegionLoadScheduler>>());
+            var region = Substitute.For<IMapRegion>();
+            region.Id.Returns(1);
+            region.IsLoaded.Returns(false);
+
+            await scheduler.StartAsync(CancellationToken.None);
+            var wait = scheduler.EnsureLoadedAsync(new[] { region });
+            await loadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            var stop = scheduler.StopAsync(CancellationToken.None);
+            await Assert.ThrowsAsync<OperationCanceledException>(() => wait);
+            await stop;
+        }
+
+        [TestMethod]
+        public async Task EnsureLoadedAsync_CallerCancellationDoesNotCancelSharedLoad()
+        {
+            var loadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseLoad = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var loadCanceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var loader = Substitute.For<IMapRegionLoader>();
+            loader.LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>())
+                .Returns(async callInfo =>
+                {
+                    var cancellationToken = callInfo.Arg<CancellationToken>();
+                    cancellationToken.Register(() => loadCanceled.TrySetResult());
+                    loadStarted.TrySetResult();
+                    await releaseLoad.Task;
+                });
+
+            using var provider = new ServiceCollection()
+                .AddScoped(_ => loader)
+                .BuildServiceProvider();
+            using var scheduler = new MapRegionLoadScheduler(
+                provider.GetRequiredService<IServiceScopeFactory>(),
+                Substitute.For<ILogger<MapRegionLoadScheduler>>());
+            var region = Substitute.For<IMapRegion>();
+            region.Id.Returns(1);
+            region.IsLoaded.Returns(_ => releaseLoad.Task.IsCompleted);
+            using var callerCancellation = new CancellationTokenSource();
+
+            await scheduler.StartAsync(CancellationToken.None);
+            var wait = scheduler.EnsureLoadedAsync(new[] { region }, callerCancellation.Token);
+            await loadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            callerCancellation.Cancel();
+            await Assert.ThrowsAsync<OperationCanceledException>(() => wait);
+            Assert.IsFalse(loadCanceled.Task.IsCompleted);
+
+            releaseLoad.TrySetResult();
+            await scheduler.EnsureLoadedAsync(new[] { region });
+            await scheduler.StopAsync(CancellationToken.None);
+
+            await loader.Received(1).LoadAsync(region, Arg.Any<CancellationToken>());
+        }
+
         private static IMapRegion CreateRegion(int id, ConcurrentDictionary<IMapRegion, bool> loaded)
         {
             var region = Substitute.For<IMapRegion>();

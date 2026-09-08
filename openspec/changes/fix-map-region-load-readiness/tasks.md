@@ -12,6 +12,8 @@
 - [x] 2.5 Make `NpcService.RegisterAsync` transactional across global-store
       publication, region membership, initialization, and owned scope cleanup;
       add store-insertion and partial-registration regression tests.
+- [x] 2.6 Reject destroyed NPC instances before registration and use a fresh
+      NPC for retry coverage.
 
 ## 3. Verification and runtime validation
 

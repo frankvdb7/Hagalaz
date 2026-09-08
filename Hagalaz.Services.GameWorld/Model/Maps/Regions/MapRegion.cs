@@ -16,6 +16,7 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Extensions;
+using Microsoft.AspNetCore.Connections;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 {
@@ -152,55 +153,34 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         public void MajorClientUpdateTick(IReadOnlyDictionary<int, ICharacter> characters)
         {
-            List<Exception>? failures = null;
-
-            foreach (var part in _parts)
-            {
-                foreach (var character in _characters)
-                {
-                    try
-                    {
-                        part.SendUpdates(character);
-                    }
-                    catch (Exception exception) when (IsClientUpdateFailure(exception))
-                    {
-                        (failures ??= []).Add(exception);
-                    }
-                }
-            }
+            List<Exception>? connectionFailures = null;
 
             foreach (var character in _characters)
             {
                 try
                 {
+                    foreach (var part in _parts)
+                    {
+                        part.SendUpdates(character);
+                    }
                     character.MajorClientUpdateTick(characters);
                 }
-                catch (Exception exception) when (IsClientUpdateFailure(exception))
+                catch (ConnectionAbortedException exception)
                 {
-                    (failures ??= []).Add(exception);
+                    (connectionFailures ??= []).Add(exception);
                 }
             }
 
             foreach (var npc in _npcs)
             {
-                try
-                {
-                    npc.MajorClientUpdateTick();
-                }
-                catch (Exception exception) when (IsClientUpdateFailure(exception))
-                {
-                    (failures ??= []).Add(exception);
-                }
+                npc.MajorClientUpdateTick();
             }
 
-            if (failures is not null)
+            if (connectionFailures is not null)
             {
-                throw new AggregateException($"One or more client updates failed in region {Id}.", failures);
+                throw new AggregateException($"One or more client connections failed in region {Id}.", connectionFailures);
             }
         }
-
-        private static bool IsClientUpdateFailure(Exception exception) =>
-            exception is not (OutOfMemoryException or AccessViolationException or OperationCanceledException);
 
         /// <summary>
         /// Tick 4.

@@ -12,6 +12,9 @@ loading.
   publishing one frozen prepared buffer for the current client tick.
 - Send only the prepared buffer so every character observes the same update
   set, and clear only that buffer when the tick completes.
+- Let the worker keep successfully prepared regions in a local collection, so
+  a region whose prepare phase fails is not sent client updates while all
+  regions still reach the reset boundary.
 - Add regression coverage for concurrent queue and clear operations.
 
 ## Impact
@@ -26,6 +29,9 @@ making queue ownership safe across the loader and game tick.
   null updates.
 - Updates queued after preparation are deferred to the next tick, while the
   prepared set remains stable for all characters in the current tick.
+- A region whose client-prepare phase fails is not sent client updates, reset
+  still runs for every region, and unexpected client/NPC failures remain
+  observable to the worker.
 - Focused tests, the affected build, strict OpenSpec validation, and the real
   client world-entry check pass.
 

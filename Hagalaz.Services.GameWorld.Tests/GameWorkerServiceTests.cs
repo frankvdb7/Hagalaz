@@ -421,6 +421,34 @@ public sealed class GameWorkerServiceTests
     }
 
     [TestMethod]
+    public async Task ExecuteTickAsync_DoesNotUpdateRegionWhosePreparePhaseFails()
+    {
+        var logger = new TestLogger<GameWorkerService>();
+        var unpreparedRegion = Substitute.For<IMapRegion>();
+        var preparedRegion = Substitute.For<IMapRegion>();
+        var preparedUpdates = 0;
+        var unpreparedResets = 0;
+        var preparedResets = 0;
+        unpreparedRegion.When(region => region.MajorClientPrepareUpdateTick())
+            .Do(_ => throw new InvalidOperationException("region prepare failed"));
+        preparedRegion.When(region => region.MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>()))
+            .Do(_ => Interlocked.Increment(ref preparedUpdates));
+        unpreparedRegion.When(region => region.MajorClientUpdateResetTick())
+            .Do(_ => Interlocked.Increment(ref unpreparedResets));
+        preparedRegion.When(region => region.MajorClientUpdateResetTick())
+            .Do(_ => Interlocked.Increment(ref preparedResets));
+
+        using var worker = CreateWorker(new[] { unpreparedRegion, preparedRegion }, TimeSpan.Zero, logger: logger).Worker;
+        await worker.ExecuteTickAsync(CancellationToken.None);
+
+        unpreparedRegion.DidNotReceive().MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>());
+        Assert.AreEqual(1, Volatile.Read(ref preparedUpdates));
+        Assert.AreEqual(1, Volatile.Read(ref unpreparedResets));
+        Assert.AreEqual(1, Volatile.Read(ref preparedResets));
+        Assert.AreEqual(1, logger.ErrorCount);
+    }
+
+    [TestMethod]
     public async Task HostCancellation_ExitsWithoutUnexpectedFailureLog()
     {
         var logger = new TestLogger<GameWorkerService>();

@@ -2,30 +2,28 @@
 
 World entry publishes `WorldSignInCommand` as fire-and-forget work after the
 authentication service has committed the character and world session. If
-character initialization then fails, the client remains on "Logging In - Please
-Wait" while the character, region membership, session, and external world
-presence can remain registered. A retry can then fail with a duplicate region
-registration.
+character initialization then fails, the client can remain connected while the
+normal disconnect/sign-out owner has not yet been invoked.
 
 ## What changes
 
-- Clean up the character, session, and world presence when post-authentication
-  world initialization fails.
+- Abort the connection when post-authentication world initialization fails so
+  the normal disconnect/sign-out owner cleans up the character, session, and
+  world presence.
 - Preserve the original initialization exception for mediator error handling.
 - Add regression coverage for failed cleanup and successful one-time startup.
 
 ## Impact
 
 This affects the GameWorld world-entry initialization boundary. It reuses the
-existing character and game-session services and does not change authentication,
-region membership validation, or the reconnect protocol.
+existing connection and authentication cleanup owner and does not change
+authentication, region membership validation, or the reconnect protocol.
 
 ## Acceptance criteria
 
-- A failure after world authentication does not leave the character in the
-  character store or its region.
-- A failed world initialization releases both the distributed/local session
-  state and publishes world sign-out cleanup.
+- A failure after world authentication aborts the connection and delegates
+  character, region, distributed/local session, persistence, and world-sign-out
+  cleanup to the normal disconnect/sign-out owner.
 - The initialization failure remains observable to the mediator.
 - Successful world initialization still runs once and publishes contacts and
   world presence.

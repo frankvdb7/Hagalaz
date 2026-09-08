@@ -14,6 +14,8 @@
 - [x] 2.5 Retain the issued subject and authorization ID through GameWorld
       UserInfo/principal/session commit and revoke only that authorization on
       post-issuance failure.
+- [x] 2.6 Reject missing or malformed UserInfo subjects with `uint.TryParse`,
+      revoke the exact issued authorization, and avoid session creation.
 
 ## 3. Regression coverage and validation
 

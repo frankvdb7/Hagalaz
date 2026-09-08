@@ -19,7 +19,10 @@ namespace Hagalaz.Services.GameWorld.Services
         public void UpdateMap(ICharacter character, bool forceUpdate, bool renderViewPort = false)
         {
             var viewport = character.Viewport;
-            viewport.RebuildView();
+            if (viewport.VisibleRegions.Count == 0 || viewport.ShouldRebuild())
+            {
+                viewport.RebuildView();
+            }
 
             if (viewport.NeedsDynamicDraw())
             {

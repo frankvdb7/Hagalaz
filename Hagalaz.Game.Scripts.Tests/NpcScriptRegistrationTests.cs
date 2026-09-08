@@ -2,7 +2,6 @@ using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Areas.Lumbridge.Npcs;
 using Hagalaz.Services.GameWorld.Factories;
-using Hagalaz.Services.GameWorld.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 
@@ -26,8 +25,6 @@ public sealed class NpcScriptRegistrationTests
 
         var validationServices = new ServiceCollection();
         validationServices.AddSingleton<INpcScriptTypeCatalog>(catalog);
-        validationServices.AddSingleton<IServiceDescriptorProvider>(
-            new ServiceDescriptorProvider(validationServices));
         validationServices.AddScoped<INpcScriptFactory, NpcScriptMetaDataFactory>();
         using var validationProvider = validationServices.BuildServiceProvider(new ServiceProviderOptions
         {
@@ -53,7 +50,7 @@ public sealed class NpcScriptRegistrationTests
     {
         var services = new ServiceCollection();
         var catalog = new NpcScriptTypeCatalog([typeof(MeleeInstructor), typeof(MeleeInstructor)]);
-        var factory = new NpcScriptMetaDataFactory(new ServiceDescriptorProvider(services), [catalog, catalog]);
+        var factory = new NpcScriptMetaDataFactory([catalog, catalog]);
 
         var scripts = new List<(int npcId, Type scriptType)>();
         await foreach (var script in factory.GetScripts())
