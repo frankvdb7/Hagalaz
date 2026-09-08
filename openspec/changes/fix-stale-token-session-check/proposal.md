@@ -6,7 +6,7 @@ After an authorization or GameWorld process restart, a previously issued OpenIdd
 
 - Make successful credential sign-in issue a fresh authorization response without using persisted token existence as an online-session check.
 - Keep active-login rejection in the existing lobby/world session stores and distributed world-session claim mechanism.
-- Preserve graceful logout token revocation and existing reconnect token validation.
+- Preserve graceful logout token revocation by exact authorization id and existing reconnect token validation.
 - Add regression coverage for a valid stale token and for the existing active-session rejection path.
 
 ## Capabilities
@@ -27,7 +27,7 @@ Acceptance criteria:
 
 - Valid credentials are not rejected solely because a valid token for the same user/client remains persisted.
 - A live duplicate lobby/world session is still rejected by the existing GameWorld session ownership checks.
-- Graceful logout still sends the existing revocation request, and reconnect validation still uses token validation.
+- Graceful logout still sends an authorization-scoped revocation request, and reconnect validation still uses token validation while preserving the authenticated authorization owner.
 - Focused authorization/GameWorld tests and strict OpenSpec validation pass.
 
 Stop conditions: do not add a second session registry, change token lifetimes or revocation semantics, alter reconnect protocol behavior, or repair unrelated messaging/database cleanup errors in this change.

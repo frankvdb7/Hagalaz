@@ -400,6 +400,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 var properties = new Features_AuthenticationProperties
                 {
                     ClientId = clientId,
+                    AuthorizationId = signInMessage.AuthorizationId,
                     IdToken = signInMessage.IdToken,
                     AccessToken = signInMessage.AccessToken,
                     ExpireDate = signInMessage.ExpireDate,
@@ -448,7 +449,6 @@ namespace Hagalaz.Services.GameWorld.Services
                 var properties = authentication?.AuthenticationProperties;
                 var character = context.GetCharacter();
                 var session = context.GetSession();
-                var logoutStartedAtUtc = DateTime.UtcNow;
                 var persistenceSucceeded = character == null;
                 if (character != null)
                 {
@@ -488,12 +488,12 @@ namespace Hagalaz.Services.GameWorld.Services
                 // Token revocation is remote cleanup. It must not retain a successfully
                 // persisted live-session owner when the authorization service is slow or
                 // unavailable. A later logout/reconnect cleanup can revoke the token again.
-                if (masterId != null && properties?.ClientId != null)
+                if (masterId != null && properties is not null && !string.IsNullOrWhiteSpace(properties.ClientId) && !string.IsNullOrWhiteSpace(properties.AuthorizationId))
                 {
                     try
                     {
                         var response = await _revokeTokenRequestClient.GetResponse<RevokeTokenResponseMessage>(
-                            new RevokeTokenRequestMessage(properties.ClientId, masterId.Value.ToString(), logoutStartedAtUtc),
+                            new RevokeTokenRequestMessage(properties.ClientId, masterId.Value.ToString(), properties.AuthorizationId),
                             cancellationToken);
                         if (!response.Message.Succeeded)
                         {
@@ -506,6 +506,12 @@ namespace Hagalaz.Services.GameWorld.Services
                             "Token revocation failed after session cleanup for account '{masterId}'.",
                             masterId.Value);
                     }
+                }
+                else if (masterId != null && properties is not null && !string.IsNullOrWhiteSpace(properties.ClientId))
+                {
+                    _logger.LogWarning(
+                        "Skipping token revocation for account '{masterId}' because the authentication authorization id is missing.",
+                        masterId.Value);
                 }
             });
     }

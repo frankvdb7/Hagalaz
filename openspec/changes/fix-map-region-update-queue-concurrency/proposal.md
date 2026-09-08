@@ -1,15 +1,17 @@
 ## Why
 
 World entry can fail while a region is loading because the asynchronous map
-loader queues updates at the same time that the synchronous game tick clears
-the region-part update list. The unsynchronized list can expose a cleared null
-element to `QueueUpdate`, causing the client to remain in world loading.
+loader queues updates at the same time that the synchronous game tick sends and
+clears the region-part update list. The unsynchronized list can expose a
+cleared null element to `QueueUpdate`, causing the client to remain in world
+loading.
 
 ## What changes
 
-- Synchronize access to each map-part's pending update queue.
-- Send a stable snapshot of pending updates so clearing the queue cannot alter
-  an in-progress send.
+- Keep updates queued after the current tick cutoff in a pending buffer while
+  publishing one frozen prepared buffer for the current client tick.
+- Send only the prepared buffer so every character observes the same update
+  set, and clear only that buffer when the tick completes.
 - Add regression coverage for concurrent queue and clear operations.
 
 ## Impact
@@ -22,8 +24,8 @@ making queue ownership safe across the loader and game tick.
 
 - Concurrent queueing and clearing of map-part updates does not throw or expose
   null updates.
-- A pending update is sent from a stable snapshot even if the live queue is
-  cleared afterward.
+- Updates queued after preparation are deferred to the next tick, while the
+  prepared set remains stable for all characters in the current tick.
 - Focused tests, the affected build, strict OpenSpec validation, and the real
   client world-entry check pass.
 
@@ -32,4 +34,3 @@ making queue ownership safe across the loader and game tick.
 - Do not redesign map-region loading or add another queue or worker.
 - Do not change the world-entry protocol, cache decoding, persistence, or
   reconnect behavior.
-

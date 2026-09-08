@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -79,6 +80,12 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// Asynchronously destroys the region, removing it from the game world.
         /// </summary>
         Task DestroyAsync();
+
+        /// <summary>
+        /// Rolls back an unpublished load attempt on an otherwise empty region.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token for cleanup.</param>
+        Task ResetUnpublishedLoadAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Finds all characters currently in this region.

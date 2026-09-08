@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Collections;
@@ -140,6 +141,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             TickGroundItems();
             ForEachCreature(c => c.MajorClientPrepareUpdateTick());
+            foreach (var part in _parts)
+            {
+                part.PrepareUpdatesForTick();
+            }
         }
 
         /// <summary>
@@ -168,7 +173,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             // clear update things like projectiles & etc
             foreach (var part in _parts)
             {
-                part.ClearUpdates();
+                part.CompleteUpdateTick();
             }
 
             ForEachCreature(c => c.MajorClientUpdateResetTick());
@@ -253,6 +258,37 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             IsDestroyed = true;
+        }
+
+        public async Task ResetUnpublishedLoadAsync(CancellationToken cancellationToken = default)
+        {
+            if (IsLoaded)
+            {
+                throw new InvalidOperationException($"Region {this} is already loaded");
+            }
+
+            if (IsDestroyed)
+            {
+                throw new InvalidOperationException($"Region {this} is already destroyed");
+            }
+
+            if (_characters.Count > 0)
+            {
+                throw new InvalidOperationException($"Region {this} contains characters");
+            }
+
+            foreach (var npc in FindAllNpcs().ToArray())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await _npcService.UnregisterAsync(npc);
+            }
+
+            foreach (var part in _parts)
+            {
+                part.ResetUnpublishedPopulation();
+            }
+
+            Array.Clear(_collision);
         }
 
         public void QueueUpdate(IRegionPartUpdate update)

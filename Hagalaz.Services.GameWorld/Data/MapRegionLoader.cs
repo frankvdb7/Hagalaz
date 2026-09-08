@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -87,7 +88,25 @@ namespace Hagalaz.Services.GameWorld.Data
             }
             catch (Exception ex)
             {
+                try
+                {
+                    await region.ResetUnpublishedLoadAsync(CancellationToken.None);
+                }
+                catch (Exception rollbackException)
+                {
+                    _logger.LogError(
+                        rollbackException,
+                        "Region[{id}] failed to roll back an unpublished load attempt",
+                        region.Id);
+                    throw new AggregateException(
+                        $"Region[{region.Id}] failed to load and its rollback also failed.",
+                        ex,
+                        rollbackException);
+                }
+
                 _logger.LogError(ex, "Region[{id}] failed to load", region.Id);
+                ExceptionDispatchInfo.Capture(ex).Throw();
+                throw;
             }
         }
 

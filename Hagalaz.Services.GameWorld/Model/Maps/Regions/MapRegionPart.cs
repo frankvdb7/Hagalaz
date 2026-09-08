@@ -28,7 +28,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly Dictionary<int, List<IGroundItem>> _groundItems = new();
         private readonly Dictionary<int, IGameObject> _gameObjects = new();
         private readonly Dictionary<int, IGameObject> _disabledStaticGameObjects = new();
-        private readonly List<IRegionPartUpdate> _updates = [];
+        private List<IRegionPartUpdate> _pendingUpdates = [];
+        private List<IRegionPartUpdate> _preparedUpdates = [];
         private readonly object _updatesLock = new();
 
         public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder)
@@ -311,12 +312,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             IRegionPartUpdate[] updates;
             lock (_updatesLock)
             {
-                if (_updates.Count <= 0)
+                if (_preparedUpdates.Count <= 0)
                 {
                     return;
                 }
 
-                updates = _updates.ToArray();
+                updates = _preparedUpdates.ToArray();
             }
             //var lastLocation = character.LastLocation;
             //var fullUpdate = lastLocation == null || 
@@ -357,20 +358,59 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             lock (_updatesLock)
             {
-                if (_updates.Any(u => u.Equals(update)))
+                if (_pendingUpdates.Any(u => u.Equals(update)))
                 {
                     return;
                 }
 
-                _updates.Add(update);
+                _pendingUpdates.Add(update);
             }
         }
 
-        public void ClearUpdates()
+        public void PrepareUpdatesForTick()
         {
             lock (_updatesLock)
             {
-                _updates.Clear();
+                var previousPrepared = _preparedUpdates;
+                _preparedUpdates = _pendingUpdates;
+                _pendingUpdates = previousPrepared;
+                _pendingUpdates.Clear();
+            }
+        }
+
+        public void CompleteUpdateTick()
+        {
+            lock (_updatesLock)
+            {
+                _preparedUpdates.Clear();
+            }
+        }
+
+        public void ResetUnpublishedPopulation()
+        {
+            foreach (var gameObject in _gameObjects.Values.Concat(_disabledStaticGameObjects.Values).Distinct())
+            {
+                if (!gameObject.IsDestroyed)
+                {
+                    gameObject.Destroy();
+                }
+            }
+
+            foreach (var item in FindAllGroundItems())
+            {
+                if (!item.IsDestroyed)
+                {
+                    item.Destroy();
+                }
+            }
+
+            _gameObjects.Clear();
+            _disabledStaticGameObjects.Clear();
+            _groundItems.Clear();
+            lock (_updatesLock)
+            {
+                _pendingUpdates.Clear();
+                _preparedUpdates.Clear();
             }
         }
 

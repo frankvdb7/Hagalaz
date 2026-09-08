@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Services.Authorization.Consumers;
 using MassTransit;
@@ -18,88 +16,99 @@ namespace Hagalaz.Services.Authorization.Tests;
 public sealed class RevokeTokenRequestConsumerTests
 {
     [TestMethod]
-    public async Task Consume_WhenConcurrentRevokeAlreadyMadeTokenInvalid_ReturnsSuccess()
+    public async Task Consume_RevokesOnlyTheRequestedAuthorization()
     {
-        var token = new OpenIddictEntityFrameworkCoreToken { Status = Statuses.Valid };
-        var tokenManager = CreateTokenManager(token, tryRevoke: false, statusAfterFailure: Statuses.Revoked);
+        var authorizationManager = CreateAuthorizationManager("authorization-a", "42", "application-id", Statuses.Valid, true);
+        var tokenManager = CreateTokenManager();
         var applicationManager = CreateApplicationManager();
-        var context = CreateContext(DateTime.UtcNow);
+        var context = CreateContext("authorization-a");
 
-        await new RevokeTokenRequestConsumer(tokenManager.Object, applicationManager.Object).Consume(context.Context.Object);
+        await new RevokeTokenRequestConsumer(tokenManager.Object, applicationManager.Object, authorizationManager.Object)
+            .Consume(context.Context.Object);
 
         Assert.IsTrue(context.Response!.Succeeded);
-        Assert.IsNull(context.Response.Error);
-        tokenManager.Verify(manager => manager.FindAsync(
-            "42", "application-id", Statuses.Valid, null, It.IsAny<CancellationToken>()), Times.Once);
+        tokenManager.Verify(manager => manager.RevokeByAuthorizationIdAsync(
+            "authorization-a", It.IsAny<CancellationToken>()), Times.Once);
+        authorizationManager.Verify(manager => manager.TryRevokeAsync(
+            It.Is<OpenIddictEntityFrameworkCoreAuthorization>(value => value.Id == "authorization-a"),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestMethod]
-    public async Task Consume_WhenFailedRevokeLeavesTokenValid_ReturnsRevocationFailure()
+    public async Task Consume_WhenAuthorizationBelongsToAnotherSubject_DoesNotRevokeAnything()
     {
-        var token = new OpenIddictEntityFrameworkCoreToken { Status = Statuses.Valid };
-        var tokenManager = CreateTokenManager(token, tryRevoke: false, statusAfterFailure: Statuses.Valid);
+        var authorizationManager = CreateAuthorizationManager("authorization-a", "99", "application-id", Statuses.Valid, true);
+        var tokenManager = CreateTokenManager();
         var applicationManager = CreateApplicationManager();
-        var context = CreateContext(DateTime.UtcNow);
+        var context = CreateContext("authorization-a");
 
-        await new RevokeTokenRequestConsumer(tokenManager.Object, applicationManager.Object).Consume(context.Context.Object);
+        await new RevokeTokenRequestConsumer(tokenManager.Object, applicationManager.Object, authorizationManager.Object)
+            .Consume(context.Context.Object);
 
-        Assert.IsFalse(context.Response!.Succeeded);
-        Assert.AreEqual(OpenIddictResources.ID2079, context.Response.Error);
+        Assert.IsTrue(context.Response!.Succeeded);
+        tokenManager.Verify(manager => manager.RevokeByAuthorizationIdAsync(
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        authorizationManager.Verify(manager => manager.TryRevokeAsync(
+            It.IsAny<OpenIddictEntityFrameworkCoreAuthorization>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]
-    public async Task Consume_WhenTokenWasCreatedAfterLogoutStarted_DoesNotRevokeIt()
+    public async Task Consume_WhenAuthorizationIsUnknown_DoesNotBroadRevokeBySubject()
     {
-        var logoutStartedAt = DateTime.UtcNow;
-        var token = new OpenIddictEntityFrameworkCoreToken
-        {
-            Status = Statuses.Valid,
-            CreationDate = logoutStartedAt.AddSeconds(1)
-        };
-        var tokenManager = CreateTokenManager(token, tryRevoke: false, statusAfterFailure: Statuses.Valid);
+        var authorizationManager = CreateAuthorizationManager(null, null, null, null, false);
+        var tokenManager = CreateTokenManager();
         var applicationManager = CreateApplicationManager();
-        var context = CreateContext(logoutStartedAt);
+        var context = CreateContext("missing-authorization");
 
-        await new RevokeTokenRequestConsumer(tokenManager.Object, applicationManager.Object).Consume(context.Context.Object);
+        await new RevokeTokenRequestConsumer(tokenManager.Object, applicationManager.Object, authorizationManager.Object)
+            .Consume(context.Context.Object);
 
         Assert.IsTrue(context.Response!.Succeeded);
-        tokenManager.Verify(manager => manager.TryRevokeAsync(token, It.IsAny<CancellationToken>()), Times.Never);
+        tokenManager.Verify(manager => manager.RevokeByAuthorizationIdAsync(
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        tokenManager.Verify(manager => manager.RevokeBySubjectAsync(
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private static Mock<OpenIddictTokenManager<OpenIddictEntityFrameworkCoreToken>> CreateTokenManager(
-        OpenIddictEntityFrameworkCoreToken token,
-        bool tryRevoke,
-        string statusAfterFailure)
+    [TestMethod]
+    public async Task Consume_WhenAuthorizationWasAlreadyRevoked_IsIdempotent()
     {
-        var cache = new Mock<IOpenIddictTokenCache<OpenIddictEntityFrameworkCoreToken>>();
-        var store = new Mock<IOpenIddictTokenStore<OpenIddictEntityFrameworkCoreToken>>();
-        var options = new Mock<IOptionsMonitor<OpenIddictCoreOptions>>();
+        var authorizationManager = CreateAuthorizationManager("authorization-a", "42", "application-id", Statuses.Revoked, false);
+        var tokenManager = CreateTokenManager();
+        var applicationManager = CreateApplicationManager();
+        var context = CreateContext("authorization-a");
+
+        await new RevokeTokenRequestConsumer(tokenManager.Object, applicationManager.Object, authorizationManager.Object)
+            .Consume(context.Context.Object);
+
+        Assert.IsTrue(context.Response!.Succeeded);
+        tokenManager.Verify(manager => manager.RevokeByAuthorizationIdAsync(
+            "authorization-a", It.IsAny<CancellationToken>()), Times.Once);
+        authorizationManager.Verify(manager => manager.TryRevokeAsync(
+            It.IsAny<OpenIddictEntityFrameworkCoreAuthorization>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static Mock<OpenIddictTokenManager<OpenIddictEntityFrameworkCoreToken>> CreateTokenManager()
+    {
         var manager = new Mock<OpenIddictTokenManager<OpenIddictEntityFrameworkCoreToken>>(
-            cache.Object,
+            new Mock<IOpenIddictTokenCache<OpenIddictEntityFrameworkCoreToken>>().Object,
             NullLogger<OpenIddictTokenManager<OpenIddictEntityFrameworkCoreToken>>.Instance,
-            options.Object,
-            store.Object);
-        manager.Setup(value => value.FindAsync(
-                "42", "application-id", Statuses.Valid, null, It.IsAny<CancellationToken>()))
-            .Returns(Enumerate(token));
-        manager.Setup(value => value.TryRevokeAsync(token, It.IsAny<CancellationToken>()))
-            .Returns(new ValueTask<bool>(tryRevoke));
-        manager.Setup(value => value.GetStatusAsync(token, It.IsAny<CancellationToken>()))
-            .Returns(new ValueTask<string?>(statusAfterFailure));
+            new Mock<IOptionsMonitor<OpenIddictCoreOptions>>().Object,
+            new Mock<IOpenIddictTokenStore<OpenIddictEntityFrameworkCoreToken>>().Object);
+        manager.Setup(value => value.RevokeByAuthorizationIdAsync(
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<long>(1));
         return manager;
     }
 
     private static Mock<OpenIddictApplicationManager<OpenIddictEntityFrameworkCoreApplication>> CreateApplicationManager()
     {
         var application = new OpenIddictEntityFrameworkCoreApplication { Id = "application-id" };
-        var cache = new Mock<IOpenIddictApplicationCache<OpenIddictEntityFrameworkCoreApplication>>();
-        var store = new Mock<IOpenIddictApplicationStore<OpenIddictEntityFrameworkCoreApplication>>();
-        var options = new Mock<IOptionsMonitor<OpenIddictCoreOptions>>();
         var manager = new Mock<OpenIddictApplicationManager<OpenIddictEntityFrameworkCoreApplication>>(
-            cache.Object,
+            new Mock<IOpenIddictApplicationCache<OpenIddictEntityFrameworkCoreApplication>>().Object,
             NullLogger<OpenIddictApplicationManager<OpenIddictEntityFrameworkCoreApplication>>.Instance,
-            options.Object,
-            store.Object);
+            new Mock<IOptionsMonitor<OpenIddictCoreOptions>>().Object,
+            new Mock<IOpenIddictApplicationStore<OpenIddictEntityFrameworkCoreApplication>>().Object);
         manager.Setup(value => value.FindByClientIdAsync("world-client", It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<OpenIddictEntityFrameworkCoreApplication?>(application));
         manager.Setup(value => value.GetIdAsync(application, It.IsAny<CancellationToken>()))
@@ -107,12 +116,43 @@ public sealed class RevokeTokenRequestConsumerTests
         return manager;
     }
 
-    private static ContextFixture CreateContext(DateTime tokenCreatedBefore)
+    private static Mock<OpenIddictAuthorizationManager<OpenIddictEntityFrameworkCoreAuthorization>> CreateAuthorizationManager(
+        string? authorizationId,
+        string? subject,
+        string? applicationId,
+        string? status,
+        bool tryRevoke)
     {
-        var context = new Mock<ConsumeContext<RevokeTokenRequestMessage>>();
+        var authorization = authorizationId == null
+            ? null
+            : new OpenIddictEntityFrameworkCoreAuthorization { Id = authorizationId };
+        var manager = new Mock<OpenIddictAuthorizationManager<OpenIddictEntityFrameworkCoreAuthorization>>(
+            new Mock<IOpenIddictAuthorizationCache<OpenIddictEntityFrameworkCoreAuthorization>>().Object,
+            NullLogger<OpenIddictAuthorizationManager<OpenIddictEntityFrameworkCoreAuthorization>>.Instance,
+            new Mock<IOptionsMonitor<OpenIddictCoreOptions>>().Object,
+            new Mock<IOpenIddictAuthorizationStore<OpenIddictEntityFrameworkCoreAuthorization>>().Object);
+        manager.Setup(value => value.FindByIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<OpenIddictEntityFrameworkCoreAuthorization?>(authorization));
+        if (authorization != null)
+        {
+            manager.Setup(value => value.GetSubjectAsync(authorization, It.IsAny<CancellationToken>()))
+                .Returns(new ValueTask<string?>(subject));
+            manager.Setup(value => value.GetApplicationIdAsync(authorization, It.IsAny<CancellationToken>()))
+                .Returns(new ValueTask<string?>(applicationId));
+            manager.Setup(value => value.GetStatusAsync(authorization, It.IsAny<CancellationToken>()))
+                .Returns(new ValueTask<string?>(status));
+            manager.Setup(value => value.TryRevokeAsync(authorization, It.IsAny<CancellationToken>()))
+                .Returns(new ValueTask<bool>(tryRevoke));
+        }
+        return manager;
+    }
+
+    private static ContextFixture CreateContext(string authorizationId)
+    {
+        var context = new Moq.Mock<ConsumeContext<RevokeTokenRequestMessage>>();
         var fixture = new ContextFixture(context);
         context.SetupGet(value => value.Message)
-            .Returns(new RevokeTokenRequestMessage("world-client", "42", tokenCreatedBefore));
+            .Returns(new RevokeTokenRequestMessage("world-client", "42", authorizationId));
         context.SetupGet(value => value.CancellationToken).Returns(CancellationToken.None);
         context.Setup(value => value.RespondAsync(It.IsAny<RevokeTokenResponseMessage>()))
             .Callback<RevokeTokenResponseMessage>(message => fixture.Response = message)
@@ -120,16 +160,9 @@ public sealed class RevokeTokenRequestConsumerTests
         return fixture;
     }
 
-    private static async IAsyncEnumerable<T> Enumerate<T>(T item)
-    {
-        yield return item;
-        await Task.CompletedTask;
-    }
-
     private sealed class ContextFixture
     {
         public ContextFixture(Mock<ConsumeContext<RevokeTokenRequestMessage>> context) => Context = context;
-
         public Mock<ConsumeContext<RevokeTokenRequestMessage>> Context { get; }
         public RevokeTokenResponseMessage? Response { get; set; }
     }

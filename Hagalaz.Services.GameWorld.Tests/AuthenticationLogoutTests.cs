@@ -201,6 +201,7 @@ public sealed class AuthenticationLogoutTests
             new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
             {
                 ClientId = "world-client",
+                AuthorizationId = "authorization-id",
                 Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
             });
         var service = CreateAuthenticationService(
@@ -252,6 +253,7 @@ public sealed class AuthenticationLogoutTests
                 new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
                 {
                     ClientId = "world-client",
+                    AuthorizationId = "authorization-id",
                     Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
                 }),
             revokeTokenRequestClient);

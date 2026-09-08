@@ -8,8 +8,8 @@ created by the existing `NpcScriptActivator` at the NPC composition boundary.
 ## What changes
 
 - Stop registering concrete owner-aware NPC scripts as ordinary DI services.
-- Discover NPC script metadata from the loaded plugin assembly while retaining
-  descriptor discovery for existing callers and tests.
+- Discover NPC script metadata from explicitly registered plugin type catalogs
+  while retaining descriptor discovery for existing callers and tests.
 - Keep default NPC and familiar script types available through their existing
   providers and owner-aware activation path.
 - Add regression coverage for plugin registration and metadata discovery.
@@ -26,8 +26,8 @@ service lifetime policy.
 - GameWorld can build its service provider with the loaded script plugin.
 - No owner-aware concrete `INpcScript` is registered for ordinary DI
   activation.
-- Metadata-bearing NPC scripts in the loaded plugin remain discoverable by
-  `NpcScriptMetaDataFactory`.
+- Metadata-bearing NPC scripts in an explicitly registered plugin catalog
+  remain discoverable by `NpcScriptMetaDataFactory`.
 - Existing focused script and GameWorld tests continue to pass.
 
 ## Non-goals

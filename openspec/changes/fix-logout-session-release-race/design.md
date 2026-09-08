@@ -7,12 +7,12 @@
 1. Keep persistence before world-session removal. The existing pending-logout/dehydration flow relies on the registered character remaining available until the durable handoff has been queued.
 2. Move token revocation after session removal and character-detach coordination. This makes the live-session owner authoritative for login admission and prevents an authorization failure from retaining a successfully persisted session.
 3. Catch non-cancellation revocation exceptions after cleanup and log them. The logout boundary has already released live ownership; a failed remote cleanup must not recreate the login lock. Cancellation remains observable to the caller.
-4. Query only valid tokens for the requested application and restrict the set to tokens created before logout began. If a concurrent revoke makes a token invalid between query and update, re-read its status and treat that already-completed transition as success. A token still valid after the failed update remains a real revocation failure.
+4. Resolve the authorization named by the logout request and verify its subject and application before revoking its tokens. An unknown or mismatched authorization is an idempotent no-op; it must never fall back to subject-wide or client-wide revocation. Revoke the authorization's tokens by authorization id and transition a still-valid authorization to revoked when required.
 
 ## Invariants
 
 - Persistence failure leaves the session and pending character intact for retry.
 - Session release failure leaves existing session-cleanup recovery behavior unchanged.
 - Releasing a session never depends on a successful authorization response.
-- Revocation remains scoped to the requested client and subject.
-- A token created by a replacement login after logout began is not revoked by the old logout request.
+- Revocation remains scoped to the exact authorization, whose subject and application must match the requested client and subject.
+- A token created by a replacement login belongs to a different authorization and is not revoked by the old logout request.

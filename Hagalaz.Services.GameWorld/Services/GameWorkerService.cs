@@ -73,27 +73,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 try
                 {
-                    // Execute 'major-update' tasks.
-                    _rsTaskScheduler.Tick();
-
-                    var stopwatch = Stopwatch.StartNew();
-                    var tickCompleted = false;
-                    try
-                    {
-                        await RunMajorTickAsync(stoppingToken);
-                        tickCompleted = true;
-                    }
-                    finally
-                    {
-                        stopwatch.Stop();
-                        if (tickCompleted && stopwatch.Elapsed > tickTimeSpan)
-                        {
-                            _logger.LogWarning(
-                                "Major game tick exceeded its configured budget. Elapsed: {Elapsed}; budget: {Budget}.",
-                                stopwatch.Elapsed,
-                                tickTimeSpan);
-                        }
-                    }
+                    await ExecuteTickAsync(stoppingToken);
                 }
                 catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
                 {
@@ -102,6 +82,31 @@ namespace Hagalaz.Services.GameWorld.Services
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error occurred in major game tick.");
+                }
+            }
+        }
+
+        internal async Task ExecuteTickAsync(CancellationToken stoppingToken)
+        {
+            // Execute 'major-update' tasks.
+            _rsTaskScheduler.Tick();
+
+            var stopwatch = Stopwatch.StartNew();
+            var tickCompleted = false;
+            try
+            {
+                await RunMajorTickAsync(stoppingToken);
+                tickCompleted = true;
+            }
+            finally
+            {
+                stopwatch.Stop();
+                if (tickCompleted && stopwatch.Elapsed > _gameOptions.TickTimeSpan)
+                {
+                    _logger.LogWarning(
+                        "Major game tick exceeded its configured budget. Elapsed: {Elapsed}; budget: {Budget}.",
+                        stopwatch.Elapsed,
+                        _gameOptions.TickTimeSpan);
                 }
             }
         }

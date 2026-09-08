@@ -632,7 +632,8 @@ public sealed class AuthenticationSignInTests
             AccessToken = "access-token",
             Scope = "openid",
             ExpireDate = DateTimeOffset.UtcNow.AddMinutes(5),
-            TokenType = "Bearer"
+            TokenType = "Bearer",
+            AuthorizationId = "authorization-id"
         });
         var signInUserRequestClient = Substitute.For<IRequestClient<SignInUserRequestMessage>>();
         signInUserRequestClient

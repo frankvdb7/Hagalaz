@@ -7,6 +7,7 @@ Map regions currently become observable as loaded before their NPCs, ground item
 - Publish a region as loaded only after the complete region-load pipeline succeeds, including static map collision population.
 - Keep a region eligible for a later load attempt when loading is canceled or fails before completion.
 - Preserve the existing single-reader `MapRegionLoadScheduler` and `IMapRegionLoader` ownership; do not add a second queue, worker, or retry mechanism.
+- Roll back unpublished NPCs, objects, items, collision, and update buffers on failure or cancellation before rethrowing the original error.
 - Add deterministic regression coverage for movement queries during loading, successful readiness publication, and retry after failure.
 
 ### Acceptance Criteria
@@ -14,6 +15,7 @@ Map regions currently become observable as loaded before their NPCs, ground item
 - A pathfinding or movement collision query cannot observe a region as loaded before static collision population completes.
 - A successful region load becomes loaded exactly once after all population steps complete.
 - A failed or canceled load does not permanently suppress a later request for that region.
+- A failed or canceled load does not publish partially populated entities or collision to a later retry.
 - Existing static-object coordinate handling, custom-object collision behavior, and intentional non-colliding floor-decoration behavior remain unchanged.
 
 ### Stop Conditions

@@ -14,10 +14,14 @@ namespace Hagalaz.Services.GameWorld.Factories
     public class NpcScriptMetaDataFactory : INpcScriptFactory
     {
         private readonly IServiceDescriptorProvider _serviceDescriptorProvider;
+        private readonly IEnumerable<INpcScriptTypeCatalog> _scriptTypeCatalogs;
 
-        public NpcScriptMetaDataFactory(IServiceDescriptorProvider serviceDescriptorProvider)
+        public NpcScriptMetaDataFactory(
+            IServiceDescriptorProvider serviceDescriptorProvider,
+            IEnumerable<INpcScriptTypeCatalog> scriptTypeCatalogs)
         {
-            _serviceDescriptorProvider = serviceDescriptorProvider;
+            _serviceDescriptorProvider = serviceDescriptorProvider ?? throw new ArgumentNullException(nameof(serviceDescriptorProvider));
+            _scriptTypeCatalogs = scriptTypeCatalogs ?? throw new ArgumentNullException(nameof(scriptTypeCatalogs));
         }
 
         public async IAsyncEnumerable<(int npcId, Type scriptType)> GetScripts([EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -28,11 +32,11 @@ namespace Hagalaz.Services.GameWorld.Factories
                 .Where(x => x.ServiceType.IsAssignableTo(type))
                 .Select(x => x.ImplementationType)
                 .OfType<Type>();
-            var loadedScriptTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(GetLoadableTypes)
+            var catalogScriptTypes = _scriptTypeCatalogs
+                .SelectMany(x => x.ScriptTypes)
                 .Where(x => x.IsClass && !x.IsAbstract && x.IsAssignableTo(type));
             var scriptTypes = descriptorScriptTypes
-                .Concat(loadedScriptTypes)
+                .Concat(catalogScriptTypes)
                 .Distinct()
                 .Select(x => (ScriptType: x, MetaData: x.GetCustomAttribute<NpcScriptMetaDataAttribute>()));
 
@@ -52,18 +56,6 @@ namespace Hagalaz.Services.GameWorld.Factories
                 {
                     yield return (npcId, scriptType);
                 }
-            }
-        }
-
-        private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
-        {
-            try
-            {
-                return assembly.GetTypes();
-            }
-            catch (ReflectionTypeLoadException exception)
-            {
-                return exception.Types.OfType<Type>();
             }
         }
     }

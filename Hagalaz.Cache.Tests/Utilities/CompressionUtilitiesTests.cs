@@ -1,4 +1,7 @@
 using Hagalaz.Cache.Utilities;
+using ICSharpCode.SharpZipLib.BZip2;
+using System;
+using System.IO;
 using System.Text;
 using Xunit;
 
@@ -26,8 +29,7 @@ namespace Hagalaz.Cache.Tests.Utilities
         public void BzipDecompress_ShouldAcceptCachePayloadWithoutStreamHeader()
         {
             var originalData = Encoding.UTF8.GetBytes("Cache-style Bzip2 payload.");
-            var compressedData = CompressionUtilities.BzipCompress(originalData);
-            var cachePayload = compressedData[4..];
+            var cachePayload = CreateCachePayload(originalData);
 
             Assert.Equal("1AY&SY", Encoding.ASCII.GetString(cachePayload, 0, 6));
 
@@ -39,16 +41,36 @@ namespace Hagalaz.Cache.Tests.Utilities
         [Fact]
         public void BzipDecompress_ShouldAcceptLargeCachePayloadWithoutStreamHeader()
         {
-            var originalData = new byte[16 * 1024];
+            var originalData = new byte[512 * 1024];
             for (var i = 0; i < originalData.Length; i++)
                 originalData[i] = (byte)((i * 31 + i / 17) % 256);
 
-            var compressedData = CompressionUtilities.BzipCompress(originalData);
-            var cachePayload = compressedData[4..];
+            var cachePayload = CreateCachePayload(originalData);
 
             var decompressedData = CompressionUtilities.BzipDecompress(cachePayload);
 
             Assert.Equal(originalData, decompressedData);
+        }
+
+        [Fact]
+        public void BzipDecompress_ShouldRejectTruncatedHeaderlessPayload()
+        {
+            var truncatedPayload = Encoding.ASCII.GetBytes("1AY&");
+
+            Assert.ThrowsAny<Exception>(() => CompressionUtilities.BzipDecompress(truncatedPayload));
+        }
+
+        private static byte[] CreateCachePayload(byte[] data)
+        {
+            using var stream = new MemoryStream();
+            using (var compressor = new BZip2OutputStream(stream, 1))
+            {
+                compressor.Write(data, 0, data.Length);
+            }
+
+            var compressed = stream.ToArray();
+            Assert.Equal("BZh1", Encoding.ASCII.GetString(compressed, 0, 4));
+            return compressed[4..];
         }
     }
 }

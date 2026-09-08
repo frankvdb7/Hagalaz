@@ -3,6 +3,8 @@ using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Utilities;
+using ICSharpCode.SharpZipLib.BZip2;
+using System.IO;
 using System.Text;
 using Xunit;
 
@@ -63,8 +65,7 @@ public class ContainerTests
     {
         // Cache containers store the BZip2 block without the standalone BZh1 prefix.
         var originalData = Encoding.UTF8.GetBytes("Cache container payload.");
-        var compressedData = CompressionUtilities.BzipCompress(originalData);
-        var cachePayload = compressedData[4..];
+        var cachePayload = CreateCachePayload(originalData);
         using var encoded = new MemoryStream();
         encoded.WriteByte((byte)CompressionType.Bzip2);
         encoded.WriteInt(cachePayload.Length);
@@ -78,5 +79,18 @@ public class ContainerTests
         Assert.Equal(CompressionType.Bzip2, decoded.CompressionType);
         Assert.Equal((short)1234, decoded.Version);
         Assert.Equal(originalData, decoded.Data.ToArray());
+    }
+
+    private static byte[] CreateCachePayload(byte[] data)
+    {
+        using var stream = new MemoryStream();
+        using (var compressor = new BZip2OutputStream(stream, 1))
+        {
+            compressor.Write(data, 0, data.Length);
+        }
+
+        var compressed = stream.ToArray();
+        Assert.Equal("BZh1", Encoding.ASCII.GetString(compressed, 0, 4));
+        return compressed[4..];
     }
 }

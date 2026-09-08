@@ -8,6 +8,7 @@
 - [x] 2.1 Preserve the scheduler's single in-flight owner and add deterministic failure and cancellation tests proving the in-flight admission is released and readiness is not published
 - [x] 2.2 Add a deterministic retry test proving a later request invokes the loader again after a failed attempt, and make any focused region-state cleanup required for that retry use the existing region lifecycle without introducing a second queue or state store
 - [x] 2.3 Retain and run the existing duplicate-request and ready-region suppression tests to verify no concurrent duplicate loads or unnecessary reloads are introduced
+- [x] 2.4 Add transactional rollback coverage for NPCs, items, static and non-static objects, collision, cancellation, rollback failure, and retry on the same region instance
 
 ## 3. Verification and runtime validation
 
