@@ -97,6 +97,60 @@ public sealed class GameWorkerServiceTests
     }
 
     [TestMethod]
+    public async Task HostedLoop_DoesNotOverlapTicks()
+    {
+        var firstStarted = NewSignal();
+        using var firstRelease = new ManualResetEventSlim();
+        var secondStarted = NewSignal();
+        using var secondRelease = new ManualResetEventSlim();
+        var majorUpdateCalls = 0;
+        var region = Substitute.For<IMapRegion>();
+        region.When(item => item.MajorUpdateTick()).Do(_ =>
+        {
+            var call = Interlocked.Increment(ref majorUpdateCalls);
+            if (call == 1)
+            {
+                firstStarted.TrySetResult();
+                firstRelease.Wait();
+                return;
+            }
+
+            secondStarted.TrySetResult();
+            secondRelease.Wait();
+        });
+
+        using var worker = CreateWorker(region, TimeSpan.FromMilliseconds(10)).Worker;
+        var startAttempted = false;
+        try
+        {
+            startAttempted = true;
+            await worker.StartAsync(CancellationToken.None);
+            await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            // Five configured intervals give a concurrently dispatched tick a bounded opportunity to start.
+            await Task.Delay(TimeSpan.FromMilliseconds(50));
+
+            Assert.AreEqual(1, Volatile.Read(ref majorUpdateCalls));
+            Assert.IsFalse(secondStarted.Task.IsCompleted);
+
+            firstRelease.Set();
+            await secondStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.AreEqual(2, Volatile.Read(ref majorUpdateCalls));
+        }
+        finally
+        {
+            firstRelease.Set();
+            secondRelease.Set();
+            if (startAttempted && worker.ExecuteTask is { IsCompleted: false })
+            {
+                await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(1));
+            }
+        }
+
+        Assert.IsTrue(worker.ExecuteTask?.IsCompleted ?? false);
+    }
+
+    [TestMethod]
     public async Task StopAsync_WaitsForTheOwnedTickBeforeCompleting()
     {
         var tickStarted = NewSignal();
