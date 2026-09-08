@@ -75,3 +75,12 @@ scope together, or leave none of those resources owned by the failed attempt.
 - **WHEN** the global NPC store rejects a new NPC
 - **THEN** registration MUST report failure to its caller
 - **AND** the unowned NPC MUST be destroyed without invoking registration
+
+#### Scenario: NPC destruction fails during unregistration
+
+- **WHEN** an NPC is globally published and its destruction callback throws
+- **THEN** unregistration MUST still attempt to remove that NPC from the global
+  store
+- **AND** a successful removal MUST leave no global entry for the destroyed NPC
+- **AND** destruction and removal failures MUST both remain observable when both
+  operations fail

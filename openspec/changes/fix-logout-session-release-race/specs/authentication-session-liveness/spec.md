@@ -65,3 +65,17 @@ request token.
   feature installation all succeed
 - **THEN** the exact authorization ID MUST be retained by the connection
 - **AND** pre-commit cleanup MUST NOT run
+
+#### Scenario: Existing authorization cleanup fails
+
+- **WHEN** GameWorld attempts to revoke the exact authorization after a later
+  login/setup failure and revocation throws or reports failure
+- **THEN** the authentication features MUST retain the exact authorization ID
+- **AND** the failed connection's normal disconnect/sign-out owner MUST remain
+  able to retry that exact cleanup
+
+#### Scenario: Sign-out cleanup outlives request cancellation
+
+- **WHEN** sign-out has released the live session and the client request is
+  canceled while exact authorization cleanup is still pending
+- **THEN** exact authorization cleanup MUST use a non-canceled cleanup token

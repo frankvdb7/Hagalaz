@@ -153,8 +153,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         public void MajorClientUpdateTick(IReadOnlyDictionary<int, ICharacter> characters)
         {
-            List<Exception>? connectionFailures = null;
-
             foreach (var character in _characters)
             {
                 try
@@ -165,20 +163,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     }
                     character.MajorClientUpdateTick(characters);
                 }
-                catch (ConnectionAbortedException exception)
+                catch (ConnectionAbortedException)
                 {
-                    (connectionFailures ??= []).Add(exception);
+                    // The connection lifecycle owns this failure. Continue updating other characters.
                 }
             }
 
             foreach (var npc in _npcs)
             {
                 npc.MajorClientUpdateTick();
-            }
-
-            if (connectionFailures is not null)
-            {
-                throw new AggregateException($"One or more client connections failed in region {Id}.", connectionFailures);
             }
         }
 

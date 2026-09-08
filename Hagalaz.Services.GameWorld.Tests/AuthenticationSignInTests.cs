@@ -55,7 +55,8 @@ public sealed class AuthenticationSignInTests
                 message.ClientId == Constants.OAuth.LobbyClientId &&
                 message.Subject == "42" &&
                 message.AuthorizationId == "authorization-id"),
-            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested));
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
         Assert.IsNull(contextAccessor.Context.Features.Get<IAuthenticationFeature>());
     }
 
@@ -80,7 +81,8 @@ public sealed class AuthenticationSignInTests
         Assert.IsFalse(result.Succeeded);
         await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
             Arg.Is<RevokeTokenRequestMessage>(message => message.AuthorizationId == "authorization-id"),
-            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested));
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
     }
 
     [TestMethod]
@@ -101,7 +103,8 @@ public sealed class AuthenticationSignInTests
         await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
             Arg.Is<RevokeTokenRequestMessage>(message =>
                 message.Subject == "42" && message.AuthorizationId == "authorization-id"),
-            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested));
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
         Assert.IsNull(contextAccessor.Context.Features.Get<IAuthenticationFeature>());
     }
 
@@ -125,7 +128,8 @@ public sealed class AuthenticationSignInTests
         await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
             Arg.Is<RevokeTokenRequestMessage>(message =>
                 message.Subject == "42" && message.AuthorizationId == "authorization-id"),
-            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested));
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
         await gameSessionService.DidNotReceive().TryAddWorldSession(
             Arg.Any<uint>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
@@ -150,7 +154,8 @@ public sealed class AuthenticationSignInTests
         Assert.IsFalse(result.Succeeded);
         await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
             Arg.Is<RevokeTokenRequestMessage>(message => message.AuthorizationId == "authorization-id"),
-            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested));
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
     }
 
     [TestMethod]
@@ -171,7 +176,56 @@ public sealed class AuthenticationSignInTests
             "authorization-id",
             contextAccessor.Context.Features.Get<IAuthenticationFeature>()!.AuthenticationProperties.AuthorizationId);
         await revokeClient.DidNotReceive().GetResponse<RevokeTokenResponseMessage>(
-            Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>());
+            Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInLobbyAsync_WhenExactRevocationThrows_RetainsTheAuthorizationHandle()
+    {
+        var revokeFailure = new InvalidOperationException("authorization service unavailable");
+        var revokeClient = CreateFailingRevokeClient(revokeFailure);
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.AddSession(42, "connection")
+            .Returns(Task.FromResult<(IGameSession Session, bool Created)>((Substitute.For<IGameSession>(), Created: false)));
+        var contextAccessor = CreateContextAccessor();
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            contextAccessor: contextAccessor,
+            revokeTokenRequestClient: revokeClient);
+
+        var result = await service.SignInLobbyAsync(CreateSignInRequest());
+
+        Assert.IsTrue(result.IsAlreadyLoggedOn);
+        Assert.AreEqual(
+            "authorization-id",
+            contextAccessor.Context.Features.Get<IAuthenticationFeature>()!.AuthenticationProperties.AuthorizationId);
+        await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
+            Arg.Is<RevokeTokenRequestMessage>(message => message.AuthorizationId == "authorization-id"),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<RequestTimeout>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInLobbyAsync_WhenExactRevocationReportsFailure_RetainsTheAuthorizationHandle()
+    {
+        var revokeClient = CreateUnsuccessfulRevokeClient();
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.AddSession(42, "connection")
+            .Returns(Task.FromResult<(IGameSession Session, bool Created)>((Substitute.For<IGameSession>(), Created: false)));
+        var contextAccessor = CreateContextAccessor();
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            contextAccessor: contextAccessor,
+            revokeTokenRequestClient: revokeClient);
+
+        var result = await service.SignInLobbyAsync(CreateSignInRequest());
+
+        Assert.IsTrue(result.IsAlreadyLoggedOn);
+        Assert.AreEqual(
+            "authorization-id",
+            contextAccessor.Context.Features.Get<IAuthenticationFeature>()!.AuthenticationProperties.AuthorizationId);
     }
 
     [TestMethod]
@@ -202,7 +256,38 @@ public sealed class AuthenticationSignInTests
                 message.ClientId == Constants.OAuth.WorldClientId &&
                 message.Subject == "42" &&
                 message.AuthorizationId == "authorization-id"),
-            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested));
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInWorldAsync_WhenPostAuthenticationRevocationFails_RetainsTheAuthorizationHandle()
+    {
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.TryAddWorldSession(42, "connection", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<(IGameSession? Session, bool Created)>((session, Created: true)));
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+        var hydrationService = Substitute.For<ICharacterHydrationService>();
+        hydrationService.HydrateAsync(Arg.Any<ICharacter>(), Arg.Any<CharacterModel>())
+            .Returns(Task.FromResult(false));
+        var revokeFailure = new InvalidOperationException("authorization service unavailable");
+        var revokeClient = CreateFailingRevokeClient(revokeFailure);
+        var contextAccessor = CreateContextAccessor();
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            characterHydrationService: hydrationService,
+            contextAccessor: contextAccessor,
+            revokeTokenRequestClient: revokeClient);
+
+        var result = await service.SignInWorldAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual(
+            "authorization-id",
+            contextAccessor.Context.Features.Get<IAuthenticationFeature>()!.AuthenticationProperties.AuthorizationId);
     }
 
     [TestMethod]
@@ -227,7 +312,8 @@ public sealed class AuthenticationSignInTests
 
         await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
             Arg.Any<RevokeTokenRequestMessage>(),
-            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested));
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
     }
 
     [TestMethod]
@@ -933,10 +1019,30 @@ public sealed class AuthenticationSignInTests
 
     private static IRequestClient<RevokeTokenRequestMessage> CreateSuccessfulRevokeClient()
     {
+        return CreateRevokeClient(Task.FromResult(CreateResponse(new RevokeTokenResponseMessage { Succeeded = true })));
+    }
+
+    private static IRequestClient<RevokeTokenRequestMessage> CreateFailingRevokeClient(Exception failure)
+    {
+        return CreateRevokeClient(Task.FromException<Response<RevokeTokenResponseMessage>>(failure));
+    }
+
+    private static IRequestClient<RevokeTokenRequestMessage> CreateUnsuccessfulRevokeClient()
+    {
+        return CreateRevokeClient(Task.FromResult(CreateResponse(new RevokeTokenResponseMessage
+        {
+            Succeeded = false,
+            Error = "revoke failed"
+        })));
+    }
+
+    private static IRequestClient<RevokeTokenRequestMessage> CreateRevokeClient(Task<Response<RevokeTokenResponseMessage>> response)
+    {
         var client = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
         client
-            .GetResponse<RevokeTokenResponseMessage>(Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CreateResponse(new RevokeTokenResponseMessage { Succeeded = true })));
+            .GetResponse<RevokeTokenResponseMessage>(
+                Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(response);
         return client;
     }
 

@@ -9,10 +9,17 @@
 3. Catch non-cancellation revocation exceptions after cleanup and log them. The logout boundary has already released live ownership; a failed remote cleanup must not recreate the login lock. Cancellation remains observable to the caller.
 4. Resolve the authorization named by the logout request and verify its subject and application before revoking its tokens. An unknown or mismatched authorization is an idempotent no-op; it must never fall back to subject-wide or client-wide revocation. Revoke the authorization's tokens by authorization id and transition a still-valid authorization to revoked when required.
 5. Treat ad-hoc authorization creation as an ownership transaction. The Authorization consumer revokes tokens and deletes the exact authorization with `CancellationToken.None` until it has returned a successful issuance response. GameWorld keeps the returned subject and authorization ID in local ownership until UserInfo, principal validation, and the relevant lobby/world session commit complete; failed post-issuance setup sends the existing exact revocation request with non-cancelable cleanup.
-6. Parse the UserInfo subject directly with `uint.TryParse` in the lobby and
-   world sign-in paths. A missing or malformed subject returns the existing
-   failed sign-in result before session creation and routes the exact issued
-   authorization through the existing revocation helper.
+6. Keep UserInfo validation as the issuance boundary, then use the existing
+   `RaidoCallerContextExtensions.GetMasterId` helper for lobby and world
+   session admission. The helper returns `null` for a missing or malformed
+   subject, so sign-in returns the existing failed result before session
+   creation and routes the exact issued authorization through the existing
+   revocation helper.
+7. Make exact revocation return a small success result. GameWorld clears
+   authentication features only after success; if cleanup throws or reports
+   failure, the exact authorization metadata remains attached for the normal
+   disconnect/sign-out owner to retry. Sign-out uses the same helper with its
+   non-cancelable cleanup token after live-session release.
 
 ## Invariants
 

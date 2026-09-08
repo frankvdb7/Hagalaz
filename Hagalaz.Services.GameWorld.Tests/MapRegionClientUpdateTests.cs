@@ -43,8 +43,7 @@ public sealed class MapRegionClientUpdateTests
         region.QueueUpdate(new TestRegionPartUpdate());
         region.MajorClientPrepareUpdateTick();
 
-        Assert.ThrowsExactly<AggregateException>(() =>
-            region.MajorClientUpdateTick(new Dictionary<int, ICharacter>()));
+        region.MajorClientUpdateTick(new Dictionary<int, ICharacter>());
 
         healthyCharacter.Session.Received().SendMessage(Arg.Any<RaidoMessage>());
 

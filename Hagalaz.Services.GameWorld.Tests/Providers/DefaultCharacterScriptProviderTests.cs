@@ -17,13 +17,17 @@ public sealed class DefaultCharacterScriptProviderTests
         var character = Substitute.For<ICharacter>();
         var characterContext = Substitute.For<ICharacterContext>();
         characterContext.Character.Returns(character);
+        var constructionCount = 0;
 
         using var serviceProvider = new ServiceCollection()
             .AddSingleton<ICharacterContextProvider>(contextProvider)
             .AddSingleton<ICharacterContextAccessor>(contextProvider)
-            .AddScoped<ContextDependentDefaultCharacterScript>()
-            .AddScoped<IDefaultCharacterScript>(services =>
-                services.GetRequiredService<ContextDependentDefaultCharacterScript>())
+            .AddTransient<ContextDependentDefaultCharacterScript>()
+            .AddTransient<IDefaultCharacterScript>(services =>
+            {
+                constructionCount++;
+                return services.GetRequiredService<ContextDependentDefaultCharacterScript>();
+            })
             .AddScoped<DefaultCharacterScriptProvider>()
             .BuildServiceProvider();
 
@@ -36,6 +40,7 @@ public sealed class DefaultCharacterScriptProviderTests
 
         Assert.AreEqual(1, scripts.Count);
         Assert.AreSame(character, scripts[0].Character);
+        Assert.AreEqual(1, constructionCount);
     }
 
     private sealed class ContextDependentDefaultCharacterScript : IDefaultCharacterScript

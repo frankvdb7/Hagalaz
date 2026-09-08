@@ -59,10 +59,16 @@ boundary for every region even when preparation or delivery fails.
 
 #### Scenario: One character update fails
 
-- **WHEN** a character callback throws while another character is receiving the
-  same client tick
+- **WHEN** one character callback throws `ConnectionAbortedException` while
+  another character is receiving the same client tick
 - **THEN** the other character MUST still receive its prepared updates
-- **AND** the failure MUST remain observable through the worker's error logging
+- **AND** the region tick MUST complete without surfacing an aggregate failure
+
+#### Scenario: An unexpected character or NPC update fails
+
+- **WHEN** a character or NPC callback throws an unexpected exception during a
+  client tick
+- **THEN** that exception MUST propagate to the worker
 
 #### Scenario: Preparation fails for one region
 

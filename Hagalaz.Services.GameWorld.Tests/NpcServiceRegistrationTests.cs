@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Cache.Abstractions.Types;
@@ -122,6 +123,59 @@ public sealed class NpcServiceRegistrationTests
 
         await npc.DidNotReceive().OnRegistered();
         Assert.AreEqual(0, await store.CountAsync());
+    }
+
+    [TestMethod]
+    public async Task UnregisterAsync_WhenDestroyThrows_StillRemovesTheGlobalEntry()
+    {
+        var store = new NpcStore();
+        var npc = CreateNpc();
+        await store.AddAsync(npc);
+        var destroyFailure = new InvalidOperationException("npc destruction failed");
+        npc.When(value => value.Destroy()).Do(_ => throw destroyFailure);
+        var service = CreateService(store);
+
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.UnregisterAsync(npc));
+
+        Assert.AreSame(destroyFailure, actual);
+        Assert.AreEqual(0, await store.CountAsync());
+        npc.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    public async Task UnregisterAsync_WhenNpcIsAlreadyDestroyed_StillRemovesTheGlobalEntry()
+    {
+        var store = new NpcStore();
+        var npc = CreateNpc();
+        npc.IsDestroyed.Returns(true);
+        await store.AddAsync(npc);
+        var service = CreateService(store);
+
+        await service.UnregisterAsync(npc);
+
+        Assert.AreEqual(0, await store.CountAsync());
+        npc.DidNotReceive().Destroy();
+    }
+
+    [TestMethod]
+    public async Task UnregisterAsync_WhenDestroyAndRemovalBothFail_PreservesBothFailures()
+    {
+        var store = Substitute.For<INpcStore>();
+        var npc = CreateNpc();
+        var destroyFailure = new InvalidOperationException("npc destruction failed");
+        var removalFailure = new InvalidOperationException("npc removal failed");
+        npc.When(value => value.Destroy()).Do(_ => throw destroyFailure);
+#pragma warning disable CA2012 // NSubstitute consumes the configured ValueTask.
+        store.RemoveAsync(npc).Returns(_ => ValueTask.FromException<bool>(removalFailure));
+#pragma warning restore CA2012
+        var service = CreateService(store);
+
+        var actual = await Assert.ThrowsExactlyAsync<AggregateException>(() => service.UnregisterAsync(npc));
+
+        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, destroyFailure)));
+        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, removalFailure)));
+        npc.Received(1).Destroy();
+        await store.Received(1).RemoveAsync(npc);
     }
 
     private static INpc CreateNpc()

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -123,17 +124,45 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public async Task UnregisterAsync(INpc npc)
         {
-            if (npc.IsDestroyed)
+            Exception? destroyFailure = null;
+            if (!npc.IsDestroyed)
             {
-                _logger.LogWarning("Failed to unregister destroyed npc '{npc}'", npc);
-                return;
+                try
+                {
+                    npc.Destroy();
+                }
+                catch (Exception exception)
+                {
+                    destroyFailure = exception;
+                }
             }
 
-            npc.Destroy();
-
-            if (!await _npcStore.RemoveAsync(npc))
+            Exception? removalFailure = null;
+            try
             {
-                _logger.LogWarning("Failed to remove npc '{npc}'", npc);
+                if (!await _npcStore.RemoveAsync(npc))
+                {
+                    _logger.LogWarning("Failed to remove npc '{npc}'", npc);
+                }
+            }
+            catch (Exception exception)
+            {
+                removalFailure = exception;
+            }
+
+            if (destroyFailure is not null && removalFailure is not null)
+            {
+                throw new AggregateException("NPC destruction and global-store removal both failed.", destroyFailure, removalFailure);
+            }
+
+            if (destroyFailure is not null)
+            {
+                ExceptionDispatchInfo.Capture(destroyFailure).Throw();
+            }
+
+            if (removalFailure is not null)
+            {
+                ExceptionDispatchInfo.Capture(removalFailure).Throw();
             }
         }
 

@@ -14,6 +14,9 @@
       add store-insertion and partial-registration regression tests.
 - [x] 2.6 Reject destroyed NPC instances before registration and use a fresh
       NPC for retry coverage.
+- [x] 2.7 Always attempt global NPC-store removal during unregistration, even
+      after destruction failure, and preserve both failures when removal also
+      fails.
 
 ## 3. Verification and runtime validation
 

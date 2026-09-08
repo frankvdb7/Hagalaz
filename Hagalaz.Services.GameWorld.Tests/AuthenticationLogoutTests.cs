@@ -191,7 +191,8 @@ public sealed class AuthenticationLogoutTests
         var revokeFailure = new InvalidOperationException("Token service is unavailable.");
         var revokeTokenRequestClient = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
         revokeTokenRequestClient
-            .GetResponse<RevokeTokenResponseMessage>(Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>())
+            .GetResponse<RevokeTokenResponseMessage>(
+                Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
             .Returns(Task.FromException<Response<RevokeTokenResponseMessage>>(revokeFailure));
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
@@ -218,6 +219,10 @@ public sealed class AuthenticationLogoutTests
         await persistenceService.Received(1).PersistAsync(character, true, Arg.Any<CancellationToken>());
         await gameSessionService.Received(1).RemoveSession(session);
         await characterService.DidNotReceive().RemoveAsync(character);
+        await revokeTokenRequestClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
+            Arg.Is<RevokeTokenRequestMessage>(message => message.AuthorizationId == "authorization-id"),
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
     }
 
     [TestMethod]
@@ -235,7 +240,10 @@ public sealed class AuthenticationLogoutTests
         revokeResponse.Message.Returns(new RevokeTokenResponseMessage { Succeeded = true });
         var revokeTokenRequestClient = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
         revokeTokenRequestClient
-            .GetResponse<RevokeTokenResponseMessage>(Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>())
+            .GetResponse<RevokeTokenResponseMessage>(
+                Arg.Any<RevokeTokenRequestMessage>(),
+                Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+                Arg.Any<RequestTimeout>())
             .Returns(_ =>
             {
                 revokeStarted.TrySetResult(true);

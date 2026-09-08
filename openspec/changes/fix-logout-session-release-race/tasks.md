@@ -16,6 +16,8 @@
       post-issuance failure.
 - [x] 2.6 Reject missing or malformed UserInfo subjects with `uint.TryParse`,
       revoke the exact issued authorization, and avoid session creation.
+- [x] 2.7 Retain authentication features when exact cleanup fails, and route
+      sign-out through the same non-cancelable exact-revocation helper.
 
 ## 3. Regression coverage and validation
 

@@ -114,14 +114,8 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
 
                 var context = _contextAccessor.Context;
-                var authentication = context.GetAuthentication();
-                if (!authentication.AuthenticationProperties.TryGetClaim(Claims.Subject, out string? subject))
-                {
-                    await RevokeCurrentAuthenticationAsync("lobby sign-in did not produce a valid subject");
-                    return SignInResult.Fail;
-                }
-
-                if (!uint.TryParse(subject, out var masterId))
+                var masterId = context.GetMasterId();
+                if (masterId is null)
                 {
                     await RevokeCurrentAuthenticationAsync("lobby sign-in did not produce a valid subject");
                     return SignInResult.Fail;
@@ -130,7 +124,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 (IGameSession Session, bool Created) sessionRegistration;
                 try
                 {
-                    sessionRegistration = await _gameSessionService.AddSession(masterId, context.ConnectionId);
+                    sessionRegistration = await _gameSessionService.AddSession(masterId.Value, context.ConnectionId);
                 }
                 catch
                 {
@@ -171,23 +165,18 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
 
                 var context = _contextAccessor.Context;
+                var masterId = context.GetMasterId();
+                if (masterId is null)
+                {
+                    await RevokeCurrentAuthenticationAsync("world sign-in did not produce a valid subject");
+                    return SignInResult.Fail;
+                }
                 var authentication = context.GetAuthentication();
-                if (!authentication.AuthenticationProperties.TryGetClaim(Claims.Subject, out string? subject))
-                {
-                    await RevokeCurrentAuthenticationAsync("world sign-in did not produce a valid subject");
-                    return SignInResult.Fail;
-                }
-
-                if (!uint.TryParse(subject, out var masterId))
-                {
-                    await RevokeCurrentAuthenticationAsync("world sign-in did not produce a valid subject");
-                    return SignInResult.Fail;
-                }
 
                 (IGameSession? Session, bool Created) sessionRegistration;
                 try
                 {
-                    sessionRegistration = await _gameSessionService.TryAddWorldSession(masterId, context.ConnectionId, cancellationToken);
+                    sessionRegistration = await _gameSessionService.TryAddWorldSession(masterId.Value, context.ConnectionId, cancellationToken);
                 }
                 catch
                 {
@@ -211,7 +200,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     CharacterModel characterModel;
                     try
                     {
-                        var response = await _getCharacterRequestClient.GetResponse<CharacterHydrated, CharacterNotFound>(new HydrateCharacter(masterId),
+                        var response = await _getCharacterRequestClient.GetResponse<CharacterHydrated, CharacterNotFound>(new HydrateCharacter(masterId.Value),
                             cancellationToken);
                         if (response.Is<CharacterNotFound>(out var notFoundResult))
                         {
@@ -246,7 +235,7 @@ namespace Hagalaz.Services.GameWorld.Services
                         return SignInResult.Fail;
                     }
 
-                    _characterPersistenceService.InitializeRevision(masterId, characterModel.SnapshotRevision);
+                    _characterPersistenceService.InitializeRevision(masterId.Value, characterModel.SnapshotRevision);
                     revisionInitialized = true;
 
                     if (!await _characterService.AddAsync(character))
@@ -287,7 +276,7 @@ namespace Hagalaz.Services.GameWorld.Services
                             {
                                 if (await _characterService.RemoveAsync(registeredCharacter!))
                                 {
-                                    _characterPersistenceService.Forget(masterId);
+                                    _characterPersistenceService.Forget(masterId.Value);
                                 }
                                 else
                                 {
@@ -307,9 +296,9 @@ namespace Hagalaz.Services.GameWorld.Services
                         {
                             try
                             {
-                                if (await _characterService.FindByMasterId(masterId) == null)
+                                if (await _characterService.FindByMasterId(masterId.Value) == null)
                                 {
-                                    _characterPersistenceService.Forget(masterId);
+                                    _characterPersistenceService.Forget(masterId.Value);
                                 }
                                 else
                                 {
@@ -510,16 +499,19 @@ namespace Hagalaz.Services.GameWorld.Services
                 return;
             }
 
-            await RevokeIssuedAuthorizationAsync(
+            var revoked = await RevokeIssuedAuthorizationAsync(
                 properties.ClientId,
                 properties.GetClaim<string>(Claims.Subject),
                 properties.AuthorizationId,
                 reason);
-            context.Features.Set<Features_IAuthenticationFeature>(null);
-            context.Features.Set<IConnectionUserFeature>(null);
+            if (revoked)
+            {
+                context.Features.Set<Features_IAuthenticationFeature>(null);
+                context.Features.Set<IConnectionUserFeature>(null);
+            }
         }
 
-        private async Task RevokeIssuedAuthorizationAsync(
+        private async Task<bool> RevokeIssuedAuthorizationAsync(
             string? clientId,
             string? subject,
             string? authorizationId,
@@ -530,9 +522,9 @@ namespace Hagalaz.Services.GameWorld.Services
                 string.IsNullOrWhiteSpace(authorizationId))
             {
                 _logger.LogWarning(
-                    "Cannot revoke the newly issued authorization after {Reason}: client, subject, or authorization id is missing.",
+                    "Cannot revoke the exact authorization after {Reason}: client, subject, or authorization id is missing.",
                     reason);
-                return;
+                return false;
             }
 
             try
@@ -543,19 +535,23 @@ namespace Hagalaz.Services.GameWorld.Services
                 if (!response.Message.Succeeded)
                 {
                     _logger.LogError(
-                        "Failed to revoke newly issued authorization '{AuthorizationId}' after {Reason}: {Error}",
+                        "Failed to revoke exact authorization '{AuthorizationId}' after {Reason}: {Error}",
                         authorizationId,
                         reason,
                         response.Message.Error);
+                    return false;
                 }
+
+                return true;
             }
             catch (Exception exception)
             {
                 _logger.LogError(
                     exception,
-                    "Failed to revoke newly issued authorization '{AuthorizationId}' after {Reason}.",
+                    "Failed to revoke exact authorization '{AuthorizationId}' after {Reason}.",
                     authorizationId,
                     reason);
+                return false;
             }
         }
 
@@ -609,22 +605,11 @@ namespace Hagalaz.Services.GameWorld.Services
                 // unavailable. A later logout/reconnect cleanup can revoke the token again.
                 if (masterId != null && properties is not null && !string.IsNullOrWhiteSpace(properties.ClientId) && !string.IsNullOrWhiteSpace(properties.AuthorizationId))
                 {
-                    try
-                    {
-                        var response = await _revokeTokenRequestClient.GetResponse<RevokeTokenResponseMessage>(
-                            new RevokeTokenRequestMessage(properties.ClientId, masterId.Value.ToString(), properties.AuthorizationId),
-                            cancellationToken);
-                        if (!response.Message.Succeeded)
-                        {
-                            _logger.LogWarning("Failed to revoke token '{error}'", response.Message.Error);
-                        }
-                    }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        _logger.LogWarning(ex,
-                            "Token revocation failed after session cleanup for account '{masterId}'.",
-                            masterId.Value);
-                    }
+                    await RevokeIssuedAuthorizationAsync(
+                        properties.ClientId,
+                        masterId.Value.ToString(),
+                        properties.AuthorizationId,
+                        "sign-out");
                 }
                 else if (masterId != null && properties is not null && !string.IsNullOrWhiteSpace(properties.ClientId))
                 {
