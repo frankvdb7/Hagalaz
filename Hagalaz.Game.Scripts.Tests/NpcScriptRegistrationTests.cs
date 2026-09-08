@@ -48,7 +48,6 @@ public sealed class NpcScriptRegistrationTests
     [TestMethod]
     public async Task MetadataFactory_DeduplicatesTypesAcrossCatalogs()
     {
-        var services = new ServiceCollection();
         var catalog = new NpcScriptTypeCatalog([typeof(MeleeInstructor), typeof(MeleeInstructor)]);
         var factory = new NpcScriptMetaDataFactory([catalog, catalog]);
 

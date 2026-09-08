@@ -66,9 +66,10 @@ public sealed class AuthenticationSignInTests
     {
         var revokeClient = CreateSuccessfulRevokeClient();
         var userInfoClient = Substitute.For<IRequestClient<GetUserInfoRequestMessage>>();
+        var userInfoResponse = CreateResponse(new GetUserInfoResponseMessage { Succeeded = true });
         userInfoClient
             .GetResponse<GetUserInfoResponseMessage>(Arg.Any<GetUserInfoRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
-            .Returns(Task.FromResult(CreateResponse(new GetUserInfoResponseMessage { Succeeded = true })));
+            .Returns(Task.FromResult(userInfoResponse));
         var contextAccessor = CreateContextAccessor();
         var service = CreateAuthenticationService(
             Substitute.For<IGameSessionService>(),
@@ -163,9 +164,12 @@ public sealed class AuthenticationSignInTests
     public async Task SignInLobbyAsync_WhenAuthenticationCommits_RetainsTheExactAuthorizationWithoutCleanup()
     {
         var revokeClient = CreateSuccessfulRevokeClient();
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.AddSession(42, "connection")
+            .Returns(Task.FromResult<(IGameSession Session, bool Created)>((Substitute.For<IGameSession>(), Created: true)));
         var contextAccessor = CreateContextAccessor();
         var service = CreateAuthenticationService(
-            Substitute.For<IGameSessionService>(),
+            gameSessionService,
             contextAccessor: contextAccessor,
             revokeTokenRequestClient: revokeClient);
 
@@ -1049,13 +1053,14 @@ public sealed class AuthenticationSignInTests
     private static IRequestClient<GetUserInfoRequestMessage> CreateUserInfoClient(IDictionary<string, object> claims)
     {
         var client = Substitute.For<IRequestClient<GetUserInfoRequestMessage>>();
+        var userInfoResponse = CreateResponse(new GetUserInfoResponseMessage
+        {
+            Succeeded = true,
+            Claims = claims
+        });
         client
             .GetResponse<GetUserInfoResponseMessage>(Arg.Any<GetUserInfoRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
-            .Returns(Task.FromResult(CreateResponse(new GetUserInfoResponseMessage
-            {
-                Succeeded = true,
-                Claims = claims
-            })));
+            .Returns(Task.FromResult(userInfoResponse));
         return client;
     }
 
