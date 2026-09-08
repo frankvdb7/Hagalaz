@@ -99,48 +99,49 @@ public sealed class GameWorkerServiceTests
     [TestMethod]
     public async Task HostedLoop_DoesNotOverlapTicks()
     {
-        var firstStarted = NewSignal();
-        using var firstRelease = new ManualResetEventSlim();
-        var secondStarted = NewSignal();
-        using var secondRelease = new ManualResetEventSlim();
-        var majorUpdateCalls = 0;
-        var region = Substitute.For<IMapRegion>();
-        region.When(item => item.MajorUpdateTick()).Do(_ =>
+        var firstSnapshotStarted = NewSignal();
+        var releaseFirstSnapshot = new TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondTickStarted = NewSignal();
+        var snapshotCalls = 0;
+        var store = Substitute.For<ICharacterStore>();
+#pragma warning disable CA2012 // NSubstitute consumes the configured ValueTask exactly once.
+        store.GetSnapshotAsync(Arg.Any<CancellationToken>()).Returns(_ =>
         {
-            var call = Interlocked.Increment(ref majorUpdateCalls);
+            var call = Interlocked.Increment(ref snapshotCalls);
             if (call == 1)
             {
-                firstStarted.TrySetResult();
-                firstRelease.Wait();
-                return;
+                firstSnapshotStarted.TrySetResult();
+                return new ValueTask<IReadOnlyDictionary<int, ICharacter>>(releaseFirstSnapshot.Task);
             }
 
-            secondStarted.TrySetResult();
-            secondRelease.Wait();
+            secondTickStarted.TrySetResult();
+            return new ValueTask<IReadOnlyDictionary<int, ICharacter>>(EmptyCharacters);
         });
+#pragma warning restore CA2012
 
-        using var worker = CreateWorker(region, TimeSpan.FromMilliseconds(10)).Worker;
+        var region = Substitute.For<IMapRegion>();
+        using var worker = CreateWorker(new[] { region }, TimeSpan.FromMilliseconds(10), store).Worker;
         var startAttempted = false;
         try
         {
             startAttempted = true;
             await worker.StartAsync(CancellationToken.None);
-            await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await firstSnapshotStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
             // Five configured intervals give a concurrently dispatched tick a bounded opportunity to start.
             await Task.Delay(TimeSpan.FromMilliseconds(50));
 
-            Assert.AreEqual(1, Volatile.Read(ref majorUpdateCalls));
-            Assert.IsFalse(secondStarted.Task.IsCompleted);
+            Assert.AreEqual(1, Volatile.Read(ref snapshotCalls));
+            Assert.IsFalse(secondTickStarted.Task.IsCompleted);
 
-            firstRelease.Set();
-            await secondStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            Assert.AreEqual(2, Volatile.Read(ref majorUpdateCalls));
+            releaseFirstSnapshot.TrySetResult(EmptyCharacters);
+            await secondTickStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.AreEqual(2, Volatile.Read(ref snapshotCalls));
         }
         finally
         {
-            firstRelease.Set();
-            secondRelease.Set();
+            releaseFirstSnapshot.TrySetResult(EmptyCharacters);
             if (startAttempted && worker.ExecuteTask is { IsCompleted: false })
             {
                 await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(1));
