@@ -1,4 +1,5 @@
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Factories;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
