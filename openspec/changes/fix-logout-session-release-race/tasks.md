@@ -18,6 +18,9 @@
       revoke the exact issued authorization, and avoid session creation.
 - [x] 2.7 Retain authentication features when exact cleanup fails, and route
       sign-out through the same non-cancelable exact-revocation helper.
+- [x] 2.8 Retain pending exact authorization identity until pre-commit cleanup
+      succeeds or authentication commits, including disconnect retry.
+- [x] 2.9 Publish lobby sign-out only for an actually owned non-world session.
 
 ## 3. Regression coverage and validation
 

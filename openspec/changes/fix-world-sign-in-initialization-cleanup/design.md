@@ -25,3 +25,12 @@ cleanup occur through one lifecycle path.
 - Relying on the existing disconnect cleanup is intentional: aborting the
   connection invokes the established lifecycle owner and avoids two competing
   cleanup paths.
+
+## Failed world sign-in cleanup
+
+The sign-in attempt destroys a created character only when it was never
+registered or `RemoveAsync` successfully returned ownership to the attempt. A
+failed or exceptional removal retains the character for the existing recovery
+path. Character, persistence, session, and local-session cleanup runs before
+the exact remote authorization revoke, and each local stage logs its own
+failure so later stages still run.

@@ -3,5 +3,7 @@
       original exception.
 - [x] 2. Add success and failure regression tests for the world sign-in
       consumer.
+- [x] 2.1 Add regression coverage for failed world sign-in character ownership
+      and release local ownership before exact remote authorization cleanup.
 - [ ] 3. Run focused tests, the affected build, strict OpenSpec validation, and
       repeat the manual client world-entry flow.

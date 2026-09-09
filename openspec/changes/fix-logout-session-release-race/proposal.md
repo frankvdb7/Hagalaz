@@ -11,6 +11,10 @@ After a client disconnects, GameWorld currently waits for token revocation befor
 - Treat a newly created authorization as an owned resource until token issuance and
   GameWorld authentication commit; clean up that exact authorization on every
   pre-commit failure independently of request cancellation.
+- Keep the exact pending authorization identity available on the connection
+  when pre-commit revocation fails, without treating that connection as
+  authenticated.
+- Publish lobby sign-out only for an actually owned non-world session.
 - Validate the authenticated subject with `uint.TryParse` before creating a
   GameWorld session, and revoke the exact newly issued authorization when the
   subject is absent or malformed.
@@ -31,6 +35,11 @@ After a client disconnects, GameWorld currently waits for token revocation befor
 - An authorization created for a failed sign-in is revoked/deleted by its exact
   authorization ID, and a failed GameWorld post-token validation cannot revoke a
   different established session.
+- A failed pre-commit revoke retains its exact cleanup identity for disconnect
+  retry, while a successful authentication transfers ownership to the normal
+  authentication feature.
+- A connection without an owned lobby session never publishes lobby sign-out,
+  including when another lobby session owns the same account.
 - Missing or malformed UserInfo subjects fail lobby/world sign-in without
   creating a session and revoke only the newly issued authorization.
 - Focused GameWorld and Authorization tests pass, and strict OpenSpec validation passes.

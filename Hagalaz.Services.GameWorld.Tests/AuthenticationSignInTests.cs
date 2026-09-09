@@ -58,6 +58,34 @@ public sealed class AuthenticationSignInTests
             Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
             Arg.Any<RequestTimeout>());
         Assert.IsNull(contextAccessor.Context.Features.Get<IAuthenticationFeature>());
+        Assert.IsNull(contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInLobbyAsync_WhenUserInfoThrowsAndRevocationFails_RetainsPendingAuthorizationCleanup()
+    {
+        var revokeClient = CreateFailingRevokeClient(new InvalidOperationException("authorization service unavailable"));
+        var userInfoClient = Substitute.For<IRequestClient<GetUserInfoRequestMessage>>();
+        userInfoClient
+            .GetResponse<GetUserInfoResponseMessage>(Arg.Any<GetUserInfoRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(Task.FromException<Response<GetUserInfoResponseMessage>>(new InvalidOperationException("userinfo unavailable")));
+        var contextAccessor = CreateContextAccessor();
+        var service = CreateAuthenticationService(
+            Substitute.For<IGameSessionService>(),
+            contextAccessor: contextAccessor,
+            userInfoRequestClient: userInfoClient,
+            revokeTokenRequestClient: revokeClient);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => service.SignInLobbyAsync(CreateSignInRequest()).AsTask());
+
+        var pending = contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>();
+        Assert.IsNotNull(pending);
+        Assert.AreEqual(Constants.OAuth.LobbyClientId, pending.ClientId);
+        Assert.AreEqual("42", pending.Subject);
+        Assert.AreEqual("authorization-id", pending.AuthorizationId);
+        Assert.IsNull(contextAccessor.Context.Features.Get<IAuthenticationFeature>());
     }
 
     [TestMethod]
@@ -80,6 +108,31 @@ public sealed class AuthenticationSignInTests
         var result = await service.SignInLobbyAsync(CreateSignInRequest());
 
         Assert.IsFalse(result.Succeeded);
+        await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
+            Arg.Is<RevokeTokenRequestMessage>(message => message.AuthorizationId == "authorization-id"),
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
+        Assert.IsNull(contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInLobbyAsync_WhenUserInfoClaimsAreNullAndRevocationFails_RetainsPendingAuthorizationCleanup()
+    {
+        var revokeClient = CreateFailingRevokeClient(new InvalidOperationException("authorization service unavailable"));
+        var contextAccessor = CreateContextAccessor();
+        var service = CreateAuthenticationService(
+            Substitute.For<IGameSessionService>(),
+            contextAccessor: contextAccessor,
+            userInfoRequestClient: CreateUserInfoClient(null),
+            revokeTokenRequestClient: revokeClient);
+
+        var result = await service.SignInLobbyAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual(
+            "authorization-id",
+            contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>()!.AuthorizationId);
         await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
             Arg.Is<RevokeTokenRequestMessage>(message => message.AuthorizationId == "authorization-id"),
             Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
@@ -137,6 +190,50 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task SignInLobbyAsync_WhenIssuedSubjectIsMalformedAndRevocationFails_RetainsIssuedSubjectInPendingCleanup()
+    {
+        var revokeClient = CreateFailingRevokeClient(new InvalidOperationException("authorization service unavailable"));
+        var contextAccessor = CreateContextAccessor();
+        var principalFactory = Substitute.For<IClaimsPrincipalFactory>();
+        principalFactory.Create(Arg.Any<IDictionary<string, object>>())
+            .Returns(new ClaimsPrincipal(new ClaimsIdentity()));
+        var service = CreateAuthenticationService(
+            Substitute.For<IGameSessionService>(),
+            contextAccessor: contextAccessor,
+            userInfoRequestClient: CreateUserInfoClient(new Dictionary<string, object>
+            {
+                [Claims.Subject] = "not-a-number"
+            }),
+            revokeTokenRequestClient: revokeClient,
+            claimsPrincipalFactory: principalFactory,
+            signInResponseMessage: new SignInUserResponseMessage
+            {
+                Succeeded = true,
+                IdToken = "id-token",
+                AccessToken = "access-token",
+                Scope = "openid",
+                ExpireDate = DateTimeOffset.UtcNow.AddMinutes(5),
+                TokenType = "Bearer",
+                AuthorizationId = "authorization-b",
+                Subject = "subject-b"
+            });
+
+        var result = await service.SignInLobbyAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        var pending = contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>();
+        Assert.IsNotNull(pending);
+        Assert.AreEqual("subject-b", pending.Subject);
+        Assert.AreEqual("authorization-b", pending.AuthorizationId);
+        await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
+            Arg.Is<RevokeTokenRequestMessage>(message =>
+                message.Subject == "subject-b" && message.AuthorizationId == "authorization-b"),
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignInLobbyAsync_WhenPrincipalIsUnauthenticated_RevokesTheIssuedAuthorization()
     {
         var revokeClient = CreateSuccessfulRevokeClient();
@@ -161,12 +258,129 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task SignInLobbyAsync_WhenPrincipalIsUnauthenticatedAndRevocationFails_RetainsPendingAuthorizationCleanup()
+    {
+        var revokeClient = CreateFailingRevokeClient(new InvalidOperationException("authorization service unavailable"));
+        var contextAccessor = CreateContextAccessor();
+        var principalFactory = Substitute.For<IClaimsPrincipalFactory>();
+        principalFactory.Create(Arg.Any<IDictionary<string, object>>())
+            .Returns(new ClaimsPrincipal(new ClaimsIdentity()));
+        var service = CreateAuthenticationService(
+            Substitute.For<IGameSessionService>(),
+            contextAccessor: contextAccessor,
+            revokeTokenRequestClient: revokeClient,
+            claimsPrincipalFactory: principalFactory);
+
+        var result = await service.SignInLobbyAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual(
+            "authorization-id",
+            contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>()!.AuthorizationId);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInLobbyAsync_WhenAuthorizationBValidationFails_DoesNotRevokeCommittedAuthorizationA()
+    {
+        var revokeClient = CreateFailingRevokeClient(new InvalidOperationException("authorization service unavailable"));
+        var contextAccessor = CreateContextAccessor();
+        contextAccessor.Context.Features.Set<IAuthenticationFeature>(new AuthenticationFeature
+        {
+            AuthenticationProperties = new AuthenticationProperties
+            {
+                ClientId = "client-a",
+                AuthorizationId = "authorization-a",
+                Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
+            }
+        });
+        var principalFactory = Substitute.For<IClaimsPrincipalFactory>();
+        principalFactory.Create(Arg.Any<IDictionary<string, object>>())
+            .Returns(new ClaimsPrincipal(new ClaimsIdentity()));
+        var service = CreateAuthenticationService(
+            Substitute.For<IGameSessionService>(),
+            contextAccessor: contextAccessor,
+            revokeTokenRequestClient: revokeClient,
+            claimsPrincipalFactory: principalFactory,
+            signInResponseMessage: new SignInUserResponseMessage
+            {
+                Succeeded = true,
+                IdToken = "id-token",
+                AccessToken = "access-token",
+                Scope = "openid",
+                ExpireDate = DateTimeOffset.UtcNow.AddMinutes(5),
+                TokenType = "Bearer",
+                AuthorizationId = "authorization-b",
+                Subject = "42"
+            });
+
+        var result = await service.SignInLobbyAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
+            Arg.Is<RevokeTokenRequestMessage>(message =>
+                message.ClientId == Constants.OAuth.LobbyClientId &&
+                message.Subject == "42" &&
+                message.AuthorizationId == "authorization-b"),
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
+        Assert.AreEqual(
+            "authorization-a",
+            contextAccessor.Context.Features.Get<IAuthenticationFeature>()!.AuthenticationProperties.AuthorizationId);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignOutAsync_AfterPendingAuthorizationRevocationFailure_RetriesExactAuthorization()
+    {
+        var contextAccessor = CreateContextAccessor();
+        var revokeFailure = new InvalidOperationException("authorization service unavailable");
+        var successfulRevokeResponse = CreateResponse(new RevokeTokenResponseMessage { Succeeded = true });
+        var revokeClient = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
+        var responses = new Queue<Task<Response<RevokeTokenResponseMessage>>>(new[]
+        {
+            Task.FromException<Response<RevokeTokenResponseMessage>>(revokeFailure),
+            Task.FromResult(successfulRevokeResponse)
+        });
+        revokeClient
+            .GetResponse<RevokeTokenResponseMessage>(
+                Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(_ => responses.Dequeue());
+        var userInfoClient = Substitute.For<IRequestClient<GetUserInfoRequestMessage>>();
+        userInfoClient
+            .GetResponse<GetUserInfoResponseMessage>(Arg.Any<GetUserInfoRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(Task.FromException<Response<GetUserInfoResponseMessage>>(new InvalidOperationException("userinfo unavailable")));
+        var service = CreateAuthenticationService(
+            Substitute.For<IGameSessionService>(),
+            contextAccessor: contextAccessor,
+            userInfoRequestClient: userInfoClient,
+            revokeTokenRequestClient: revokeClient);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => service.SignInLobbyAsync(CreateSignInRequest()).AsTask());
+        Assert.IsNotNull(contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>());
+
+        await service.SignOutAsync();
+
+        await revokeClient.Received(2).GetResponse<RevokeTokenResponseMessage>(
+            Arg.Is<RevokeTokenRequestMessage>(message =>
+                message.ClientId == Constants.OAuth.LobbyClientId &&
+                message.Subject == "42" &&
+                message.AuthorizationId == "authorization-id"),
+            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+            Arg.Any<RequestTimeout>());
+        Assert.IsNull(contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignInLobbyAsync_WhenAuthenticationCommits_RetainsTheExactAuthorizationWithoutCleanup()
     {
         var revokeClient = CreateSuccessfulRevokeClient();
         var gameSessionService = Substitute.For<IGameSessionService>();
+        var session = Substitute.For<IGameSession>();
         gameSessionService.AddSession(42, "connection")
-            .Returns(Task.FromResult<(IGameSession Session, bool Created)>((Substitute.For<IGameSession>(), Created: true)));
+            .Returns(Task.FromResult<(IGameSession Session, bool Created)>((session, Created: true)));
         var contextAccessor = CreateContextAccessor();
         var service = CreateAuthenticationService(
             gameSessionService,
@@ -179,6 +393,7 @@ public sealed class AuthenticationSignInTests
         Assert.AreEqual(
             "authorization-id",
             contextAccessor.Context.Features.Get<IAuthenticationFeature>()!.AuthenticationProperties.AuthorizationId);
+        Assert.IsNull(contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>());
         await revokeClient.DidNotReceive().GetResponse<RevokeTokenResponseMessage>(
             Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>());
     }
@@ -442,6 +657,59 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
+    public async Task SignInWorldAsync_WhenCharacterHydrationFails_DestroysCreatedCharacter()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        gameSessionService.TryAddWorldSession(42, "connection")
+            .Returns(Task.FromResult<(IGameSession? Session, bool Created)>((session, Created: true)));
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+        var character = Substitute.For<ICharacter>();
+        var hydrationService = Substitute.For<ICharacterHydrationService>();
+        hydrationService.HydrateAsync(character, Arg.Any<CharacterModel>()).Returns(Task.FromResult(false));
+
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            characterHydrationService: hydrationService,
+            characterFactory: CreateCharacterFactory(character));
+
+        var result = await service.SignInWorldAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        character.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInWorldAsync_WhenCharacterHydrationThrows_DestroysCreatedCharacter()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        gameSessionService.TryAddWorldSession(42, "connection")
+            .Returns(Task.FromResult<(IGameSession? Session, bool Created)>((session, Created: true)));
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+        var character = Substitute.For<ICharacter>();
+        var hydrationFailure = new InvalidOperationException("hydration failed");
+        var hydrationService = Substitute.For<ICharacterHydrationService>();
+        hydrationService.HydrateAsync(character, Arg.Any<CharacterModel>())
+            .Returns(Task.FromException<bool>(hydrationFailure));
+
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            characterHydrationService: hydrationService,
+            characterFactory: CreateCharacterFactory(character));
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => service.SignInWorldAsync(CreateSignInRequest()).AsTask());
+
+        Assert.AreSame(hydrationFailure, exception);
+        character.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
     public async Task SignInWorldAsync_WhenCharacterRegistrationFails_RemovesSession()
     {
         var gameSessionService = Substitute.For<IGameSessionService>();
@@ -452,18 +720,21 @@ public sealed class AuthenticationSignInTests
 
         var characterService = new TestCharacterService(addResult: false);
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        var character = Substitute.For<ICharacter>();
 
         var service = CreateAuthenticationService(
             gameSessionService,
             characterService: characterService,
             characterPersistenceService: persistenceService,
-            snapshotRevision: 27);
+            snapshotRevision: 27,
+            characterFactory: CreateCharacterFactory(character));
 
         var result = await service.SignInWorldAsync(CreateSignInRequest());
 
         Assert.IsFalse(result.Succeeded);
         await gameSessionService.Received(1).RemoveSession(session);
         persistenceService.Received(1).Forget(42u);
+        character.Received(1).Destroy();
     }
 
     [TestMethod]
@@ -503,16 +774,115 @@ public sealed class AuthenticationSignInTests
         gameSessionService.CommitWorldSession(session).Returns(Task.FromResult(false));
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
 
+        var character = Substitute.For<ICharacter>();
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         var service = CreateAuthenticationService(
             gameSessionService,
             characterPersistenceService: persistenceService,
-            snapshotRevision: 27);
+            snapshotRevision: 27,
+            characterFactory: CreateCharacterFactory(character));
 
         var result = await service.SignInWorldAsync(CreateSignInRequest());
 
         Assert.IsFalse(result.Succeeded);
         persistenceService.DidNotReceive().Forget(Arg.Any<uint>());
+        character.DidNotReceive().Destroy();
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInWorldAsync_WhenWorldSessionCommitFailsAndCharacterRemovalThrows_DoesNotDestroyCharacter()
+    {
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        gameSessionService.TryAddWorldSession(42, "connection")
+            .Returns(Task.FromResult<(IGameSession? Session, bool Created)>((session, Created: true)));
+        gameSessionService.CommitWorldSession(session).Returns(Task.FromResult(false));
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+
+        var character = Substitute.For<ICharacter>();
+        var characterService = new TestCharacterService(
+            addResult: true,
+            removeFailure: new InvalidOperationException("character removal failed"));
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            characterService,
+            snapshotRevision: 27,
+            characterFactory: CreateCharacterFactory(character));
+
+        var result = await service.SignInWorldAsync(CreateSignInRequest());
+
+        Assert.IsFalse(result.Succeeded);
+        character.DidNotReceive().Destroy();
+        await gameSessionService.Received(1).RemoveSession(session);
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInWorldAsync_WhenInitializationFails_ReleasesLocalOwnershipBeforeRemoteRevocation()
+    {
+        var order = new List<string>();
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        gameSessionService.TryAddWorldSession(42, "connection")
+            .Returns(Task.FromResult<(IGameSession? Session, bool Created)>((session, Created: true)));
+        gameSessionService.CommitWorldSession(session).Returns(Task.FromResult(false));
+        gameSessionService.RemoveSession(session)
+            .Returns(_ =>
+            {
+                order.Add("remove-session");
+                return Task.FromResult(true);
+            });
+        gameSessionService.RemoveLocalSession(session)
+            .Returns(_ =>
+            {
+                order.Add("remove-local-session");
+                return Task.FromResult(true);
+            });
+
+        var character = Substitute.For<ICharacter>();
+        character.When(item => item.Destroy()).Do(_ => order.Add("destroy"));
+        var characterService = new TestCharacterService(
+            addResult: true,
+            removeResult: true,
+            onRemove: () => order.Add("remove-character"));
+        var persistenceService = Substitute.For<ICharacterPersistenceService>();
+        persistenceService.When(item => item.Forget(42u)).Do(_ => order.Add("forget-persistence"));
+
+        var revokeStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completeRevocation = new TaskCompletionSource<Response<RevokeTokenResponseMessage>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var revokeResponse = CreateResponse(new RevokeTokenResponseMessage { Succeeded = true });
+        var revokeClient = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
+        revokeClient
+            .GetResponse<RevokeTokenResponseMessage>(
+                Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(_ =>
+            {
+                order.Add("revoke");
+                revokeStarted.TrySetResult(true);
+                return completeRevocation.Task;
+            });
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            characterService,
+            characterPersistenceService: persistenceService,
+            revokeTokenRequestClient: revokeClient,
+            characterFactory: CreateCharacterFactory(character));
+
+        var signInTask = service.SignInWorldAsync(CreateSignInRequest()).AsTask();
+        await revokeStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        CollectionAssert.AreEqual(
+            new[] { "remove-character", "forget-persistence", "destroy", "remove-session", "remove-local-session", "revoke" },
+            order);
+        Assert.IsFalse(signInTask.IsCompleted);
+
+        completeRevocation.TrySetResult(revokeResponse);
+        var result = await signInTask;
+
+        Assert.IsFalse(result.Succeeded);
     }
 
     [TestMethod]
@@ -527,17 +897,20 @@ public sealed class AuthenticationSignInTests
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
 
         var characterService = new TestCharacterService(addResult: true, removeResult: true);
+        var character = Substitute.For<ICharacter>();
         var persistenceService = Substitute.For<ICharacterPersistenceService>();
         var service = CreateAuthenticationService(
             gameSessionService,
             characterService,
             characterPersistenceService: persistenceService,
-            snapshotRevision: 27);
+            snapshotRevision: 27,
+            characterFactory: CreateCharacterFactory(character));
 
         var result = await service.SignInWorldAsync(CreateSignInRequest());
 
         Assert.IsFalse(result.Succeeded);
         persistenceService.Received(1).Forget(42u);
+        character.Received(1).Destroy();
     }
 
     [TestMethod]
@@ -913,6 +1286,7 @@ public sealed class AuthenticationSignInTests
         IRequestClient<GetUserInfoRequestMessage>? userInfoRequestClient = null,
         IRequestClient<RevokeTokenRequestMessage>? revokeTokenRequestClient = null,
         IClaimsPrincipalFactory? claimsPrincipalFactory = null,
+        ICharacterFactory? characterFactory = null,
         SignInUserResponseMessage? signInResponseMessage = null)
     {
         var mapper = Substitute.For<IMapper>();
@@ -979,8 +1353,12 @@ public sealed class AuthenticationSignInTests
                 .Returns(new ClaimsPrincipal(new ClaimsIdentity("test")));
         }
 
-        var characterFactory = Substitute.For<ICharacterFactory>();
-        characterFactory.Create(Arg.Any<IGameSession>(), Arg.Any<IGameClient>()).Returns(Substitute.For<ICharacter>());
+        var characterFactorySubstitute = characterFactory ?? Substitute.For<ICharacterFactory>();
+        if (characterFactory is null)
+        {
+            var defaultCharacter = Substitute.For<ICharacter>();
+            characterFactorySubstitute.Create(Arg.Any<IGameSession>(), Arg.Any<IGameClient>()).Returns(defaultCharacter);
+        }
 
         var characterServiceSubstitute = characterService ?? new TestCharacterService(addResult: true);
 
@@ -997,7 +1375,7 @@ public sealed class AuthenticationSignInTests
             NullLogger<AuthenticationService>.Instance,
             mapper,
             characterServiceSubstitute,
-            characterFactory,
+            characterFactorySubstitute,
             characterHydrationServiceSubstitute,
             characterPersistenceService ?? Substitute.For<ICharacterPersistenceService>(),
             Substitute.For<ICharacterLogoutService>(),
@@ -1020,6 +1398,13 @@ public sealed class AuthenticationSignInTests
         Password = "password",
         GameClient = Substitute.For<IGameClient>()
     };
+
+    private static ICharacterFactory CreateCharacterFactory(ICharacter character)
+    {
+        var factory = Substitute.For<ICharacterFactory>();
+        factory.Create(Arg.Any<IGameSession>(), Arg.Any<IGameClient>()).Returns(character);
+        return factory;
+    }
 
     private static IRequestClient<RevokeTokenRequestMessage> CreateSuccessfulRevokeClient()
     {
@@ -1050,7 +1435,7 @@ public sealed class AuthenticationSignInTests
         return client;
     }
 
-    private static IRequestClient<GetUserInfoRequestMessage> CreateUserInfoClient(IDictionary<string, object> claims)
+    private static IRequestClient<GetUserInfoRequestMessage> CreateUserInfoClient(IDictionary<string, object>? claims)
     {
         var client = Substitute.For<IRequestClient<GetUserInfoRequestMessage>>();
         var userInfoResponse = CreateResponse(new GetUserInfoResponseMessage
@@ -1130,13 +1515,23 @@ public sealed class AuthenticationSignInTests
         private readonly bool _addResult;
         private readonly bool _removeResult;
         private readonly Action? _onAdd;
+        private readonly Action? _onRemove;
+        private readonly Exception? _removeFailure;
         private readonly ICharacter? _existingCharacter;
 
-        public TestCharacterService(bool addResult, bool removeResult = false, Action? onAdd = null, ICharacter? existingCharacter = null)
+        public TestCharacterService(
+            bool addResult,
+            bool removeResult = false,
+            Action? onAdd = null,
+            ICharacter? existingCharacter = null,
+            Action? onRemove = null,
+            Exception? removeFailure = null)
         {
             _addResult = addResult;
             _removeResult = removeResult;
             _onAdd = onAdd;
+            _onRemove = onRemove;
+            _removeFailure = removeFailure;
             _existingCharacter = existingCharacter;
         }
 
@@ -1149,7 +1544,16 @@ public sealed class AuthenticationSignInTests
             return ValueTask.FromResult(_addResult);
         }
 
-        public ValueTask<bool> RemoveAsync(ICharacter character) => ValueTask.FromResult(_removeResult);
+        public ValueTask<bool> RemoveAsync(ICharacter character)
+        {
+            _onRemove?.Invoke();
+            if (_removeFailure is not null)
+            {
+                return ValueTask.FromException<bool>(_removeFailure);
+            }
+
+            return ValueTask.FromResult(_removeResult);
+        }
 
         public ValueTask<int> CountAsync() => ValueTask.FromResult(0);
 

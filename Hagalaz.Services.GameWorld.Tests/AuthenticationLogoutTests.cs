@@ -14,6 +14,7 @@ using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Hubs;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
+using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -277,6 +278,114 @@ public sealed class AuthenticationLogoutTests
     }
 
     [TestMethod]
+    public async Task SignOutAsync_WithOwnedLobbySession_PublishesLobbySignOut()
+    {
+        var session = Substitute.For<IGameSession>();
+        session.MasterId.Returns(42u);
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
+        var mediator = Substitute.For<IGameMediator>();
+        var service = CreateAuthenticationService(
+            Substitute.For<ICharacterService>(),
+            Substitute.For<ICharacterPersistenceService>(),
+            gameSessionService,
+            CreateContextAccessor(
+                character: null,
+                session: session,
+                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                {
+                    ClientId = "lobby-client",
+                    AuthorizationId = "authorization-id",
+                    Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
+                }),
+            mediator: mediator,
+            revokeTokenRequestClient: CreateSuccessfulRevokeClient());
+
+        await service.SignOutAsync();
+
+        mediator.Received(1).Publish(Arg.Is<LobbySignOutCommand>(message => message.MasterId == 42));
+    }
+
+    [TestMethod]
+    public async Task SignOutAsync_WhenFailedLobbySignInRetainsAuthenticationWithoutSession_DoesNotPublishLobbySignOut()
+    {
+        var mediator = Substitute.For<IGameMediator>();
+        var service = CreateAuthenticationService(
+            Substitute.For<ICharacterService>(),
+            Substitute.For<ICharacterPersistenceService>(),
+            Substitute.For<IGameSessionService>(),
+            CreateContextAccessor(
+                character: null,
+                session: null,
+                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                {
+                    ClientId = "lobby-client",
+                    AuthorizationId = "authorization-id",
+                    Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
+                }),
+            mediator: mediator,
+            revokeTokenRequestClient: CreateSuccessfulRevokeClient());
+
+        await service.SignOutAsync();
+
+        mediator.DidNotReceive().Publish(Arg.Any<LobbySignOutCommand>());
+    }
+
+    [TestMethod]
+    public async Task SignOutAsync_WhenFailedWorldSignInRetainsAuthenticationWithoutSession_DoesNotPublishLobbySignOut()
+    {
+        var mediator = Substitute.For<IGameMediator>();
+        var service = CreateAuthenticationService(
+            Substitute.For<ICharacterService>(),
+            Substitute.For<ICharacterPersistenceService>(),
+            Substitute.For<IGameSessionService>(),
+            CreateContextAccessor(
+                character: null,
+                session: null,
+                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                {
+                    ClientId = "world-client",
+                    AuthorizationId = "authorization-id",
+                    Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
+                }),
+            mediator: mediator,
+            revokeTokenRequestClient: CreateSuccessfulRevokeClient());
+
+        await service.SignOutAsync();
+
+        mediator.DidNotReceive().Publish(Arg.Any<LobbySignOutCommand>());
+    }
+
+    [TestMethod]
+    public async Task SignOutAsync_WhenFailedWorldSignInHasAnotherLobbySession_DoesNotPublishLobbySignOut()
+    {
+        var existingLobbySession = Substitute.For<IGameSession>();
+        existingLobbySession.MasterId.Returns(42u);
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.FindByMasterId(42u).Returns(existingLobbySession);
+        var mediator = Substitute.For<IGameMediator>();
+        var service = CreateAuthenticationService(
+            Substitute.For<ICharacterService>(),
+            Substitute.For<ICharacterPersistenceService>(),
+            gameSessionService,
+            CreateContextAccessor(
+                character: null,
+                session: null,
+                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                {
+                    ClientId = "world-client",
+                    AuthorizationId = "authorization-id",
+                    Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
+                }),
+            mediator: mediator,
+            revokeTokenRequestClient: CreateSuccessfulRevokeClient());
+
+        await service.SignOutAsync();
+
+        mediator.DidNotReceive().Publish(Arg.Any<LobbySignOutCommand>());
+    }
+
+    [TestMethod]
     [Timeout(5000)]
     public async Task OnDisconnectedAsync_WhenSignOutFails_DoesNotDestroyRegisteredCharacter()
     {
@@ -338,8 +447,8 @@ public sealed class AuthenticationLogoutTests
             new ResiliencePipelineBuilder().Build());
 
     private static IRaidoCallerContextAccessor CreateContextAccessor(
-        ICharacter character,
-        IGameSession session,
+        ICharacter? character,
+        IGameSession? session,
         Hagalaz.Services.GameWorld.Features.AuthenticationProperties? authenticationProperties = null)
     {
         var accessor = Substitute.For<IRaidoCallerContextAccessor>();
@@ -349,13 +458,16 @@ public sealed class AuthenticationLogoutTests
     }
 
     private static RaidoCallerContext CreateContext(
-        ICharacter character,
+        ICharacter? character,
         IGameSession? session,
         Hagalaz.Services.GameWorld.Features.AuthenticationProperties? authenticationProperties = null)
     {
         var context = Substitute.For<RaidoCallerContext>();
         var features = new FeatureCollection();
-        features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
+        if (character is not null)
+        {
+            features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
+        }
         if (authenticationProperties != null)
         {
             features.Set<Hagalaz.Services.GameWorld.Features.IAuthenticationFeature>(new Hagalaz.Services.GameWorld.Features.AuthenticationFeature
@@ -371,6 +483,20 @@ public sealed class AuthenticationLogoutTests
 
         context.Features.Returns(features);
         return context;
+    }
+
+    private static IRequestClient<RevokeTokenRequestMessage> CreateSuccessfulRevokeClient()
+    {
+        var response = Substitute.For<Response<RevokeTokenResponseMessage>>();
+        var message = new RevokeTokenResponseMessage { Succeeded = true };
+        response.Message.Returns(message);
+        ((Response)response).Message.Returns(message);
+        var client = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
+        client
+            .GetResponse<RevokeTokenResponseMessage>(
+                Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
+            .Returns(Task.FromResult(response));
+        return client;
     }
 
     private static void SetContext(RaidoHub hub, RaidoCallerContext context) =>

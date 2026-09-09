@@ -10,6 +10,11 @@ normal disconnect/sign-out owner has not yet been invoked.
 - Abort the connection when post-authentication world initialization fails so
   the normal disconnect/sign-out owner cleans up the character, session, and
   world presence.
+- Destroy a character created by a failed world sign-in when it was never
+  registered or was successfully removed during rollback; retain it when
+  store removal fails.
+- Release local world ownership before attempting remote authorization cleanup
+  so authorization latency cannot retain a failed sign-in's session claim.
 - Preserve the original initialization exception for mediator error handling.
 - Add regression coverage for failed cleanup and successful one-time startup.
 
@@ -24,6 +29,9 @@ authentication, region membership validation, or the reconnect protocol.
 - A failure after world authentication aborts the connection and delegates
   character, region, distributed/local session, persistence, and world-sign-out
   cleanup to the normal disconnect/sign-out owner.
+- A failed world sign-in destroys only a character whose ownership has returned
+  to the sign-in attempt and releases local session ownership before exact
+  authorization cleanup.
 - The initialization failure remains observable to the mediator.
 - Successful world initialization still runs once and publishes contacts and
   world presence.

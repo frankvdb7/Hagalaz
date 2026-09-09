@@ -15,6 +15,7 @@ using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Hagalaz.Services.GameWorld.Services.Model;
+using Hagalaz.Services.GameWorld.Model;
 using MassTransit;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.Extensions.DependencyInjection;
@@ -268,31 +269,60 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     if (!signInSucceeded && sessionRegistration.Created)
                     {
-                        await RevokeCurrentAuthenticationAsync("world sign-in initialization failed");
-
-                        if (characterRegistered)
+                        if (registeredCharacter is not null)
                         {
-                            try
+                            if (characterRegistered)
                             {
-                                if (await _characterService.RemoveAsync(registeredCharacter!))
+                                try
                                 {
-                                    _characterPersistenceService.Forget(masterId.Value);
+                                    if (await _characterService.RemoveAsync(registeredCharacter))
+                                    {
+                                        try
+                                        {
+                                            _characterPersistenceService.Forget(masterId.Value);
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _logger.LogError(ex, "Failed to forget character persistence state after world sign-in failed");
+                                        }
+
+                                        try
+                                        {
+                                            registeredCharacter.Destroy();
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _logger.LogError(ex, "Failed to destroy character after world sign-in failed");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
+                                    }
                                 }
-                                else
+                                catch (OperationCanceledException ex)
                                 {
-                                    _logger.LogWarning("Character '{MasterId}' removal returned false after world sign-in failed; retaining persistence state for recovery", masterId);
+                                    _logger.LogError(ex, "Character removal was canceled after world sign-in failed");
+                                }
+                                catch (Exception ex) when (ex is not OperationCanceledException)
+                                {
+                                    _logger.LogError(ex, "Failed to remove character after world sign-in failed");
                                 }
                             }
-                            catch (OperationCanceledException ex)
+                            else
                             {
-                                _logger.LogError(ex, "Character removal was canceled after world sign-in failed");
-                            }
-                            catch (Exception ex) when (ex is not OperationCanceledException)
-                            {
-                                _logger.LogError(ex, "Failed to remove character after world sign-in failed");
+                                try
+                                {
+                                    registeredCharacter.Destroy();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "Failed to destroy unregistered character after world sign-in failed");
+                                }
                             }
                         }
-                        else if (revisionInitialized)
+
+                        if (!characterRegistered && revisionInitialized)
                         {
                             try
                             {
@@ -331,8 +361,17 @@ namespace Hagalaz.Services.GameWorld.Services
                         }
                         finally
                         {
-                            await _gameSessionService.RemoveLocalSession(sessionRegistration.Session);
+                            try
+                            {
+                                await _gameSessionService.RemoveLocalSession(sessionRegistration.Session);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to remove local game session '{connectionId}' after world sign-in failed", session.ConnectionId);
+                            }
                         }
+
+                        await RevokeCurrentAuthenticationAsync("world sign-in initialization failed");
                     }
                 }
             });
@@ -408,6 +447,10 @@ namespace Hagalaz.Services.GameWorld.Services
             var signInMessage = signInResponse.Message;
             if (signInMessage.Succeeded)
             {
+                context.Features.Set<PendingAuthorizationCleanup>(new PendingAuthorizationCleanup(
+                    clientId,
+                    signInMessage.Subject,
+                    signInMessage.AuthorizationId));
                 var authenticationCommitted = false;
                 try
                 {
@@ -450,6 +493,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     };
                     context.Features.Set<Features_IAuthenticationFeature>(authenticationFeature);
                     context.Features.Set<IConnectionUserFeature>(authenticationFeature);
+                    context.Features.Set<PendingAuthorizationCleanup>(null);
                     authenticationCommitted = true;
                     return SignInResult.Success;
                 }
@@ -457,11 +501,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     if (!authenticationCommitted)
                     {
-                        await RevokeIssuedAuthorizationAsync(
-                            clientId,
-                            signInMessage.Subject,
-                            signInMessage.AuthorizationId,
-                            "post-issuance authentication validation failed");
+                        await RevokePendingAuthorizationAsync("post-issuance authentication validation failed");
                     }
                 }
             }
@@ -494,20 +534,40 @@ namespace Hagalaz.Services.GameWorld.Services
             var context = _contextAccessor.Context;
             var authentication = context.Features.Get<Features_IAuthenticationFeature>();
             var properties = authentication?.AuthenticationProperties;
-            if (properties is null)
+            if (properties is not null)
+            {
+                var revoked = await RevokeIssuedAuthorizationAsync(
+                    properties.ClientId,
+                    properties.GetClaim<string>(Claims.Subject),
+                    properties.AuthorizationId,
+                    reason);
+                if (revoked)
+                {
+                    context.Features.Set<Features_IAuthenticationFeature>(null);
+                    context.Features.Set<IConnectionUserFeature>(null);
+                }
+            }
+
+            await RevokePendingAuthorizationAsync(reason);
+        }
+
+        private async Task RevokePendingAuthorizationAsync(string reason)
+        {
+            var context = _contextAccessor.Context;
+            var pendingAuthorization = context.Features.Get<PendingAuthorizationCleanup>();
+            if (pendingAuthorization is null)
             {
                 return;
             }
 
             var revoked = await RevokeIssuedAuthorizationAsync(
-                properties.ClientId,
-                properties.GetClaim<string>(Claims.Subject),
-                properties.AuthorizationId,
+                pendingAuthorization.ClientId,
+                pendingAuthorization.Subject,
+                pendingAuthorization.AuthorizationId,
                 reason);
             if (revoked)
             {
-                context.Features.Set<Features_IAuthenticationFeature>(null);
-                context.Features.Set<IConnectionUserFeature>(null);
+                context.Features.Set<PendingAuthorizationCleanup>(null);
             }
         }
 
@@ -560,8 +620,6 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 var context = _contextAccessor.Context;
                 var masterId = context.GetMasterId();
-                var authentication = context.GetAuthentication();
-                var properties = authentication?.AuthenticationProperties;
                 var character = context.GetCharacter();
                 var session = context.GetSession();
                 var persistenceSucceeded = character == null;
@@ -595,7 +653,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
                 }
 
-                if (character == null && masterId != null)
+                if (session is not null && session is not IGameWorldSession && masterId is not null)
                 {
                     _mediator.Publish(new LobbySignOutCommand(masterId.Value));
                 }
@@ -603,20 +661,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 // Token revocation is remote cleanup. It must not retain a successfully
                 // persisted live-session owner when the authorization service is slow or
                 // unavailable. A later logout/reconnect cleanup can revoke the token again.
-                if (masterId != null && properties is not null && !string.IsNullOrWhiteSpace(properties.ClientId) && !string.IsNullOrWhiteSpace(properties.AuthorizationId))
-                {
-                    await RevokeIssuedAuthorizationAsync(
-                        properties.ClientId,
-                        masterId.Value.ToString(),
-                        properties.AuthorizationId,
-                        "sign-out");
-                }
-                else if (masterId != null && properties is not null && !string.IsNullOrWhiteSpace(properties.ClientId))
-                {
-                    _logger.LogWarning(
-                        "Skipping token revocation for account '{masterId}' because the authentication authorization id is missing.",
-                        masterId.Value);
-                }
+                await RevokeCurrentAuthenticationAsync("sign-out");
             });
     }
 }

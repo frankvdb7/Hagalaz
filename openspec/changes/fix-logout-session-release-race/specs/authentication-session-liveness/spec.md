@@ -79,3 +79,41 @@ request token.
 - **WHEN** sign-out has released the live session and the client request is
   canceled while exact authorization cleanup is still pending
 - **THEN** exact authorization cleanup MUST use a non-canceled cleanup token
+
+### Requirement: Pending authorization cleanup remains exact before authentication commit
+
+GameWorld MUST retain the client, subject, and authorization ID for a
+successfully issued but not yet committed authorization until exact cleanup
+succeeds or authentication commits. This pending cleanup identity MUST NOT be
+treated as authenticated state.
+
+#### Scenario: Pre-commit revoke fails
+
+- **WHEN** UserInfo or principal validation fails and exact authorization
+  revocation reports failure
+- **THEN** the connection retains the issued authorization's exact cleanup
+  identity for disconnect retry
+- **AND** no authentication feature is installed for that failed validation
+
+#### Scenario: Disconnect retries pending cleanup
+
+- **WHEN** disconnect cleanup runs after the pre-commit revoke failed
+- **THEN** it retries the same authorization ID
+- **AND** clears the pending identity only after exact revocation succeeds
+
+### Requirement: Lobby sign-out requires owned lobby session
+
+GameWorld MUST publish lobby sign-out only when the connection has a real
+session that is not a GameWorld session and has a valid authenticated subject.
+
+#### Scenario: Failed sign-in has no lobby session
+
+- **WHEN** a failed lobby or world sign-in retains authentication or pending
+  cleanup metadata but owns no session
+- **THEN** disconnect cleanup does not publish lobby sign-out
+
+#### Scenario: Another lobby session owns the account
+
+- **WHEN** a failed world connection has no session while another connection
+  owns the account's lobby session
+- **THEN** the failed connection does not publish lobby sign-out
