@@ -1,8 +1,10 @@
-## 1. Non-blocking handle cleanup
+## 1. Synchronous handle cleanup with async compatibility
 
-- [x] 1.1 Replace the NPC handle's synchronous unregister wait with the existing asynchronous creature task scheduling; verify the handle returns while a pending service operation remains incomplete.
+- [x] 1.1 Add synchronous NPC store and service operations while retaining `RegisterAsync` and `UnregisterAsync`.
+- [x] 1.2 Route handle and delayed death cleanup through synchronous unregistration and use the lock's synchronous writer path.
+- [x] 1.3 Make `ICreature.OnRegistered` synchronous while retaining the asynchronous service and store APIs.
 
 ## 2. Regression coverage and validation
 
-- [x] 2.1 Add a deterministic GameWorld test proving the queued handle unregister invokes the existing NPC service and completes after the pending operation resolves.
+- [x] 2.1 Add deterministic GameWorld tests proving synchronous handle cleanup and async registration remain available.
 - [x] 2.2 Run the focused GameWorld tests, validate the OpenSpec change strictly, inspect the diff, and restart the affected GameWorld resource for manual confirmation.

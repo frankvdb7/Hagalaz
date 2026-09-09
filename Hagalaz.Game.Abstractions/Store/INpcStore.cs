@@ -23,11 +23,18 @@ namespace Hagalaz.Game.Abstractions.Store
         ValueTask<int> CountAsync();
 
         /// <summary>
-        /// Asynchronously attempts to add a new NPC to the store.
+        /// Attempts to add a new NPC to the store.
         /// </summary>
         /// <param name="npc">The NPC to add.</param>
         /// <returns>A <see cref="ValueTask{TResult}"/> that resolves to <c>true</c> if the NPC was added successfully; otherwise, <c>false</c>.</returns>
         ValueTask<bool> AddAsync(INpc npc);
+
+        /// <summary>
+        /// Synchronously attempts to add a new NPC to the store.
+        /// </summary>
+        /// <param name="npc">The NPC to add.</param>
+        /// <returns><c>true</c> if the NPC was added successfully; otherwise, <c>false</c>.</returns>
+        bool Add(INpc npc);
 
         /// <summary>
         /// Asynchronously removes an NPC from the store.
@@ -35,6 +42,13 @@ namespace Hagalaz.Game.Abstractions.Store
         /// <param name="npc">The NPC to remove.</param>
         /// <returns>A <see cref="ValueTask{TResult}"/> that resolves to <c>true</c> if the NPC was removed successfully; otherwise, <c>false</c>.</returns>
         ValueTask<bool> RemoveAsync(INpc npc);
+
+        /// <summary>
+        /// Synchronously removes an NPC from the store.
+        /// </summary>
+        /// <param name="npc">The NPC to remove.</param>
+        /// <returns><c>true</c> if the NPC was removed successfully; otherwise, <c>false</c>.</returns>
+        bool Remove(INpc npc);
 
         /// <summary>
         /// Asynchronously finds an NPC that matches the specified predicate.

@@ -30,7 +30,7 @@ public sealed class MapRegionLoaderTests
         var staticPopulationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseStaticPopulation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var loaded = false;
-        var region = Substitute.For<IMapRegion>();
+        var region = Substitute.For<IMapRegion, IMapRegionLoadRollback>();
         region.Id.Returns(257);
         region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
         region.Size.Returns(Location.Create(64, 64, 4, 0));
@@ -68,7 +68,8 @@ public sealed class MapRegionLoaderTests
     [TestMethod]
     public async Task LoadAsync_WhenPopulationFails_RollsBackAndRethrowsOriginalFailure()
     {
-        var region = Substitute.For<IMapRegion>();
+        var region = Substitute.For<IMapRegion, IMapRegionLoadRollback>();
+        var rollback = (IMapRegionLoadRollback)region;
         region.Id.Returns(257);
         region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
         region.Size.Returns(Location.Create(64, 64, 4, 0));
@@ -89,13 +90,14 @@ public sealed class MapRegionLoaderTests
         Assert.AreEqual("test failure", failure.Message);
         Assert.IsFalse(region.IsLoaded);
         region.DidNotReceive().Load();
-        await region.Received(1).ResetUnpublishedLoadAsync(CancellationToken.None);
+        await rollback.Received(1).ResetUnpublishedLoadAsync(CancellationToken.None);
     }
 
     [TestMethod]
     public async Task LoadAsync_WhenCanceledDuringPopulation_RollsBackAndRethrowsCancellation()
     {
-        var region = Substitute.For<IMapRegion>();
+        var region = Substitute.For<IMapRegion, IMapRegionLoadRollback>();
+        var rollback = (IMapRegionLoadRollback)region;
         region.Id.Returns(257);
         region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
         region.Size.Returns(Location.Create(64, 64, 4, 0));
@@ -115,20 +117,21 @@ public sealed class MapRegionLoaderTests
 
         Assert.IsFalse(region.IsLoaded);
         region.DidNotReceive().Load();
-        await region.Received(1).ResetUnpublishedLoadAsync(CancellationToken.None);
+        await rollback.Received(1).ResetUnpublishedLoadAsync(CancellationToken.None);
     }
 
     [TestMethod]
     public async Task LoadAsync_WhenRollbackFails_PreservesBothFailures()
     {
-        var region = Substitute.For<IMapRegion>();
+        var region = Substitute.For<IMapRegion, IMapRegionLoadRollback>();
+        var rollback = (IMapRegionLoadRollback)region;
         region.Id.Returns(257);
         region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
         region.Size.Returns(Location.Create(64, 64, 4, 0));
         region.XteaKeys.Returns(new int[4]);
         region.IsLoaded.Returns(false);
         var rollbackFailure = new ApplicationException("rollback failure");
-        region.ResetUnpublishedLoadAsync(CancellationToken.None).Returns(Task.FromException(rollbackFailure));
+        rollback.ResetUnpublishedLoadAsync(CancellationToken.None).Returns(Task.FromException(rollbackFailure));
 
         var mapProvider = Substitute.For<IMapProvider>();
         mapProvider.When(provider => provider.DecodeRegion(
@@ -153,7 +156,8 @@ public sealed class MapRegionLoaderTests
     [DataRow("non-static")]
     public async Task LoadAsync_WhenAnyPopulationStageFails_RollsBackTheUnpublishedAttempt(string stage)
     {
-        var region = Substitute.For<IMapRegion>();
+        var region = Substitute.For<IMapRegion, IMapRegionLoadRollback>();
+        var rollback = (IMapRegionLoadRollback)region;
         region.Id.Returns(257);
         region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
         region.Size.Returns(Location.Create(64, 64, 4, 0));
@@ -173,7 +177,7 @@ public sealed class MapRegionLoaderTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => loader.LoadAsync(region));
 
         region.DidNotReceive().Load();
-        await region.Received(1).ResetUnpublishedLoadAsync(CancellationToken.None);
+        await rollback.Received(1).ResetUnpublishedLoadAsync(CancellationToken.None);
     }
 
     [TestMethod]
@@ -244,6 +248,37 @@ public sealed class MapRegionLoaderTests
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.ResetUnpublishedLoadAsync());
         Assert.IsTrue(region.FindAllCharacters().Contains(character));
+    }
+
+    [TestMethod]
+    public async Task ResetUnpublishedLoadAsync_ContinuesCleanupAfterNpcFailureAndClearsCollision()
+    {
+        var npcService = Substitute.For<INpcService>();
+        var firstNpc = Substitute.For<INpc>();
+        firstNpc.Index.Returns(1);
+        var secondNpc = Substitute.For<INpc>();
+        secondNpc.Index.Returns(2);
+        var firstFailure = new InvalidOperationException("first NPC cleanup failed");
+        npcService.UnregisterAsync(firstNpc).Returns(Task.FromException(firstFailure));
+        npcService.UnregisterAsync(secondNpc).Returns(Task.CompletedTask);
+        var region = new MapRegion(
+            Location.Create(64, 64, 0, 0),
+            new int[4],
+            npcService,
+            Substitute.For<IMapRegionService>(),
+            Substitute.For<IGameObjectBuilder>(),
+            Substitute.For<IGroundItemBuilder>(),
+            new MapperConfiguration(configuration => { }, LoggerFactory.Create(_ => { })).CreateMapper());
+        region.Add(firstNpc);
+        region.Add(secondNpc);
+        region.FlagCollision(1, 1, 0, CollisionFlag.FloorBlock);
+
+        var failure = await Assert.ThrowsExactlyAsync<AggregateException>(() => region.ResetUnpublishedLoadAsync());
+
+        Assert.IsTrue(failure.InnerExceptions.Any(exception => ReferenceEquals(exception, firstFailure)));
+        await npcService.Received(1).UnregisterAsync(firstNpc);
+        await npcService.Received(1).UnregisterAsync(secondNpc);
+        Assert.AreEqual(CollisionFlag.Walkable, region.GetCollision(1, 1, 0));
     }
 
     private static MapRegion CreateRegion() => new(

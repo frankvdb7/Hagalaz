@@ -61,11 +61,9 @@ public sealed class NpcScriptRegistrationTests
     }
 
     [TestMethod]
-    public void Catalog_RetainsLoadableTypesFromPartiallyLoadableAssembly()
+    public void Catalog_PropagatesPartiallyLoadableAssemblyFailure()
     {
-        var catalog = NpcScriptTypeCatalog.FromAssembly(new PartiallyLoadableAssembly());
-
-        Assert.IsTrue(catalog.ScriptTypes.Contains(typeof(MeleeInstructor)));
+        Assert.ThrowsExactly<ReflectionTypeLoadException>(() => NpcScriptTypeCatalog.FromAssembly(new PartiallyLoadableAssembly()));
     }
 
     private sealed class PartiallyLoadableAssembly : Assembly

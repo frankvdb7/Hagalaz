@@ -17,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
 
         public void Unregister()
         {
-            Npc.QueueTask(() => _npcService.UnregisterAsync(Npc));
+            _npcService.Unregister(Npc);
         }
     }
 }

@@ -116,12 +116,6 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         void CompleteUpdateTick();
 
         /// <summary>
-        /// Clears unpublished population and both update buffers without
-        /// applying gameplay removal or client update semantics.
-        /// </summary>
-        void ResetUnpublishedPopulation();
-
-        /// <summary>
         /// Erases all dynamic data from this region part, resetting it to its base state.
         /// </summary>
         void Erase();

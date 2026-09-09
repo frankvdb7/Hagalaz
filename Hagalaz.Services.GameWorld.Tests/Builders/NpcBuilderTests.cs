@@ -34,7 +34,6 @@ public sealed class NpcBuilderTests
         };
         var npcService = Substitute.For<INpcService>();
         npcService.FindNpcDefinitionById(definition.Id).Returns(definition);
-        npcService.RegisterAsync(Arg.Any<INpc>()).Returns(Task.CompletedTask);
 
         var script = Substitute.For<INpcScript>();
         var scriptActivator = Substitute.For<INpcScriptActivator>();
@@ -48,7 +47,7 @@ public sealed class NpcBuilderTests
             .Spawn();
 
         Assert.IsNotNull(handle.Npc);
-        npcService.Received(1).RegisterAsync(handle.Npc);
+        npcService.Received(1).Register(handle.Npc);
     }
 
     [TestMethod]

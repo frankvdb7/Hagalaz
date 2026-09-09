@@ -277,7 +277,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             public void MajorUpdateTick() => throw new NotImplementedException();
             public void OnDeath() => throw new NotImplementedException();
             public void OnKilledBy(ICreature killer) => throw new NotImplementedException();
-            public Task OnRegistered() => throw new NotImplementedException();
+            public void OnRegistered() => throw new NotImplementedException();
             public void OnSpawn() => throw new NotImplementedException();
             public void OnTargetKilled(ICreature target) => throw new NotImplementedException();
             public bool Poison(short amount) => throw new NotImplementedException();

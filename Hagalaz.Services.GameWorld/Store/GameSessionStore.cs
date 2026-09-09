@@ -34,7 +34,8 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         {
             if (_slots.ContainsKey(session.ConnectionId) ||
                 _slots.Values.Any(slot => slot.ActiveSession?.MasterId == session.MasterId ||
-                                          slot.PendingWorld?.Session.MasterId == session.MasterId))
+                                          slot.PendingWorld?.Session.MasterId == session.MasterId ||
+                                          slot.PendingClaimCleanups?.Any(cleanup => cleanup.MasterId == session.MasterId) == true))
             {
                 return false;
             }
@@ -57,8 +58,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
             if (slot?.PendingWorld != null ||
                 slot?.PendingAbort != null ||
                 slot?.ActiveSession != null && !slot.ActiveSession.MasterId.Equals(session.MasterId) ||
-                _slots.Values.Any(existing => existing.PendingWorld?.CleanupRequested == true &&
-                                              existing.PendingWorld.Session.MasterId == session.MasterId) ||
+                 _slots.Values.Any(existing => existing.PendingClaimCleanups?.Any(cleanup => cleanup.MasterId == session.MasterId) == true) ||
                 _slots.Values.Any(existing => existing.ActiveSession is IGameWorldSession &&
                                               existing.ActiveSession.MasterId == session.MasterId))
             {
@@ -94,8 +94,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
             }
 
             if (expectedSlot?.PendingWorld is not { } pendingSession ||
-                !ReferenceEquals(pendingSession.Session, expectedSession) ||
-                pendingSession.CleanupRequested)
+                !ReferenceEquals(pendingSession.Session, expectedSession))
             {
                 return (false, null);
             }
@@ -129,10 +128,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         }
     }
 
-    public ValueTask<bool> TryRetainWorldSessionForCleanup(IGameSession expectedSession) =>
-        TryRetainSessionForCleanup(expectedSession);
-
-    public async ValueTask<bool> TryRetainSessionForCleanup(IGameSession expectedSession)
+    public async ValueTask<bool> TryMoveToPendingClaimCleanup(IGameSession expectedSession)
     {
         using (await _lock.WriterLockAsync())
         {
@@ -144,18 +140,21 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
             if (slot.PendingWorld is { } pendingSession &&
                 ReferenceEquals(pendingSession.Session, expectedSession))
             {
-                pendingSession.CleanupRequested = true;
+                slot.PendingWorld = null;
+                AddPendingClaimCleanupUnsafe(slot, expectedSession);
+                RemoveSlotIfEmpty(expectedSession.ConnectionId, slot);
                 return true;
             }
 
-            if (!ReferenceEquals(slot.ActiveSession, expectedSession))
+            if (ReferenceEquals(slot.ActiveSession, expectedSession))
             {
-                return false;
+                slot.ActiveSession = null;
+                AddPendingClaimCleanupUnsafe(slot, expectedSession);
+                RemoveSlotIfEmpty(expectedSession.ConnectionId, slot);
+                return true;
             }
 
-            slot.ActiveSession = null;
-            slot.PendingWorld = new PendingWorldSession(expectedSession, null) { CleanupRequested = true };
-            return true;
+            return slot.PendingClaimCleanups?.Any(session => ReferenceEquals(session, expectedSession)) == true;
         }
     }
 
@@ -231,11 +230,6 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
                 {
                     pendingSessions.AddRange(slot.PendingClaimCleanups);
                 }
-
-                if (slot.PendingWorld is { CleanupRequested: true } pendingWorld)
-                {
-                    pendingSessions.Add(pendingWorld.Session);
-                }
             }
 
             return pendingSessions;
@@ -251,25 +245,25 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
                 return false;
             }
 
-            if (slot.PendingClaimCleanups is not null)
+            if (slot.PendingClaimCleanups is null)
             {
-                var cleanupIndex = slot.PendingClaimCleanups.FindIndex(session => ReferenceEquals(session, expectedSession));
-                if (cleanupIndex < 0)
-                {
-                    return TryRemovePendingSessionCleanupUnsafe(expectedSession);
-                }
-
-                slot.PendingClaimCleanups.RemoveAt(cleanupIndex);
-                if (slot.PendingClaimCleanups.Count == 0)
-                {
-                    slot.PendingClaimCleanups = null;
-                }
-
-                RemoveSlotIfEmpty(expectedSession.ConnectionId, slot);
-                return true;
+                return false;
             }
 
-            return TryRemovePendingSessionCleanupUnsafe(expectedSession);
+            var cleanupIndex = slot.PendingClaimCleanups.FindIndex(session => ReferenceEquals(session, expectedSession));
+            if (cleanupIndex < 0)
+            {
+                return false;
+            }
+
+            slot.PendingClaimCleanups.RemoveAt(cleanupIndex);
+            if (slot.PendingClaimCleanups.Count == 0)
+            {
+                slot.PendingClaimCleanups = null;
+            }
+
+            RemoveSlotIfEmpty(expectedSession.ConnectionId, slot);
+            return true;
         }
     }
 
@@ -284,11 +278,6 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
 
             return (false, null);
         }
-    }
-
-    public async ValueTask<IReadOnlyList<IGameWorldSession>> FindWorldSessionsPendingCleanup()
-    {
-        return (await FindSessionsPendingCleanup()).OfType<IGameWorldSession>().ToArray();
     }
 
     public async ValueTask<bool> TryMoveToPendingAbort(IGameSession expectedSession)
@@ -307,7 +296,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
                 return true;
             }
 
-            if (slot.PendingWorld is { CleanupRequested: false } pendingSession &&
+            if (slot.PendingWorld is { } pendingSession &&
                 ReferenceEquals(pendingSession.Session, expectedSession))
             {
                 slot.PendingWorld = null;
@@ -476,8 +465,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
     {
         if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
             slot.PendingWorld is not { } pendingSession ||
-            !ReferenceEquals(pendingSession.Session, expectedSession) ||
-            pendingSession.CleanupRequested)
+            !ReferenceEquals(pendingSession.Session, expectedSession))
         {
             return false;
         }
@@ -487,18 +475,15 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         return true;
     }
 
-    private bool TryRemovePendingSessionCleanupUnsafe(IGameSession expectedSession)
+    private static void AddPendingClaimCleanupUnsafe(SessionSlot slot, IGameSession session)
     {
-        if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
-            slot.PendingWorld is not { CleanupRequested: true } pendingSession ||
-            !ReferenceEquals(pendingSession.Session, expectedSession))
+        slot.PendingClaimCleanups ??= new List<IGameSession>();
+        if (slot.PendingClaimCleanups.Any(existing => ReferenceEquals(existing, session)))
         {
-            return false;
+            return;
         }
 
-        slot.PendingWorld = null;
-        RemoveSlotIfEmpty(expectedSession.ConnectionId, slot);
-        return true;
+        slot.PendingClaimCleanups.Add(session);
     }
 
     private sealed class SessionSlot
@@ -524,7 +509,6 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         public IGameSession Session { get; }
         public IGameSession? PreviousSession { get; }
         public string? PreviousSessionClaimId { get; }
-        public bool CleanupRequested { get; set; }
     }
 
     private sealed class PendingSessionAbort

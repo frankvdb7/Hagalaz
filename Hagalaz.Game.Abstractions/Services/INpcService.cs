@@ -36,10 +36,22 @@ namespace Hagalaz.Game.Abstractions.Services
         Task RegisterAsync(INpc npc);
 
         /// <summary>
+        /// Registers an NPC using the synchronous game-world lifecycle path.
+        /// </summary>
+        /// <param name="npc">The NPC to register.</param>
+        void Register(INpc npc);
+
+        /// <summary>
         /// Unregisters an NPC, removing it from the game world.
         /// </summary>
         /// <param name="npc">The NPC to unregister.</param>
         /// <returns>A task that represents the asynchronous unregistration operation.</returns>
         Task UnregisterAsync(INpc npc);
+
+        /// <summary>
+        /// Unregisters an NPC using the synchronous game-world lifecycle path.
+        /// </summary>
+        /// <param name="npc">The NPC to unregister.</param>
+        void Unregister(INpc npc);
     }
 }

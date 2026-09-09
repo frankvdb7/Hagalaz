@@ -21,7 +21,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     /// Contains region part data.
     /// Each region has 4x8x8 parts
     /// </summary>
-    public class MapRegionPart : IMapRegionPart
+    public class MapRegionPart : IMapRegionPart, IMapRegionPartLoadRollback
     {
         private readonly IMapper _mapper;
         private readonly IGroundItemBuilder _groundItemBuilder;
@@ -309,7 +309,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void SendUpdates(ICharacter character)
         {
-            IRegionPartUpdate[] updates;
             lock (_updatesLock)
             {
                 if (_preparedUpdates.Count <= 0)
@@ -317,15 +316,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     return;
                 }
 
-                updates = _preparedUpdates.ToArray();
+                SendUpdates(character, _preparedUpdates, false);
             }
-            //var lastLocation = character.LastLocation;
-            //var fullUpdate = lastLocation == null || 
-            //    lastLocation.RegionPartX != DrawRegionPartX || 
-            //    lastLocation.RegionPartY != DrawRegionPartY ||
-            //    lastLocation.Z != DrawRegionZ;
-
-            SendUpdates(character, updates, false);
         }
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)
@@ -388,11 +380,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void ResetUnpublishedPopulation()
         {
+            List<Exception>? failures = null;
             foreach (var gameObject in _gameObjects.Values.Concat(_disabledStaticGameObjects.Values).Distinct())
             {
                 if (!gameObject.IsDestroyed)
                 {
-                    gameObject.Destroy();
+                    try
+                    {
+                        gameObject.Destroy();
+                    }
+                    catch (Exception exception)
+                    {
+                        (failures ??= []).Add(exception);
+                    }
                 }
             }
 
@@ -400,7 +400,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 if (!item.IsDestroyed)
                 {
-                    item.Destroy();
+                    try
+                    {
+                        item.Destroy();
+                    }
+                    catch (Exception exception)
+                    {
+                        (failures ??= []).Add(exception);
+                    }
                 }
             }
 
@@ -411,6 +418,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 _pendingUpdates.Clear();
                 _preparedUpdates.Clear();
+            }
+
+            if (failures is not null)
+            {
+                throw new AggregateException("Failed to reset unpublished map-region-part population.", failures);
             }
         }
 

@@ -542,7 +542,7 @@ public sealed class GameSessionServiceTests
 
         Assert.IsFalse(await service.RemoveSession(session));
         Assert.AreEqual(0, (await store.FindAll()).Count);
-        Assert.AreEqual(0, (await store.FindWorldSessionsPendingCleanup()).Count);
+        Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).OfType<IGameWorldSession>().Count());
     }
 
     [TestMethod]
@@ -577,7 +577,7 @@ public sealed class GameSessionServiceTests
         Assert.IsFalse(await service.CommitWorldSession(staleWorldSession));
         Assert.AreSame(winningWorldSession, await service.FindByMasterId(42));
         Assert.AreEqual(2, (await store.FindAll()).Count);
-        Assert.AreEqual(1, (await store.FindWorldSessionsPendingCleanup()).Count);
+        Assert.AreEqual(1, (await store.FindSessionsPendingCleanup()).OfType<IGameWorldSession>().Count());
         await claims.Received(1).ReleaseAsync(42, "world-claim", CancellationToken.None);
     }
 
@@ -605,7 +605,7 @@ public sealed class GameSessionServiceTests
             .Returns(Task.FromResult(false));
 
         Assert.IsFalse(await service.CommitWorldSession(session));
-        Assert.AreEqual(1, (await store.FindWorldSessionsPendingCleanup()).Count);
+        Assert.AreEqual(1, (await store.FindSessionsPendingCleanup()).OfType<IGameWorldSession>().Count());
         Assert.AreEqual(1, (await store.FindAll()).Count);
     }
 
@@ -633,7 +633,7 @@ public sealed class GameSessionServiceTests
             .Returns(Task.FromException<bool>(new InvalidOperationException("Claim store unavailable.")));
 
         Assert.IsTrue(await service.RemoveSession(session));
-        Assert.AreEqual(1, (await store.FindWorldSessionsPendingCleanup()).Count);
+        Assert.AreEqual(1, (await store.FindSessionsPendingCleanup()).OfType<IGameWorldSession>().Count());
         Assert.IsNull(await service.FindByMasterId(42));
     }
 
@@ -858,7 +858,7 @@ public sealed class GameSessionServiceTests
         var deferredSession = CreateSession(43, "deferred-connection", "deferred-claim");
         Assert.IsTrue(await store.TryAdd(activeSession));
         Assert.IsTrue(await store.TryReserveWorldSession(deferredSession));
-        Assert.IsTrue(await store.TryRetainWorldSessionForCleanup(deferredSession));
+        Assert.IsTrue(await store.TryMoveToPendingClaimCleanup(deferredSession));
 
         var activeRenewed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseDeferred = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -879,7 +879,7 @@ public sealed class GameSessionServiceTests
         releaseDeferred.TrySetResult(true);
         await renewalTask;
         await claims.Received(1).RenewAsync(42, "active-claim", Arg.Any<CancellationToken>());
-        Assert.AreEqual(0, (await store.FindWorldSessionsPendingCleanup()).Count);
+        Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).OfType<IGameWorldSession>().Count());
     }
 
     [TestMethod]

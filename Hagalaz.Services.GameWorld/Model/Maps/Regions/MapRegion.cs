@@ -23,7 +23,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     /// <summary>
     /// Represents a single region.
     /// </summary>
-    public partial class MapRegion : IMapRegion
+    public partial class MapRegion : IMapRegion, IMapRegionLoadRollback
     {
         private readonly ConcurrentStore<int, ICharacter> _characters = new();
         private readonly ConcurrentStore<int, INpc> _npcs = new();
@@ -287,18 +287,47 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 throw new InvalidOperationException($"Region {this} contains characters");
             }
 
+            List<Exception>? failures = null;
+            if (cancellationToken.IsCancellationRequested)
+            {
+                (failures ??= []).Add(new OperationCanceledException(cancellationToken));
+            }
+
             foreach (var npc in FindAllNpcs().ToArray())
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                await _npcService.UnregisterAsync(npc);
+                try
+                {
+                    await _npcService.UnregisterAsync(npc);
+                }
+                catch (Exception exception)
+                {
+                    (failures ??= []).Add(exception);
+                }
             }
 
             foreach (var part in _parts)
             {
-                part.ResetUnpublishedPopulation();
+                try
+                {
+                    if (part is not IMapRegionPartLoadRollback rollback)
+                    {
+                        throw new InvalidOperationException($"Region part '{part}' does not support unpublished-load rollback.");
+                    }
+
+                    rollback.ResetUnpublishedPopulation();
+                }
+                catch (Exception exception)
+                {
+                    (failures ??= []).Add(exception);
+                }
             }
 
             Array.Clear(_collision);
+
+            if (failures is not null)
+            {
+                throw new AggregateException($"Failed to reset unpublished map region '{Id}'.", failures);
+            }
         }
 
         public void QueueUpdate(IRegionPartUpdate update)

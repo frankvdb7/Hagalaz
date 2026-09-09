@@ -36,7 +36,7 @@ public sealed class WorldSignInCommandConsumerTests
         character.MasterId.Returns(42u);
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
-        character.OnRegistered().Returns(Task.FromException(failure));
+        character.When(value => value.OnRegistered()).Do(_ => throw failure);
 
         var connectionTerminator = Substitute.For<IGameSessionConnectionTerminator>();
         var publishEndpoint = Substitute.For<IBus>();
@@ -73,7 +73,6 @@ public sealed class WorldSignInCommandConsumerTests
         character.MasterId.Returns(42u);
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
-        character.OnRegistered().Returns(Task.CompletedTask);
 
         var publishEndpoint = Substitute.For<IBus>();
         using var schedulerProvider = new ServiceCollection().BuildServiceProvider();
@@ -85,7 +84,7 @@ public sealed class WorldSignInCommandConsumerTests
 
         await consumer.Consume(CreateContext(new WorldSignInCommand(character)));
 
-        await character.Received(1).OnRegistered();
+        character.Received(1).OnRegistered();
         await publishEndpoint.Received(1).Publish(
             Arg.Is<GetContactsRequest>(message => message != null && message.MasterId == 42u),
             Arg.Any<CancellationToken>());
@@ -121,7 +120,6 @@ public sealed class WorldSignInCommandConsumerTests
         character.MasterId.Returns(42u);
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
-        character.OnRegistered().Returns(Task.CompletedTask);
         var publishEndpoint = Substitute.For<IBus>();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         using var schedulerProvider = new ServiceCollection()
@@ -135,14 +133,14 @@ public sealed class WorldSignInCommandConsumerTests
         await loadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.IsFalse(consumeTask.IsCompleted);
-        await character.DidNotReceive().OnRegistered();
+        character.DidNotReceive().OnRegistered();
         viewport.Received(1).RebuildView();
 
         releaseLoad.TrySetResult();
         await consumeTask.WaitAsync(TimeSpan.FromSeconds(1));
         await scheduler.StopAsync(CancellationToken.None);
 
-        await character.Received(1).OnRegistered();
+        character.Received(1).OnRegistered();
         await publishEndpoint.Received(1).Publish(
             Arg.Is<GetContactsRequest>(message => message != null && message.MasterId == 42u),
             Arg.Any<CancellationToken>());
@@ -184,7 +182,7 @@ public sealed class WorldSignInCommandConsumerTests
         await scheduler.StopAsync(CancellationToken.None);
 
         await loader.Received(1).LoadAsync(region, Arg.Any<CancellationToken>());
-        await character.DidNotReceive().OnRegistered();
+        character.DidNotReceive().OnRegistered();
         terminator.Received(1).Abort(session);
         await publishEndpoint.DidNotReceive().Publish(
             Arg.Any<GetContactsRequest>(),

@@ -16,9 +16,7 @@ namespace Hagalaz.Services.GameWorld.Store
 
         ValueTask<(bool Committed, IGameSession? ReplacedSession)> TryCommitWorldSession(IGameWorldSession expectedSession);
 
-        ValueTask<bool> TryRetainWorldSessionForCleanup(IGameSession expectedSession);
-
-        ValueTask<bool> TryRetainSessionForCleanup(IGameSession expectedSession);
+        ValueTask<bool> TryMoveToPendingClaimCleanup(IGameSession expectedSession);
 
         ValueTask<bool> IsPendingWorldSession(IGameSession expectedSession);
 

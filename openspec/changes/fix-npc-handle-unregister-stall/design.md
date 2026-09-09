@@ -1,14 +1,14 @@
 ## Context
 
-See proposal.md for the observed remaining stall. `NpcCombat` and the default script respawn path already enqueue asynchronous unregister work, but `NpcHandle.Unregister` still calls the same service with `.Wait()`. Handle cleanup is used by custom NPC encounters and wave controllers during synchronous game-loop callbacks.
+See proposal.md for the observed remaining lifecycle mismatch. `NpcCombat` and the default script respawn path retain asynchronous service paths, while `NpcHandle.Unregister` needs a synchronous completion path when called by custom NPC encounters and wave controllers during synchronous game-loop callbacks.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Remove the remaining synchronous wait from handle-based NPC unregister.
-- Reuse the NPC's existing asynchronous task scheduler and NPC service ownership.
-- Prove both caller non-blocking behavior and eventual service invocation.
+- Add synchronous registration/unregistration beside the existing asynchronous service APIs.
+- Use the synchronous `AsyncReaderWriterLock` paths for in-memory NPC store mutation.
+- Prove that handle cleanup invokes the synchronous service operation and preserves NPC service ownership.
 
 **Non-Goals:**
 
@@ -18,14 +18,14 @@ See proposal.md for the observed remaining stall. `NpcCombat` and the default sc
 
 ## Decisions
 
-`NpcHandle.Unregister` will enqueue `_npcService.UnregisterAsync(Npc)` through the existing `ICreature.QueueTask(Func<Task>)` extension. The NPC task scheduler becomes the single progression owner: the handle only schedules work, and `NpcService` remains the authoritative owner of destruction and store removal.
+`NpcHandle.Unregister` calls the synchronous `INpcService.Unregister` operation. `NpcService` remains the authoritative owner of destruction and store removal. `ICreature.OnRegistered` is synchronous because registration initialization is an in-memory lifecycle callback and must not require a blocking bridge on synchronous callers. `RegisterAsync` and `UnregisterAsync` remain available for asynchronous loaders and region cleanup, while `NpcStore` uses `AsyncReaderWriterLock.WriterLock()` for synchronous mutation and `WriterLockAsync()` for asynchronous mutation.
 
-Changing the interface to `Task UnregisterAsync` is rejected because it would expand the synchronous custom-script API change across all callers without being necessary to remove the block. Starting a worker or adding a queue is rejected because the NPC already owns a tick scheduler designed for this operation. Keeping `.Wait()` is rejected because a pending store lock can stall all world updates.
+Removing the existing async methods is rejected because map loading and other asynchronous callers already use them. Starting a worker or adding a queue is rejected because the synchronous store operation is already protected by the existing lock. Hiding the synchronous operation behind a queued async callback is rejected because it violates the handle contract.
 
 ## Risks / Trade-offs
 
-- [Risk] Removal becomes deferred until the NPC's next task tick. → Mitigation: this matches the existing standard NPC death cleanup and preserves the same service operation and ownership.
-- [Risk] A caller may inspect the NPC immediately after scheduling and see it briefly present. → Mitigation: callers already use the handle for cleanup, and eventual removal remains guaranteed by the queued task.
+- [Risk] Registration initialization now runs inline in both service paths. → Mitigation: the service keeps transactional rollback around the callback, and asynchronous service/store APIs remain available for asynchronous callers.
+- [Risk] A synchronous cleanup callback throws after destruction. → Mitigation: the service still attempts global-store removal and preserves both failures when necessary.
 
 ## Migration Plan
 

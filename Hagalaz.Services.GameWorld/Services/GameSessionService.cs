@@ -404,7 +404,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         private async Task<bool> RetainSessionForCleanupAsync(IGameSession expectedSession, string operation)
         {
-            var retained = await _sessions.TryRetainSessionForCleanup(expectedSession);
+            var retained = await _sessions.TryMoveToPendingClaimCleanup(expectedSession);
             if (!retained)
             {
                 _logger.LogCritical(

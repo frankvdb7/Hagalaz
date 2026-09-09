@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Animation;
@@ -402,7 +401,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Get's called when entity is registered to world.
         /// </summary>
-        public override Task OnRegistered()
+        public override void OnRegistered()
         {
             // initialize the most important drawing logic first
             RenderInformation.OnRegistered();
@@ -424,7 +423,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 AddState(new LodestoneEdgevilleState());
 
             OnInit();
-            return Task.CompletedTask;
         }
 
         /// <summary>

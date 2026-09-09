@@ -15,6 +15,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -89,7 +90,12 @@ namespace Hagalaz.Services.GameWorld.Data
             {
                 try
                 {
-                    await region.ResetUnpublishedLoadAsync(CancellationToken.None);
+                    if (region is not IMapRegionLoadRollback rollback)
+                    {
+                        throw new InvalidOperationException($"Region '{region.Id}' does not support unpublished-load rollback.");
+                    }
+
+                    await rollback.ResetUnpublishedLoadAsync(CancellationToken.None);
                 }
                 catch (Exception rollbackException)
                 {

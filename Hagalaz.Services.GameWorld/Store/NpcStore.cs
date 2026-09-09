@@ -33,9 +33,25 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
+        public bool Add(INpc npc)
+        {
+            using (_lock.WriterLock())
+            {
+                return _npcs.Add(npc);
+            }
+        }
+
         public async ValueTask<bool> RemoveAsync(INpc npc)
         {
             using (await _lock.WriterLockAsync())
+            {
+                return _npcs.Remove(npc);
+            }
+        }
+
+        public bool Remove(INpc npc)
+        {
+            using (_lock.WriterLock())
             {
                 return _npcs.Remove(npc);
             }

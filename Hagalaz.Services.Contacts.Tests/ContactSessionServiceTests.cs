@@ -32,8 +32,8 @@ public sealed class ContactSessionServiceTests
             .Returns(Task.CompletedTask);
 
         var contactSessions = new ContactSessionStore();
-        contactSessions.TryAdd(removedMasterId, new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed"));
-        contactSessions.TryAdd(retainedMasterId, new ContactSessionContext(retainedMasterId, 2, "World 2", 1, "retained"));
+        contactSessions.TrySetNewerSession(new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed"));
+        contactSessions.TrySetNewerSession(new ContactSessionContext(retainedMasterId, 2, "World 2", 1, "retained"));
 
         var service = new ContactSessionService(
             characterService.Object,
@@ -46,7 +46,7 @@ public sealed class ContactSessionServiceTests
 
         Assert.IsFalse(contactSessions.TryGetValue(removedMasterId, out _));
         Assert.IsTrue(contactSessions.TryGetValue(retainedMasterId, out _));
-        Assert.IsTrue(contactSessions.TryAdd(removedMasterId, new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed")));
+        Assert.IsTrue(contactSessions.TrySetNewerSession(new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed")));
         publishEndpoint.Verify(
             x => x.Publish(
                 It.Is<ContactSignOutMessage>(message => message.Contact.MasterId == removedMasterId),
@@ -65,8 +65,8 @@ public sealed class ContactSessionServiceTests
         var firstSession = new ContactSessionContext(firstMasterId, worldId, "World 1", 1, "first");
         var replacedSession = new ContactSessionContext(replacedMasterId, worldId, "World 1", 1, "replaced");
         var contactSessions = new ContactSessionStore();
-        contactSessions.TryAdd(firstMasterId, firstSession);
-        contactSessions.TryAdd(replacedMasterId, replacedSession);
+        contactSessions.TrySetNewerSession(firstSession);
+        contactSessions.TrySetNewerSession(replacedSession);
 
         var characterService = new Mock<ICharacterService>();
         characterService
@@ -74,11 +74,11 @@ public sealed class ContactSessionServiceTests
             .Returns((uint masterId) =>
             {
                 var candidateMasterId = masterId == firstMasterId ? replacedMasterId : firstMasterId;
-                if (contactSessions.TryRemove(candidateMasterId))
+                if (contactSessions.TryGetValue(candidateMasterId, out var existingSession) &&
+                    contactSessions.TryRemoveExact(existingSession))
                 {
                     replacementMasterId = candidateMasterId;
-                    Assert.IsTrue(contactSessions.TryAdd(
-                        candidateMasterId,
+                    Assert.IsTrue(contactSessions.TrySetNewerSession(
                         new ContactSessionContext(candidateMasterId, worldId, "World 1", 2, "replacement")));
                 }
 

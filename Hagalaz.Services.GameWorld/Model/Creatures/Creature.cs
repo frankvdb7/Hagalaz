@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -253,13 +252,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         /// Get's called when entity is registered to world.
         /// </summary>
-        public virtual Task OnRegistered()
+        public virtual void OnRegistered()
         {
             Viewport.RebuildView();
             SetLocation(Location, true, true);
 
             OnInit();
-            return Task.CompletedTask;
         }
 
         public void SetLocation(ILocation location, bool forceRegionUpdate = false, bool firstUpdate = false)

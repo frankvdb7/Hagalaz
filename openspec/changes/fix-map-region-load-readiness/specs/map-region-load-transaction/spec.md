@@ -16,8 +16,10 @@ updates. It MUST leave the region not loaded and not destroyed.
 #### Scenario: Population fails after partial NPC and object creation
 
 - **WHEN** a region load fails before `Load()` commits readiness
-- **THEN** rollback MUST remove the unpublished population and collision without
-  sending gameplay removal or respawn updates
+- **THEN** rollback MUST attempt every unpublished NPC and map-part population
+  cleanup, remove the unpublished population and collision without sending
+  gameplay removal or respawn updates, and report all cleanup failures after
+  the attempts complete
 
 #### Scenario: Population cancellation is observed
 
@@ -29,6 +31,9 @@ updates. It MUST leave the region not loaded and not destroyed.
 
 - **WHEN** population fails and reset fails
 - **THEN** the loader MUST surface both the original and rollback failures
+
+The unpublished-load reset operation is an internal GameWorld loader boundary;
+it is not part of the general `IMapRegion` or `IMapRegionPart` contracts.
 
 ### Requirement: Reset has explicit lifecycle preconditions
 

@@ -86,7 +86,7 @@ namespace Hagalaz.Services.Contacts.Services
 
         public async Task RemoveSession(uint masterId, long sessionGeneration, string connectionId)
         {
-            if (!_contacts.TryRemoveSession(masterId, sessionGeneration, connectionId))
+            if (!_contacts.TryRemoveExact(masterId, sessionGeneration, connectionId))
             {
                 return;
             }
@@ -102,7 +102,7 @@ namespace Hagalaz.Services.Contacts.Services
 
             foreach (var session in sessions)
             {
-                if (_contacts.TryRemoveSession(session))
+                if (_contacts.TryRemoveExact(session))
                 {
                     await PublishSignOut(session.MasterId);
                 }

@@ -48,7 +48,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
                 // before OnRegistered sends the initial character map.
                 character.Viewport.RebuildView();
                 await _mapRegionLoadScheduler.EnsureLoadedAsync(character.Viewport.VisibleRegions, context.CancellationToken);
-                await character.OnRegistered();
+                character.OnRegistered();
                 await Task.WhenAll(
                     _publishEndpoint.Publish(new GetContactsRequest(character.MasterId)),
                     _publishEndpoint.Publish(new WorldUserSignInMessage(character.MasterId, options.Id, session.SessionGeneration, session.ConnectionId)));

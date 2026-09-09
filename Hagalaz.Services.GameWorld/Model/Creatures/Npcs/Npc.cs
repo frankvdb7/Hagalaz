@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Factories;
@@ -150,11 +149,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Get's called when npc is registered.
         /// </summary>
-        public override async Task OnRegistered()
+        public override void OnRegistered()
         {
             // initialize the most important drawing logic first
             RenderInformation.OnRegistered();
-            await base.OnRegistered();
+            base.OnRegistered();
             Script.OnCreate();
             _scriptCreated = true;
             if (Definition.WalksRandomly && Definition.BoundsType != BoundsType.Static)

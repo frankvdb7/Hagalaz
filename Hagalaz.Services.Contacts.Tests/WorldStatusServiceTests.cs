@@ -40,7 +40,7 @@ public sealed class WorldStatusServiceTests
         });
 
         var contactSessions = new ContactSessionStore();
-        contactSessions.TryAdd(masterId, new ContactSessionContext(masterId, worldId, "World 1", 1, "connection"));
+        contactSessions.TrySetNewerSession(new ContactSessionContext(masterId, worldId, "World 1", 1, "connection"));
         var worldSessions = new WorldSessionStore();
         worldSessions.ObserveOnline(new WorldSessionContext(
             worldId,

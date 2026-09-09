@@ -443,6 +443,20 @@ namespace Hagalaz.Services.GameWorld.Services
             SignInRequest signInRequest, string clientId, ImmutableArray<string> clientScopes, CancellationToken cancellationToken)
         {
             var context = _contextAccessor.Context;
+            if (context.Features.Get<Features_IAuthenticationFeature>() is not null)
+            {
+                return SignInResult.AlreadyLoggedOn;
+            }
+
+            if (context.Features.Get<PendingAuthorizationCleanup>() is not null)
+            {
+                await RevokePendingAuthorizationAsync("before issuing a replacement authorization");
+                if (context.Features.Get<PendingAuthorizationCleanup>() is not null)
+                {
+                    return SignInResult.AlreadyLoggedOn;
+                }
+            }
+
             var signInResponse = await _signInUserRequestClient.GetResponse<SignInUserResponseMessage>(new SignInUserRequestMessage(signInRequest.Login,
                     signInRequest.Password,
                     context.RemoteIPEndPoint!.Address.ToString(),

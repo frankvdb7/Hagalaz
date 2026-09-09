@@ -1,10 +1,13 @@
-﻿using Hagalaz.Collections;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using Hagalaz.Services.Contacts.Store.Model;
 
 namespace Hagalaz.Services.Contacts.Store
 {
-    public class ContactSessionStore : ConcurrentStore<uint, ContactSessionContext>
+    public sealed class ContactSessionStore : IEnumerable<ContactSessionContext>
     {
+        private readonly ConcurrentDictionary<uint, ContactSessionContext> _sessions = new();
         private readonly object _sessionGate = new();
 
         public bool TrySetNewerSession(ContactSessionContext session)
@@ -17,37 +20,35 @@ namespace Hagalaz.Services.Contacts.Store
                     return false;
                 }
 
-                if (existing == null)
-                {
-                    return TryAdd(session.MasterId, session);
-                }
-
-                this[session.MasterId] = session;
+                _sessions[session.MasterId] = session;
                 return true;
             }
         }
 
-        public bool TryRemoveSession(uint masterId, long sessionGeneration, string connectionId)
+        public bool TryRemoveExact(uint masterId, long sessionGeneration, string connectionId)
         {
             lock (_sessionGate)
             {
-                if (!TryGetValue(masterId, out var session) ||
+                if (!_sessions.TryGetValue(masterId, out var session) ||
                     session.SessionGeneration != sessionGeneration ||
                     session.ConnectionId != connectionId)
                 {
                     return false;
                 }
 
-                return TryRemove(masterId, session);
+                return _sessions.TryRemove(masterId, out _);
             }
         }
 
-        public bool TryRemoveSession(ContactSessionContext expectedSession)
-        {
-            lock (_sessionGate)
-            {
-                return TryRemove(expectedSession.MasterId, expectedSession);
-            }
-        }
+        public bool TryRemoveExact(ContactSessionContext expectedSession) =>
+            TryRemoveExact(expectedSession.MasterId, expectedSession.SessionGeneration, expectedSession.ConnectionId);
+
+        public bool TryGetValue(uint masterId, out ContactSessionContext session) => _sessions.TryGetValue(masterId, out session!);
+
+        public ContactSessionContext? GetOrDefault(uint masterId) => _sessions.GetValueOrDefault(masterId);
+
+        public IEnumerator<ContactSessionContext> GetEnumerator() => _sessions.Values.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

@@ -102,7 +102,7 @@ public sealed class NpcChildScopeTests
             .Spawn()
             .Npc;
 
-        await npc.OnRegistered();
+        npc.OnRegistered();
 
         var script = (TestBobFamiliarScript)npc.Script;
         Assert.AreEqual(37, script.Dehydrate().TicksRemaining);

@@ -21,7 +21,8 @@ MUST NOT enumerate every assembly loaded into the AppDomain.
 #### Scenario: A catalog assembly is partially loadable
 
 - **WHEN** type enumeration raises `ReflectionTypeLoadException`
-- **THEN** the catalog MUST retain all loadable types and continue discovery
+- **THEN** the catalog MUST propagate the failure
+- **AND** startup MUST NOT continue with a partial script catalog
 
 #### Scenario: An unrelated loaded assembly contains an NPC script
 

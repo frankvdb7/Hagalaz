@@ -21,12 +21,39 @@ public sealed class NpcServiceRegistrationTests
         var store = new NpcStore();
         var npc = CreateNpc();
         var failure = new InvalidOperationException("npc initialization failed");
-        npc.OnRegistered().Returns(Task.FromException(failure));
+        npc.When(value => value.OnRegistered()).Do(_ => throw failure);
         var service = CreateService(store);
 
         var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.RegisterAsync(npc));
 
         Assert.AreSame(failure, actual);
+        Assert.AreEqual(0, await store.CountAsync());
+        npc.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    public async Task Register_WhenInitializationCompletesSynchronously_PublishesTheNpcAndInitializesIt()
+    {
+        var store = new NpcStore();
+        var npc = CreateNpc();
+        var service = CreateService(store);
+
+        service.Register(npc);
+
+        Assert.AreEqual(1, await store.CountAsync());
+        npc.Received(1).OnRegistered();
+    }
+
+    [TestMethod]
+    public async Task Unregister_WhenCalledSynchronously_RemovesTheNpc()
+    {
+        var store = new NpcStore();
+        var npc = CreateNpc();
+        store.Add(npc);
+        var service = CreateService(store);
+
+        service.Unregister(npc);
+
         Assert.AreEqual(0, await store.CountAsync());
         npc.Received(1).Destroy();
     }
@@ -38,10 +65,10 @@ public sealed class NpcServiceRegistrationTests
         var region = Substitute.For<Hagalaz.Game.Abstractions.Model.Maps.IMapRegion>();
         var npc = CreateNpc();
         var failure = new InvalidOperationException("script initialization failed");
-        npc.OnRegistered().Returns(_ =>
+        npc.When(value => value.OnRegistered()).Do(_ =>
         {
             region.Add(npc);
-            return Task.FromException(failure);
+            throw failure;
         });
         npc.When(value => value.Destroy()).Do(_ => region.Remove(npc));
         var service = CreateService(store);
@@ -67,7 +94,7 @@ public sealed class NpcServiceRegistrationTests
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.RegisterAsync(npc));
 
-        await npc.DidNotReceive().OnRegistered();
+        npc.DidNotReceive().OnRegistered();
         npc.Received(1).Destroy();
     }
 
@@ -76,12 +103,11 @@ public sealed class NpcServiceRegistrationTests
     {
         var store = new NpcStore();
         var npc = CreateNpc();
-        npc.OnRegistered().Returns(Task.CompletedTask);
         var service = CreateService(store);
 
         await service.RegisterAsync(npc);
         Assert.AreEqual(1, await store.CountAsync());
-        await npc.Received(1).OnRegistered();
+        npc.Received(1).OnRegistered();
 
         await service.UnregisterAsync(npc);
 
@@ -96,8 +122,13 @@ public sealed class NpcServiceRegistrationTests
         var firstNpc = CreateNpc();
         var attempts = 0;
         var failure = new InvalidOperationException("first attempt failed");
-        firstNpc.OnRegistered().Returns(_ =>
-            ++attempts == 1 ? Task.FromException(failure) : Task.CompletedTask);
+        firstNpc.When(value => value.OnRegistered()).Do(_ =>
+        {
+            if (++attempts == 1)
+            {
+                throw failure;
+            }
+        });
         var service = CreateService(store);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.RegisterAsync(firstNpc));
@@ -107,7 +138,7 @@ public sealed class NpcServiceRegistrationTests
         await service.RegisterAsync(secondNpc);
 
         Assert.AreEqual(1, await store.CountAsync());
-        await secondNpc.Received(1).OnRegistered();
+        secondNpc.Received(1).OnRegistered();
         firstNpc.Received(1).Destroy();
     }
 
@@ -121,7 +152,7 @@ public sealed class NpcServiceRegistrationTests
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.RegisterAsync(npc));
 
-        await npc.DidNotReceive().OnRegistered();
+        npc.DidNotReceive().OnRegistered();
         Assert.AreEqual(0, await store.CountAsync());
     }
 

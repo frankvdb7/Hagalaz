@@ -22,14 +22,7 @@ namespace Hagalaz.Game.Abstractions.Factories
         {
             ArgumentNullException.ThrowIfNull(assembly);
 
-            try
-            {
-                return new NpcScriptTypeCatalog(assembly.GetTypes());
-            }
-            catch (ReflectionTypeLoadException exception)
-            {
-                return new NpcScriptTypeCatalog(exception.Types.OfType<Type>());
-            }
+            return new NpcScriptTypeCatalog(assembly.GetTypes());
         }
     }
 }
