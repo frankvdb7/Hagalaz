@@ -177,7 +177,13 @@ namespace Hagalaz.Services.GameWorld.Services
                 (IGameSession? Session, bool Created) sessionRegistration;
                 try
                 {
-                    sessionRegistration = await _gameSessionService.TryAddWorldSession(masterId.Value, context.ConnectionId, cancellationToken);
+                    sessionRegistration = signInRequest.LobbySessionClaimId is null
+                        ? await _gameSessionService.TryAddWorldSession(masterId.Value, context.ConnectionId, cancellationToken)
+                        : await _gameSessionService.TryAddWorldSession(
+                            masterId.Value,
+                            context.ConnectionId,
+                            signInRequest.LobbySessionClaimId,
+                            cancellationToken);
                 }
                 catch
                 {

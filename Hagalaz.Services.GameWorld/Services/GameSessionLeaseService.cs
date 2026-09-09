@@ -57,17 +57,17 @@ public sealed class GameSessionLeaseService : BackgroundService
 
     internal async Task RenewSessionsAsync(CancellationToken cancellationToken)
     {
-        var pendingCleanupSessions = await _sessions.FindWorldSessionsPendingCleanup();
+        var pendingCleanupSessions = await _sessions.FindSessionsPendingCleanup();
         var deferredAbortSessions = await _abortSessions.FindSessionsPendingAbort();
         var pendingCleanupSet = pendingCleanupSessions.Count == 0
             ? null
-            : new HashSet<IGameWorldSession>(pendingCleanupSessions, ReferenceEqualityComparer.Instance);
+            : new HashSet<IGameSession>(pendingCleanupSessions, ReferenceEqualityComparer.Instance);
         foreach (var session in await _sessions.FindAll())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (session is IGameWorldSession worldSession &&
-                (pendingCleanupSet?.Contains(worldSession) == true ||
-                 await _sessions.FindPendingWorldSessionPreviousSession(worldSession) != null))
+            if (pendingCleanupSet?.Contains(session) == true ||
+                session is IGameWorldSession worldSession &&
+                await _sessions.FindPendingWorldSessionPreviousClaimId(worldSession) != null)
             {
                 continue;
             }
@@ -118,7 +118,7 @@ public sealed class GameSessionLeaseService : BackgroundService
     }
 
     private async Task ReconcileDeferredClaimReleasesAsync(
-        IReadOnlyList<IGameWorldSession> pendingSessions,
+        IReadOnlyList<IGameSession> pendingSessions,
         CancellationToken cancellationToken)
     {
         foreach (var pendingSession in pendingSessions)
@@ -131,7 +131,7 @@ public sealed class GameSessionLeaseService : BackgroundService
                         pendingSession.SessionClaimId,
                         cancellationToken))
                 {
-                    await _sessions.TryRemovePendingWorldSession(pendingSession);
+                    await _sessions.TryRemovePendingSessionCleanup(pendingSession);
                     _logger.LogInformation(
                         "Released deferred world-session claim '{sessionClaimId}' for account '{masterId}'.",
                         pendingSession.SessionClaimId,
@@ -140,7 +140,7 @@ public sealed class GameSessionLeaseService : BackgroundService
                 else
                 {
                     // A false result proves that this exact owner no longer exists.
-                    await _sessions.TryRemovePendingWorldSession(pendingSession);
+                    await _sessions.TryRemovePendingSessionCleanup(pendingSession);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

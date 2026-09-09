@@ -144,7 +144,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     LastIpAddress = lastIp,
                     UnreadMessagesCount = 0,
                     WorldId = worldId,
-                    WorldAddress = _worldOptions.Value.AdvertisedEndpoint.Host
+                    WorldAddress = _worldOptions.Value.AdvertisedEndpoint.Host,
+                    SessionClaimId = session.SessionClaimId
                 });
 
                 // now let the appropriate client protocol handle any communication
@@ -268,6 +269,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                 {
                     Login = request.Login,
                     Password = request.Password,
+                    LobbySessionClaimId = request.LobbySessionClaimId,
                     GameClient = new GameClient(request.DisplayMode, request.Language, request.ClientSizeX, request.ClientSizeY)
                 })
                 : await _authenticationService.SignInLobbyAsync(new SignInRequest

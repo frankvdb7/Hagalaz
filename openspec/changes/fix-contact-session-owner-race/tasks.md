@@ -6,8 +6,9 @@
       `ContactSessionContext`.
 - [x] 1.3 Replace only with newer generations and remove only for the exact
       generation/connection owner.
-- [x] 1.4 Transfer the exact lobby claim atomically during local lobby-to-world
-      commit and preserve claim renewal/cleanup semantics.
+- [x] 1.4 Transfer the exact lobby claim atomically during local and
+      cross-GameWorld lobby-to-world commit and preserve claim
+      renewal/cleanup semantics.
 
 ## 2. Message propagation
 
@@ -21,6 +22,6 @@
 - [x] 3.1 Add both lobby/world message-ordering tests, including same-connection
       promotion and delayed World-to-Lobby replacement.
 - [x] 3.2 Add stale-sign-in, stale-sign-out, exact-owner, duplicate-notification,
-      generation-allocation, message-forwarding, and cross-GameWorld ownership
-      tests.
+      generation-allocation, message-forwarding, cross-GameWorld ownership and
+      exact-handoff tests, including failed-admission claim reconciliation.
 - [ ] 3.3 Run focused tests, build checks, and strict OpenSpec validation.

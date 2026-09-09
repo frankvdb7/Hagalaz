@@ -24,12 +24,20 @@ valid newer account lifecycle rather than merely a later allocation attempt.
 
 GameWorld uses one claim key for both lobby and world sessions. A lobby login
 claims the account globally, so a lobby on another GameWorld cannot replace an
-active world owner or compete with another lobby. A world promotion keeps the
-existing lobby claim while world initialization is pending, then atomically
+active world owner or compete with another lobby. The lobby response carries the
+opaque exact claim ID, and the client presents it in the world handshake when
+the selected world is on another GameWorld process. A world promotion keeps
+the existing lobby claim while world initialization is pending, then atomically
 replaces that exact lobby claim with the world claim while committing the local
-session. If the commit fails, the claim store restores the lobby claim.
+session. If the commit fails, the claim store restores the lobby claim. A
+missing, stale, or unrelated handoff ID cannot replace the current owner.
 Pending lobby-to-world promotions are excluded from world-claim renewal; the
 active lobby continues renewing its own claim until promotion completes.
+
+When local lobby admission fails after its claim was acquired and exact release
+cannot be confirmed, the existing pending claim-reconciliation path retains the
+exact session record. Lease reconciliation uses compare-and-remove semantics,
+so a newer owner is never removed.
 
 `ContactSessionContext` stores the generation and connection data. The existing
 store remains the single owner of presence state:

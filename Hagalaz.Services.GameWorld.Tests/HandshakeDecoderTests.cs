@@ -320,6 +320,26 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void WorldHandshakeDecoder_CrossWorldLobbyHandoffCarriesExactClaim()
+        {
+            var rsaBlock = CreateRsaBlock();
+            var cacheApi = Substitute.For<ICacheAPI>();
+            cacheApi.GetFileCount(byte.MaxValue).Returns(2);
+            var decoder = new WorldHandshakeRequestDecoder(
+                Options.Create(CreateRsaConfig(rsaBlock)),
+                cacheApi);
+            var encryptedPayload = EncryptPayload(CreateValidPayload(world: true, includeLobbyClaim: true));
+
+            var result = decoder.TryDecodeMessage(
+                CreateHandshakeInput(rsaBlock, includeWorldLoginFlag: true, encryptedPayload),
+                out var message);
+
+            Assert.IsTrue(result);
+            Assert.IsInstanceOfType<WorldSignInRequest>(message);
+            Assert.AreEqual("lobby-claim", ((WorldSignInRequest)message!).LobbySessionClaimId);
+        }
+
+        [TestMethod]
         public void WorldHandshakeDecoder_ReconnectFlagProducesReconnectRequestWithoutFreshLoginType()
         {
             var rsaBlock = CreateRsaBlock();
@@ -468,7 +488,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             return payload.ToArray();
         }
 
-        private static byte[] CreateValidPayload(bool world)
+        private static byte[] CreateValidPayload(bool world, bool includeLobbyClaim = false)
         {
             var payload = CreatePayloadPrefix(world);
             AppendHardwareBlock(payload);
@@ -481,11 +501,17 @@ namespace Hagalaz.Services.GameWorld.Tests
                 payload.Add(0);
                 payload.Add(0);
                 payload.Add(0);
-                payload.Add(0);
                 payload.Add(3);
                 AppendInt32(payload, 55);
-                AppendEmptyString(payload);
-                payload.Add(0);
+                if (includeLobbyClaim)
+                {
+                    AppendString(payload, "lobby-claim");
+                }
+                else
+                {
+                    AppendEmptyString(payload);
+                }
+                payload.Add(includeLobbyClaim ? (byte)1 : (byte)0);
             }
             else
             {
@@ -611,6 +637,12 @@ namespace Hagalaz.Services.GameWorld.Tests
 
         private static void AppendEmptyString(List<byte> buffer) => buffer.Add(0);
 
+        private static void AppendString(List<byte> buffer, string value)
+        {
+            buffer.AddRange(Encoding.UTF8.GetBytes(value));
+            buffer.Add(0);
+        }
+
         private static void AppendStartDelimitedEmptyString(List<byte> buffer)
         {
             buffer.Add(0);
@@ -630,6 +662,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.AreEqual(expected.DisplayMode, actual.DisplayMode);
             Assert.AreEqual(expected.ClientSizeX, actual.ClientSizeX);
             Assert.AreEqual(expected.ClientSizeY, actual.ClientSizeY);
+            Assert.AreEqual(expected.LobbySessionClaimId, actual.LobbySessionClaimId);
         }
 
         private static byte[] EncryptPayload(byte[] plaintext)

@@ -13,5 +13,6 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Messages
         public int UnreadMessagesCount { get; init; }
         public int WorldId { get; init; }
         public string WorldAddress { get; init; } = default!;
+        public string SessionClaimId { get; init; } = default!;
     }
 }

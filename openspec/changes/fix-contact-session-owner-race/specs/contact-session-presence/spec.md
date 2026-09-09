@@ -14,6 +14,12 @@ world lifecycle while an older lifecycle still owns the account. After exact
 ownership release, a newer lifecycle MAY acquire the next generation and
 replace stale presence.
 
+The lobby handshake MUST carry the exact opaque lobby claim into a world
+handshake when world selection crosses GameWorld processes. A world lifecycle
+MUST replace a lobby claim only when the presented claim is the current exact
+owner. Missing, stale, or unrelated handoff identities MUST be rejected
+without changing the current owner.
+
 #### Scenario: active world blocks a lobby on another GameWorld instance
 
 - GIVEN master 42 owns world generation 10 on GameWorld A
@@ -58,6 +64,37 @@ replace stale presence.
 - THEN the exact lobby claim is transferred atomically to world generation 2 and
   master 42 is present on `world-b`
 
+#### Scenario: cross-GameWorld promotion with the exact handoff claim
+
+- GIVEN GameWorld A owns lobby claim `L`
+- AND GameWorld B receives the same lobby lifecycle's exact handoff claim `L`
+- WHEN world initialization commits on GameWorld B
+- THEN GameWorld B atomically replaces `L` with world claim `W`
+- AND no other claim is replaced
+
+#### Scenario: stale cross-GameWorld handoff is rejected
+
+- GIVEN lobby claim `L` was current
+- AND the account is now owned by claim `W`
+- WHEN a world login presents stale handoff claim `L`
+- THEN world admission does not commit
+- AND claim `W` remains current
+
+#### Scenario: unrelated world login cannot steal a lobby claim
+
+- GIVEN lobby claim `L` is current
+- WHEN a world login presents no proof of `L`
+- THEN world admission is rejected
+- AND claim `L` remains current
+
+#### Scenario: failed lobby admission remains reconcilable
+
+- GIVEN a lobby claim is acquired
+- AND local lobby admission fails
+- AND exact claim release fails
+- THEN the exact failed session remains represented for reconciliation
+- AND reconciliation removes only that exact owner after it is released or proven stale
+
 #### Scenario: stale world sign-out arrives after a newer world owner
 
 - GIVEN master 42 has world generation 1 on `world-a`
@@ -99,3 +136,7 @@ Repeated sign-in for the current generation MUST NOT publish another sign-in.
 - GIVEN master 42 already has world generation 2 on `world-b`
 - WHEN generation 2 signs in again
 - THEN Contacts publishes no additional sign-in or sign-out notification
+
+Session generation remains the Contacts causal ordering mechanism; the exact
+claim ID is the GameWorld ownership fact and is not used as a replacement for
+generation ordering.

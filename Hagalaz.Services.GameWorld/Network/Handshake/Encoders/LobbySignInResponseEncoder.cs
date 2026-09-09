@@ -81,6 +81,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Encoders
             output.WriteInt16BigEndian((short)message.WorldId);
 
             output.WriteString(message.WorldAddress, true);
+            output.WriteString(message.SessionClaimId, true);
         }
 
         private static bool TryParseIpv4(string? ip, out int ipInt)

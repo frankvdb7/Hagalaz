@@ -10,6 +10,9 @@ and a delayed old sign-in can replace the current presence.
 - Admit lobby and world lifecycles through the existing distributed per-account
   session claim, and allocate one monotonic session generation per account at
   that GameWorld session-ownership boundary.
+- Carry the exact lobby claim from the lobby response into the world handshake
+  so a different GameWorld process can perform the same compare-and-replace
+  promotion.
 - Carry the generation and connection ID through lobby/world presence messages.
 - Store the generation as the authoritative Contacts lifecycle owner, with the
   connection ID retained as session data and an exact sign-out check.
@@ -21,9 +24,9 @@ and a delayed old sign-in can replace the current presence.
 
 - Do not add a second presence registry, retry worker, ordering framework, or
   lifecycle state machine.
-- Do not change GameWorld authentication payloads or character initialization;
-  only the existing session-ownership admission and promotion boundary may be
-  adjusted to establish the global invariant.
+- Do not change credential validation or character initialization. Extend the
+  existing handshake only with the opaque exact lobby claim required by the
+  session-ownership promotion boundary.
 - Do not change contact notification meaning: a successful replacement emits
   the new sign-in once and does not emit an intermediate sign-out.
 
@@ -40,5 +43,8 @@ and a delayed old sign-in can replace the current presence.
 - After exact ownership release, another GameWorld instance can admit a newer
   lobby lifecycle.
 - Lobby-to-world promotion transfers the existing lobby claim atomically with
-  the local session replacement.
+  the local session replacement, including when lobby and world are on
+  different GameWorld processes.
+- A failed exact claim release remains represented for lease-worker
+  reconciliation and cannot remove a newer exact owner.
 - The affected Contacts and GameWorld tests compile and pass.
