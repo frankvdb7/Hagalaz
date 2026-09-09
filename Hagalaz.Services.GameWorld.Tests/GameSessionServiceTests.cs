@@ -538,11 +538,11 @@ public sealed class GameSessionServiceTests
 
         Assert.IsFalse(await service.CommitWorldSession(session));
         Assert.IsNull(await service.FindByMasterId(42));
-        Assert.AreEqual(1, (await store.FindAll()).Count);
+        Assert.AreEqual(0, (await store.FindAll()).Count);
 
         Assert.IsFalse(await service.RemoveSession(session));
-        Assert.AreEqual(1, (await store.FindAll()).Count);
-        Assert.AreEqual(1, (await store.FindWorldSessionsPendingCleanup()).Count);
+        Assert.AreEqual(0, (await store.FindAll()).Count);
+        Assert.AreEqual(0, (await store.FindWorldSessionsPendingCleanup()).Count);
     }
 
     [TestMethod]
@@ -940,6 +940,36 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
+    public async Task TryAddWorldSession_WhenClaimAcquisitionThrowsAndReleaseReturnsFalse_RemovesReservationForLaterLogin()
+    {
+        var store = new GameSessionStore();
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        var factory = Substitute.For<IGameSessionFactory>();
+        var failedWorldSession = CreateSession(42, "failed-world-connection", "failed-claim");
+        var laterWorldSession = CreateSession(42, "later-world-connection", "later-claim");
+        factory.CreateWorld(42, "failed-world-connection", Arg.Any<long>()).Returns(failedWorldSession);
+        factory.CreateWorld(42, "later-world-connection", Arg.Any<long>()).Returns(laterWorldSession);
+        claims.AllocateSessionGenerationAsync(42, Arg.Any<CancellationToken>()).Returns(Task.FromResult(1L));
+        claims.TryClaimAsync(42, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(
+                Task.FromException<bool>(new InvalidOperationException("Claim acquisition failed after persistence.")),
+                Task.FromResult(true));
+        claims.ReleaseAsync(42, "failed-claim", Arg.Any<CancellationToken>()).Returns(Task.FromResult(false));
+        var service = GameSessionTestDependencies.CreateService(
+            store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => service.TryAddWorldSession(42, "failed-world-connection"));
+
+        Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).Count);
+        Assert.AreEqual(0, (await store.FindAll()).Count);
+        var laterRegistration = await service.TryAddWorldSession(42, "later-world-connection");
+
+        Assert.IsTrue(laterRegistration.Created);
+        Assert.AreSame(laterWorldSession, laterRegistration.Session);
+    }
+
+    [TestMethod]
     public async Task TryAddWorldSession_WhenClaimReleaseFails_RetainsExactOwnerCleanup()
     {
         var store = new GameSessionStore();
@@ -993,32 +1023,23 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
-    public async Task RemoveSession_StaleClaimRetainsSessionForReconciliation()
+    public async Task RemoveSession_WhenClaimBelongsToNewerOwner_RemovesOnlyStaleLocalSession()
     {
+        var store = new GameSessionStore();
         var claims = new InMemoryGameSessionClaimStore();
-        var service = CreateService(claims, 42, "connection-1", "claim-1");
-        var registration = await service.TryAddWorldSession(42, "connection-1");
-        Assert.IsTrue(await service.CommitWorldSession(registration.Session!));
+        var factory = Substitute.For<IGameSessionFactory>();
+        var staleSession = CreateSession(42, "connection-1", "claim-1");
+        factory.CreateWorld(42, "connection-1", Arg.Any<long>()).Returns(staleSession);
+        var service = GameSessionTestDependencies.CreateService(
+            store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+        Assert.IsTrue(await store.TryAdd(staleSession));
 
         claims.Replace(42, "claim-2");
 
-        Assert.IsTrue(await service.RemoveSession(registration.Session!));
+        Assert.IsTrue(await service.RemoveSession(staleSession));
         Assert.AreEqual("claim-2", claims.Get(42));
         Assert.IsNull(await service.FindByMasterId(42));
-    }
-
-    [TestMethod]
-    public async Task RemoveSession_WhenClaimReleaseFails_RetainsSessionForLeaseReconciliation()
-    {
-        var claims = new InMemoryGameSessionClaimStore();
-        var service = CreateService(claims, 42, "connection-1", "claim-1");
-        var registration = await service.TryAddWorldSession(42, "connection-1");
-        Assert.IsTrue(await service.CommitWorldSession(registration.Session!));
-
-        claims.Replace(42, "claim-2");
-
-        Assert.IsTrue(await service.RemoveSession(registration.Session!));
-        Assert.IsNull(await service.FindByMasterId(42));
+        Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).Count);
     }
 
     [TestMethod]

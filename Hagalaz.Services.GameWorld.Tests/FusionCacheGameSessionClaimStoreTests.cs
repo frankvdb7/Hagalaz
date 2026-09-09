@@ -144,6 +144,20 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     }
 
     [TestMethod]
+    public async Task ReleaseAsync_WhenClaimIsAbsent_ReturnsFalseWithoutRemovingAnything()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.None));
+
+        Assert.IsFalse(await store.ReleaseAsync(42, "owner"));
+        await cache.DidNotReceive().RemoveAsync(
+            Arg.Any<string>(),
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task RenewAsync_RefreshesOnlyExactOwner()
     {
         var (store, cache, _) = CreateStore();

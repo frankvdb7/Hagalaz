@@ -322,15 +322,15 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 if (await _claims.ReleaseAsync(masterId, claimId, cancellationToken))
                 {
-                    return ClaimCleanupResult.Released;
+                    return ClaimCleanupResult.Resolved;
                 }
 
                 _logger.LogWarning(
-                    "Session claim '{sessionClaimId}' for account '{masterId}' was not released {operation}; retaining exact-owner cleanup for retry.",
+                    "Session claim '{sessionClaimId}' for account '{masterId}' was no longer current {operation}; cleanup is resolved.",
                     claimId,
                     masterId,
                     operation);
-                return ClaimCleanupResult.Deferred;
+                return ClaimCleanupResult.Resolved;
             }
             catch (OperationCanceledException)
             {
@@ -356,7 +356,15 @@ namespace Hagalaz.Services.GameWorld.Services
                 // exception escaped (for example while releasing its distributed lock).
                 // The value check in ReleaseAsync prevents this cleanup from removing a
                 // claim acquired by another owner.
-                return !await _claims.ReleaseAsync(masterId, session.SessionClaimId, CancellationToken.None);
+                if (!await _claims.ReleaseAsync(masterId, session.SessionClaimId, CancellationToken.None))
+                {
+                    _logger.LogWarning(
+                        "World-session claim '{sessionClaimId}' for account '{masterId}' was no longer current after claim acquisition failed; cleanup is resolved.",
+                        session.SessionClaimId,
+                        masterId);
+                }
+
+                return false;
             }
             catch (OperationCanceledException)
             {
@@ -410,7 +418,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
         private enum ClaimCleanupResult
         {
-            Released,
+            Resolved,
             Deferred
         }
     }

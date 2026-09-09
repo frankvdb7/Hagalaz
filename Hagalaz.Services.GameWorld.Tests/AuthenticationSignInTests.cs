@@ -940,10 +940,6 @@ public sealed class AuthenticationSignInTests
         Assert.IsFalse(failedResult.Succeeded);
         Assert.IsNull(await gameSessionService.FindByMasterId(42));
 
-        var leaseService = GameSessionTestDependencies.CreateLeaseService(
-            store, store, claims, Substitute.For<IGameSessionConnectionTerminator>());
-        await leaseService.RenewSessionsAsync(CancellationToken.None);
-
         var laterSignIn = CreateAuthenticationService(gameSessionService, connectionId: "connection-2");
         var laterResult = await laterSignIn.SignInWorldAsync(CreateSignInRequest());
 
@@ -1621,6 +1617,11 @@ public sealed class AuthenticationSignInTests
         {
             lock (_sync)
             {
+                if (!_claims.TryGetValue(masterId, out var current) || current != claimId)
+                {
+                    return Task.FromResult(false);
+                }
+
                 _claims.Remove(masterId);
                 return Task.FromResult(false);
             }

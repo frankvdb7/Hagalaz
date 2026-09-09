@@ -45,8 +45,8 @@ and a delayed old sign-in can replace the current presence.
 - Lobby-to-world promotion transfers the existing lobby claim atomically with
   the local session replacement, including when lobby and world are on
   different GameWorld processes.
-- A failed exact claim release remains represented for lease-worker
-  reconciliation and cannot remove a newer exact owner; local lifecycle cleanup
-  cannot discard or replace the sole reconciliation record with an abort-only
-  reservation before that resolution.
+- An uncertain exact claim release remains represented for lease-worker
+  reconciliation and cannot remove a newer exact owner; a definitive false
+  result permits immediate stale-local cleanup, while local lifecycle cleanup
+  cannot discard or replace an unresolved record with an abort-only reservation.
 - The affected Contacts and GameWorld tests compile and pass.

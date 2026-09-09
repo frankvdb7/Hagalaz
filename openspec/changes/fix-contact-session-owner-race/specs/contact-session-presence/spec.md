@@ -91,17 +91,21 @@ without changing the current owner.
 
 - GIVEN a lobby claim is acquired
 - AND local lobby admission fails
-- AND exact claim release fails
+- AND exact claim release has an uncertain outcome
 - THEN the exact failed session remains represented for reconciliation
 - AND reconciliation removes only that exact owner after it is released or proven stale
 
-If exact release of a distributed claim fails after a session has been admitted,
-the retained session MUST remain represented by a local reconciliation record
-until the claim is released or the claim store proves that the retained owner is
-no longer current. Ordinary local lifecycle removal, including duplicate
-disconnect cleanup and failed world-sign-in cleanup, MUST NOT discard that sole
-record. Abort reconciliation MUST NOT replace it with a pending-abort-only
-record. Only exact reconciliation may remove it.
+If exact release of a distributed claim has an uncertain outcome after a session
+has been admitted, the retained session MUST remain represented by a local
+reconciliation record until the claim is released or the claim store proves
+that the retained owner is no longer current. A definitive false release result
+proves that the exact old claim is absent or belongs to another owner and MUST
+allow the stale local lifecycle to be removed immediately without affecting the
+current owner. Ordinary local lifecycle removal, including duplicate disconnect
+cleanup and failed world-sign-in cleanup, MUST NOT discard an unresolved record.
+Abort reconciliation MUST NOT replace an unresolved record with a
+pending-abort-only record. Only exact reconciliation may remove an unresolved
+record.
 
 #### Scenario: retained claim cleanup survives local removal
 

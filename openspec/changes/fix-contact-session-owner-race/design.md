@@ -36,9 +36,13 @@ active lobby continues renewing its own claim until promotion completes.
 
 When local lobby admission fails after its claim was acquired and exact release
 cannot be confirmed, the existing pending claim-reconciliation path retains the
-exact session record. Lease reconciliation uses compare-and-remove semantics,
-so a newer owner is never removed. The same retained record is not an ordinary
-local pending lifecycle entry: local removal operations leave it in place, abort
+exact session record. A definitive release result of either true or false
+resolves the old local lifecycle: true removes the exact current claim, while
+false proves that exact claim is absent or belongs to another owner. Only an
+exception or other uncertain distributed outcome requires deferred cleanup.
+Lease reconciliation uses compare-and-remove semantics, so a newer owner is
+never removed. The same retained record is not an ordinary local pending
+lifecycle entry: local removal operations leave it in place, abort
 reconciliation cannot replace it with a pending-abort record, and only the exact
 reconciliation operation may remove it after release succeeds or the claim store
 proves that owner is no longer current.
