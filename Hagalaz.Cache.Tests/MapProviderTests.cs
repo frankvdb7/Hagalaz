@@ -1,3 +1,4 @@
+using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Types.Factories;
@@ -43,6 +44,57 @@ namespace Hagalaz.Cache.Tests
 
             // Assert
             _cacheApiMock.Verify(x => x.ReadContainer(5, 1, xteaKeys), Times.Once);
+        }
+
+        [Fact]
+        public void DecodeRegion_WhenMapArchivesAreAbsent_UsesEmptyMapData()
+        {
+            _cacheApiMock.Setup(x => x.GetFileId(5, It.IsAny<string>())).Returns(-1);
+            var callbackCount = 0;
+
+            _provider.DecodeRegion(
+                257,
+                System.Array.Empty<int>(),
+                (_, _, _, _, _, _) => callbackCount++,
+                (_, _, _) => callbackCount++);
+
+            Assert.Equal(0, callbackCount);
+            _cacheApiMock.Verify(x => x.ReadContainer(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+            _cacheApiMock.Verify(x => x.ReadContainer(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int[]>()), Times.Never);
+        }
+
+        [Fact]
+        public void DecodeRegion_WhenTerrainContainerCannotBeRead_PropagatesTheFailure()
+        {
+            var failure = new InvalidDataException("invalid terrain container");
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(1);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(-1);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Throws(failure);
+
+            var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
+                257,
+                System.Array.Empty<int>(),
+                (_, _, _, _, _, _) => { },
+                (_, _, _) => { }));
+
+            Assert.Same(failure, actual);
+        }
+
+        [Fact]
+        public void DecodeRegion_WhenObjectContainerCannotBeRead_PropagatesTheFailure()
+        {
+            var failure = new InvalidDataException("invalid object container");
+            _cacheApiMock.Setup(x => x.GetFileId(5, "m1_1")).Returns(-1);
+            _cacheApiMock.Setup(x => x.GetFileId(5, "l1_1")).Returns(2);
+            _cacheApiMock.Setup(x => x.ReadContainer(5, 2, It.IsAny<int[]>())).Throws(failure);
+
+            var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
+                257,
+                System.Array.Empty<int>(),
+                (_, _, _, _, _, _) => { },
+                (_, _, _) => { }));
+
+            Assert.Same(failure, actual);
         }
 
         [Fact]

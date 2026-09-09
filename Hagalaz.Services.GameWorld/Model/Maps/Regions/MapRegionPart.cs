@@ -21,7 +21,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     /// Contains region part data.
     /// Each region has 4x8x8 parts
     /// </summary>
-    public class MapRegionPart : IMapRegionPart, IMapRegionPartLoadRollback
+    public class MapRegionPart : IMapRegionPart
     {
         private readonly IMapper _mapper;
         private readonly IGroundItemBuilder _groundItemBuilder;
@@ -378,54 +378,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             lock (_updatesLock)
             {
                 _preparedUpdates.Clear();
-            }
-        }
-
-        public void ResetUnpublishedPopulation()
-        {
-            List<Exception>? failures = null;
-            foreach (var gameObject in _gameObjects.Values.Concat(_disabledStaticGameObjects.Values).Distinct())
-            {
-                if (!gameObject.IsDestroyed)
-                {
-                    try
-                    {
-                        gameObject.Destroy();
-                    }
-                    catch (Exception exception)
-                    {
-                        (failures ??= []).Add(exception);
-                    }
-                }
-            }
-
-            foreach (var item in FindAllGroundItems())
-            {
-                if (!item.IsDestroyed)
-                {
-                    try
-                    {
-                        item.Destroy();
-                    }
-                    catch (Exception exception)
-                    {
-                        (failures ??= []).Add(exception);
-                    }
-                }
-            }
-
-            _gameObjects.Clear();
-            _disabledStaticGameObjects.Clear();
-            _groundItems.Clear();
-            lock (_updatesLock)
-            {
-                _pendingUpdates.Clear();
-                _preparedUpdates.Clear();
-            }
-
-            if (failures is not null)
-            {
-                throw new AggregateException("Failed to reset unpublished map-region-part population.", failures);
             }
         }
 

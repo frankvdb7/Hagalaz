@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -161,6 +162,19 @@ namespace Hagalaz.Services.GameWorld.Services
         }
 
         public IMapRegion GetOrCreateMapRegion(int id, int dimension, bool resume) => GetMapRegion(id, dimension, true, resume)!;
+
+        public bool TryRemoveMapRegion(int id, int dimension, IMapRegion expectedRegion)
+        {
+            ArgumentNullException.ThrowIfNull(expectedRegion);
+
+            var mapDimension = _dimensions[dimension];
+            if (mapDimension is null || mapDimension.Regions is not ConcurrentDictionary<int, IMapRegion> regions)
+            {
+                return false;
+            }
+
+            return ((ICollection<KeyValuePair<int, IMapRegion>>)regions).Remove(new KeyValuePair<int, IMapRegion>(id, expectedRegion));
+        }
 
         /// <summary>
         /// Creates the dynamic region.

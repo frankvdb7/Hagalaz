@@ -26,7 +26,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _logger = logger;
         }
 
-        public ValueTask<INpc?> FindByIndexAsync(int index) => _npcStore.FindAsync(npc => npc.Index == index);
+        public ValueTask<INpc?> FindByIndexAsync(int index) => _npcStore.FindByIndexAsync(index);
 
         public async Task RegisterAsync(INpc npc)
         {
@@ -192,7 +192,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             if (cleanupFailure is not null)
             {
-                throw new AggregateException("NPC registration and cleanup both failed.", registrationFailure, cleanupFailure);
+                throw new AggregateException("NPC registration and cleanup both failed.", registrationFailure, cleanupFailure).Flatten();
             }
 
             ExceptionDispatchInfo.Capture(registrationFailure).Throw();

@@ -134,29 +134,25 @@ namespace Hagalaz.Cache.Types.Providers
 
         private MemoryStream? ReadObjectData(int regionId, int[]? xteaKeys)
         {
-            try
+            var fileId = _cache.GetFileId(5, "l" + (regionId >> 8) + "_" + (regionId & 0xFF));
+            if (fileId == -1)
             {
-                var fileId = _cache.GetFileId(5, "l" + (regionId >> 8) + "_" + (regionId & 0xFF));
-                return _cache.ReadContainer(5, fileId, xteaKeys ?? []).Data;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error while reading object data for region {RegionId}", regionId);
+                _logger.LogDebug("Object data for region {RegionId} is absent", regionId);
                 return null;
             }
+
+            return _cache.ReadContainer(5, fileId, xteaKeys ?? []).Data;
         }
         private MemoryStream? ReadTerrainData(int regionId)
         {
-            try
+            var fileId = _cache.GetFileId(5, "m" + (regionId >> 8) + "_" + (regionId & 0xFF));
+            if (fileId == -1)
             {
-                var fileId = _cache.GetFileId(5, "m" + (regionId >> 8) + "_" + (regionId & 0xFF));
-                return _cache.ReadContainer(5, fileId).Data;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error while reading terrain data for region {RegionId}", regionId);
+                _logger.LogDebug("Terrain data for region {RegionId} is absent", regionId);
                 return null;
             }
+
+            return _cache.ReadContainer(5, fileId).Data;
         }
     }
 }

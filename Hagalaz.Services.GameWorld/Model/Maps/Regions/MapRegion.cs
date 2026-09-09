@@ -22,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     /// <summary>
     /// Represents a single region.
     /// </summary>
-    public partial class MapRegion : IMapRegion, IMapRegionLoadRollback
+    public partial class MapRegion : IMapRegion
     {
         private readonly ConcurrentStore<int, ICharacter> _characters = new();
         private readonly ConcurrentStore<int, INpc> _npcs = new();
@@ -267,76 +267,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             IsDestroyed = true;
-        }
-
-        public async Task ResetUnpublishedLoadAsync()
-        {
-            if (IsLoaded)
-            {
-                throw new InvalidOperationException($"Region {this} is already loaded");
-            }
-
-            if (IsDestroyed)
-            {
-                throw new InvalidOperationException($"Region {this} is already destroyed");
-            }
-
-            if (_characters.Count > 0)
-            {
-                throw new InvalidOperationException($"Region {this} contains characters");
-            }
-
-            List<Exception>? failures = null;
-
-            foreach (var npc in FindAllNpcs().ToArray())
-            {
-                try
-                {
-                    await _npcService.UnregisterAsync(npc);
-                }
-                catch (Exception exception)
-                {
-                    (failures ??= []).Add(exception);
-                }
-
-                try
-                {
-                    if (_npcs.TryGetValue(npc.Index, out var currentNpc) &&
-                        ReferenceEquals(currentNpc, npc) &&
-                        !_npcs.TryRemove(npc.Index, npc))
-                    {
-                        throw new InvalidOperationException($"Failed to remove NPC '{npc}' from unpublished region ownership.");
-                    }
-                }
-                catch (Exception exception)
-                {
-                    (failures ??= []).Add(exception);
-                }
-            }
-
-            foreach (var part in _parts)
-            {
-                try
-                {
-                    if (part is not IMapRegionPartLoadRollback rollback)
-                    {
-                        throw new InvalidOperationException($"Region part '{part}' does not support unpublished-load rollback.");
-                    }
-
-                    rollback.ResetUnpublishedPopulation();
-                }
-                catch (Exception exception)
-                {
-                    (failures ??= []).Add(exception);
-                }
-            }
-
-            Array.Clear(_collision);
-
-            if (failures is not null)
-            {
-                throw new AggregateException($"Failed to reset unpublished map region '{Id}'.", failures);
-            }
         }
 
         public void QueueUpdate(IRegionPartUpdate update)

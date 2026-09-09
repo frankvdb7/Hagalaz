@@ -184,23 +184,18 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public async Task RequestLoad_RetriesRegionAfterLoaderFailure()
+        public async Task EnsureLoadedAsync_WhenLoadFails_AllConcurrentWaitersObserveTheFailure()
         {
-            var firstAttemptFailed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var secondAttemptCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var attempts = 0;
+            var loadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseLoad = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var failure = new InvalidOperationException("test failure");
             var loader = Substitute.For<IMapRegionLoader>();
             loader.LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>())
-                .Returns(_ =>
+                .Returns(async _ =>
                 {
-                    if (Interlocked.Increment(ref attempts) == 1)
-                    {
-                        firstAttemptFailed.TrySetResult();
-                        return Task.FromException(new InvalidOperationException("test failure"));
-                    }
-
-                    secondAttemptCompleted.TrySetResult();
-                    return Task.CompletedTask;
+                    loadStarted.TrySetResult();
+                    await releaseLoad.Task;
+                    throw failure;
                 });
 
             using var provider = new ServiceCollection()
@@ -214,21 +209,18 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.IsLoaded.Returns(false);
 
             await scheduler.StartAsync(CancellationToken.None);
+            var firstWaiter = scheduler.EnsureLoadedAsync(new[] { region });
+            await loadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            var secondWaiter = scheduler.EnsureLoadedAsync(new[] { region });
 
-            scheduler.RequestLoad(region);
-            await firstAttemptFailed.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            releaseLoad.TrySetResult();
+            var firstFailure = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => firstWaiter);
+            var secondFailure = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => secondWaiter);
             await scheduler.StopAsync(CancellationToken.None);
 
-            using var retryScheduler = new MapRegionLoadScheduler(
-                provider.GetRequiredService<IServiceScopeFactory>(),
-                Substitute.For<ILogger<MapRegionLoadScheduler>>());
-            await retryScheduler.StartAsync(CancellationToken.None);
-            retryScheduler.RequestLoad(region);
-            await secondAttemptCompleted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            await retryScheduler.StopAsync(CancellationToken.None);
-
-            Assert.AreEqual(2, attempts);
-            await loader.Received(2).LoadAsync(region, Arg.Any<CancellationToken>());
+            Assert.AreSame(failure, firstFailure);
+            Assert.AreSame(failure, secondFailure);
+            await loader.Received(1).LoadAsync(region, Arg.Any<CancellationToken>());
         }
 
         [TestMethod]

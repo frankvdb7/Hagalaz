@@ -53,6 +53,22 @@ public sealed class MapRegionServiceTests
         Assert.IsFalse(pathFinder.CheckStep(Location.Create(67, 69, 0, 0), 1, 0, 1));
     }
 
+    [TestMethod]
+    public void TryRemoveMapRegion_RemovesOnlyTheExpectedActiveInstance()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var location = Location.Create(67, 69, 0, 0);
+        var firstRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+
+        Assert.IsTrue(service.TryRemoveMapRegion(firstRegion.Id, location.Dimension, firstRegion));
+
+        var replacementRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+        Assert.AreNotSame(firstRegion, replacementRegion);
+        Assert.IsFalse(service.TryRemoveMapRegion(firstRegion.Id, location.Dimension, firstRegion));
+        Assert.AreSame(replacementRegion, service.GetMapRegion(location.RegionId, location.Dimension, false, false));
+    }
+
     private static ServiceProvider CreateProvider() => new ServiceCollection()
         .AddSingleton(Substitute.For<INpcService>())
         .BuildServiceProvider();

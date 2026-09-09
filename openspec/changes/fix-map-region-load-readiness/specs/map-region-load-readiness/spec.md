@@ -1,57 +1,122 @@
 ## Purpose
 
-Expose map-region collision data only after the region has been populated successfully, so movement cannot traverse unloaded or partially loaded world geometry and failed loads can recover through the existing scheduler.
+Keep map-region readiness fail-closed until all required source data has been
+prepared and the initial population has completed, while discarding failed
+region instances so later requests can create clean replacements.
 
 ## ADDED Requirements
 
 ### Requirement: Region readiness is published after complete population
 
-The system MUST keep a map region not ready for movement collision queries until terrain collision, static map objects, database-backed objects, ground items, and NPC population have completed successfully.
+The system MUST keep a map region unavailable for movement collision queries
+until terrain collision, static map objects, configured game objects, ground
+items, and valid NPC population have completed successfully.
 
 #### Scenario: Collision is queried while a region is loading
 
-- **WHEN** movement or pathfinding queries a tile in a region whose population is still in progress
-- **THEN** the query MUST fail closed so movement cannot enter or traverse the not-ready region
+- **WHEN** movement or pathfinding queries a tile in a region whose population
+  is still in progress
+- **THEN** the query MUST fail closed so movement cannot enter or traverse the
+  not-ready region
 
 #### Scenario: Region population completes successfully
 
-- **WHEN** all required region population steps complete without error
-- **THEN** the region MUST become ready and movement collision queries MUST return the populated collision flags
+- **WHEN** all required source preparation and population steps complete without
+  a fatal error
+- **THEN** the region MUST publish readiness only after the final population
+  step and movement queries MUST return the populated collision flags
 
-#### Scenario: Static collision is the final population step
+### Requirement: Source preparation precedes region mutation
 
-- **WHEN** static map objects are still being decoded or their collision flags are still being applied
-- **THEN** the region MUST remain not ready even if earlier population steps have completed
+The system MUST complete all required database queries and static map decoding
+before applying their collision, object, or item results to the region.
+Static decode callbacks MUST stage local data and MUST NOT mutate the region
+during decoding.
 
-### Requirement: Failed and canceled loads remain recoverable
+#### Scenario: Static decode fails after producing partial callbacks
 
-The system MUST leave a region not ready when population fails or is canceled, and a later load request MUST be able to attempt loading that region again.
+- **WHEN** static decoding emits collision or object data and then fails
+- **THEN** none of that staged data MUST be applied to the region
+- **AND** the region MUST NOT publish readiness
 
-#### Scenario: Population fails before completion
+### Requirement: Fatal load failures discard the failed instance
 
-- **WHEN** a region loader throws an unexpected exception during population
-- **THEN** the region MUST remain not ready and the scheduler MUST release its in-flight admission so a later request can retry
+An unexpected database, cache, decode, map-apply, cancellation, or shutdown
+failure MUST leave the region not ready. The loader MUST attempt to unregister
+every NPC successfully registered by that attempt, preserve cleanup failures,
+and exact-remove the failed region only if the active service entry is that
+same instance. The failed instance MUST NOT be reset or reused.
 
-#### Scenario: Population is canceled during shutdown
+#### Scenario: Required source preparation fails
 
-- **WHEN** host cancellation interrupts a region load before completion
-- **THEN** the region MUST remain not ready and no successful-ready state MUST be published
+- **WHEN** a required source query or map cache read/decode fails
+- **THEN** no partially prepared source result is applied to the region
+- **AND** the failed region instance MUST be removed/discarded
 
-#### Scenario: A later request retries a failed region
+#### Scenario: Cancellation follows successful NPC registration
 
-- **WHEN** a region previously failed to load and a later request is submitted while the scheduler is running
-- **THEN** the loader MUST be invoked again for that region
+- **WHEN** cancellation occurs after one or more NPCs have been registered
+  successfully but before readiness is published
+- **THEN** all NPCs registered by that attempt MUST be unregistered
+- **AND** the region MUST remain not ready and be exact-removed
+
+#### Scenario: A stale failed instance is replaced
+
+- **WHEN** a failed instance R1 is no longer current and a replacement R2 is
+  active
+- **THEN** cleanup for R1 MUST NOT remove R2
+
+#### Scenario: A later request retries through a fresh instance
+
+- **WHEN** a later request asks for the same region after R1 failed
+- **THEN** the service MUST create or return a fresh instance R2
+- **AND** R2 MUST NOT be the failed R1 instance
+
+### Requirement: Cache absence is distinct from cache failure
+
+The system MUST treat the cache API's documented `GetFileId == -1` result as a
+missing map archive according to existing empty-data semantics. It MUST NOT
+convert container-read, decryption, decompression, malformed-container, or
+decoder failures into missing data.
+
+#### Scenario: A named map archive is absent
+
+- **WHEN** the cache reports `-1` for a terrain or object archive
+- **THEN** that archive MUST follow the existing intentional empty-data path
+
+#### Scenario: A named map archive cannot be decoded
+
+- **WHEN** an existing archive fails to read or decode
+- **THEN** the failure MUST propagate as fatal map-load input failure
+
+### Requirement: Isolated NPC content failure does not invalidate valid map data
+
+A non-cancellation failure constructing or registering one configured NPC MUST
+be logged with region and NPC identity, cleaned up by the owning registration
+service where applicable, and skipped so valid NPC entries can continue. This
+exception boundary MUST NOT swallow cancellation or failures from database,
+cache, decoder, map apply, or scheduler infrastructure.
+
+#### Scenario: One NPC registration fails
+
+- **WHEN** NPC A registers, NPC B fails at the isolated NPC content boundary,
+  and NPC C is valid
+- **THEN** A and C MUST remain populated, B MUST be absent, and the region MUST
+  be eligible to publish readiness
 
 ### Requirement: In-flight loading remains single-owned
 
-The system MUST continue to deduplicate concurrent requests for the same region and MUST use the existing region-load scheduler as the sole owner of asynchronous loading.
+The existing `MapRegionLoadScheduler` MUST remain the sole asynchronous loader
+and MUST coalesce duplicate requests for one active region instance.
 
 #### Scenario: Duplicate requests arrive during loading
 
-- **WHEN** multiple map updates request the same region before its current load completes
-- **THEN** exactly one load operation MUST be in flight for that region
+- **WHEN** multiple callers request the same active region before its current
+  load completes
+- **THEN** exactly one load operation MUST be in flight and all waiters MUST
+  observe its completion or failure
 
 #### Scenario: A ready region is requested again
 
-- **WHEN** a map update requests a region whose complete population has already succeeded
+- **WHEN** a region's complete population has committed readiness
 - **THEN** the scheduler MUST NOT invoke the loader again

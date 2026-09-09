@@ -1,33 +1,63 @@
 ## Why
 
-Map regions currently become observable as loaded before their NPCs, ground items, static map objects, and collision flags have finished loading. Movement and pathfinding can therefore read an empty collision grid, while the scheduler suppresses subsequent load requests; a load failure after the early state change can leave the region permanently marked loaded.
+Map regions are created in the active region service before loading starts. If
+the loader mutates that region while a later database or cache operation can
+still fail, the instance can contain incomplete collision or entities and can
+become difficult to recover safely. Broad cache exception handling also turns
+corrupt map data into apparently empty map data.
 
 ## What Changes
 
-- Publish a region as loaded only after the complete region-load pipeline succeeds, including static map collision population.
-- Keep a region eligible for a later load attempt when loading is canceled or fails before completion.
-- Preserve the existing single-reader `MapRegionLoadScheduler` and `IMapRegionLoader` ownership; do not add a second queue, worker, or retry mechanism.
-- Roll back unpublished NPCs, objects, items, collision, and update buffers on failure or cancellation before rethrowing the original error.
-- Add deterministic regression coverage for movement queries during loading, successful readiness publication, and retry after failure.
+- Prepare database-backed spawn data and decoded static map data in local
+  collections before mutating the region.
+- Publish static collision and objects only after the complete static decode has
+  succeeded, then apply configured objects/items and register NPCs near the end.
+- Treat only the cache API's documented missing-file result (`-1`) as absent;
+  propagate container, decryption, decompression, and decode failures.
+- Isolate a genuinely invalid NPC entry after its registration service has
+  cleaned up that entry, while propagating cancellation and infrastructure
+  failures from the rest of the load.
+- On fatal failure, unregister NPCs successfully registered by this attempt,
+  exact-remove the failed region instance, and discard it. A later request gets
+  a fresh region instance.
+- Remove the obsolete in-place unpublished-region rollback machinery while
+  retaining the existing scheduler coalescing and readiness gate.
 
-### Acceptance Criteria
+## Acceptance Criteria
 
-- A pathfinding or movement collision query cannot observe a region as loaded before static collision population completes.
-- A successful region load becomes loaded exactly once after all population steps complete.
-- A failed or canceled load does not permanently suppress a later request for that region.
-- A failed or canceled load does not publish partially populated entities or collision to a later retry.
-- Existing static-object coordinate handling, custom-object collision behavior, and intentional non-colliding floor-decoration behavior remain unchanged.
+- A source or cache preparation failure cannot leave collision, objects, items,
+  or NPCs applied to the failed region.
+- Static decode callbacks stage local data and do not mutate the region until
+  the entire decode succeeds.
+- Unexpected cache read/decode failures remain fatal; only a genuinely absent
+  named archive follows the existing empty-data semantics.
+- NPC registration occurs after fatal map preparation and apply work. One bad
+  NPC entry is logged and skipped while valid entries continue loading, and
+  cancellation is never swallowed.
+- Every NPC successfully registered by a failed attempt is unregistered before
+  the attempt completes, with cleanup failures preserved.
+- The failed region is removed only when the service still holds that exact
+  instance; a stale failure cannot remove a replacement region.
+- A later request creates a fresh region instance, and concurrent requests for
+  one active instance still share one scheduler load attempt.
+- `region.Load()` remains the final readiness publication signal, and unloaded
+  collision queries remain fail-closed.
 
-### Stop Conditions
+## Stop Conditions
 
-- Stop if satisfying readiness requires changing pathfinding algorithms, collision flag meanings, cache decoding, or client protocol behavior; record that work as a follow-up.
-- Stop if reliable retry semantics require a new persistence, queue, or background-worker mechanism beyond the existing scheduler.
+- Do not add a transaction framework, rollback coordinator, retry worker,
+  persistence mechanism, or generalized region-loading abstraction.
+- Do not change pathfinding algorithms, collision meanings, cache formats,
+  client protocol behavior, or unrelated reconnect/session architecture.
+- Do not broaden isolated-content exception handling to cache, database,
+  collision-apply, or scheduler infrastructure failures.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `map-region-load-readiness`: Region loading exposes collision data only after complete successful population and permits recovery from failed loads.
+- `map-region-load-readiness`: A region becomes ready only after prepared data
+  has been applied successfully, and failed instances are discarded.
 
 ### Modified Capabilities
 
@@ -35,9 +65,14 @@ Map regions currently become observable as loaded before their NPCs, ground item
 
 ## Impact
 
-- `Hagalaz.Services.GameWorld/Model/Maps/Regions/MapRegion.cs`
 - `Hagalaz.Services.GameWorld/Data/MapRegionLoader.cs`
-- `Hagalaz.Services.GameWorld/Services/MapRegionLoadScheduler.cs`
-- `Hagalaz.Services.GameWorld/Services/MapUpdateService.cs` only if request/readiness coordination requires a focused integration adjustment.
-- `Hagalaz.Services.GameWorld.Tests` region-loader/scheduler regression tests.
-- No new dependencies, persisted-data changes, cache-format changes, or client changes.
+- `Hagalaz.Services.GameWorld/Services/MapRegionService.cs`
+- `Hagalaz.Game.Abstractions/Services/IMapRegionService.cs`
+- `Hagalaz.Cache/Types/Providers/MapProvider.cs`
+- `Hagalaz.Services.GameWorld/Model/Maps/Regions/MapRegion.cs`
+- `Hagalaz.Services.GameWorld/Model/Maps/Regions/MapRegionPart.cs`
+- focused GameWorld and cache map tests
+- the directly requested NPC indexed lookup and flat aggregation cleanup
+
+No new dependencies, persisted-data changes, cache-format changes, or client
+changes are required.

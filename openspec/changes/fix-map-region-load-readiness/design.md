@@ -1,71 +1,98 @@
 ## Context
 
-`MapUpdateService` submits visible regions to the existing asynchronous `MapRegionLoadScheduler`. The scheduler deduplicates requests using `IMapRegion.IsLoaded` plus its in-flight set, while `MapRegionLoader` currently calls `region.Load()` before the asynchronous and synchronous population steps finish. `MapRegionService.GetClippingFlag` then reads the region collision array without considering that readiness boundary.
+`MapRegionService` publishes a newly created region in its active dictionary.
+`MapRegionLoadScheduler` owns asynchronous loading and coalesces requests by
+region instance. `MapRegionLoader` must therefore avoid exposing partial state
+and must remove a failed published instance before completing its failed load.
 
-See `proposal.md` for the observed regression and `specs/map-region-load-readiness/spec.md` for the behavior contract.
+## Goals and non-goals
 
-## Goals / Non-Goals
+Goals are complete readiness publication, prepare-before-apply, accurate cache
+failure semantics, isolated NPC content failure, cleanup of external NPC
+ownership, and fresh-instance retry through the existing service/scheduler.
 
-**Goals:**
-
-- Make the region's existing loaded state the commit point for complete population.
-- Fail closed for movement collision queries against regions that are not ready.
-- Preserve the existing scheduler's one-reader, in-flight deduplication, and failure logging.
-- Allow a later request to retry a region whose load did not commit successfully.
-- Add deterministic tests for the loader/readiness boundary and scheduler retry behavior.
-
-**Non-Goals:**
-
-- Do not alter pathfinding algorithms, movement-step geometry, collision flag definitions, cache decoding, or client packets.
-- Do not add a second queue, retry worker, persistence mechanism, or region-state store.
-- Do not change the intended passability of floor decorations or the collision behavior of custom objects.
-- Do not redesign dynamic-region loading or object placement.
+Non-goals are a generic transaction abstraction, a second queue or worker,
+automatic retries, pathfinding changes, cache-format changes, and unrelated
+GameWorld lifecycle changes.
 
 ## Decisions
 
-### 1. Keep `MapRegion` as the readiness owner
+### 1. Use local staging in `MapRegionLoader`
 
-`MapRegion.IsLoaded` remains the single authoritative readiness state. The loader will invoke the existing `Load()` transition only after all population operations have completed successfully. No other component will publish readiness, and the scheduler will continue to use this state to decide whether a completed region needs another load.
+The loader queries all configured spawn sources first. Static decode callbacks
+append prepared object instances and collision coordinates to local lists. The
+loader builds configured items and objects before applying any region state.
+These lists are private implementation details; no transaction or rollback
+abstraction is introduced.
 
-An alternative is to add a separate readiness registry or a second loading state machine. That would create another owner for a state already represented by `IMapRegion.IsLoaded`, so it is rejected.
+### 2. Apply prepared map state before NPC registration
 
-### 2. Fail closed at the collision-query boundary
+After preparation succeeds, collision, static objects, configured objects, and
+ground items are applied. NPCs are then built and registered. This keeps global
+NPC ownership out of failures discovered during source preparation and map
+construction. `MapRegion.Load()` remains the final commit/readiness signal.
 
-`MapRegionService.GetClippingFlag` will check the resolved region's readiness before returning its collision array. A region that is not ready will return the existing blocking terrain flag, preventing both pathfinding and per-tick movement validation from entering or traversing a partially populated region. Ready regions will continue returning their stored flags unchanged.
+### 3. Treat cache absence differently from cache failure
 
-Only the query boundary is gated. Population continues to use the existing direct region collision writers, so loading can construct the collision grid without routing its writes through a new mechanism.
+`ICacheAPI.GetFileId` returns `-1` when the named archive is absent. The map
+provider returns `null` only for that result, preserving existing empty-map
+behavior. It does not catch `ReadContainer` or decoder exceptions, so corrupt,
+encrypted-with-wrong-keys, truncated, or structurally invalid data aborts the
+load.
 
-Returning a walkable value during loading is rejected because it recreates the reported failure. Blocking only the affected not-ready region is preferred over changing the pathfinder or making the synchronous game tick wait for asynchronous loading.
+### 4. Keep isolated NPC handling at the registration boundary
 
-### 3. Reuse scheduler admission for retry
+`INpcService.RegisterAsync` owns cleanup for its own failed registration. The
+loader catches non-cancellation exceptions from one NPC build or registration,
+logs the region and NPC identity, and continues. Database, cache, map apply,
+and cancellation failures remain fatal.
 
-`MapRegionLoadScheduler` remains the sole asynchronous loading owner. A normal
-`Dictionary<IMapRegion, TaskCompletionSource>` under its existing lock is the
-single in-flight source of truth. Dictionary membership deduplicates requests;
-the worker completes the shared task successfully, faulted, or canceled and
-removes it when the attempt finishes. `EnsureLoadedAsync` awaits the collected
-tasks with `Task.WhenAll(...).WaitAsync(cancellationToken)`, so caller
-cancellation stops only that caller's wait. Scheduler shutdown cancels all
-unresolved waiters before the worker exits. With readiness published only at
-the end, failed and canceled loads leave `IsLoaded == false`; a later
-`RequestLoad` is therefore admitted without an additional retry loop.
+### 5. Clean external ownership, then discard the region
 
-Duplicate requests during the active operation share the one task, and
-requests for a committed region remain suppressed by `IsLoaded`.
+The loader keeps a local list of NPCs whose registration completed successfully.
+If the attempt later fails, it tries to unregister every item in that list and
+preserves cleanup failures. It then calls the map service's compare-and-remove
+operation. The operation removes only the active dictionary entry whose value
+is the expected instance, so a late failure cannot remove a replacement.
+The failed region's partially applied local state is not reset or reused.
 
-### 4. Test the semantic gates, not timing
+### 6. Preserve scheduler ownership and coalescing
 
-Regression tests will coordinate on explicit load-start, population-progress, completion, and failure gates. They will not use sleeps or read-count assumptions. Coverage will verify that readiness is false during population, collision queries fail closed, success publishes readiness after the final population step, and a failed attempt can be requested again.
+The existing scheduler remains the only load worker and its in-flight map still
+coalesces duplicate requests for one active region instance. Failure completion
+occurs only after loader cleanup and exact removal have run. A normal later map
+request resolves through `MapRegionService` and receives a new instance.
 
-## Risks / Trade-offs
+### 7. Keep NPC store lookup indexed
 
-- [Risk] Movement requests targeting a region still loading will fail closed rather than wait for it. → This preserves the synchronous movement contract and prevents traversal through unknown geometry; the client can issue a later movement request after the region is ready.
-- [Risk] A load failure may leave population work performed before the failure in the in-memory region. → Readiness remains false and blocks movement; implementation must preserve the current region ownership and verify that a later admitted attempt is not suppressed. Any broader rollback or transactional population mechanism is outside this change unless tests demonstrate it is required for retry correctness.
-- [Risk] The blocking flag can affect callers that use `GetClippingFlag` for non-movement queries. → Limit the change to the existing world collision service boundary and cover the public collision-query contract; pathfinding and movement remain unchanged.
+`NpcStore.FindByIndexAsync` uses `CreatureCollection`'s indexer under a short
+`AsyncReaderWriterLock` reader lock. The unused predicate API is removed. Sync
+writer/readers continue to use the lock's synchronous methods where applicable.
+Registration/cleanup aggregate exceptions are flattened at the public throw
+boundary.
 
-## Migration Plan
+## Failure flow
 
-1. Apply the loader ordering and collision-query readiness gate.
-2. Run focused GameWorld readiness/scheduler tests, existing pathfinder tests, strict OpenSpec validation, and a build.
-3. Rebuild and restart the affected GameWorld service, then manually verify a static wall/solid object and a custom object in the client.
-4. Roll back by reverting the focused readiness change if the runtime test shows an unrelated caller depends on walkable flags from an unready region; do not revert the completed static-coordinate fix as part of this change.
+```text
+create/publish R1
+  -> query and decode into local data
+  -> apply prepared map data
+  -> register valid NPCs
+  -> R1.Load() publishes readiness
+
+fatal failure
+  -> unregister only NPCs registered by this attempt
+  -> exact-remove R1 if still current
+  -> propagate failure; R1 is discarded
+
+later request
+  -> MapRegionService creates R2
+```
+
+## Verification
+
+Use deterministic task gates for blocked decode/registration tests. Verify
+staged data is not applied after a decode failure, cache absence versus cache
+failure, valid NPC continuation, cancellation cleanup, exact replacement, and
+existing scheduler coalescing. Run focused tests, strict OpenSpec validation,
+build/diff checks, and broader validation when resources permit.

@@ -30,6 +30,15 @@ namespace Hagalaz.Game.Abstractions.Services
         public IMapRegion GetOrCreateMapRegion(int id, int dimension, bool resume);
 
         /// <summary>
+        /// Removes a region only when the active region is the expected instance.
+        /// </summary>
+        /// <param name="id">The ID of the region.</param>
+        /// <param name="dimension">The dimension containing the region.</param>
+        /// <param name="expectedRegion">The region instance that may be removed.</param>
+        /// <returns><c>true</c> when the expected instance was removed; otherwise, <c>false</c>.</returns>
+        bool TryRemoveMapRegion(int id, int dimension, IMapRegion expectedRegion);
+
+        /// <summary>
         /// Gets all map regions within a certain range of a location, typically for a character's viewport.
         /// </summary>
         /// <param name="location">The central location.</param>

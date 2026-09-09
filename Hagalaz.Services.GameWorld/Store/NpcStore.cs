@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Nito.AsyncEx;
-using System;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Store;
@@ -68,6 +66,17 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
-        public ValueTask<INpc?> FindAsync(Func<INpc, bool> predicate) => FindAllAsync().Where(predicate).FirstOrDefaultAsync();
+        public async ValueTask<INpc?> FindByIndexAsync(int index)
+        {
+            if (index < 0 || index > _npcs.Capacity)
+            {
+                return null;
+            }
+
+            using (await _lock.ReaderLockAsync())
+            {
+                return _npcs[index];
+            }
+        }
     }
 }

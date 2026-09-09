@@ -80,6 +80,29 @@ public sealed class NpcServiceRegistrationTests
     }
 
     [TestMethod]
+    public void Register_WhenMultipleCleanupOperationsFail_ReportsAFlatAggregate()
+    {
+        var store = Substitute.For<INpcStore>();
+        var npc = CreateNpc();
+        var registrationFailure = new InvalidOperationException("npc initialization failed");
+        var removalFailure = new ApplicationException("npc removal failed");
+        var destroyFailure = new NotSupportedException("npc destruction failed");
+        store.Add(npc).Returns(true);
+        store.When(value => value.Remove(npc)).Do(_ => throw removalFailure);
+        npc.When(value => value.OnRegistered()).Do(_ => throw registrationFailure);
+        npc.When(value => value.Destroy()).Do(_ => throw destroyFailure);
+        var service = CreateService(store);
+
+        var actual = Assert.ThrowsExactly<AggregateException>(() => service.Register(npc));
+
+        Assert.AreEqual(3, actual.InnerExceptions.Count);
+        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, registrationFailure)));
+        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, removalFailure)));
+        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, destroyFailure)));
+        Assert.IsFalse(actual.InnerExceptions.Any(exception => exception is AggregateException));
+    }
+
+    [TestMethod]
     public async Task Unregister_WhenCalledSynchronously_RemovesTheNpc()
     {
         var store = new NpcStore();

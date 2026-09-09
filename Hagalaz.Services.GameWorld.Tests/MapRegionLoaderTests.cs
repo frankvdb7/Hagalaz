@@ -1,4 +1,5 @@
 using System.Collections;
+using System.IO;
 using System.Linq.Expressions;
 using AutoMapper;
 using Hagalaz.Cache.Abstractions.Types.Providers;
@@ -8,13 +9,11 @@ using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Data;
-using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Hagalaz.Services.GameWorld.Profiles;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Logging;
@@ -26,277 +25,307 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class MapRegionLoaderTests
 {
     [TestMethod]
-    public async Task LoadAsync_PublishesReadinessOnlyAfterStaticCollisionPopulationCompletes()
+    public async Task LoadAsync_StagesStaticDecodeBeforeApplyingRegionState()
     {
-        var staticPopulationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseStaticPopulation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var decodeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDecode = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var region = CreateRegion();
+        var mapProvider = Substitute.For<IMapProvider>();
+        mapProvider.When(provider => provider.DecodeRegion(
+                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
+            .Do(callInfo =>
+            {
+                decodeStarted.TrySetResult();
+                releaseDecode.Task.GetAwaiter().GetResult();
+                callInfo.Arg<ImpassibleTerrainDecoded>()(1, 1, 0);
+            });
+        var fixture = CreateLoader(mapProvider: mapProvider);
+
+        var loadTask = Task.Run(() => fixture.Loader.LoadAsync(region));
+        await decodeStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.IsFalse(region.IsLoaded);
+        region.DidNotReceive().FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CollisionFlag>());
+
+        releaseDecode.TrySetResult();
+        await loadTask;
+
+        Assert.IsTrue(region.IsLoaded);
+        region.Received(1).FlagCollision(1, 1, 0, CollisionFlag.FloorBlock);
+        region.Received(1).Load();
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenStaticDecodeFails_DoesNotApplyStagedDataOrRegisterNpcs()
+    {
+        var region = CreateRegion();
+        var gameObject = Substitute.For<IGameObject>();
+        var gameObjectBuilder = ConfigureStaticGameObjectBuilder(gameObject);
+        var mapProvider = Substitute.For<IMapProvider>();
+        var failure = new InvalidDataException("corrupt map data");
+        mapProvider.When(provider => provider.DecodeRegion(
+                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
+            .Do(callInfo =>
+            {
+                callInfo.Arg<ImpassibleTerrainDecoded>()(2, 2, 0);
+                callInfo.Arg<ObjectDecoded>()(100, 0, 0, 3, 3, 0);
+                throw failure;
+            });
+        var fixture = CreateLoader(mapProvider: mapProvider, gameObjectBuilder: gameObjectBuilder);
+
+        var actual = await Assert.ThrowsExactlyAsync<InvalidDataException>(() => fixture.Loader.LoadAsync(region));
+
+        Assert.AreSame(failure, actual);
+        Assert.IsFalse(region.IsLoaded);
+        region.DidNotReceive().FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CollisionFlag>());
+        region.DidNotReceive().Add(gameObject);
+        await fixture.NpcService.DidNotReceive().RegisterAsync(Arg.Any<INpc>());
+        fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenSourceQueryFails_DoesNotMutateRegion()
+    {
+        var region = CreateRegion();
+        var failure = new InvalidOperationException("spawn database unavailable");
+        var fixture = CreateLoader(itemSourceFailure: failure);
+
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Loader.LoadAsync(region));
+
+        Assert.AreSame(failure, actual);
+        Assert.IsFalse(region.IsLoaded);
+        region.DidNotReceive().FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CollisionFlag>());
+        region.DidNotReceive().Add(Arg.Any<IGameObject>());
+        region.DidNotReceive().Add(Arg.Any<Hagalaz.Game.Abstractions.Model.Items.IGroundItem>());
+        fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenOneNpcRegistrationFails_LoadsTheOtherNpcs()
+    {
+        var region = CreateRegion();
+        var npcA = CreateNpc(1);
+        var npcB = CreateNpc(2);
+        var npcC = CreateNpc(3);
+        var fixture = CreateLoader(
+            npcSpawns: CreateNpcSpawns(1, 2, 3));
+        ConfigureNpcBuilder(fixture.NpcBuilder, (1, npcA), (2, npcB), (3, npcC));
+        var registrationFailure = new InvalidOperationException("NPC B script failed");
+        fixture.NpcService.RegisterAsync(npcA).Returns(_ =>
+        {
+            region.Add(npcA);
+            return Task.CompletedTask;
+        });
+        fixture.NpcService.RegisterAsync(npcB).Returns(Task.FromException(registrationFailure));
+        fixture.NpcService.RegisterAsync(npcC).Returns(_ =>
+        {
+            region.Add(npcC);
+            return Task.CompletedTask;
+        });
+
+        await fixture.Loader.LoadAsync(region);
+
+        Assert.IsTrue(region.IsLoaded);
+        region.Received(1).Add(npcA);
+        region.DidNotReceive().Add(npcB);
+        region.Received(1).Add(npcC);
+        await fixture.NpcService.Received(1).RegisterAsync(npcA);
+        await fixture.NpcService.Received(1).RegisterAsync(npcB);
+        await fixture.NpcService.Received(1).RegisterAsync(npcC);
+        fixture.RegionService.DidNotReceive().TryRemoveMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>());
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenOneNpcConstructionFails_LoadsTheOtherNpcs()
+    {
+        var region = CreateRegion();
+        var npcA = CreateNpc(1);
+        var npcC = CreateNpc(3);
+        var fixture = CreateLoader(
+            npcSpawns: CreateNpcSpawns(1, 2, 3));
+        var constructionFailure = new InvalidOperationException("NPC B could not be constructed");
+        var idBuilders = Enumerable.Range(0, 3).Select(_ => Substitute.For<INpcId>()).ToArray();
+        fixture.NpcBuilder.Create().Returns(idBuilders[0], idBuilders.Skip(1).ToArray());
+        var locationA = Substitute.For<INpcLocation>();
+        var optionalA = Substitute.For<INpcOptional>();
+        idBuilders[0].WithId(1).Returns(locationA);
+        locationA.WithLocation(Arg.Any<ILocation>()).Returns(optionalA);
+        optionalA.WithMinimumBounds(Arg.Any<ILocation>()).Returns(optionalA);
+        optionalA.WithMaximumBounds(Arg.Any<ILocation>()).Returns(optionalA);
+        optionalA.WithFaceDirection(Arg.Any<DirectionFlag>()).Returns(optionalA);
+        optionalA.Build().Returns(npcA);
+        idBuilders[1].WithId(2).Returns(_ => throw constructionFailure);
+        var locationC = Substitute.For<INpcLocation>();
+        var optionalC = Substitute.For<INpcOptional>();
+        idBuilders[2].WithId(3).Returns(locationC);
+        locationC.WithLocation(Arg.Any<ILocation>()).Returns(optionalC);
+        optionalC.WithMinimumBounds(Arg.Any<ILocation>()).Returns(optionalC);
+        optionalC.WithMaximumBounds(Arg.Any<ILocation>()).Returns(optionalC);
+        optionalC.WithFaceDirection(Arg.Any<DirectionFlag>()).Returns(optionalC);
+        optionalC.Build().Returns(npcC);
+        fixture.NpcService.RegisterAsync(npcA).Returns(_ =>
+        {
+            region.Add(npcA);
+            return Task.CompletedTask;
+        });
+        fixture.NpcService.RegisterAsync(npcC).Returns(_ =>
+        {
+            region.Add(npcC);
+            return Task.CompletedTask;
+        });
+
+        await fixture.Loader.LoadAsync(region);
+
+        Assert.IsTrue(region.IsLoaded);
+        region.Received(1).Add(npcA);
+        region.Received(1).Add(npcC);
+        await fixture.NpcService.Received(1).RegisterAsync(npcA);
+        await fixture.NpcService.DidNotReceive().RegisterAsync(Arg.Is<INpc>(npc => npc.Index == 2));
+        await fixture.NpcService.Received(1).RegisterAsync(npcC);
+        fixture.RegionService.DidNotReceive().TryRemoveMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>());
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenCanceledAfterNpcRegistration_UnregistersRegisteredNpcsAndDiscardsRegion()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var region = CreateRegion();
+        var npcA = CreateNpc(1);
+        var npcB = CreateNpc(2);
+        var fixture = CreateLoader(
+            npcSpawns: CreateNpcSpawns(1, 2));
+        ConfigureNpcBuilder(fixture.NpcBuilder, (1, npcA), (2, npcB));
+        fixture.NpcService.RegisterAsync(npcA).Returns(_ =>
+        {
+            region.Add(npcA);
+            cancellation.Cancel();
+            return Task.CompletedTask;
+        });
+        fixture.NpcService.UnregisterAsync(npcA).Returns(Task.CompletedTask);
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Loader.LoadAsync(region, cancellation.Token));
+
+        Assert.IsFalse(region.IsLoaded);
+        await fixture.NpcService.Received(1).UnregisterAsync(npcA);
+        await fixture.NpcService.DidNotReceive().UnregisterAsync(npcB);
+        fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenCleanupOfRegisteredNpcsFails_ContinuesCleanupAndPreservesFailure()
+    {
+        var fatalFailure = new InvalidOperationException("readiness publication failed");
+        var region = CreateRegion(fatalFailure);
+        var npcA = CreateNpc(1);
+        var npcB = CreateNpc(2);
+        var fixture = CreateLoader(
+            npcSpawns: CreateNpcSpawns(1, 2));
+        ConfigureNpcBuilder(fixture.NpcBuilder, (1, npcA), (2, npcB));
+        fixture.NpcService.RegisterAsync(npcA).Returns(_ =>
+        {
+            region.Add(npcA);
+            return Task.CompletedTask;
+        });
+        fixture.NpcService.RegisterAsync(npcB).Returns(_ =>
+        {
+            region.Add(npcB);
+            return Task.CompletedTask;
+        });
+        var cleanupFailure = new InvalidOperationException("NPC cleanup failed");
+        fixture.NpcService.UnregisterAsync(npcA).Returns(Task.FromException(cleanupFailure));
+        fixture.NpcService.UnregisterAsync(npcB).Returns(Task.CompletedTask);
+
+        var actual = await Assert.ThrowsExactlyAsync<AggregateException>(() => fixture.Loader.LoadAsync(region));
+
+        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, fatalFailure)));
+        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, cleanupFailure)));
+        await fixture.NpcService.Received(1).UnregisterAsync(npcA);
+        await fixture.NpcService.Received(1).UnregisterAsync(npcB);
+        fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
+    }
+
+    private static IMapRegion CreateRegion(Exception? loadFailure = null)
+    {
         var loaded = false;
-        var region = Substitute.For<IMapRegion, IMapRegionLoadRollback>();
+        var region = Substitute.For<IMapRegion>();
         region.Id.Returns(257);
         region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
         region.Size.Returns(Location.Create(64, 64, 4, 0));
         region.XteaKeys.Returns(new int[4]);
         region.IsLoaded.Returns(_ => loaded);
-        region.When(map => map.FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), CollisionFlag.FloorBlock))
-            .Do(_ =>
-            {
-                staticPopulationStarted.TrySetResult();
-                releaseStaticPopulation.Task.GetAwaiter().GetResult();
-            });
-        region.When(map => map.Load()).Do(_ => loaded = true);
-
-        var mapProvider = Substitute.For<IMapProvider>();
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(),
-                Arg.Any<int[]>(),
-                Arg.Any<ObjectDecoded>(),
-                Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(callInfo => callInfo.Arg<ImpassibleTerrainDecoded>()!(1, 1, 0));
-
-        var loader = CreateLoader(mapProvider);
-        var loadTask = Task.Run(() => loader.LoadAsync(region));
-
-        await staticPopulationStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        Assert.IsFalse(region.IsLoaded);
-
-        releaseStaticPopulation.TrySetResult();
-        await loadTask;
-
-        Assert.IsTrue(region.IsLoaded);
-        region.Received(1).Load();
-    }
-
-    [TestMethod]
-    public async Task LoadAsync_WhenPopulationFails_RollsBackAndRethrowsOriginalFailure()
-    {
-        var region = Substitute.For<IMapRegion, IMapRegionLoadRollback>();
-        var rollback = (IMapRegionLoadRollback)region;
-        region.Id.Returns(257);
-        region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
-        region.Size.Returns(Location.Create(64, 64, 4, 0));
-        region.XteaKeys.Returns(new int[4]);
-        region.IsLoaded.Returns(false);
-
-        var mapProvider = Substitute.For<IMapProvider>();
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(),
-                Arg.Any<int[]>(),
-                Arg.Any<ObjectDecoded>(),
-                Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(_ => throw new InvalidOperationException("test failure"));
-
-        var loader = CreateLoader(mapProvider);
-        var failure = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => loader.LoadAsync(region));
-
-        Assert.AreEqual("test failure", failure.Message);
-        Assert.IsFalse(region.IsLoaded);
-        region.DidNotReceive().Load();
-        await rollback.Received(1).ResetUnpublishedLoadAsync();
-    }
-
-    [TestMethod]
-    public async Task LoadAsync_WhenCanceledDuringPopulation_RollsBackAndRethrowsCancellation()
-    {
-        var region = Substitute.For<IMapRegion, IMapRegionLoadRollback>();
-        var rollback = (IMapRegionLoadRollback)region;
-        region.Id.Returns(257);
-        region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
-        region.Size.Returns(Location.Create(64, 64, 4, 0));
-        region.XteaKeys.Returns(new int[4]);
-        region.IsLoaded.Returns(false);
-        using var cancellation = new CancellationTokenSource();
-        var mapProvider = Substitute.For<IMapProvider>();
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(),
-                Arg.Any<int[]>(),
-                Arg.Any<ObjectDecoded>(),
-                Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(_ => cancellation.Cancel());
-
-        var loader = CreateLoader(mapProvider);
-        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => loader.LoadAsync(region, cancellation.Token));
-
-        Assert.IsFalse(region.IsLoaded);
-        region.DidNotReceive().Load();
-        await rollback.Received(1).ResetUnpublishedLoadAsync();
-    }
-
-    [TestMethod]
-    public async Task LoadAsync_WhenRollbackFails_PreservesBothFailures()
-    {
-        var region = Substitute.For<IMapRegion, IMapRegionLoadRollback>();
-        var rollback = (IMapRegionLoadRollback)region;
-        region.Id.Returns(257);
-        region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
-        region.Size.Returns(Location.Create(64, 64, 4, 0));
-        region.XteaKeys.Returns(new int[4]);
-        region.IsLoaded.Returns(false);
-        var rollbackFailure = new ApplicationException("rollback failure");
-        rollback.ResetUnpublishedLoadAsync().Returns(Task.FromException(rollbackFailure));
-
-        var mapProvider = Substitute.For<IMapProvider>();
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(),
-                Arg.Any<int[]>(),
-                Arg.Any<ObjectDecoded>(),
-                Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(_ => throw new InvalidOperationException("load failure"));
-
-        var loader = CreateLoader(mapProvider);
-        var failure = await Assert.ThrowsExactlyAsync<AggregateException>(() => loader.LoadAsync(region));
-
-        Assert.AreEqual(2, failure.InnerExceptions.Count);
-        Assert.AreEqual("load failure", failure.InnerExceptions[0].Message);
-        Assert.AreSame(rollbackFailure, failure.InnerExceptions[1]);
-    }
-
-    [DataTestMethod]
-    [DataRow("npc")]
-    [DataRow("item")]
-    [DataRow("static")]
-    [DataRow("non-static")]
-    public async Task LoadAsync_WhenAnyPopulationStageFails_RollsBackTheUnpublishedAttempt(string stage)
-    {
-        var region = Substitute.For<IMapRegion, IMapRegionLoadRollback>();
-        var rollback = (IMapRegionLoadRollback)region;
-        region.Id.Returns(257);
-        region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
-        region.Size.Returns(Location.Create(64, 64, 4, 0));
-        region.XteaKeys.Returns(new int[4]);
-        region.IsLoaded.Returns(false);
-
-        var mapProvider = Substitute.For<IMapProvider>();
-        if (stage == "static")
+        if (loadFailure is null)
         {
-            mapProvider.When(provider => provider.DecodeRegion(
-                    Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
-                .Do(_ => throw new InvalidOperationException("static failure"));
+            region.When(value => value.Load()).Do(_ => loaded = true);
         }
-
-        var loader = CreateLoader(mapProvider, stage);
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => loader.LoadAsync(region));
-
-        region.DidNotReceive().Load();
-        await rollback.Received(1).ResetUnpublishedLoadAsync();
+        else
+        {
+            region.When(value => value.Load()).Do(_ => throw loadFailure);
+        }
+        return region;
     }
 
-    [TestMethod]
-    public async Task LoadAsync_CanRetryTheSameRegionInstanceAfterRollback()
+    private static NpcSpawn[] CreateNpcSpawns(params int[] ids) => ids.Select(id => new NpcSpawn
     {
-        var region = CreateRegion();
-        var mapProvider = Substitute.For<IMapProvider>();
-        var attempts = 0;
-        mapProvider.When(provider => provider.DecodeRegion(
-                Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<ObjectDecoded>(), Arg.Any<ImpassibleTerrainDecoded>()))
-            .Do(_ =>
-            {
-                attempts++;
-                if (attempts == 1)
-                {
-                    region.FlagCollision(1, 1, 0, CollisionFlag.FloorBlock);
-                    throw new InvalidOperationException("first attempt failed");
-                }
-            });
-        var loader = CreateLoader(mapProvider);
+        NpcId = (ushort)id,
+        CoordX = 64,
+        CoordY = 64,
+        CoordZ = 0,
+        MinCoordX = 64,
+        MinCoordY = 64,
+        MinCoordZ = 0,
+        MaxCoordX = 64,
+        MaxCoordY = 64,
+        MaxCoordZ = 0
+    }).ToArray();
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => loader.LoadAsync(region));
-
-        Assert.IsFalse(region.IsLoaded);
-        Assert.AreEqual(CollisionFlag.Walkable, region.GetCollision(1, 1, 0));
-        await loader.LoadAsync(region);
-
-        Assert.IsTrue(region.IsLoaded);
-        Assert.AreEqual(2, attempts);
+    private static INpc CreateNpc(int index)
+    {
+        var npc = Substitute.For<INpc>();
+        npc.Index.Returns(index);
+        npc.IsDestroyed.Returns(false);
+        return npc;
     }
 
-    [TestMethod]
-    public async Task ResetUnpublishedLoadAsync_IsSafeBeforeLoad()
+    private static IGameObjectBuilder ConfigureStaticGameObjectBuilder(IGameObject gameObject)
     {
-        var region = CreateRegion();
-
-        await region.ResetUnpublishedLoadAsync();
-
-        Assert.IsFalse(region.IsLoaded);
-        Assert.IsFalse(region.IsDestroyed);
+        var builder = Substitute.For<IGameObjectBuilder>();
+        var id = Substitute.For<IGameObjectId>();
+        var location = Substitute.For<IGameObjectLocation>();
+        var optional = Substitute.For<IGameObjectOptional>();
+        builder.Create().Returns(id);
+        id.WithId(Arg.Any<int>()).Returns(location);
+        location.WithLocation(Arg.Any<ILocation>()).Returns(optional);
+        optional.WithRotation(Arg.Any<int>()).Returns(optional);
+        optional.WithShape(Arg.Any<ShapeType>()).Returns(optional);
+        optional.AsStatic().Returns(optional);
+        optional.Build().Returns(gameObject);
+        return builder;
     }
 
-    [TestMethod]
-    public async Task ResetUnpublishedLoadAsync_RejectsLoadedRegion()
+    private static void ConfigureNpcBuilder(INpcBuilder builder, params (int Id, INpc Npc)[] entries)
     {
-        var region = CreateRegion();
-        region.Load();
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.ResetUnpublishedLoadAsync());
+        var idBuilders = entries.Select(_ => Substitute.For<INpcId>()).ToArray();
+        builder.Create().Returns(idBuilders[0], idBuilders.Skip(1).ToArray());
+        for (var index = 0; index < entries.Length; index++)
+        {
+            var entry = entries[index];
+            var locationBuilder = Substitute.For<INpcLocation>();
+            var optional = Substitute.For<INpcOptional>();
+            idBuilders[index].WithId(entry.Id).Returns(locationBuilder);
+            locationBuilder.WithLocation(Arg.Any<ILocation>()).Returns(optional);
+            optional.WithMinimumBounds(Arg.Any<ILocation>()).Returns(optional);
+            optional.WithMaximumBounds(Arg.Any<ILocation>()).Returns(optional);
+            optional.WithFaceDirection(Arg.Any<DirectionFlag>()).Returns(optional);
+            optional.Build().Returns(entry.Npc);
+        }
     }
 
-    [TestMethod]
-    public async Task ResetUnpublishedLoadAsync_RejectsDestroyedRegion()
+    private static LoaderFixture CreateLoader(
+        IMapProvider? mapProvider = null,
+        IEnumerable<NpcSpawn>? npcSpawns = null,
+        Exception? itemSourceFailure = null,
+        IGameObjectBuilder? gameObjectBuilder = null)
     {
-        var region = CreateRegion();
-        await region.DestroyAsync();
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.ResetUnpublishedLoadAsync());
-    }
-
-    [TestMethod]
-    public async Task ResetUnpublishedLoadAsync_RejectsRegionContainingCharacters()
-    {
-        var region = CreateRegion();
-        var character = Substitute.For<ICharacter>();
-        character.Index.Returns(1);
-        region.Add(character);
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => region.ResetUnpublishedLoadAsync());
-        Assert.IsTrue(region.FindAllCharacters().Contains(character));
-    }
-
-    [TestMethod]
-    public async Task ResetUnpublishedLoadAsync_ContinuesCleanupAfterNpcFailureAndClearsCollision()
-    {
-        var npcService = Substitute.For<INpcService>();
-        var firstNpc = Substitute.For<INpc>();
-        firstNpc.Index.Returns(1);
-        var secondNpc = Substitute.For<INpc>();
-        secondNpc.Index.Returns(2);
-        var firstFailure = new InvalidOperationException("first NPC cleanup failed");
-        npcService.UnregisterAsync(firstNpc).Returns(Task.FromException(firstFailure));
-        npcService.UnregisterAsync(secondNpc).Returns(Task.CompletedTask);
-        var region = new MapRegion(
-            Location.Create(64, 64, 0, 0),
-            new int[4],
-            npcService,
-            Substitute.For<IMapRegionService>(),
-            Substitute.For<IGameObjectBuilder>(),
-            Substitute.For<IGroundItemBuilder>(),
-            new MapperConfiguration(configuration => { }, LoggerFactory.Create(_ => { })).CreateMapper());
-        region.Add(firstNpc);
-        region.Add(secondNpc);
-        region.FlagCollision(1, 1, 0, CollisionFlag.FloorBlock);
-
-        var failure = await Assert.ThrowsExactlyAsync<AggregateException>(() => region.ResetUnpublishedLoadAsync());
-
-        Assert.IsTrue(failure.InnerExceptions.Any(exception => ReferenceEquals(exception, firstFailure)));
-        await npcService.Received(1).UnregisterAsync(firstNpc);
-        await npcService.Received(1).UnregisterAsync(secondNpc);
-        Assert.IsFalse(region.FindAllNpcs().Any());
-        Assert.AreEqual(CollisionFlag.Walkable, region.GetCollision(1, 1, 0));
-    }
-
-    private static MapRegion CreateRegion() => new(
-        Location.Create(64, 64, 0, 0),
-        new int[4],
-        Substitute.For<INpcService>(),
-        Substitute.For<IMapRegionService>(),
-        Substitute.For<IGameObjectBuilder>(),
-        Substitute.For<IGroundItemBuilder>(),
-        new MapperConfiguration(configuration => { }, LoggerFactory.Create(_ => { })).CreateMapper());
-
-    private static MapRegionLoader CreateLoader(IMapProvider mapProvider, string? failureStage = null)
-    {
-        var emptyNpcs = new TestAsyncEnumerable<NpcSpawn>(Array.Empty<NpcSpawn>());
-        var emptyItems = new TestAsyncEnumerable<ItemSpawn>(Array.Empty<ItemSpawn>());
-        var emptyObjects = new TestAsyncEnumerable<GameobjectSpawn>(Array.Empty<GameobjectSpawn>());
         var mapperConfiguration = new MapperConfiguration(
             configuration =>
             {
@@ -306,42 +335,47 @@ public sealed class MapRegionLoaderTests
             LoggerFactory.Create(_ => { }));
 
         var npcRepository = Substitute.For<INpcSpawnRepository>();
-        npcRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(emptyNpcs);
+        npcRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+            .Returns(new TestAsyncEnumerable<NpcSpawn>(npcSpawns ?? []));
         var itemRepository = Substitute.For<IGroundItemSpawnRepository>();
-        itemRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(emptyItems);
-        var objectRepository = Substitute.For<IGameObjectSpawnRepository>();
-        objectRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(emptyObjects);
-
-        var failure = new InvalidOperationException($"{failureStage} failure");
-        if (failureStage == "npc")
-        {
-            npcRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
-                .Returns(_ => throw failure);
-        }
-        else if (failureStage == "item")
+        if (itemSourceFailure is null)
         {
             itemRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
-                .Returns(_ => throw failure);
+                .Returns(new TestAsyncEnumerable<ItemSpawn>([]));
         }
-        else if (failureStage == "non-static")
+        else
         {
-            objectRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
-                .Returns(_ => throw failure);
+            itemRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+                .Returns(_ => throw itemSourceFailure);
         }
 
-        return new MapRegionLoader(
-            Substitute.For<INpcService>(),
+        var objectRepository = Substitute.For<IGameObjectSpawnRepository>();
+        objectRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+            .Returns(new TestAsyncEnumerable<GameobjectSpawn>([]));
+        var regionService = Substitute.For<IMapRegionService>();
+        var npcService = Substitute.For<INpcService>();
+        var npcBuilder = Substitute.For<INpcBuilder>();
+        var loader = new MapRegionLoader(
+            npcService,
+            regionService,
             npcRepository,
             itemRepository,
             objectRepository,
-            mapProvider,
+            mapProvider ?? Substitute.For<IMapProvider>(),
             new LocationBuilder(),
             Substitute.For<IGroundItemBuilder>(),
-            Substitute.For<IGameObjectBuilder>(),
-            Substitute.For<INpcBuilder>(),
+            gameObjectBuilder ?? Substitute.For<IGameObjectBuilder>(),
+            npcBuilder,
             mapperConfiguration.CreateMapper(),
             Substitute.For<ILogger<MapRegionLoader>>());
+        return new LoaderFixture(loader, regionService, npcService, npcBuilder);
     }
+
+    private sealed record LoaderFixture(
+        MapRegionLoader Loader,
+        IMapRegionService RegionService,
+        INpcService NpcService,
+        INpcBuilder NpcBuilder);
 
     private sealed class TestAsyncEnumerable<T> : EnumerableQuery<T>, IAsyncEnumerable<T>, IQueryable<T>
     {
@@ -397,5 +431,4 @@ public sealed class MapRegionLoaderTests
                 .Invoke(null, [executionResult])!;
         }
     }
-
 }

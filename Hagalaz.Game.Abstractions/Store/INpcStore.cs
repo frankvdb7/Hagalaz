@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -51,10 +50,10 @@ namespace Hagalaz.Game.Abstractions.Store
         bool Remove(INpc npc);
 
         /// <summary>
-        /// Asynchronously finds an NPC that matches the specified predicate.
+        /// Asynchronously finds an NPC by its server-side index.
         /// </summary>
-        /// <param name="predicate">The condition to test each NPC against.</param>
-        /// <returns>A <see cref="ValueTask{TResult}"/> that resolves to the first matching <see cref="INpc"/>, or <c>null</c> if no NPC is found.</returns>
-        ValueTask<INpc?> FindAsync(Func<INpc, bool> predicate);
+        /// <param name="index">The server-side NPC index.</param>
+        /// <returns>A <see cref="ValueTask{TResult}"/> that resolves to the matching <see cref="INpc"/>, or <c>null</c> if no NPC is found.</returns>
+        ValueTask<INpc?> FindByIndexAsync(int index);
     }
 }
