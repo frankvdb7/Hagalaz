@@ -13,12 +13,39 @@ Public revision-adjacent sources are used only as additional evidence. In partic
 
 - [Rendering deobfuscation map](client-rendering-deobfuscation.md) records the local source locators, first-pass semantic mappings, confidence and evidence for the terrain, scene, floor-material, occlusion, entity, light and model concepts.
 - [External revision-742 references](external-742-reference.md) records the public 742 cross-check, revision caveats, stronger revision-specific names, renderer backend vocabulary and the evidence hierarchy used when those names supersede a first-pass alias.
-- [Game client renderer](game-client-renderer.md) records the verified terrain, object, model, scene, coordinate and renderer-backend behavior.
+- [Game client renderer](game-client-renderer.md) records the verified **geometry/scene baseline**: terrain/object/model/scene structure, coordinate conventions and renderer-backend boundaries. Its early appearance/fidelity gaps predate the later #145-#150 research.
+- [Revision-742 appearance semantics](revision-742-appearance-semantics.md) is the current Level-2/Level-3 appearance companion: materials/UVs, packed-HSL terrain appearance, model normals/alpha/order, static-object transforms/contouring, special materials, point lights and environment/fog semantics.
 - [Map cache decode/encode guide](cache-map-codecs.md) gives byte-level implementation instructions for cache containers, `mX_Y` terrain, `lX_Y` object placements, smart/huge-smart delta coding, XTEA, canonical writing, corruption guards, round-trip tests, and the current Hagalaz codec gaps.
 - [Implicit terrain height generation](terrain-height-generation.md) records the exact opcode-`0` plane-0 height algorithm, including deterministic raw noise, smoothing, cosine interpolation, client lookup-table generation, coordinate offsets, scaling, encoder implications, and required parity tests.
-- [Web renderer foundation](web-renderer-foundation.md) describes the current Hagalaz gaps, target data contracts, web architecture, rendering-engine choice, phased implementation, and verification strategy.
+- [Web renderer foundation](web-renderer-foundation.md) describes the current Hagalaz gaps, architecture, rendering-engine choice, phased implementation, and verification strategy. Its older DTO sketches are architectural examples; [Renderer-neutral contracts](renderer-neutral-contracts.md) is the current contract vocabulary.
 - [GameClient parity fixtures](game-client-parity-fixtures.md) defines how Hagalaz imports/version-controls a bounded GameClient semantic reference set with source commit/schema/cache provenance and no runtime Java/network dependency.
 - [Renderer-neutral contracts](renderer-neutral-contracts.md) defines the Java-name-free terrain/model/object/material/light/environment vocabulary that cache-service DTOs and Web 3D code should use while preserving revision-742 semantics.
+
+## Which document should I use?
+
+Use the narrowest document for the question:
+
+```text
+cache/container/terrain bytes
+    -> cache-map-codecs.md / terrain-height-generation.md
+
+scene/geometry/client architecture
+    -> game-client-renderer.md
+
+current Level-2/Level-3 visual behavior
+    -> revision-742-appearance-semantics.md
+
+Hagalaz production DTO/domain vocabulary
+    -> renderer-neutral-contracts.md
+
+GameClient reference synchronization/tests
+    -> game-client-parity-fixtures.md
+
+source locator / external 742 naming evidence
+    -> client-rendering-deobfuscation.md / external-742-reference.md
+```
+
+The detailed live GameClient research and rename readiness remain authoritative in `frankvdb7/Hagalaz.GameClient/docs/rendering/`.
 
 ## Naming rule
 
