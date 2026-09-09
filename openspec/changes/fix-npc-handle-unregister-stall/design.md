@@ -1,6 +1,6 @@
 ## Context
 
-See proposal.md for the observed remaining lifecycle mismatch. `NpcCombat` and the default script respawn path retain asynchronous service paths, while `NpcHandle.Unregister` needs a synchronous completion path when called by custom NPC encounters and wave controllers during synchronous game-loop callbacks.
+See proposal.md for the observed remaining lifecycle mismatch. `NpcCombat` and the default script respawn path retain asynchronous service paths, while `NpcHandle.Unregister` needs a synchronous completion path when called by custom NPC encounters and wave controllers during synchronous game-loop callbacks. Delayed permanent death cleanup must continue to use a scheduled asynchronous service operation so a pending removal cannot stall the game loop.
 
 ## Goals / Non-Goals
 
@@ -18,7 +18,7 @@ See proposal.md for the observed remaining lifecycle mismatch. `NpcCombat` and t
 
 ## Decisions
 
-`NpcHandle.Unregister` calls the synchronous `INpcService.Unregister` operation. `NpcService` remains the authoritative owner of destruction and store removal. `ICreature.OnRegistered` is synchronous because registration initialization is an in-memory lifecycle callback and must not require a blocking bridge on synchronous callers. `RegisterAsync` and `UnregisterAsync` remain available for asynchronous loaders and region cleanup, while `NpcStore` uses `AsyncReaderWriterLock.WriterLock()` for synchronous mutation and `WriterLockAsync()` for asynchronous mutation.
+`NpcHandle.Unregister` calls the synchronous `INpcService.Unregister` operation. `NpcCombat` schedules permanent death cleanup through the existing delayed task and then queues `UnregisterAsync`; `NpcScriptBase` uses the same asynchronous operation when a respawning NPC cannot spawn. `NpcService` remains the authoritative owner of destruction and store removal. `ICreature.OnRegistered` is synchronous because registration initialization is an in-memory lifecycle callback and must not require a blocking bridge on synchronous callers. `RegisterAsync` and `UnregisterAsync` remain available for asynchronous loaders and region cleanup, while `NpcStore` uses `AsyncReaderWriterLock.WriterLock()` for synchronous mutation and `WriterLockAsync()` for asynchronous mutation.
 
 Removing the existing async methods is rejected because map loading and other asynchronous callers already use them. Starting a worker or adding a queue is rejected because the synchronous store operation is already protected by the existing lock. Hiding the synchronous operation behind a queued async callback is rejected because it violates the handle contract.
 

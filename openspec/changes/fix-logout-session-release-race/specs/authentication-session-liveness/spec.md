@@ -101,6 +101,30 @@ treated as authenticated state.
 - **THEN** it retries the same authorization ID
 - **AND** clears the pending identity only after exact revocation succeeds
 
+### Requirement: Replacement authorization issuance is serialized with existing ownership
+
+GameWorld MUST NOT issue a replacement authorization on a connection while that
+connection has committed authentication state or unresolved pending authorization
+cleanup. A replacement MAY be issued only after pending exact cleanup succeeds.
+
+#### Scenario: Committed authorization blocks replacement issuance
+
+- **WHEN** the connection already owns a committed authorization and another sign-in attempt is received
+- **THEN** no replacement authorization request is sent
+- **AND** the committed authorization remains attached to the connection
+
+#### Scenario: Failed pending cleanup blocks replacement issuance
+
+- **WHEN** exact cleanup of a previously issued but uncommitted authorization fails
+- **THEN** no replacement authorization request is sent
+- **AND** the original pending authorization identity remains available for retry
+
+#### Scenario: Successful pending cleanup allows replacement issuance
+
+- **WHEN** exact cleanup of a previously issued but uncommitted authorization succeeds
+- **THEN** the pending identity is cleared
+- **AND** the connection MAY issue and commit a replacement authorization
+
 ### Requirement: Lobby sign-out requires owned lobby session
 
 GameWorld MUST publish lobby sign-out only when the connection has a real

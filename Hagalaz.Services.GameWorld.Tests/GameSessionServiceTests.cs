@@ -63,7 +63,7 @@ public sealed class GameSessionServiceTests
         Assert.IsTrue(await store.TryMoveToPendingAbort(retainedSession));
 
         Assert.IsFalse(await store.TryAdd(replacementLobbySession));
-        Assert.IsFalse(await store.TryReserveWorldSession(replacementWorldSession));
+        Assert.IsFalse(await store.TryReserveWorldSession(replacementWorldSession, null));
         Assert.IsFalse(await store.TryMoveToPendingAbort(replacementLobbySession));
         Assert.AreEqual(1, (await store.FindSessionsPendingAbort()).Count);
     }
@@ -802,8 +802,8 @@ public sealed class GameSessionServiceTests
         var secondWorldSession = CreateSession(42, "world-connection-2", "world-claim-2");
 
         Assert.IsTrue(await store.TryAdd(lobbySession));
-        Assert.IsTrue(await store.TryReserveWorldSession(firstWorldSession));
-        Assert.IsTrue(await store.TryReserveWorldSession(secondWorldSession));
+        Assert.IsTrue(await store.TryReserveWorldSession(firstWorldSession, null));
+        Assert.IsTrue(await store.TryReserveWorldSession(secondWorldSession, null));
 
         var firstCommit = await store.TryCommitWorldSession(firstWorldSession);
         Assert.IsTrue(firstCommit.Committed);
@@ -857,7 +857,7 @@ public sealed class GameSessionServiceTests
         var activeSession = CreateSession(42, "active-connection", "active-claim");
         var deferredSession = CreateSession(43, "deferred-connection", "deferred-claim");
         Assert.IsTrue(await store.TryAdd(activeSession));
-        Assert.IsTrue(await store.TryReserveWorldSession(deferredSession));
+        Assert.IsTrue(await store.TryReserveWorldSession(deferredSession, null));
         Assert.IsTrue(await store.TryMoveToPendingClaimCleanup(deferredSession));
 
         var activeRenewed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

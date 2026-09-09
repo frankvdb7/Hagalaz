@@ -95,7 +95,7 @@ namespace Hagalaz.Services.GameWorld.Data
                         throw new InvalidOperationException($"Region '{region.Id}' does not support unpublished-load rollback.");
                     }
 
-                    await rollback.ResetUnpublishedLoadAsync(CancellationToken.None);
+                    await rollback.ResetUnpublishedLoadAsync();
                 }
                 catch (Exception rollbackException)
                 {

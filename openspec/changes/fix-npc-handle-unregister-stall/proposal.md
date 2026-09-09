@@ -22,7 +22,7 @@ None.
 
 ## Impact
 
-The affected boundary is `Hagalaz.Services.GameWorld` NPC lifecycle cleanup and its GameWorld tests. Existing asynchronous loading and region cleanup remain unchanged, while synchronous handles and delayed death cleanup use the synchronous service path. No protocol, persistence schema, dependency, or generic scheduler change is required.
+The affected boundary is `Hagalaz.Services.GameWorld` NPC lifecycle cleanup and its GameWorld tests. Existing asynchronous loading and region cleanup remain unchanged; synchronous handles use the synchronous service path, while delayed death cleanup remains an asynchronous scheduled operation. No protocol, persistence schema, dependency, or generic scheduler change is required.
 
 Acceptance criteria:
 

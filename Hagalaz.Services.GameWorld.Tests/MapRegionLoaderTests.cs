@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Builders;
@@ -90,7 +91,7 @@ public sealed class MapRegionLoaderTests
         Assert.AreEqual("test failure", failure.Message);
         Assert.IsFalse(region.IsLoaded);
         region.DidNotReceive().Load();
-        await rollback.Received(1).ResetUnpublishedLoadAsync(CancellationToken.None);
+        await rollback.Received(1).ResetUnpublishedLoadAsync();
     }
 
     [TestMethod]
@@ -117,7 +118,7 @@ public sealed class MapRegionLoaderTests
 
         Assert.IsFalse(region.IsLoaded);
         region.DidNotReceive().Load();
-        await rollback.Received(1).ResetUnpublishedLoadAsync(CancellationToken.None);
+        await rollback.Received(1).ResetUnpublishedLoadAsync();
     }
 
     [TestMethod]
@@ -131,7 +132,7 @@ public sealed class MapRegionLoaderTests
         region.XteaKeys.Returns(new int[4]);
         region.IsLoaded.Returns(false);
         var rollbackFailure = new ApplicationException("rollback failure");
-        rollback.ResetUnpublishedLoadAsync(CancellationToken.None).Returns(Task.FromException(rollbackFailure));
+        rollback.ResetUnpublishedLoadAsync().Returns(Task.FromException(rollbackFailure));
 
         var mapProvider = Substitute.For<IMapProvider>();
         mapProvider.When(provider => provider.DecodeRegion(
@@ -177,7 +178,7 @@ public sealed class MapRegionLoaderTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => loader.LoadAsync(region));
 
         region.DidNotReceive().Load();
-        await rollback.Received(1).ResetUnpublishedLoadAsync(CancellationToken.None);
+        await rollback.Received(1).ResetUnpublishedLoadAsync();
     }
 
     [TestMethod]
@@ -278,6 +279,7 @@ public sealed class MapRegionLoaderTests
         Assert.IsTrue(failure.InnerExceptions.Any(exception => ReferenceEquals(exception, firstFailure)));
         await npcService.Received(1).UnregisterAsync(firstNpc);
         await npcService.Received(1).UnregisterAsync(secondNpc);
+        Assert.IsFalse(region.FindAllNpcs().Any());
         Assert.AreEqual(CollisionFlag.Walkable, region.GetCollision(1, 1, 0));
     }
 

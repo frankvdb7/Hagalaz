@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Collections;
@@ -82,7 +81,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void Remove(ICharacter character) => _characters.TryRemove(character.Index);
 
-        public void Remove(INpc npc) => _npcs.TryRemove(npc.Index);
+        public void Remove(INpc npc) => _npcs.TryRemove(npc.Index, npc);
 
         public IEnumerable<ICharacter> FindAllCharacters() => _characters;
 
@@ -270,7 +269,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             IsDestroyed = true;
         }
 
-        public async Task ResetUnpublishedLoadAsync(CancellationToken cancellationToken = default)
+        public async Task ResetUnpublishedLoadAsync()
         {
             if (IsLoaded)
             {
@@ -288,16 +287,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             List<Exception>? failures = null;
-            if (cancellationToken.IsCancellationRequested)
-            {
-                (failures ??= []).Add(new OperationCanceledException(cancellationToken));
-            }
 
             foreach (var npc in FindAllNpcs().ToArray())
             {
                 try
                 {
                     await _npcService.UnregisterAsync(npc);
+                }
+                catch (Exception exception)
+                {
+                    (failures ??= []).Add(exception);
+                }
+
+                try
+                {
+                    if (_npcs.TryGetValue(npc.Index, out var currentNpc) &&
+                        ReferenceEquals(currentNpc, npc) &&
+                        !_npcs.TryRemove(npc.Index, npc))
+                    {
+                        throw new InvalidOperationException($"Failed to remove NPC '{npc}' from unpublished region ownership.");
+                    }
                 }
                 catch (Exception exception)
                 {

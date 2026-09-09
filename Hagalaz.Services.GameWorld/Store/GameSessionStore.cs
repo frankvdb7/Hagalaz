@@ -45,9 +45,6 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         }
     }
 
-    public ValueTask<bool> TryReserveWorldSession(IGameWorldSession session) =>
-        TryReserveWorldSession(session, previousSessionClaimId: null);
-
     public async ValueTask<bool> TryReserveWorldSession(
         IGameWorldSession session,
         string? previousSessionClaimId)
@@ -173,18 +170,6 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
             return _slots.TryGetValue(expectedSession.ConnectionId, out var slot) &&
                    slot.PendingWorld is { } pendingSession &&
                    ReferenceEquals(pendingSession.Session, expectedSession);
-        }
-    }
-
-    public async ValueTask<IGameSession?> FindPendingWorldSessionPreviousSession(IGameWorldSession expectedSession)
-    {
-        using (await _lock.ReaderLockAsync())
-        {
-            return _slots.TryGetValue(expectedSession.ConnectionId, out var slot) &&
-                   slot.PendingWorld is { } pendingSession &&
-                   ReferenceEquals(pendingSession.Session, expectedSession)
-                ? pendingSession.PreviousSession
-                : null;
         }
     }
 

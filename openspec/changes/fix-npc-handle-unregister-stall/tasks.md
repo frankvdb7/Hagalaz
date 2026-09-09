@@ -1,7 +1,7 @@
 ## 1. Synchronous handle cleanup with async compatibility
 
 - [x] 1.1 Add synchronous NPC store and service operations while retaining `RegisterAsync` and `UnregisterAsync`.
-- [x] 1.2 Route handle and delayed death cleanup through synchronous unregistration and use the lock's synchronous writer path.
+- [x] 1.2 Route handle cleanup through synchronous unregistration, keep delayed death cleanup asynchronous, and use the lock's synchronous writer path for synchronous store mutation.
 - [x] 1.3 Make `ICreature.OnRegistered` synchronous while retaining the asynchronous service and store APIs.
 
 ## 2. Regression coverage and validation

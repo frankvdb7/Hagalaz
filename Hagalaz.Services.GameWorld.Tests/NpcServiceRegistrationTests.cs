@@ -45,6 +45,41 @@ public sealed class NpcServiceRegistrationTests
     }
 
     [TestMethod]
+    public async Task Register_WhenInitializationFails_RemovesTheGlobalEntryAndDestroysTheNpc()
+    {
+        var store = new NpcStore();
+        var npc = CreateNpc();
+        var registrationFailure = new InvalidOperationException("npc initialization failed");
+        npc.When(value => value.OnRegistered()).Do(_ => throw registrationFailure);
+        var service = CreateService(store);
+
+        var actual = Assert.ThrowsExactly<InvalidOperationException>(() => service.Register(npc));
+
+        Assert.AreSame(registrationFailure, actual);
+        Assert.AreEqual(0, await store.CountAsync());
+        npc.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    public async Task Register_WhenInitializationAndCleanupFail_PreservesBothFailures()
+    {
+        var store = new NpcStore();
+        var npc = CreateNpc();
+        var registrationFailure = new InvalidOperationException("npc initialization failed");
+        var cleanupFailure = new ApplicationException("npc cleanup failed");
+        npc.When(value => value.OnRegistered()).Do(_ => throw registrationFailure);
+        npc.When(value => value.Destroy()).Do(_ => throw cleanupFailure);
+        var service = CreateService(store);
+
+        var actual = Assert.ThrowsExactly<AggregateException>(() => service.Register(npc));
+
+        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, registrationFailure)));
+        Assert.IsTrue(actual.InnerExceptions.Any(exception => ReferenceEquals(exception, cleanupFailure)));
+        Assert.AreEqual(0, await store.CountAsync());
+        npc.Received(1).Destroy();
+    }
+
+    [TestMethod]
     public async Task Unregister_WhenCalledSynchronously_RemovesTheNpc()
     {
         var store = new NpcStore();
@@ -54,6 +89,23 @@ public sealed class NpcServiceRegistrationTests
 
         service.Unregister(npc);
 
+        Assert.AreEqual(0, await store.CountAsync());
+        npc.Received(1).Destroy();
+    }
+
+    [TestMethod]
+    public async Task Unregister_WhenDestroyFails_StillRemovesTheNpcAndPropagatesTheFailure()
+    {
+        var store = new NpcStore();
+        var npc = CreateNpc();
+        var destroyFailure = new InvalidOperationException("npc destruction failed");
+        store.Add(npc);
+        npc.When(value => value.Destroy()).Do(_ => throw destroyFailure);
+        var service = CreateService(store);
+
+        var actual = Assert.ThrowsExactly<InvalidOperationException>(() => service.Unregister(npc));
+
+        Assert.AreSame(destroyFailure, actual);
         Assert.AreEqual(0, await store.CountAsync());
         npc.Received(1).Destroy();
     }

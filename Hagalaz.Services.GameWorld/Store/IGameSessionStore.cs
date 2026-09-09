@@ -10,8 +10,6 @@ namespace Hagalaz.Services.GameWorld.Store
     {
         ValueTask<bool> TryAdd(IGameSession session);
 
-        ValueTask<bool> TryReserveWorldSession(IGameWorldSession session);
-
         ValueTask<bool> TryReserveWorldSession(IGameWorldSession session, string? previousSessionClaimId);
 
         ValueTask<(bool Committed, IGameSession? ReplacedSession)> TryCommitWorldSession(IGameWorldSession expectedSession);
@@ -19,8 +17,6 @@ namespace Hagalaz.Services.GameWorld.Store
         ValueTask<bool> TryMoveToPendingClaimCleanup(IGameSession expectedSession);
 
         ValueTask<bool> IsPendingWorldSession(IGameSession expectedSession);
-
-        ValueTask<IGameSession?> FindPendingWorldSessionPreviousSession(IGameWorldSession expectedSession);
 
         ValueTask<string?> FindPendingWorldSessionPreviousClaimId(IGameWorldSession expectedSession);
 

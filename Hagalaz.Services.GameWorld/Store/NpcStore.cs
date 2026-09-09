@@ -16,12 +16,15 @@ namespace Hagalaz.Services.GameWorld.Store
 
         public async IAsyncEnumerable<INpc> FindAllAsync()
         {
+            INpc[] snapshot;
             using (await _lock.ReaderLockAsync())
             {
-                foreach (var npc in _npcs)
-                {
-                    yield return npc;
-                }
+                snapshot = _npcs.ToArray();
+            }
+
+            foreach (var npc in snapshot)
+            {
+                yield return npc;
             }
         }
 

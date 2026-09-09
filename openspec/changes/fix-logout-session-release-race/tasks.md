@@ -21,6 +21,8 @@
 - [x] 2.8 Retain pending exact authorization identity until pre-commit cleanup
       succeeds or authentication commits, including disconnect retry.
 - [x] 2.9 Publish lobby sign-out only for an actually owned non-world session.
+- [x] 2.10 Serialize replacement authorization issuance with committed and pending
+      authorization ownership, including the exact cleanup-success gate.
 
 ## 3. Regression coverage and validation
 

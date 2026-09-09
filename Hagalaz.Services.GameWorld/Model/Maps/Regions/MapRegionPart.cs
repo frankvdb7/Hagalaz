@@ -309,6 +309,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void SendUpdates(ICharacter character)
         {
+            List<IRegionPartUpdate> preparedUpdates;
             lock (_updatesLock)
             {
                 if (_preparedUpdates.Count <= 0)
@@ -316,8 +317,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     return;
                 }
 
-                SendUpdates(character, _preparedUpdates, false);
+                preparedUpdates = _preparedUpdates;
             }
+
+            SendUpdates(character, preparedUpdates, false);
         }
 
         public void SendUpdates(ICharacter character, IEnumerable<IRegionPartUpdate> updates, bool fullUpdate)

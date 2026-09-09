@@ -281,11 +281,12 @@ public sealed class AuthenticationSignInTests
 
     [TestMethod]
     [Timeout(5000)]
-    public async Task SignInLobbyAsync_WhenAuthorizationBValidationFails_DoesNotRevokeCommittedAuthorizationA()
+    public async Task SignInLobbyAsync_WhenCommittedAuthorizationExists_BlocksReplacementIssuance()
     {
-        var revokeClient = CreateFailingRevokeClient(new InvalidOperationException("authorization service unavailable"));
+        var revokeClient = Substitute.For<IRequestClient<RevokeTokenRequestMessage>>();
+        var signInClient = Substitute.For<IRequestClient<SignInUserRequestMessage>>();
         var contextAccessor = CreateContextAccessor();
-        contextAccessor.Context.Features.Set<IAuthenticationFeature>(new AuthenticationFeature
+        var committedAuthentication = new AuthenticationFeature
         {
             AuthenticationProperties = new AuthenticationProperties
             {
@@ -293,20 +294,87 @@ public sealed class AuthenticationSignInTests
                 AuthorizationId = "authorization-a",
                 Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
             }
-        });
-        var principalFactory = Substitute.For<IClaimsPrincipalFactory>();
-        principalFactory.Create(Arg.Any<IDictionary<string, object>>())
-            .Returns(new ClaimsPrincipal(new ClaimsIdentity()));
+        };
+        contextAccessor.Context.Features.Set<IAuthenticationFeature>(committedAuthentication);
         var service = CreateAuthenticationService(
             Substitute.For<IGameSessionService>(),
             contextAccessor: contextAccessor,
             revokeTokenRequestClient: revokeClient,
-            claimsPrincipalFactory: principalFactory,
+            signInUserRequestClient: signInClient);
+
+        var result = await service.SignInLobbyAsync(CreateSignInRequest());
+
+        Assert.IsTrue(result.IsAlreadyLoggedOn);
+        Assert.AreSame(committedAuthentication, contextAccessor.Context.Features.Get<IAuthenticationFeature>());
+        await signInClient.DidNotReceive().GetResponse<SignInUserResponseMessage>(
+            Arg.Any<SignInUserRequestMessage>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<RequestTimeout>());
+        await revokeClient.DidNotReceive().GetResponse<RevokeTokenResponseMessage>(
+            Arg.Any<RevokeTokenRequestMessage>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<RequestTimeout>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInLobbyAsync_WhenPendingAuthorizationCleanupFails_BlocksReplacementIssuance()
+    {
+        var contextAccessor = CreateContextAccessor();
+        var pending = new PendingAuthorizationCleanup(
+            Constants.OAuth.LobbyClientId,
+            "subject-a",
+            "authorization-a");
+        contextAccessor.Context.Features.Set(pending);
+        var revokeClient = CreateFailingRevokeClient(new InvalidOperationException("authorization service unavailable"));
+        var signInClient = Substitute.For<IRequestClient<SignInUserRequestMessage>>();
+        var service = CreateAuthenticationService(
+            Substitute.For<IGameSessionService>(),
+            contextAccessor: contextAccessor,
+            revokeTokenRequestClient: revokeClient,
+            signInUserRequestClient: signInClient);
+
+        var result = await service.SignInLobbyAsync(CreateSignInRequest());
+
+        Assert.IsTrue(result.IsAlreadyLoggedOn);
+        Assert.AreSame(pending, contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>());
+        await signInClient.DidNotReceive().GetResponse<SignInUserResponseMessage>(
+            Arg.Any<SignInUserRequestMessage>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<RequestTimeout>());
+        await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
+            Arg.Is<RevokeTokenRequestMessage>(message =>
+                message.ClientId == Constants.OAuth.LobbyClientId &&
+                message.Subject == "subject-a" &&
+                message.AuthorizationId == "authorization-a"),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<RequestTimeout>());
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public async Task SignInLobbyAsync_WhenPendingAuthorizationCleanupSucceeds_AllowsReplacementIssuance()
+    {
+        var contextAccessor = CreateContextAccessor();
+        contextAccessor.Context.Features.Set(new PendingAuthorizationCleanup(
+            Constants.OAuth.LobbyClientId,
+            "subject-a",
+            "authorization-a"));
+        var revokeClient = CreateSuccessfulRevokeClient();
+        var signInClient = Substitute.For<IRequestClient<SignInUserRequestMessage>>();
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.AddSession(42, "connection")
+            .Returns(Task.FromResult<(IGameSession Session, bool Created)>((Substitute.For<IGameSession>(), Created: true)));
+        var service = CreateAuthenticationService(
+            gameSessionService,
+            contextAccessor: contextAccessor,
+            revokeTokenRequestClient: revokeClient,
+            signInUserRequestClient: signInClient,
             signInResponseMessage: new SignInUserResponseMessage
             {
                 Succeeded = true,
-                IdToken = "id-token",
-                AccessToken = "access-token",
+                IdToken = "id-token-b",
+                AccessToken = "access-token-b",
                 Scope = "openid",
                 ExpireDate = DateTimeOffset.UtcNow.AddMinutes(5),
                 TokenType = "Bearer",
@@ -316,16 +384,21 @@ public sealed class AuthenticationSignInTests
 
         var result = await service.SignInLobbyAsync(CreateSignInRequest());
 
-        Assert.IsFalse(result.Succeeded);
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNull(contextAccessor.Context.Features.Get<PendingAuthorizationCleanup>());
         await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
             Arg.Is<RevokeTokenRequestMessage>(message =>
                 message.ClientId == Constants.OAuth.LobbyClientId &&
-                message.Subject == "42" &&
-                message.AuthorizationId == "authorization-b"),
-            Arg.Is<CancellationToken>(token => !token.IsCancellationRequested),
+                message.Subject == "subject-a" &&
+                message.AuthorizationId == "authorization-a"),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<RequestTimeout>());
+        await signInClient.Received(1).GetResponse<SignInUserResponseMessage>(
+            Arg.Any<SignInUserRequestMessage>(),
+            Arg.Any<CancellationToken>(),
             Arg.Any<RequestTimeout>());
         Assert.AreEqual(
-            "authorization-a",
+            "authorization-b",
             contextAccessor.Context.Features.Get<IAuthenticationFeature>()!.AuthenticationProperties.AuthorizationId);
     }
 
@@ -1283,7 +1356,8 @@ public sealed class AuthenticationSignInTests
         IRequestClient<RevokeTokenRequestMessage>? revokeTokenRequestClient = null,
         IClaimsPrincipalFactory? claimsPrincipalFactory = null,
         ICharacterFactory? characterFactory = null,
-        SignInUserResponseMessage? signInResponseMessage = null)
+        SignInUserResponseMessage? signInResponseMessage = null,
+        IRequestClient<SignInUserRequestMessage>? signInUserRequestClient = null)
     {
         var mapper = Substitute.For<IMapper>();
         mapper.Map<CharacterModel>(Arg.Any<CharacterHydrated>()).Returns(new CharacterModel { SnapshotRevision = snapshotRevision });
@@ -1301,7 +1375,7 @@ public sealed class AuthenticationSignInTests
             AuthorizationId = "authorization-id",
             Subject = "42"
         });
-        var signInUserRequestClient = Substitute.For<IRequestClient<SignInUserRequestMessage>>();
+        signInUserRequestClient ??= Substitute.For<IRequestClient<SignInUserRequestMessage>>();
         signInUserRequestClient
             .GetResponse<SignInUserResponseMessage>(
                 Arg.Any<SignInUserRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())

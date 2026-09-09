@@ -37,8 +37,8 @@ public sealed class GameSessionAbortCoordinator
     {
         if (!await _abortSessions.TryMoveToPendingAbort(session))
         {
-            _logger.LogCritical(
-                "Could not reserve lost game session '{connectionId}' for abort reconciliation; the session was not removed.",
+            _logger.LogDebug(
+                "Lost game session '{connectionId}' was already reconciled or is no longer the current owner.",
                 session.ConnectionId);
             return false;
         }

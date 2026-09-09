@@ -31,3 +31,6 @@
 - A failed new login can only clean up the authorization returned by that login; it cannot infer or revoke another persisted authorization.
 - A malformed or missing subject cannot create a GameWorld session and cannot
   revoke any authorization other than the one issued for that attempt.
+- A connection with committed authentication or unresolved pending authorization
+  cleanup cannot issue a replacement authorization. Pending cleanup must succeed
+  before issuance can proceed.
