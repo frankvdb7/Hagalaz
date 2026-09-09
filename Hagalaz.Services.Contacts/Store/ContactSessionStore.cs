@@ -7,22 +7,19 @@ namespace Hagalaz.Services.Contacts.Store
     {
         private readonly object _sessionGate = new();
 
-        public bool TryAddSession(ContactSessionContext session)
-        {
-            lock (_sessionGate)
-            {
-                return TryAdd(session.MasterId, session);
-            }
-        }
-
-        public bool TryReplaceSession(ContactSessionContext session)
+        public bool TrySetNewerSession(ContactSessionContext session)
         {
             lock (_sessionGate)
             {
                 var existing = GetOrDefault(session.MasterId);
-                if (existing?.ConnectionId == session.ConnectionId)
+                if (existing != null && session.SessionGeneration <= existing.SessionGeneration)
                 {
                     return false;
+                }
+
+                if (existing == null)
+                {
+                    return TryAdd(session.MasterId, session);
                 }
 
                 this[session.MasterId] = session;
@@ -30,11 +27,13 @@ namespace Hagalaz.Services.Contacts.Store
             }
         }
 
-        public bool TryRemoveSession(uint masterId, string connectionId)
+        public bool TryRemoveSession(uint masterId, long sessionGeneration, string connectionId)
         {
             lock (_sessionGate)
             {
-                if (!TryGetValue(masterId, out var session) || session.ConnectionId != connectionId)
+                if (!TryGetValue(masterId, out var session) ||
+                    session.SessionGeneration != sessionGeneration ||
+                    session.ConnectionId != connectionId)
                 {
                     return false;
                 }

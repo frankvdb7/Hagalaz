@@ -69,6 +69,7 @@ public sealed class WorldSignInCommandConsumerTests
         var viewport = Substitute.For<IViewport>();
         viewport.VisibleRegions.Returns(Array.Empty<IMapRegion>());
         session.ConnectionId.Returns("world-connection");
+        session.SessionGeneration.Returns(2L);
         character.MasterId.Returns(42u);
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
@@ -89,7 +90,7 @@ public sealed class WorldSignInCommandConsumerTests
             Arg.Is<GetContactsRequest>(message => message != null && message.MasterId == 42u),
             Arg.Any<CancellationToken>());
         await publishEndpoint.Received(1).Publish(
-            Arg.Is<WorldUserSignInMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1 && message.ConnectionId == "world-connection"),
+            Arg.Is<WorldUserSignInMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1 && message.SessionGeneration == 2L && message.ConnectionId == "world-connection"),
             Arg.Any<CancellationToken>());
         character.DidNotReceive().Destroy();
     }
@@ -116,6 +117,7 @@ public sealed class WorldSignInCommandConsumerTests
         var character = Substitute.For<ICharacter>();
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("world-connection");
+        session.SessionGeneration.Returns(2L);
         character.MasterId.Returns(42u);
         character.Session.Returns(session);
         character.Viewport.Returns(viewport);
@@ -145,7 +147,7 @@ public sealed class WorldSignInCommandConsumerTests
             Arg.Is<GetContactsRequest>(message => message != null && message.MasterId == 42u),
             Arg.Any<CancellationToken>());
         await publishEndpoint.Received(1).Publish(
-            Arg.Is<WorldUserSignInMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1 && message.ConnectionId == "world-connection"),
+            Arg.Is<WorldUserSignInMessage>(message => message != null && message.MasterId == 42u && message.WorldId == 1 && message.SessionGeneration == 2L && message.ConnectionId == "world-connection"),
             Arg.Any<CancellationToken>());
         terminator.DidNotReceive().Abort(Arg.Any<IGameSession>());
     }

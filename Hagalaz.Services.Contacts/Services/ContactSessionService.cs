@@ -26,7 +26,7 @@ namespace Hagalaz.Services.Contacts.Services
             _stringLocalizer = stringLocalizer;
         }
 
-        public async Task AddLobbySession(int worldId, uint masterId, string connectionId)
+        public async Task AddLobbySession(int worldId, uint masterId, long sessionGeneration, string connectionId)
         {
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
@@ -34,11 +34,12 @@ namespace Hagalaz.Services.Contacts.Services
                 return;
             }
             var worldName = _stringLocalizer["Lobby"];
-            if (!_contacts.TryAddSession(new ContactSessionContext
+            if (!_contacts.TrySetNewerSession(new ContactSessionContext
             (
                 masterId,
                 worldId,
                 worldName,
+                sessionGeneration,
                 connectionId
             )))
             {
@@ -54,7 +55,7 @@ namespace Hagalaz.Services.Contacts.Services
             }));
         }
 
-        public async Task AddWorldSession(int worldId, uint masterId, string connectionId)
+        public async Task AddWorldSession(int worldId, uint masterId, long sessionGeneration, string connectionId)
         {
             var worldName = _worlds.TryGetValue(worldId, out var world) ? world.WorldName : throw new NotFoundException(nameof(world));
             var character = await _characterService.FindCharacterByIdAsync(masterId);
@@ -62,11 +63,12 @@ namespace Hagalaz.Services.Contacts.Services
             {
                 return;
             }
-            if (!_contacts.TryReplaceSession(new ContactSessionContext
+            if (!_contacts.TrySetNewerSession(new ContactSessionContext
             (
                 masterId,
                 worldId,
                 worldName,
+                sessionGeneration,
                 connectionId
             )))
             {
@@ -82,9 +84,9 @@ namespace Hagalaz.Services.Contacts.Services
             }));
         }
 
-        public async Task RemoveSession(uint masterId, string connectionId)
+        public async Task RemoveSession(uint masterId, long sessionGeneration, string connectionId)
         {
-            if (!_contacts.TryRemoveSession(masterId, connectionId))
+            if (!_contacts.TryRemoveSession(masterId, sessionGeneration, connectionId))
             {
                 return;
             }

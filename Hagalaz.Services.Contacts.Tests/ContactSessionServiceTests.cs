@@ -32,8 +32,8 @@ public sealed class ContactSessionServiceTests
             .Returns(Task.CompletedTask);
 
         var contactSessions = new ContactSessionStore();
-        contactSessions.TryAdd(removedMasterId, new ContactSessionContext(removedMasterId, worldId, "World 1", "removed"));
-        contactSessions.TryAdd(retainedMasterId, new ContactSessionContext(retainedMasterId, 2, "World 2", "retained"));
+        contactSessions.TryAdd(removedMasterId, new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed"));
+        contactSessions.TryAdd(retainedMasterId, new ContactSessionContext(retainedMasterId, 2, "World 2", 1, "retained"));
 
         var service = new ContactSessionService(
             characterService.Object,
@@ -46,7 +46,7 @@ public sealed class ContactSessionServiceTests
 
         Assert.IsFalse(contactSessions.TryGetValue(removedMasterId, out _));
         Assert.IsTrue(contactSessions.TryGetValue(retainedMasterId, out _));
-        Assert.IsTrue(contactSessions.TryAdd(removedMasterId, new ContactSessionContext(removedMasterId, worldId, "World 1", "removed")));
+        Assert.IsTrue(contactSessions.TryAdd(removedMasterId, new ContactSessionContext(removedMasterId, worldId, "World 1", 1, "removed")));
         publishEndpoint.Verify(
             x => x.Publish(
                 It.Is<ContactSignOutMessage>(message => message.Contact.MasterId == removedMasterId),
@@ -62,8 +62,8 @@ public sealed class ContactSessionServiceTests
         const uint replacedMasterId = 200;
         var replacementMasterId = 0u;
 
-        var firstSession = new ContactSessionContext(firstMasterId, worldId, "World 1", "first");
-        var replacedSession = new ContactSessionContext(replacedMasterId, worldId, "World 1", "replaced");
+        var firstSession = new ContactSessionContext(firstMasterId, worldId, "World 1", 1, "first");
+        var replacedSession = new ContactSessionContext(replacedMasterId, worldId, "World 1", 1, "replaced");
         var contactSessions = new ContactSessionStore();
         contactSessions.TryAdd(firstMasterId, firstSession);
         contactSessions.TryAdd(replacedMasterId, replacedSession);
@@ -79,7 +79,7 @@ public sealed class ContactSessionServiceTests
                     replacementMasterId = candidateMasterId;
                     Assert.IsTrue(contactSessions.TryAdd(
                         candidateMasterId,
-                        new ContactSessionContext(candidateMasterId, worldId, "World 1", "replacement")));
+                        new ContactSessionContext(candidateMasterId, worldId, "World 1", 2, "replacement")));
                 }
 
                 return ValueTask.FromResult<CharacterDto?>(new CharacterDto
@@ -107,7 +107,7 @@ public sealed class ContactSessionServiceTests
         Assert.IsTrue(contactSessions.TryGetValue(replacementMasterId, out var replacement));
         Assert.AreEqual(worldId, replacement!.WorldId);
         var originalReplacementSession = replacementMasterId == firstMasterId ? firstSession : replacedSession;
-        Assert.AreNotEqual(originalReplacementSession.SessionId, replacement.SessionId);
+        Assert.AreNotEqual(originalReplacementSession.SessionGeneration, replacement.SessionGeneration);
         publishEndpoint.Verify(
             x => x.Publish(
                 It.IsAny<ContactSignOutMessage>(),
@@ -125,9 +125,9 @@ public sealed class ContactSessionServiceTests
         var publishEndpoint = CreatePublishEndpoint();
         var service = CreateService(contactSessions, worldSessions, characterService, publishEndpoint);
 
-        await service.AddLobbySession(1, 42, "lobby-a");
-        await service.AddWorldSession(1, 42, "world-b");
-        await service.RemoveSession(42, "lobby-a");
+        await service.AddLobbySession(1, 42, 1, "lobby-a");
+        await service.AddWorldSession(1, 42, 2, "world-b");
+        await service.RemoveSession(42, 1, "lobby-a");
 
         Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
         Assert.AreEqual("world-b", session!.ConnectionId);
@@ -149,9 +149,9 @@ public sealed class ContactSessionServiceTests
             CreateCharacterService(),
             CreatePublishEndpoint());
 
-        await service.AddLobbySession(1, 42, "lobby-a");
-        await service.RemoveSession(42, "lobby-a");
-        await service.AddWorldSession(1, 42, "world-b");
+        await service.AddLobbySession(1, 42, 1, "lobby-a");
+        await service.RemoveSession(42, 1, "lobby-a");
+        await service.AddWorldSession(1, 42, 2, "world-b");
 
         Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
         Assert.AreEqual("world-b", session!.ConnectionId);
@@ -167,9 +167,9 @@ public sealed class ContactSessionServiceTests
         var publishEndpoint = CreatePublishEndpoint();
         var service = CreateService(contactSessions, worldSessions, CreateCharacterService(), publishEndpoint);
 
-        await service.AddWorldSession(1, 42, "world-a");
-        await service.AddWorldSession(1, 42, "world-b");
-        await service.RemoveSession(42, "world-a");
+        await service.AddWorldSession(1, 42, 1, "world-a");
+        await service.AddWorldSession(1, 42, 2, "world-b");
+        await service.RemoveSession(42, 1, "world-a");
 
         Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
         Assert.AreEqual("world-b", session!.ConnectionId);
@@ -187,8 +187,8 @@ public sealed class ContactSessionServiceTests
         var publishEndpoint = CreatePublishEndpoint();
         var service = CreateService(contactSessions, worldSessions, CreateCharacterService(), publishEndpoint);
 
-        await service.AddWorldSession(1, 42, "world-b");
-        await service.RemoveSession(42, "world-b");
+        await service.AddWorldSession(1, 42, 2, "world-b");
+        await service.RemoveSession(42, 2, "world-b");
 
         Assert.IsFalse(contactSessions.TryGetValue(42, out _));
         publishEndpoint.Verify(
@@ -207,13 +207,99 @@ public sealed class ContactSessionServiceTests
         var publishEndpoint = CreatePublishEndpoint();
         var service = CreateService(contactSessions, worldSessions, CreateCharacterService(), publishEndpoint);
 
-        await service.AddWorldSession(1, 42, "world-b");
-        await service.AddWorldSession(1, 42, "world-b");
+        await service.AddWorldSession(1, 42, 2, "world-b");
+        await service.AddWorldSession(1, 42, 2, "world-b");
 
         publishEndpoint.Verify(
             x => x.Publish(
                 It.Is<ContactSignInMessage>(message => message.Contact.MasterId == 42 && message.Contact.WorldId == 1),
                 It.IsAny<CancellationToken>()),
+            Times.Once);
+        publishEndpoint.Verify(
+            x => x.Publish(It.IsAny<ContactSignOutMessage>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [TestMethod]
+    public async Task SameConnectionLobbyToWorldPromotion_ReplacesLobbyPresence()
+    {
+        var contactSessions = new ContactSessionStore();
+        var worldSessions = new WorldSessionStore();
+        worldSessions.TryAdd(1, new WorldSessionContext(1, "World 1"));
+        var publishEndpoint = CreatePublishEndpoint();
+        var service = CreateService(contactSessions, worldSessions, CreateCharacterService(), publishEndpoint);
+
+        await service.AddLobbySession(1, 42, 1, "shared-connection");
+        await service.AddWorldSession(1, 42, 2, "shared-connection");
+
+        Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
+        Assert.AreEqual(2, session!.SessionGeneration);
+        Assert.AreEqual(1, session.WorldId);
+        publishEndpoint.Verify(
+            x => x.Publish(It.IsAny<ContactSignInMessage>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+        publishEndpoint.Verify(
+            x => x.Publish(It.IsAny<ContactSignOutMessage>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [TestMethod]
+    public async Task DelayedWorldSignOutAfterLobbyReplacement_DoesNotRemoveLobbyPresence()
+    {
+        var contactSessions = new ContactSessionStore();
+        var worldSessions = new WorldSessionStore();
+        worldSessions.TryAdd(1, new WorldSessionContext(1, "World 1"));
+        var service = CreateService(contactSessions, worldSessions, CreateCharacterService(), CreatePublishEndpoint());
+
+        await service.AddWorldSession(1, 42, 1, "world-a");
+        await service.AddLobbySession(1, 42, 2, "lobby-b");
+        await service.RemoveSession(42, 1, "world-a");
+
+        Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
+        Assert.AreEqual(2, session!.SessionGeneration);
+        Assert.AreEqual("lobby-b", session.ConnectionId);
+    }
+
+    [TestMethod]
+    public async Task StaleWorldSignInAfterNewerWorldPresence_DoesNotReplaceCurrentPresence()
+    {
+        var contactSessions = new ContactSessionStore();
+        var worldSessions = new WorldSessionStore();
+        worldSessions.TryAdd(1, new WorldSessionContext(1, "World 1"));
+        var publishEndpoint = CreatePublishEndpoint();
+        var service = CreateService(contactSessions, worldSessions, CreateCharacterService(), publishEndpoint);
+
+        await service.AddWorldSession(1, 42, 2, "world-b");
+        await service.AddWorldSession(1, 42, 1, "world-a");
+
+        Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
+        Assert.AreEqual(2, session!.SessionGeneration);
+        Assert.AreEqual("world-b", session.ConnectionId);
+        publishEndpoint.Verify(
+            x => x.Publish(It.IsAny<ContactSignInMessage>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        publishEndpoint.Verify(
+            x => x.Publish(It.IsAny<ContactSignOutMessage>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [TestMethod]
+    public async Task StaleLobbySignInAfterNewerWorldPresence_DoesNotDowngradeWorldPresence()
+    {
+        var contactSessions = new ContactSessionStore();
+        var worldSessions = new WorldSessionStore();
+        worldSessions.TryAdd(1, new WorldSessionContext(1, "World 1"));
+        var publishEndpoint = CreatePublishEndpoint();
+        var service = CreateService(contactSessions, worldSessions, CreateCharacterService(), publishEndpoint);
+
+        await service.AddWorldSession(1, 42, 2, "world-b");
+        await service.AddLobbySession(1, 42, 1, "lobby-a");
+
+        Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
+        Assert.AreEqual(2, session!.SessionGeneration);
+        Assert.AreEqual("world-b", session.ConnectionId);
+        publishEndpoint.Verify(
+            x => x.Publish(It.IsAny<ContactSignInMessage>(), It.IsAny<CancellationToken>()),
             Times.Once);
         publishEndpoint.Verify(
             x => x.Publish(It.IsAny<ContactSignOutMessage>(), It.IsAny<CancellationToken>()),

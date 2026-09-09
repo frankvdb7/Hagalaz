@@ -1,16 +1,14 @@
-using System;
-
 namespace Hagalaz.Services.Contacts.Store.Model
 {
     public sealed record ContactSessionContext
     {
-        public ContactSessionContext(uint masterId, int worldId, string worldName, string connectionId)
+        public ContactSessionContext(uint masterId, int worldId, string worldName, long sessionGeneration, string connectionId)
         {
             MasterId = masterId;
             WorldId = worldId;
             WorldName = worldName;
+            SessionGeneration = sessionGeneration;
             ConnectionId = connectionId;
-            SessionId = Guid.NewGuid();
         }
 
         public uint MasterId { get; }
@@ -19,8 +17,8 @@ namespace Hagalaz.Services.Contacts.Store.Model
 
         public string WorldName { get; }
 
-        public string ConnectionId { get; }
+        public long SessionGeneration { get; }
 
-        public Guid SessionId { get; }
+        public string ConnectionId { get; }
     }
 }

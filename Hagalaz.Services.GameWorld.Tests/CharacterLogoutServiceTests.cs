@@ -22,6 +22,7 @@ public sealed class CharacterLogoutServiceTests
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
+        session.SessionGeneration.Returns(7L);
         character.Session.Returns(session);
         var state = new CharacterPersistenceState();
         state.TrackPendingLogout(character);
@@ -46,6 +47,7 @@ public sealed class CharacterLogoutServiceTests
         character.MasterId.Returns(42u);
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns("connection");
+        session.SessionGeneration.Returns(7L);
         character.Session.Returns(session);
         character.IsDestroyed.Returns(false);
         var state = new CharacterPersistenceState();
@@ -62,7 +64,7 @@ public sealed class CharacterLogoutServiceTests
         Assert.IsFalse(await coordinator.CompleteAsync(42u));
 
         character.Received(1).Destroy();
-        mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message != null && message.MasterId == 42u && message.ConnectionId == "connection"));
+        mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message != null && message.MasterId == 42u && message.SessionGeneration == 7L && message.ConnectionId == "connection"));
     }
 
     [TestMethod]

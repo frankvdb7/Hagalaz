@@ -22,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
         {
             var message = context.Message;
             var options = _options.Value;
-            await _publishEndpoint.Publish(new LobbyUserSignOutMessage(message.MasterId, options.Id, message.ConnectionId));
+            await _publishEndpoint.Publish(new LobbyUserSignOutMessage(message.MasterId, options.Id, message.SessionGeneration, message.ConnectionId));
         }
     }
 }

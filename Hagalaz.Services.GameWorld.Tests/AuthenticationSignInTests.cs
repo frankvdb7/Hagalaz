@@ -921,8 +921,8 @@ public sealed class AuthenticationSignInTests
         var factory = Substitute.For<IGameSessionFactory>();
         var initialSession = CreateSession("connection-1", "claim-1");
         var laterSession = CreateSession("connection-2", "claim-2");
-        factory.CreateWorld(42, "connection-1").Returns(initialSession);
-        factory.CreateWorld(42, "connection-2").Returns(laterSession);
+        factory.CreateWorld(42, "connection-1", Arg.Any<long>()).Returns(initialSession);
+        factory.CreateWorld(42, "connection-2", Arg.Any<long>()).Returns(laterSession);
         var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(
             store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
@@ -980,8 +980,8 @@ public sealed class AuthenticationSignInTests
         var factory = Substitute.For<IGameSessionFactory>();
         var lobbySession = CreateLobbySession("lobby-connection");
         var worldSession = CreateSession("world-connection", "world-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(
@@ -1012,8 +1012,8 @@ public sealed class AuthenticationSignInTests
         var factory = Substitute.For<IGameSessionFactory>();
         var lobbySession = CreateLobbySession("lobby-connection");
         var worldSession = CreateSession("world-connection", "world-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(
@@ -1046,8 +1046,8 @@ public sealed class AuthenticationSignInTests
         var factory = Substitute.For<IGameSessionFactory>();
         var lobbySession = CreateLobbySession("lobby-connection");
         var worldSession = CreateSession("world-connection", "world-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(
@@ -1110,8 +1110,8 @@ public sealed class AuthenticationSignInTests
         var factory = Substitute.For<IGameSessionFactory>();
         var worldSession = CreateSession("world-connection", "world-claim");
         var lobbySession = CreateLobbySession("lobby-connection");
-        factory.CreateWorld(42, "world-connection").Returns(worldSession);
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
         var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(
             store,
@@ -1179,9 +1179,9 @@ public sealed class AuthenticationSignInTests
         var lobbySession = CreateLobbySession("lobby-connection");
         var firstSession = CreateSession("connection-1", "claim-1");
         var secondSession = CreateSession("connection-2", "claim-2");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "connection-1").Returns(firstSession);
-        factory.CreateWorld(42, "connection-2").Returns(secondSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "connection-1", Arg.Any<long>()).Returns(firstSession);
+        factory.CreateWorld(42, "connection-2", Arg.Any<long>()).Returns(secondSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
@@ -1220,7 +1220,7 @@ public sealed class AuthenticationSignInTests
     {
         var session = Substitute.For<IGameSession>();
         var gameSessionFactory = Substitute.For<IGameSessionFactory>();
-        gameSessionFactory.Create(42, "connection").Returns(session);
+        gameSessionFactory.Create(42, "connection", Arg.Any<long>()).Returns(session);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(
             store,
@@ -1586,6 +1586,7 @@ public sealed class AuthenticationSignInTests
 
     private sealed class TestGameSessionClaimStore : IGameSessionClaimStore
     {
+        public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
         public Task<bool> TryClaimAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<bool> ReleaseAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<bool> RenewAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) => Task.FromResult(true);
@@ -1598,6 +1599,8 @@ public sealed class AuthenticationSignInTests
         private readonly Dictionary<uint, string> _claims = new();
 
         public int TryClaimCount { get; private set; }
+
+        public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
 
         public Task<bool> TryClaimAsync(uint masterId, string claimId, CancellationToken cancellationToken = default)
         {
@@ -1648,6 +1651,8 @@ public sealed class AuthenticationSignInTests
         private int _attempts;
 
         public Task WaitForBothClaimAttemptsAsync() => _bothAttempts.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
 
         public void ReleaseClaimAttempts() => _releaseAttempts.TrySetResult(true);
 

@@ -11,11 +11,13 @@ namespace Hagalaz.Services.GameWorld.Network.Model
 
         public uint MasterId { get; init; }
         public string ConnectionId { get; init; }
+        public long SessionGeneration { get; init; }
 
-        public GameSession(uint masterId, string connectionId, IRaidoClientProxy clientProxy)
+        public GameSession(uint masterId, string connectionId, long sessionGeneration, IRaidoClientProxy clientProxy)
         {
             MasterId = masterId;
             ConnectionId = connectionId;
+            SessionGeneration = sessionGeneration;
             _clientProxy = clientProxy;
         }
 
@@ -29,9 +31,10 @@ namespace Hagalaz.Services.GameWorld.Network.Model
         public WorldGameSession(
             uint masterId,
             string connectionId,
+            long sessionGeneration,
             IRaidoClientProxy clientProxy,
             string sessionClaimId)
-            : base(masterId, connectionId, clientProxy)
+            : base(masterId, connectionId, sessionGeneration, clientProxy)
         {
             SessionClaimId = sessionClaimId;
         }

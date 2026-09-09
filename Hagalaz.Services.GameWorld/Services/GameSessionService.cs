@@ -39,7 +39,8 @@ namespace Hagalaz.Services.GameWorld.Services
                 return (existingSession.Session!, Created: false);
             }
 
-            var createdSession = _gameSessionFactory.Create(masterId, connectionId);
+            var sessionGeneration = await _claims.AllocateSessionGenerationAsync(masterId);
+            var createdSession = _gameSessionFactory.Create(masterId, connectionId, sessionGeneration);
             if (!await _sessions.TryAdd(createdSession))
             {
                 return (await _sessions.FindByMasterId(masterId) ?? createdSession, Created: false);
@@ -59,7 +60,8 @@ namespace Hagalaz.Services.GameWorld.Services
                 return (null, false);
             }
 
-            var createdSession = _gameSessionFactory.CreateWorld(masterId, connectionId);
+            var sessionGeneration = await _claims.AllocateSessionGenerationAsync(masterId, cancellationToken);
+            var createdSession = _gameSessionFactory.CreateWorld(masterId, connectionId, sessionGeneration);
             if (!await _sessions.TryReserveWorldSession(createdSession))
             {
                 return (await _sessions.FindWorldSessionByMasterId(masterId), false);

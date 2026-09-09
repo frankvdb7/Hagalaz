@@ -1,4 +1,4 @@
 ﻿namespace Hagalaz.Game.Messages
 {
-    public record LobbyUserSignOutMessage(uint MasterId, int WorldId, string ConnectionId);
+    public record LobbyUserSignOutMessage(uint MasterId, int WorldId, long SessionGeneration, string ConnectionId);
 }

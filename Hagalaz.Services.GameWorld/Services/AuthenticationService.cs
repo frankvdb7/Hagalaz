@@ -655,7 +655,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 if (session is not null && session is not IGameWorldSession && masterId is not null)
                 {
-                    _mediator.Publish(new LobbySignOutCommand(masterId.Value, session.ConnectionId));
+                    _mediator.Publish(new LobbySignOutCommand(masterId.Value, session.SessionGeneration, session.ConnectionId));
                 }
 
                 // Token revocation is remote cleanup. It must not retain a successfully

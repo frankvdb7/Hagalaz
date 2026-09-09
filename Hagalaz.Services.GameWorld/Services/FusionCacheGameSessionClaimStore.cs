@@ -10,6 +10,7 @@ namespace Hagalaz.Services.GameWorld.Services;
 public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
 {
     private const string KeyPrefix = "hagalaz:game-session:";
+    private const string GenerationKeyPrefix = "hagalaz:game-session-generation:";
     private const string LockName = "game-session-claim";
     private static readonly TimeSpan DistributedLockTimeout = TimeSpan.FromSeconds(30);
     private static readonly FusionCacheEntryOptions EntryOptions = new()
@@ -20,6 +21,14 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
         SkipMemoryCacheRead = true,
         SkipMemoryCacheWrite = true
     };
+    private static readonly FusionCacheEntryOptions GenerationEntryOptions = new FusionCacheEntryOptions
+    {
+        IsFailSafeEnabled = false,
+        SkipMemoryCacheRead = true,
+        SkipMemoryCacheWrite = true
+    }
+        .SetDurationInfinite()
+        .SetDistributedCacheDurationInfinite();
 
     private readonly IFusionCache _cache;
     private readonly IFusionCacheDistributedLocker _locker;
@@ -34,6 +43,15 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
         _locker = locker;
         _logger = logger;
     }
+
+    public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) =>
+        WithClaimLockAsync(masterId, async token =>
+        {
+            var current = await _cache.TryGetAsync<long>(GetGenerationKey(masterId), GenerationEntryOptions, token);
+            var next = current.HasValue ? checked(current.Value + 1) : 1L;
+            await _cache.SetAsync(GetGenerationKey(masterId), next, GenerationEntryOptions, token);
+            return next;
+        }, cancellationToken);
 
     public Task<bool> TryClaimAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) =>
         WithClaimLockAsync(masterId, async token =>
@@ -133,4 +151,6 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
     }
 
     private static string GetKey(uint masterId) => $"{KeyPrefix}{masterId}";
+
+    private static string GetGenerationKey(uint masterId) => $"{GenerationKeyPrefix}{masterId}";
 }

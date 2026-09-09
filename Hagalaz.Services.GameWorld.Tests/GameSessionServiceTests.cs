@@ -22,11 +22,31 @@ public sealed class GameSessionServiceTests
     {
         var factory = new GameSessionFactory(Substitute.For<Raido.Server.IRaidoHubLifetimeManager>());
 
-        var lobbySession = factory.Create(42, "lobby-connection");
-        var worldSession = factory.CreateWorld(42, "world-connection");
+        var lobbySession = factory.Create(42, "lobby-connection", 1);
+        var worldSession = factory.CreateWorld(42, "world-connection", 2);
 
         Assert.IsFalse(lobbySession is IGameWorldSession);
+        Assert.AreEqual(1L, lobbySession.SessionGeneration);
         Assert.IsInstanceOfType<IGameWorldSession>(worldSession);
+        Assert.AreEqual(2L, worldSession.SessionGeneration);
+    }
+
+    [TestMethod]
+    public async Task AddSession_UsesAllocatedSessionGeneration()
+    {
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        claims.AllocateSessionGenerationAsync(42, Arg.Any<CancellationToken>()).Returns(Task.FromResult(11L));
+        var factory = Substitute.For<IGameSessionFactory>();
+        var session = Substitute.For<IGameSession>();
+        factory.Create(42, "connection", 11L).Returns(session);
+        var store = new GameSessionStore();
+        var service = GameSessionTestDependencies.CreateService(
+            store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+
+        var result = await service.AddSession(42, "connection");
+
+        Assert.IsTrue(result.Created);
+        factory.Received(1).Create(42, "connection", 11L);
     }
 
     [TestMethod]
@@ -207,8 +227,8 @@ public sealed class GameSessionServiceTests
         var factory = Substitute.For<IGameSessionFactory>();
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var worldSession = CreateSession(42, "world-connection", "world-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(
             store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
@@ -232,9 +252,9 @@ public sealed class GameSessionServiceTests
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var firstSession = CreateSession(42, "connection-1", "claim-1");
         var secondSession = CreateSession(42, "connection-2", "claim-2");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "connection-1").Returns(firstSession);
-        factory.CreateWorld(42, "connection-2").Returns(secondSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "connection-1", Arg.Any<long>()).Returns(firstSession);
+        factory.CreateWorld(42, "connection-2", Arg.Any<long>()).Returns(secondSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         await service.AddSession(42, "lobby-connection");
@@ -263,8 +283,8 @@ public sealed class GameSessionServiceTests
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var lobbySession = CreateLobbySession(42, "shared-connection");
         var worldSession = CreateSession(42, "shared-connection", "world-claim");
-        factory.Create(42, "shared-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "shared-connection").Returns(worldSession);
+        factory.Create(42, "shared-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "shared-connection", Arg.Any<long>()).Returns(worldSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
 
@@ -285,7 +305,7 @@ public sealed class GameSessionServiceTests
         var claims = new InMemoryGameSessionClaimStore();
         var factory = Substitute.For<IGameSessionFactory>();
         var session = CreateSession(42, "world-connection", "world-claim");
-        factory.CreateWorld(42, "world-connection").Returns(session);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(session);
         var service = GameSessionTestDependencies.CreateService(
             store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
 
@@ -312,9 +332,9 @@ public sealed class GameSessionServiceTests
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var staleWorldSession = CreateSession(42, "world-connection", "world-claim");
         var winningWorldSession = CreateSession(42, "winning-world-connection", "winning-world-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "world-connection").Returns(staleWorldSession);
-        factory.CreateWorld(42, "winning-world-connection").Returns(winningWorldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(staleWorldSession);
+        factory.CreateWorld(42, "winning-world-connection", Arg.Any<long>()).Returns(winningWorldSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var abortCoordinator = CreateAbortCoordinator(store, terminator);
         var service = new GameSessionService(store, factory, claims, NullLogger<GameSessionService>.Instance, abortCoordinator);
@@ -349,7 +369,7 @@ public sealed class GameSessionServiceTests
         var claims = Substitute.For<IGameSessionClaimStore>();
         var factory = Substitute.For<IGameSessionFactory>();
         var session = CreateSession(42, "world-connection", "world-claim");
-        factory.CreateWorld(42, "world-connection").Returns(session);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(session);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var abortCoordinator = CreateAbortCoordinator(store, terminator);
         var service = new GameSessionService(store, factory, claims, NullLogger<GameSessionService>.Instance, abortCoordinator);
@@ -376,7 +396,7 @@ public sealed class GameSessionServiceTests
         var claims = Substitute.For<IGameSessionClaimStore>();
         var factory = Substitute.For<IGameSessionFactory>();
         var session = CreateSession(42, "world-connection", "world-claim");
-        factory.CreateWorld(42, "world-connection").Returns(session);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(session);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var store = new GameSessionStore();
         var abortCoordinator = CreateAbortCoordinator(store, terminator);
@@ -406,8 +426,8 @@ public sealed class GameSessionServiceTests
         var terminator = new FailOnceConnectionTerminator();
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var worldSession = CreateSession(42, "world-connection", "world-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var store = new GameSessionStore();
         var abortCoordinator = CreateAbortCoordinator(store, terminator);
         var service = new GameSessionService(store, factory, claims, NullLogger<GameSessionService>.Instance, abortCoordinator);
@@ -437,8 +457,8 @@ public sealed class GameSessionServiceTests
         var terminator = new FailOnceConnectionTerminator();
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var worldSession = CreateSession(42, "world-connection", "world-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var abortCoordinator = CreateAbortCoordinator(store, terminator);
         var service = new GameSessionService(store, factory, claims, NullLogger<GameSessionService>.Instance, abortCoordinator);
 
@@ -462,8 +482,8 @@ public sealed class GameSessionServiceTests
         var terminator = new CancelOnceConnectionTerminator(cancellationSource);
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var worldSession = CreateSession(42, "world-connection", "world-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
 
         await service.AddSession(42, "lobby-connection");
@@ -520,7 +540,7 @@ public sealed class GameSessionServiceTests
                 : Task.FromResult(true));
         var factory = Substitute.For<IGameSessionFactory>();
         var worldSession = CreateSession(42, "world-connection", "world-claim");
-        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
 
@@ -580,8 +600,8 @@ public sealed class GameSessionServiceTests
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var worldSession = CreateSession(42, "world-connection", "world-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "world-connection").Returns(worldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         await service.AddSession(42, "lobby-connection");
@@ -605,9 +625,9 @@ public sealed class GameSessionServiceTests
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var failedWorldSession = CreateSession(42, "failed-world-connection", "failed-claim");
         var laterWorldSession = CreateSession(42, "later-world-connection", "later-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "failed-world-connection").Returns(failedWorldSession);
-        factory.CreateWorld(42, "later-world-connection").Returns(laterWorldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "failed-world-connection", Arg.Any<long>()).Returns(failedWorldSession);
+        factory.CreateWorld(42, "later-world-connection", Arg.Any<long>()).Returns(laterWorldSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         await service.AddSession(42, "lobby-connection");
@@ -635,8 +655,8 @@ public sealed class GameSessionServiceTests
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var failedWorldSession = CreateSession(42, "failed-world-connection", "failed-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "failed-world-connection").Returns(failedWorldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "failed-world-connection", Arg.Any<long>()).Returns(failedWorldSession);
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         await service.AddSession(42, "lobby-connection");
 
@@ -665,9 +685,9 @@ public sealed class GameSessionServiceTests
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var failedWorldSession = CreateSession(42, "failed-world-connection", "failed-claim");
         var laterWorldSession = CreateSession(42, "later-world-connection", "later-claim");
-        factory.Create(42, "lobby-connection").Returns(lobbySession);
-        factory.CreateWorld(42, "failed-world-connection").Returns(failedWorldSession);
-        factory.CreateWorld(42, "later-world-connection").Returns(laterWorldSession);
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        factory.CreateWorld(42, "failed-world-connection", Arg.Any<long>()).Returns(failedWorldSession);
+        factory.CreateWorld(42, "later-world-connection", Arg.Any<long>()).Returns(laterWorldSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(
             store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
@@ -743,8 +763,8 @@ public sealed class GameSessionServiceTests
         var factory = Substitute.For<IGameSessionFactory>();
         var firstSession = CreateLobbySession(42, "connection-1");
         var secondSession = CreateLobbySession(42, "connection-2");
-        factory.Create(42, "connection-1").Returns(firstSession);
-        factory.Create(42, "connection-2").Returns(secondSession);
+        factory.Create(42, "connection-1", Arg.Any<long>()).Returns(firstSession);
+        factory.Create(42, "connection-2", Arg.Any<long>()).Returns(secondSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(
             store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
@@ -764,8 +784,8 @@ public sealed class GameSessionServiceTests
         var factory = Substitute.For<IGameSessionFactory>();
         var firstSession = CreateLobbySession(42, "connection-1");
         var replacementSession = CreateLobbySession(42, "connection-2");
-        factory.Create(42, "connection-1").Returns(firstSession);
-        factory.Create(42, "connection-2").Returns(replacementSession);
+        factory.Create(42, "connection-1", Arg.Any<long>()).Returns(firstSession);
+        factory.Create(42, "connection-2", Arg.Any<long>()).Returns(replacementSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(
             store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
@@ -788,7 +808,7 @@ public sealed class GameSessionServiceTests
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var session = CreateSession(42, "connection", "claim");
         var factory = Substitute.For<IGameSessionFactory>();
-        factory.CreateWorld(42, "connection").Returns(session);
+        factory.CreateWorld(42, "connection", Arg.Any<long>()).Returns(session);
         var gameSessions = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         claims.TryClaimAsync(42, "claim").Returns(Task.FromResult(true));
         using var cancellationSource = new CancellationTokenSource();
@@ -811,7 +831,7 @@ public sealed class GameSessionServiceTests
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var session = CreateSession(42, "connection", "claim");
         var factory = Substitute.For<IGameSessionFactory>();
-        factory.CreateWorld(42, "connection").Returns(session);
+        factory.CreateWorld(42, "connection", Arg.Any<long>()).Returns(session);
         var gameSessions = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         claims.TryClaimAsync(42, "claim").Returns(Task.FromResult(true));
         await gameSessions.TryAddWorldSession(42, "connection");
@@ -832,7 +852,7 @@ public sealed class GameSessionServiceTests
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var session = CreateSession(42, "connection", "claim");
         var factory = Substitute.For<IGameSessionFactory>();
-        factory.CreateWorld(42, "connection").Returns(session);
+        factory.CreateWorld(42, "connection", Arg.Any<long>()).Returns(session);
         var gameSessions = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         claims.TryClaimAsync(42, "claim").Returns(Task.FromResult(true));
         await gameSessions.TryAddWorldSession(42, "connection");
@@ -853,7 +873,7 @@ public sealed class GameSessionServiceTests
         var terminator = new FailOnceConnectionTerminator();
         var session = CreateSession(42, "connection", "claim");
         var factory = Substitute.For<IGameSessionFactory>();
-        factory.CreateWorld(42, "connection").Returns(session);
+        factory.CreateWorld(42, "connection", Arg.Any<long>()).Returns(session);
         var gameSessions = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         claims.TryClaimAsync(42, "claim").Returns(Task.FromResult(true));
         await gameSessions.TryAddWorldSession(42, "connection");
@@ -878,7 +898,7 @@ public sealed class GameSessionServiceTests
         var terminator = new FailOnceConnectionTerminator();
         var session = CreateSession(42, "connection", "claim");
         var factory = Substitute.For<IGameSessionFactory>();
-        factory.CreateWorld(42, "connection").Returns(session);
+        factory.CreateWorld(42, "connection", Arg.Any<long>()).Returns(session);
         var gameSessions = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
         claims.TryClaimAsync(42, "claim").Returns(Task.FromResult(true));
         await gameSessions.TryAddWorldSession(42, "connection");
@@ -904,8 +924,8 @@ public sealed class GameSessionServiceTests
         var initialSession = CreateSession(42, "connection-1", "claim-1");
         var laterSession = CreateSession(42, "connection-2", "claim-2");
         var factory = Substitute.For<IGameSessionFactory>();
-        factory.CreateWorld(42, "connection-1").Returns(initialSession);
-        factory.CreateWorld(42, "connection-2").Returns(laterSession);
+        factory.CreateWorld(42, "connection-1", Arg.Any<long>()).Returns(initialSession);
+        factory.CreateWorld(42, "connection-2", Arg.Any<long>()).Returns(laterSession);
         var service = GameSessionTestDependencies.CreateService(
             store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
         var initialRegistration = await service.TryAddWorldSession(42, "connection-1");
@@ -936,7 +956,7 @@ public sealed class GameSessionServiceTests
     {
         var factory = Substitute.For<IGameSessionFactory>();
         var session = CreateSession(masterId, connectionId, claimId);
-        factory.CreateWorld(masterId, connectionId).Returns(session);
+        factory.CreateWorld(masterId, connectionId, Arg.Any<long>()).Returns(session);
         var store = new GameSessionStore();
         return GameSessionTestDependencies.CreateService(
             store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
@@ -1023,6 +1043,17 @@ public sealed class GameSessionServiceTests
     {
         private readonly object _sync = new();
         private readonly Dictionary<uint, string> _claims = new();
+        private readonly Dictionary<uint, long> _generations = new();
+
+        public virtual Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default)
+        {
+            lock (_sync)
+            {
+                var next = _generations.GetValueOrDefault(masterId) + 1;
+                _generations[masterId] = next;
+                return Task.FromResult(next);
+            }
+        }
 
         public int Count
         {
@@ -1115,6 +1146,8 @@ public sealed class GameSessionServiceTests
     {
         private bool _throwOnNextClaim = true;
 
+        public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
+
         public string? CurrentClaim { get; private set; }
         public int ReleaseCalls { get; private set; }
 
@@ -1169,6 +1202,8 @@ public sealed class GameSessionServiceTests
         public CancelAfterPersistGameSessionClaimStore(CancellationTokenSource cancellationSource) =>
             _cancellationSource = cancellationSource;
 
+        public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
+
         public string? CurrentClaim { get; private set; }
         public int ReleaseCalls { get; private set; }
 
@@ -1218,6 +1253,8 @@ public sealed class GameSessionServiceTests
 
     private sealed class PersistThenThrowReleaseGameSessionClaimStore : IGameSessionClaimStore
     {
+        public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
+
         public string? CurrentClaim { get; private set; }
         public int ReleaseCalls { get; private set; }
 

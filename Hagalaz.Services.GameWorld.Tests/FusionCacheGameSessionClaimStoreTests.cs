@@ -12,6 +12,35 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class FusionCacheGameSessionClaimStoreTests
 {
     [TestMethod]
+    public async Task AllocateSessionGenerationAsync_UsesStableDistributedCounter()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<long>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(
+                new ValueTask<MaybeValue<long>>(MaybeValue<long>.None),
+                new ValueTask<MaybeValue<long>>(MaybeValue<long>.FromValue(7L)));
+        cache.SetAsync(
+                Arg.Any<string>(),
+                Arg.Any<long>(),
+                Arg.Any<FusionCacheEntryOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new ValueTask());
+
+        Assert.AreEqual(1L, await store.AllocateSessionGenerationAsync(42));
+        Assert.AreEqual(8L, await store.AllocateSessionGenerationAsync(42));
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session-generation:42",
+            1L,
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session-generation:42",
+            8L,
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task TryClaimAsync_MissingClaimStoresValueWithLeaseAndSkipsMemoryCache()
     {
         var (store, cache, locker) = CreateStore();

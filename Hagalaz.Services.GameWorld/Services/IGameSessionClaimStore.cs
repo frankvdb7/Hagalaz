@@ -12,6 +12,7 @@ public static class GameSessionClaimOptions
 
 public interface IGameSessionClaimStore
 {
+    Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default);
     Task<bool> TryClaimAsync(uint masterId, string claimId, CancellationToken cancellationToken = default);
     Task<bool> ReleaseAsync(uint masterId, string claimId, CancellationToken cancellationToken = default);
     Task<bool> RenewAsync(uint masterId, string claimId, CancellationToken cancellationToken = default);

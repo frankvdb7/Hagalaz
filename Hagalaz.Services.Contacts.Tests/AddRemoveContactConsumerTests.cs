@@ -51,8 +51,8 @@ namespace Hagalaz.Services.Contacts.Tests
             _characterServiceMock.Setup(x => x.FindCharacterByDisplayName(contactName)).ReturnsAsync(contactCharacter);
             _contactServiceMock.Setup(x => x.AddContactAsync(masterId, contactId, false)).ReturnsAsync(Hagalaz.Services.Common.Model.Result.Success);
 
-            _contactSessions.TryAdd(masterId, new ContactSessionContext(masterId, masterWorldId, "World 1", "master"));
-            _contactSessions.TryAdd(contactId, new ContactSessionContext(contactId, contactWorldId, "World 2", "contact"));
+            _contactSessions.TryAdd(masterId, new ContactSessionContext(masterId, masterWorldId, "World 1", 1, "master"));
+            _contactSessions.TryAdd(contactId, new ContactSessionContext(contactId, contactWorldId, "World 2", 1, "contact"));
             _worldSessions.TryAdd(masterWorldId, new WorldSessionContext(masterWorldId, "World 1"));
             _worldSessions.TryAdd(contactWorldId, new WorldSessionContext(contactWorldId, "World 2"));
 
