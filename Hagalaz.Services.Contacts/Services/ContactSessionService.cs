@@ -26,7 +26,7 @@ namespace Hagalaz.Services.Contacts.Services
             _stringLocalizer = stringLocalizer;
         }
 
-        public async Task AddLobbySession(int worldId, uint masterId)
+        public async Task AddLobbySession(int worldId, uint masterId, string connectionId)
         {
             var character = await _characterService.FindCharacterByIdAsync(masterId);
             if (character == null)
@@ -34,11 +34,12 @@ namespace Hagalaz.Services.Contacts.Services
                 return;
             }
             var worldName = _stringLocalizer["Lobby"];
-            if (!_contacts.TryAdd(masterId, new ContactSessionContext
+            if (!_contacts.TryAddSession(new ContactSessionContext
             (
                 masterId,
                 worldId,
-                worldName
+                worldName,
+                connectionId
             )))
             {
                 return;
@@ -53,7 +54,7 @@ namespace Hagalaz.Services.Contacts.Services
             }));
         }
 
-        public async Task AddWorldSession(int worldId, uint masterId)
+        public async Task AddWorldSession(int worldId, uint masterId, string connectionId)
         {
             var worldName = _worlds.TryGetValue(worldId, out var world) ? world.WorldName : throw new NotFoundException(nameof(world));
             var character = await _characterService.FindCharacterByIdAsync(masterId);
@@ -61,11 +62,12 @@ namespace Hagalaz.Services.Contacts.Services
             {
                 return;
             }
-            if (!_contacts.TryAdd(masterId, new ContactSessionContext
+            if (!_contacts.TryReplaceSession(new ContactSessionContext
             (
                 masterId,
                 worldId,
-                worldName
+                worldName,
+                connectionId
             )))
             {
                 return;
@@ -80,9 +82,14 @@ namespace Hagalaz.Services.Contacts.Services
             }));
         }
 
-        public async Task RemoveSession(uint masterId)
+        public async Task RemoveSession(uint masterId, string connectionId)
         {
-            await RemoveSession(masterId, expectedSession: null);
+            if (!_contacts.TryRemoveSession(masterId, connectionId))
+            {
+                return;
+            }
+
+            await PublishSignOut(masterId);
         }
 
         public async Task RemoveWorldSessions(int worldId)
@@ -93,21 +100,11 @@ namespace Hagalaz.Services.Contacts.Services
 
             foreach (var session in sessions)
             {
-                await RemoveSession(session.MasterId, session);
+                if (_contacts.TryRemoveSession(session))
+                {
+                    await PublishSignOut(session.MasterId);
+                }
             }
-        }
-
-        private async Task RemoveSession(uint masterId, ContactSessionContext? expectedSession)
-        {
-            var removed = expectedSession == null
-                ? _contacts.TryRemove(masterId)
-                : _contacts.TryRemove(masterId, expectedSession);
-            if (!removed)
-            {
-                return;
-            }
-
-            await PublishSignOut(masterId);
         }
 
         private async Task PublishSignOut(uint masterId)

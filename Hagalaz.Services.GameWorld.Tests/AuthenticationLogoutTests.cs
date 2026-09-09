@@ -282,6 +282,7 @@ public sealed class AuthenticationLogoutTests
     {
         var session = Substitute.For<IGameSession>();
         session.MasterId.Returns(42u);
+        session.ConnectionId.Returns("lobby-a");
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
         var mediator = Substitute.For<IGameMediator>();
@@ -303,7 +304,7 @@ public sealed class AuthenticationLogoutTests
 
         await service.SignOutAsync();
 
-        mediator.Received(1).Publish(Arg.Is<LobbySignOutCommand>(message => message.MasterId == 42));
+        mediator.Received(1).Publish(Arg.Is<LobbySignOutCommand>(message => message.MasterId == 42 && message.ConnectionId == "lobby-a"));
     }
 
     [TestMethod]

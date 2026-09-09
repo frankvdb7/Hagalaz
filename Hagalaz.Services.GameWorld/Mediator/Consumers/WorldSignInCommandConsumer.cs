@@ -51,7 +51,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
                 await character.OnRegistered();
                 await Task.WhenAll(
                     _publishEndpoint.Publish(new GetContactsRequest(character.MasterId)),
-                    _publishEndpoint.Publish(new WorldUserSignInMessage(character.MasterId, options.Id)));
+                    _publishEndpoint.Publish(new WorldUserSignInMessage(character.MasterId, options.Id, session.ConnectionId)));
             }
             catch (Exception exception)
             {

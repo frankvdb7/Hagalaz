@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Mediator;
@@ -19,6 +20,9 @@ public sealed class CharacterLogoutServiceTests
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        character.Session.Returns(session);
         var state = new CharacterPersistenceState();
         state.TrackPendingLogout(character);
         var correlationId = Guid.NewGuid();
@@ -40,6 +44,9 @@ public sealed class CharacterLogoutServiceTests
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        character.Session.Returns(session);
         character.IsDestroyed.Returns(false);
         var state = new CharacterPersistenceState();
         state.TrackPendingLogout(character);
@@ -55,7 +62,7 @@ public sealed class CharacterLogoutServiceTests
         Assert.IsFalse(await coordinator.CompleteAsync(42u));
 
         character.Received(1).Destroy();
-        mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message != null && message.MasterId == 42u));
+        mediator.Received(1).Publish(Arg.Is<WorldSignOutCommand>(message => message != null && message.MasterId == 42u && message.ConnectionId == "connection"));
     }
 
     [TestMethod]
@@ -63,6 +70,9 @@ public sealed class CharacterLogoutServiceTests
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        character.Session.Returns(session);
         var state = new CharacterPersistenceState();
         state.TrackPendingLogout(character);
         state.MarkPendingLogoutRemoved(character);
@@ -90,6 +100,9 @@ public sealed class CharacterLogoutServiceTests
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        character.Session.Returns(session);
         character.IsDestroyed.Returns(false);
         var state = new CharacterPersistenceState();
         state.TrackPendingLogout(character);
@@ -116,6 +129,9 @@ public sealed class CharacterLogoutServiceTests
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        character.Session.Returns(session);
         var state = new CharacterPersistenceState();
         state.TrackPendingLogout(character);
         state.MarkPendingLogoutRemoved(character);
@@ -142,6 +158,9 @@ public sealed class CharacterLogoutServiceTests
     {
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
+        var session = Substitute.For<IGameSession>();
+        session.ConnectionId.Returns("connection");
+        character.Session.Returns(session);
         var state = new CharacterPersistenceState();
         state.TrackPendingLogout(character);
         state.MarkPendingLogoutRemoved(character);
