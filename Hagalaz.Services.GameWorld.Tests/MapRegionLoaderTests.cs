@@ -44,15 +44,15 @@ public sealed class MapRegionLoaderTests
         var loadTask = Task.Run(() => fixture.Loader.LoadAsync(region));
         await decodeStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.IsFalse(region.IsLoaded);
+        Assert.AreEqual(MapRegionState.Initializing, region.State);
         region.DidNotReceive().FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CollisionFlag>());
 
         releaseDecode.TrySetResult();
         await loadTask;
 
-        Assert.IsTrue(region.IsLoaded);
+        Assert.AreEqual(MapRegionState.Ready, region.State);
         region.Received(1).FlagCollision(1, 1, 0, CollisionFlag.FloorBlock);
-        region.Received(1).Load();
+        region.Received(1).MarkReady();
     }
 
     [TestMethod]
@@ -76,7 +76,7 @@ public sealed class MapRegionLoaderTests
         var actual = await Assert.ThrowsExactlyAsync<InvalidDataException>(() => fixture.Loader.LoadAsync(region));
 
         Assert.AreSame(failure, actual);
-        Assert.IsFalse(region.IsLoaded);
+        Assert.AreEqual(MapRegionState.Discarded, region.State);
         region.DidNotReceive().FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CollisionFlag>());
         region.DidNotReceive().Add(gameObject);
         await fixture.NpcService.DidNotReceive().RegisterAsync(Arg.Any<INpc>());
@@ -84,7 +84,7 @@ public sealed class MapRegionLoaderTests
     }
 
     [TestMethod]
-    public async Task LoadAsync_WhenSourceQueryFails_DoesNotMutateRegion()
+    public async Task LoadAsync_WhenSourceQueryFails_DiscardsRegionWithoutMutatingIt()
     {
         var region = CreateRegion();
         var failure = new InvalidOperationException("spawn database unavailable");
@@ -93,7 +93,7 @@ public sealed class MapRegionLoaderTests
         var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Loader.LoadAsync(region));
 
         Assert.AreSame(failure, actual);
-        Assert.IsFalse(region.IsLoaded);
+        Assert.AreEqual(MapRegionState.Discarded, region.State);
         region.DidNotReceive().FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CollisionFlag>());
         region.DidNotReceive().Add(Arg.Any<IGameObject>());
         region.DidNotReceive().Add(Arg.Any<Hagalaz.Game.Abstractions.Model.Items.IGroundItem>());
@@ -101,7 +101,20 @@ public sealed class MapRegionLoaderTests
     }
 
     [TestMethod]
-    public async Task LoadAsync_WhenOneNpcRegistrationFails_LoadsTheOtherNpcs()
+    public async Task LoadAsync_WhenRegionIsDiscarded_RejectsTheStaleInstance()
+    {
+        var region = CreateRegion();
+        region.MarkDiscarded();
+        var fixture = CreateLoader();
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Loader.LoadAsync(region));
+
+        await fixture.NpcService.DidNotReceive().RegisterAsync(Arg.Any<INpc>());
+        fixture.RegionService.DidNotReceive().TryRemoveMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>());
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenNpcRegistrationFails_DiscardsRegionAndCleansUpRegisteredNpcs()
     {
         var region = CreateRegion();
         var npcA = CreateNpc(1);
@@ -123,16 +136,18 @@ public sealed class MapRegionLoaderTests
             return Task.CompletedTask;
         });
 
-        await fixture.Loader.LoadAsync(region);
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Loader.LoadAsync(region));
 
-        Assert.IsTrue(region.IsLoaded);
+        Assert.AreSame(registrationFailure, actual);
+        Assert.AreEqual(MapRegionState.Discarded, region.State);
         region.Received(1).Add(npcA);
         region.DidNotReceive().Add(npcB);
-        region.Received(1).Add(npcC);
+        region.DidNotReceive().Add(npcC);
         await fixture.NpcService.Received(1).RegisterAsync(npcA);
         await fixture.NpcService.Received(1).RegisterAsync(npcB);
-        await fixture.NpcService.Received(1).RegisterAsync(npcC);
-        fixture.RegionService.DidNotReceive().TryRemoveMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>());
+        await fixture.NpcService.DidNotReceive().RegisterAsync(npcC);
+        await fixture.NpcService.Received(1).UnregisterAsync(npcA);
+        fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
     }
 
     [TestMethod]
@@ -176,7 +191,7 @@ public sealed class MapRegionLoaderTests
 
         await fixture.Loader.LoadAsync(region);
 
-        Assert.IsTrue(region.IsLoaded);
+        Assert.AreEqual(MapRegionState.Ready, region.State);
         region.Received(1).Add(npcA);
         region.Received(1).Add(npcC);
         await fixture.NpcService.Received(1).RegisterAsync(npcA);
@@ -205,7 +220,7 @@ public sealed class MapRegionLoaderTests
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Loader.LoadAsync(region, cancellation.Token));
 
-        Assert.IsFalse(region.IsLoaded);
+        Assert.AreEqual(MapRegionState.Discarded, region.State);
         await fixture.NpcService.Received(1).UnregisterAsync(npcA);
         await fixture.NpcService.DidNotReceive().UnregisterAsync(npcB);
         fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
@@ -246,21 +261,22 @@ public sealed class MapRegionLoaderTests
 
     private static IMapRegion CreateRegion(Exception? loadFailure = null)
     {
-        var loaded = false;
+        var state = MapRegionState.Initializing;
         var region = Substitute.For<IMapRegion>();
         region.Id.Returns(257);
         region.BaseLocation.Returns(Location.Create(64, 64, 0, 0));
         region.Size.Returns(Location.Create(64, 64, 4, 0));
         region.XteaKeys.Returns(new int[4]);
-        region.IsLoaded.Returns(_ => loaded);
+        region.State.Returns(_ => state);
         if (loadFailure is null)
         {
-            region.When(value => value.Load()).Do(_ => loaded = true);
+            region.When(value => value.MarkReady()).Do(_ => state = MapRegionState.Ready);
         }
         else
         {
-            region.When(value => value.Load()).Do(_ => throw loadFailure);
+            region.When(value => value.MarkReady()).Do(_ => throw loadFailure);
         }
+        region.When(value => value.MarkDiscarded()).Do(_ => state = MapRegionState.Discarded);
         return region;
     }
 
@@ -353,6 +369,7 @@ public sealed class MapRegionLoaderTests
         objectRepository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(new TestAsyncEnumerable<GameobjectSpawn>([]));
         var regionService = Substitute.For<IMapRegionService>();
+        regionService.IsCurrentMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>()).Returns(true);
         var npcService = Substitute.For<INpcService>();
         var npcBuilder = Substitute.For<INpcBuilder>();
         var loader = new MapRegionLoader(

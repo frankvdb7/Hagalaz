@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Collections;
@@ -38,7 +39,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public ILocation BaseLocation { get; }
         public IVector3 Size { get; }
         public bool IsDynamic { get; private set; }
-        public bool IsLoaded { get; private set; }
+        private int _state = (int)MapRegionState.Initializing;
+        public MapRegionState State => (MapRegionState)Volatile.Read(ref _state);
         public bool IsDestroyed { get; private set; }
         public int[] XteaKeys { get; }
 
@@ -238,7 +240,30 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return true;
         }
 
-        public void Load() => IsLoaded = true;
+        public void MarkReady()
+        {
+            if (Interlocked.CompareExchange(ref _state, (int)MapRegionState.Ready, (int)MapRegionState.Initializing) != (int)MapRegionState.Initializing)
+            {
+                throw new InvalidOperationException($"Region {this} cannot transition to ready from state {State}.");
+            }
+        }
+
+        public void MarkDiscarded()
+        {
+            var previousState = Interlocked.CompareExchange(
+                ref _state,
+                (int)MapRegionState.Discarded,
+                (int)MapRegionState.Initializing);
+            if (previousState == (int)MapRegionState.Discarded)
+            {
+                return;
+            }
+
+            if (previousState != (int)MapRegionState.Initializing)
+            {
+                throw new InvalidOperationException($"Region {this} cannot transition to discarded from state {State}.");
+            }
+        }
 
         public void Resume() => _idleTime = DateTime.MinValue;
 

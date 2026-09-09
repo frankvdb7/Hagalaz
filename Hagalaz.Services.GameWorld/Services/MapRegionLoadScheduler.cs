@@ -27,14 +27,17 @@ namespace Hagalaz.Services.GameWorld.Services
 
         private readonly object _stateLock = new();
         private readonly Dictionary<IMapRegion, TaskCompletionSource> _inFlight = new();
+        private readonly IMapRegionService _regionService;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<MapRegionLoadScheduler> _logger;
         private bool _stopping;
 
         public MapRegionLoadScheduler(
+            IMapRegionService regionService,
             IServiceScopeFactory scopeFactory,
             ILogger<MapRegionLoadScheduler> logger)
         {
+            _regionService = regionService;
             _scopeFactory = scopeFactory;
             _logger = logger;
         }
@@ -42,6 +45,11 @@ namespace Hagalaz.Services.GameWorld.Services
         public void RequestLoad(IMapRegion region)
         {
             if (TryQueueRegion(region, out _) || IsStopping)
+            {
+                return;
+            }
+
+            if (region.State is MapRegionState.Ready or MapRegionState.Discarded || !IsCurrent(region))
             {
                 return;
             }
@@ -61,9 +69,19 @@ namespace Hagalaz.Services.GameWorld.Services
             foreach (var region in regions.Distinct())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (region.IsLoaded)
+                if (region.State == MapRegionState.Ready)
                 {
                     continue;
+                }
+
+                if (region.State == MapRegionState.Discarded)
+                {
+                    throw new InvalidOperationException($"Region {region.Id} is discarded and cannot be loaded.");
+                }
+
+                if (!IsCurrent(region))
+                {
+                    throw new InvalidOperationException($"Region {region.Id} is no longer the current region instance.");
                 }
 
                 if (IsStopping)
@@ -99,7 +117,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     await using var scope = _scopeFactory.CreateAsyncScope();
                     await scope.ServiceProvider.GetRequiredService<IMapRegionLoader>()
                         .LoadAsync(region, stoppingToken);
-                    if (!region.IsLoaded)
+                    if (region.State != MapRegionState.Ready)
                     {
                         throw new InvalidOperationException($"Region {region.Id} did not publish readiness after loading.");
                     }
@@ -137,10 +155,16 @@ namespace Hagalaz.Services.GameWorld.Services
                     return false;
                 }
 
-                if (region.IsLoaded)
+                if (region.State == MapRegionState.Ready)
                 {
                     completion = null;
                     return true;
+                }
+
+                if (region.State == MapRegionState.Discarded || !IsCurrent(region))
+                {
+                    completion = null;
+                    return false;
                 }
 
                 if (_inFlight.TryGetValue(region, out completion))
@@ -160,6 +184,9 @@ namespace Hagalaz.Services.GameWorld.Services
                 return false;
             }
         }
+
+        private bool IsCurrent(IMapRegion region) =>
+            _regionService.IsCurrentMapRegion(region.Id, region.BaseLocation.Dimension, region);
 
         private bool IsStopping
         {

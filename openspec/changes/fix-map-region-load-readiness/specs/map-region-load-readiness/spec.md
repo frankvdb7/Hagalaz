@@ -6,6 +6,31 @@ region instances so later requests can create clean replacements.
 
 ## ADDED Requirements
 
+### Requirement: Region lifecycle has one explicit source of truth
+
+Every map-region instance MUST expose exactly one initial-load lifecycle state:
+`Initializing`, `Ready`, or `Discarded`. New instances MUST begin
+`Initializing`. The only legal transitions are `Initializing` to `Ready` after
+complete successful population, or `Initializing` to `Discarded` after fatal
+failure or cancellation. `Ready` and `Discarded` are terminal for this
+lifecycle.
+
+#### Scenario: A new region is created
+
+- **WHEN** the map service creates a new region instance
+- **THEN** its state MUST be `Initializing`
+
+#### Scenario: A load completes successfully
+
+- **WHEN** all required population completes successfully
+- **THEN** the loader MUST publish `Ready` as its final readiness action
+
+#### Scenario: A load fails or is canceled
+
+- **WHEN** initial loading terminates with a fatal failure or cancellation
+- **THEN** that exact instance MUST become `Discarded`
+- **AND** it MUST NOT transition back to `Initializing` or to `Ready`
+
 ### Requirement: Region readiness is published after complete population
 
 The system MUST keep a map region unavailable for movement collision queries
@@ -72,6 +97,44 @@ same instance. The failed instance MUST NOT be reset or reused.
 - **THEN** the service MUST create or return a fresh instance R2
 - **AND** R2 MUST NOT be the failed R1 instance
 
+### Requirement: Failed instances cannot be scheduled or consumed
+
+The load scheduler MUST schedule an `Initializing` region only while that exact
+instance remains the canonical region for its ID and dimension. `Ready` regions
+are already loaded, and `Discarded` or stale instances MUST be rejected.
+Viewport and map-update processing MUST resolve retained stale references to
+the canonical current instance where possible. Only `Ready` regions may
+contribute normal creatures, dynamic-map state, full region updates, or world
+ticks. An `Initializing` or `Discarded` region MUST never be treated as ready
+world state.
+
+#### Scenario: A discarded region is submitted again
+
+- **WHEN** stale code calls `RequestLoad(R1)` after R1 is discarded
+- **THEN** the loader MUST NOT be invoked for R1
+
+#### Scenario: An initializing stale region is submitted
+
+- **WHEN** R1 remains `Initializing` but the service currently owns R2 for the
+  same region and dimension
+- **THEN** the scheduler MUST reject R1
+
+#### Scenario: A viewport retains a failed region
+
+- **WHEN** a viewport retains discarded R1 and the service owns replacement R2
+- **THEN** viewport/map-update processing MUST resolve R2 as the current region
+- **AND** MUST NOT read creatures or submit R1 for loading
+
+#### Scenario: The world worker enumerates regions
+
+- **WHEN** a worker tick sees initializing, ready, and discarded regions
+- **THEN** only the ready region MUST receive normal region tick/update calls
+
+#### Scenario: Collision is queried for a non-ready region
+
+- **WHEN** collision is queried for an initializing or discarded region
+- **THEN** the query MUST return the existing fail-closed `FloorBlock` result
+
 ### Requirement: Cache absence is distinct from cache failure
 
 The system MUST treat the cache API's documented `GetFileId == -1` result as a
@@ -89,20 +152,26 @@ decoder failures into missing data.
 - **WHEN** an existing archive fails to read or decode
 - **THEN** the failure MUST propagate as fatal map-load input failure
 
-### Requirement: Isolated NPC content failure does not invalidate valid map data
+### Requirement: NPC construction and registration failures have distinct semantics
 
-A non-cancellation failure constructing or registering one configured NPC MUST
-be logged with region and NPC identity, cleaned up by the owning registration
-service where applicable, and skipped so valid NPC entries can continue. This
+A non-cancellation failure constructing one configured NPC MAY be logged with
+region and NPC identity and skipped so valid NPC entries can continue. A
+failure from `INpcService.RegisterAsync` MUST be fatal to the region load; it
+MUST NOT be silently converted into a successfully loaded region. This
 exception boundary MUST NOT swallow cancellation or failures from database,
 cache, decoder, map apply, or scheduler infrastructure.
 
-#### Scenario: One NPC registration fails
+#### Scenario: One NPC construction fails
 
-- **WHEN** NPC A registers, NPC B fails at the isolated NPC content boundary,
-  and NPC C is valid
+- **WHEN** NPC A registers, NPC B fails during construction, and NPC C is valid
 - **THEN** A and C MUST remain populated, B MUST be absent, and the region MUST
   be eligible to publish readiness
+
+#### Scenario: NPC registration infrastructure fails
+
+- **WHEN** `INpcService.RegisterAsync` fails for an NPC
+- **THEN** the region load MUST fail and the region MUST become `Discarded`
+- **AND** successfully registered NPCs from that attempt MUST be cleaned up
 
 ### Requirement: In-flight loading remains single-owned
 

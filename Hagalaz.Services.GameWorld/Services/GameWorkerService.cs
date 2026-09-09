@@ -116,7 +116,9 @@ namespace Hagalaz.Services.GameWorld.Services
         private async Task RunMajorTickAsync(CancellationToken stoppingToken)
         {
             stoppingToken.ThrowIfCancellationRequested();
-            var regions = _regionService.FindAllRegions().ToList();
+            var regions = _regionService.FindAllRegions()
+                .Where(region => region.State == MapRegionState.Ready)
+                .ToList();
             var characters = await _characterStore.GetSnapshotAsync(stoppingToken);
 
             stoppingToken.ThrowIfCancellationRequested();

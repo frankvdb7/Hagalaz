@@ -106,7 +106,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// Get's creature surrounding regions + center region.
         /// </summary>
         /// <returns>LinkedList{MapRegion}.</returns>
-        public IReadOnlyList<IMapRegion> VisibleRegions => _visibleRegions;
+        public IReadOnlyList<IMapRegion> VisibleRegions
+        {
+            get
+            {
+                RebindVisibleRegions();
+                return _visibleRegions;
+            }
+        }
 
         /// <summary>
         /// Get's previous map base X , can be -1 if previous
@@ -169,9 +176,15 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
             _visibleCharacters.Clear();
             _visibleNpcs.Clear();
 
+            RebindVisibleRegions();
             var ownerLocation = _owner.Location;
             foreach (var region in _visibleRegions)
             {
+                if (region.State != MapRegionState.Ready)
+                {
+                    continue;
+                }
+
                 ProcessVisibleCreatures(region.FindAllCharacters(), ownerLocation, c => c.Appearance.Visible, _visibleCharacters);
                 ProcessVisibleCreatures(region.FindAllNpcs(), ownerLocation, n => n.Appearance.Visible, _visibleNpcs);
             }
@@ -215,7 +228,29 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// Get's if one of the visible region's are dynamic.
         /// </summary>
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
-        public bool NeedsDynamicDraw() => _visibleRegions.Any(r => r.IsDynamic);
+        public bool NeedsDynamicDraw()
+        {
+            RebindVisibleRegions();
+            return _visibleRegions.Any(r => r.State == MapRegionState.Ready && r.IsDynamic);
+        }
+
+        private void RebindVisibleRegions()
+        {
+            for (var index = 0; index < _visibleRegions.Count; index++)
+            {
+                var region = _visibleRegions[index];
+                if (region.BaseLocation is null)
+                {
+                    continue;
+                }
+
+                var current = _regionService.GetOrCreateMapRegion(region.Id, region.BaseLocation.Dimension, false);
+                if (current is not null)
+                {
+                    _visibleRegions[index] = current;
+                }
+            }
+        }
 
         /// <summary>
         /// Get's if viewport is recommended to be updated.

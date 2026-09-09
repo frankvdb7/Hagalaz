@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     foreach (var dimension in _regionService.FindAllDimensions())
                     {
                         var activeRegions = dimension.Regions.Values;
-                        foreach (var region in activeRegions.Where(region => region.CanSuspend()))
+                        foreach (var region in activeRegions.Where(region => region.State == MapRegionState.Ready && region.CanSuspend()))
                         {
                             dimension.Regions.Remove(region.Id);
                             region.Suspend();

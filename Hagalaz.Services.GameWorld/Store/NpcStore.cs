@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Nito.AsyncEx;
 using Hagalaz.Game.Abstractions.Model.Creatures;

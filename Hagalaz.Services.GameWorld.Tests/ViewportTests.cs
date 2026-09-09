@@ -46,6 +46,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             // Arrange
             var character = Substitute.For<ICharacter>();
             var region = Substitute.For<IMapRegion>();
+            region.State.Returns(MapRegionState.Ready);
 
             // Set up owner location
             var ownerLocation = Substitute.For<ILocation>();
@@ -78,6 +79,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var char1 = Substitute.For<ICharacter>();
             var char2 = Substitute.For<ICharacter>();
             var region = Substitute.For<IMapRegion>();
+            region.State.Returns(MapRegionState.Ready);
 
             var ownerLocation = Substitute.For<ILocation>();
             _owner.Location.Returns(ownerLocation);
@@ -110,6 +112,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             // Arrange
             var character = Substitute.For<ICharacter>();
             var region = Substitute.For<IMapRegion>();
+            region.State.Returns(MapRegionState.Ready);
 
             var ownerLocation = Substitute.For<ILocation>();
             _owner.Location.Returns(ownerLocation);
@@ -136,6 +139,35 @@ namespace Hagalaz.Services.GameWorld.Tests
             // Act & Assert
             Assert.IsEmpty(_viewport.VisibleCreatures);
             Assert.IsFalse(_viewport.VisibleCreatures.Contains(character));
+        }
+
+        [TestMethod]
+        public void VisibleRegions_RebindsDiscardedRegionToTheCanonicalReplacement()
+        {
+            var location = new Location(100, 100, 0, 0);
+            var firstRegion = Substitute.For<IMapRegion>();
+            var replacementRegion = Substitute.For<IMapRegion>();
+            firstRegion.Id.Returns(location.RegionId);
+            firstRegion.BaseLocation.Returns(Location.Create(location.RegionX * 64, location.RegionY * 64, 0, 0));
+            firstRegion.State.Returns(MapRegionState.Discarded);
+            replacementRegion.Id.Returns(location.RegionId);
+            replacementRegion.BaseLocation.Returns(firstRegion.BaseLocation);
+            replacementRegion.State.Returns(MapRegionState.Initializing);
+            _owner.Location.Returns(location);
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, _mapSize)
+                .Returns(new[] { firstRegion });
+            _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, false).Returns(replacementRegion);
+
+            _viewport.RebuildView();
+
+            var visibleRegions = _viewport.VisibleRegions;
+
+            Assert.AreSame(replacementRegion, visibleRegions.Single());
+            _viewport.UpdateTick();
+            firstRegion.DidNotReceive().FindAllCharacters();
+            firstRegion.DidNotReceive().FindAllNpcs();
+            replacementRegion.DidNotReceive().FindAllCharacters();
+            replacementRegion.DidNotReceive().FindAllNpcs();
         }
 
         [TestMethod]

@@ -39,6 +39,15 @@ namespace Hagalaz.Game.Abstractions.Services
         bool TryRemoveMapRegion(int id, int dimension, IMapRegion expectedRegion);
 
         /// <summary>
+        /// Checks whether the expected region instance is the current active region for its location.
+        /// </summary>
+        /// <param name="id">The region ID.</param>
+        /// <param name="dimension">The dimension containing the region.</param>
+        /// <param name="expectedRegion">The region instance to compare by reference.</param>
+        /// <returns><c>true</c> when the expected instance is current; otherwise, <c>false</c>.</returns>
+        bool IsCurrentMapRegion(int id, int dimension, IMapRegion expectedRegion);
+
+        /// <summary>
         /// Gets all map regions within a certain range of a location, typically for a character's viewport.
         /// </summary>
         /// <param name="location">The central location.</param>

@@ -110,7 +110,8 @@ public sealed class WorldSignInCommandConsumerTests
             });
         var region = Substitute.For<IMapRegion>();
         region.Id.Returns(1);
-        region.IsLoaded.Returns(_ => loaded);
+        region.BaseLocation.Returns(Location.Create(64, 0, 0, 0));
+        region.State.Returns(_ => loaded ? MapRegionState.Ready : MapRegionState.Initializing);
         var viewport = Substitute.For<IViewport>();
         viewport.VisibleRegions.Returns(new[] { region });
         var character = Substitute.For<ICharacter>();
@@ -158,7 +159,8 @@ public sealed class WorldSignInCommandConsumerTests
             .Returns(Task.CompletedTask);
         var region = Substitute.For<IMapRegion>();
         region.Id.Returns(1);
-        region.IsLoaded.Returns(false);
+        region.BaseLocation.Returns(Location.Create(64, 0, 0, 0));
+        region.State.Returns(MapRegionState.Initializing);
         var viewport = Substitute.For<IViewport>();
         viewport.VisibleRegions.Returns(new[] { region });
         var character = Substitute.For<ICharacter>();
@@ -205,8 +207,16 @@ public sealed class WorldSignInCommandConsumerTests
 
     private static MapRegionLoadScheduler CreateScheduler(ServiceProvider provider) =>
         new(
+            CreateRegionService(),
             provider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<MapRegionLoadScheduler>.Instance);
+
+    private static IMapRegionService CreateRegionService()
+    {
+        var regionService = Substitute.For<IMapRegionService>();
+        regionService.IsCurrentMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>()).Returns(true);
+        return regionService;
+    }
 
     private static ConsumeContext<WorldSignInCommand> CreateContext(WorldSignInCommand message)
     {

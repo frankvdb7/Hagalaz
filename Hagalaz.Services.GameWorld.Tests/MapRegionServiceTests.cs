@@ -30,6 +30,18 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public void GetClippingFlag_ReturnsFloorBlockForDiscardedRegion()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var location = Location.Create(67, 69, 0, 0);
+        var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+        region.MarkDiscarded();
+
+        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z));
+    }
+
+    [TestMethod]
     public void GetClippingFlag_ReturnsStoredCollisionAfterRegionIsReady()
     {
         using var provider = CreateProvider();
@@ -38,7 +50,7 @@ public sealed class MapRegionServiceTests
         var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
         region.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, CollisionFlag.WallNorth);
 
-        region.Load();
+        region.MarkReady();
 
         Assert.AreEqual(CollisionFlag.WallNorth, service.GetClippingFlag(location.X, location.Y, location.Z));
     }
@@ -65,8 +77,51 @@ public sealed class MapRegionServiceTests
 
         var replacementRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
         Assert.AreNotSame(firstRegion, replacementRegion);
+        Assert.AreEqual(MapRegionState.Initializing, replacementRegion.State);
         Assert.IsFalse(service.TryRemoveMapRegion(firstRegion.Id, location.Dimension, firstRegion));
         Assert.AreSame(replacementRegion, service.GetMapRegion(location.RegionId, location.Dimension, false, false));
+    }
+
+    [TestMethod]
+    public void NewRegion_StartsInitializing()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+
+        var region = service.GetOrCreateMapRegion(Location.Create(67, 69, 0, 0).RegionId, 0, false);
+
+        Assert.AreEqual(MapRegionState.Initializing, region.State);
+    }
+
+    [TestMethod]
+    public void RegionLifecycle_OnlyAllowsInitializingToTerminalState()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var readyRegion = service.GetOrCreateMapRegion(1, 0, false);
+        var discardedRegion = service.GetOrCreateMapRegion(2, 0, false);
+
+        readyRegion.MarkReady();
+        discardedRegion.MarkDiscarded();
+
+        Assert.AreEqual(MapRegionState.Ready, readyRegion.State);
+        Assert.AreEqual(MapRegionState.Discarded, discardedRegion.State);
+        Assert.ThrowsExactly<InvalidOperationException>(() => readyRegion.MarkDiscarded());
+        Assert.ThrowsExactly<InvalidOperationException>(() => discardedRegion.MarkReady());
+        discardedRegion.MarkDiscarded();
+    }
+
+    [TestMethod]
+    public void IsCurrentMapRegion_RequiresTheExactCanonicalInstance()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var location = Location.Create(67, 69, 0, 0);
+        var currentRegion = service.GetOrCreateMapRegion(location.RegionId, location.Dimension, false);
+        var otherRegion = service.GetOrCreateMapRegion(2, 0, false);
+
+        Assert.IsTrue(service.IsCurrentMapRegion(currentRegion.Id, location.Dimension, currentRegion));
+        Assert.IsFalse(service.IsCurrentMapRegion(currentRegion.Id, location.Dimension, otherRegion));
     }
 
     private static ServiceProvider CreateProvider() => new ServiceCollection()

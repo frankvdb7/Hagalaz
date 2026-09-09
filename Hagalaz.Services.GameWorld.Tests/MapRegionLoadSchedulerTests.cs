@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Data;
@@ -36,6 +37,7 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var firstRegion = CreateRegion(1, loaded);
@@ -66,21 +68,64 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public async Task EnsureLoadedAsync_SkipsAlreadyLoadedRegions()
+        public async Task EnsureLoadedAsync_SkipsReadyRegions()
         {
             var loader = Substitute.For<IMapRegionLoader>();
             using var provider = new ServiceCollection()
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
             var region = Substitute.For<IMapRegion>();
             region.Id.Returns(1);
-            region.IsLoaded.Returns(true);
+            region.State.Returns(MapRegionState.Ready);
 
             await scheduler.StartAsync(CancellationToken.None);
             await scheduler.EnsureLoadedAsync(new[] { region });
+            await scheduler.StopAsync(CancellationToken.None);
+
+            await loader.DidNotReceive().LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task RequestLoad_DiscardedRegion_DoesNotInvokeLoader()
+        {
+            var loader = Substitute.For<IMapRegionLoader>();
+            using var provider = new ServiceCollection()
+                .AddScoped(_ => loader)
+                .BuildServiceProvider();
+            using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
+                provider.GetRequiredService<IServiceScopeFactory>(),
+                Substitute.For<ILogger<MapRegionLoadScheduler>>());
+            var region = CreateRegion(1, MapRegionState.Discarded);
+
+            await scheduler.StartAsync(CancellationToken.None);
+            scheduler.RequestLoad(region);
+            await scheduler.StopAsync(CancellationToken.None);
+
+            await loader.DidNotReceive().LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task RequestLoad_NonCanonicalInitializingRegion_IsRejected()
+        {
+            var loader = Substitute.For<IMapRegionLoader>();
+            var regionService = Substitute.For<IMapRegionService>();
+            regionService.IsCurrentMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>()).Returns(false);
+            using var provider = new ServiceCollection()
+                .AddScoped(_ => loader)
+                .BuildServiceProvider();
+            using var scheduler = new MapRegionLoadScheduler(
+                regionService,
+                provider.GetRequiredService<IServiceScopeFactory>(),
+                Substitute.For<ILogger<MapRegionLoadScheduler>>());
+            var region = CreateRegion(1);
+
+            await scheduler.StartAsync(CancellationToken.None);
+            scheduler.RequestLoad(region);
             await scheduler.StopAsync(CancellationToken.None);
 
             await loader.DidNotReceive().LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>());
@@ -96,11 +141,10 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
-            var region = Substitute.For<IMapRegion>();
-            region.Id.Returns(1);
-            region.IsLoaded.Returns(false);
+            var region = CreateRegion(1);
 
             await scheduler.StartAsync(CancellationToken.None);
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(
@@ -129,11 +173,10 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
-            var region = Substitute.For<IMapRegion>();
-            region.Id.Returns(1);
-            region.IsLoaded.Returns(false);
+            var region = CreateRegion(1);
 
             await scheduler.StartAsync(CancellationToken.None);
 
@@ -150,7 +193,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public async Task RequestLoad_SkipsRegionAfterLoaderMarksItLoaded()
+        public async Task RequestLoad_SkipsRegionAfterLoaderMarksItReady()
         {
             var loadCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var loader = Substitute.For<IMapRegionLoader>();
@@ -165,17 +208,16 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
-            var region = Substitute.For<IMapRegion>();
-            region.Id.Returns(1);
-            region.IsLoaded.Returns(false);
+            var region = CreateRegion(1);
 
             await scheduler.StartAsync(CancellationToken.None);
             scheduler.RequestLoad(region);
             await loadCompleted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-            region.IsLoaded.Returns(true);
+            region.State.Returns(MapRegionState.Ready);
             scheduler.RequestLoad(region);
 
             await scheduler.StopAsync(CancellationToken.None);
@@ -202,11 +244,10 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
-            var region = Substitute.For<IMapRegion>();
-            region.Id.Returns(1);
-            region.IsLoaded.Returns(false);
+            var region = CreateRegion(1);
 
             await scheduler.StartAsync(CancellationToken.None);
             var firstWaiter = scheduler.EnsureLoadedAsync(new[] { region });
@@ -242,11 +283,10 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
-            var region = Substitute.For<IMapRegion>();
-            region.Id.Returns(1);
-            region.IsLoaded.Returns(false);
+            var region = CreateRegion(1);
             using var cancellation = new CancellationTokenSource();
 
             await scheduler.StartAsync(cancellation.Token);
@@ -257,7 +297,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             await loadCanceled.Task.WaitAsync(TimeSpan.FromSeconds(1));
             await scheduler.StopAsync(CancellationToken.None);
 
-            Assert.IsFalse(region.IsLoaded);
+            Assert.AreEqual(MapRegionState.Initializing, region.State);
             await loader.Received(1).LoadAsync(region, Arg.Any<CancellationToken>());
         }
 
@@ -266,11 +306,10 @@ namespace Hagalaz.Services.GameWorld.Tests
         {
             using var provider = new ServiceCollection().BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
-            var region = Substitute.For<IMapRegion>();
-            region.Id.Returns(1);
-            region.IsLoaded.Returns(false);
+            var region = CreateRegion(1);
 
             await scheduler.StartAsync(CancellationToken.None);
             await scheduler.StopAsync(CancellationToken.None);
@@ -294,11 +333,10 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
-            var region = Substitute.For<IMapRegion>();
-            region.Id.Returns(1);
-            region.IsLoaded.Returns(false);
+            var region = CreateRegion(1);
 
             await scheduler.StartAsync(CancellationToken.None);
             var wait = scheduler.EnsureLoadedAsync(new[] { region });
@@ -329,11 +367,11 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .AddScoped(_ => loader)
                 .BuildServiceProvider();
             using var scheduler = new MapRegionLoadScheduler(
+                CreateRegionService(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Substitute.For<ILogger<MapRegionLoadScheduler>>());
-            var region = Substitute.For<IMapRegion>();
-            region.Id.Returns(1);
-            region.IsLoaded.Returns(_ => releaseLoad.Task.IsCompleted);
+            var region = CreateRegion(1);
+            region.State.Returns(_ => releaseLoad.Task.IsCompleted ? MapRegionState.Ready : MapRegionState.Initializing);
             using var callerCancellation = new CancellationTokenSource();
 
             await scheduler.StartAsync(CancellationToken.None);
@@ -351,13 +389,30 @@ namespace Hagalaz.Services.GameWorld.Tests
             await loader.Received(1).LoadAsync(region, Arg.Any<CancellationToken>());
         }
 
-        private static IMapRegion CreateRegion(int id, ConcurrentDictionary<IMapRegion, bool> loaded)
+        private static IMapRegion CreateRegion(int id, MapRegionState state = MapRegionState.Initializing)
         {
             var region = Substitute.For<IMapRegion>();
             region.Id.Returns(id);
-            region.IsLoaded.Returns(_ => loaded.TryGetValue(region, out var isLoaded) && isLoaded);
+            region.BaseLocation.Returns(Location.Create(id << 6, 0, 0, 0));
+            region.State.Returns(state);
+            return region;
+        }
+
+        private static IMapRegion CreateRegion(int id, ConcurrentDictionary<IMapRegion, bool> loaded)
+        {
+            var region = CreateRegion(id);
+            region.State.Returns(_ => loaded.TryGetValue(region, out var isLoaded) && isLoaded
+                ? MapRegionState.Ready
+                : MapRegionState.Initializing);
             loaded[region] = false;
             return region;
+        }
+
+        private static IMapRegionService CreateRegionService()
+        {
+            var regionService = Substitute.For<IMapRegionService>();
+            regionService.IsCurrentMapRegion(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IMapRegion>()).Returns(true);
+            return regionService;
         }
     }
 }

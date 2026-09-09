@@ -66,22 +66,32 @@ namespace Hagalaz.Services.GameWorld.Data
 
         public async Task LoadAsync(IMapRegion region, CancellationToken cancellationToken = default)
         {
-            if (region.IsLoaded)
+            if (region.State == MapRegionState.Ready)
             {
                 return;
             }
 
+            if (region.State == MapRegionState.Discarded)
+            {
+                throw new InvalidOperationException($"Region[{region.Id}] is discarded and cannot be loaded.");
+            }
+
+            if (!_regionService.IsCurrentMapRegion(region.Id, region.BaseLocation.Dimension, region))
+            {
+                throw new InvalidOperationException($"Region[{region.Id}] is no longer the current region instance.");
+            }
+
             var watch = Stopwatch.StartNew();
-            var min = _locationBuilder.Create().FromLocation(region.BaseLocation).WithZ(0).ToRegionCoordinates(0, 0, region.Size.X, region.Size.Y).Build();
-            var max = _locationBuilder.Create()
-                .FromLocation(region.BaseLocation)
-                .WithZ(region.Size.Z)
-                .ToRegionCoordinates(region.Size.X - 1, region.Size.Y - 1, region.Size.X, region.Size.Y)
-                .Build();
             var registeredNpcs = new List<INpc>();
 
             try
             {
+                var min = _locationBuilder.Create().FromLocation(region.BaseLocation).WithZ(0).ToRegionCoordinates(0, 0, region.Size.X, region.Size.Y).Build();
+                var max = _locationBuilder.Create()
+                    .FromLocation(region.BaseLocation)
+                    .WithZ(region.Size.Z)
+                    .ToRegionCoordinates(region.Size.X - 1, region.Size.Y - 1, region.Size.X, region.Size.Y)
+                    .Build();
                 var prepared = await PrepareAsync(region, min, max, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -90,12 +100,13 @@ namespace Hagalaz.Services.GameWorld.Data
 
                 await RegisterNpcsAsync(region, prepared.NpcSpawns, registeredNpcs, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
-                region.Load();
+                region.MarkReady();
 
                 _logger.LogDebug("Region[{id}] was loaded in {ms} ms", region.Id, watch.ElapsedMilliseconds);
             }
             catch (Exception exception)
             {
+                region.MarkDiscarded();
                 var cleanupFailure = await UnregisterRegisteredNpcsAsync(registeredNpcs);
                 Exception? removalFailure = null;
                 try
@@ -253,19 +264,8 @@ namespace Hagalaz.Services.GameWorld.Data
                     continue;
                 }
 
-                try
-                {
-                    await _npcService.RegisterAsync(npc);
-                    registeredNpcs.Add(npc);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogError(exception, "Skipping NPC {npcId} in region {regionId} because registration failed", spawn.NpcId, region.Id);
-                }
+                await _npcService.RegisterAsync(npc);
+                registeredNpcs.Add(npc);
             }
         }
 

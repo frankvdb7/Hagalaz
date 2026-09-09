@@ -21,6 +21,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var session = Substitute.For<IGameSession>();
             var location = new Location(100, 100, 0, 0);
             var region = Substitute.For<IMapRegion>();
+            region.State.Returns(MapRegionState.Ready);
             var regionService = Substitute.For<IMapRegionService>();
             var regionLoadScheduler = Substitute.For<IMapRegionLoadScheduler>();
             var mapSize = Substitute.For<IMapSize>();
@@ -56,6 +57,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         var session = Substitute.For<IGameSession>();
         var location = new Location(100, 100, 0, 0);
         var region = Substitute.For<IMapRegion>();
+        region.State.Returns(MapRegionState.Ready);
         var regionService = Substitute.For<IMapRegionService>();
         var regionLoadScheduler = Substitute.For<IMapRegionLoadScheduler>();
         var mapSize = Substitute.For<IMapSize>();
@@ -79,6 +81,44 @@ namespace Hagalaz.Services.GameWorld.Tests
         regionService.Received(1).GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, mapSize);
         regionLoadScheduler.Received(1).RequestLoad(region);
         region.Received(1).SendFullPartUpdates(character);
+    }
+
+    [TestMethod]
+    public void UpdateMap_RebindsStaleRegionAndOnlySchedulesTheReplacement()
+    {
+        var character = Substitute.For<ICharacter>();
+        var session = Substitute.For<IGameSession>();
+        var location = new Location(100, 100, 0, 0);
+        var staleRegion = Substitute.For<IMapRegion>();
+        var replacementRegion = Substitute.For<IMapRegion>();
+        var regionService = Substitute.For<IMapRegionService>();
+        var regionLoadScheduler = Substitute.For<IMapRegionLoadScheduler>();
+        var mapSize = Substitute.For<IMapSize>();
+        var viewport = new Viewport(character, regionService, mapSize);
+
+        character.Location.Returns(location);
+        character.Index.Returns(1);
+        character.Session.Returns(session);
+        character.Viewport.Returns(viewport);
+        mapSize.Size.Returns(104);
+        mapSize.Type.Returns(0);
+        staleRegion.Id.Returns(location.RegionId);
+        staleRegion.BaseLocation.Returns(Location.Create(location.RegionX * 64, location.RegionY * 64, 0, 0));
+        staleRegion.State.Returns(MapRegionState.Discarded);
+        replacementRegion.Id.Returns(location.RegionId);
+        replacementRegion.BaseLocation.Returns(staleRegion.BaseLocation);
+        replacementRegion.State.Returns(MapRegionState.Initializing);
+        replacementRegion.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
+        regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), true, true, mapSize)
+            .Returns(new[] { staleRegion });
+        regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension, false).Returns(replacementRegion);
+
+        new MapUpdateService(regionService, regionLoadScheduler).UpdateMap(character, false);
+
+        regionLoadScheduler.Received(1).RequestLoad(replacementRegion);
+        regionLoadScheduler.DidNotReceive().RequestLoad(staleRegion);
+        staleRegion.DidNotReceive().SendFullPartUpdates(character);
+        replacementRegion.DidNotReceive().SendFullPartUpdates(character);
     }
 }
 }

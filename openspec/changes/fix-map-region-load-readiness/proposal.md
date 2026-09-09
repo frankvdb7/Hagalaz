@@ -15,11 +15,15 @@ corrupt map data into apparently empty map data.
 - Treat only the cache API's documented missing-file result (`-1`) as absent;
   propagate container, decryption, decompression, and decode failures.
 - Isolate a genuinely invalid NPC entry after its registration service has
-  cleaned up that entry, while propagating cancellation and infrastructure
-  failures from the rest of the load.
-- On fatal failure, unregister NPCs successfully registered by this attempt,
-  exact-remove the failed region instance, and discard it. A later request gets
-  a fresh region instance.
+  cleaned up that entry, while propagating cancellation, registration, and
+  infrastructure failures from the rest of the load.
+- Replace the independent loaded flag with the three-state `MapRegionState`
+  lifecycle. On fatal failure, mark the exact region instance discarded,
+  unregister NPCs successfully registered by this attempt, exact-remove it,
+  and let a later request get a fresh region instance.
+- Reject discarded or non-canonical initializing instances at the scheduler
+  boundary, rebind stale viewport references to the canonical region, and
+  restrict normal GameWorld ticks and collision reads to ready regions.
 - Remove the obsolete in-place unpublished-region rollback machinery while
   retaining the existing scheduler coalescing and readiness gate.
 
@@ -32,16 +36,20 @@ corrupt map data into apparently empty map data.
 - Unexpected cache read/decode failures remain fatal; only a genuinely absent
   named archive follows the existing empty-data semantics.
 - NPC registration occurs after fatal map preparation and apply work. One bad
-  NPC entry is logged and skipped while valid entries continue loading, and
-  cancellation is never swallowed.
+  NPC construction entry is logged and skipped while valid entries continue
+  loading; registration-service failures are fatal and cancellation is never
+  swallowed.
 - Every NPC successfully registered by a failed attempt is unregistered before
   the attempt completes, with cleanup failures preserved.
 - The failed region is removed only when the service still holds that exact
   instance; a stale failure cannot remove a replacement region.
 - A later request creates a fresh region instance, and concurrent requests for
   one active instance still share one scheduler load attempt.
-- `region.Load()` remains the final readiness publication signal, and unloaded
-  collision queries remain fail-closed.
+- New regions begin `Initializing`, successful loading publishes `Ready` last,
+  and failed loading publishes terminal `Discarded` state without resetting
+  the instance.
+- Only ready regions participate in normal viewport, map-update, GameWorker,
+  or collision processing; stale references cannot schedule a replacement.
 
 ## Stop Conditions
 
@@ -71,6 +79,12 @@ corrupt map data into apparently empty map data.
 - `Hagalaz.Cache/Types/Providers/MapProvider.cs`
 - `Hagalaz.Services.GameWorld/Model/Maps/Regions/MapRegion.cs`
 - `Hagalaz.Services.GameWorld/Model/Maps/Regions/MapRegionPart.cs`
+- `Hagalaz.Game.Abstractions/Model/Maps/MapRegionState.cs`
+- `Hagalaz.Services.GameWorld/Model/Creatures/Viewport.cs`
+- `Hagalaz.Services.GameWorld/Services/MapRegionLoadScheduler.cs`
+- `Hagalaz.Services.GameWorld/Services/MapUpdateService.cs`
+- `Hagalaz.Services.GameWorld/Services/GameWorkerService.cs`
+- `Hagalaz.Services.GameWorld/Services/MapRegionBackgroundService.cs`
 - focused GameWorld and cache map tests
 - the directly requested NPC indexed lookup and flat aggregation cleanup
 

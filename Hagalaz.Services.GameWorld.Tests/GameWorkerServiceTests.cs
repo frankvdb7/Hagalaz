@@ -449,6 +449,36 @@ public sealed class GameWorkerServiceTests
     }
 
     [TestMethod]
+    public async Task ExecuteTickAsync_ProcessesOnlyReadyRegions()
+    {
+        var initializingRegion = Substitute.For<IMapRegion>();
+        var readyRegion = Substitute.For<IMapRegion>();
+        var discardedRegion = Substitute.For<IMapRegion>();
+        initializingRegion.State.Returns(MapRegionState.Initializing);
+        readyRegion.State.Returns(MapRegionState.Ready);
+        discardedRegion.State.Returns(MapRegionState.Discarded);
+
+        var regionService = Substitute.For<IMapRegionService>();
+        regionService.FindAllRegions().Returns(new[] { initializingRegion, readyRegion, discardedRegion });
+        using var worker = CreateWorker(regionService, TimeSpan.Zero).Worker;
+
+        await worker.ExecuteTickAsync(CancellationToken.None);
+
+        readyRegion.Received(1).MajorUpdateTick();
+        readyRegion.Received(1).MajorClientPrepareUpdateTick();
+        readyRegion.Received(1).MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>());
+        readyRegion.Received(1).MajorClientUpdateResetTick();
+        initializingRegion.DidNotReceive().MajorUpdateTick();
+        initializingRegion.DidNotReceive().MajorClientPrepareUpdateTick();
+        initializingRegion.DidNotReceive().MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>());
+        initializingRegion.DidNotReceive().MajorClientUpdateResetTick();
+        discardedRegion.DidNotReceive().MajorUpdateTick();
+        discardedRegion.DidNotReceive().MajorClientPrepareUpdateTick();
+        discardedRegion.DidNotReceive().MajorClientUpdateTick(Arg.Any<IReadOnlyDictionary<int, ICharacter>>());
+        discardedRegion.DidNotReceive().MajorClientUpdateResetTick();
+    }
+
+    [TestMethod]
     public async Task HostCancellation_ExitsWithoutUnexpectedFailureLog()
     {
         var logger = new TestLogger<GameWorkerService>();
@@ -494,7 +524,13 @@ public sealed class GameWorkerServiceTests
         TestLogger<GameWorkerService>? logger = null)
     {
         var regionService = Substitute.For<IMapRegionService>();
-        regionService.FindAllRegions().Returns(regionSet);
+        var regions = regionSet.ToArray();
+        foreach (var region in regions)
+        {
+            region.State.Returns(MapRegionState.Ready);
+        }
+
+        regionService.FindAllRegions().Returns(regions);
         return CreateWorker(regionService, tickTimeSpan, characterStore, logger);
     }
 

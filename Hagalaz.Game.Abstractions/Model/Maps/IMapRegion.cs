@@ -39,9 +39,9 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         bool IsDynamic { get; }
 
         /// <summary>
-        /// Gets a value indicating whether this region's data has been loaded into memory.
+        /// Gets the initial-load lifecycle state of this region instance.
         /// </summary>
-        bool IsLoaded { get; }
+        MapRegionState State { get; }
 
         /// <summary>
         /// Gets a value indicating whether this region has been destroyed and is no longer active.
@@ -61,9 +61,14 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         bool CanSuspend();
 
         /// <summary>
-        /// Loads the region's data from the cache.
+        /// Publishes this region as ready after its initial data and population are complete.
         /// </summary>
-        void Load();
+        void MarkReady();
+
+        /// <summary>
+        /// Permanently discards this region after an initial-load failure or cancellation.
+        /// </summary>
+        void MarkDiscarded();
 
         /// <summary>
         /// Resumes processing for a suspended (idle) region.

@@ -104,7 +104,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             var regionId = absX >> 6 << 8 | absY >> 6;
             var mapRegion = GetOrCreateMapRegion(regionId, 0, false);
-            if (!mapRegion.IsLoaded)
+            if (mapRegion.State != MapRegionState.Ready)
             {
                 return CollisionFlag.FloorBlock;
             }
@@ -174,6 +174,16 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             return ((ICollection<KeyValuePair<int, IMapRegion>>)regions).Remove(new KeyValuePair<int, IMapRegion>(id, expectedRegion));
+        }
+
+        public bool IsCurrentMapRegion(int id, int dimension, IMapRegion expectedRegion)
+        {
+            ArgumentNullException.ThrowIfNull(expectedRegion);
+
+            var mapDimension = _dimensions[dimension];
+            return mapDimension is not null
+                && mapDimension.Regions.TryGetValue(id, out var currentRegion)
+                && ReferenceEquals(currentRegion, expectedRegion);
         }
 
         /// <summary>

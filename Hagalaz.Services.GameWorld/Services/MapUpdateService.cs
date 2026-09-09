@@ -45,8 +45,14 @@ namespace Hagalaz.Services.GameWorld.Services
 
             foreach (var region in viewport.VisibleRegions)
             {
-                _regionLoadScheduler.RequestLoad(region);
-                region.SendFullPartUpdates(character);
+                if (region.State == MapRegionState.Initializing)
+                {
+                    _regionLoadScheduler.RequestLoad(region);
+                }
+                else if (region.State == MapRegionState.Ready)
+                {
+                    region.SendFullPartUpdates(character);
+                }
             }
         }
     }
