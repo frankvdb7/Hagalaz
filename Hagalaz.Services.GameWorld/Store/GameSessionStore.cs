@@ -256,7 +256,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
                 var cleanupIndex = slot.PendingClaimCleanups.FindIndex(session => ReferenceEquals(session, expectedSession));
                 if (cleanupIndex < 0)
                 {
-                    return TryRemovePendingWorldSessionUnsafe(expectedSession);
+                    return TryRemovePendingSessionCleanupUnsafe(expectedSession);
                 }
 
                 slot.PendingClaimCleanups.RemoveAt(cleanupIndex);
@@ -269,7 +269,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
                 return true;
             }
 
-            return TryRemovePendingWorldSessionUnsafe(expectedSession);
+            return TryRemovePendingSessionCleanupUnsafe(expectedSession);
         }
     }
 
@@ -476,6 +476,21 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
     {
         if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
             slot.PendingWorld is not { } pendingSession ||
+            !ReferenceEquals(pendingSession.Session, expectedSession) ||
+            pendingSession.CleanupRequested)
+        {
+            return false;
+        }
+
+        slot.PendingWorld = null;
+        RemoveSlotIfEmpty(expectedSession.ConnectionId, slot);
+        return true;
+    }
+
+    private bool TryRemovePendingSessionCleanupUnsafe(IGameSession expectedSession)
+    {
+        if (!_slots.TryGetValue(expectedSession.ConnectionId, out var slot) ||
+            slot.PendingWorld is not { CleanupRequested: true } pendingSession ||
             !ReferenceEquals(pendingSession.Session, expectedSession))
         {
             return false;

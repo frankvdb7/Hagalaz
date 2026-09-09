@@ -328,6 +328,7 @@ public sealed class GameSessionServiceTests
         var store = new GameSessionStore();
         var claims = new LobbyAdmissionReleaseFailureClaimStore();
         var existingSession = CreateLobbySession(42, "existing-connection");
+        existingSession.SessionClaimId.Returns("newer-owner");
         var rejectedSession = CreateLobbySession(42, "rejected-connection");
         var factory = Substitute.For<IGameSessionFactory>();
         factory.Create(42, "rejected-connection", Arg.Any<long>()).Returns(rejectedSession);
@@ -341,13 +342,13 @@ public sealed class GameSessionServiceTests
         var pendingCleanup = await store.FindSessionsPendingCleanup();
         Assert.AreEqual(1, pendingCleanup.Count);
         Assert.AreSame(rejectedSession, pendingCleanup.Single());
-        claims.Replace(42, "newer-owner");
+        claims.Replace(42, existingSession.SessionClaimId);
 
         var leaseService = GameSessionTestDependencies.CreateLeaseService(
             store, store, claims, Substitute.For<IGameSessionConnectionTerminator>());
         await leaseService.RenewSessionsAsync(CancellationToken.None);
 
-        Assert.AreEqual("newer-owner", claims.Get(42));
+        Assert.AreEqual(existingSession.SessionClaimId, claims.Get(42));
         Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).Count);
         Assert.AreSame(existingSession, await store.FindByMasterId(42));
     }
@@ -634,6 +635,77 @@ public sealed class GameSessionServiceTests
         Assert.IsTrue(await service.RemoveSession(session));
         Assert.AreEqual(1, (await store.FindWorldSessionsPendingCleanup()).Count);
         Assert.IsNull(await service.FindByMasterId(42));
+    }
+
+    [TestMethod]
+    public async Task RemoveSession_WhenLobbyClaimReleaseThrows_SecondRemovalPreservesCleanup()
+    {
+        var store = new GameSessionStore();
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        var factory = Substitute.For<IGameSessionFactory>();
+        var lobbySession = CreateLobbySession(42, "lobby-connection");
+        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
+        var service = GameSessionTestDependencies.CreateService(
+            store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+        claims.TryClaimAsync(42, lobbySession.SessionClaimId, Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+        claims.ReleaseAsync(42, lobbySession.SessionClaimId, Arg.Any<CancellationToken>())
+            .Returns(
+                Task.FromException<bool>(new InvalidOperationException("Claim store unavailable.")),
+                Task.FromResult(true));
+
+        Assert.IsTrue((await service.AddSession(42, "lobby-connection")).Created);
+        Assert.IsTrue(await service.RemoveSession(lobbySession));
+        Assert.IsFalse(await service.RemoveSession(lobbySession));
+
+        var pendingCleanup = await store.FindSessionsPendingCleanup();
+        Assert.AreEqual(1, pendingCleanup.Count);
+        Assert.AreSame(lobbySession, pendingCleanup.Single());
+
+        var leaseService = GameSessionTestDependencies.CreateLeaseService(
+            store, store, claims, Substitute.For<IGameSessionConnectionTerminator>());
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
+
+        Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).Count);
+        await claims.Received(2).ReleaseAsync(42, lobbySession.SessionClaimId, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task RemoveLocalSession_AfterFailedWorldSignIn_PreservesDeferredClaimCleanup()
+    {
+        var store = new GameSessionStore();
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        var factory = Substitute.For<IGameSessionFactory>();
+        var worldSession = CreateSession(42, "world-connection", "world-claim");
+        factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
+        var service = GameSessionTestDependencies.CreateService(
+            store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+        claims.TryClaimAsync(42, worldSession.SessionClaimId, Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+        claims.ExecuteIfOwnerAsync(
+                42,
+                worldSession.SessionClaimId,
+                Arg.Any<Func<CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo => callInfo.Arg<Func<CancellationToken, Task<bool>>>()!(CancellationToken.None));
+        claims.ReleaseAsync(42, worldSession.SessionClaimId, Arg.Any<CancellationToken>())
+            .Returns(
+                Task.FromException<bool>(new InvalidOperationException("Claim store unavailable.")),
+                Task.FromResult(true));
+
+        var registration = await service.TryAddWorldSession(42, "world-connection");
+        Assert.IsTrue(await service.CommitWorldSession(registration.Session!));
+
+        Assert.IsTrue(await service.RemoveSession(worldSession));
+        Assert.IsFalse(await service.RemoveLocalSession(worldSession));
+        var pendingCleanup = await store.FindSessionsPendingCleanup();
+        Assert.AreEqual(1, pendingCleanup.Count);
+        Assert.AreSame(worldSession, pendingCleanup.Single());
+
+        var leaseService = GameSessionTestDependencies.CreateLeaseService(
+            store, store, claims, Substitute.For<IGameSessionConnectionTerminator>());
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
+
+        Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).Count);
+        await claims.Received(2).ReleaseAsync(42, worldSession.SessionClaimId, Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -1458,7 +1530,7 @@ public sealed class GameSessionServiceTests
         }
 
         public Task<bool> RenewAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(true);
+            Task.FromResult(_currentClaim == claimId);
 
         public Task<bool> ExecuteIfOwnerAsync(
             uint masterId,

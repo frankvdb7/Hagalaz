@@ -95,6 +95,20 @@ without changing the current owner.
 - THEN the exact failed session remains represented for reconciliation
 - AND reconciliation removes only that exact owner after it is released or proven stale
 
+If exact release of a distributed claim fails after a session has been admitted,
+the retained session MUST remain represented by a local reconciliation record
+until the claim is released or the claim store proves that the retained owner is
+no longer current. Ordinary local lifecycle removal, including duplicate
+disconnect cleanup and failed world-sign-in cleanup, MUST NOT discard that sole
+record. Only exact reconciliation may remove it.
+
+#### Scenario: retained claim cleanup survives local removal
+
+- GIVEN a lobby or world session has been retained after exact claim release failed
+- WHEN another local cleanup path removes that session before lease reconciliation
+- THEN the retained claim-cleanup record remains available
+- AND lease reconciliation later removes it only after exact release succeeds or proves the owner stale
+
 #### Scenario: stale world sign-out arrives after a newer world owner
 
 - GIVEN master 42 has world generation 1 on `world-a`

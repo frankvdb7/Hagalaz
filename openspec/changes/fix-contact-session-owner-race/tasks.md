@@ -23,5 +23,6 @@
       promotion and delayed World-to-Lobby replacement.
 - [x] 3.2 Add stale-sign-in, stale-sign-out, exact-owner, duplicate-notification,
       generation-allocation, message-forwarding, cross-GameWorld ownership and
-      exact-handoff tests, including failed-admission claim reconciliation.
+      exact-handoff tests, including failed-admission claim reconciliation and
+      retained-cleanup protection during duplicate/local removal.
 - [ ] 3.3 Run focused tests, build checks, and strict OpenSpec validation.
