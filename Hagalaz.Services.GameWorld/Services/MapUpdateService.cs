@@ -1,5 +1,6 @@
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Protocol;
 
