@@ -47,5 +47,6 @@ and a delayed old sign-in can replace the current presence.
   different GameWorld processes.
 - A failed exact claim release remains represented for lease-worker
   reconciliation and cannot remove a newer exact owner; local lifecycle cleanup
-  cannot discard the sole reconciliation record before that resolution.
+  cannot discard or replace the sole reconciliation record with an abort-only
+  reservation before that resolution.
 - The affected Contacts and GameWorld tests compile and pass.

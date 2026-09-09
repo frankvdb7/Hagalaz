@@ -100,6 +100,7 @@ the retained session MUST remain represented by a local reconciliation record
 until the claim is released or the claim store proves that the retained owner is
 no longer current. Ordinary local lifecycle removal, including duplicate
 disconnect cleanup and failed world-sign-in cleanup, MUST NOT discard that sole
+record. Abort reconciliation MUST NOT replace it with a pending-abort-only
 record. Only exact reconciliation may remove it.
 
 #### Scenario: retained claim cleanup survives local removal
@@ -108,6 +109,14 @@ record. Only exact reconciliation may remove it.
 - WHEN another local cleanup path removes that session before lease reconciliation
 - THEN the retained claim-cleanup record remains available
 - AND lease reconciliation later removes it only after exact release succeeds or proves the owner stale
+
+#### Scenario: stale lease renewal cannot replace deferred claim cleanup
+
+- GIVEN a lease cycle has snapshotted an active session before its exact claim release fails
+- WHEN the release failure retains that session for cleanup and the stale lease renewal also fails
+- THEN lost-session abort reconciliation does not replace the retained cleanup record
+- AND the exact cleanup obligation remains available for the next reconciliation
+- AND a later successful exact release removes the cleanup record
 
 #### Scenario: stale world sign-out arrives after a newer world owner
 

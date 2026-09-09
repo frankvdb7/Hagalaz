@@ -501,6 +501,7 @@ namespace Hagalaz.Services.GameWorld.Tests
                 payload.Add(0);
                 payload.Add(0);
                 payload.Add(0);
+                payload.Add(0);
                 payload.Add(3);
                 AppendInt32(payload, 55);
                 if (includeLobbyClaim)

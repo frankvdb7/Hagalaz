@@ -38,9 +38,10 @@ When local lobby admission fails after its claim was acquired and exact release
 cannot be confirmed, the existing pending claim-reconciliation path retains the
 exact session record. Lease reconciliation uses compare-and-remove semantics,
 so a newer owner is never removed. The same retained record is not an ordinary
-local pending lifecycle entry: local removal operations leave it in place, and
-only the exact reconciliation operation may remove it after release succeeds or
-the claim store proves that owner is no longer current.
+local pending lifecycle entry: local removal operations leave it in place, abort
+reconciliation cannot replace it with a pending-abort record, and only the exact
+reconciliation operation may remove it after release succeeds or the claim store
+proves that owner is no longer current.
 
 `ContactSessionContext` stores the generation and connection data. The existing
 store remains the single owner of presence state:

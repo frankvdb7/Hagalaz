@@ -940,6 +940,10 @@ public sealed class AuthenticationSignInTests
         Assert.IsFalse(failedResult.Succeeded);
         Assert.IsNull(await gameSessionService.FindByMasterId(42));
 
+        var leaseService = GameSessionTestDependencies.CreateLeaseService(
+            store, store, claims, Substitute.For<IGameSessionConnectionTerminator>());
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
+
         var laterSignIn = CreateAuthenticationService(gameSessionService, connectionId: "connection-2");
         var laterResult = await laterSignIn.SignInWorldAsync(CreateSignInRequest());
 

@@ -1170,6 +1170,52 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
+    [Timeout(5000)]
+    public async Task LeaseService_WhenRenewalRacesWithDeferredCleanup_DoesNotReplaceCleanupWithAbort()
+    {
+        var store = new GameSessionStore();
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var session = CreateSession(42, "connection", "claim");
+        var factory = Substitute.For<IGameSessionFactory>();
+        factory.CreateWorld(42, "connection", Arg.Any<long>()).Returns(session);
+        var gameSessions = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
+        var renewalStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completeRenewal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        claims.RenewAsync(42, "claim", Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                renewalStarted.TrySetResult(true);
+                return completeRenewal.Task;
+            });
+        claims.ReleaseAsync(42, "claim", Arg.Any<CancellationToken>())
+            .Returns(
+                Task.FromException<bool>(new InvalidOperationException("Claim store unavailable.")),
+                Task.FromResult(true));
+        Assert.IsTrue(await store.TryAdd(session));
+
+        var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
+        var renewalTask = leaseService.RenewSessionsAsync(CancellationToken.None);
+        await renewalStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.IsTrue(await gameSessions.RemoveSession(session));
+        Assert.AreEqual(1, (await store.FindSessionsPendingCleanup()).Count);
+
+        completeRenewal.TrySetException(new InvalidOperationException("Claim store unavailable."));
+        await renewalTask;
+
+        Assert.AreEqual(1, (await store.FindSessionsPendingCleanup()).Count);
+        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+        terminator.DidNotReceive().Abort(Arg.Any<IGameSession>());
+
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
+
+        Assert.AreEqual(0, (await store.FindSessionsPendingCleanup()).Count);
+        Assert.AreEqual(0, (await store.FindSessionsPendingAbort()).Count);
+        await claims.Received(2).ReleaseAsync(42, "claim", Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task LeaseService_LostClaim_WhenAbortFails_RetainsReservationForNextCycle()
     {
         var store = new GameSessionStore();

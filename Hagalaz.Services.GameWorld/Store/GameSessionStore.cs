@@ -307,7 +307,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
                 return true;
             }
 
-            if (slot.PendingWorld is { } pendingSession &&
+            if (slot.PendingWorld is { CleanupRequested: false } pendingSession &&
                 ReferenceEquals(pendingSession.Session, expectedSession))
             {
                 slot.PendingWorld = null;
