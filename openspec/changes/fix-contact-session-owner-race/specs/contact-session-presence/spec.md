@@ -2,10 +2,36 @@
 
 ### Requirement: Contacts presence is owned by an exact game-session generation
 
-The GameWorld session owner MUST assign every lobby or world lifecycle a
-monotonically increasing `SessionGeneration` for the account. Contacts MUST
-associate every presence with that generation and retain its connection ID for
-exact sign-out validation.
+The GameWorld session owner MUST admit every lobby or world lifecycle through
+the existing distributed per-account session claim and assign it a
+monotonically increasing `SessionGeneration` for the account. A generation
+becomes authoritative only after that account-session lifecycle is successfully
+admitted. Contacts MUST associate every presence with that generation and retain
+its connection ID for exact sign-out validation.
+
+Separate GameWorld instances MUST NOT establish a newer authoritative lobby or
+world lifecycle while an older lifecycle still owns the account. After exact
+ownership release, a newer lifecycle MAY acquire the next generation and
+replace stale presence.
+
+#### Scenario: active world blocks a lobby on another GameWorld instance
+
+- GIVEN master 42 owns world generation 10 on GameWorld A
+- WHEN GameWorld B attempts a lobby login
+- THEN GameWorld B does not establish generation 11 as an authoritative lobby
+  presence while generation 10 remains the active owner
+
+#### Scenario: lobby succeeds after the world releases ownership
+
+- GIVEN master 42 owns world generation 10 on GameWorld A
+- WHEN GameWorld A releases the exact world owner and GameWorld B logs in to the lobby
+- THEN GameWorld B is admitted with a generation greater than 10
+
+#### Scenario: concurrent lobby owners are rejected globally
+
+- GIVEN GameWorld A admits a lobby lifecycle for master 42
+- WHEN GameWorld B attempts a second lobby lifecycle for master 42
+- THEN GameWorld B is not admitted as an authoritative owner
 
 #### Scenario: world sign-in arrives before stale lobby sign-out
 
@@ -24,6 +50,13 @@ exact sign-out validation.
 - GIVEN master 42 has lobby generation 1 on connection `shared`
 - WHEN world generation 2 signs in on the same connection
 - THEN master 42 is present as world generation 2
+
+#### Scenario: different-connection lobby-to-world promotion
+
+- GIVEN master 42 has an admitted lobby lifecycle on `lobby-a`
+- WHEN world initialization completes on `world-b`
+- THEN the exact lobby claim is transferred atomically to world generation 2 and
+  master 42 is present on `world-b`
 
 #### Scenario: stale world sign-out arrives after a newer world owner
 

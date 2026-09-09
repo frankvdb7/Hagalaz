@@ -36,8 +36,10 @@ public sealed class GameSessionServiceTests
     {
         var claims = Substitute.For<IGameSessionClaimStore>();
         claims.AllocateSessionGenerationAsync(42, Arg.Any<CancellationToken>()).Returns(Task.FromResult(11L));
+        claims.TryClaimAsync(42, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
         var factory = Substitute.For<IGameSessionFactory>();
         var session = Substitute.For<IGameSession>();
+        session.SessionClaimId.Returns("lobby-claim");
         factory.Create(42, "connection", 11L).Returns(session);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(
@@ -219,11 +221,118 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
-    public async Task TryAddWorldSession_WithClaimlessLobbySession_StillAttemptsWorldClaim()
+    public async Task AddSession_OnAnotherGameWorld_CannotSupersedeActiveWorldSession()
+    {
+        var claims = new InMemoryGameSessionClaimStore();
+        var worldStore = new GameSessionStore();
+        var lobbyStore = new GameSessionStore();
+        var worldFactory = Substitute.For<IGameSessionFactory>();
+        var lobbyFactory = Substitute.For<IGameSessionFactory>();
+        var worldSession = CreateSession(42, "world-connection", "world-claim");
+        var lobbySession = CreateLobbySession(42, "lobby-connection");
+        worldFactory.CreateWorld(42, "world-connection", Arg.Any<long>())
+            .Returns(callInfo =>
+            {
+                worldSession.SessionGeneration.Returns(callInfo.Arg<long>());
+                return worldSession;
+            });
+        lobbyFactory.Create(42, "lobby-connection", Arg.Any<long>())
+            .Returns(callInfo =>
+            {
+                lobbySession.SessionGeneration.Returns(callInfo.Arg<long>());
+                return lobbySession;
+            });
+        var worldService = GameSessionTestDependencies.CreateService(
+            worldStore, worldStore, worldFactory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+        var lobbyService = GameSessionTestDependencies.CreateService(
+            lobbyStore, lobbyStore, lobbyFactory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+
+        var worldRegistration = await worldService.TryAddWorldSession(42, "world-connection");
+        Assert.IsTrue(await worldService.CommitWorldSession(worldRegistration.Session!));
+
+        var lobbyRegistration = await lobbyService.AddSession(42, "lobby-connection");
+
+        Assert.IsFalse(lobbyRegistration.Created);
+        Assert.IsNull(await lobbyService.FindByMasterId(42));
+        Assert.AreSame(worldSession, await worldService.FindByMasterId(42));
+        Assert.AreEqual("world-claim", claims.Get(42));
+    }
+
+    [TestMethod]
+    public async Task AddSession_OnAnotherGameWorld_SucceedsAfterWorldOwnershipIsReleased()
+    {
+        var claims = new InMemoryGameSessionClaimStore();
+        var worldStore = new GameSessionStore();
+        var lobbyStore = new GameSessionStore();
+        var worldFactory = Substitute.For<IGameSessionFactory>();
+        var lobbyFactory = Substitute.For<IGameSessionFactory>();
+        var worldSession = CreateSession(42, "world-connection", "world-claim");
+        var lobbySession = CreateLobbySession(42, "lobby-connection");
+        worldFactory.CreateWorld(42, "world-connection", Arg.Any<long>())
+            .Returns(callInfo =>
+            {
+                worldSession.SessionGeneration.Returns(callInfo.Arg<long>());
+                return worldSession;
+            });
+        lobbyFactory.Create(42, "lobby-connection", Arg.Any<long>())
+            .Returns(callInfo =>
+            {
+                lobbySession.SessionGeneration.Returns(callInfo.Arg<long>());
+                return lobbySession;
+            });
+        var worldService = GameSessionTestDependencies.CreateService(
+            worldStore, worldStore, worldFactory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+        var lobbyService = GameSessionTestDependencies.CreateService(
+            lobbyStore, lobbyStore, lobbyFactory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+
+        var worldRegistration = await worldService.TryAddWorldSession(42, "world-connection");
+        Assert.IsTrue(await worldService.CommitWorldSession(worldRegistration.Session!));
+        var worldGeneration = worldSession.SessionGeneration;
+
+        Assert.IsTrue(await worldService.RemoveSession(worldSession));
+        var lobbyRegistration = await lobbyService.AddSession(42, "lobby-connection");
+
+        Assert.IsTrue(lobbyRegistration.Created);
+        Assert.IsTrue(lobbyRegistration.Session.SessionGeneration > worldGeneration);
+        Assert.AreEqual(lobbySession.SessionClaimId, claims.Get(42));
+    }
+
+    [TestMethod]
+    public async Task AddSession_OnTwoGameWorlds_AdmitsOnlyOneLobbyOwner()
+    {
+        var claims = new InMemoryGameSessionClaimStore();
+        var firstStore = new GameSessionStore();
+        var secondStore = new GameSessionStore();
+        var firstFactory = Substitute.For<IGameSessionFactory>();
+        var secondFactory = Substitute.For<IGameSessionFactory>();
+        firstFactory.Create(42, "lobby-a", Arg.Any<long>()).Returns(CreateLobbySession(42, "lobby-a"));
+        secondFactory.Create(42, "lobby-b", Arg.Any<long>()).Returns(CreateLobbySession(42, "lobby-b"));
+        var first = GameSessionTestDependencies.CreateService(
+            firstStore, firstStore, firstFactory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+        var second = GameSessionTestDependencies.CreateService(
+            secondStore, secondStore, secondFactory, claims, Substitute.For<IGameSessionConnectionTerminator>());
+
+        var registrations = await Task.WhenAll(
+            first.AddSession(42, "lobby-a"),
+            second.AddSession(42, "lobby-b"));
+
+        Assert.AreEqual(1, registrations.Count(registration => registration.Created));
+        Assert.AreEqual(1, (await firstStore.FindAll()).Count + (await secondStore.FindAll()).Count);
+    }
+
+    [TestMethod]
+    public async Task TryAddWorldSession_WithClaimedLobbySession_DefersClaimTransferUntilCommit()
     {
         var claims = Substitute.For<IGameSessionClaimStore>();
-        claims.TryClaimAsync(42, "world-claim", Arg.Any<CancellationToken>())
+        claims.TryClaimAsync(42, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(true));
+        claims.ExecuteIfOwnerAndReplaceAsync(
+                42,
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<Func<CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo => callInfo.Arg<Func<CancellationToken, Task<bool>>>()!(CancellationToken.None));
         var factory = Substitute.For<IGameSessionFactory>();
         var lobbySession = CreateLobbySession(42, "lobby-connection");
         var worldSession = CreateSession(42, "world-connection", "world-claim");
@@ -239,7 +348,14 @@ public sealed class GameSessionServiceTests
 
         Assert.IsTrue(registration.Created);
         Assert.AreSame(lobbySession, await service.FindByMasterId(42));
-        await claims.Received(1).TryClaimAsync(42, "world-claim", Arg.Any<CancellationToken>());
+        await claims.DidNotReceive().TryClaimAsync(42, "world-claim", Arg.Any<CancellationToken>());
+        Assert.IsTrue(await service.CommitWorldSession(registration.Session!));
+        await claims.Received(1).ExecuteIfOwnerAndReplaceAsync(
+            42,
+            lobbySession.SessionClaimId,
+            "world-claim",
+            Arg.Any<Func<CancellationToken, Task<bool>>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -249,15 +365,12 @@ public sealed class GameSessionServiceTests
         var claims = new BarrierGameSessionClaimStore();
         var factory = Substitute.For<IGameSessionFactory>();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
-        var lobbySession = CreateLobbySession(42, "lobby-connection");
         var firstSession = CreateSession(42, "connection-1", "claim-1");
         var secondSession = CreateSession(42, "connection-2", "claim-2");
-        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
         factory.CreateWorld(42, "connection-1", Arg.Any<long>()).Returns(firstSession);
         factory.CreateWorld(42, "connection-2", Arg.Any<long>()).Returns(secondSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
-        await service.AddSession(42, "lobby-connection");
 
         var registrationsTask = Task.WhenAll(
             service.TryAddWorldSession(42, "connection-1"),
@@ -270,7 +383,6 @@ public sealed class GameSessionServiceTests
         Assert.AreEqual(1, claims.Count);
         Assert.AreEqual(2, claims.TryClaimAttempts);
         await service.CommitWorldSession(registrations.Single(registration => registration.Created).Session!);
-        terminator.Received(1).Abort(lobbySession);
         var activeSession = await service.FindByMasterId(42);
         Assert.IsNotNull(activeSession);
     }
@@ -593,7 +705,7 @@ public sealed class GameSessionServiceTests
     }
 
     [TestMethod]
-    public async Task TryAddWorldSession_WhenClaimAcquisitionThrows_PreservesLobbySession()
+    public async Task CommitWorldSession_WhenLobbyClaimTransferThrows_PreservesLobbySession()
     {
         var claims = Substitute.For<IGameSessionClaimStore>();
         var factory = Substitute.For<IGameSessionFactory>();
@@ -604,12 +716,20 @@ public sealed class GameSessionServiceTests
         factory.CreateWorld(42, "world-connection", Arg.Any<long>()).Returns(worldSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
-        await service.AddSession(42, "lobby-connection");
         var claimFailure = new InvalidOperationException("Redis is unavailable.");
-        claims.TryClaimAsync(42, "world-claim").Returns(Task.FromException<bool>(claimFailure));
+        claims.TryClaimAsync(42, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+        claims.ExecuteIfOwnerAndReplaceAsync(
+                42,
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<Func<CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<bool>(claimFailure));
 
+        await service.AddSession(42, "lobby-connection");
+        var registration = await service.TryAddWorldSession(42, "world-connection");
         var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => service.TryAddWorldSession(42, "world-connection"));
+            () => service.CommitWorldSession(registration.Session!));
 
         Assert.AreSame(claimFailure, exception);
         Assert.AreSame(lobbySession, await service.FindByMasterId(42));
@@ -622,20 +742,15 @@ public sealed class GameSessionServiceTests
         var claims = new PersistThenThrowGameSessionClaimStore();
         var factory = Substitute.For<IGameSessionFactory>();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
-        var lobbySession = CreateLobbySession(42, "lobby-connection");
         var failedWorldSession = CreateSession(42, "failed-world-connection", "failed-claim");
         var laterWorldSession = CreateSession(42, "later-world-connection", "later-claim");
-        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
         factory.CreateWorld(42, "failed-world-connection", Arg.Any<long>()).Returns(failedWorldSession);
         factory.CreateWorld(42, "later-world-connection", Arg.Any<long>()).Returns(laterWorldSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
-        await service.AddSession(42, "lobby-connection");
-
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => service.TryAddWorldSession(42, "failed-world-connection"));
 
-        Assert.AreSame(lobbySession, await service.FindByMasterId(42));
         Assert.AreEqual(1, claims.ReleaseCalls);
         Assert.IsNull(claims.CurrentClaim);
 
@@ -653,19 +768,15 @@ public sealed class GameSessionServiceTests
         var claims = new PersistThenThrowReleaseGameSessionClaimStore();
         var factory = Substitute.For<IGameSessionFactory>();
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
-        var lobbySession = CreateLobbySession(42, "lobby-connection");
         var failedWorldSession = CreateSession(42, "failed-world-connection", "failed-claim");
-        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
         factory.CreateWorld(42, "failed-world-connection", Arg.Any<long>()).Returns(failedWorldSession);
         var service = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
-        await service.AddSession(42, "lobby-connection");
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => service.TryAddWorldSession(42, "failed-world-connection"));
 
         Assert.AreEqual(1, claims.ReleaseCalls);
         Assert.AreEqual(1, (await store.FindWorldSessionsPendingCleanup()).Count);
-        Assert.AreSame(lobbySession, await service.FindByMasterId(42));
         Assert.AreEqual(2, (await store.FindAll()).Count);
 
         var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
@@ -682,21 +793,16 @@ public sealed class GameSessionServiceTests
         using var cancellationSource = new CancellationTokenSource();
         var claims = new CancelAfterPersistGameSessionClaimStore(cancellationSource);
         var factory = Substitute.For<IGameSessionFactory>();
-        var lobbySession = CreateLobbySession(42, "lobby-connection");
         var failedWorldSession = CreateSession(42, "failed-world-connection", "failed-claim");
         var laterWorldSession = CreateSession(42, "later-world-connection", "later-claim");
-        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
         factory.CreateWorld(42, "failed-world-connection", Arg.Any<long>()).Returns(failedWorldSession);
         factory.CreateWorld(42, "later-world-connection", Arg.Any<long>()).Returns(laterWorldSession);
         var store = new GameSessionStore();
         var service = GameSessionTestDependencies.CreateService(
             store, store, factory, claims, Substitute.For<IGameSessionConnectionTerminator>());
-        await service.AddSession(42, "lobby-connection");
-
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(
             () => service.TryAddWorldSession(42, "failed-world-connection", cancellationSource.Token));
 
-        Assert.AreSame(lobbySession, await service.FindByMasterId(42));
         Assert.AreEqual(1, claims.ReleaseCalls);
         Assert.IsNull(claims.CurrentClaim);
 
@@ -820,6 +926,24 @@ public sealed class GameSessionServiceTests
         await leaseService.RenewSessionsAsync(cancellationToken);
 
         await claims.Received(1).RenewAsync(42, "claim", cancellationToken);
+        terminator.DidNotReceive().Abort(Arg.Any<IGameSession>());
+    }
+
+    [TestMethod]
+    public async Task LeaseService_RenewsActiveLobbyClaimWithoutAbortingConnection()
+    {
+        var store = new GameSessionStore();
+        var claims = Substitute.For<IGameSessionClaimStore>();
+        var terminator = Substitute.For<IGameSessionConnectionTerminator>();
+        var lobbySession = CreateLobbySession(42, "lobby-connection");
+        Assert.IsTrue(await store.TryAdd(lobbySession));
+        claims.RenewAsync(42, lobbySession.SessionClaimId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(true));
+
+        var leaseService = GameSessionTestDependencies.CreateLeaseService(store, store, claims, terminator);
+        await leaseService.RenewSessionsAsync(CancellationToken.None);
+
+        await claims.Received(1).RenewAsync(42, lobbySession.SessionClaimId, Arg.Any<CancellationToken>());
         terminator.DidNotReceive().Abort(Arg.Any<IGameSession>());
     }
 
@@ -1028,6 +1152,7 @@ public sealed class GameSessionServiceTests
         session.MasterId.Returns(masterId);
         session.ConnectionId.Returns(connectionId);
         session.SessionClaimId.Returns(claimId);
+        session.SessionGeneration.Returns(1L);
         return session;
     }
 
@@ -1036,6 +1161,8 @@ public sealed class GameSessionServiceTests
         var session = Substitute.For<IGameSession>();
         session.MasterId.Returns(masterId);
         session.ConnectionId.Returns(connectionId);
+        session.SessionClaimId.Returns($"lobby-{connectionId}");
+        session.SessionGeneration.Returns(1L);
         return session;
     }
 
@@ -1068,6 +1195,40 @@ public sealed class GameSessionServiceTests
             lock (_sync)
             {
                 return Task.FromResult(_claims.TryAdd(masterId, claimId));
+            }
+        }
+
+        public virtual async Task<bool> ExecuteIfOwnerAndReplaceAsync(
+            uint masterId,
+            string ownerClaimId,
+            string replacementClaimId,
+            Func<CancellationToken, Task<bool>> action,
+            CancellationToken cancellationToken = default)
+        {
+            lock (_sync)
+            {
+                if (!_claims.TryGetValue(masterId, out var current) || current != ownerClaimId)
+                {
+                    return false;
+                }
+
+                _claims[masterId] = replacementClaimId;
+            }
+
+            try
+            {
+                var succeeded = await action(cancellationToken);
+                if (!succeeded)
+                {
+                    lock (_sync) _claims[masterId] = ownerClaimId;
+                }
+
+                return succeeded;
+            }
+            catch
+            {
+                lock (_sync) _claims[masterId] = ownerClaimId;
+                throw;
             }
         }
 
@@ -1148,6 +1309,8 @@ public sealed class GameSessionServiceTests
 
         public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
 
+        public Task<bool> ExecuteIfOwnerAndReplaceAsync(uint masterId, string ownerClaimId, string replacementClaimId, Func<CancellationToken, Task<bool>> action, CancellationToken cancellationToken = default) => action(cancellationToken);
+
         public string? CurrentClaim { get; private set; }
         public int ReleaseCalls { get; private set; }
 
@@ -1204,6 +1367,8 @@ public sealed class GameSessionServiceTests
 
         public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
 
+        public Task<bool> ExecuteIfOwnerAndReplaceAsync(uint masterId, string ownerClaimId, string replacementClaimId, Func<CancellationToken, Task<bool>> action, CancellationToken cancellationToken = default) => action(cancellationToken);
+
         public string? CurrentClaim { get; private set; }
         public int ReleaseCalls { get; private set; }
 
@@ -1254,6 +1419,8 @@ public sealed class GameSessionServiceTests
     private sealed class PersistThenThrowReleaseGameSessionClaimStore : IGameSessionClaimStore
     {
         public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
+
+        public Task<bool> ExecuteIfOwnerAndReplaceAsync(uint masterId, string ownerClaimId, string replacementClaimId, Func<CancellationToken, Task<bool>> action, CancellationToken cancellationToken = default) => action(cancellationToken);
 
         public string? CurrentClaim { get; private set; }
         public int ReleaseCalls { get; private set; }

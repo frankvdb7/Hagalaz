@@ -92,6 +92,38 @@ public sealed class FusionCacheGameSessionClaimStoreTests
     }
 
     [TestMethod]
+    public async Task ExecuteIfOwnerAndReplaceAsync_TransfersExactOwnerAndRollsBackWhenActionFails()
+    {
+        var (store, cache, _) = CreateStore();
+        cache.TryGetAsync<string>(Arg.Any<string>(), Arg.Any<FusionCacheEntryOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<MaybeValue<string>>(MaybeValue<string>.FromValue("lobby-claim")));
+        cache.SetAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<FusionCacheEntryOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new ValueTask());
+
+        var result = await store.ExecuteIfOwnerAndReplaceAsync(
+            42,
+            "lobby-claim",
+            "world-claim",
+            _ => Task.FromResult(false));
+
+        Assert.IsFalse(result);
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session:42",
+            "world-claim",
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+        await cache.Received(1).SetAsync(
+            "hagalaz:game-session:42",
+            "lobby-claim",
+            Arg.Any<FusionCacheEntryOptions>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task ReleaseAsync_RemovesOnlyExactOwner()
     {
         var (store, cache, _) = CreateStore();

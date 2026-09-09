@@ -41,12 +41,26 @@ namespace Hagalaz.Services.GameWorld.Services
 
             var sessionGeneration = await _claims.AllocateSessionGenerationAsync(masterId);
             var createdSession = _gameSessionFactory.Create(masterId, connectionId, sessionGeneration);
-            if (!await _sessions.TryAdd(createdSession))
+            try
             {
-                return (await _sessions.FindByMasterId(masterId) ?? createdSession, Created: false);
-            }
+                if (!await _claims.TryClaimAsync(masterId, createdSession.SessionClaimId))
+                {
+                    return (await _sessions.FindByMasterId(masterId) ?? createdSession, Created: false);
+                }
 
-            return (createdSession, Created: true);
+                if (!await _sessions.TryAdd(createdSession))
+                {
+                    await ReleaseClaimAfterAdmissionFailureAsync(createdSession);
+                    return (await _sessions.FindByMasterId(masterId) ?? createdSession, Created: false);
+                }
+
+                return (createdSession, Created: true);
+            }
+            catch (Exception)
+            {
+                await ReleaseClaimAfterAdmissionFailureAsync(createdSession);
+                throw;
+            }
         }
 
         public async Task<(IGameSession? Session, bool Created)> TryAddWorldSession(
@@ -54,8 +68,8 @@ namespace Hagalaz.Services.GameWorld.Services
             string connectionId,
             CancellationToken cancellationToken = default)
         {
-            var existingSession = await _sessions.FindWorldSessionByMasterId(masterId);
-            if (existingSession != null)
+            var existingSession = await _sessions.FindByMasterId(masterId);
+            if (existingSession is IGameWorldSession)
             {
                 return (null, false);
             }
@@ -65,6 +79,14 @@ namespace Hagalaz.Services.GameWorld.Services
             if (!await _sessions.TryReserveWorldSession(createdSession))
             {
                 return (await _sessions.FindWorldSessionByMasterId(masterId), false);
+            }
+
+            if (await _sessions.FindPendingWorldSessionPreviousSession(createdSession) != null)
+            {
+                // The existing lobby claim remains authoritative while world
+                // initialization is pending. CommitWorldSession transfers it
+                // atomically with the local session replacement.
+                return (createdSession, true);
             }
 
             var claimAcquired = false;
@@ -109,18 +131,33 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             IGameSession? replacedSession = null;
-            var committed = await _claims.ExecuteIfOwnerAsync(
-                expectedSession.MasterId,
-                worldSession.SessionClaimId,
-                async _ =>
-                {
-                    var result = await _sessions.TryCommitWorldSession(worldSession);
-                    replacedSession = result.ReplacedSession;
-                    return result.Committed;
-                },
-                cancellationToken);
+            var previousSession = await _sessions.FindPendingWorldSessionPreviousSession(worldSession);
+            var commit = new Func<CancellationToken, Task<bool>>(async _ =>
+            {
+                var result = await _sessions.TryCommitWorldSession(worldSession);
+                replacedSession = result.ReplacedSession;
+                return result.Committed;
+            });
+            var committed = previousSession != null
+                ? await _claims.ExecuteIfOwnerAndReplaceAsync(
+                    expectedSession.MasterId,
+                    previousSession.SessionClaimId,
+                    worldSession.SessionClaimId,
+                    commit,
+                    cancellationToken)
+                : await _claims.ExecuteIfOwnerAsync(
+                    expectedSession.MasterId,
+                    worldSession.SessionClaimId,
+                    commit,
+                    cancellationToken);
             if (!committed)
             {
+                if (previousSession != null)
+                {
+                    await _sessions.TryRemovePendingWorldSession(worldSession);
+                    return false;
+                }
+
                 return await CleanupFailedWorldCommitAsync(worldSession);
             }
 
@@ -159,6 +196,11 @@ namespace Hagalaz.Services.GameWorld.Services
                     return await _sessions.TryRemovePendingWorldSession(expectedSession);
                 }
 
+                if (await _sessions.FindPendingWorldSessionPreviousSession(worldSession) != null)
+                {
+                    return await _sessions.TryRemovePendingWorldSession(worldSession);
+                }
+
                 var cleanup = await ReleaseClaimAsync(
                     worldSession.MasterId,
                     worldSession.SessionClaimId,
@@ -194,8 +236,39 @@ namespace Hagalaz.Services.GameWorld.Services
                 return removedStoredSession.Removed;
             }
 
+            try
+            {
+                await _claims.ReleaseAsync(
+                    storedSession.Session.MasterId,
+                    storedSession.Session.SessionClaimId,
+                    cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to release lobby-session claim '{sessionClaimId}' for account '{masterId}'.",
+                    storedSession.Session.SessionClaimId,
+                    storedSession.Session.MasterId);
+                throw;
+            }
+
             var removedSession = await _sessions.TryRemove(expectedSession);
             return removedSession.Removed;
+        }
+
+        private async Task ReleaseClaimAfterAdmissionFailureAsync(IGameSession session)
+        {
+            try
+            {
+                await _claims.ReleaseAsync(session.MasterId, session.SessionClaimId);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to release session claim '{sessionClaimId}' after local admission failed for account '{masterId}'.",
+                    session.SessionClaimId,
+                    session.MasterId);
+            }
         }
 
         public async Task<bool> RemoveLocalSession(IGameSession expectedSession)

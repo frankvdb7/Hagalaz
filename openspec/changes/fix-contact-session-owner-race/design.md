@@ -8,12 +8,28 @@ owner fact from the GameWorld session boundary.
 
 ## Decision
 
-Allocate a monotonic `SessionGeneration` under the existing per-account
-distributed game-session lock. Keep its counter in the distributed cache with
-an infinite lifetime so process restarts and service-instance changes cannot
-reuse an older generation. `GameSession` carries that immutable generation,
-and existing lobby/world presence messages and sign-out commands propagate it
-alongside `ConnectionId`.
+Admit every lobby and world lifecycle through the existing per-account
+distributed session claim. Keep the generation counter in the distributed
+cache with an infinite lifetime so process restarts and service-instance
+changes cannot reuse an older generation. `GameSession` carries that immutable
+generation and the exact claim ID, and existing lobby/world presence messages
+and sign-out commands propagate the generation alongside `ConnectionId`.
+
+The generation is allocated before local object construction when necessary,
+so failed attempts may consume gaps. A failed attempt never publishes its
+generation: lobby presence is published only after the lobby claim and local
+admission succeed, while a world generation is authoritative only after its
+claim is acquired and world commit succeeds. This makes a higher generation a
+valid newer account lifecycle rather than merely a later allocation attempt.
+
+GameWorld uses one claim key for both lobby and world sessions. A lobby login
+claims the account globally, so a lobby on another GameWorld cannot replace an
+active world owner or compete with another lobby. A world promotion keeps the
+existing lobby claim while world initialization is pending, then atomically
+replaces that exact lobby claim with the world claim while committing the local
+session. If the commit fails, the claim store restores the lobby claim.
+Pending lobby-to-world promotions are excluded from world-claim renewal; the
+active lobby continues renewing its own claim until promotion completes.
 
 `ContactSessionContext` stores the generation and connection data. The existing
 store remains the single owner of presence state:

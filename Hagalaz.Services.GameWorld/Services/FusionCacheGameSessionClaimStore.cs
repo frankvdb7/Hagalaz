@@ -66,6 +66,38 @@ public sealed class FusionCacheGameSessionClaimStore : IGameSessionClaimStore
             return true;
         }, cancellationToken);
 
+    public Task<bool> ExecuteIfOwnerAndReplaceAsync(
+        uint masterId,
+        string ownerClaimId,
+        string replacementClaimId,
+        Func<CancellationToken, Task<bool>> action,
+        CancellationToken cancellationToken = default) =>
+        WithClaimLockAsync(masterId, async token =>
+        {
+            var current = await _cache.TryGetAsync<string>(GetKey(masterId), EntryOptions, token);
+            if (!current.HasValue || current.Value != ownerClaimId)
+            {
+                return false;
+            }
+
+            await _cache.SetAsync(GetKey(masterId), replacementClaimId, EntryOptions, token);
+            try
+            {
+                var succeeded = await action(token);
+                if (!succeeded)
+                {
+                    await _cache.SetAsync(GetKey(masterId), ownerClaimId, EntryOptions, token);
+                }
+
+                return succeeded;
+            }
+            catch
+            {
+                await _cache.SetAsync(GetKey(masterId), ownerClaimId, EntryOptions, CancellationToken.None);
+                throw;
+            }
+        }, cancellationToken);
+
     public Task<bool> ReleaseAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) =>
         WithClaimLockAsync(masterId, async token =>
         {

@@ -159,6 +159,18 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         }
     }
 
+    public async ValueTask<IGameSession?> FindPendingWorldSessionPreviousSession(IGameWorldSession expectedSession)
+    {
+        using (await _lock.ReaderLockAsync())
+        {
+            return _slots.TryGetValue(expectedSession.ConnectionId, out var slot) &&
+                   slot.PendingWorld is { } pendingSession &&
+                   ReferenceEquals(pendingSession.Session, expectedSession)
+                ? pendingSession.PreviousSession
+                : null;
+        }
+    }
+
     public async ValueTask<(bool Found, IGameSession? Session)> TryGetValue(string connectionId)
     {
         using (await _lock.ReaderLockAsync())

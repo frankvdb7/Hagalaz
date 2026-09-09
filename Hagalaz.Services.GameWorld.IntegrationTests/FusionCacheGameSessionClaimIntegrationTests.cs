@@ -172,6 +172,32 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
 
     [TestMethod]
     [Timeout(120000)]
+    public async Task ExecuteIfOwnerAndReplaceAsync_TransfersLobbyOwnershipAcrossProviders()
+    {
+        await using var firstProvider = CreateProvider();
+        await using var secondProvider = CreateProvider();
+        var firstStore = firstProvider.GetRequiredService<IGameSessionClaimStore>();
+        var secondStore = secondProvider.GetRequiredService<IGameSessionClaimStore>();
+        const uint masterId = 48;
+        await ClearClaimAsync(firstProvider, masterId);
+
+        Assert.IsTrue(await firstStore.TryClaimAsync(masterId, "lobby-1"));
+        Assert.IsTrue(await secondStore.ExecuteIfOwnerAndReplaceAsync(
+            masterId,
+            "lobby-1",
+            "world-1",
+            _ => Task.FromResult(true)));
+
+        var cache = firstProvider.GetRequiredService<IFusionCache>();
+        var current = await cache.TryGetAsync<string>(Key(masterId), EntryOptions());
+        Assert.IsTrue(current.HasValue);
+        Assert.AreEqual("world-1", current.Value);
+        Assert.IsFalse(await firstStore.ReleaseAsync(masterId, "lobby-1"));
+        Assert.IsTrue(await secondStore.ReleaseAsync(masterId, "world-1"));
+    }
+
+    [TestMethod]
+    [Timeout(120000)]
     public async Task ReleaseAndRenewAsync_RequireExactClaimOwner()
     {
         await using var firstProvider = CreateProvider();

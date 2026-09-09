@@ -18,6 +18,8 @@ namespace Hagalaz.Services.GameWorld.Store
 
         ValueTask<bool> IsPendingWorldSession(IGameSession expectedSession);
 
+        ValueTask<IGameSession?> FindPendingWorldSessionPreviousSession(IGameWorldSession expectedSession);
+
         ValueTask<bool> TryRemovePendingWorldSession(IGameSession expectedSession);
 
         ValueTask<IReadOnlyList<IGameWorldSession>> FindWorldSessionsPendingCleanup();

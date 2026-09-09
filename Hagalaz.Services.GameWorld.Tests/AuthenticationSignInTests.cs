@@ -1176,16 +1176,13 @@ public sealed class AuthenticationSignInTests
     {
         var claims = new BarrierGameSessionClaimStore();
         var factory = Substitute.For<IGameSessionFactory>();
-        var lobbySession = CreateLobbySession("lobby-connection");
         var firstSession = CreateSession("connection-1", "claim-1");
         var secondSession = CreateSession("connection-2", "claim-2");
-        factory.Create(42, "lobby-connection", Arg.Any<long>()).Returns(lobbySession);
         factory.CreateWorld(42, "connection-1", Arg.Any<long>()).Returns(firstSession);
         factory.CreateWorld(42, "connection-2", Arg.Any<long>()).Returns(secondSession);
         var terminator = Substitute.For<IGameSessionConnectionTerminator>();
         var store = new GameSessionStore();
         var gameSessionService = GameSessionTestDependencies.CreateService(store, store, factory, claims, terminator);
-        await gameSessionService.AddSession(42, "lobby-connection");
         var firstHydrator = new TrackingHydrationService();
         var secondHydrator = new TrackingHydrationService();
         var firstCharacterService = new TestCharacterService(addResult: true);
@@ -1212,7 +1209,6 @@ public sealed class AuthenticationSignInTests
         Assert.AreEqual(1, results.Count(result => result.IsAlreadyLoggedOn));
         Assert.AreEqual(1, firstHydrator.Calls + secondHydrator.Calls);
         Assert.AreEqual(1, firstCharacterService.AddCallCount + secondCharacterService.AddCallCount);
-        terminator.Received(1).Abort(lobbySession);
     }
 
     [TestMethod]
@@ -1491,6 +1487,7 @@ public sealed class AuthenticationSignInTests
         session.MasterId.Returns(42u);
         session.ConnectionId.Returns(connectionId);
         session.SessionClaimId.Returns(claimId);
+        session.SessionGeneration.Returns(1L);
         return session;
     }
 
@@ -1499,6 +1496,8 @@ public sealed class AuthenticationSignInTests
         var session = Substitute.For<IGameSession>();
         session.ConnectionId.Returns(connectionId);
         session.MasterId.Returns(42u);
+        session.SessionClaimId.Returns($"lobby-{connectionId}");
+        session.SessionGeneration.Returns(1L);
         return session;
     }
 
@@ -1588,6 +1587,7 @@ public sealed class AuthenticationSignInTests
     {
         public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
         public Task<bool> TryClaimAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> ExecuteIfOwnerAndReplaceAsync(uint masterId, string ownerClaimId, string replacementClaimId, Func<CancellationToken, Task<bool>> action, CancellationToken cancellationToken = default) => action(cancellationToken);
         public Task<bool> ReleaseAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<bool> RenewAsync(uint masterId, string claimId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<bool> ExecuteIfOwnerAsync(uint masterId, string claimId, Func<CancellationToken, Task<bool>> action, CancellationToken cancellationToken = default) => action(cancellationToken);
@@ -1601,6 +1601,8 @@ public sealed class AuthenticationSignInTests
         public int TryClaimCount { get; private set; }
 
         public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
+
+        public Task<bool> ExecuteIfOwnerAndReplaceAsync(uint masterId, string ownerClaimId, string replacementClaimId, Func<CancellationToken, Task<bool>> action, CancellationToken cancellationToken = default) => Task.FromResult(false);
 
         public Task<bool> TryClaimAsync(uint masterId, string claimId, CancellationToken cancellationToken = default)
         {
@@ -1653,6 +1655,8 @@ public sealed class AuthenticationSignInTests
         public Task WaitForBothClaimAttemptsAsync() => _bothAttempts.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         public Task<long> AllocateSessionGenerationAsync(uint masterId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
+
+        public Task<bool> ExecuteIfOwnerAndReplaceAsync(uint masterId, string ownerClaimId, string replacementClaimId, Func<CancellationToken, Task<bool>> action, CancellationToken cancellationToken = default) => action(cancellationToken);
 
         public void ReleaseClaimAttempts() => _releaseAttempts.TrySetResult(true);
 

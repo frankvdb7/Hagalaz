@@ -7,8 +7,9 @@ and a delayed old sign-in can replace the current presence.
 
 ## What changes
 
-- Allocate one monotonic session generation per account at the GameWorld
-  session-ownership boundary.
+- Admit lobby and world lifecycles through the existing distributed per-account
+  session claim, and allocate one monotonic session generation per account at
+  that GameWorld session-ownership boundary.
 - Carry the generation and connection ID through lobby/world presence messages.
 - Store the generation as the authoritative Contacts lifecycle owner, with the
   connection ID retained as session data and an exact sign-out check.
@@ -20,8 +21,9 @@ and a delayed old sign-in can replace the current presence.
 
 - Do not add a second presence registry, retry worker, ordering framework, or
   lifecycle state machine.
-- Do not change GameWorld authentication sequencing beyond allocating and
-  mechanically propagating the session generation.
+- Do not change GameWorld authentication payloads or character initialization;
+  only the existing session-ownership admission and promotion boundary may be
+  adjusted to establish the global invariant.
 - Do not change contact notification meaning: a successful replacement emits
   the new sign-in once and does not emit an intermediate sign-out.
 
@@ -33,4 +35,10 @@ and a delayed old sign-in can replace the current presence.
 - Current-owner sign-out removes the presence exactly once.
 - Duplicate sign-in for the current generation does not duplicate presence
   notifications.
+- A GameWorld instance cannot admit a lobby lifecycle while another instance
+  still owns an active world lifecycle for the account.
+- After exact ownership release, another GameWorld instance can admit a newer
+  lobby lifecycle.
+- Lobby-to-world promotion transfers the existing lobby claim atomically with
+  the local session replacement.
 - The affected Contacts and GameWorld tests compile and pass.
