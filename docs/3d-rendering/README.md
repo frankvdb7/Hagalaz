@@ -17,6 +17,8 @@ Public revision-adjacent sources are used only as additional evidence. In partic
 - [Map cache decode/encode guide](cache-map-codecs.md) gives byte-level implementation instructions for cache containers, `mX_Y` terrain, `lX_Y` object placements, smart/huge-smart delta coding, XTEA, canonical writing, corruption guards, round-trip tests, and the current Hagalaz codec gaps.
 - [Implicit terrain height generation](terrain-height-generation.md) records the exact opcode-`0` plane-0 height algorithm, including deterministic raw noise, smoothing, cosine interpolation, client lookup-table generation, coordinate offsets, scaling, encoder implications, and required parity tests.
 - [Web renderer foundation](web-renderer-foundation.md) describes the current Hagalaz gaps, target data contracts, web architecture, rendering-engine choice, phased implementation, and verification strategy.
+- [GameClient parity fixtures](game-client-parity-fixtures.md) defines how Hagalaz imports/version-controls a bounded GameClient semantic reference set with source commit/schema/cache provenance and no runtime Java/network dependency.
+- [Renderer-neutral contracts](renderer-neutral-contracts.md) defines the Java-name-free terrain/model/object/material/light/environment vocabulary that cache-service DTOs and Web 3D code should use while preserving revision-742 semantics.
 
 ## Naming rule
 
@@ -43,7 +45,7 @@ The exact mapping, evidence and revision caveats are in [External revision-742 r
 
 Do not copy a generated GameClient identifier into a new Hagalaz API, DTO, service, TypeScript type or renderer abstraction. If a client concept is not sufficiently understood to name, keep it internal and document the uncertainty instead of exporting an obfuscated name.
 
-Source-level GameClient terminology and public Hagalaz API terminology do not have to be identical. A name such as `FloorModel` is useful for matching the original client subsystem, while a server/web rendering DTO may still use clearer renderer-neutral terrain terminology.
+Source-level GameClient terminology and public Hagalaz API terminology do not have to be identical. A name such as `FloorModel` is useful for matching the original client subsystem, while a server/web rendering DTO may still use clearer renderer-neutral terrain terminology. The concrete Hagalaz-side vocabulary is documented in [Renderer-neutral contracts](renderer-neutral-contracts.md).
 
 ## Evidence rule
 
@@ -55,6 +57,8 @@ When deobfuscating or documenting a GameClient concept, use evidence in this ord
 4. editors/RSPS implementations only as secondary triangulation.
 
 Never replace a local codec or protocol operation solely because an external project does it differently. The 742.1/742.2 packet-read/write distinction is a concrete example of why structural naming evidence and byte-level protocol evidence must remain separate.
+
+For Web 3D parity, committed GameClient semantic fixtures are an additional executable evidence layer. Hagalaz should compare normalized renderer-neutral state against those fixtures as described in [GameClient parity fixtures](game-client-parity-fixtures.md), without treating GameClient Java object layouts as public contracts.
 
 ## Current status
 
@@ -77,6 +81,7 @@ This means the first implementation work belongs at the cache/render-data bounda
 9. **Preserve source semantics needed for writing.** Runtime/effective values such as bridge-adjusted planes must not overwrite the raw source plane or original height encoding if later cache encoding depends on it.
 10. **Use semantic names, never generated decompiler names, in new architecture.** Generated source identifiers exist only as temporary source locators and must not become permanent server/web vocabulary.
 11. **External names require a local structural match.** Public deobfuscated clients are evidence, not authority over a different subrevision.
+12. **Parity references constrain semantics, not architecture.** GameClient fixtures may prove values/order/formulas; they do not require Hagalaz to copy Java classes or renderer backends.
 
 ## Terminology
 
@@ -91,3 +96,5 @@ This means the first implementation work belongs at the cache/render-data bounda
 - **Effective plane**: runtime plane after terrain/bridge semantics have been applied.
 - **Object render definition**: model IDs selected by shape plus recolor/retexture, scale, offset, contouring, transform, animation, and related render metadata.
 - **Raw/unlit model**: decoded vertex/triangle/texture data from the cache before conversion to a backend-specific render `Model`; the public 742 reference names this concept `ModelUnlit`.
+- **Render vertex/corner**: a final mesh vertex occurrence that may duplicate one source model vertex because different faces require different UV, normal or material state.
+- **Renderer-neutral semantic reference**: small versioned GameClient-derived state used to prove revision behavior independently of Java/Three.js object layouts.
