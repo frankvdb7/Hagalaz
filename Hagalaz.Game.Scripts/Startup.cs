@@ -42,7 +42,6 @@ namespace Hagalaz.Game.Scripts
         public void Configure(IServiceCollection services)
         {
             // services
-            services.AddSingleton<INpcScriptTypeCatalog>(_ => NpcScriptTypeCatalog.FromAssembly(typeof(Startup).Assembly));
             services.AddSingleton<IDefaultFamiliarScriptProvider, DefaultFamiliarScriptProvider>();
             services.AddSingleton<IDefaultNpcScriptProvider, DefaultNpcScriptProvider>();
             services.AddSingleton<IDefaultCharacterNpcScriptProvider, DefaultCharacterNpcScriptProvider>();

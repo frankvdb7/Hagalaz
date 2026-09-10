@@ -1,33 +1,36 @@
 ## ADDED Requirements
 
-### Requirement: Discover NPC metadata from an explicit catalog
+### Requirement: Discover NPC metadata from the existing service descriptor source
 
-GameWorld NPC metadata discovery MUST consume explicit script type catalogs and
-MUST NOT enumerate every assembly loaded into the AppDomain.
+GameWorld NPC metadata discovery MUST consume plugin assemblies exposed through
+the existing `IServiceDescriptorProvider` and MUST NOT enumerate every assembly
+loaded into the AppDomain or NPC script service descriptors.
 
 #### Scenario: The game-script plugin is configured
 
 - **WHEN** the game-script plugin is configured
-- **THEN** it MUST register a catalog containing types from its own assembly
+- **THEN** the plugin host MUST expose its assembly as an infrastructure
+  assembly descriptor
 - **AND** owner-aware concrete `INpcScript` implementations MUST NOT be ordinary
   DI service descriptors
 
-#### Scenario: A catalog contains metadata-bearing scripts
+#### Scenario: A plugin assembly contains metadata-bearing scripts
 
-- **WHEN** the metadata factory reads one or more catalogs
+- **WHEN** the metadata factory reads one or more plugin assemblies
 - **THEN** it MUST return each applicable NPC script type and NPC id
 - **AND** duplicate types MUST be evaluated only once
 
-#### Scenario: A catalog assembly is partially loadable
+#### Scenario: A plugin assembly is partially loadable
 
 - **WHEN** type enumeration raises `ReflectionTypeLoadException`
-- **THEN** the catalog MUST propagate the failure
-- **AND** startup MUST NOT continue with a partial script catalog
+- **THEN** the metadata factory MUST retain the non-null loadable types
+- **AND** it MUST log the loader exception
+- **AND** startup MUST continue with those usable types
 
 #### Scenario: An unrelated loaded assembly contains an NPC script
 
-- **WHEN** an NPC script type exists in an assembly absent from the catalogs and
-  service descriptors
+- **WHEN** an NPC script type exists in an assembly absent from the plugin
+  assembly descriptors and NPC service descriptors
 - **THEN** the metadata factory MUST exclude it
 
 ### Requirement: Preserve owner-aware activation
